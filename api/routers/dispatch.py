@@ -70,6 +70,11 @@ router = APIRouter()
 
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
+# 承認/却下が決定された直近の項目（新しい順）。承認後にキューから消えて
+# 実行されたことが分からなくなる問題への対応で、直近 N 件だけ一時的に残す。
+# _PENDING と異なり再起動をまたいだ永続化は行わない（未対応の作業ではないため）。
+_RECENT: list[dict] = []
+_RECENT_LIMIT = 5
 _PUSH_TEXT_PREVIEW_LEN = 120
 _subscribers: set[WebSocket] = set()
 _broadcast_task: asyncio.Task | None = None
@@ -80,10 +85,16 @@ _broadcast_pending = False
 BROADCAST_SEND_TIMEOUT_SEC = 5
 
 
+def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
+    _RECENT.insert(0, {"id": dispatch_id, "request": payload, "decision": decision})
+    del _RECENT[_RECENT_LIMIT:]
+
+
 def _queue_payload() -> dict:
     return {
         "type": "dispatch_queue",
         "items": [{"id": did, "request": req} for did, req in _PENDING.items()],
+        "recent": _RECENT,
     }
 
 
@@ -323,6 +334,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision, _auth: str
     if not body.approved:
         log_activity(payload.get("workspace"), "dispatch_rejected")
         _PENDING.pop(dispatch_id, None)
+        _record_recent(dispatch_id, payload, "rejected")
         _persist_pending()
         _schedule_queue_broadcast()
         return {"status": "ok"}
@@ -340,6 +352,9 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision, _auth: str
         job=result["job"], session_id=result["session_id"], created=result["created"],
     )
     _PENDING.pop(dispatch_id, None)
+    approved_payload = dispatch_body.model_dump()
+    approved_payload["effective_workspace"] = dispatch_body.effective_workspace
+    _record_recent(dispatch_id, approved_payload, "approved")
     _persist_pending()
     _schedule_queue_broadcast()
     return result

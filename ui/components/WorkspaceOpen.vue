@@ -11,15 +11,31 @@
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
         <span class="ws-toolbar-spacer"></span>
-        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
+        <button v-if="!isEditMode" type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
         </button>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
-          <span class="mdi mdi-folder-plus-outline"></span>
-        </button>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">WS</span>
+        </button>
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Group</span>
+        </button>
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Job</span>
+        </button>
+        <button
+          type="button"
+          class="ws-toolbar-btn"
+          :class="{ active: isEditMode }"
+          :aria-label="isEditMode ? 'Done editing' : 'Edit workspaces'"
+          :data-tooltip="isEditMode ? 'Done editing' : 'Edit workspaces'"
+          @click="isEditMode = !isEditMode"
+        >
+          <span class="mdi" :class="isEditMode ? 'mdi-check' : 'mdi-pencil-outline'"></span>
         </button>
       </div>
 
@@ -38,7 +54,7 @@
             }"
           >
             <span
-              v-if="workspaceStore.groups.length > 1"
+              v-if="isEditMode && workspaceStore.groups.length > 1"
               class="drag-handle picker-group-drag-handle"
               aria-hidden="true"
               @pointerdown.prevent="onGroupDragStart($event, item.groupIdx)"
@@ -49,7 +65,7 @@
               <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
               {{ item.group.name }}
             </button>
-            <button type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
+            <button v-if="isEditMode" type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
           </div>
@@ -62,13 +78,14 @@
           >
             <div class="picker-ws-row picker-ws-row-top">
               <span
+                v-if="isEditMode"
                 class="drag-handle picker-ws-drag-handle"
                 aria-hidden="true"
                 @pointerdown.prevent="onDragStart($event, flatIdx)"
               >
                 <span class="mdi mdi-drag-vertical"></span>
               </span>
-              <button type="button" class="picker-ws-header-label" @click="openDetail(item.ws)">
+              <button type="button" class="picker-ws-header-label" @click="toggleJobs(item.ws)">
                 <span v-html="renderIconStr(item.ws.icon || 'mdi-console', item.ws.icon_color, 18)"></span>
                 <span class="picker-ws-header-text">
                   <span class="picker-ws-name">
@@ -79,28 +96,40 @@
                 </span>
               </button>
               <div class="picker-ws-top-meta" @click.stop>
-                <template v-if="item.ws.is_git_repo">
-                  <button v-if="item.ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
+                <button v-if="item.ws.is_git_repo && item.ws.clean === false && !isEditMode" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
+                <template v-if="item.ws.is_git_repo && !isEditMode">
                   <GitActionBtn v-if="item.ws.behind > 0" icon="pull" title="Pull" :count="item.ws.behind" :running="isRunning(item.ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(item.ws, 'pull')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
                 </template>
-                <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
-                  <span class="mdi mdi-pencil-outline"></span>
-                </button>
+                <template v-if="isEditMode">
+                  <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
+                    <span class="mdi mdi-pencil-outline"></span>
+                  </button>
+                </template>
               </div>
+              <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === item.ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+            </div>
+            <div v-if="expandedWorkspace === item.ws.name" class="picker-ws-jobs-inline">
+              <WorkspaceJobsPane :workspace="item.ws.name" :edit-mode="isEditMode" />
             </div>
             <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
-              <div v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name" class="picker-ws-worktree-item">
-                <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
-                  <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-                  <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-                  <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-                </button>
-                <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
-                  <span class="mdi mdi-delete-outline"></span>
-                </button>
-              </div>
+              <template v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name">
+                <div class="picker-ws-worktree-item">
+                  <button type="button" class="picker-ws-worktree-open" @click="toggleJobs(wt)">
+                    <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
+                    <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+                    <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
+                  </button>
+                  <button v-if="isEditMode" type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
+                    <span class="mdi mdi-delete-outline"></span>
+                  </button>
+                  <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+                </div>
+                <div v-if="expandedWorkspace === wt.name" class="picker-ws-jobs-inline">
+                  <WorkspaceJobsPane :workspace="wt.name" :edit-mode="isEditMode" />
+                </div>
+              </template>
             </div>
           </div>
         </template>
@@ -136,6 +165,7 @@ import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js"
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
+import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
@@ -273,9 +303,29 @@ function openBareTerminal() {
   bridgeEmit("terminal:launch", {});
 }
 
-function openDetail(ws) {
-  workspaceStore.selectedWorkspace = ws.name;
-  pushView("WorkspaceDetail", { detail: {} });
+// ワークスペースを1つずつ開かなくても、ツールバーからCommon/Workspace
+// どちらのJobも作成できるようにする（Workspaceスコープの場合はJobConfig側の
+// プルダウンで対象ワークスペースを選ぶ）。
+function openAddJob() {
+  pushView("JobConfig", {
+    workspaceName: "",
+    isCommon: false,
+    jobEntry: null,
+    onReturn: () => bridgeEmit("jobs:refresh"),
+  });
+}
+
+// 普段はアイコン・名前・ブランチ・Jobs展開トグルだけの一覧表示にし、
+// 並び替え・configの編集・worktree削除はEditモード中だけ操作できるように
+// する（誤操作しやすい操作を一覧表示から分離する）。
+const isEditMode = ref(false);
+
+// ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
+// （モーダルは開かない）。排他的に1つしか開かない（別の行を開くと前の行は閉じる）。
+const expandedWorkspace = ref(/** @type {string | null} */ (null));
+
+function toggleJobs(ws) {
+  expandedWorkspace.value = expandedWorkspace.value === ws.name ? null : ws.name;
 }
 
 function openChanges(ws) {
@@ -426,6 +476,19 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 2px;
   padding: 0 12px 8px 28px;
+}
+
+.picker-ws-jobs-chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.picker-ws-jobs-inline {
+  margin: 0 12px 8px 28px;
+  border-left: 2px solid var(--border);
+  overflow: hidden;
 }
 
 .picker-ws-worktree-item {
@@ -701,6 +764,7 @@ button.git-badge:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   padding: 4px 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -720,7 +784,12 @@ button.git-badge:disabled {
 
 .ws-toolbar-btn-terminal {
   color: var(--accent);
-  gap: 4px;
+}
+
+.ws-toolbar-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
 }
 
 .ws-toolbar-btn-label {

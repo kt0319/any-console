@@ -80,6 +80,58 @@ class TestWorktreeEndpoints:
         base = next(w for w in res.json() if w["name"] == "test-ws")
         assert base.get("worktree") is not True
 
+    def test_worktree_inherits_github_url_from_base_repo(self, client, git_workspace_with_commit):
+        # worktreeはmainリポジトリとgitディレクトリ（remote設定含む）を共有するため、
+        # worktree自身のパスからでも github_url を解決できるはず。以前は
+        # /workspaces の動的worktree一覧が github_url を含めておらず、ペインの
+        # PR/Actionsピルが最初のstatusポーリングまで表示されなかった。
+        import subprocess
+        subprocess.run(
+            ["git", "remote", "add", "origin", "git@github.com:kt0319/example-repo.git"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-gh"},
+        ).json()["workspace"]
+
+        res = client.get("/workspaces", headers=AUTH)
+        entry = next(w for w in res.json() if w["name"] == created["name"])
+        assert entry["github_url"] == "https://github.com/kt0319/example-repo"
+
+    def test_worktree_and_base_expose_default_branch(self, client, git_workspace_with_commit, isolate_fs):
+        # default/非defaultブランチでピル・タブの色を切り替える機能のため、
+        # /workspaces がbaseワークスペース・worktree双方でdefault_branchを
+        # 解決できることを確認する。
+        import subprocess
+        bare_path = isolate_fs["work"] / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(bare_path)],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        current_branch = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "push", "-u", "origin", current_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "remote", "set-head", "origin", "-a"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-default"},
+        ).json()["workspace"]
+
+        res = client.get("/workspaces", headers=AUTH)
+        base = next(w for w in res.json() if w["name"] == "test-ws")
+        worktree = next(w for w in res.json() if w["name"] == created["name"])
+        assert base["default_branch"] == current_branch
+        assert worktree["default_branch"] == current_branch
+
     def test_manually_registered_worktree_path_is_regular_workspace(self, client, git_workspace_with_commit, isolate_fs):
         # configに手動登録したworktreeパスは通常ワークスペースとして扱う（worktreeフラグなし）
         # 動的検出は既存パスをスキップするため、二重表示にもならない

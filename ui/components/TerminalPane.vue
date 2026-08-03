@@ -14,175 +14,197 @@
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="pill-group"
+        :class="{ 'pill-group-bottom': infoPillConfig.position === 'bottom' }"
+        :style="pillDragging ? { transform: `translateY(${dragOffsetY}px)` } : null"
         ref="pillEl"
       >
+        <Transition name="pill-swap" mode="out-in">
         <div
-          class="pill-trailing"
-          ref="trailingEl"
-          :class="{ 'no-transition': suppressTrailingWidthTransition }"
-          :style="{ width: trailingWidth + 'px', maxWidth: trailingMaxWidth + 'px' }"
+          v-if="peekingKey"
+          :key="peekingKey"
+          class="pill-chip pill-peek-wide"
+          :class="peekColorClass"
         >
-          <div class="pill-trailing-inner" ref="trailingInnerEl">
+          <span
+            v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
+            class="pill-peek-icon-slot"
+            v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
+          ></span>
+          <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
+          <span class="pill-peek-text pill-peek-marquee" :style="{ maxWidth: trailingMaxWidth + 'px' }">
+            <span
+              ref="marqueeTextEl"
+              class="pill-peek-marquee-text"
+              :class="{ 'pill-peek-marquee-run': marqueeRun }"
+              :style="marqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' } : null"
+            >
+              <template v-if="peekingKey === 'changes'">
+                <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
+                <span class="pill-peek-changes-plus">+{{ insertions }}</span>
+                <span class="pill-peek-changes-minus">-{{ deletions }}</span>
+              </template>
+              <template v-else-if="peekingKey === 'branch'">
+                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="branchDoneLabel" class="pill-peek-branch-done"> {{ branchDoneLabel }}</span>
+              </template>
+              <template v-else>{{ peekText }}</template>
+            </span>
+          </span>
+        </div>
+        <div
+          v-else
+          key="normal"
+          class="pill-trailing"
+          :style="{ maxWidth: trailingMaxWidth + 'px' }"
+        >
+          <div class="pill-trailing-inner">
+              <template v-for="key in infoPillConfig.order" :key="key">
               <button
-                v-if="isGitRepo && isDirty"
+                v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
-                class="pill-numstat-btn"
+                class="pill-chip pill-devserver-btn"
+                :aria-label="filesTooltip"
+                :data-tooltip="filesTooltip"
+                @pointerdown.stop
+                @click.stop="openFiles"
+              >
+                <span class="mdi mdi-folder-outline"></span>
+              </button>
+              <button
+                v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
+                type="button"
+                class="pill-chip pill-devserver-btn pill-history-btn"
+                :aria-label="historyTooltip"
+                :data-tooltip="historyTooltip"
+                @pointerdown.stop
+                @click.stop="openHistory"
+              >
+                <span class="mdi mdi-history"></span>
+              </button>
+              <button
+                v-else-if="key === 'changes' && isGitRepo && isDirty && infoPillConfig.changes"
+                type="button"
+                class="pill-chip pill-numstat-btn"
                 :aria-label="changesTooltip"
                 :data-tooltip="changesTooltip"
                 @pointerdown.stop
                 @click.stop="openChanges"
               >
                 <span class="mdi mdi-file-document-edit-outline"></span>
-                <span class="numstat-inline pill-label-hover" :class="{ peeking: peekingKey === 'changes' }">
-                  <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-                  <span class="diff-num-plus">+{{ insertions }}</span>
-                  <span class="diff-num-del">-{{ deletions }}</span>
-                </span>
               </button>
-              <GitActionBtn
-                v-if="isGitRepo && behind > 0"
-                icon="pull"
-                title="Pull"
-                :count="behind"
-                :running="isRunning(tab.workspace, 'pull')"
-                btn-class="pull-btn has-count"
-                @pointerdown.stop
-                @action="doAction('pull')"
-              />
-              <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && hasRemoteBranch"
-                icon="set-upstream"
-                title="Set Upstream"
-                :running="isRunning(tab.workspace, 'set-upstream')"
-                btn-class="icon-only upstream-set-btn"
-                @pointerdown.stop
-                @action="doAction('set-upstream')"
-              />
-              <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch"
-                icon="push-upstream"
-                title="Push & Set Upstream"
-                :count="ahead"
-                :running="isRunning(tab.workspace, 'push-upstream')"
-                btn-class="upstream-btn"
-                @pointerdown.stop
-                @action="doAction('push-upstream')"
-              />
-              <GitActionBtn
-                v-if="isGitRepo && hasUpstream && ahead > 0"
-                icon="push"
-                title="Push"
-                :count="ahead"
-                :running="isRunning(tab.workspace, 'push')"
-                btn-class="push-btn has-count"
-                @pointerdown.stop
-                @action="doAction('push')"
-              />
               <button
-                v-if="isGitRepo"
+                v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
                 type="button"
-                class="pill-branch-btn"
+                class="pill-chip pill-branch-btn"
+                :class="{ 'branch-non-default': isNonDefaultBranch }"
                 :aria-label="branchTooltip"
                 :data-tooltip="branchTooltip"
                 @pointerdown.stop
                 @click.stop="openBranch"
               >
                 <span class="mdi mdi-source-branch"></span>
-                <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+                <span v-if="ahead > 0" class="pill-branch-count push-count"><span class="mdi mdi-arrow-up-thin"></span>{{ ahead }}</span>
+                <span v-if="behind > 0" class="pill-branch-count pull-count"><span class="mdi mdi-arrow-down-thin"></span>{{ behind }}</span>
               </button>
               <button
-                v-if="devServerEntry"
+                v-else-if="key === 'prs' && branchPR && infoPillConfig.prs"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-chip pill-devserver-btn pill-pr-btn"
+                :aria-label="prsTooltip"
+                :data-tooltip="prsTooltip"
+                @pointerdown.stop
+                @click.stop="openPRs"
+              >
+                <span class="mdi mdi-source-pull"></span>
+              </button>
+              <button
+                v-else-if="key === 'actions' && visibleBranchAction && infoPillConfig.actions"
+                type="button"
+                class="pill-chip pill-devserver-btn"
+                :class="actionStatusClass"
+                :aria-label="actionsTooltip"
+                :data-tooltip="actionsTooltip"
+                @pointerdown.stop
+                @click.stop="openActions"
+              >
+                <span class="mdi" :class="actionStatusIcon"></span>
+              </button>
+              <button
+                v-else-if="key === 'devserver' && devServerEntry && infoPillConfig.devserver"
+                type="button"
+                class="pill-chip pill-devserver-btn pill-server-btn"
                 :aria-label="devServerTooltip"
                 :data-tooltip="devServerTooltip"
                 @pointerdown.stop
                 @click.stop="openDevServer"
               >
                 <span class="mdi mdi-server"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'devserver' }">Server</span>
               </button>
               <button
-                v-if="!isGitRepo && tab.sessionId"
+                v-else-if="key === 'add' && !isGitRepo && tab.sessionId && infoPillConfig.add"
                 type="button"
-                class="pill-devserver-btn"
-                aria-label="Files"
-                data-tooltip="Browse files in this terminal's directory"
-                @pointerdown.stop
-                @click.stop="openBareTerminalFiles"
-              >
-                <span class="mdi mdi-folder-outline"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
-              </button>
-              <button
-                v-if="!isGitRepo && tab.sessionId"
-                type="button"
-                class="pill-devserver-btn"
+                class="pill-chip pill-devserver-btn"
                 aria-label="Add or open this directory as a workspace"
                 data-tooltip="Add or open this directory as a workspace"
                 @pointerdown.stop
                 @click.stop="registerCurrentDir"
               >
                 <span class="mdi mdi-folder-plus-outline"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'add' }">Add</span>
               </button>
-            </div>
+              </template>
           </div>
-          <!-- ワークスペースピル本体・閉じるボタンは .pill-trailing（overflow-x:
-               auto でクリップされ得る幅アニメーション用コンテナ）の外、
-               .pill-group の直接の flex子として常時表示する。こうすると
-               アニメーション中や多ボタン時の横スクロール領域とは無関係になり、
-               クリップされて欠けることが無い。並び順は「展開ボタン群→
-               ワークスペースピル→閉じるボタン」で固定し、ワークスペースピルは
-               常に右端（閉じるボタンの左隣）に来る。
-               .pill-group 自体は right が固定値（JS計算なし）の flex コンテナ
-               なので、常にブラウザ標準のflexレイアウトで画面内に正しく収まる
-               （オフセット計算のズレで見切れる/崩れることが無い）。 -->
-          <div
-            class="terminal-info-pill"
-            ref="infoPillEl"
-            :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
-            :data-tooltip="pillTooltip"
-            :aria-label="pillTooltip"
-            role="button"
-            tabindex="0"
-            @mousedown="onPillMouseDown"
-            @click="onPillClick"
-            @keydown="onPillKeydown"
-            @touchstart.passive="onPillTouchStart"
-          >
-            <span class="terminal-info-pill-info">
-              <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
-                <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
-                <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-              </span>
-              <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
-                <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
-                <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-              </span>
-              <span class="pill-workspace-label pill-label-hover" :class="{ peeking: peekingKey === 'workspace' }">{{ tab.workspace || tab.label || '' }}</span>
+        </div>
+        </Transition>
+        <!-- ワークスペースピル本体・閉じるボタンは peekingKey の有無に関わらず
+             .pill-group の直接の flex子として常時固定表示する。peekピルは
+             上の Transition 内で .pill-trailing の位置（＝ワークスペースピル
+             の左隣）にだけ差し込まれ、ワークスペースピル・閉じるボタンの
+             位置は動かない。並び順は「展開ボタン群/peekピル→ワークスペース
+             ピル→閉じるボタン」で固定し、ワークスペースピルは常に右端
+             （閉じるボタンの左隣）に来る。 -->
+        <div
+          class="terminal-info-pill"
+          ref="infoPillEl"
+          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
+          :data-tooltip="pillTooltip"
+          :aria-label="pillTooltip"
+          role="button"
+          tabindex="0"
+          @mousedown="onPillMouseDown"
+          @click="onPillClick"
+          @keydown="onPillKeydown"
+          @touchstart.passive="onPillTouchStart"
+        >
+          <span class="terminal-info-pill-info">
+            <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
+              <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
+              <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-          </div>
-          <button
-            v-if="layoutStore.isSplitMode"
-            type="button"
-            class="pill-close-btn pill-minus-btn"
-            aria-label="Remove from split"
-            data-tooltip="Remove from split"
-            @pointerdown.stop="onSplitCloseDown"
-            @pointerup.stop="onSplitCloseUp"
-            @click.stop
-          ><span class="mdi mdi-minus"></span></button>
-          <button
-            v-if="!layoutStore.isSplitMode"
-            type="button"
-            class="pill-close-btn pill-tab-close-btn"
-            aria-label="Close tab"
-            data-tooltip="Close tab"
-            @pointerdown.stop="onTabCloseDown"
-            @pointerup.stop="onTabCloseUp"
-            @click.stop
-          ><span class="mdi mdi-close"></span></button>
+            <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
+              <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
+              <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+            </span>
+          </span>
+        </div>
+        <button
+          v-if="layoutStore.isSplitMode"
+          type="button"
+          class="pill-close-btn pill-minus-btn"
+          aria-label="Remove from split"
+          data-tooltip="Remove from split"
+          @pointerdown.stop="onSplitCloseDown"
+          @pointerup.stop="onSplitCloseUp"
+          @click.stop
+        ><span class="mdi mdi-minus"></span></button>
+        <button
+          v-if="!layoutStore.isSplitMode"
+          type="button"
+          class="pill-close-btn pill-tab-close-btn"
+          aria-label="Close tab"
+          data-tooltip="Close tab"
+          @pointerdown.stop="onTabCloseDown"
+          @pointerup.stop="onTabCloseUp"
+          @click.stop
+        ><span class="mdi mdi-close"></span></button>
       </div>
     </div>
   </div>
@@ -205,13 +227,14 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
-import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
+import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
-import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
@@ -227,6 +250,7 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
+const infoPillConfig = useInfoPillConfigStore();
 const { confirm } = useConfirm();
 const { isMobile } = useIsMobile();
 const { apiGet } = useApi();
@@ -240,14 +264,7 @@ const paneWorkspace = computed(() => {
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, isGitRepo, hasUpstream, hasRemoteBranch, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
-const { gitAction, isRunning } = useGitRemoteAction();
-
-function doAction(action) {
-  const wsName = props.tab.workspace;
-  if (!wsName) return;
-  gitAction(wsName, action, { branch: paneWorkspace.value?.branch || "" });
-}
+const { isDirty, isGitRepo, hasUpstream, ahead, behind, changedFiles, insertions, deletions } = useWorkspaceGitStatus(paneWorkspace, isMobile);
 
 // Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
 // 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
@@ -274,6 +291,55 @@ const devServerEntry = computed(() => {
   if (!props.tab.workspace) return null;
   return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
 });
+
+// GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
+// （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
+// 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
+const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
+const branchPR = computed(() => {
+  if (!isGitRepo.value || !props.tab.workspace) return null;
+  const list = prsByWorkspace.value[props.tab.workspace];
+  if (!list || !paneWorkspace.value?.branch) return null;
+  return list.find((pr) => pr.headRefName === paneWorkspace.value.branch) || null;
+});
+
+// GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
+// 実行中→完了への遷移をピルに反映するため、表示中は定期的に再取得する
+// （参照カウント式のポーリングはuseWorkspaceActions側に集約）。
+const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
+const branchAction = computed(() => {
+  if (!isGitRepo.value || !props.tab.workspace) return null;
+  const list = runsByWorkspace.value[props.tab.workspace];
+  if (!list || !paneWorkspace.value?.branch) return null;
+  return list.find((run) => run.headBranch === paneWorkspace.value.branch) || null;
+});
+
+// successになったrunはピル自体を表示しない（失敗中・実行中のrunだけ知らせる）。
+const visibleBranchAction = computed(() => {
+  const run = branchAction.value;
+  if (!run) return null;
+  if (run.status === "completed" && run.conclusion === "success") return null;
+  return run;
+});
+
+const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
+
+watch(
+  githubWorkspaceKey,
+  (workspace, prevWorkspace) => {
+    if (prevWorkspace) {
+      stopPRsPolling(prevWorkspace);
+      stopActionsPolling(prevWorkspace);
+    }
+    if (workspace) {
+      fetchPRs(workspace);
+      fetchRuns(workspace);
+      startPRsPolling(workspace);
+      startActionsPolling(workspace);
+    }
+  },
+  { immediate: true },
+);
 
 async function openDevServer() {
   const p = devServerEntry.value;
@@ -309,6 +375,17 @@ async function openBareTerminalFiles() {
   emit("git:openFileModal", resolveBareTerminalFilesDetail(props.tab.sessionId, cwd));
 }
 
+// Gitワークスペースはワークスペース名から直接Filesペインを開く。
+// 非Git（ベアターミナル・非Git登録ワークスペース）はcwd起点のopenBareTerminalFilesへ。
+function openFiles() {
+  if (isGitRepo.value && props.tab.workspace) {
+    workspaceStore.selectedWorkspace = props.tab.workspace;
+    emit("git:openFileModal", { pane: "files" });
+  } else {
+    openBareTerminalFiles();
+  }
+}
+
 async function registerCurrentDir() {
   if (!props.tab.sessionId) return;
   const cwd = await fetchCwd();
@@ -331,6 +408,24 @@ function openBranch() {
   emit("git:openFileModal", { pane: "branch" });
 }
 
+function openHistory() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "history" });
+}
+
+function openPRs() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "prs" });
+}
+
+function openActions() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "actions" });
+}
+
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
@@ -338,8 +433,6 @@ const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
 const infoPillEl = ref(null);
-const trailingEl = ref(null);
-const trailingInnerEl = ref(null);
 let activeFitTimer = null;
 
 // 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
@@ -365,7 +458,7 @@ watch(paneEl, (paneNode) => {
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 const pillTooltip = computed(() => {
   const name = props.tab.workspace || props.tab.label || "";
-  const action = layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details";
+  const action = layoutStore.isTouchDevice ? "Tap for details" : "Drag to move  ·  Click for details";
   return name ? `${name}  ·  ${action}` : action;
 });
 
@@ -373,15 +466,70 @@ const pillTooltip = computed(() => {
 // （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
 // わかるようにする。固定の説明文言だけだと、展開しないと現在値を
 // 確認できないため。
-const branchTooltip = computed(() => `Branches: ${paneWorkspace.value?.branch || ""}`);
+const branchTooltip = computed(() => {
+  const name = paneWorkspace.value?.branch || "";
+  const parts = [];
+  if (ahead.value > 0) parts.push(`${ahead.value} to push`);
+  if (behind.value > 0) parts.push(`${behind.value} to pull`);
+  if (!hasUpstream.value) parts.push("no upstream");
+  return parts.length ? `Branches: ${name} (${parts.join(", ")})` : `Branches: ${name}`;
+});
+// defaultブランチ以外にいることを示す（defaultブランチが分からない場合は
+// 判定しない＝誤って強調表示しない）。
+const isNonDefaultBranch = computed(() => {
+  const defaultBranch = paneWorkspace.value?.default_branch;
+  const branch = paneWorkspace.value?.branch;
+  return !!defaultBranch && !!branch && branch !== defaultBranch;
+});
+const filesTooltip = computed(() =>
+  isGitRepo.value ? "Browse files" : "Browse files in this terminal's directory",
+);
 const changesTooltip = computed(() =>
   `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
+const historyTooltip = computed(() => {
+  const msg = (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim();
+  return msg ? `History: ${msg}` : "History";
+});
 const devServerTooltip = computed(() => {
   const p = devServerEntry.value;
   if (!p) return "Dev Server";
   return `Dev Server: ${p.scheme || "http"}://${location.hostname}:${p.proxy_port}`;
 });
+
+const prsTooltip = computed(() => {
+  const pr = branchPR.value;
+  return pr ? `GitHub PR #${pr.number}: ${pr.title}` : "GitHub PRs";
+});
+
+const actionsTooltip = computed(() => {
+  const run = branchAction.value;
+  if (!run) return "GitHub Actions";
+  return `GitHub Actions: ${run.name} (${run.conclusion || run.status})`;
+});
+
+// 実行状況で色を変える（成功runはvisibleBranchActionで既に非表示のため、
+// ここに来るのは失敗=エラー色・進行中=警告色のみ）。色だけで状態を示さない
+// よう、アイコン自体も状態ごとに変える（AGENTS.md: 色のみで状態を示さない）。
+const actionStatusClass = computed(() => {
+  const run = branchAction.value;
+  if (!run) return "";
+  if (run.status !== "completed") return "action-status-running";
+  if (run.conclusion === "failure") return "action-status-failure";
+  return "";
+});
+const actionStatusIcon = computed(() => {
+  const run = branchAction.value;
+  if (!run || run.status !== "completed") return "mdi-progress-clock";
+  if (run.conclusion === "failure") return "mdi-alert-circle-outline";
+  return "mdi-cog-play-outline";
+});
+
+// 成功で完了した瞬間だけpeekで一度知らせる（通常表示のボタン自体は成功時
+// visibleBranchActionでずっと非表示のまま）。
+const isBranchActionSuccess = computed(() =>
+  branchAction.value?.status === "completed" && branchAction.value?.conclusion === "success",
+);
 
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
@@ -397,40 +545,55 @@ const devServerTooltip = computed(() => {
 const trailingPeekItems = computed(() => {
   const items = [];
   items.push({ key: "workspace", text: props.tab.workspace || props.tab.label || "" });
-  if (isGitRepo.value) {
+  // 各キーは対応するボタンの v-if 条件（infoPillConfig.xxx含む）と揃える。
+  // 揃えないと、設定で非表示にしたピルの変化が findChangedTrailingItem に
+  // 拾われてしまい、実際に表示されている別のピルの変化が同じ枠を奪われて
+  // peekされない（見えないボタンがpeekの権利を横取りする）。
+  if ((isGitRepo.value || props.tab.sessionId) && infoPillConfig.files) {
+    items.push({ key: "files", text: "Files" });
+  }
+  if (isGitRepo.value && infoPillConfig.history) {
+    items.push({ key: "history", text: paneWorkspace.value?.last_commit_message || "" });
+  }
+  if (isGitRepo.value && isDirty.value && infoPillConfig.changes) {
+    items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
+  }
+  if (isGitRepo.value && infoPillConfig.branch) {
     // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
     // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
     // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
-    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
+    // ahead/behind（Push/Pullバッジ）もこのボタン自身に描画されるため、
+    // 同じ"branch"キーのシグネチャに含める（別キーにすると対応するボタンが
+    // 無いため、findChangedTrailingItemに拾われてもpeekが表示されない）。
+    items.push({ key: "branch", text: `${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}` });
   }
-  if (isGitRepo.value && isDirty.value) {
-    items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
+  if (branchPR.value && infoPillConfig.prs) {
+    items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
   }
-  if (isGitRepo.value && behind.value > 0) {
-    items.push({ key: "pull", text: `${behind.value}` });
+  if (branchAction.value && infoPillConfig.actions) {
+    // 成功で完了した瞬間もpeekで一度知らせたいため、通常時は非表示になる
+    // successも含め branchAction（visibleBranchActionでフィルタする前の値）
+    // を変化検出に使う。
+    items.push({ key: "actions", text: `${branchAction.value.id}:${branchAction.value.status}:${branchAction.value.conclusion}` });
   }
-  if (isGitRepo.value && !hasUpstream.value && hasRemoteBranch.value) {
-    items.push({ key: "push", text: "set-upstream" });
-  } else if (isGitRepo.value && !hasUpstream.value && !hasRemoteBranch.value) {
-    items.push({ key: "push", text: `push-upstream:${ahead.value}` });
-  } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
-    items.push({ key: "push", text: `push:${ahead.value}` });
+  if (devServerEntry.value && infoPillConfig.devserver) {
+    items.push({ key: "devserver", text: `Server:${devServerEntry.value.proxy_port}` });
   }
-  if (devServerEntry.value) {
-    items.push({ key: "devserver", text: "Server" });
-  }
-  if (!isGitRepo.value && props.tab.sessionId) {
-    items.push({ key: "files", text: "Files" });
+  if (!isGitRepo.value && props.tab.sessionId && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
   }
   return items;
 });
 
-// アイコン群のどれかのラベルが更新された時、そのボタンのラベル部分を
-// 数秒だけ表示してから隠す（PC・モバイル共通、PILL_MORE_PEEK_DURATION_MS）。
+// アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
+// アイコン + 情報テキストだけを乗せた1本の長いピル（.pill-peek-wide）を
+// 数秒だけ表示する（PC・モバイル共通、PILL_MORE_PEEK_DURATION_MS）。
 const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
+// branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
+// 「Push Done」「Pull Done」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
+const branchDoneLabel = ref("");
 // paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
 // マウント直後は未解決（undefined）で isGitRepo 等が一時的に false になり得る。
 // このタイミングで prevTrailingSignature を確定させると、ワークスペース情報が
@@ -439,52 +602,181 @@ let pillMorePeekTimer = null;
 // 解決するまでは変化検出を行わず、解決した最初の1回はベースラインの
 // 更新だけ行って peek はスキップする。
 let workspaceEverResolved = paneWorkspace.value !== undefined;
+// last_commit_message は paneWorkspace 自体が解決した後もさらに遅れて
+// 非同期ロードされる（useWorkspaceGitStatus の statusLoading 参照）。
+// これを "history" の変化検出にそのまま使うと、通常のロード完了時にも
+// 「新しくコミットされた」と誤検知してpeekが発火してしまうため、
+// 初めて値が解決した1回だけベースラインを更新して変化扱いにしない。
+let historyMessageEverResolved = paneWorkspace.value?.last_commit_message !== undefined;
+// PR一覧もfetchPRsによる非同期取得のため、初回のロード完了を
+// 「新しくPRが作られた」と誤検知しないよう同様のガードをかける。
+function prsResolvedFor(workspace) {
+  return !!workspace && prsByWorkspace.value[workspace] !== undefined;
+}
+let prsEverResolved = prsResolvedFor(props.tab.workspace);
+// GitHub Actionsのrun一覧も同様に非同期取得のため、同じガードをかける。
+function actionsResolvedFor(workspace) {
+  return !!workspace && runsByWorkspace.value[workspace] !== undefined;
+}
+let actionsEverResolved = actionsResolvedFor(props.tab.workspace);
+
+// peekingKeyをkeyに切り替え、数秒後に自動で閉じるタイマーを張り直す
+// （アニメーション無しで即座に切り替える。旧: 新規マウント要素でCSS
+// transitionが無音化する問題を避けるための二重rAF遅延があったが、
+// transition自体を廃止したため不要になった）。
+function triggerPeek(key) {
+  if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
+  peekingKey.value = key;
+  pillMorePeekTimer = setTimeout(() => {
+    peekingKey.value = null;
+    pillMorePeekTimer = null;
+  }, PILL_MORE_PEEK_DURATION_MS);
+}
 
 watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
+  const historyJustResolved = !historyMessageEverResolved && paneWorkspace.value?.last_commit_message !== undefined;
+  if (historyJustResolved) {
+    historyMessageEverResolved = true;
+    prevTrailingSignature.set("history", nextSignature.get("history"));
+  }
+  const prsJustResolved = !prsEverResolved && prsResolvedFor(props.tab.workspace);
+  if (prsJustResolved) {
+    prsEverResolved = true;
+    prevTrailingSignature.set("prs", nextSignature.get("prs"));
+  }
+  const actionsJustResolved = !actionsEverResolved && actionsResolvedFor(props.tab.workspace);
+  if (actionsJustResolved) {
+    actionsEverResolved = true;
+    prevTrailingSignature.set("actions", nextSignature.get("actions"));
+  }
   const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
   if (justResolved) workspaceEverResolved = true;
   if (workspaceEverResolved && !justResolved) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
-      peekingKey.value = changed.key;
-      if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
-      pillMorePeekTimer = setTimeout(() => {
-        peekingKey.value = null;
-        pillMorePeekTimer = null;
-      }, PILL_MORE_PEEK_DURATION_MS);
+      if (changed.key === "branch") {
+        // 直前のシグネチャ（branch:ahead:behind）と比べ、ahead/behindが
+        // >0 から 0 へ変わった＝push/pullが完了した瞬間だけラベルを出す。
+        const [, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
+        const pushDone = Number(prevAheadStr) > 0 && ahead.value === 0;
+        const pullDone = Number(prevBehindStr) > 0 && behind.value === 0;
+        branchDoneLabel.value = [pushDone && "Push Done", pullDone && "Pull Done"].filter(Boolean).join(" · ");
+      } else {
+        branchDoneLabel.value = "";
+      }
+      triggerPeek(changed.key);
     }
   }
   prevTrailingSignature = nextSignature;
 }, { deep: true });
 
-// .pill-trailing（Dev Server/Changes/Branches等、可変ボタン群のクリップ用
-// コンテナ）の width を、中身の実測幅（.pill-trailing-inner の content サイズ）
-// へ滑らかに animate する。.pill-group 自体は right が固定値の flex コンテナ
-// なので、この width が変化するだけで pill-group 全体が自然に左右へ伸縮し、
-// JS でのオフセット計算は一切不要（閉じるボタンの位置ズレ・見切れの原因に
-// なっていた計算をまるごと廃止した）。
-const trailingWidth = ref(0);
-let roTrailing = null;
-
-watch(trailingInnerEl, (el) => {
-  roTrailing?.disconnect();
-  roTrailing = null;
-  if (!el) return;
-  roTrailing = new ResizeObserver((entries) => {
-    for (const e of entries) trailingWidth.value = e.contentRect.width;
-  });
-  roTrailing.observe(el);
+// Dev Serverが検出されなくなった（実際に停止した）瞬間だけ知らせる。
+// trailingPeekItemsはdevServerEntryが無い間キー自体を積まないため、
+// 上のfindChangedTrailingItemでは「消えたこと」を検知できない
+// （新規出現/値変化しか拾えない）。devServerEntry自体を直接見て、
+// 真→偽への遷移だけを拾う（初回のnullや既に偽のままの変化は無視）。
+watch(devServerEntry, (entry, prevEntry) => {
+  if (!entry && prevEntry) triggerPeek("devserver-stop");
 });
+
+// .pill-peek-wide に表示するアイコン(mdiクラス)。ワークスペース名の変化は
+// テンプレート側で tab.wsIcon/tab.icon の実アイコン（renderIconStr）を
+// 直接使うため、ここでは対象外。
+const peekIconClass = computed(() => {
+  switch (peekingKey.value) {
+    case "files": return "mdi-folder-outline";
+    case "history": return "mdi-history";
+    case "changes": return "mdi-file-document-edit-outline";
+    case "branch": return "mdi-source-branch";
+    case "prs": return "mdi-source-pull";
+    case "actions": return isBranchActionSuccess.value ? "mdi-check-circle-outline" : actionStatusIcon.value;
+    case "devserver": return "mdi-server";
+    case "devserver-stop": return "mdi-server-off";
+    case "add": return "mdi-folder-plus-outline";
+    default: return "";
+  }
+});
+
+// 対応する通常ピルのアイコン色と揃える。history/branch/actionsはアイコンだけ
+// 状態色にし、テキスト（コミットメッセージ/ブランチ名/action名）は通常色
+// （白）のまま読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと
+// 色付けする従来通りの挙動）。
+const peekColorClass = computed(() => {
+  switch (peekingKey.value) {
+    case "history": return ["pill-peek-pink", "pill-peek-icon-only"];
+    case "changes": return "pill-peek-warning";
+    case "prs": return "pill-peek-purple";
+    case "branch": return isNonDefaultBranch.value ? ["pill-peek-success", "pill-peek-icon-only"] : "";
+    case "actions":
+      if (isBranchActionSuccess.value) return ["pill-peek-success", "pill-peek-icon-only"];
+      if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];
+      if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
+      return "";
+    case "devserver": return "pill-peek-accent";
+    default: return "";
+  }
+});
+
+// History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。
+// changes/branch は複数トーンの色分け表示のためテンプレート側で直接組み立てる
+// ので、ここでは対象外（他のキーのみ扱う）。
+const peekText = computed(() => {
+  switch (peekingKey.value) {
+    case "files": return "Files";
+    case "history": return (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim() || "History";
+    case "prs": return branchPR.value ? `#${branchPR.value.number} ${branchPR.value.title}` : "";
+    case "actions": return branchAction.value
+      ? `[${branchAction.value.name}] ${branchAction.value.conclusion || branchAction.value.status}`
+      : "";
+    case "devserver": return devServerEntry.value ? `Dev Server :${devServerEntry.value.proxy_port}` : "Server";
+    case "devserver-stop": return "Dev Server Stop";
+    case "add": return "Add";
+    case "workspace": return props.tab.workspace || props.tab.label || "";
+    default: return "";
+  }
+});
+
+// peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。
+// changes/branchはpeekTextを経由しない独自の色分け表示のため、それぞれの
+// 元データから組み立てる。
+const peekSignature = computed(() => {
+  if (!peekingKey.value) return null;
+  if (peekingKey.value === "changes") {
+    return `changes:${changedFiles.value}:${insertions.value}:${deletions.value}`;
+  }
+  if (peekingKey.value === "branch") {
+    return `branch:${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}`;
+  }
+  return `${peekingKey.value}:${peekText.value}`;
+});
+
+// peekピルのラベルがピル幅に収まっている時はマーキーで流さない（収まって
+// いるのに動かすと落ち着かないため）。収まらない時だけ、末尾が見えた
+// ところで止める1回きりのスクロールにする（下記 .pill-peek-marquee-run、
+// infiniteループはしない）。History以外の全ラベルにも同じ扱いを揃える。
+const marqueeRun = ref(false);
+const marqueeTextEl = ref(null);
+watch(
+  peekSignature,
+  async (sig) => {
+    if (!sig) { marqueeRun.value = false; return; }
+    marqueeRun.value = false;
+    await nextTick();
+    const el = marqueeTextEl.value;
+    const container = el?.parentElement;
+    marqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
+  },
+);
 
 // ワークスペースピル本体のタップ/クリックは Jobs/Files ペインを直接開く。
 function activatePill() {
   if (props.tab.workspace) {
     workspaceStore.selectedWorkspace = props.tab.workspace;
     // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
-    // それ以外は Jobs ペイン（既定）を開く。
+    // それ以外は Files ペインを開く。
     const hasPushPullMark = layoutStore.isSplitMode && isGitRepo.value && (ahead.value > 0 || behind.value > 0);
-    emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
+    emit("git:openFileModal", { pane: hasPushPullMark ? "branch" : "files" });
   } else if (props.tab.sessionId) {
     // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
     openBareTerminalFiles();
@@ -501,12 +793,16 @@ function onPillKeydown(e) {
   activatePill();
 }
 
-const tabId = computed(() => props.tab.id);
-const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
-  tabId,
+// ワークスペースピルを上下にドラッグすると、離した位置（画面の上半分/
+// 下半分）に応じてピル群全体の表示位置（top/bottom）を切り替える。
+function onPillReposition(clientY) {
+  infoPillConfig.setPosition(clientY < window.innerHeight / 2 ? "top" : "bottom");
+}
+
+const { pillDragging, dragOffsetY, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
   canDrag,
   onTabClick: activatePill,
-  emit,
+  onReposition: onPillReposition,
 });
 
 const isActive = computed(() => {
@@ -514,43 +810,6 @@ const isActive = computed(() => {
     return layoutStore.activePaneIndex === props.paneIndex;
   }
   return terminalStore.activeTabId === props.tab.id;
-});
-
-// v-show で非表示（display:none）の間、pill-trailing の ResizeObserver は幅を
-// 0 として報告する。タブ切り替えで再表示された直後に実測幅へ戻ると、
-// .pill-trailing の `transition: width` でスライドして見えてしまう。
-// タブ切り替え直後の 1 フレームだけこの transition を止める。
-const suppressTrailingWidthTransition = ref(!isActive.value);
-watch(isActive, (active) => {
-  if (!active) return;
-  suppressTrailingWidthTransition.value = true;
-  // ResizeObserver のコールバックは requestAnimationFrame の後、フレーム終端で
-  // 発火する。rAF を1回挟むだけだと trailingWidth の更新前に transition を
-  // 再有効化してしまいアニメーションが見えるため、rAF を2回重ねて
-  // ResizeObserver の発火・trailingWidth 反映を確実に待つ。
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        suppressTrailingWidthTransition.value = false;
-      });
-    });
-  });
-});
-
-// peek表示（値が変化した時の一時ラベル表示）で1つのボタンの幅が広がると、
-// .pill-trailing の `transition: width` が同じ行の他の全ボタン（例:
-// Branches）まで一緒にスライドさせてしまい、無関係なピルまで動いたように
-// 見える。peekingKey が変化した瞬間だけこの transition を止める（ボタン
-// 自体の出現/消失アニメーションは peekingKey を伴わないため影響しない）。
-watch(peekingKey, () => {
-  suppressTrailingWidthTransition.value = true;
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        suppressTrailingWidthTransition.value = false;
-      });
-    });
-  });
 });
 
 const { isOffline } = useConnectivityMonitor();
@@ -734,11 +993,13 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
+  if (githubWorkspaceKey.value) {
+    stopPRsPolling(githubWorkspaceKey.value);
+    stopActionsPolling(githubWorkspaceKey.value);
+  }
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
-  roTrailing?.disconnect();
-  roTrailing = null;
   if (infoPillEl.value) {
     infoPillEl.value.removeEventListener("touchmove", onPillTouchMove);
     infoPillEl.value.removeEventListener("touchend", onPillTouchEnd);
@@ -811,13 +1072,152 @@ defineExpose({
   max-width: min(80vw, 450px);
 }
 
-/* .pill-group（flex行）の直接の子。width を JS 実測値へ animate するクリップ用
-   コンテナで、中身（.pill-trailing-inner）は常に content サイズで存在させ、
-   この width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
-   スライドと同期し、「一瞬右へはみ出してから戻る」ズレを起こさない。
-   閉じるボタンはここに含めず .pill-group の直接の flex子にするため、
-   横スクロール時にクリップされない。 */
+/* Info Pills設定の「Position」で右下配置を選んだ場合。right はそのまま
+   固定値を使い、上下だけ入れ替える。 */
+.pill-group.pill-group-bottom {
+  top: auto;
+  bottom: 10px;
+}
+
+/* .pill-trailing（展開ボタン群）と peekピルは Transition(mode="out-in") の
+   1つの子として .pill-group 内の同じ位置（ワークスペースピルの左隣）で
+   排他的に表示され、切替時は通常ピルが左へフェードアウトしてから peekピルが
+   右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
+   ピル本体・閉じるボタンはこの Transition の外（.pill-group の直接の
+   flex子）にあり、常に位置が固定される。
+   値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
+   のまま表示する。上限だけ、キーによらず .pill-trailing と同じ
+   trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
+   ぶんを差し引いた値）を max-width に使う（ワークスペースピル・閉じる
+   ボタンを画面外へ押し出さないため）。ラベルがこの上限にも収まらない時
+   だけ、末尾が見えるところで止まる1回きりのマーキーで流す（下記
+   .pill-peek-marquee-run、scrollWidth実測でscript側が判定する）。 */
+/* 展開ボタン群（pill-devserver-btn/pill-numstat-btn/pill-branch-btn）と
+   peekピル（pill-peek-wide）に共通のピル外観（枠線・角丸・背景・最低高さ）。
+   個別ルールには padding/font-size/color 等の差分だけを残す。 */
+.pill-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid rgba(59, 66, 97, 0.9);
+  border-radius: 999px;
+  background: rgba(26, 27, 38, 0.88);
+}
+
+.pill-peek-wide {
+  gap: 8px;
+  max-width: 100%;
+  padding: 5px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pill-peek-icon,
+.pill-peek-icon-slot {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.pill-peek-pink .pill-peek-icon,
+.pill-peek-pink .pill-peek-text { color: var(--pink); }
+.pill-peek-warning .pill-peek-icon,
+.pill-peek-warning .pill-peek-text { color: var(--warning); }
+.pill-peek-purple .pill-peek-icon,
+.pill-peek-purple .pill-peek-text { color: var(--purple); }
+.pill-peek-success .pill-peek-icon,
+.pill-peek-success .pill-peek-text { color: var(--success); }
+.pill-peek-error .pill-peek-icon,
+.pill-peek-error .pill-peek-text { color: var(--error); }
+/* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
+   使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
+.pill-peek-accent .pill-peek-icon { color: var(--accent); }
+
+/* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
+   のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
+   上の .pill-peek-xxx .pill-peek-text ルールより詳細度を上げて上書きする。 */
+.pill-peek-icon-only.pill-peek-pink .pill-peek-text,
+.pill-peek-icon-only.pill-peek-success .pill-peek-text,
+.pill-peek-icon-only.pill-peek-warning .pill-peek-text,
+.pill-peek-icon-only.pill-peek-error .pill-peek-text {
+  color: var(--text-secondary);
+}
+
+.pill-peek-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* changes/branchは複数の色分けspanを並べる。テンプレート上は改行区切りで
+   並べているため、そのままだとVueのwhitespace condenseでタグ間の空白が
+   消えて詰まって見える。inline-flex+gapで区切りを入れる（単一テキストの
+   キーではgapは1要素しか無いため影響しない）。 */
+.pill-peek-marquee-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ピル幅に収まらない時だけ付与する（script側でscrollWidth実測）。ループ
+   させず、末尾が見えたところで止める1回きりのスクロール。 */
+.pill-peek-marquee-text.pill-peek-marquee-run {
+  padding-left: 100%;
+  animation: pill-peek-scroll linear 1 forwards;
+}
+
+@keyframes pill-peek-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+/* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に
+   合わせて個別に色分けする（通常ピルの数字バッジ・Push/Pullカウントと
+   同じ配色に揃える）。 */
+.pill-peek-changes-files {
+  color: var(--warning);
+}
+
+.pill-peek-changes-plus {
+  color: var(--success);
+}
+
+.pill-peek-changes-minus {
+  color: var(--error);
+}
+
+.pill-peek-branch-ahead {
+  color: var(--accent);
+}
+
+.pill-peek-branch-behind {
+  color: var(--warning);
+}
+
+.pill-peek-branch-done {
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* 通常ピルは左へフェードアウトし、peekピルは右（ワークスペースピル側）
+   から現れる。 */
+.pill-swap-enter-active,
+.pill-swap-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.pill-swap-leave-to { transform: translateX(-10px); opacity: 0; }
+.pill-swap-enter-from { transform: translateX(10px); opacity: 0; }
+
+/* Transition(mode="out-in") の1つの子として peekピルと排他的に表示される
+   展開ボタン群のコンテナ。ボタンの出現/消失や幅の変化はアニメーションせず
+   即座に反映する。 */
 .pill-trailing {
+  /* flex-basis:0 で「余った分だけ広がる」計算にする（flex-basis:auto だと
+     中身の実サイズが基準になり、actionsピル追加等で兄弟（ワークスペース
+     ピル・閉じるボタン）を画面外へ押し出すブラウザがあった）。 */
+  flex: 1 1 0%;
   min-width: 0;
   /* ボタン数が多い狭い画面・狭い分割ペイン（Pull/Push/Set Upstream/Dev Server等
      が同時に出る場合）で画面端・ペイン端からはみ出したボタンが見えない・
@@ -829,11 +1229,6 @@ defineExpose({
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
   scrollbar-width: none;
-  transition: width 0.35s ease;
-}
-
-.pill-trailing.no-transition {
-  transition: none;
 }
 
 .pill-trailing-inner {
@@ -851,7 +1246,7 @@ defineExpose({
   align-items: center;
   min-height: 32px;
   padding: 5px 12px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
@@ -876,39 +1271,9 @@ defineExpose({
   -webkit-user-drag: none;
 }
 
-/* GitActionBtn のデフォルトはツールバー用の見た目（アクセント色背景・高さ36px）。
-   このピル内では他ボタン（numstat/branch/devserver）と同じ地の色・サイズ・
-   フォントに統一し、push/pull は numstat-files や diff-num-plus と同じ
-   パターン（ニュートラルな地に数字だけ意味色）にする。 */
-.pill-trailing :deep(.git-action-btn) {
-  min-height: 32px;
-  height: 32px;
-  max-height: 32px;
-  min-width: 32px;
-  padding: 0 10px;
-  gap: 4px;
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.pill-trailing :deep(.git-action-btn.pull-btn.has-count),
-.pill-trailing :deep(.git-action-btn.push-btn.has-count) {
-  background: rgba(26, 27, 38, 0.88);
-  border: 1px solid rgba(59, 66, 97, 0.5);
-}
-
 .pill-devserver-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
   flex-shrink: 0;
   padding: 0 10px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
@@ -921,20 +1286,34 @@ defineExpose({
   color: var(--text-muted);
 }
 
-.pill-devserver-text {
-  font-size: 12px;
-  white-space: nowrap;
+/* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが
+   ある時」だけ存在する（v-if）ため、Changes（.pill-numstat-btn）と同じく
+   アイコンを常時アクティブ色にする（PRはGitHubのPRらしい紫）。 */
+.pill-pr-btn .mdi {
+  color: var(--purple);
+}
+
+.pill-server-btn .mdi {
+  color: var(--accent);
+}
+
+.pill-history-btn .mdi {
+  color: var(--pink);
+}
+
+/* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。
+   成功runはvisibleBranchActionで非表示になるため、ここは失敗・進行中のみ。 */
+.pill-devserver-btn.action-status-failure .mdi {
+  color: var(--error);
+}
+
+.pill-devserver-btn.action-status-running .mdi {
+  color: var(--warning);
 }
 
 .pill-numstat-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
   padding: 0 10px;
   flex-shrink: 0;
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
@@ -943,26 +1322,18 @@ defineExpose({
 
 /* アイコン単体表示時、button の font-size（数字用の12px）のままだと他の
    アイコンボタン（14px）より小さく見え、周りの余白だけ目立ってしまうため、
-   アイコンだけ他ボタンと揃えた大きさにする。 */
+   アイコンだけ他ボタンと揃えた大きさにする。このボタンはisDirty時にしか
+   存在しない（=常に「変更あり」状態）ため、アイコンをアクティブ色にする
+   （ワークスペースピルのダーティドットと同じ色に揃える）。 */
 .pill-numstat-btn .mdi {
   font-size: 14px;
-}
-
-.numstat-files {
-  color: var(--warning);
+  color: #f5a623;
 }
 
 .pill-branch-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
   padding: 0 10px;
   flex-shrink: 1;
   min-width: 0;
-  max-width: 140px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
@@ -974,46 +1345,37 @@ defineExpose({
   color: var(--text-muted);
 }
 
-.pill-branch-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+/* defaultブランチ以外にいる時はアイコンをアクティブ色にして気付きやすくする。 */
+.pill-branch-btn.branch-non-default .mdi {
+  color: var(--success);
 }
 
-.branch-abbr {
-  color: var(--accent);
-  font-weight: 500;
-}
-
-/* 通常時はアイコンのみ・ラベルは幅0に畳んでおく。ラベルは値が変化した
-   時だけ数秒間 peek 表示する（下記 .peeking）。ホバーでは展開しない
-   （ホバーのたびに幅が動いて隣接ボタンの位置がガタつくため）。PCでの
-   説明は各ボタンの data-tooltip に任せる。peek表示中は .pill-trailing
-   側のwidth transitionを止めて他ボタンを巻き込まないようにしている
-   （script側 watch(peekingKey, ...) 参照）ため、ラベル自身のこの
-   transitionだけがそのボタンの中でローカルに再生され、隣接ボタンは
-   動かない。 */
-.pill-label-hover {
-  display: inline-block;
-  max-width: 0;
-  margin-left: 0;
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: max-width 0.2s ease, opacity 0.15s ease, margin-left 0.2s ease;
-}
-
-.pill-label-hover.peeking {
-  max-width: 160px;
-  margin-left: 4px;
-  opacity: 1;
-}
-
-.numstat-inline {
+/* Push(↑)/Pull(↓)件数。値がある時だけ表示される（v-if）ので常時表示で良い
+   （他ピルのpeek-hover方式とは異なり、これは数字自体が主情報のため）。 */
+.pill-branch-count {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 1px;
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pill-branch-count .mdi {
+  font-size: 13px;
+}
+
+/* .pill-branch-btn .mdi の color:var(--text-muted) は直接指定のため継承では
+   上書きできない。矢印アイコン自体にも同じ色を明示する。 */
+.pill-branch-count.push-count,
+.pill-branch-count.push-count .mdi {
+  color: var(--accent);
+}
+
+.pill-branch-count.pull-count,
+.pill-branch-count.pull-count .mdi {
+  color: var(--warning);
 }
 
 /* PCでピルをホバーした時、アクティブなワークスペースピルと同じ地色に
@@ -1079,17 +1441,6 @@ defineExpose({
   align-items: center;
   gap: 6px;
   min-width: 0;
-}
-
-/* .terminal-info-pill-info の gap:6px はアイコンバッジ同士の間隔用。
-   ラベルが畳まれている間はこの gap ぶんも見た目の余白になってしまうため、
-   畳んでいる間は同じ幅だけ負のmarginで打ち消し、展開時に元へ戻す。 */
-.pill-workspace-label.pill-label-hover {
-  margin-left: -6px;
-}
-
-.pill-workspace-label.pill-label-hover.peeking {
-  margin-left: 0;
 }
 
 .pill-icon-slot {
@@ -1182,6 +1533,11 @@ defineExpose({
     right: 20px;
   }
 
+  .pill-group.pill-group-bottom {
+    top: auto;
+    bottom: 20px;
+  }
+
   .terminal-info-pill {
     cursor: grab;
   }
@@ -1189,10 +1545,6 @@ defineExpose({
   .terminal-info-pill.dragging {
     opacity: 0.5;
     cursor: grabbing;
-  }
-
-  .pill-branch-btn {
-    max-width: none;
   }
 }
 

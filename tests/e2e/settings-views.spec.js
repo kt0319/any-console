@@ -13,6 +13,7 @@ const SETTINGS_VIEWS = [
   ["Workspaces", "Workspaces"],
   ["Tabs & Sessions", "Tabs & Sessions"],
   ["Terminal", "Terminal"],
+  ["Info Pills", "Info Pills"],
   ["Editor", "Editor"],
   ["Display", "Display"],
   ["Send Snippet", "Send Snippet"],

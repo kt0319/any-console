@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -148,6 +149,63 @@ def get_notification_settings():
 def put_notification_settings(body: NotificationSettings):
     save_global_config_section("notifications", {"phrase_notify_grace_sec": body.phrase_notify_grace_sec})
     return {"status": "ok", "phrase_notify_grace_sec": body.phrase_notify_grace_sec}
+
+
+INFO_PILL_FIELDS = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"]
+
+
+class InfoPillSettings(BaseModel):
+    branch: bool = True
+    history: bool = True
+    prs: bool = True
+    actions: bool = True
+    changes: bool = True
+    devserver: bool = True
+    files: bool = True
+    add: bool = True
+    order: list[str] = Field(default_factory=lambda: list(INFO_PILL_FIELDS))
+    position: Literal["top", "bottom"] = "top"
+
+
+def _normalize_pill_order(order: list[str]) -> list[str]:
+    """未知のキーを除外し、重複は初出のみ残し、欠けているキー（新規追加分等）は
+    デフォルト順で末尾に補う。"""
+    known = []
+    seen = set()
+    for key in order:
+        if key in INFO_PILL_FIELDS and key not in seen:
+            known.append(key)
+            seen.add(key)
+    missing = [key for key in INFO_PILL_FIELDS if key not in seen]
+    return known + missing
+
+
+@router.get("/settings/info-pills")
+def get_info_pill_settings():
+    raw = load_global_config_section("info_pills", {})
+    if not isinstance(raw, dict):
+        raw = {}
+    defaults = InfoPillSettings()
+    result: dict[str, bool | list[str] | str] = {
+        field: bool(raw.get(field, default))
+        for field, default in defaults.model_dump().items()
+        if field not in ("order", "position")
+    }
+    raw_order = raw.get("order")
+    result["order"] = _normalize_pill_order(raw_order if isinstance(raw_order, list) else [])
+    position = defaults.position
+    if raw.get("position") in ("top", "bottom"):
+        position = raw["position"]
+    result["position"] = position
+    return result
+
+
+@router.put("/settings/info-pills")
+def put_info_pill_settings(body: InfoPillSettings):
+    data = body.model_dump()
+    data["order"] = _normalize_pill_order(data["order"])
+    save_global_config_section("info_pills", data)
+    return {"status": "ok", **data}
 
 
 CIRCLE_KEYPAD_KEY_COUNT = 8

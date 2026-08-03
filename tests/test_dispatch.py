@@ -11,12 +11,14 @@ from conftest import AUTH, TOKEN
 @pytest.fixture(autouse=True)
 def _clear_pending():
     dispatch_mod._PENDING.clear()
+    dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
     # テストごとにイベントループが変わるため、前のループのワーカータスク参照を破棄する
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
     yield
     dispatch_mod._PENDING.clear()
+    dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
@@ -98,6 +100,30 @@ class TestDispatchApproval:
         assert res.status_code == 200
         assert dispatch_id not in dispatch_mod._PENDING
         assert _mock_tmux == []
+
+    def test_approved_item_kept_in_recent(self, client, workspace):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert dispatch_mod._RECENT[0]["id"] == dispatch_id
+        assert dispatch_mod._RECENT[0]["decision"] == "approved"
+
+    def test_rejected_item_kept_in_recent(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
+        assert dispatch_mod._RECENT[0]["id"] == dispatch_id
+        assert dispatch_mod._RECENT[0]["decision"] == "rejected"
+
+    def test_recent_kept_to_limit(self, client, workspace):
+        for _ in range(dispatch_mod._RECENT_LIMIT + 2):
+            dispatch_id = _enqueue(client, text="echo hi")
+            client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert len(dispatch_mod._RECENT) == dispatch_mod._RECENT_LIMIT
+
+    def test_failed_decision_not_kept_in_recent(self, client, git_workspace_with_commit):
+        dispatch_id = _enqueue(client, text="echo", branch="missing-branch", create_branch=False)
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 400
+        assert dispatch_mod._RECENT == []
 
 
 class TestDispatchBranch:
@@ -220,7 +246,7 @@ class TestQueueBroadcast:
             await dispatch_mod._broadcast_task
 
         asyncio.run(run())
-        assert ws.sent == [{"type": "dispatch_queue", "items": []}]
+        assert ws.sent == [{"type": "dispatch_queue", "items": [], "recent": []}]
         dispatch_mod.unsubscribe(ws)
 
     def test_subscribe_sends_pending_items(self):
@@ -235,6 +261,7 @@ class TestQueueBroadcast:
         assert ws.sent == [{
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+            "recent": [],
         }]
 
     def test_broadcast_reaches_all_subscribers(self):
@@ -251,6 +278,7 @@ class TestQueueBroadcast:
         expected = {
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+            "recent": [],
         }
         assert ws1.sent[-1] == expected
         assert ws2.sent[-1] == expected
@@ -306,6 +334,7 @@ class TestQueueBroadcast:
         assert ws.sent[-1] == {
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+            "recent": [],
         }
 
     def test_schedule_broadcast_coalesces_to_latest_snapshot(self):
@@ -324,7 +353,7 @@ class TestQueueBroadcast:
 
         asyncio.run(run())
         assert ws.sent == [
-            {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}]},
+            {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}], "recent": []},
         ]
 
     def test_schedule_during_send_rebroadcasts_latest(self):
@@ -350,8 +379,8 @@ class TestQueueBroadcast:
 
         asyncio.run(run())
         assert sent == [
-            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}]},
-            {"type": "dispatch_queue", "items": []},
+            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}], "recent": []},
+            {"type": "dispatch_queue", "items": [], "recent": []},
         ]
 
 

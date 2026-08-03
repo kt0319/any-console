@@ -9,7 +9,15 @@ from .common import (
 
 logger = logging.getLogger(__name__)
 
-_PER_WORKSPACE_TTL_SEC = 5 * 60
+
+# 実行中のActions/PRピルは10秒間隔でポーリングするが、以前の5分TTLだと
+# ポーリングしても同じキャッシュを返し続けるだけで実質フレッシュにならない
+# 問題があった（Codexレビュー指摘）。ただし ADR #18/#19（docs/DECISIONS.md）
+# の通り、gh CLI 呼び出しは同期 subprocess で共有スレッドプールを使う
+# （実機Raspberry Pi 5は4コア=プール8枠と小さい）。ポーリング間隔と同じ
+# 10秒まで下げると、複数ワークスペースを同時に開いた際にプールを
+# 圧迫し得るため、ポーリング間隔の3倍程度（30秒）に留める。
+_PER_WORKSPACE_TTL_SEC = 30
 
 _workspace_cache = TTLCache(_PER_WORKSPACE_TTL_SEC)
 

@@ -49,6 +49,7 @@
         <PreviewPorts v-if="currentView === 'PreviewPorts'" />
         <NotificationConfig v-if="currentView === 'NotificationConfig'" />
         <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
+        <InfoPillConfig v-if="currentView === 'InfoPillConfig'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
         <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
@@ -79,6 +80,7 @@ import SendHistory from "./SendHistory.vue";
 import PreviewPorts from "./PreviewPorts.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
+import InfoPillConfig from "./InfoPillConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";

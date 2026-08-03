@@ -56,6 +56,24 @@ test.describe("workspace lifecycle", () => {
     await expect(page.locator(".picker-ws-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
 
+  test("ワークスペース名クリックでJobsがインライン展開・再クリックで閉じる", async ({ page }) => {
+    await openSettingsModal(page);
+    await openSettingsView(page, "Workspaces");
+    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
+    const jobsInline = row.locator(".picker-ws-jobs-inline");
+
+    await expect(jobsInline).toHaveCount(0);
+    await row.locator(".picker-ws-header-label").click();
+    await expect(jobsInline).toBeVisible({ timeout: 5000 });
+    await expect(jobsInline.locator(".job-item-label", { hasText: "Terminal" })).toBeVisible();
+
+    // モーダルは開かない（Jobsのインライン展開のみ）
+    await expect(page.locator(".modal-title")).toHaveText("Workspaces");
+
+    await row.locator(".picker-ws-header-label").click();
+    await expect(jobsInline).toHaveCount(0);
+  });
+
   test("同じ名前の再登録はエラーになる", async ({ page }) => {
     await openSettingsModal(page);
     await openAddWorkspace(page);
@@ -84,7 +102,8 @@ test.describe("workspace lifecycle", () => {
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    // Edit → Delete Workspace
+    // Edit → Delete Workspace（Editボタンはワークスペース一覧のEditモード中のみ表示）
+    await page.locator('[aria-label="Edit workspaces"]').click();
     await row.locator('.picker-ws-edit-btn[aria-label="Edit workspace"]').click();
     await expect(page.locator(".modal-title")).toHaveText(wsName);
     await page.locator(".ws-delete-btn").click();

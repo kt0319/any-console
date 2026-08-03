@@ -12,6 +12,7 @@ from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branch,
     git_branches,
+    git_default_branch,
     git_remote_branches,
     run_git_command,
     ssh_env,
@@ -115,6 +116,7 @@ def list_branches(name: str):
     ws_path = resolve_workspace_path(name)
     branches = git_branches(ws_path)
     current = git_branch(ws_path)
+    default_branch = git_default_branch(ws_path)
     tracking = _branch_tracking_info(ws_path)
     out = []
     for b in branches:
@@ -122,6 +124,7 @@ def list_branches(name: str):
         out.append({
             "name": b,
             "current": b == current,
+            "is_default": b == default_branch,
             "upstream": t.get("upstream"),
             "ahead": t.get("ahead", 0),
             "behind": t.get("behind", 0),

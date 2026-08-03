@@ -33,7 +33,7 @@ _IS_MACOS = platform.system() == "Darwin"
 _CERT_DIR = Path(__file__).resolve().parent.parent / "certs"
 
 SCAN_INTERVAL_SEC = 3.0
-PORT_STALE_SEC = 30  # LISTEN が消えてから一覧から落とすまで
+PORT_STALE_SEC = 8  # LISTEN が消えてから一覧から落とすまで（dev server再起動時の瞬断は許容しつつ、停止を早く反映する）
 # /preview/ports へのアクセスからこの秒数を過ぎたら background scan を休止する。
 # パネルを閉じている間は ss を回さない（既存 proxy は維持する）。
 PREVIEW_IDLE_SEC = 60.0

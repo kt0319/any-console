@@ -21,6 +21,42 @@ class TestBranchListsEmpty:
         assert isinstance(res.json(), list)
 
 
+class TestDefaultBranch:
+    def test_no_remote_head_no_branch_is_default(self, client, git_workspace_with_commit):
+        # フレッシュなgit initリポジトリにはrefs/remotes/origin/HEADが無いため、
+        # どのブランチもis_defaultにならない
+        res = client.get("/workspaces/test-ws/branches", headers=AUTH)
+        assert res.status_code == 200
+        assert all(b["is_default"] is False for b in res.json())
+
+    def test_marks_branch_matching_remote_head_as_default(self, client, git_workspace_with_commit, isolate_fs):
+        # bareリポジトリをoriginとして追加しpushすることで、実際のclone同様に
+        # refs/remotes/origin/HEADが作られる状態を再現する
+        bare_path = isolate_fs["work"] / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(bare_path)],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        current_branch = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "push", "-u", "origin", current_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "remote", "set-head", "origin", "-a"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        res = client.get("/workspaces/test-ws/branches", headers=AUTH)
+        assert res.status_code == 200
+        entry = next(b for b in res.json() if b["name"] == current_branch)
+        assert entry["is_default"] is True
+
+
 class TestDeleteBranchValidation:
     def test_invalid_branch_name_rejected(self, client, workspace):
         res = client.post(

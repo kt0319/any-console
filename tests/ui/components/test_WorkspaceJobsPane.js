@@ -47,6 +47,7 @@ beforeEach(async () => {
 
   const { default: WorkspaceJobsPane } = await import("../../../ui/components/WorkspaceJobsPane.vue");
   wrapper = mount(WorkspaceJobsPane, {
+    props: { editMode: true },
     global: { provide: { pushView: vi.fn() } },
     attachTo: document.body,
   });
@@ -75,5 +76,18 @@ describe("WorkspaceJobsPane a11y", () => {
 
   it("a11y 違反が無い（nested-interactive を含む）", async () => {
     await expectNoA11yViolations(document.body);
+  });
+
+  it("editMode=false（既定）では編集ボタンを表示しない", async () => {
+    wrapper.unmount();
+    document.body.innerHTML = "";
+    const { default: WorkspaceJobsPane } = await import("../../../ui/components/WorkspaceJobsPane.vue");
+    wrapper = mount(WorkspaceJobsPane, {
+      global: { provide: { pushView: vi.fn() } },
+      attachTo: document.body,
+    });
+    await nextTick();
+    await nextTick();
+    expect(document.body.querySelector(".job-item-edit-btn")).toBeNull();
   });
 });

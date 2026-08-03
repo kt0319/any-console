@@ -116,6 +116,22 @@ def git_branches(directory: Path) -> list[str]:
     return []
 
 
+def git_default_branch(directory: Path) -> str | None:
+    """リモート（origin）のデフォルトブランチ名を返す。
+
+    `refs/remotes/origin/HEAD` はclone時に作られるローカルのシンボリックref
+    （GitHub固有ではない一般的なgitの仕組み）。ネットワークアクセス無しで
+    解決できるが、clone後にリモート側でデフォルトブランチが変更されると
+    ここは古いままになりうる（`git remote set-head origin -a` で更新される）。
+    """
+    out = _run_git_query(["symbolic-ref", "refs/remotes/origin/HEAD"], directory)
+    if not out:
+        return None
+    ref = out.strip()
+    prefix = "refs/remotes/origin/"
+    return ref[len(prefix):] if ref.startswith(prefix) else None
+
+
 def _apply_worktree_attr(current: dict[str, Any], line: str) -> None:
     if line.startswith("HEAD "):
         current["head"] = line[len("HEAD "):]

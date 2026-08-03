@@ -61,6 +61,7 @@
               data-tooltip="Has worktree"
             ></span>
             {{ branch.name }}
+            <span v-if="branch.isDefault" class="branch-default-badge" data-tooltip="Repository's default branch">default</span>
             <span v-if="branch.current"> ✓</span>
           </div>
           <div class="branch-item-actions" @click.stop>
@@ -353,6 +354,19 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.branch-default-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
 }
 
 .branch-item.current {

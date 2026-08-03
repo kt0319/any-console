@@ -14,6 +14,12 @@ import { emit } from "../app-bridge.js";
 /** @type {import("vue").Ref<{id: string, request: Record<string, any>}[]>} */
 const queue = ref([]);
 
+// 承認/却下が決定された直近の項目（新しい順）。承認しても実行されたことが
+// 分からずすぐ消えてしまう問題への対応で、サーバ側が直近N件だけ一時的に
+// 残して配信する（decision: "approved" | "rejected"）。
+/** @type {import("vue").Ref<{id: string, request: Record<string, any>, decision: string}[]>} */
+const recent = ref([]);
+
 function removeFromQueue(id) {
   queue.value = queue.value.filter((q) => q.id !== id);
 }
@@ -23,11 +29,13 @@ function removeFromQueue(id) {
  * DispatchRunView を開いたまま対象が消えた場合（他端末で決定済み）に一覧へ
  * 戻れるよう、消えた項目IDを dispatch:itemRemoved で通知する。
  * @param {{id: string, request: Record<string, any>}[]} items
+ * @param {{id: string, request: Record<string, any>, decision: string}[]} [recentItems]
  */
-export function applyDispatchQueue(items) {
+export function applyDispatchQueue(items, recentItems) {
   const ids = new Set(items.map((q) => q.id));
   const removed = queue.value.filter((q) => !ids.has(q.id));
   queue.value = items;
+  recent.value = recentItems || [];
   for (const q of removed) emit("dispatch:itemRemoved", { id: q.id });
 }
 
@@ -90,5 +98,5 @@ export function useDispatchConfirm() {
     return ok;
   }
 
-  return { queue, runItem, rejectItem };
+  return { queue, recent, runItem, rejectItem };
 }

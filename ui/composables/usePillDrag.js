@@ -1,20 +1,20 @@
 import { ref } from "vue";
-import { useSplitDropDrag } from "./useSplitDropDrag.js";
-import { useTerminalStore } from "../stores/terminal.js";
 import { isPastDragThreshold } from "../utils/gesture.js";
 import { DRAG_THRESHOLD, DRAG_STATE_RESET_MS } from "../utils/constants.js";
 
-export function usePillDrag({ tabId, canDrag, onTabClick }) {
+// ワークスペースピルを縦方向にドラッグして、ピル群（.pill-group）の画面上の
+// 位置（top/bottom）を切り替える。ドラッグ中は呼び出し側が dragOffsetY を
+// transform: translateY() に反映して見た目だけ追従させ、離した時点の指/
+// マウスのY座標を onReposition に渡して実際の切替判定（画面の上半分/下半分
+// どちらで離したか）を委ねる。
+export function usePillDrag({ canDrag, onTabClick, onReposition }) {
   const pillDragging = ref(false);
-  const terminalStore = useTerminalStore();
-  const { beginDrag, updateHover, finishSplitDrop } = useSplitDropDrag();
+  const dragOffsetY = ref(0);
 
-  let pillTouchStartX = 0;
   let pillTouchStartY = 0;
   let pillTouchDragging = false;
   let pillMouseDownTime = 0;
   let pillDidDrag = false;
-  let pillMouseStartX = 0;
   let pillMouseStartY = 0;
   let pillMouseDragging = false;
 
@@ -28,7 +28,6 @@ export function usePillDrag({ tabId, canDrag, onTabClick }) {
     pillMouseDownTime = Date.now();
     pillDidDrag = false;
     pillMouseDragging = false;
-    pillMouseStartX = e.clientX;
     pillMouseStartY = e.clientY;
     removePillMouseListeners();
     document.addEventListener("mousemove", onPillMouseMove);
@@ -45,19 +44,17 @@ export function usePillDrag({ tabId, canDrag, onTabClick }) {
   }
 
   function onPillMouseMove(e) {
-    const dx = e.clientX - pillMouseStartX;
-    const dy = e.clientY - pillMouseStartY;
     if (!canDrag.value) return;
-    if (!pillMouseDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+    const dy = e.clientY - pillMouseStartY;
+    if (!pillMouseDragging && isPastDragThreshold(dy, 0, DRAG_THRESHOLD)) {
       pillMouseDragging = true;
       pillDidDrag = true;
       pillDragging.value = true;
-      beginDrag(tabId.value);
       e.preventDefault();
     }
     if (pillMouseDragging) {
       e.preventDefault();
-      updateHover(e.clientX, e.clientY);
+      dragOffsetY.value = dy;
     }
   }
 
@@ -66,35 +63,27 @@ export function usePillDrag({ tabId, canDrag, onTabClick }) {
     if (!pillMouseDragging) return;
     e.preventDefault();
     pillDragging.value = false;
-    finishSplitDrop({
-      tabId: tabId.value,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      openTabs: terminalStore.openTabs,
-      activeTabId: terminalStore.activeTabId,
-    });
+    onReposition?.(e.clientY);
+    dragOffsetY.value = 0;
     setTimeout(() => { pillMouseDragging = false; }, DRAG_STATE_RESET_MS);
   }
 
   function onPillTouchStart(e) {
     pillTouchDragging = false;
-    pillTouchStartX = e.touches[0].clientX;
     pillTouchStartY = e.touches[0].clientY;
   }
 
   function onPillTouchMove(e) {
-    const dx = e.touches[0].clientX - pillTouchStartX;
-    const dy = e.touches[0].clientY - pillTouchStartY;
     if (!canDrag.value) return;
-    if (!pillTouchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+    const dy = e.touches[0].clientY - pillTouchStartY;
+    if (!pillTouchDragging && isPastDragThreshold(dy, 0, DRAG_THRESHOLD)) {
       pillTouchDragging = true;
       pillDragging.value = true;
-      beginDrag(tabId.value);
       if (e.cancelable) e.preventDefault();
     }
     if (pillTouchDragging) {
       if (e.cancelable) e.preventDefault();
-      updateHover(e.touches[0].clientX, e.touches[0].clientY);
+      dragOffsetY.value = dy;
     }
   }
 
@@ -104,18 +93,14 @@ export function usePillDrag({ tabId, canDrag, onTabClick }) {
     pillDidDrag = true;
     pillDragging.value = false;
     const touch = e.changedTouches[0];
-    finishSplitDrop({
-      tabId: tabId.value,
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      openTabs: terminalStore.openTabs,
-      activeTabId: terminalStore.activeTabId,
-    });
+    onReposition?.(touch.clientY);
+    dragOffsetY.value = 0;
     setTimeout(() => { pillTouchDragging = false; }, DRAG_STATE_RESET_MS);
   }
 
   return {
     pillDragging,
+    dragOffsetY,
     onPillMouseDown, onPillClick,
     onPillTouchStart, onPillTouchMove, onPillTouchEnd,
   };

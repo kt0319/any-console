@@ -32,7 +32,7 @@ export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 export const RECENT_JOBS_MAX = 10;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
-export const PILL_MORE_PEEK_DURATION_MS = 3000;
+export const PILL_MORE_PEEK_DURATION_MS = 4000;
 export const URL_COPIED_RESET_MS = 1500;
 export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
 export const NOTIFY_GRACE_DEBOUNCE_MS = 500;

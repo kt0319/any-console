@@ -14,7 +14,7 @@
       </span>
       <span class="recent-jobs-item-label">
         <span class="recent-jobs-item-ws">{{ recent.workspace }}</span>
-        <span v-if="recent.jobLabel || recent.jobName" class="recent-jobs-item-sep">/</span>
+        <span v-if="recent.jobLabel || recent.jobName" class="recent-jobs-item-sep">|</span>
         <span class="recent-jobs-item-name">{{ recent.jobLabel || recent.jobName }}</span>
       </span>
       <span

@@ -102,7 +102,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `snippets.spec.js`: スニペットの追加・削除（テスト前の状態を API で復元）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit / History / Branches / Jobs / Stash）とディープリンク（テスト用 git リポジトリを一時領域に作成）
-  - `split.spec.js`: ピルドラッグによるターミナル分割
+  - `split.spec.js`: タブドラッグによるターミナル分割・ワークスペースピルドラッグによるピル群の位置切替え（top/bottom）
   - `preview.spec.js`: Port Preview の検出と proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
   - `mobile-terminal.spec.js`: モバイルでのターミナル + KeyboardBar 表示

@@ -19,7 +19,8 @@ export function buildStatusStreamUrl(proto, host) {
  * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
  * - statuses: `{ type: "statuses", statuses: [...] }`
  * - agent_states: `{ type: "agent_states", states: [{ session_id, state }] }`
- * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }] }`（全量スナップショット）
+ * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }], recent: [{ id, request, decision }] }`
+ *   （items: 承認待ちの全量スナップショット、recent: 直近に承認/却下された項目。新しい順）
  * - phrase_notify: `{ type: "phrase_notify", session_id, phrase, workspace }`
  * - phrase_notify_clear: `{ type: "phrase_notify_clear", session_id }`
  * - session_created / session_removed: `{ type, session_id }`（ターミナルセッションの
@@ -28,7 +29,7 @@ export function buildStatusStreamUrl(proto, host) {
  * @param {unknown} raw
  * @returns {{ type: "statuses", statuses: Record<string, any>[] }
  *   | { type: "agent_states", states: { session_id: string, state: string }[] }
- *   | { type: "dispatch_queue", items: { id: string, request: Record<string, any> }[] }
+ *   | { type: "dispatch_queue", items: { id: string, request: Record<string, any> }[], recent: { id: string, request: Record<string, any>, decision: string }[] }
  *   | { type: "phrase_notify", session_id: string, phrase: string, workspace: string | null }
  *   | { type: "phrase_notify_clear", session_id: string }
  *   | { type: "session_created" | "session_removed", session_id: string }
@@ -50,7 +51,7 @@ export function parseStatusStreamMessage(raw) {
     return { type: "agent_states", states: msg.states };
   }
   if (msg.type === "dispatch_queue" && Array.isArray(msg.items)) {
-    return { type: "dispatch_queue", items: msg.items };
+    return { type: "dispatch_queue", items: msg.items, recent: Array.isArray(msg.recent) ? msg.recent : [] };
   }
   if (msg.type === "phrase_notify" && typeof msg.session_id === "string") {
     return { type: "phrase_notify", session_id: msg.session_id, phrase: msg.phrase ?? "", workspace: msg.workspace ?? null };

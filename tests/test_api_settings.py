@@ -205,6 +205,103 @@ class TestNotificationSettings:
         assert res.json()["phrase_notify_grace_sec"] == 20
 
 
+class TestInfoPillSettings:
+    DEFAULTS = {
+        "branch": True,
+        "history": True,
+        "prs": True,
+        "actions": True,
+        "changes": True,
+        "devserver": True,
+        "files": True,
+        "add": True,
+        "order": ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"],
+        "position": "top",
+    }
+
+    def test_get_default(self, client):
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == self.DEFAULTS
+
+    def test_put_and_get(self, client):
+        body = {**self.DEFAULTS, "branch": False, "add": False}
+        res = client.put("/settings/info-pills", headers=AUTH, json=body)
+        assert res.status_code == 200
+        assert res.json()["branch"] is False
+        assert res.json()["add"] is False
+
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.json()["branch"] is False
+        assert res.json()["add"] is False
+        assert res.json()["changes"] is True
+
+    def test_put_rejects_non_bool(self, client):
+        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "branch": "not-a-bool"})
+        assert res.status_code == 422
+
+    def test_get_falls_back_when_config_not_dict(self, client, isolate_fs):
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"info_pills": "broken"}}))
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == self.DEFAULTS
+
+    def test_get_defaults_missing_fields(self, client, isolate_fs):
+        # 過去バージョンの保存分や部分的な保存でも、無い項目はデフォルト(True)にフォールバックする
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"info_pills": {"branch": False}}}))
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.json()["branch"] is False
+        assert res.json()["changes"] is True
+        assert res.json()["order"] == self.DEFAULTS["order"]
+
+    def test_put_and_get_custom_order(self, client):
+        custom_order = ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
+        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "order": custom_order})
+        assert res.status_code == 200
+        assert res.json()["order"] == custom_order
+
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.json()["order"] == custom_order
+
+    def test_put_order_drops_unknown_keys_and_appends_missing(self, client):
+        res = client.put(
+            "/settings/info-pills",
+            headers=AUTH,
+            json={**self.DEFAULTS, "order": ["bogus", "branch", "files"]},
+        )
+        assert res.status_code == 200
+        assert res.json()["order"] == ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
+
+    def test_put_order_dedupes_repeated_keys(self, client):
+        res = client.put(
+            "/settings/info-pills",
+            headers=AUTH,
+            json={**self.DEFAULTS, "order": ["files", "files", "branch"]},
+        )
+        assert res.status_code == 200
+        assert res.json()["order"] == ["files", "branch", "history", "changes", "prs", "actions", "devserver", "add"]
+
+    def test_put_and_get_position(self, client):
+        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "position": "bottom"})
+        assert res.status_code == 200
+        assert res.json()["position"] == "bottom"
+
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.json()["position"] == "bottom"
+
+    def test_put_rejects_invalid_position(self, client):
+        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "position": "left"})
+        assert res.status_code == 422
+
+    def test_get_falls_back_to_default_position_when_invalid(self, client, isolate_fs):
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"info_pills": {"position": "left"}}}))
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.json()["position"] == "top"
+
+
 class TestCircleKeypadSettings:
     def test_get_default(self, client):
         res = client.get("/settings/circle-keypad", headers=AUTH)

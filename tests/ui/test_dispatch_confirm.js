@@ -5,13 +5,14 @@ import { applyDispatchQueue, useDispatchConfirm } from "../../ui/composables/use
 import { on } from "../../ui/app-bridge.js";
 
 const item = (id) => ({ id, request: { workspace: "ws1" } });
+const recentItem = (id, decision) => ({ id, request: { workspace: "ws1" }, decision });
 
 describe("applyDispatchQueue", () => {
-  let queue;
+  let queue, recent;
 
   beforeEach(() => {
     setActivePinia(createPinia());
-    ({ queue } = useDispatchConfirm());
+    ({ queue, recent } = useDispatchConfirm());
     applyDispatchQueue([]);
   });
 
@@ -49,5 +50,19 @@ describe("applyDispatchQueue", () => {
     expect(removedIds).toEqual([]);
 
     off();
+  });
+
+  it("recentItems をそのまま recent に反映する", () => {
+    applyDispatchQueue([], [recentItem("r1", "approved"), recentItem("r2", "rejected")]);
+    expect(recent.value.map((r) => [r.id, r.decision])).toEqual([
+      ["r1", "approved"],
+      ["r2", "rejected"],
+    ]);
+  });
+
+  it("recentItems省略時は recent を空にする", () => {
+    applyDispatchQueue([], [recentItem("r1", "approved")]);
+    applyDispatchQueue([]);
+    expect(recent.value).toEqual([]);
   });
 });

@@ -72,10 +72,12 @@ describe("parseStatusStreamMessage", () => {
     const raw = JSON.stringify({
       type: "dispatch_queue",
       items: [{ id: "d1", request: { workspace: "ws1", text: "echo hi" } }],
+      recent: [{ id: "d0", request: { workspace: "ws1" }, decision: "approved" }],
     });
     expect(parseStatusStreamMessage(raw)).toEqual({
       type: "dispatch_queue",
       items: [{ id: "d1", request: { workspace: "ws1", text: "echo hi" } }],
+      recent: [{ id: "d0", request: { workspace: "ws1" }, decision: "approved" }],
     });
   });
 
@@ -83,6 +85,15 @@ describe("parseStatusStreamMessage", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "dispatch_queue", items: [] }))).toEqual({
       type: "dispatch_queue",
       items: [],
+      recent: [],
+    });
+  });
+
+  it("dispatch_queue の recent が無い/配列でなければ空配列にする", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "dispatch_queue", items: [], recent: {} }))).toEqual({
+      type: "dispatch_queue",
+      items: [],
+      recent: [],
     });
   });
 

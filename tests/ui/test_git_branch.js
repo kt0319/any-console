@@ -11,17 +11,17 @@ describe("normalizeLocalBranches", () => {
 
   it("オブジェクト形式を正規化する", () => {
     const result = normalizeLocalBranches([
-      { name: "main", current: true, ahead: "2", behind: "1", upstream: "origin/main", gone: false },
+      { name: "main", current: true, is_default: true, ahead: "2", behind: "1", upstream: "origin/main", gone: false },
     ]);
     expect(result).toEqual([
-      { name: "main", current: true, remote: false, ahead: 2, behind: 1, upstream: "origin/main", gone: false },
+      { name: "main", current: true, isDefault: true, remote: false, ahead: 2, behind: 1, upstream: "origin/main", gone: false },
     ]);
   });
 
   it("文字列要素はnameとして扱いデフォルト値を補完する", () => {
     const result = normalizeLocalBranches(["feature/x"]);
     expect(result).toEqual([
-      { name: "feature/x", current: false, remote: false, ahead: 0, behind: 0, upstream: null, gone: false },
+      { name: "feature/x", current: false, isDefault: false, remote: false, ahead: 0, behind: 0, upstream: null, gone: false },
     ]);
   });
 

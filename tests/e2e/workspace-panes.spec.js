@@ -79,19 +79,26 @@ test.describe("workspace detail panes", () => {
     await cleanupNewSessions(page, sessionIdsBefore);
   });
 
-  /** Settings → Workspaces → テスト用ワークスペースの詳細を開く */
-  async function openDetail(page) {
-    await openSettingsModal(page);
-    await openSettingsView(page, "Workspaces");
-    await page.locator(".picker-ws-header-label", { hasText: wsName }).click();
+  /** テスト用ワークスペースの詳細を開く。
+   * ワークスペース一覧のワークスペース名クリックはJobsのインライン展開に
+   * なり、詳細モーダルを開くUIボタンは無くなった（Job追加もツールバーの
+   * Add jobへ移動）ため、ディープリンク（?ws=...&pane=...）経由で開く。 */
+  async function openDetail(page, pane = "files") {
+    await page.goto(`/?ws=${encodeURIComponent(wsName)}&pane=${pane}`);
+    const dialog = page.locator(".confirm-dialog");
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    await dialog.locator(".dialog-btn-ok").click();
     await expect(page.locator(".modal-title")).toContainText(wsName, { timeout: 10_000 });
   }
 
   test("git ワークスペースの詳細に各ペインのタブが表示される", async ({ page }) => {
+    // Jobsはワークスペース一覧から開いた時の既定ペインとして残るが、
+    // タブとしては表示しない（詳細内から戻れないようにする）。
     await openDetail(page);
-    for (const label of ["Jobs", "Files", "History", "Changes", "Branches", "Select & Copy"]) {
+    for (const label of ["Files", "History", "Changes", "Branches", "Select & Copy"]) {
       await expect(page.locator(".workspace-tabs").getByRole("button", { name: label })).toBeVisible({ timeout: 10_000 });
     }
+    await expect(page.locator(".workspace-tabs").getByRole("button", { name: "Jobs" })).not.toBeVisible();
   });
 
   test("Files ペインでディレクトリを辿ってファイル内容を表示できる", async ({ page }) => {
@@ -216,27 +223,35 @@ test.describe("workspace detail panes", () => {
     git(wsDir, "checkout", branchName);
   });
 
-  test("Jobs ペインでジョブを追加して実行できる（確認ダイアログあり）", async ({ page }) => {
+  test("ワークスペース一覧のAdd jobでジョブを追加し、インライン展開したJobsから実行できる（確認ダイアログあり）", async ({ page }) => {
     const jobLabel = "E2E Job";
     const jobCommand = "echo job-e2e-$((40+2))";
-    await openDetail(page);
-    // 既定ペインが Jobs。ワークスペース側の Add Job からジョブを作成する
-    await page.locator('button[title="Add Job"]').click();
+
+    // ツールバーのAdd job（Editモード中のみ表示）からJobConfigを開き、
+    // Workspaceスコープのまま対象ワークスペースをプルダウンで選ぶ
+    await openSettingsModal(page);
+    await openSettingsView(page, "Workspaces");
+    await page.locator('[aria-label="Edit workspaces"]').click();
+    await page.locator('[aria-label="Add job"]').click();
     await expect(page.locator(".modal-title")).toHaveText("Add Job", { timeout: 5000 });
+    await page.locator(".ws-settings-row", { hasText: "Workspace" }).locator("select").selectOption(wsName);
     await page.locator('input[placeholder="Display name"]').fill(jobLabel);
     await page.locator(".job-command-input").fill(jobCommand);
     // 新規ジョブは確認なしが既定のため、確認ダイアログ経路を通すためにオンにする
     await page.locator(".form-check-label", { hasText: "Confirm dialog" }).locator("input").check();
     await page.locator("button.primary", { hasText: "Save" }).click();
 
-    // Jobs ペインへ戻り、追加したジョブが並ぶ
-    const jobItem = page.locator(".job-item", { has: page.locator(".job-item-label", { hasText: jobLabel }) });
+    // 一覧へ戻り、ワークスペース名クリックでJobsをインライン展開して確認する
+    await expect(page.locator(".modal-title")).toHaveText("Workspaces", { timeout: 10_000 });
+    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
+    await row.locator(".picker-ws-header-label").click();
+    const jobItem = row.locator(".job-item-row", { has: page.locator(".job-item-label", { hasText: jobLabel }) });
     await expect(jobItem).toBeVisible({ timeout: 10_000 });
 
     // 実行 → 確認ダイアログ（コマンドプレビュー付き）→ OK でターミナルが開き実行される
     const tabs = page.locator(".tab-btn");
     const tabCountBefore = await tabs.count();
-    await jobItem.click();
+    await jobItem.locator(".job-item").click();
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText(jobLabel);

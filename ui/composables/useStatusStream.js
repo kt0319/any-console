@@ -55,7 +55,7 @@ export function useStatusStream() {
       } else if (msg?.type === "agent_states") {
         terminalStore.applyAgentStates(msg.states);
       } else if (msg?.type === "dispatch_queue") {
-        applyDispatchQueue(msg.items);
+        applyDispatchQueue(msg.items, msg.recent);
       } else if (msg?.type === "phrase_notify") {
         terminalStore.markPhraseNotify(msg.session_id);
       } else if (msg?.type === "phrase_notify_clear") {

@@ -1,12 +1,6 @@
 <template>
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
-      <div class="job-section-header">
-        <span>Common jobs</span>
-        <button type="button" class="job-section-add-btn" title="Add Common Job" @click="startAddJob(true)">
-          <span class="mdi mdi-plus"></span>
-        </button>
-      </div>
       <div class="job-item-row">
         <button type="button" class="job-item" @click="openTerminal">
           <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
@@ -24,16 +18,13 @@
           <span class="job-item-label">{{ job.label || job.name }}</span>
           <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
-        <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
+        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
 
-      <div class="job-section-header">
+      <div v-if="localJobs.length" class="job-section-header job-section-subheader">
         <span>Workspace jobs</span>
-        <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
-          <span class="mdi mdi-plus"></span>
-        </button>
       </div>
       <div
         v-for="job in localJobs"
@@ -46,7 +37,7 @@
           <span class="job-item-label">{{ job.label || job.name }}</span>
           <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
-        <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
+        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
@@ -66,6 +57,15 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 import { openExternalUrl } from "../utils/open-external.js";
 
+const props = defineProps({
+  // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と
+  // 独立して表示したい場合に指定する。省略時は従来通り selectedWorkspace に従う。
+  workspace: { type: String, default: null },
+  // ワークスペース一覧のEditモードと連動させ、各Jobの編集ボタンを
+  // Editモード中だけ表示する（誤操作しやすい操作を通常表示から分離する）。
+  editMode: { type: Boolean, default: false },
+});
+
 const pushView = inject("pushView");
 
 // common jobs は全ワークスペース共通・変更頻度が低いためモジュール単位で1回だけ保持する。
@@ -81,7 +81,7 @@ const { confirm } = useConfirm();
 const commonJobs = ref([]);
 const localJobs = ref([]);
 
-const workspace = computed(() => workspaceStore.selectedWorkspace);
+const workspace = computed(() => props.workspace || workspaceStore.selectedWorkspace);
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
 );
@@ -155,17 +155,6 @@ async function runJob(job) {
     detached: !!job.detached_tab,
   });
   emit("modal:close");
-}
-
-function startAddJob(isCommon) {
-  const wsName = workspace.value;
-  if (!wsName) return;
-  pushView("JobConfig", {
-    workspaceName: wsName,
-    isCommon,
-    jobEntry: null,
-    onReturn: () => emit("jobs:refresh"),
-  });
 }
 
 function startEditJob(job, isCommon) {
@@ -271,10 +260,17 @@ defineExpose({ load });
   border-top: none;
 }
 
+.job-section-subheader {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: transparent;
+}
+
 .job-section-add-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto;
   width: 20px;
   height: 20px;
   padding: 0;
