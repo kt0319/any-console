@@ -121,22 +121,23 @@ export function useSessionSync() {
 
   async function syncSessionsFromServer() {
     try {
-      const [sessionsRes, jobsRes] = await Promise.all([
-        auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null),
-        auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null),
-      ]);
+      const sessionsRes = await auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null);
       if (!sessionsRes || !sessionsRes.ok) return;
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions)) return;
 
-      const allJobs = await _loadAllJobs(jobsRes, sessions);
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
       const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
+      // 他端末からのセッション追加など、ローカルにまだ無いセッションが実際にある
+      // ときだけ /jobs/workspaces を叩く（毎ポーリングで無条件に叩くと、変化が無い
+      // 大半のポーリングでも common jobs のマージが常時発生してしまうため）。
+      const newSessions = sessions.filter((s) =>
+        !s.detached && !terminalStore.pendingCloseSessionIds.has(s.session_id) && !localSessionIds.has(s.session_id),
+      );
 
-      for (const s of sessions) {
-        if (s.detached) continue;
-        if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
-        if (!localSessionIds.has(s.session_id)) {
+      if (newSessions.length) {
+        const allJobs = await _loadAllJobs(null, newSessions);
+        for (const s of newSessions) {
           const tab = terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
           // interactive=false（外部ツールから /run を直接叩いた等、UIの操作を
           // 経由していないセッション）だけタブバーから隠す。UIの「+」等で別の
