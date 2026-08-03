@@ -22,6 +22,28 @@
         </button>
       </li>
     </ul>
+
+    <template v-if="recent.length">
+      <div class="settings-section-label dispatch-queue-recent-label">Recently executed</div>
+      <ul class="dispatch-queue-list">
+        <li v-for="item in recent" :key="item.id" class="dispatch-queue-row">
+          <span
+            class="dispatch-queue-row-main dispatch-queue-recent-row"
+            :class="item.decision === 'approved' ? 'dispatch-queue-recent-approved' : 'dispatch-queue-recent-rejected'"
+          >
+            <span class="dispatch-queue-recent-head">
+              <span class="mdi" :class="item.decision === 'approved' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
+              <span class="dispatch-queue-ws">{{ item.request.effective_workspace || item.request.workspace }}</span>
+            </span>
+            <span class="dispatch-queue-meta">
+              <span v-if="item.request.job && item.request.job !== 'terminal'">{{ item.request.job }}</span>
+              <span v-if="item.request.branch">{{ item.request.branch }}</span>
+            </span>
+            <span v-if="item.request.text" class="dispatch-queue-text">{{ item.request.text }}</span>
+          </span>
+        </li>
+      </ul>
+    </template>
   </div>
 </template>
 
@@ -38,7 +60,7 @@ const pushView = inject("pushView");
 // 画面遷移は自動で行わず、一覧内でハイライトするだけに留める。
 const highlightId = viewState?.value?.dispatchId ?? null;
 
-const { queue } = useDispatchConfirm();
+const { queue, recent } = useDispatchConfirm();
 </script>
 
 <style scoped>
@@ -125,5 +147,37 @@ const { queue } = useDispatchConfirm();
   .dispatch-queue-row-main:hover {
     border-color: var(--accent);
   }
+}
+
+.dispatch-queue-recent-label {
+  margin-top: 16px;
+}
+
+/* 直近の決定項目はもう操作対象ではない（クリックでRunViewを開けない）ため、
+   カーソルは変えず、承認/却下が一目で分かるようアイコン+枠線色で示す。 */
+.dispatch-queue-recent-row {
+  cursor: default;
+}
+
+.dispatch-queue-recent-approved {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+}
+
+.dispatch-queue-recent-rejected {
+  opacity: 0.7;
+}
+
+.dispatch-queue-recent-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dispatch-queue-recent-approved .dispatch-queue-recent-head .mdi {
+  color: var(--success);
+}
+
+.dispatch-queue-recent-rejected .dispatch-queue-recent-head .mdi {
+  color: var(--text-muted);
 }
 </style>

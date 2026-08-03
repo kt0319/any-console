@@ -14,12 +14,14 @@ from api.routers import dispatch as dispatch_mod
 @pytest.fixture(autouse=True)
 def _clear_pending():
     dispatch_mod._PENDING.clear()
+    dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
     # テストごとにイベントループが変わるため、前のループのワーカータスク参照を破棄する
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
     yield
     dispatch_mod._PENDING.clear()
+    dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
@@ -51,7 +53,7 @@ class TestQueueBroadcast:
             await dispatch_mod._broadcast_task
 
         asyncio.run(run())
-        assert ws.sent == [{"type": "dispatch_queue", "items": []}]
+        assert ws.sent == [{"type": "dispatch_queue", "items": [], "recent": []}]
         dispatch_mod.unsubscribe(ws)
 
     def test_subscribe_sends_pending_items(self):
@@ -66,6 +68,7 @@ class TestQueueBroadcast:
         assert ws.sent == [{
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+            "recent": [],
         }]
 
     def test_broadcast_reaches_all_subscribers(self):
@@ -82,6 +85,7 @@ class TestQueueBroadcast:
         expected = {
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+            "recent": [],
         }
         assert ws1.sent[-1] == expected
         assert ws2.sent[-1] == expected
@@ -137,6 +141,7 @@ class TestQueueBroadcast:
         assert ws.sent[-1] == {
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+            "recent": [],
         }
 
     def test_schedule_broadcast_coalesces_to_latest_snapshot(self):
@@ -155,7 +160,7 @@ class TestQueueBroadcast:
 
         asyncio.run(run())
         assert ws.sent == [
-            {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}]},
+            {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}], "recent": []},
         ]
 
     def test_schedule_during_send_rebroadcasts_latest(self):
@@ -181,6 +186,6 @@ class TestQueueBroadcast:
 
         asyncio.run(run())
         assert sent == [
-            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}]},
-            {"type": "dispatch_queue", "items": []},
+            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}], "recent": []},
+            {"type": "dispatch_queue", "items": [], "recent": []},
         ]
