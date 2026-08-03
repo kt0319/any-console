@@ -32,7 +32,7 @@
             v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
           ></span>
           <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
-          <span v-if="peekingKey === 'changes'" class="pill-peek-text">
+          <span v-if="peekingKey === 'changes'" class="pill-peek-text pill-peek-changes-group">
             <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
             <span class="pill-peek-changes-plus">+{{ insertions }}</span>
             <span class="pill-peek-changes-minus">-{{ deletions }}</span>
@@ -41,7 +41,12 @@
             {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span>
           </span>
           <span v-else-if="peekingKey === 'history'" class="pill-peek-text pill-peek-marquee">
-            <span class="pill-peek-marquee-text" :style="{ animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' }">{{ peekText }}</span>
+            <span
+              ref="historyMarqueeTextEl"
+              class="pill-peek-marquee-text"
+              :class="{ 'pill-peek-marquee-run': historyMarqueeRun }"
+              :style="historyMarqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' } : null"
+            >{{ peekText }}</span>
           </span>
           <span v-else class="pill-peek-text">{{ peekText }}</span>
         </div>
@@ -695,6 +700,24 @@ const peekText = computed(() => {
   }
 });
 
+// Historyのコミットメッセージがピル幅に収まっている時はマーキーで流さない
+// （収まっているのに動かすと落ち着かないため）。収まらない時だけ、末尾
+// （メッセージの最後）が見えたところで止める1回きりのスクロールにする
+// （下記 .pill-peek-marquee-run、infiniteループはしない）。
+const historyMarqueeRun = ref(false);
+const historyMarqueeTextEl = ref(null);
+watch(
+  () => (peekingKey.value === "history" ? peekText.value : null),
+  async (text) => {
+    if (!text) { historyMarqueeRun.value = false; return; }
+    historyMarqueeRun.value = false;
+    await nextTick();
+    const el = historyMarqueeTextEl.value;
+    const container = el?.parentElement;
+    historyMarqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
+  },
+);
+
 // ワークスペースピル本体のタップ/クリックは Jobs/Files ペインを直接開く。
 function activatePill() {
   if (props.tab.workspace) {
@@ -1069,13 +1092,27 @@ defineExpose({
 
 .pill-peek-marquee-text {
   display: inline-block;
+}
+
+/* ピル幅に収まらない時だけ付与する（script側でscrollWidth実測）。ループ
+   させず、メッセージの末尾が見えたところで止める1回きりのスクロール。 */
+.pill-peek-marquee-text.pill-peek-marquee-run {
   padding-left: 100%;
-  animation: pill-peek-scroll 8s linear infinite;
+  animation: pill-peek-scroll linear 1 forwards;
 }
 
 @keyframes pill-peek-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
+}
+
+/* テンプレート上は改行区切りで並べているため、そのままだとVueの
+   whitespace condenseでタグ間の空白が消えて詰まって見える。
+   inline-flex+gapで区切りを入れる。 */
+.pill-peek-changes-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に
