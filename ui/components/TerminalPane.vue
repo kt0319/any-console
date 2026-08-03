@@ -670,17 +670,19 @@ const peekIconClass = computed(() => {
   }
 });
 
-// 対応する通常ピルのアイコン色と揃える。
+// 対応する通常ピルのアイコン色と揃える。branch/actionsはアイコンだけ状態色にし、
+// テキストは通常色（白）のまま読みやすく保つ（pill-peek-icon-only。history/
+// changes/prsはテキストごと色付けする従来通りの挙動）。
 const peekColorClass = computed(() => {
   switch (peekingKey.value) {
     case "history": return "pill-peek-pink";
     case "changes": return "pill-peek-warning";
     case "prs": return "pill-peek-purple";
-    case "branch": return isNonDefaultBranch.value ? "pill-peek-success" : "";
+    case "branch": return isNonDefaultBranch.value ? ["pill-peek-success", "pill-peek-icon-only"] : "";
     case "actions":
-      if (isBranchActionSuccess.value) return "pill-peek-success";
-      if (actionStatusClass.value === "action-status-failure") return "pill-peek-error";
-      if (actionStatusClass.value === "action-status-running") return "pill-peek-warning";
+      if (isBranchActionSuccess.value) return ["pill-peek-success", "pill-peek-icon-only"];
+      if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];
+      if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
       return "";
     default: return "";
   }
@@ -695,7 +697,7 @@ const peekText = computed(() => {
     case "history": return (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim() || "History";
     case "prs": return branchPR.value ? `#${branchPR.value.number} ${branchPR.value.title}` : "";
     case "actions": return branchAction.value
-      ? `${branchAction.value.name} (${branchAction.value.conclusion || branchAction.value.status})`
+      ? `[${branchAction.value.name}] ${branchAction.value.conclusion || branchAction.value.status}`
       : "";
     case "devserver": return "Server";
     case "add": return "Add";
@@ -1080,6 +1082,15 @@ defineExpose({
 .pill-peek-success .pill-peek-text { color: var(--success); }
 .pill-peek-error .pill-peek-icon,
 .pill-peek-error .pill-peek-text { color: var(--error); }
+
+/* branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）のまま
+   読みやすく保つ（history/changes/prsはテキストごと色付けするため対象外）。
+   上の .pill-peek-xxx .pill-peek-text ルールより詳細度を上げて上書きする。 */
+.pill-peek-icon-only.pill-peek-success .pill-peek-text,
+.pill-peek-icon-only.pill-peek-warning .pill-peek-text,
+.pill-peek-icon-only.pill-peek-error .pill-peek-text {
+  color: var(--text-secondary);
+}
 
 .pill-peek-text {
   min-width: 0;
