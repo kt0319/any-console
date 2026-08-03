@@ -18,14 +18,14 @@
         :style="pillDragging ? { transform: `translateY(${dragOffsetY}px)` } : null"
         ref="pillEl"
       >
-        <div v-if="peekingKey" class="pill-peek-wide" :class="peekColorClass">
+        <div v-if="peekingKey" :key="peekingKey" class="pill-peek-wide" :class="peekColorClass">
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
             class="pill-peek-icon-slot"
             v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
           ></span>
           <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
-          <span class="pill-peek-marquee"><span class="pill-peek-marquee-text" :style="{ animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' }">{{ peekText }}</span></span>
+          <span class="pill-peek-text">{{ peekText }}</span>
         </div>
         <template v-else>
         <div
@@ -1035,7 +1035,8 @@ defineExpose({
 /* 値が変化した時、ピル群全体をこの1本の長いピルに差し替えて表示する
    （.pill-group の直接の子として peekingKey === null の間の内容と排他）。
    幅は .pill-group の max-width（min(80vw,450px)）に収まる範囲で内容に
-   合わせ、収まらない文字列（コミットメッセージ等）はマーキーで流す。 */
+   合わせ、収まらない文字列（コミットメッセージ等）は省略記号で切る。
+   ピル自体を右から左へスライドインさせて登場を知らせる。 */
 .pill-peek-wide {
   display: inline-flex;
   align-items: center;
@@ -1048,6 +1049,12 @@ defineExpose({
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 13px;
+  animation: pill-peek-slide-in 0.25s ease-out;
+}
+
+@keyframes pill-peek-slide-in {
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 .pill-peek-icon,
@@ -1063,23 +1070,12 @@ defineExpose({
 .pill-peek-success .pill-peek-icon { color: var(--success); }
 .pill-peek-error .pill-peek-icon { color: var(--error); }
 
-.pill-peek-marquee {
-  display: block;
+.pill-peek-text {
   min-width: 0;
   max-width: 260px;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.pill-peek-marquee-text {
-  display: inline-block;
-  padding-left: 100%;
-  animation: pill-peek-scroll 8s linear infinite;
-}
-
-@keyframes pill-peek-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
 }
 
 /* .pill-group（flex行）の直接の子。width を JS 実測値へ animate するクリップ用
