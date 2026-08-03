@@ -99,8 +99,7 @@
                 <button v-if="item.ws.is_git_repo && item.ws.clean === false && !isEditMode" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
                 <template v-if="item.ws.is_git_repo && !isEditMode">
                   <GitActionBtn v-if="item.ws.behind > 0" icon="pull" title="Pull" :count="item.ws.behind" :running="isRunning(item.ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(item.ws, 'pull')" />
-                  <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
-                  <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
+                  <GitActionBtn v-if="item.ws.ahead > 0" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, pushActionFor(item.ws))" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, pushActionFor(item.ws))" />
                 </template>
                 <template v-if="isEditMode">
                   <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
@@ -278,6 +277,10 @@ function toggleGroup(groupId) {
 
 function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
+}
+
+function pushActionFor(ws) {
+  return ws.has_upstream === false ? "push-upstream" : "push";
 }
 
 const isLoading = ref(false);
@@ -660,12 +663,6 @@ onBeforeUnmount(() => {
   color: var(--warning);
   background: rgba(238, 166, 68, 0.15);
   border-color: rgba(238, 166, 68, 0.3);
-}
-
-.picker-ws-mini-btn.upstream-btn {
-  color: var(--success);
-  background: rgba(120, 200, 140, 0.15);
-  border-color: rgba(120, 200, 140, 0.3);
 }
 
 .picker-ws-mini-btn.running {

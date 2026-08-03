@@ -77,11 +77,11 @@
             />
             <GitActionBtn
               v-if="canPush(branch)"
-              :icon="branch.upstream ? 'push' : 'push-upstream'"
+              icon="push"
               title="Push"
               :count="branch.ahead || null"
               :running="isPushing(branch)"
-              :btn-class="branch.upstream ? 'push-btn has-count' : 'upstream-btn'"
+              btn-class="push-btn has-count"
               @action="pushBranch(branch)"
             />
             <button

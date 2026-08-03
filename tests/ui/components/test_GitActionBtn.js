@@ -15,11 +15,6 @@ describe("GitActionBtn", () => {
     expect(wrapper.find("svg").exists()).toBe(true);
   });
 
-  it("push-upstream アイコンを描画する", () => {
-    const wrapper = mount(GitActionBtn, { props: { icon: "push-upstream" } });
-    expect(wrapper.find("svg").exists()).toBe(true);
-  });
-
   it("count が渡されると件数を表示する", () => {
     const wrapper = mount(GitActionBtn, { props: { icon: "pull", count: 3 } });
     expect(wrapper.find(".git-action-count").text()).toBe("3");

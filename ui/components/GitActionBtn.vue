@@ -10,7 +10,6 @@
   >
     <svg v-if="icon === 'pull'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
     <svg v-else-if="icon === 'push'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-    <svg v-else-if="icon === 'push-upstream'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 16 12 10 18 16"/><polyline points="6 10 12 4 18 10"/></svg>
     <svg v-else-if="icon === 'set-upstream'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
     <span v-if="count != null" class="git-action-count">{{ count }}</span>
   </button>
@@ -82,12 +81,6 @@ defineEmits(["action"]);
   color: var(--warning);
   background: var(--warning-bg-20);
   border: 1px solid rgba(238, 166, 68, 0.3);
-}
-
-.git-action-btn.upstream-btn {
-  color: var(--success);
-  background: var(--success-bg-20);
-  border: 1px solid rgba(120, 200, 140, 0.3);
 }
 
 .git-action-btn.running {
