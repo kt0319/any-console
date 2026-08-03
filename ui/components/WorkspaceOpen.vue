@@ -486,7 +486,8 @@ onBeforeUnmount(() => {
 }
 
 .picker-ws-jobs-inline {
-  margin: 0 12px 8px;
+  margin: 0 12px 8px 28px;
+  border-left: 2px solid var(--border);
   overflow: hidden;
 }
 
