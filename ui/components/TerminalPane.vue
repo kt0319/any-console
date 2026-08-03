@@ -61,7 +61,7 @@
               <button
                 v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
-                class="pill-chip pill-devserver-btn"
+                class="pill-chip pill-devserver-btn pill-files-btn"
                 :aria-label="filesTooltip"
                 :data-tooltip="filesTooltip"
                 @pointerdown.stop
@@ -142,7 +142,7 @@
               <button
                 v-else-if="key === 'add' && !isGitRepo && tab.sessionId && infoPillConfig.add"
                 type="button"
-                class="pill-chip pill-devserver-btn"
+                class="pill-chip pill-devserver-btn pill-add-btn"
                 aria-label="Add or open this directory as a workspace"
                 data-tooltip="Add or open this directory as a workspace"
                 @pointerdown.stop
@@ -1303,6 +1303,16 @@ defineExpose({
   color: var(--pink);
 }
 
+.pill-files-btn .mdi {
+  color: var(--teal);
+}
+
+/* Add/OpenはGitリポジトリでない端末にしか出ず、Changes（.pill-numstat-btn）
+   とは表示条件が排他のため同じ色を使い回しても衝突しない。 */
+.pill-add-btn .mdi {
+  color: #f5a623;
+}
+
 /* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。
    成功runはvisibleBranchActionで非表示になるため、ここは失敗・進行中のみ。 */
 .pill-devserver-btn.action-status-failure .mdi {
@@ -1344,7 +1354,7 @@ defineExpose({
 .pill-branch-btn .mdi {
   flex-shrink: 0;
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--accent);
 }
 
 /* defaultブランチ以外にいる時はアイコンをアクティブ色にして気付きやすくする。 */
@@ -1368,7 +1378,7 @@ defineExpose({
   font-size: 13px;
 }
 
-/* .pill-branch-btn .mdi の color:var(--text-muted) は直接指定のため継承では
+/* .pill-branch-btn .mdi の color は直接指定のため継承では
    上書きできない。矢印アイコン自体にも同じ色を明示する。 */
 .pill-branch-count.push-count,
 .pill-branch-count.push-count .mdi {
