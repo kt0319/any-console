@@ -685,6 +685,7 @@ const peekColorClass = computed(() => {
       if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];
       if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
       return "";
+    case "devserver": return "pill-peek-accent";
     default: return "";
   }
 });
@@ -1099,6 +1100,9 @@ defineExpose({
 .pill-peek-success .pill-peek-text { color: var(--success); }
 .pill-peek-error .pill-peek-icon,
 .pill-peek-error .pill-peek-text { color: var(--error); }
+/* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
+   使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
+.pill-peek-accent .pill-peek-icon { color: var(--accent); }
 
 /* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
    のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
