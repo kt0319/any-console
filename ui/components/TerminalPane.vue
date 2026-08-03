@@ -18,8 +18,13 @@
         :style="pillDragging ? { transform: `translateY(${dragOffsetY}px)` } : null"
         ref="pillEl"
       >
-        <Transition :name="peekTransitionName" mode="out-in">
-        <div v-if="peekingKey" :key="peekingKey" class="pill-peek-wide" :class="peekColorClass">
+        <Transition name="pill-swap" mode="out-in">
+        <div
+          v-if="peekingKey"
+          :key="peekingKey"
+          class="pill-peek-wide"
+          :class="[peekColorClass, { 'pill-peek-wide-max': peekingKey === 'history' }]"
+        >
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
             class="pill-peek-icon-slot"
@@ -33,6 +38,9 @@
           </span>
           <span v-else-if="peekingKey === 'branch'" class="pill-peek-text">
             {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span>
+          </span>
+          <span v-else-if="peekingKey === 'history'" class="pill-peek-text pill-peek-marquee">
+            <span class="pill-peek-marquee-text" :style="{ animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' }">{{ peekText }}</span>
           </span>
           <span v-else class="pill-peek-text">{{ peekText }}</span>
         </div>
@@ -658,13 +666,6 @@ const peekColorClass = computed(() => {
   }
 });
 
-// 通常ピル⇔peekピルの切替アニメーションの向き。ピル群が画面上部にある時は
-// 通常ピルを上へフェードアウトさせ、peekピルは下から現れるように、画面下部
-// にある時はその逆（通常ピルは下へ、peekピルは上から）にする。
-const peekTransitionName = computed(() =>
-  infoPillConfig.position === "bottom" ? "pill-swap-bottom" : "pill-swap-top",
-);
-
 // History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。
 // changes/branch は複数トーンの色分け表示のためテンプレート側で直接組み立てる
 // ので、ここでは対象外（他のキーのみ扱う）。
@@ -995,10 +996,10 @@ defineExpose({
 
 /* .pill-trailing（展開ボタン群）と peekピルは Transition(mode="out-in") の
    1つの子として .pill-group 内の同じ位置（ワークスペースピルの左隣）で
-   排他的に表示され、切替時は通常ピルがフェードアウトしてから peekピルが
-   フェードインする（下記 pill-swap-top / pill-swap-bottom の transition
-   クラス）。ワークスペースピル本体・閉じるボタンはこの Transition の外
-   （.pill-group の直接の flex子）にあり、常に位置が固定される。
+   排他的に表示され、切替時は通常ピルが左へフェードアウトしてから peekピルが
+   右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
+   ピル本体・閉じるボタンはこの Transition の外（.pill-group の直接の
+   flex子）にあり、常に位置が固定される。
    値が変化した時に表示する peekピルの幅は .pill-group の max-width
    （min(80vw,450px)）に収まる範囲で内容に合わせ、収まらない文字列
    （コミットメッセージ等）は省略記号で切る。 */
@@ -1014,6 +1015,13 @@ defineExpose({
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+/* Historyのコミットメッセージは長くなりがちなため、ピル自体を .pill-group
+   の上限幅いっぱいまで広げ、収まらない分はマーキーで流す（下記
+   .pill-peek-marquee）。 */
+.pill-peek-wide-max {
+  width: min(80vw, 450px);
 }
 
 .pill-peek-icon,
@@ -1042,6 +1050,22 @@ defineExpose({
   white-space: nowrap;
 }
 
+.pill-peek-marquee {
+  flex: 1;
+  max-width: none;
+}
+
+.pill-peek-marquee-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: pill-peek-scroll 8s linear infinite;
+}
+
+@keyframes pill-peek-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
 /* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に
    合わせて個別に色分けする（通常ピルの数字バッジ・Push/Pullカウントと
    同じ配色に揃える）。 */
@@ -1065,20 +1089,15 @@ defineExpose({
   color: var(--warning);
 }
 
-/* ピル群が画面上部にある時: 通常ピルは上へフェードアウト、peekピルは
-   下から現れる。下部にある時はその逆（通常ピルは下へ、peekピルは上から）。 */
-.pill-swap-top-enter-active,
-.pill-swap-top-leave-active,
-.pill-swap-bottom-enter-active,
-.pill-swap-bottom-leave-active {
+/* 通常ピルは左へフェードアウトし、peekピルは右（ワークスペースピル側）
+   から現れる。 */
+.pill-swap-enter-active,
+.pill-swap-leave-active {
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.pill-swap-top-leave-to { transform: translateY(-8px); opacity: 0; }
-.pill-swap-top-enter-from { transform: translateY(8px); opacity: 0; }
-
-.pill-swap-bottom-leave-to { transform: translateY(8px); opacity: 0; }
-.pill-swap-bottom-enter-from { transform: translateY(-8px); opacity: 0; }
+.pill-swap-leave-to { transform: translateX(-10px); opacity: 0; }
+.pill-swap-enter-from { transform: translateX(10px); opacity: 0; }
 
 /* Transition(mode="out-in") の1つの子として peekピルと排他的に表示される
    展開ボタン群のコンテナ。ボタンの出現/消失や幅の変化はアニメーションせず
