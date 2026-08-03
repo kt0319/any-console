@@ -18,6 +18,7 @@
         :style="pillDragging ? { transform: `translateY(${dragOffsetY}px)` } : null"
         ref="pillEl"
       >
+        <Transition :name="peekTransitionName" mode="out-in">
         <div v-if="peekingKey" :key="peekingKey" class="pill-peek-wide" :class="peekColorClass">
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
@@ -25,16 +26,23 @@
             v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
           ></span>
           <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
-          <span class="pill-peek-text">{{ peekText }}</span>
+          <span v-if="peekingKey === 'changes'" class="pill-peek-text">
+            <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
+            <span class="pill-peek-changes-plus">+{{ insertions }}</span>
+            <span class="pill-peek-changes-minus">-{{ deletions }}</span>
+          </span>
+          <span v-else-if="peekingKey === 'branch'" class="pill-peek-text">
+            {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span>
+          </span>
+          <span v-else class="pill-peek-text">{{ peekText }}</span>
         </div>
-        <template v-else>
         <div
+          v-else
+          key="normal"
           class="pill-trailing"
-          ref="trailingEl"
-          :class="{ 'no-transition': suppressTrailingWidthTransition }"
-          :style="{ width: trailingWidth + 'px', maxWidth: trailingMaxWidth + 'px' }"
+          :style="{ maxWidth: trailingMaxWidth + 'px' }"
         >
-          <div class="pill-trailing-inner" ref="trailingInnerEl">
+          <div class="pill-trailing-inner">
               <template v-for="key in infoPillConfig.order" :key="key">
               <button
                 v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
@@ -129,63 +137,60 @@
                 <span class="mdi mdi-folder-plus-outline"></span>
               </button>
               </template>
-            </div>
           </div>
-          <!-- ワークスペースピル本体・閉じるボタンは .pill-trailing（overflow-x:
-               auto でクリップされ得る幅アニメーション用コンテナ）の外、
-               .pill-group の直接の flex子として常時表示する。こうすると
-               アニメーション中や多ボタン時の横スクロール領域とは無関係になり、
-               クリップされて欠けることが無い。並び順は「展開ボタン群→
-               ワークスペースピル→閉じるボタン」で固定し、ワークスペースピルは
-               常に右端（閉じるボタンの左隣）に来る。
-               .pill-group 自体は right が固定値（JS計算なし）の flex コンテナ
-               なので、常にブラウザ標準のflexレイアウトで画面内に正しく収まる
-               （オフセット計算のズレで見切れる/崩れることが無い）。 -->
-          <div
-            class="terminal-info-pill"
-            ref="infoPillEl"
-            :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
-            :data-tooltip="pillTooltip"
-            :aria-label="pillTooltip"
-            role="button"
-            tabindex="0"
-            @mousedown="onPillMouseDown"
-            @click="onPillClick"
-            @keydown="onPillKeydown"
-            @touchstart.passive="onPillTouchStart"
-          >
-            <span class="terminal-info-pill-info">
-              <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
-                <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
-                <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-              </span>
-              <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
-                <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
-                <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-              </span>
+        </div>
+        </Transition>
+        <!-- ワークスペースピル本体・閉じるボタンは peekingKey の有無に関わらず
+             .pill-group の直接の flex子として常時固定表示する。peekピルは
+             上の Transition 内で .pill-trailing の位置（＝ワークスペースピル
+             の左隣）にだけ差し込まれ、ワークスペースピル・閉じるボタンの
+             位置は動かない。並び順は「展開ボタン群/peekピル→ワークスペース
+             ピル→閉じるボタン」で固定し、ワークスペースピルは常に右端
+             （閉じるボタンの左隣）に来る。 -->
+        <div
+          class="terminal-info-pill"
+          ref="infoPillEl"
+          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
+          :data-tooltip="pillTooltip"
+          :aria-label="pillTooltip"
+          role="button"
+          tabindex="0"
+          @mousedown="onPillMouseDown"
+          @click="onPillClick"
+          @keydown="onPillKeydown"
+          @touchstart.passive="onPillTouchStart"
+        >
+          <span class="terminal-info-pill-info">
+            <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
+              <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
+              <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-          </div>
-          <button
-            v-if="layoutStore.isSplitMode"
-            type="button"
-            class="pill-close-btn pill-minus-btn"
-            aria-label="Remove from split"
-            data-tooltip="Remove from split"
-            @pointerdown.stop="onSplitCloseDown"
-            @pointerup.stop="onSplitCloseUp"
-            @click.stop
-          ><span class="mdi mdi-minus"></span></button>
-          <button
-            v-if="!layoutStore.isSplitMode"
-            type="button"
-            class="pill-close-btn pill-tab-close-btn"
-            aria-label="Close tab"
-            data-tooltip="Close tab"
-            @pointerdown.stop="onTabCloseDown"
-            @pointerup.stop="onTabCloseUp"
-            @click.stop
-          ><span class="mdi mdi-close"></span></button>
-        </template>
+            <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
+              <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
+              <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+            </span>
+          </span>
+        </div>
+        <button
+          v-if="layoutStore.isSplitMode"
+          type="button"
+          class="pill-close-btn pill-minus-btn"
+          aria-label="Remove from split"
+          data-tooltip="Remove from split"
+          @pointerdown.stop="onSplitCloseDown"
+          @pointerup.stop="onSplitCloseUp"
+          @click.stop
+        ><span class="mdi mdi-minus"></span></button>
+        <button
+          v-if="!layoutStore.isSplitMode"
+          type="button"
+          class="pill-close-btn pill-tab-close-btn"
+          aria-label="Close tab"
+          data-tooltip="Close tab"
+          @pointerdown.stop="onTabCloseDown"
+          @pointerup.stop="onTabCloseUp"
+          @click.stop
+        ><span class="mdi mdi-close"></span></button>
       </div>
     </div>
   </div>
@@ -414,8 +419,6 @@ const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
 const infoPillEl = ref(null);
-const trailingEl = ref(null);
-const trailingInnerEl = ref(null);
 let activeFitTimer = null;
 
 // 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
@@ -655,20 +658,20 @@ const peekColorClass = computed(() => {
   }
 });
 
-// マーキー表示するテキスト本体。History はもう10文字に切り詰めない
-// （マーキーが横スクロールして全文を流すため）。
+// 通常ピル⇔peekピルの切替アニメーションの向き。ピル群が画面上部にある時は
+// 通常ピルを上へフェードアウトさせ、peekピルは下から現れるように、画面下部
+// にある時はその逆（通常ピルは下へ、peekピルは上から）にする。
+const peekTransitionName = computed(() =>
+  infoPillConfig.position === "bottom" ? "pill-swap-bottom" : "pill-swap-top",
+);
+
+// History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。
+// changes/branch は複数トーンの色分け表示のためテンプレート側で直接組み立てる
+// ので、ここでは対象外（他のキーのみ扱う）。
 const peekText = computed(() => {
   switch (peekingKey.value) {
     case "files": return "Files";
     case "history": return (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim() || "History";
-    case "changes": return `${changedFiles.value}F +${insertions.value} -${deletions.value}`;
-    case "branch": {
-      const branch = paneWorkspace.value?.branch || "";
-      const marks = [];
-      if (ahead.value > 0) marks.push(`↑${ahead.value}`);
-      if (behind.value > 0) marks.push(`↓${behind.value}`);
-      return marks.length ? `${branch} ${marks.join(" ")}` : branch;
-    }
     case "prs": return branchPR.value ? `#${branchPR.value.number} ${branchPR.value.title}` : "";
     case "actions": return visibleBranchAction.value
       ? `${visibleBranchAction.value.name} (${visibleBranchAction.value.conclusion || visibleBranchAction.value.status})`
@@ -678,25 +681,6 @@ const peekText = computed(() => {
     case "workspace": return props.tab.workspace || props.tab.label || "";
     default: return "";
   }
-});
-
-// .pill-trailing（Dev Server/Changes/Branches等、可変ボタン群のクリップ用
-// コンテナ）の width を、中身の実測幅（.pill-trailing-inner の content サイズ）
-// へ滑らかに animate する。.pill-group 自体は right が固定値の flex コンテナ
-// なので、この width が変化するだけで pill-group 全体が自然に左右へ伸縮し、
-// JS でのオフセット計算は一切不要（閉じるボタンの位置ズレ・見切れの原因に
-// なっていた計算をまるごと廃止した）。
-const trailingWidth = ref(0);
-let roTrailing = null;
-
-watch(trailingInnerEl, (el) => {
-  roTrailing?.disconnect();
-  roTrailing = null;
-  if (!el) return;
-  roTrailing = new ResizeObserver((entries) => {
-    for (const e of entries) trailingWidth.value = e.contentRect.width;
-  });
-  roTrailing.observe(el);
 });
 
 // ワークスペースピル本体のタップ/クリックは Jobs/Files ペインを直接開く。
@@ -740,27 +724,6 @@ const isActive = computed(() => {
     return layoutStore.activePaneIndex === props.paneIndex;
   }
   return terminalStore.activeTabId === props.tab.id;
-});
-
-// v-show で非表示（display:none）の間、pill-trailing の ResizeObserver は幅を
-// 0 として報告する。タブ切り替えで再表示された直後に実測幅へ戻ると、
-// .pill-trailing の `transition: width` でスライドして見えてしまう。
-// タブ切り替え直後の 1 フレームだけこの transition を止める。
-const suppressTrailingWidthTransition = ref(!isActive.value);
-watch(isActive, (active) => {
-  if (!active) return;
-  suppressTrailingWidthTransition.value = true;
-  // ResizeObserver のコールバックは requestAnimationFrame の後、フレーム終端で
-  // 発火する。rAF を1回挟むだけだと trailingWidth の更新前に transition を
-  // 再有効化してしまいアニメーションが見えるため、rAF を2回重ねて
-  // ResizeObserver の発火・trailingWidth 反映を確実に待つ。
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        suppressTrailingWidthTransition.value = false;
-      });
-    });
-  });
 });
 
 const { isOffline } = useConnectivityMonitor();
@@ -951,8 +914,6 @@ onBeforeUnmount(() => {
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
-  roTrailing?.disconnect();
-  roTrailing = null;
   if (infoPillEl.value) {
     infoPillEl.value.removeEventListener("touchmove", onPillTouchMove);
     infoPillEl.value.removeEventListener("touchend", onPillTouchEnd);
@@ -1032,11 +993,15 @@ defineExpose({
   bottom: 10px;
 }
 
-/* 値が変化した時、ピル群全体をこの1本の長いピルに差し替えて表示する
-   （.pill-group の直接の子として peekingKey === null の間の内容と排他）。
-   幅は .pill-group の max-width（min(80vw,450px)）に収まる範囲で内容に
-   合わせ、収まらない文字列（コミットメッセージ等）は省略記号で切る。
-   ピル自体を右から左へスライドインさせて登場を知らせる。 */
+/* .pill-trailing（展開ボタン群）と peekピルは Transition(mode="out-in") の
+   1つの子として .pill-group 内の同じ位置（ワークスペースピルの左隣）で
+   排他的に表示され、切替時は通常ピルがフェードアウトしてから peekピルが
+   フェードインする（下記 pill-swap-top / pill-swap-bottom の transition
+   クラス）。ワークスペースピル本体・閉じるボタンはこの Transition の外
+   （.pill-group の直接の flex子）にあり、常に位置が固定される。
+   値が変化した時に表示する peekピルの幅は .pill-group の max-width
+   （min(80vw,450px)）に収まる範囲で内容に合わせ、収まらない文字列
+   （コミットメッセージ等）は省略記号で切る。 */
 .pill-peek-wide {
   display: inline-flex;
   align-items: center;
@@ -1049,12 +1014,6 @@ defineExpose({
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 13px;
-  animation: pill-peek-slide-in 0.25s ease-out;
-}
-
-@keyframes pill-peek-slide-in {
-  from { transform: translateX(32px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
 }
 
 .pill-peek-icon,
@@ -1064,11 +1023,16 @@ defineExpose({
   color: var(--text-muted);
 }
 
-.pill-peek-pink .pill-peek-icon { color: var(--pink); }
-.pill-peek-warning .pill-peek-icon { color: var(--warning); }
-.pill-peek-purple .pill-peek-icon { color: var(--purple); }
-.pill-peek-success .pill-peek-icon { color: var(--success); }
-.pill-peek-error .pill-peek-icon { color: var(--error); }
+.pill-peek-pink .pill-peek-icon,
+.pill-peek-pink .pill-peek-text { color: var(--pink); }
+.pill-peek-warning .pill-peek-icon,
+.pill-peek-warning .pill-peek-text { color: var(--warning); }
+.pill-peek-purple .pill-peek-icon,
+.pill-peek-purple .pill-peek-text { color: var(--purple); }
+.pill-peek-success .pill-peek-icon,
+.pill-peek-success .pill-peek-text { color: var(--success); }
+.pill-peek-error .pill-peek-icon,
+.pill-peek-error .pill-peek-text { color: var(--error); }
 
 .pill-peek-text {
   min-width: 0;
@@ -1078,12 +1042,47 @@ defineExpose({
   white-space: nowrap;
 }
 
-/* .pill-group（flex行）の直接の子。width を JS 実測値へ animate するクリップ用
-   コンテナで、中身（.pill-trailing-inner）は常に content サイズで存在させ、
-   この width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
-   スライドと同期し、「一瞬右へはみ出してから戻る」ズレを起こさない。
-   閉じるボタンはここに含めず .pill-group の直接の flex子にするため、
-   横スクロール時にクリップされない。 */
+/* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に
+   合わせて個別に色分けする（通常ピルの数字バッジ・Push/Pullカウントと
+   同じ配色に揃える）。 */
+.pill-peek-changes-files {
+  color: var(--warning);
+}
+
+.pill-peek-changes-plus {
+  color: var(--success);
+}
+
+.pill-peek-changes-minus {
+  color: var(--error);
+}
+
+.pill-peek-branch-ahead {
+  color: var(--accent);
+}
+
+.pill-peek-branch-behind {
+  color: var(--warning);
+}
+
+/* ピル群が画面上部にある時: 通常ピルは上へフェードアウト、peekピルは
+   下から現れる。下部にある時はその逆（通常ピルは下へ、peekピルは上から）。 */
+.pill-swap-top-enter-active,
+.pill-swap-top-leave-active,
+.pill-swap-bottom-enter-active,
+.pill-swap-bottom-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.pill-swap-top-leave-to { transform: translateY(-8px); opacity: 0; }
+.pill-swap-top-enter-from { transform: translateY(8px); opacity: 0; }
+
+.pill-swap-bottom-leave-to { transform: translateY(8px); opacity: 0; }
+.pill-swap-bottom-enter-from { transform: translateY(-8px); opacity: 0; }
+
+/* Transition(mode="out-in") の1つの子として peekピルと排他的に表示される
+   展開ボタン群のコンテナ。ボタンの出現/消失や幅の変化はアニメーションせず
+   即座に反映する。 */
 .pill-trailing {
   min-width: 0;
   /* ボタン数が多い狭い画面・狭い分割ペイン（Pull/Push/Set Upstream/Dev Server等
@@ -1096,11 +1095,6 @@ defineExpose({
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
   scrollbar-width: none;
-  transition: width 0.35s ease;
-}
-
-.pill-trailing.no-transition {
-  transition: none;
 }
 
 .pill-trailing-inner {
@@ -1211,10 +1205,6 @@ defineExpose({
    （未コミットの変更であることを強調するため黄色）。 */
 .pill-numstat-btn .mdi {
   font-size: 14px;
-  color: var(--warning);
-}
-
-.numstat-files {
   color: var(--warning);
 }
 
