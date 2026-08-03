@@ -24,7 +24,6 @@
           :key="peekingKey"
           class="pill-chip pill-peek-wide"
           :class="peekColorClass"
-          :style="{ width: trailingMaxWidth + 'px' }"
         >
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
@@ -32,7 +31,7 @@
             v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
           ></span>
           <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
-          <span class="pill-peek-text pill-peek-marquee">
+          <span class="pill-peek-text pill-peek-marquee" :style="{ maxWidth: trailingMaxWidth + 'px' }">
             <span
               ref="marqueeTextEl"
               class="pill-peek-marquee-text"
@@ -1056,11 +1055,12 @@ defineExpose({
    右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
    ピル本体・閉じるボタンはこの Transition の外（.pill-group の直接の
    flex子）にあり、常に位置が固定される。
-   値が変化した時に表示する peekピルの幅は、キーによらず .pill-trailing と
-   同じ trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じる
-   ボタンぶんを差し引いた値）を width に使う（ワークスペースピル・閉じる
-   ボタンを画面外へ押し出さないため）。ラベルがこの幅に収まらない時だけ、
-   末尾が見えるところで止まる1回きりのマーキーで流す（下記
+   値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
+   のまま表示する。上限だけ、キーによらず .pill-trailing と同じ
+   trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
+   ぶんを差し引いた値）を max-width に使う（ワークスペースピル・閉じる
+   ボタンを画面外へ押し出さないため）。ラベルがこの上限にも収まらない時
+   だけ、末尾が見えるところで止まる1回きりのマーキーで流す（下記
    .pill-peek-marquee-run、scrollWidth実測でscript側が判定する）。 */
 /* 展開ボタン群（pill-devserver-btn/pill-numstat-btn/pill-branch-btn）と
    peekピル（pill-peek-wide）に共通のピル外観（枠線・角丸・背景・最低高さ）。
@@ -1112,15 +1112,9 @@ defineExpose({
 
 .pill-peek-text {
   min-width: 0;
-  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.pill-peek-marquee {
-  flex: 1;
-  max-width: none;
 }
 
 /* changes/branchは複数の色分けspanを並べる。テンプレート上は改行区切りで
