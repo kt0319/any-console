@@ -475,13 +475,6 @@ const branchTooltip = computed(() => {
   if (!hasUpstream.value) parts.push("no upstream");
   return parts.length ? `Branches: ${name} (${parts.join(", ")})` : `Branches: ${name}`;
 });
-// defaultブランチ以外にいることを示す（defaultブランチが分からない場合は
-// 判定しない＝誤って強調表示しない）。
-const isNonDefaultBranch = computed(() => {
-  const defaultBranch = paneWorkspace.value?.default_branch;
-  const branch = paneWorkspace.value?.branch;
-  return !!defaultBranch && !!branch && branch !== defaultBranch;
-});
 const filesTooltip = computed(() =>
   isGitRepo.value ? "Browse files" : "Browse files in this terminal's directory",
 );
@@ -708,7 +701,7 @@ const peekColorClass = computed(() => {
     case "history": return ["pill-peek-pink", "pill-peek-icon-only"];
     case "changes": return "pill-peek-warning";
     case "prs": return "pill-peek-purple";
-    case "branch": return isNonDefaultBranch.value ? ["pill-peek-success", "pill-peek-icon-only"] : "";
+    case "branch": return ["pill-peek-success", "pill-peek-icon-only"];
     case "actions":
       if (isBranchActionSuccess.value) return ["pill-peek-success", "pill-peek-icon-only"];
       if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];

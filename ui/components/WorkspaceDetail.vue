@@ -129,11 +129,6 @@ function onFileBrowserState({ atRoot, fileOpen }) {
 const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
 const isGitWorkspace = computed(() => !terminalSessionId.value && !!workspaceStore.currentWorkspace?.is_git_repo);
-// defaultブランチ以外にいることを示す（TerminalPane.vueのBranchピルと同じ判定）。
-const isNonDefaultBranch = computed(() => {
-  const ws = workspaceStore.currentWorkspace;
-  return !!ws?.default_branch && !!ws?.branch && ws.branch !== ws.default_branch;
-});
 
 const tabs = computed(() => {
   const isGit = isGitWorkspace.value;
@@ -141,12 +136,12 @@ const tabs = computed(() => {
     {
       key: "files",
       icon: filesBrowsing.value ? "mdi-folder-open-outline" : "mdi-folder-outline",
-      iconColor: filesBrowsing.value ? "var(--accent)" : "",
+      iconColor: "var(--accent)",
       label: "Files",
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--pink)", hidden: !isGit },
-    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: changesCount.value ? "var(--warning)" : "", hidden: !isGit },
-    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: isNonDefaultBranch.value ? "var(--success)" : "", hidden: !isGit },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: changesCount.value ? "#f5a623" : "", hidden: !isGit },
+    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: "var(--success)", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
