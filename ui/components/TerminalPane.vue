@@ -314,11 +314,13 @@ const branchAction = computed(() => {
   return list.find((run) => run.headBranch === paneWorkspace.value.branch) || null;
 });
 
-// successになったrunはピル自体を表示しない（失敗中・実行中のrunだけ知らせる）。
+// failure以外で完了したrunはピル自体を表示しない（失敗中・実行中のrunだけ知らせる。
+// success以外にもcancelled/skipped/timed_out等のconclusionがあり、それらは
+// 実害のない終了として扱う）。
 const visibleBranchAction = computed(() => {
   const run = branchAction.value;
   if (!run) return null;
-  if (run.status === "completed" && run.conclusion === "success") return null;
+  if (run.status === "completed" && run.conclusion !== "failure") return null;
   return run;
 });
 
