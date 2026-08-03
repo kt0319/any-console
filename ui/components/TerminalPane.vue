@@ -44,7 +44,7 @@
                 <span class="pill-peek-changes-minus">-{{ deletions }}</span>
               </template>
               <template v-else-if="peekingKey === 'branch'">
-                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span>
+                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="branchDoneLabel" class="pill-peek-branch-done"> {{ branchDoneLabel }}</span>
               </template>
               <template v-else>{{ peekText }}</template>
             </span>
@@ -591,6 +591,9 @@ const trailingPeekItems = computed(() => {
 const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
+// branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
+// 「Push Done」「Pull Done」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
+const branchDoneLabel = ref("");
 // paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
 // マウント直後は未解決（undefined）で isGitRepo 等が一時的に false になり得る。
 // このタイミングで prevTrailingSignature を確定させると、ワークスペース情報が
@@ -639,6 +642,16 @@ watch(trailingPeekItems, (items) => {
   if (workspaceEverResolved && !justResolved) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
+      if (changed.key === "branch") {
+        // 直前のシグネチャ（branch:ahead:behind）と比べ、ahead/behindが
+        // >0 から 0 へ変わった＝push/pullが完了した瞬間だけラベルを出す。
+        const [, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
+        const pushDone = Number(prevAheadStr) > 0 && ahead.value === 0;
+        const pullDone = Number(prevBehindStr) > 0 && behind.value === 0;
+        branchDoneLabel.value = [pushDone && "Push Done", pullDone && "Pull Done"].filter(Boolean).join(" · ");
+      } else {
+        branchDoneLabel.value = "";
+      }
       // アニメーション無しで即座に切り替える（旧: 新規マウント要素でCSS
       // transitionが無音化する問題を避けるための二重rAF遅延があったが、
       // transition自体を廃止したため不要になった）。
@@ -1164,6 +1177,11 @@ defineExpose({
 
 .pill-peek-branch-behind {
   color: var(--warning);
+}
+
+.pill-peek-branch-done {
+  color: var(--success);
+  font-weight: 600;
 }
 
 /* 通常ピルは左へフェードアウトし、peekピルは右（ワークスペースピル側）
