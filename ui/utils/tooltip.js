@@ -1,10 +1,16 @@
+import { PILL_MORE_PEEK_DURATION_MS } from "./constants.js";
+
 let tooltipEl = null;
+let textEl = null;
 let hideTimer = null;
 
 function getEl() {
   if (!tooltipEl) {
     tooltipEl = document.createElement("div");
     tooltipEl.className = "ac-tooltip";
+    textEl = document.createElement("span");
+    textEl.className = "ac-tooltip-text";
+    tooltipEl.appendChild(textEl);
     document.body.appendChild(tooltipEl);
   }
   return tooltipEl;
@@ -13,7 +19,9 @@ function getEl() {
 function show(target, text) {
   if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
   const el = getEl();
-  el.textContent = text;
+  textEl.textContent = text;
+  textEl.classList.remove("ac-tooltip-marquee");
+  textEl.style.animationDuration = "";
   el.style.display = "block";
   el.style.opacity = "0";
 
@@ -32,6 +40,15 @@ function show(target, text) {
   el.style.left = left + "px";
   el.style.top = top + "px";
   el.style.opacity = "1";
+
+  // 長いテキスト（コミットメッセージ等）で幅が max-width を超える時だけ、
+  // 末尾まで見えるよう一度だけスクロールする（TerminalPane.vueのpeekピルと同じ方式）。
+  const style = getComputedStyle(el);
+  const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  if (textEl.scrollWidth > el.clientWidth - paddingX) {
+    textEl.classList.add("ac-tooltip-marquee");
+    textEl.style.animationDuration = `${PILL_MORE_PEEK_DURATION_MS}ms`;
+  }
 }
 
 function hide() {
@@ -48,6 +65,8 @@ export function installTooltip() {
     .ac-tooltip {
       display: none;
       position: fixed;
+      max-width: min(320px, calc(100vw - 16px));
+      overflow: hidden;
       padding: 5px 10px;
       font-size: 12px;
       line-height: 1.2;
@@ -56,10 +75,24 @@ export function installTooltip() {
       border: 1px solid var(--border, #3b4261);
       border-radius: var(--radius, 6px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      white-space: nowrap;
       pointer-events: none;
       z-index: 99999;
       transition: opacity 0.1s;
+    }
+
+    .ac-tooltip-text {
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .ac-tooltip-text.ac-tooltip-marquee {
+      padding-left: 100%;
+      animation: ac-tooltip-scroll linear 1 forwards;
+    }
+
+    @keyframes ac-tooltip-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100%); }
     }
   `;
   document.head.appendChild(style);
