@@ -1100,6 +1100,7 @@ defineExpose({
 
 .pill-peek-wide {
   gap: 8px;
+  min-width: 0;
   max-width: 100%;
   padding: 5px 14px;
   color: var(--text-secondary);
