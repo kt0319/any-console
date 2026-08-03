@@ -620,6 +620,19 @@ function actionsResolvedFor(workspace) {
 }
 let actionsEverResolved = actionsResolvedFor(props.tab.workspace);
 
+// peekingKeyをkeyに切り替え、数秒後に自動で閉じるタイマーを張り直す
+// （アニメーション無しで即座に切り替える。旧: 新規マウント要素でCSS
+// transitionが無音化する問題を避けるための二重rAF遅延があったが、
+// transition自体を廃止したため不要になった）。
+function triggerPeek(key) {
+  if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
+  peekingKey.value = key;
+  pillMorePeekTimer = setTimeout(() => {
+    peekingKey.value = null;
+    pillMorePeekTimer = null;
+  }, PILL_MORE_PEEK_DURATION_MS);
+}
+
 watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
   const historyJustResolved = !historyMessageEverResolved && paneWorkspace.value?.last_commit_message !== undefined;
@@ -652,19 +665,20 @@ watch(trailingPeekItems, (items) => {
       } else {
         branchDoneLabel.value = "";
       }
-      // アニメーション無しで即座に切り替える（旧: 新規マウント要素でCSS
-      // transitionが無音化する問題を避けるための二重rAF遅延があったが、
-      // transition自体を廃止したため不要になった）。
-      if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
-      peekingKey.value = changed.key;
-      pillMorePeekTimer = setTimeout(() => {
-        peekingKey.value = null;
-        pillMorePeekTimer = null;
-      }, PILL_MORE_PEEK_DURATION_MS);
+      triggerPeek(changed.key);
     }
   }
   prevTrailingSignature = nextSignature;
 }, { deep: true });
+
+// Dev Serverが検出されなくなった（実際に停止した）瞬間だけ知らせる。
+// trailingPeekItemsはdevServerEntryが無い間キー自体を積まないため、
+// 上のfindChangedTrailingItemでは「消えたこと」を検知できない
+// （新規出現/値変化しか拾えない）。devServerEntry自体を直接見て、
+// 真→偽への遷移だけを拾う（初回のnullや既に偽のままの変化は無視）。
+watch(devServerEntry, (entry, prevEntry) => {
+  if (!entry && prevEntry) triggerPeek("devserver-stop");
+});
 
 // .pill-peek-wide に表示するアイコン(mdiクラス)。ワークスペース名の変化は
 // テンプレート側で tab.wsIcon/tab.icon の実アイコン（renderIconStr）を
@@ -678,6 +692,7 @@ const peekIconClass = computed(() => {
     case "prs": return "mdi-source-pull";
     case "actions": return isBranchActionSuccess.value ? "mdi-check-circle-outline" : actionStatusIcon.value;
     case "devserver": return "mdi-server";
+    case "devserver-stop": return "mdi-server-off";
     case "add": return "mdi-folder-plus-outline";
     default: return "";
   }
@@ -715,6 +730,7 @@ const peekText = computed(() => {
       ? `[${branchAction.value.name}] ${branchAction.value.conclusion || branchAction.value.status}`
       : "";
     case "devserver": return devServerEntry.value ? `Dev Server :${devServerEntry.value.proxy_port}` : "Server";
+    case "devserver-stop": return "Dev Server Stop";
     case "add": return "Add";
     case "workspace": return props.tab.workspace || props.tab.label || "";
     default: return "";
