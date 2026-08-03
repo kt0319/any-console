@@ -578,7 +578,7 @@ const trailingPeekItems = computed(() => {
     items.push({ key: "actions", text: `${branchAction.value.id}:${branchAction.value.status}:${branchAction.value.conclusion}` });
   }
   if (devServerEntry.value && infoPillConfig.devserver) {
-    items.push({ key: "devserver", text: "Server" });
+    items.push({ key: "devserver", text: `Server:${devServerEntry.value.proxy_port}` });
   }
   if (!isGitRepo.value && props.tab.sessionId && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
@@ -700,7 +700,7 @@ const peekText = computed(() => {
     case "actions": return branchAction.value
       ? `[${branchAction.value.name}] ${branchAction.value.conclusion || branchAction.value.status}`
       : "";
-    case "devserver": return "Server";
+    case "devserver": return devServerEntry.value ? `Dev Server :${devServerEntry.value.proxy_port}` : "Server";
     case "add": return "Add";
     case "workspace": return props.tab.workspace || props.tab.label || "";
     default: return "";
