@@ -24,7 +24,7 @@
           :key="peekingKey"
           class="pill-chip pill-peek-wide"
           :class="peekColorClass"
-          :style="peekingKey === 'history' ? { width: trailingMaxWidth + 'px' } : null"
+          :style="{ width: trailingMaxWidth + 'px' }"
         >
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
@@ -32,23 +32,24 @@
             v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
           ></span>
           <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
-          <span v-if="peekingKey === 'changes'" class="pill-peek-text pill-peek-changes-group">
-            <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
-            <span class="pill-peek-changes-plus">+{{ insertions }}</span>
-            <span class="pill-peek-changes-minus">-{{ deletions }}</span>
-          </span>
-          <span v-else-if="peekingKey === 'branch'" class="pill-peek-text">
-            {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span>
-          </span>
-          <span v-else-if="peekingKey === 'history'" class="pill-peek-text pill-peek-marquee">
+          <span class="pill-peek-text pill-peek-marquee">
             <span
-              ref="historyMarqueeTextEl"
+              ref="marqueeTextEl"
               class="pill-peek-marquee-text"
-              :class="{ 'pill-peek-marquee-run': historyMarqueeRun }"
-              :style="historyMarqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' } : null"
-            >{{ peekText }}</span>
+              :class="{ 'pill-peek-marquee-run': marqueeRun }"
+              :style="marqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' } : null"
+            >
+              <template v-if="peekingKey === 'changes'">
+                <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
+                <span class="pill-peek-changes-plus">+{{ insertions }}</span>
+                <span class="pill-peek-changes-minus">-{{ deletions }}</span>
+              </template>
+              <template v-else-if="peekingKey === 'branch'">
+                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span>
+              </template>
+              <template v-else>{{ peekText }}</template>
+            </span>
           </span>
-          <span v-else class="pill-peek-text">{{ peekText }}</span>
         </div>
         <div
           v-else
@@ -706,21 +707,35 @@ const peekText = computed(() => {
   }
 });
 
-// Historyのコミットメッセージがピル幅に収まっている時はマーキーで流さない
-// （収まっているのに動かすと落ち着かないため）。収まらない時だけ、末尾
-// （メッセージの最後）が見えたところで止める1回きりのスクロールにする
-// （下記 .pill-peek-marquee-run、infiniteループはしない）。
-const historyMarqueeRun = ref(false);
-const historyMarqueeTextEl = ref(null);
+// peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。
+// changes/branchはpeekTextを経由しない独自の色分け表示のため、それぞれの
+// 元データから組み立てる。
+const peekSignature = computed(() => {
+  if (!peekingKey.value) return null;
+  if (peekingKey.value === "changes") {
+    return `changes:${changedFiles.value}:${insertions.value}:${deletions.value}`;
+  }
+  if (peekingKey.value === "branch") {
+    return `branch:${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}`;
+  }
+  return `${peekingKey.value}:${peekText.value}`;
+});
+
+// peekピルのラベルがピル幅に収まっている時はマーキーで流さない（収まって
+// いるのに動かすと落ち着かないため）。収まらない時だけ、末尾が見えた
+// ところで止める1回きりのスクロールにする（下記 .pill-peek-marquee-run、
+// infiniteループはしない）。History以外の全ラベルにも同じ扱いを揃える。
+const marqueeRun = ref(false);
+const marqueeTextEl = ref(null);
 watch(
-  () => (peekingKey.value === "history" ? peekText.value : null),
-  async (text) => {
-    if (!text) { historyMarqueeRun.value = false; return; }
-    historyMarqueeRun.value = false;
+  peekSignature,
+  async (sig) => {
+    if (!sig) { marqueeRun.value = false; return; }
+    marqueeRun.value = false;
     await nextTick();
-    const el = historyMarqueeTextEl.value;
+    const el = marqueeTextEl.value;
     const container = el?.parentElement;
-    historyMarqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
+    marqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
   },
 );
 
@@ -1040,11 +1055,12 @@ defineExpose({
    右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
    ピル本体・閉じるボタンはこの Transition の外（.pill-group の直接の
    flex子）にあり、常に位置が固定される。
-   値が変化した時に表示する peekピルの幅は基本的に内容に合わせ、収まらない
-   文字列は省略記号で切る。Historyだけは .pill-trailing と同じ
-   trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
-   ぶんを差し引いた値）を width に使い、ピルをその上限まで広げてマーキー
-   表示する（ワークスペースピル・閉じるボタンを画面外へ押し出さないため）。 */
+   値が変化した時に表示する peekピルの幅は、キーによらず .pill-trailing と
+   同じ trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じる
+   ボタンぶんを差し引いた値）を width に使う（ワークスペースピル・閉じる
+   ボタンを画面外へ押し出さないため）。ラベルがこの幅に収まらない時だけ、
+   末尾が見えるところで止まる1回きりのマーキーで流す（下記
+   .pill-peek-marquee-run、scrollWidth実測でscript側が判定する）。 */
 /* 展開ボタン群（pill-devserver-btn/pill-numstat-btn/pill-branch-btn）と
    peekピル（pill-peek-wide）に共通のピル外観（枠線・角丸・背景・最低高さ）。
    個別ルールには padding/font-size/color 等の差分だけを残す。 */
@@ -1105,12 +1121,18 @@ defineExpose({
   max-width: none;
 }
 
+/* changes/branchは複数の色分けspanを並べる。テンプレート上は改行区切りで
+   並べているため、そのままだとVueのwhitespace condenseでタグ間の空白が
+   消えて詰まって見える。inline-flex+gapで区切りを入れる（単一テキストの
+   キーではgapは1要素しか無いため影響しない）。 */
 .pill-peek-marquee-text {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ピル幅に収まらない時だけ付与する（script側でscrollWidth実測）。ループ
-   させず、メッセージの末尾が見えたところで止める1回きりのスクロール。 */
+   させず、末尾が見えたところで止める1回きりのスクロール。 */
 .pill-peek-marquee-text.pill-peek-marquee-run {
   padding-left: 100%;
   animation: pill-peek-scroll linear 1 forwards;
@@ -1119,15 +1141,6 @@ defineExpose({
 @keyframes pill-peek-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
-}
-
-/* テンプレート上は改行区切りで並べているため、そのままだとVueの
-   whitespace condenseでタグ間の空白が消えて詰まって見える。
-   inline-flex+gapで区切りを入れる。 */
-.pill-peek-changes-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に
