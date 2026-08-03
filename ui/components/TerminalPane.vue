@@ -671,12 +671,13 @@ const peekIconClass = computed(() => {
   }
 });
 
-// 対応する通常ピルのアイコン色と揃える。branch/actionsはアイコンだけ状態色にし、
-// テキストは通常色（白）のまま読みやすく保つ（pill-peek-icon-only。history/
-// changes/prsはテキストごと色付けする従来通りの挙動）。
+// 対応する通常ピルのアイコン色と揃える。history/branch/actionsはアイコンだけ
+// 状態色にし、テキスト（コミットメッセージ/ブランチ名/action名）は通常色
+// （白）のまま読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと
+// 色付けする従来通りの挙動）。
 const peekColorClass = computed(() => {
   switch (peekingKey.value) {
-    case "history": return "pill-peek-pink";
+    case "history": return ["pill-peek-pink", "pill-peek-icon-only"];
     case "changes": return "pill-peek-warning";
     case "prs": return "pill-peek-purple";
     case "branch": return isNonDefaultBranch.value ? ["pill-peek-success", "pill-peek-icon-only"] : "";
@@ -1099,9 +1100,10 @@ defineExpose({
 .pill-peek-error .pill-peek-icon,
 .pill-peek-error .pill-peek-text { color: var(--error); }
 
-/* branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）のまま
-   読みやすく保つ（history/changes/prsはテキストごと色付けするため対象外）。
+/* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
+   のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
    上の .pill-peek-xxx .pill-peek-text ルールより詳細度を上げて上書きする。 */
+.pill-peek-icon-only.pill-peek-pink .pill-peek-text,
 .pill-peek-icon-only.pill-peek-success .pill-peek-text,
 .pill-peek-icon-only.pill-peek-warning .pill-peek-text,
 .pill-peek-icon-only.pill-peek-error .pill-peek-text {
