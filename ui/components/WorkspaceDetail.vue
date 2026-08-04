@@ -23,6 +23,15 @@
           <div class="branch-summary-header">
             <button
               type="button"
+              class="branch-summary-add-btn"
+              aria-label="Add branch or worktree"
+              data-tooltip="Add branch or worktree"
+              @click="onAddBranch"
+            >
+              <span class="mdi mdi-plus"></span>
+            </button>
+            <button
+              type="button"
               class="branch-summary-toggle"
               :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
               :aria-expanded="branchSectionExpanded"
@@ -31,6 +40,15 @@
               <span class="mdi mdi-source-branch branch-summary-icon"></span>
               <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
               <span class="mdi branch-summary-caret" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+            </button>
+            <button
+              type="button"
+              class="branch-summary-fetch-btn"
+              aria-label="Fetch"
+              data-tooltip="Fetch remote branches"
+              @click="onFetchBranch"
+            >
+              <span class="mdi mdi-refresh"></span>
             </button>
           </div>
           <div v-show="branchSectionExpanded" class="branch-summary-body">
@@ -195,6 +213,23 @@ function loadBranchSection() {
 function toggleBranchSection() {
   branchSectionExpanded.value = !branchSectionExpanded.value;
   if (branchSectionExpanded.value) loadBranchSection();
+}
+
+function expandBranchSection() {
+  if (!branchSectionExpanded.value) {
+    branchSectionExpanded.value = true;
+    loadBranchSection();
+  }
+}
+
+function onAddBranch() {
+  expandBranchSection();
+  nextTick(() => gitBranch.value?.openAddModal());
+}
+
+function onFetchBranch() {
+  expandBranchSection();
+  nextTick(() => gitBranch.value?.fetchRemote());
 }
 
 function clearDiffSelection() {
@@ -433,6 +468,31 @@ onMounted(() => {
 .branch-summary-toggle:active {
   transform: scale(0.98);
   background: var(--bg-tertiary);
+}
+
+.branch-summary-add-btn,
+.branch-summary-fetch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-summary-add-btn:hover,
+  .branch-summary-fetch-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .branch-summary-icon {

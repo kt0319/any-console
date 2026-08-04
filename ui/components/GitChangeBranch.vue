@@ -109,14 +109,6 @@
           <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
         </template>
     </div>
-    <div class="branch-footer">
-      <button type="button" class="branch-footer-btn" aria-label="Add" data-tooltip="Add branch or worktree" :disabled="isBusy" @click="openAddModal">
-        <span class="mdi mdi-plus"></span> Add
-      </button>
-      <button type="button" class="branch-footer-btn" aria-label="Fetch" data-tooltip="Fetch remote branches" :disabled="isBusy" @click="fetchRemote">
-        <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-toolbar-spin' : 'mdi-refresh'"></span> Fetch
-      </button>
-    </div>
   </div>
 </template>
 
@@ -197,7 +189,7 @@ watch(branches, (list) => {
   branchEmit("count", list.filter((b) => !b.remote).length);
 });
 
-defineExpose({ load: loadBranchList, backgroundFetch });
+defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote });
 </script>
 
 <style scoped>
@@ -207,33 +199,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.branch-footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 8px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.branch-footer-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.branch-footer-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .branch-toolbar-spin {
@@ -298,13 +263,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .branch-footer-btn:not(:disabled):hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
 }
 
 .branch-item {
