@@ -20,17 +20,28 @@
     <div class="workspace-tab-content">
       <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
         <div class="git-history-branch-branches">
-          <button
-            type="button"
-            class="branch-summary-toggle"
-            :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
-            :aria-expanded="branchSectionExpanded"
-            @click="toggleBranchSection"
-          >
-            <span class="mdi mdi-source-branch branch-summary-icon"></span>
-            <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
-            <span class="mdi branch-summary-chevron" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
-          </button>
+          <div class="branch-summary-header">
+            <button
+              type="button"
+              class="branch-summary-toggle"
+              :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
+              :aria-expanded="branchSectionExpanded"
+              @click="toggleBranchSection"
+            >
+              <span class="mdi mdi-source-branch branch-summary-icon"></span>
+              <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
+              <span class="mdi branch-summary-chevron" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+            </button>
+            <button
+              type="button"
+              class="branch-summary-add-btn"
+              aria-label="Add branch or worktree"
+              data-tooltip="Add branch or worktree"
+              @click="onAddBranch"
+            >
+              <span class="mdi mdi-plus"></span>
+            </button>
+          </div>
           <div v-show="branchSectionExpanded" class="branch-summary-body">
             <GitChangeBranch ref="gitBranch" />
           </div>
@@ -189,6 +200,14 @@ function loadBranchSection() {
 function toggleBranchSection() {
   branchSectionExpanded.value = !branchSectionExpanded.value;
   if (branchSectionExpanded.value) loadBranchSection();
+}
+
+function onAddBranch() {
+  if (!branchSectionExpanded.value) {
+    branchSectionExpanded.value = true;
+    loadBranchSection();
+  }
+  nextTick(() => gitBranch.value?.openAddModal());
 }
 
 function clearDiffSelection() {
@@ -393,11 +412,18 @@ onMounted(() => {
   border-bottom: 1px solid var(--border);
 }
 
+.branch-summary-header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .branch-summary-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 10px 12px;
   background: transparent;
   border: none;
@@ -405,7 +431,30 @@ onMounted(() => {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
+}
+
+.branch-summary-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 8px;
   flex-shrink: 0;
+  padding: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-summary-add-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .branch-summary-icon {
