@@ -108,7 +108,6 @@
           </div>
           <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
         </template>
-        <div v-else-if="!isRemoteBranchListLoading" class="branch-item-empty">Tap Fetch to load remote branches</div>
     </div>
     <div class="branch-footer">
       <button type="button" class="branch-footer-btn" aria-label="Fetch" data-tooltip="Fetch remote branches" :disabled="isBusy" @click="fetchRemote">
@@ -137,7 +136,6 @@ const {
   localBranches,
   remoteBranches,
   remoteLoaded,
-  isRemoteBranchListLoading,
   isSwitchingBranch,
   worktreeByBranch,
   branches,

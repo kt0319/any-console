@@ -30,7 +30,6 @@
             >
               <span class="mdi mdi-source-branch branch-summary-icon"></span>
               <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
-              <span class="mdi branch-summary-chevron" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </button>
             <button
               type="button"
@@ -40,6 +39,15 @@
               @click="onAddBranch"
             >
               <span class="mdi mdi-plus"></span>
+            </button>
+            <button
+              type="button"
+              class="branch-summary-chevron-btn"
+              :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
+              :aria-expanded="branchSectionExpanded"
+              @click="toggleBranchSection"
+            >
+              <span class="mdi branch-summary-chevron" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </button>
           </div>
           <div v-show="branchSectionExpanded" class="branch-summary-body">
@@ -450,9 +458,27 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.branch-summary-chevron-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 4px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .branch-summary-add-btn:hover {
     background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .branch-summary-chevron-btn:hover .branch-summary-chevron {
     color: var(--text-primary);
   }
 }
