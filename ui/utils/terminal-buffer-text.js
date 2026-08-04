@@ -3,6 +3,14 @@
 // ように後続の全角テキストまで URL に飲み込まれる（日本語はスペースが無いため）。
 export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"\u0080-\uffff]+|www\.[^\s)\]>'"\u0080-\uffff]+)/g;
 
+// URLが何行にまたがっても収まるよう、タップ行の前後を広めに束ねてから
+// 正規表現でタップ位置を含む一致を探す。isWrapped（xtermの自動折返し）や
+// 行末文字（アプリ側の明示的な改行）の判定に頼って連結範囲を厳密に絞る
+// 方式は、判定がずれるとURLが途中で切れて返る不具合があったため、固定
+// 幅の窓を束ねるだけの単純な方式に寄せる（多少無関係な行を巻き込んでも、
+// 正規表現がhttps://等のプレフィックスを要求するため誤検出はしにくい）。
+const URL_SEARCH_WINDOW_LINES = 6;
+
 export function findUrlInBuffer(term, clientX, clientY) {
   if (!term || !term.element) return null;
   const screen = term.element.querySelector(".xterm-screen") || term.element;
@@ -21,32 +29,8 @@ export function findUrlInBuffer(term, clientX, clientY) {
   const lineIdx = buf.viewportY + rowOffset;
   if (!buf.getLine(lineIdx)) return null;
 
-  // isWrapped（ターミナル折り返し）と行末文字（アプリ改行）の両方で連結行を判定する。
-  function lineEndsWithUrlChar(idx) {
-    const l = buf.getLine(idx);
-    if (!l) return false;
-    const last = l.translateToString(true).slice(-1);
-    return !!last && last !== " ";
-  }
-
-  let startIdx = lineIdx;
-  while (startIdx > 0) {
-    if (buf.getLine(startIdx)?.isWrapped || lineEndsWithUrlChar(startIdx - 1)) {
-      startIdx--;
-    } else {
-      break;
-    }
-  }
-
-  let endIdx = lineIdx;
-  while (endIdx < buf.length - 1) {
-    const next = buf.getLine(endIdx + 1);
-    if (next?.isWrapped || lineEndsWithUrlChar(endIdx)) {
-      endIdx++;
-    } else {
-      break;
-    }
-  }
+  const startIdx = Math.max(0, lineIdx - URL_SEARCH_WINDOW_LINES);
+  const endIdx = Math.min(buf.length - 1, lineIdx + URL_SEARCH_WINDOW_LINES);
 
   let text = "";
   const lineOffsets = {};

@@ -8,7 +8,7 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
 import { isTouchInput } from "../utils/device.js";
-import { findUrlInBuffer } from "../utils/terminal-buffer-text.js";
+import { findUrlInBuffer, TERMINAL_URL_REGEX } from "../utils/terminal-buffer-text.js";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
@@ -160,6 +160,12 @@ export const useTerminalStore = defineStore("terminal", () => {
       // 連結できず途中で切れることがあるため、クリック座標から改めて全体を再計算する。
       const fullUri = findUrlInBuffer(term, e.clientX, e.clientY) || uri;
       bridgeEmit("terminal:url", { uri: fullUri });
+    }, {
+      // デフォルトの内蔵regexは http(s):// のみで www. 始まりのURLを認識せず、
+      // タップしても反応しない（findUrlInBuffer側のTERMINAL_URL_REGEXと合わせて
+      // 拾えるURL形式を揃える）。WebLinksAddon側でgフラグを重複付与するため、
+      // sourceのみ渡してフラグ無しにする。
+      urlRegex: new RegExp(TERMINAL_URL_REGEX.source),
     }));
 
     const id = ++terminalIdCounter.value;

@@ -130,4 +130,29 @@ describe("findUrlInBuffer", () => {
     const url = findUrlInBuffer(term, 0, 25);
     expect(url).toBe("https://github.com/kt0319/actions/runners/new");
   });
+
+  it("isWrapped=false（アプリ側の明示的な改行）でも前後の行を束ねてURLを検出する", () => {
+    // ポート番号の直後で改行され、次行にパスが続くケース（実際に報告された
+    // 「ポート番号までしか認識しない」不具合の再現）。
+    const part1 = "https://mini.tail794a9.ts.net:23001";
+    const part2 = "/business-partner-management";
+    const cols = Math.max(part1.length, part2.length);
+    const lineObjects = [
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        translateToString: () => part1 },
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        translateToString: () => part2 },
+    ];
+    const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
+    const element = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+    const term = {
+      cols, rows: 2, element,
+      buffer: { active: { viewportY: 0, length: 2, getLine: (i) => lineObjects[i] || null } },
+    };
+    // 1行目末尾（ポート番号付近）をクリック → 2行目のパスまで含めた全体が返る
+    const url = findUrlInBuffer(term, (part1.length - 1) * 10, 5);
+    expect(url).toBe("https://mini.tail794a9.ts.net:23001/business-partner-management");
+  });
 });
