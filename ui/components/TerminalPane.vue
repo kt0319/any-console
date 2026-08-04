@@ -1126,12 +1126,12 @@ defineExpose({
   background: rgba(26, 27, 38, 0.88);
 }
 
-/* 非アクティブなペインのピル（展開ボタン群・peekピル）にはシャドウを掛けて
-   沈んで見えるようにする。枠線色は非アクティブ時と同じ色で統一し、
-   アクティブ/非アクティブの区別はシャドウの有無だけで示す
+/* 非アクティブなペインのピル（展開ボタン群・peekピル）は沈んで見えるように
+   暗くする。box-shadowは背景の上にしか乗らずアイコン（子要素）の色までは
+   暗くならないため、要素全体を暗くできるopacityで揃える
    （ワークスペースピルと同じ扱い）。 */
 .terminal-pane:not(.active) .pill-chip {
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.35);
+  opacity: 0.55;
 }
 
 .pill-peek-wide {
@@ -1513,10 +1513,10 @@ defineExpose({
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-/* 非アクティブなペインのワークスペースピルにはシャドウを掛けて沈んで
-   見えるようにする（背景色・枠線色は変えない）。 */
+/* 非アクティブなペインのワークスペースピルは沈んで見えるように暗くする
+   （アイコンも含め要素全体をopacityで暗くする）。 */
 .terminal-pane:not(.active) .terminal-info-pill {
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.35);
+  opacity: 0.55;
 }
 
 .terminal-info-pill.tab-activity {
