@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -76,12 +76,6 @@ const currentMode = computed(() => layoutStore.splitLayout || "vertical");
 const tabCount = computed(() => terminalStore.openTabs.length);
 // ペイン数がタブ数以上だと、これ以上増やしても埋められないペインができるだけなので押せなくする。
 const canAddPane = computed(() => layoutStore.splitPaneTabIds.length < tabCount.value);
-
-// 選択肢が1つしかない時は選ばせるまでもないため、自動でそのタブを開く
-// （ドラッグでの分割直後、空きペインの候補タブが1つだけの場合等）。
-watch(openTabs, (tabs) => {
-  if (tabs.length === 1) onSelectTab(tabs[0].id);
-}, { immediate: true });
 
 function onPaneClick() {
   if (!isActive.value) emits("select-pane", props.paneIndex);

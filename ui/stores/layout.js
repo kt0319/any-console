@@ -59,6 +59,19 @@ export const useLayoutStore = defineStore("layout", () => {
     return offset + colIdx;
   }
 
+  // 新規に空きペインを作る時、割り当てられる候補タブが1つしか無いなら選ばせる
+  // までもないため、そのタブを返す（無ければnull＝これまで通り空きペインにする）。
+  // 空きペイン側に一覧を出してからユーザー操作で選ばせる方式（reactiveな
+  // watch等）だと、SplitEmptyPane.vue のマイナスボタン（ペインを明示的に
+  // 空ける操作）でも「候補が1つだけ」の状態が再現され、外したタブ自身が
+  // 即座に再割り当てされて選択画面に戻れなくなる不具合があった。生成時点
+  // だけで判定するこの方式ならその副作用が起きない。
+  function soleRemainingTab(openTabs, excludeIds) {
+    const exclude = new Set(excludeIds);
+    const candidates = (openTabs || []).filter((t) => !exclude.has(t.id));
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
   function splitWithDrop(tabId, direction, openTabs, _activeTabId) {
     if (!tabId) return;
 
@@ -106,7 +119,9 @@ export const useLayoutStore = defineStore("layout", () => {
     }
 
     const wantFirst = direction === "left" || direction === "top";
-    const ids = wantFirst ? [tabId, nextEmptyId()] : [nextEmptyId(), tabId];
+    const sole = soleRemainingTab(openTabs, [tabId]);
+    const other = sole ? sole.id : nextEmptyId();
+    const ids = wantFirst ? [tabId, other] : [other, tabId];
     splitLayout.value = newLayout;
     splitPaneTabIds.value = ids;
     activePaneIndex.value = ids.indexOf(tabId);
@@ -183,11 +198,15 @@ export const useLayoutStore = defineStore("layout", () => {
   function addPane(paneIndex) {
     if (!isSplitMode.value) return;
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
-    if (splitPaneTabIds.value.length >= useTerminalStore().openTabs.length) return;
+    const terminalStore = useTerminalStore();
+    if (splitPaneTabIds.value.length >= terminalStore.openTabs.length) return;
     const ids = splitPaneTabIds.value.slice();
-    ids.splice(paneIndex + 1, 0, nextEmptyId());
+    const occupied = ids.filter((id) => !isEmptyPaneId(id));
+    const sole = soleRemainingTab(terminalStore.openTabs, occupied);
+    ids.splice(paneIndex + 1, 0, sole ? sole.id : nextEmptyId());
     splitPaneTabIds.value = ids;
     activePaneIndex.value = paneIndex + 1;
+    if (sole) terminalStore.switchTab(sole.id);
   }
 
   /**

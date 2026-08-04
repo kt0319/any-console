@@ -65,6 +65,20 @@ describe("layout store: splitWithDrop", () => {
     expect(store.splitLayout).toBe("horizontal");
     expect(store.splitPaneTabIds).toEqual(["A", "B"]);
   });
+
+  it("開いているタブが2つだけの時、もう片方のペインは選ばせず自動でそのタブを割り当てる", () => {
+    const openTabs = [{ id: 1 }, { id: 2 }];
+    store.splitWithDrop(1, "left", openTabs);
+    expect(store.splitPaneTabIds).toEqual([1, 2]);
+    expect(store.isEmptyPaneId(store.splitPaneTabIds[1])).toBe(false);
+  });
+
+  it("開いているタブが3つ以上ある時は自動で埋めず空きペインのままにする", () => {
+    const openTabs = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    store.splitWithDrop(1, "left", openTabs);
+    expect(store.splitPaneTabIds[0]).toBe(1);
+    expect(store.isEmptyPaneId(store.splitPaneTabIds[1])).toBe(true);
+  });
 });
 
 describe("layout store: exitSplitMode", () => {
@@ -171,6 +185,18 @@ describe("layout store: addPane（空きペインの Add pane ボタン）", () 
     store.addPane(1);
 
     expect(store.splitPaneTabIds).toEqual(["A", "B"]);
+  });
+
+  it("残りタブが1つだけなら選ばせず自動で割り当ててそのタブへ切り替える", () => {
+    const terminalStore = useTerminalStore();
+    seedTabs(terminalStore, [1, 2, 3]);
+    store.splitWithDrop(1, "left", []);
+    store.splitPaneTabIds = [1, 2]; // タブ3だけが未割り当て
+
+    store.addPane(1);
+
+    expect(store.splitPaneTabIds).toEqual([1, 2, 3]);
+    expect(terminalStore.activeTabId).toBe(3);
   });
 
   it("スプリット中でなければ何もしない", () => {
