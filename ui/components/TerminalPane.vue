@@ -1101,8 +1101,8 @@ defineExpose({
 
 /* .pill-trailing（展開ボタン群）と peekピルは Transition(mode="out-in") の
    1つの子として .pill-group 内の同じ位置（ワークスペースピルの左隣）で
-   排他的に表示され、切替時は通常ピルが左へフェードアウトしてから peekピルが
-   右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
+   排他的に表示され、切替時は通常ピルがフェードアウトしてから peekピルが
+   フェードインする（下記 .pill-swap-* の transition クラス）。ワークスペース
    ピル本体・閉じるボタンは peek表示中は v-if で非表示にし、peekピルへ
    スペースを譲る。
    値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
@@ -1220,15 +1220,14 @@ defineExpose({
   font-weight: 600;
 }
 
-/* 通常ピルは左へフェードアウトし、peekピルは右（ワークスペースピル側）
-   から現れる。 */
+/* 通常ピル⇔peekピルの切替えはスライドさせず、クロスフェードのみにする。 */
 .pill-swap-enter-active,
 .pill-swap-leave-active {
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 
-.pill-swap-leave-to { transform: translateX(-10px); opacity: 0; }
-.pill-swap-enter-from { transform: translateX(10px); opacity: 0; }
+.pill-swap-leave-to { opacity: 0; }
+.pill-swap-enter-from { opacity: 0; }
 
 /* Transition(mode="out-in") の1つの子として peekピルと排他的に表示される
    展開ボタン群のコンテナ。ボタンの出現/消失や幅の変化はアニメーションせず
