@@ -1,5 +1,7 @@
+import io
 import os
 import subprocess
+import zipfile
 
 import pytest
 
@@ -362,11 +364,24 @@ class TestFileDownload:
         )
         assert res.status_code == 404
 
-    def test_download_directory_returns_404(self, client, workspace):
-        (workspace / "subdir").mkdir()
+    def test_download_directory_returns_zip(self, client, workspace):
+        sub = workspace / "subdir"
+        sub.mkdir()
+        (sub / "a.txt").write_text("a", encoding="utf-8")
+        (sub / "nested").mkdir()
+        (sub / "nested" / "b.txt").write_text("b", encoding="utf-8")
+
         res = client.get(
             "/workspaces/test-ws/download",
             headers=AUTH,
             params={"path": "subdir"},
         )
-        assert res.status_code == 404
+        assert res.status_code == 200
+        assert res.headers.get("content-type") == "application/zip"
+        assert "subdir.zip" in res.headers.get("content-disposition", "")
+
+        with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
+            names = set(zf.namelist())
+            assert "subdir/a.txt" in names
+            assert "subdir/nested/b.txt" in names
+            assert zf.read("subdir/a.txt") == b"a"

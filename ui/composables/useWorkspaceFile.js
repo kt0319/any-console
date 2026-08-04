@@ -3,6 +3,7 @@ import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useToast } from "./useToast.js";
 import { triggerBlobDownload } from "../utils/download.js";
+import { extractFilenameFromContentDisposition } from "../utils/content-disposition.js";
 import { workspaceDownloadPath } from "../utils/endpoints.js";
 
 export function useWorkspaceFile() {
@@ -18,7 +19,10 @@ export function useWorkspaceFile() {
         const res = await auth.apiFetch(workspaceDownloadPath(workspace, filePath));
         if (!res?.ok) throw new Error();
         const blob = await res.blob();
-        triggerBlobDownload(blob, filePath.split("/").pop() || "download");
+        // フォルダをダウンロードした場合、サーバがzip化しfilename="dir.zip"を
+        // 返すため、そちらを優先する（filePath由来の名前だと拡張子が付かない）。
+        const serverFilename = extractFilenameFromContentDisposition(res.headers?.get?.("content-disposition"));
+        triggerBlobDownload(blob, serverFilename || filePath.split("/").pop() || "download");
         return true;
       } catch {
         toast.error("Download failed");

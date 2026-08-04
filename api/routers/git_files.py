@@ -1,8 +1,11 @@
 import shutil
+import tempfile
 import unicodedata
+from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from ..auth import verify_token
 from ..common import MAX_UPLOAD_SIZE
@@ -178,11 +181,24 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
 def download_file(name: str, path: str = Query(...)):
     _, target, _ = resolve_workspace_file(name, path)
 
-    if not target.is_file():
-        raise not_found("File not found")
+    if target.is_file():
+        return FileResponse(
+            path=str(target),
+            filename=target.name,
+            media_type="application/octet-stream",
+        )
 
-    return FileResponse(
-        path=str(target),
-        filename=target.name,
-        media_type="application/octet-stream",
-    )
+    if target.is_dir():
+        tmp_dir = tempfile.mkdtemp(prefix="any-console-zip-")
+        with file_operation_guard("Cannot create archive"):
+            archive_path = shutil.make_archive(
+                str(Path(tmp_dir) / target.name), "zip", root_dir=target.parent, base_dir=target.name,
+            )
+        return FileResponse(
+            path=archive_path,
+            filename=f"{target.name}.zip",
+            media_type="application/zip",
+            background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+        )
+
+    raise not_found("File not found")

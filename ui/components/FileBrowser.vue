@@ -45,6 +45,7 @@
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
           <template v-if="currentPath">
+            <button type="button" class="file-browser-header-btn" aria-label="Download folder" data-tooltip="Download folder as zip" @click="downloadFile(currentPath)"><span class="mdi mdi-folder-zip-outline" aria-hidden="true"></span></button>
             <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
             <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
             <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
