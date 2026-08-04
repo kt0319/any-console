@@ -49,9 +49,8 @@
             </span>
           </span>
         </div>
+        <div v-else key="normal" class="pill-normal-group">
         <div
-          v-else
-          key="normal"
           class="pill-trailing"
           :style="{ maxWidth: trailingMaxWidth + 'px' }"
         >
@@ -163,13 +162,7 @@
               </template>
           </div>
         </div>
-        </Transition>
-        <!-- ワークスペースピル本体・閉じるボタンは、peek表示中は隠して
-             peekピルにスペースを譲る（peekingKeyが無い通常時だけ表示）。
-             展開ボタン群/peekピルと同じフェードを使い、切替えのタイミングを揃える。 -->
-        <Transition name="pill-fade">
         <div
-          v-if="!peekingKey"
           class="terminal-info-pill"
           :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working' }"
           :data-tooltip="pillTooltip"
@@ -190,10 +183,8 @@
             </span>
           </span>
         </div>
-        </Transition>
-        <Transition name="pill-fade">
         <button
-          v-if="!peekingKey && layoutStore.isSplitMode"
+          v-if="layoutStore.isSplitMode"
           type="button"
           class="pill-close-btn pill-minus-btn"
           aria-label="Remove from split"
@@ -202,10 +193,8 @@
           @pointerup.stop="onSplitCloseUp"
           @click.stop
         ><span class="mdi mdi-minus"></span></button>
-        </Transition>
-        <Transition name="pill-fade">
         <button
-          v-if="!peekingKey && !layoutStore.isSplitMode"
+          v-if="!layoutStore.isSplitMode"
           type="button"
           class="pill-close-btn pill-tab-close-btn"
           aria-label="Close tab"
@@ -214,6 +203,7 @@
           @pointerup.stop="onTabCloseUp"
           @click.stop
         ><span class="mdi mdi-close"></span></button>
+        </div>
         </Transition>
       </div>
     </div>
@@ -1106,17 +1096,24 @@ defineExpose({
   bottom: 10px;
 }
 
-/* .pill-trailing（展開ボタン群）と peekピルは .pill-group 内の同じ位置
-   （ワークスペースピルの左隣）で v-if/v-else により排他的に表示される。
-   ワークスペースピル本体・閉じるボタンは peek表示中は v-if で非表示にし、
-   peekピルへスペースを譲る。この4要素は全て同じ pill-fade（クロス
-   フェードのみ、スライド無し）で切り替え、現れるタイミングを揃える。
+/* peekピル（pill-peek-wide）と、展開ボタン群・ワークスペースピル本体・
+   閉じるボタンをまとめた .pill-normal-group は、1つの Transition
+   (mode="out-in") のv-if/v-elseで排他的に表示される。ワークスペースピル・
+   閉じるボタンも peek表示中は非表示になり peekピルへスペースを譲るが、
+   通常表示側は全部まとめて1ブロックとしてフェードすることで、個別に
+   フェードさせた時のような表示タイミングのズレを避ける。
    値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
    のまま表示する。上限だけ、キーによらず .pill-trailing と同じ
    trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
    ぶんを差し引いた値）を max-width に使う。ラベルがこの上限にも収まらない
    時だけ、末尾が見えるところで止まる1回きりのマーキーで流す（下記
    .pill-peek-marquee-run、scrollWidth実測でscript側が判定する）。 */
+.pill-normal-group {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
 /* 展開ボタン群（pill-devserver-btn/pill-numstat-btn/pill-branch-btn）と
    peekピル（pill-peek-wide）に共通のピル外観（枠線・角丸・背景・最低高さ）。
    個別ルールには padding/font-size/color 等の差分だけを残す。 */
@@ -1226,9 +1223,8 @@ defineExpose({
   font-weight: 600;
 }
 
-/* peekピル⇔展開ボタン群⇔ワークスペースピル⇔閉じるボタンの切替えは
-   スライドさせず、クロスフェードのみにする。4要素とも同じ名前・同じ
-   duration にして、現れるタイミングを揃える。 */
+/* peekピル⇔通常表示（.pill-normal-group）の切替えは、スライドさせず
+   クロスフェードのみにする。 */
 .pill-fade-enter-active,
 .pill-fade-leave-active {
   transition: opacity 0.2s ease;
