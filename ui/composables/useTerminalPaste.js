@@ -2,21 +2,20 @@ import { onMounted, onBeforeUnmount } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { emit } from "../app-bridge.js";
+import { debugLog } from "./useClientLogs.js";
 
-// 非split時は非アクティブなタブも v-show で表示切替するだけでマウントされ
-// 続けるため（TerminalBase.vue）、開いているタブの数だけ document への
-// paste リスナーが登録される。isActiveガードで通常は1つしか処理に進まない
-// はずだが、PWA環境でCtrl+V/右クリック貼り付けの両方から同一画像が2枚
-// 貼り付けられる不具合が報告されており、ブラウザ側でpasteイベントが
-// 二重発火している可能性がある。モジュール全体で共有する短時間ロックで
-// 同一画像の連続処理を弾く。
-let lastImagePasteAt = 0;
-const IMAGE_PASTE_DEDUPE_MS = 500;
+// 右クリックの「Paste」から画像を貼り付けると2枚アップロードされる不具合を
+// 調査中。原因特定まではデバッグログのみ（デバッグモードON時、Settings >
+// System Info のログに出る）で発火状況を可視化する。原因が分かり次第、
+// 対症療法ではなく発生源を止める形に直す。
+let pasteEventSeq = 0;
 
 export function useTerminalPaste({ tab, isActive }) {
   const auth = useAuthStore();
 
   async function onPaste(e) {
+    const seq = ++pasteEventSeq;
+    debugLog(`[terminal-paste #${seq}] fired type=${e.type} isTrusted=${e.isTrusted} timeStamp=${e.timeStamp.toFixed(1)} isActive=${isActive.value} tabId=${tab.value?.id}`);
     if (!isActive.value) return;
 
     const files = e.clipboardData?.files;
@@ -25,12 +24,7 @@ export function useTerminalPaste({ tab, isActive }) {
       : null;
 
     if (imageFile) {
-      const now = Date.now();
-      if (now - lastImagePasteAt < IMAGE_PASTE_DEDUPE_MS) {
-        e.preventDefault();
-        return;
-      }
-      lastImagePasteAt = now;
+      debugLog(`[terminal-paste #${seq}] image detected name=${imageFile.name} size=${imageFile.size} lastModified=${imageFile.lastModified}`);
       e.preventDefault();
       emit("keyboard:deactivate");
       await uploadImageToTerminal({
