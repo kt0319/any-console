@@ -192,6 +192,10 @@ test.describe("workspace detail panes", () => {
     // Branch一覧は既定で畳まれているため、シェブロンボタンで開く
     await page.locator(".branch-summary-toggle").click();
 
+    const current = page.locator(".branch-item.current");
+    await expect(current).toBeVisible({ timeout: 10_000 });
+    await expect(current.locator(".branch-item-name")).toContainText(branchName);
+
     // Add ダイアログ（Branch / Worktree 選択）を開いて Cancel で閉じる
     await page.locator('.branch-footer-btn[aria-label="Add"]').click();
     const addDialog = page.locator(".branch-add-dialog");
@@ -215,8 +219,10 @@ test.describe("workspace detail panes", () => {
     await addDialog.locator(".form-input").fill(newBranch);
     await addDialog.locator(".prompt-btn-ok").click();
 
-    // 作成したブランチに切り替わった状態で折り畳みヘッダーに現れる
-    await expect(page.locator(".branch-summary-name")).toContainText(newBranch, { timeout: 10_000 });
+    // 作成したブランチに切り替わった状態で一覧に現れる
+    const current = page.locator(".branch-item.current");
+    await expect(current).toBeVisible({ timeout: 10_000 });
+    await expect(current.locator(".branch-item-name")).toContainText(newBranch);
 
     // 後続テストのために元のブランチへ戻しておく（テスト用リポジトリの後始末）
     git(wsDir, "checkout", branchName);

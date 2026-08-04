@@ -32,26 +32,6 @@
               <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
               <span class="mdi branch-summary-caret" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </button>
-            <div class="branch-summary-actions">
-              <GitActionBtn
-                v-if="(workspaceStore.currentWorkspace?.behind || 0) > 0"
-                icon="pull"
-                title="Pull"
-                :count="workspaceStore.currentWorkspace.behind"
-                :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
-                btn-class="pull-btn has-count"
-                @action="gitAction(workspaceStore.selectedWorkspace, 'pull')"
-              />
-              <GitActionBtn
-                v-if="(workspaceStore.currentWorkspace?.ahead || 0) > 0"
-                icon="push"
-                title="Push"
-                :count="workspaceStore.currentWorkspace.ahead"
-                :running="isRunning(workspaceStore.selectedWorkspace, pushActionFor(workspaceStore.currentWorkspace))"
-                btn-class="push-btn has-count"
-                @action="gitAction(workspaceStore.selectedWorkspace, pushActionFor(workspaceStore.currentWorkspace), { branch: workspaceStore.currentWorkspace.branch })"
-              />
-            </div>
           </div>
           <div v-show="branchSectionExpanded" class="branch-summary-body">
             <GitChangeBranch ref="gitBranch" @close="branchSectionExpanded = false" />
@@ -112,7 +92,6 @@ import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
-import GitActionBtn from "./GitActionBtn.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
@@ -120,7 +99,6 @@ import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -128,13 +106,6 @@ const { apiCommand, wsEndpoint } = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
 const { modalTitle, viewState, modalBranch, updateViewState } = useModalView();
-const { gitAction, isRunning } = useGitRemoteAction();
-
-// upstream未設定のブランチは直接pushできず、まずset-upstreamが必要
-// （WorkspaceOpen.vueのワークスペース一覧ミニPushボタンと同じ判定）。
-function pushActionFor(ws) {
-  return ws?.has_upstream === false ? "push-upstream" : "push";
-}
 const {
   issuesCount,
   prsCount,
@@ -462,13 +433,6 @@ onMounted(() => {
 .branch-summary-toggle:active {
   transform: scale(0.98);
   background: var(--bg-tertiary);
-}
-
-.branch-summary-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
 }
 
 .branch-summary-icon {

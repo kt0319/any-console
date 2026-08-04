@@ -35,9 +35,9 @@
     </div>
     <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isBusy }">
         <div
-          v-for="branch in otherLocalBranches"
+          v-for="branch in localBranches"
           :key="'local-' + branch.name"
-          class="branch-item"
+          :class="['branch-item', { current: branch.current }]"
           @click="selectBranch(branch)"
         >
           <div class="branch-item-name">
@@ -49,14 +49,15 @@
             ></span>
             {{ branch.name }}
             <span v-if="branch.isDefault" class="branch-default-badge" data-tooltip="Repository's default branch">default</span>
+            <span v-if="branch.current"> ✓</span>
           </div>
           <div class="branch-item-actions" @click.stop>
             <GitActionBtn
               v-if="canPull(branch)"
               icon="pull"
-              title="Switch to this branch to pull"
+              :title="branch.current ? 'Pull' : 'Switch to this branch to pull'"
               :count="branch.behind || null"
-              disabled
+              :disabled="!branch.current"
               :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
               btn-class="pull-btn has-count"
               @action="pullBranch(branch)"
@@ -78,7 +79,7 @@
               @click="removeWorktree(linkedWorktree(branch))"
             >Remove WT</button>
             <button
-              v-if="!worktreeByBranch[branch.name]"
+              v-if="!branch.current && !worktreeByBranch[branch.name]"
               type="button"
               class="commit-action-item commit-action-danger branch-delete-btn"
               aria-label="Delete branch"
@@ -164,10 +165,6 @@ const {
 
 const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
 const branchListEl = ref(null);
-
-// 現在ブランチのPush/Pullは折り畳みヘッダー（WorkspaceDetail.vue）側に
-// 出すため、一覧には現在ブランチ以外だけを並べる。
-const otherLocalBranches = computed(() => localBranches.value.filter((b) => !b.current));
 
 const {
   addModalOpen,
@@ -357,6 +354,11 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   text-transform: uppercase;
   letter-spacing: 0.02em;
   vertical-align: middle;
+}
+
+.branch-item.current {
+  color: var(--accent);
+  cursor: default;
 }
 
 .branch-item.remote-only {
