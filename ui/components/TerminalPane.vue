@@ -17,7 +17,6 @@
         :class="{ 'pill-group-bottom': layoutStore.isPanelBottom }"
         ref="pillEl"
       >
-        <Transition name="pill-swap" mode="out-in">
         <div
           v-if="peekingKey"
           :key="peekingKey"
@@ -163,7 +162,6 @@
               </template>
           </div>
         </div>
-        </Transition>
         <!-- ワークスペースピル本体・閉じるボタンは、peek表示中は隠して
              peekピルにスペースを譲る（peekingKeyが無い通常時だけ表示）。 -->
         <div
@@ -1099,12 +1097,12 @@ defineExpose({
   bottom: 10px;
 }
 
-/* .pill-trailing（展開ボタン群）と peekピルは Transition(mode="out-in") の
-   1つの子として .pill-group 内の同じ位置（ワークスペースピルの左隣）で
-   排他的に表示され、切替時は通常ピルがフェードアウトしてから peekピルが
-   フェードインする（下記 .pill-swap-* の transition クラス）。ワークスペース
-   ピル本体・閉じるボタンは peek表示中は v-if で非表示にし、peekピルへ
-   スペースを譲る。
+/* .pill-trailing（展開ボタン群）と peekピルは .pill-group 内の同じ位置
+   （ワークスペースピルの左隣）で v-if/v-else により排他的に表示される。
+   ワークスペースピル本体・閉じるボタンと同じく、アニメーション無しで
+   即座に切り替える（片方だけフェードすると現れるタイミングがずれて
+   見えるため）。ワークスペースピル本体・閉じるボタンは peek表示中は
+   v-if で非表示にし、peekピルへスペースを譲る。
    値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
    のまま表示する。上限だけ、キーによらず .pill-trailing と同じ
    trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
@@ -1220,16 +1218,7 @@ defineExpose({
   font-weight: 600;
 }
 
-/* 通常ピル⇔peekピルの切替えはスライドさせず、クロスフェードのみにする。 */
-.pill-swap-enter-active,
-.pill-swap-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.pill-swap-leave-to { opacity: 0; }
-.pill-swap-enter-from { opacity: 0; }
-
-/* Transition(mode="out-in") の1つの子として peekピルと排他的に表示される
+/* peekピルと排他的に表示される
    展開ボタン群のコンテナ。ボタンの出現/消失や幅の変化はアニメーションせず
    即座に反映する。 */
 .pill-trailing {
