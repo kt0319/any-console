@@ -17,6 +17,7 @@
         :class="{ 'pill-group-bottom': layoutStore.isPanelBottom }"
         ref="pillEl"
       >
+        <Transition name="pill-fade" mode="out-in">
         <div
           v-if="peekingKey"
           :key="peekingKey"
@@ -162,8 +163,11 @@
               </template>
           </div>
         </div>
+        </Transition>
         <!-- ワークスペースピル本体・閉じるボタンは、peek表示中は隠して
-             peekピルにスペースを譲る（peekingKeyが無い通常時だけ表示）。 -->
+             peekピルにスペースを譲る（peekingKeyが無い通常時だけ表示）。
+             展開ボタン群/peekピルと同じフェードを使い、切替えのタイミングを揃える。 -->
+        <Transition name="pill-fade">
         <div
           v-if="!peekingKey"
           class="terminal-info-pill"
@@ -186,6 +190,8 @@
             </span>
           </span>
         </div>
+        </Transition>
+        <Transition name="pill-fade">
         <button
           v-if="!peekingKey && layoutStore.isSplitMode"
           type="button"
@@ -196,6 +202,8 @@
           @pointerup.stop="onSplitCloseUp"
           @click.stop
         ><span class="mdi mdi-minus"></span></button>
+        </Transition>
+        <Transition name="pill-fade">
         <button
           v-if="!peekingKey && !layoutStore.isSplitMode"
           type="button"
@@ -206,6 +214,7 @@
           @pointerup.stop="onTabCloseUp"
           @click.stop
         ><span class="mdi mdi-close"></span></button>
+        </Transition>
       </div>
     </div>
   </div>
@@ -1099,10 +1108,9 @@ defineExpose({
 
 /* .pill-trailing（展開ボタン群）と peekピルは .pill-group 内の同じ位置
    （ワークスペースピルの左隣）で v-if/v-else により排他的に表示される。
-   ワークスペースピル本体・閉じるボタンと同じく、アニメーション無しで
-   即座に切り替える（片方だけフェードすると現れるタイミングがずれて
-   見えるため）。ワークスペースピル本体・閉じるボタンは peek表示中は
-   v-if で非表示にし、peekピルへスペースを譲る。
+   ワークスペースピル本体・閉じるボタンは peek表示中は v-if で非表示にし、
+   peekピルへスペースを譲る。この4要素は全て同じ pill-fade（クロス
+   フェードのみ、スライド無し）で切り替え、現れるタイミングを揃える。
    値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
    のまま表示する。上限だけ、キーによらず .pill-trailing と同じ
    trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
@@ -1217,6 +1225,17 @@ defineExpose({
   color: var(--success);
   font-weight: 600;
 }
+
+/* peekピル⇔展開ボタン群⇔ワークスペースピル⇔閉じるボタンの切替えは
+   スライドさせず、クロスフェードのみにする。4要素とも同じ名前・同じ
+   duration にして、現れるタイミングを揃える。 */
+.pill-fade-enter-active,
+.pill-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.pill-fade-leave-to { opacity: 0; }
+.pill-fade-enter-from { opacity: 0; }
 
 /* peekピルと排他的に表示される
    展開ボタン群のコンテナ。ボタンの出現/消失や幅の変化はアニメーションせず
