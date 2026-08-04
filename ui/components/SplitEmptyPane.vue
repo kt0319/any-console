@@ -113,14 +113,14 @@ function onRemovePane() {
   display: flex;
   align-items: stretch;
   justify-content: stretch;
-  border: 1px solid var(--border);
+  border: 1px solid #2a2e42;
   background: var(--bg-secondary, #1a1b26);
   overflow: hidden;
   position: relative;
 }
 
 .empty-pane.active {
-  border-color: var(--accent);
+  border-color: #5b77b2;
 }
 
 .empty-pane-inner {

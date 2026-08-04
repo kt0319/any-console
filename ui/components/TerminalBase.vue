@@ -123,12 +123,11 @@ defineExpose({ fitAllTerminals, selectPane });
   min-width: 0;
   min-height: 0;
   flex: 1;
-  border: 1px solid var(--border);
+  border: 1px solid #2a2e42;
 }
 
-/* SplitEmptyPane（空きペイン）のアクティブ表示と同じ配色に揃える。 */
 .split-pane.active-pane {
-  border-color: var(--accent);
+  border-color: #5b77b2;
 }
 
 .split-pane :deep(.terminal-frame),
