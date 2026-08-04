@@ -1505,14 +1505,10 @@ defineExpose({
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-/* アクティブなペインのワークスペースピルは背景色でアクセントを付ける
-   （枠線は変えない）。タブバーのアクティブタブと同じ配色
-   rgba(130,170,255,0.12) は不透明度が低すぎ、端末の出力（背景が
-   一定でないツールバーの上ではなく端末画面に浮かせて表示している）が
-   透けて他ピルより薄い＝透明に見えてしまうため、他ピルと同程度の
-   不透明度を保ったまま色味だけアクセントに寄せる。 */
+/* アクティブなペインのワークスペースピルは枠線の色でアクセントを付ける
+   （背景色は変えない）。 */
 .terminal-pane.active .terminal-info-pill {
-  background: rgba(38, 56, 82, 0.92);
+  border-color: var(--accent);
 }
 
 .terminal-info-pill.tab-activity {
