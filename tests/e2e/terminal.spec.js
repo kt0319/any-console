@@ -88,9 +88,9 @@ test.describe("terminal", () => {
     await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
-    // Cancel でタブが残る(アクティブなタブの再タップでクローズ確認)
-    const activeTab = page.locator(".tab-btn.active");
-    await activeTab.click();
+    // Cancel でタブが残る(tab-closeボタンでクローズ確認)
+    const activeTabClose = page.locator(".tab-btn.active .tab-close");
+    await activeTabClose.click();
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText("Close");
@@ -99,7 +99,7 @@ test.describe("terminal", () => {
     await expect(tabs).toHaveCount(countBefore + 1);
 
     // Close でタブが消える
-    await activeTab.click();
+    await activeTabClose.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator(".dialog-btn-danger").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 10_000 });

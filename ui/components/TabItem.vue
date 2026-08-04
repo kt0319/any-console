@@ -135,8 +135,7 @@ function onClick(e) {
   if (isDragging.value) return;
   if (mouseLongPress.consumeFired()) return;
   e.currentTarget?.blur();
-  // アクティブなタブの再タップでクローズ確認を出す。
-  if (isActive.value) { onClose(); return; }
+  if (isActive.value) return;
   // タッチ操作での選択はソフトキーボードが誤起動するため、フォーカスしない。
   const skipFocus = lastInputWasTouch;
   lastInputWasTouch = false;
@@ -238,7 +237,7 @@ function onDropOnTab(e) {
 // （横移動で並び替え、タブバー外へドラッグでスプリット）。非アクティブタブは
 // canTouchDrag が false になりドラッグ自体が始まらない（横スワイプでの
 // タブバースクロールと誤認識しないようにするため）。
-// クローズはジェスチャーではなく、アクティブなタブの再タップ(onClick)で行う。
+// クローズはタブ本体のタップ/クリックでは行わず、常に tab-close ボタン経由。
 const touchTracker = createTouchTracker();
 
 function hitTestTab(clientX, clientY) {
@@ -309,8 +308,7 @@ function onTouchEnd(e) {
     finishTouchDrag(touch.clientX, touch.clientY);
     isDragging.value = false;
   }
-  // 長押し→そのまま離す＝クローズは廃止。クローズはアクティブタブの
-  // 再タップ(onClick)に一本化する。
+  // 長押し→そのまま離す＝クローズは廃止。クローズは tab-close ボタン経由のみ。
 }
 
 function onTouchCancel() {
