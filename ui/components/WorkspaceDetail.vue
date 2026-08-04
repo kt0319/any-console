@@ -18,7 +18,10 @@
 
     <!-- タブコンテンツ -->
     <div class="workspace-tab-content">
-      <div v-show="activePane === 'history'" class="file-modal-pane">
+      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
+        <div class="git-history-branch-branches">
+          <GitChangeBranch ref="gitBranch" />
+        </div>
         <GitHistory
           ref="gitHistory"
           @commit:collapsed="onCommitCollapsed"
@@ -38,9 +41,6 @@
       </div>
       <div v-if="activePane === 'changes'" class="file-modal-pane">
         <GitChanges ref="gitChanges" />
-      </div>
-      <div v-if="activePane === 'branch'" class="file-modal-pane">
-        <GitChangeBranch ref="gitBranch" @count="branchCount = $event" />
       </div>
       <div v-if="activePane === 'jobs'" class="file-modal-pane">
         <WorkspaceJobsPane ref="jobsPane" />
@@ -94,7 +94,6 @@ const {
   issuesCount,
   prsCount,
   stashCount,
-  branchCount,
   changesCount,
   hasGithub,
   primeFromCache,
@@ -141,7 +140,6 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--pink)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
-    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: "var(--success)", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
@@ -213,9 +211,10 @@ function open(options) {
 }
 
 async function switchPane(key) {
-  // 後方互換: "github" → "issues"、"browser" → "history"
+  // 後方互換: "github" → "issues"、"browser"/"branch" → "history"
+  // （BranchはHistoryタブへ統合し、常に上下に並べて両方表示する）
   if (key === "github") key = "issues";
-  if (key === "browser") key = "history";
+  if (key === "browser" || key === "branch") key = "history";
 
   activePane.value = key;
   updateViewState?.({ detail: { ...(viewState.value?.detail || {}), pane: key } });
@@ -227,14 +226,11 @@ async function switchPane(key) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
         gitHistory.value?.load();
       }
-    });
-  } else if (key === "changes") {
-    nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
-  } else if (key === "branch") {
-    nextTick(() => {
       gitBranch.value?.load();
       gitBranch.value?.backgroundFetch();
     });
+  } else if (key === "changes") {
+    nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
   } else if (key === "jobs") {
@@ -349,6 +345,20 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* HistoryタブはBranch一覧とコミット履歴を上下に並べて常に両方表示する
+   （ブランチのpush/pull/削除・コミット履歴の閲覧を1タブで完結させる）。
+   Branch一覧は件数が少ないことが多いため高さを上限で抑え、コミット履歴
+   側に残りの高さを譲る。 */
+.git-history-branch-branches {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  max-height: 40%;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
 }
 
 /* タブバー */

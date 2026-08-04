@@ -1,5 +1,5 @@
 /**
- * ワークスペース詳細ペイン（Files / Changes+Commit / History / Branches）と
+ * ワークスペース詳細ペイン（Files / Changes+Commit / History（Branches統合））と
  * ディープリンク（?ws=...&pane=...）の E2E スモーク。
  *
  * テスト用の git リポジトリを一時領域に作り、API（Bearer 認証）で
@@ -95,7 +95,7 @@ test.describe("workspace detail panes", () => {
     // Jobsはワークスペース一覧から開いた時の既定ペインとして残るが、
     // タブとしては表示しない（詳細内から戻れないようにする）。
     await openDetail(page);
-    for (const label of ["Files", "History", "Changes", "Branches", "Select & Copy"]) {
+    for (const label of ["Files", "History", "Changes", "Select & Copy"]) {
       await expect(page.locator(".workspace-tabs").getByRole("button", { name: label })).toBeVisible({ timeout: 10_000 });
     }
     await expect(page.locator(".workspace-tabs").getByRole("button", { name: "Jobs" })).not.toBeVisible();
@@ -183,9 +183,9 @@ test.describe("workspace detail panes", () => {
     await expect(page.locator(".git-log-entry-msg", { hasText: COMMIT_MSG_UI })).toBeVisible({ timeout: 10_000 });
   });
 
-  test("Branches ペインに現在ブランチが表示され Add ダイアログを開閉できる", async ({ page }) => {
+  test("Historyペイン内のBranchesに現在ブランチが表示され Add ダイアログを開閉できる", async ({ page }) => {
     await openDetail(page);
-    await page.locator(".workspace-tabs").getByRole("button", { name: "Branches" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
 
     const current = page.locator(".branch-item.current");
     await expect(current).toBeVisible({ timeout: 10_000 });
@@ -201,10 +201,10 @@ test.describe("workspace detail panes", () => {
     await expect(addDialog).toBeHidden();
   });
 
-  test("Branches ペインの Add ダイアログからブランチを作成できる", async ({ page }) => {
+  test("Historyペイン内のBranchesの Add ダイアログからブランチを作成できる", async ({ page }) => {
     const newBranch = "e2e/branch-test";
     await openDetail(page);
-    await page.locator(".workspace-tabs").getByRole("button", { name: "Branches" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
     await expect(page.locator(".branch-item.current")).toBeVisible({ timeout: 10_000 });
 
     await page.locator('.branch-toolbar-btn[aria-label="Add"]').click();
