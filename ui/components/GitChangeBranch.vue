@@ -386,7 +386,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
 .branch-item-current {
   color: var(--accent);
   cursor: default;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .branch-item.remote-only {
