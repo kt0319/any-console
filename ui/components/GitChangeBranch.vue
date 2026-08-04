@@ -116,9 +116,6 @@
       <button type="button" class="branch-footer-btn" aria-label="Fetch" data-tooltip="Fetch remote branches" :disabled="isBusy" @click="fetchRemote">
         <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-toolbar-spin' : 'mdi-refresh'"></span> Fetch
       </button>
-      <button type="button" class="branch-footer-btn" aria-label="Close" data-tooltip="Close branch list" @click="branchEmit('close')">
-        <span class="mdi mdi-chevron-up"></span> Close
-      </button>
     </div>
   </div>
 </template>
@@ -133,7 +130,7 @@ import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush } from "../utils/git-branch.js";
 import { emit } from "../app-bridge.js";
 
-const branchEmit = defineEmits(["count", "close"]);
+const branchEmit = defineEmits(["count"]);
 
 const workspaceStore = useWorkspaceStore();
 

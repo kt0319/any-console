@@ -34,7 +34,7 @@
             </button>
           </div>
           <div v-show="branchSectionExpanded" class="branch-summary-body">
-            <GitChangeBranch ref="gitBranch" @close="branchSectionExpanded = false" />
+            <GitChangeBranch ref="gitBranch" />
           </div>
         </div>
         <GitHistory
