@@ -1131,7 +1131,7 @@ defineExpose({
    暗くならないため、要素全体を暗くできるopacityで揃える
    （ワークスペースピルと同じ扱い）。 */
 .terminal-pane:not(.active) .pill-chip {
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
 .pill-peek-wide {
@@ -1516,7 +1516,7 @@ defineExpose({
 /* 非アクティブなペインのワークスペースピルは沈んで見えるように暗くする
    （アイコンも含め要素全体をopacityで暗くする）。 */
 .terminal-pane:not(.active) .terminal-info-pill {
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
 .terminal-info-pill.tab-activity {
