@@ -1014,6 +1014,12 @@ watch(isActive, async (active) => {
   try { props.tab.term?.focus(); } catch {}
 });
 
+// タブ切替えでこのペインがアクティブになった瞬間、ワークスペース名を
+// peekで一瞬知らせる（タブが多い時に今どこを見ているか分かりやすくする）。
+watch(isActive, (active) => {
+  if (active) triggerPeek("workspace");
+});
+
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
