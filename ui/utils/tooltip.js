@@ -1,5 +1,3 @@
-import { PILL_MORE_PEEK_DURATION_MS } from "./constants.js";
-
 let tooltipEl = null;
 let textEl = null;
 let hideTimer = null;
@@ -20,8 +18,6 @@ function show(target, text) {
   if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
   const el = getEl();
   textEl.textContent = text;
-  textEl.classList.remove("ac-tooltip-marquee");
-  textEl.style.animationDuration = "";
   el.style.display = "block";
   el.style.opacity = "0";
 
@@ -40,15 +36,6 @@ function show(target, text) {
   el.style.left = left + "px";
   el.style.top = top + "px";
   el.style.opacity = "1";
-
-  // 長いテキスト（コミットメッセージ等）で幅が max-width を超える時だけ、
-  // 末尾まで見えるよう一度だけスクロールする（TerminalPane.vueのpeekピルと同じ方式）。
-  const style = getComputedStyle(el);
-  const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-  if (textEl.scrollWidth > el.clientWidth - paddingX) {
-    textEl.classList.add("ac-tooltip-marquee");
-    textEl.style.animationDuration = `${PILL_MORE_PEEK_DURATION_MS}ms`;
-  }
 }
 
 function hide() {
@@ -66,7 +53,6 @@ export function installTooltip() {
       display: none;
       position: fixed;
       max-width: min(320px, calc(100vw - 16px));
-      overflow: hidden;
       padding: 5px 10px;
       font-size: 12px;
       line-height: 1.2;
@@ -81,18 +67,10 @@ export function installTooltip() {
     }
 
     .ac-tooltip-text {
-      display: inline-block;
+      display: block;
+      overflow: hidden;
       white-space: nowrap;
-    }
-
-    .ac-tooltip-text.ac-tooltip-marquee {
-      padding-left: 100%;
-      animation: ac-tooltip-scroll linear 1 forwards;
-    }
-
-    @keyframes ac-tooltip-scroll {
-      from { transform: translateX(0); }
-      to { transform: translateX(-100%); }
+      text-overflow: ellipsis;
     }
   `;
   document.head.appendChild(style);
