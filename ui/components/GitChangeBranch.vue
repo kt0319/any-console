@@ -1,15 +1,5 @@
 <template>
   <div class="git-branch-pane-wrapper">
-    <div class="branch-toolbar">
-      <span class="branch-toolbar-spacer"></span>
-      <button type="button" class="branch-toolbar-btn" aria-label="Fetch" data-tooltip="Fetch" :disabled="isBusy" @click="fetchRemote">
-        <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-toolbar-spin' : 'mdi-refresh'"></span>
-      </button>
-      <button type="button" class="branch-toolbar-btn" aria-label="Add" data-tooltip="Add" :disabled="isBusy" @click="openAddModal">
-        <span class="mdi mdi-plus"></span>
-      </button>
-    </div>
-
     <div v-if="addModalOpen" class="branch-add-overlay" @click.self="closeAddModal">
       <div class="branch-add-dialog" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
         <div class="branch-add-dialog-title">Add</div>
@@ -44,9 +34,6 @@
       </div>
     </div>
     <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isBusy }">
-      <div class="branch-section-header">
-        <span>LOCAL</span>
-      </div>
         <div
           v-for="branch in localBranches"
           :key="'local-' + branch.name"
@@ -72,7 +59,7 @@
               :count="branch.behind || null"
               :disabled="!branch.current"
               :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
-              :btn-class="'pull-btn has-count'"
+              btn-class="pull-btn has-count"
               @action="pullBranch(branch)"
             />
             <GitActionBtn
@@ -94,18 +81,12 @@
             <button
               v-if="!branch.current && !worktreeByBranch[branch.name]"
               type="button"
-              class="commit-action-item commit-action-danger"
+              class="commit-action-item commit-action-danger branch-delete-btn"
+              aria-label="Delete branch"
+              data-tooltip="Delete branch"
               @click="deleteBranch(branch)"
-            >Delete</button>
+            ><span class="mdi mdi-trash-can-outline"></span></button>
           </div>
-        </div>
-        <div
-          class="branch-section-header branch-section-header-toggle"
-          :class="{ 'is-busy': isBusy }"
-          @click="fetchRemote"
-        >
-          <span>REMOTE</span>
-          <span v-if="isFetchingRemote" class="branch-section-loading">Loading...</span>
         </div>
         <template v-if="remoteLoaded">
           <div
@@ -118,14 +99,15 @@
             <div class="branch-item-actions" @click.stop>
               <button
                 type="button"
-                class="commit-action-item commit-action-danger"
+                class="commit-action-item commit-action-danger branch-delete-btn"
+                aria-label="Delete branch"
+                data-tooltip="Delete branch"
                 @click="deleteBranch(branch)"
-              >Delete</button>
+              ><span class="mdi mdi-trash-can-outline"></span></button>
             </div>
           </div>
           <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
         </template>
-        <div v-else-if="!isRemoteBranchListLoading" class="branch-item-empty">Tap REMOTE to fetch from origin</div>
     </div>
   </div>
 </template>
@@ -149,7 +131,6 @@ const {
   localBranches,
   remoteBranches,
   remoteLoaded,
-  isRemoteBranchListLoading,
   isSwitchingBranch,
   worktreeByBranch,
   branches,
@@ -208,7 +189,7 @@ watch(branches, (list) => {
   branchEmit("count", list.filter((b) => !b.remote).length);
 });
 
-defineExpose({ load: loadBranchList, backgroundFetch });
+defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote });
 </script>
 
 <style scoped>
@@ -218,38 +199,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.branch-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.branch-toolbar-spacer {
-  flex: 1;
-}
-
-.branch-toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.branch-toolbar-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .branch-toolbar-spin {
@@ -316,13 +265,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   justify-content: flex-end;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .branch-toolbar-btn:not(:disabled):hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
-
 .branch-item {
   box-sizing: border-box;
   padding: 10px 12px;
@@ -383,43 +325,18 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   font-style: italic;
 }
 
-.branch-section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  box-sizing: border-box;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
-  border-bottom: 1px solid var(--border);
-}
-
-.branch-section-header-toggle {
-  width: 100%;
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-}
-
-.branch-section-header-toggle.is-busy {
-  pointer-events: none;
-  opacity: 0.7;
-}
-
 .modal-scroll-body.is-fetching {
   pointer-events: none;
   opacity: 0.6;
 }
 
-.branch-section-loading {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-muted);
+.branch-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0;
+  font-size: 15px;
 }
 
 .branch-worktree-icon {

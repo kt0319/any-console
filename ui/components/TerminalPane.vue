@@ -645,8 +645,11 @@ let actionsEverResolved = actionsResolvedFor(props.tab.workspace);
 
 // ほぼ同時に複数のピルが変化した場合、後の変化が前の変化のpeek表示を
 // 即座に上書きしてしまわないよう、表示中でなければ即座に、表示中なら
-// キューに積んで前のpeekが閉じてから順番に表示する。
+// キューに積んで前のpeekが閉じてから順番に表示する。表示時間は1件ずつ
+// PILL_MORE_PEEK_DURATION_MSではなく、キュー全体（このセッション開始から）
+// の合計がPILL_MORE_PEEK_DURATION_MSに収まるよう残り時間を残件数で割る。
 const peekQueue = [];
+let queueSessionEndsAt = 0;
 
 function advancePeekQueue() {
   const next = peekQueue.shift();
@@ -657,12 +660,17 @@ function advancePeekQueue() {
   }
   peekingKey.value = next.key;
   branchDoneLabel.value = next.doneLabel || "";
-  pillMorePeekTimer = setTimeout(advancePeekQueue, PILL_MORE_PEEK_DURATION_MS);
+  const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
+  const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
+  pillMorePeekTimer = setTimeout(advancePeekQueue, itemMs);
 }
 
 function triggerPeek(key, doneLabel = "") {
   peekQueue.push({ key, doneLabel });
-  if (!pillMorePeekTimer) advancePeekQueue();
+  if (!pillMorePeekTimer) {
+    queueSessionEndsAt = Date.now() + PILL_MORE_PEEK_DURATION_MS;
+    advancePeekQueue();
+  }
 }
 
 watch(trailingPeekItems, (items) => {

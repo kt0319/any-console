@@ -18,9 +18,46 @@
 
     <!-- タブコンテンツ -->
     <div class="workspace-tab-content">
-      <div v-show="activePane === 'history'" class="file-modal-pane">
+      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
+        <div v-show="!isViewingCommitFiles" class="git-history-branch-branches">
+          <div class="branch-summary-header">
+            <button
+              type="button"
+              class="branch-summary-add-btn"
+              aria-label="Add branch or worktree"
+              data-tooltip="Add branch or worktree"
+              @click="onAddBranch"
+            >
+              <span class="mdi mdi-plus"></span>
+            </button>
+            <button
+              type="button"
+              class="branch-summary-toggle"
+              :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
+              :aria-expanded="branchSectionExpanded"
+              @click="toggleBranchSection"
+            >
+              <span class="mdi mdi-source-branch branch-summary-icon"></span>
+              <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
+              <span class="mdi branch-summary-caret" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+            </button>
+            <button
+              type="button"
+              class="branch-summary-fetch-btn"
+              aria-label="Fetch"
+              data-tooltip="Fetch remote branches"
+              @click="onFetchBranch"
+            >
+              <span class="mdi mdi-refresh"></span>
+            </button>
+          </div>
+          <div v-show="branchSectionExpanded" class="branch-summary-body">
+            <GitChangeBranch ref="gitBranch" />
+          </div>
+        </div>
         <GitHistory
           ref="gitHistory"
+          @commit:expanded="isViewingCommitFiles = true"
           @commit:collapsed="onCommitCollapsed"
         />
       </div>
@@ -38,9 +75,6 @@
       </div>
       <div v-if="activePane === 'changes'" class="file-modal-pane">
         <GitChanges ref="gitChanges" />
-      </div>
-      <div v-if="activePane === 'branch'" class="file-modal-pane">
-        <GitChangeBranch ref="gitBranch" @count="branchCount = $event" />
       </div>
       <div v-if="activePane === 'jobs'" class="file-modal-pane">
         <WorkspaceJobsPane ref="jobsPane" />
@@ -94,7 +128,6 @@ const {
   issuesCount,
   prsCount,
   stashCount,
-  branchCount,
   changesCount,
   hasGithub,
   primeFromCache,
@@ -113,6 +146,12 @@ const jobsPane = ref(null);
 const terminalSelectPane = ref(null);
 
 const activePane = ref("jobs");
+// HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
+// （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
+const branchSectionExpanded = ref(false);
+// コミットのファイル一覧を見ている間はBranchヘッダーを隠し、履歴の
+// 表示領域を圧迫しないようにする（GitHistoryのcommit:expanded/collapsed）。
+const isViewingCommitFiles = ref(false);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 const selectedDiffIsWorkingTree = ref(false);
@@ -141,7 +180,6 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--pink)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
-    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: "var(--success)", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
@@ -161,6 +199,38 @@ function updateViewTitle() {
 let loadedWorkspace = null;
 let historyLoadedFor = null;
 let filesLoadedFor = null;
+let branchLoadedFor = null;
+
+function loadBranchSection() {
+  if (branchLoadedFor === workspaceStore.selectedWorkspace) return;
+  branchLoadedFor = workspaceStore.selectedWorkspace;
+  nextTick(() => {
+    gitBranch.value?.load();
+    gitBranch.value?.backgroundFetch();
+  });
+}
+
+function toggleBranchSection() {
+  branchSectionExpanded.value = !branchSectionExpanded.value;
+  if (branchSectionExpanded.value) loadBranchSection();
+}
+
+function expandBranchSection() {
+  if (!branchSectionExpanded.value) {
+    branchSectionExpanded.value = true;
+    loadBranchSection();
+  }
+}
+
+function onAddBranch() {
+  expandBranchSection();
+  nextTick(() => gitBranch.value?.openAddModal());
+}
+
+function onFetchBranch() {
+  expandBranchSection();
+  nextTick(() => gitBranch.value?.fetchRemote());
+}
 
 function clearDiffSelection() {
   selectedDiffFile.value = "";
@@ -206,6 +276,9 @@ function open(options) {
   if (workspaceChanged) {
     historyLoadedFor = null;
     filesLoadedFor = null;
+    branchLoadedFor = null;
+    branchSectionExpanded.value = false;
+    isViewingCommitFiles.value = false;
     loadedWorkspace = filesKey;
   }
 
@@ -213,9 +286,10 @@ function open(options) {
 }
 
 async function switchPane(key) {
-  // 後方互換: "github" → "issues"、"browser" → "history"
+  // 後方互換: "github" → "issues"、"browser"/"branch" → "history"
+  // （BranchはHistoryタブへ統合。Branch一覧は常に畳んだ状態で開始する）
   if (key === "github") key = "issues";
-  if (key === "browser") key = "history";
+  if (key === "browser" || key === "branch") key = "history";
 
   activePane.value = key;
   updateViewState?.({ detail: { ...(viewState.value?.detail || {}), pane: key } });
@@ -223,6 +297,10 @@ async function switchPane(key) {
 
   if (key === "history") {
     nextTick(() => {
+      // commit:expanded/collapsedの取りこぼし（タブ切替等で経由せず離脱した
+      // 場合）でBranchヘッダーが隠れたまま復帰しなくなるのを防ぐため、
+      // Historyタブに入るたびに実際の展開状態へ同期し直す。
+      isViewingCommitFiles.value = !!gitHistory.value?.hasExpanded?.();
       if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
         gitHistory.value?.load();
@@ -230,11 +308,6 @@ async function switchPane(key) {
     });
   } else if (key === "changes") {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
-  } else if (key === "branch") {
-    nextTick(() => {
-      gitBranch.value?.load();
-      gitBranch.value?.backgroundFetch();
-    });
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
   } else if (key === "jobs") {
@@ -259,6 +332,7 @@ function onStashCount(n) {
 }
 
 function onCommitCollapsed() {
+  isViewingCommitFiles.value = false;
   updateViewTitle();
 }
 
@@ -349,6 +423,113 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* HistoryタブはBranch一覧をコミット履歴の上に置くが、既定では現在の
+   ブランチ名 + シェブロンボタンだけの1行に畳んでおく（常時全部出すと
+   コミット履歴の表示領域を圧迫するため）。クリックで開閉する。 */
+.git-history-branch-branches {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.branch-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+/* タップ可能に見えるよう、他のボタン（.branch-footer-btn等）と同じ
+   チップ外観（背景+枠線）にする。透明背景+hoverのみだとモバイルで
+   押せる感が無い（AGENTS.md: クリック可能要素はbackground/borderで
+   視覚区別する）。 */
+.branch-summary-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.branch-summary-toggle:active {
+  transform: scale(0.98);
+  background: var(--bg-tertiary);
+}
+
+.branch-summary-add-btn,
+.branch-summary-fetch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-summary-add-btn:hover,
+  .branch-summary-fetch-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+.branch-summary-icon {
+  color: var(--success);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.branch-summary-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-summary-caret {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-summary-toggle:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--accent);
+  }
+}
+
+.branch-summary-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40vh;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
 }
 
 /* タブバー */

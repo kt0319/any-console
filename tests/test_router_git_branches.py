@@ -57,6 +57,72 @@ class TestDefaultBranch:
         assert entry["is_default"] is True
 
 
+class TestBranchListUnpublishedAhead:
+    def test_branch_without_upstream_counts_unpublished_commits_as_ahead(self, client, git_workspace_with_commit, isolate_fs):
+        # upstream未設定のブランチは %(upstream:track) が常に空でahead/behindを
+        # 計算できないため、originのどのリモートブランチにも含まれないコミット数を
+        # 未push件数として数える（回帰: 常に0が返っていた不具合の修正確認）。
+        bare_path = isolate_fs["work"] / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(bare_path)],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        current_branch = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "push", "-u", "origin", current_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        subprocess.run(
+            ["git", "checkout", "-b", "feature/no-upstream"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        (git_workspace_with_commit / "new_file.txt").write_text("hello\n", encoding="utf-8")
+        subprocess.run(["git", "add", "new_file.txt"], cwd=git_workspace_with_commit, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add file"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        res = client.get("/workspaces/test-ws/branches", headers=AUTH)
+        assert res.status_code == 200
+        entry = next(b for b in res.json() if b["name"] == "feature/no-upstream")
+        assert entry["upstream"] is None
+        assert entry["ahead"] == 1
+
+    def test_branch_with_upstream_uses_git_tracking_ahead(self, client, git_workspace_with_commit, isolate_fs):
+        bare_path = isolate_fs["work"] / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(bare_path)],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        current_branch = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "push", "-u", "origin", current_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        (git_workspace_with_commit / "another_file.txt").write_text("hi\n", encoding="utf-8")
+        subprocess.run(["git", "add", "another_file.txt"], cwd=git_workspace_with_commit, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "second commit"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        res = client.get("/workspaces/test-ws/branches", headers=AUTH)
+        assert res.status_code == 200
+        entry = next(b for b in res.json() if b["name"] == current_branch)
+        assert entry["upstream"] is not None
+        assert entry["ahead"] == 1
+
+
 class TestDeleteBranchValidation:
     def test_invalid_branch_name_rejected(self, client, workspace):
         res = client.post(

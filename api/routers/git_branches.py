@@ -111,6 +111,22 @@ def _branch_tracking_info(ws_path) -> dict[str, dict]:
     return info
 
 
+def _unpublished_commit_count(ws_path, branch: str) -> int:
+    """upstream未設定のブランチはgitのupstream:trackが常に空でahead/behindを
+    計算できないため、originのどのリモートブランチにも含まれないコミット数を
+    「未push件数」の代わりとして数える（git_info.pyのHEAD向け実装と同じ考え方）。"""
+    res = run_git_command(
+        ["rev-list", "--count", branch, "--not", "--remotes=origin"],
+        cwd=ws_path, operation="rev-list unpublished",
+    )
+    if res["exit_code"] != 0:
+        return 0
+    try:
+        return int(res["stdout"].strip() or "0")
+    except ValueError:
+        return 0
+
+
 @router.get("/workspaces/{name}/branches")
 def list_branches(name: str):
     ws_path = resolve_workspace_path(name)
@@ -121,12 +137,14 @@ def list_branches(name: str):
     out = []
     for b in branches:
         t = tracking.get(b, {})
+        upstream = t.get("upstream")
+        ahead = t.get("ahead", 0) if upstream else _unpublished_commit_count(ws_path, b)
         out.append({
             "name": b,
             "current": b == current,
             "is_default": b == default_branch,
-            "upstream": t.get("upstream"),
-            "ahead": t.get("ahead", 0),
+            "upstream": upstream,
+            "ahead": ahead,
             "behind": t.get("behind", 0),
             "gone": t.get("gone", False),
         })
