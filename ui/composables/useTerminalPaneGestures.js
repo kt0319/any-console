@@ -62,11 +62,11 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
       touchMoved = true;
       cancelLongPressTimer();
     }
-    // 分割中は非アクティブペインでのスワイプでサークルキーパッドを開かせない
-    // （見えているペインを切り替えずに別ペインへ操作が飛ぶと分かりにくいため）。
-    const canOpenCircleKeypad = !layoutStore.isSplitMode || isActive?.value;
-    if (circleKeypad && circleKeypad.enabled && canOpenCircleKeypad) {
+    if (circleKeypad && circleKeypad.enabled) {
       if (!circleKeypad.state.visible && Math.hypot(dx, dy) > CIRCLE_KEYPAD_TRIGGER_PX) {
+        // 分割中、非アクティブペインでサークルキーパッドを開いた場合は、
+        // 操作対象がどのペインか分かるようそのペインをアクティブにする。
+        if (layoutStore.isSplitMode && !isActive?.value) onSelectPane?.(paneIndex?.value);
         circleKeypad.open(startX, startY);
         if (navigator.vibrate) navigator.vibrate(15);
       }
