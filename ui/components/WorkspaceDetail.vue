@@ -291,6 +291,10 @@ async function switchPane(key) {
 
   if (key === "history") {
     nextTick(() => {
+      // commit:expanded/collapsedの取りこぼし（タブ切替等で経由せず離脱した
+      // 場合）でBranchヘッダーが隠れたまま復帰しなくなるのを防ぐため、
+      // Historyタブに入るたびに実際の展開状態へ同期し直す。
+      isViewingCommitFiles.value = !!gitHistory.value?.hasExpanded?.();
       if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
         gitHistory.value?.load();
