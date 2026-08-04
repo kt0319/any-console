@@ -19,7 +19,7 @@
     <!-- タブコンテンツ -->
     <div class="workspace-tab-content">
       <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
-        <div class="git-history-branch-branches">
+        <div v-if="!isViewingCommitFiles" class="git-history-branch-branches">
           <div class="branch-summary-header">
             <button
               type="button"
@@ -30,6 +30,7 @@
             >
               <span class="mdi mdi-source-branch branch-summary-icon"></span>
               <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
+              <span class="mdi branch-summary-caret" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </button>
             <div class="branch-summary-actions">
               <GitActionBtn
@@ -58,6 +59,7 @@
         </div>
         <GitHistory
           ref="gitHistory"
+          @commit:expanded="isViewingCommitFiles = true"
           @commit:collapsed="onCommitCollapsed"
         />
       </div>
@@ -158,6 +160,9 @@ const activePane = ref("jobs");
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
 // （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
 const branchSectionExpanded = ref(false);
+// コミットのファイル一覧を見ている間はBranchヘッダーを隠し、履歴の
+// 表示領域を圧迫しないようにする（GitHistoryのcommit:expanded/collapsed）。
+const isViewingCommitFiles = ref(false);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 const selectedDiffIsWorkingTree = ref(false);
@@ -267,6 +272,7 @@ function open(options) {
     filesLoadedFor = null;
     branchLoadedFor = null;
     branchSectionExpanded.value = false;
+    isViewingCommitFiles.value = false;
     loadedWorkspace = filesKey;
   }
 
@@ -316,6 +322,7 @@ function onStashCount(n) {
 }
 
 function onCommitCollapsed() {
+  isViewingCommitFiles.value = false;
   updateViewTitle();
 }
 
@@ -422,29 +429,41 @@ onMounted(() => {
 .branch-summary-header {
   display: flex;
   align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
   flex-shrink: 0;
 }
 
+/* タップ可能に見えるよう、他のボタン（.branch-footer-btn等）と同じ
+   チップ外観（背景+枠線）にする。透明背景+hoverのみだとモバイルで
+   押せる感が無い（AGENTS.md: クリック可能要素はbackground/borderで
+   視覚区別する）。 */
 .branch-summary-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
   min-width: 0;
-  padding: 10px 12px;
-  background: transparent;
-  border: none;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   color: var(--text-primary);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.branch-summary-toggle:active {
+  transform: scale(0.98);
+  background: var(--bg-tertiary);
 }
 
 .branch-summary-actions {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-right: 8px;
   flex-shrink: 0;
 }
 
@@ -462,9 +481,17 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.branch-summary-caret {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .branch-summary-toggle:hover {
-    background: rgba(130, 170, 255, 0.08);
+    background: var(--bg-tertiary);
+    border-color: var(--accent);
   }
 }
 
