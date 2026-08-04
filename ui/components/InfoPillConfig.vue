@@ -40,15 +40,51 @@ if (!infoPillConfig.loaded) infoPillConfig.load();
 // 表示順は infoPillConfig.order（ドラッグハンドルで並び替え可能。
 // ワークスペース一覧・Tabs & Sessionsと同じuseListDragSort）に従う。
 const TOGGLES = [
-  { field: "files", label: "Files", note: "Show the files browser button." },
-  { field: "history", label: "History", note: "Show the commit history button." },
-  { field: "changes", label: "Changes", note: "Show the uncommitted changes button." },
-  { field: "branch", label: "Branches", note: "Show the current branch button (includes pull/push when applicable)." },
-  { field: "prs", label: "GitHub PRs", note: "Show the GitHub PR button when the current branch has an open pull request." },
-  { field: "actions", label: "GitHub Actions", note: "Show the GitHub Actions run status button for the current branch." },
-  { field: "devserver", label: "Dev Server", note: "Show the detected dev server button." },
-  { field: "add", label: "Add / Open", note: "Show the add-or-open-workspace button for non-Git terminals." },
-  { field: "dispatch", label: "Dispatch", note: "Show pending dispatch requests targeting this workspace." },
+  {
+    field: "files",
+    label: "Files",
+    note: "Browse this terminal's files. Shown for any terminal with an active session, Git or not.",
+  },
+  {
+    field: "history",
+    label: "History",
+    note: "Browse commit history. Only shown for Git workspaces. Hovering shows the last commit message.",
+  },
+  {
+    field: "changes",
+    label: "Changes",
+    note: "Uncommitted file/insertion/deletion counts. Only shown while the workspace has uncommitted changes.",
+  },
+  {
+    field: "branch",
+    label: "Branches",
+    note: "Current branch name, with push/pull counts badged on top when the branch has commits to push or pull.",
+  },
+  {
+    field: "prs",
+    label: "GitHub PRs",
+    note: "Only shown when the current branch has an open GitHub pull request.",
+  },
+  {
+    field: "actions",
+    label: "GitHub Actions",
+    note: "Only shown while the current branch's latest GitHub Actions run is running or failed (successful/other completed runs stay hidden).",
+  },
+  {
+    field: "devserver",
+    label: "Dev Server",
+    note: "Only shown when a dev server is auto-detected listening in this workspace's directory.",
+  },
+  {
+    field: "add",
+    label: "Add / Open",
+    note: "Register or open the current directory as a workspace. Only shown for terminals not yet tied to a Git workspace.",
+  },
+  {
+    field: "dispatch",
+    label: "Dispatch",
+    note: "Only shown when a /dispatch API request is waiting for approval against this workspace. Tapping it opens the request directly if there's just one, or the full queue if there are several.",
+  },
 ];
 
 const orderedToggles = computed(() =>
