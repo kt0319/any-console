@@ -12,12 +12,13 @@ export function trailingItemsSignature(items) {
 }
 
 /**
- * 直前のシグネチャと比べて追加された、または内容が変わった項目を1つ返す。
- * 複数変化していれば items の並び順で最初のものを返す。変化が無ければ null。
+ * 直前のシグネチャと比べて追加された、または内容が変わった項目を全て返す
+ * （items の並び順のまま）。複数変化していてもキューで順番に見せるため、
+ * 最初の1件だけに絞らず全件返す。変化が無ければ空配列。
  * @param {{key: string, text: string}[]} items
  * @param {Map<string, string>} prevSignature
- * @returns {{key: string, text: string} | null}
+ * @returns {{key: string, text: string}[]}
  */
-export function findChangedTrailingItem(items, prevSignature) {
-  return (items || []).find((it) => prevSignature.get(it.key) !== it.text) || null;
+export function findChangedTrailingItems(items, prevSignature) {
+  return (items || []).filter((it) => prevSignature.get(it.key) !== it.text);
 }

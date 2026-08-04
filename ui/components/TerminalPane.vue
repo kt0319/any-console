@@ -233,7 +233,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
-import { trailingItemsSignature, findChangedTrailingItem } from "../utils/pill-peek.js";
+import { trailingItemsSignature, findChangedTrailingItems } from "../utils/pill-peek.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -643,17 +643,26 @@ function actionsResolvedFor(workspace) {
 }
 let actionsEverResolved = actionsResolvedFor(props.tab.workspace);
 
-// peekingKeyをkeyに切り替え、数秒後に自動で閉じるタイマーを張り直す
-// （アニメーション無しで即座に切り替える。旧: 新規マウント要素でCSS
-// transitionが無音化する問題を避けるための二重rAF遅延があったが、
-// transition自体を廃止したため不要になった）。
-function triggerPeek(key) {
-  if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
-  peekingKey.value = key;
-  pillMorePeekTimer = setTimeout(() => {
+// ほぼ同時に複数のピルが変化した場合、後の変化が前の変化のpeek表示を
+// 即座に上書きしてしまわないよう、表示中でなければ即座に、表示中なら
+// キューに積んで前のpeekが閉じてから順番に表示する。
+const peekQueue = [];
+
+function advancePeekQueue() {
+  const next = peekQueue.shift();
+  if (!next) {
     peekingKey.value = null;
     pillMorePeekTimer = null;
-  }, PILL_MORE_PEEK_DURATION_MS);
+    return;
+  }
+  peekingKey.value = next.key;
+  branchDoneLabel.value = next.doneLabel || "";
+  pillMorePeekTimer = setTimeout(advancePeekQueue, PILL_MORE_PEEK_DURATION_MS);
+}
+
+function triggerPeek(key, doneLabel = "") {
+  peekQueue.push({ key, doneLabel });
+  if (!pillMorePeekTimer) advancePeekQueue();
 }
 
 watch(trailingPeekItems, (items) => {
@@ -676,19 +685,17 @@ watch(trailingPeekItems, (items) => {
   const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
   if (justResolved) workspaceEverResolved = true;
   if (workspaceEverResolved && !justResolved) {
-    const changed = findChangedTrailingItem(items, prevTrailingSignature);
-    if (changed) {
+    for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
+      let doneLabel = "";
       if (changed.key === "branch") {
         // 直前のシグネチャ（branch:ahead:behind）と比べ、ahead/behindが
         // >0 から 0 へ変わった＝push/pullが完了した瞬間だけラベルを出す。
         const [, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
         const pushDone = Number(prevAheadStr) > 0 && ahead.value === 0;
         const pullDone = Number(prevBehindStr) > 0 && behind.value === 0;
-        branchDoneLabel.value = [pushDone && "Push Done", pullDone && "Pull Done"].filter(Boolean).join(" · ");
-      } else {
-        branchDoneLabel.value = "";
+        doneLabel = [pushDone && "Push Done", pullDone && "Pull Done"].filter(Boolean).join(" · ");
       }
-      triggerPeek(changed.key);
+      triggerPeek(changed.key, doneLabel);
     }
   }
   prevTrailingSignature = nextSignature;
@@ -996,6 +1003,7 @@ onBeforeUnmount(() => {
     stopActionsPolling(githubWorkspaceKey.value);
   }
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
+  peekQueue.length = 0;
   roPane?.disconnect();
   roPane = null;
   if (frameEl.value) {
