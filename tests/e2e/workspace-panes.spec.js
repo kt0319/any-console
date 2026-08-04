@@ -189,7 +189,7 @@ test.describe("workspace detail panes", () => {
     // Branch一覧は既定で畳まれているため、シェブロンボタンで開く
     await page.locator(".branch-summary-toggle").click();
 
-    const current = page.locator(".branch-item.current");
+    const current = page.locator(".branch-item-current");
     await expect(current).toBeVisible({ timeout: 10_000 });
     await expect(current.locator(".branch-item-name")).toContainText(branchName);
 
@@ -208,7 +208,7 @@ test.describe("workspace detail panes", () => {
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
     await page.locator(".branch-summary-toggle").click();
-    await expect(page.locator(".branch-item.current")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".branch-item-current")).toBeVisible({ timeout: 10_000 });
 
     await page.locator('.branch-footer-btn[aria-label="Add"]').click();
     const addDialog = page.locator(".branch-add-dialog");
@@ -218,7 +218,7 @@ test.describe("workspace detail panes", () => {
     await addDialog.locator(".prompt-btn-ok").click();
 
     // 作成したブランチに切り替わった状態で一覧に現れる
-    const current = page.locator(".branch-item.current");
+    const current = page.locator(".branch-item-current");
     await expect(current).toBeVisible({ timeout: 10_000 });
     await expect(current.locator(".branch-item-name")).toContainText(newBranch);
 
