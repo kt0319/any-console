@@ -25,6 +25,9 @@ export function useBranchActions(branchList) {
       const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: name });
       if (!ok) return;
       await loadBranchList();
+      // create-branchは内部でcheckoutも行うため、折り畳みヘッダー（現在
+      // ブランチ名・ahead/behind）の表示元であるworkspaceStoreも更新する。
+      workspaceStore.fetchStatuses();
       emit("git:commitDone");
     });
   }

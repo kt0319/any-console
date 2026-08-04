@@ -31,15 +31,26 @@
               <span class="mdi mdi-source-branch branch-summary-icon"></span>
               <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
             </button>
-            <button
-              type="button"
-              class="branch-summary-chevron-btn"
-              :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
-              :aria-expanded="branchSectionExpanded"
-              @click="toggleBranchSection"
-            >
-              <span class="mdi branch-summary-chevron" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
-            </button>
+            <div class="branch-summary-actions">
+              <GitActionBtn
+                v-if="(workspaceStore.currentWorkspace?.behind || 0) > 0"
+                icon="pull"
+                title="Pull"
+                :count="workspaceStore.currentWorkspace.behind"
+                :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
+                btn-class="pull-btn has-count"
+                @action="gitAction(workspaceStore.selectedWorkspace, 'pull')"
+              />
+              <GitActionBtn
+                v-if="(workspaceStore.currentWorkspace?.ahead || 0) > 0"
+                icon="push"
+                title="Push"
+                :count="workspaceStore.currentWorkspace.ahead"
+                :running="isRunning(workspaceStore.selectedWorkspace, pushActionFor(workspaceStore.currentWorkspace))"
+                btn-class="push-btn has-count"
+                @action="gitAction(workspaceStore.selectedWorkspace, pushActionFor(workspaceStore.currentWorkspace), { branch: workspaceStore.currentWorkspace.branch })"
+              />
+            </div>
           </div>
           <div v-show="branchSectionExpanded" class="branch-summary-body">
             <GitChangeBranch ref="gitBranch" @close="branchSectionExpanded = false" />
@@ -99,6 +110,7 @@ import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
+import GitActionBtn from "./GitActionBtn.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
@@ -106,6 +118,7 @@ import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -113,6 +126,13 @@ const { apiCommand, wsEndpoint } = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
 const { modalTitle, viewState, modalBranch, updateViewState } = useModalView();
+const { gitAction, isRunning } = useGitRemoteAction();
+
+// upstream未設定のブランチは直接pushできず、まずset-upstreamが必要
+// （WorkspaceOpen.vueのワークスペース一覧ミニPushボタンと同じ判定）。
+function pushActionFor(ws) {
+  return ws?.has_upstream === false ? "push-upstream" : "push";
+}
 const {
   issuesCount,
   prsCount,
@@ -420,24 +440,12 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.branch-summary-chevron-btn {
+.branch-summary-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-right: 4px;
+  gap: 4px;
+  margin-right: 8px;
   flex-shrink: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .branch-summary-chevron-btn:hover .branch-summary-chevron {
-    color: var(--text-primary);
-  }
 }
 
 .branch-summary-icon {
@@ -452,12 +460,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.branch-summary-chevron {
-  color: var(--text-muted);
-  font-size: 18px;
-  flex-shrink: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {

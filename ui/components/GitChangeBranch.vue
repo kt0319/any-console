@@ -34,32 +34,6 @@
       </div>
     </div>
     <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isBusy }">
-        <div v-if="currentBranch" class="branch-item branch-item-current">
-          <div class="branch-item-name">
-            {{ currentBranch.name }}
-            <span v-if="currentBranch.isDefault" class="branch-default-badge" data-tooltip="Repository's default branch">default</span>
-          </div>
-          <div class="branch-item-actions">
-            <GitActionBtn
-              v-if="canPull(currentBranch)"
-              icon="pull"
-              title="Pull"
-              :count="currentBranch.behind || null"
-              :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
-              btn-class="pull-btn has-count"
-              @action="pullBranch(currentBranch)"
-            />
-            <GitActionBtn
-              v-if="canPush(currentBranch)"
-              icon="push"
-              title="Push"
-              :count="currentBranch.ahead || null"
-              :running="isPushing(currentBranch)"
-              btn-class="push-btn has-count"
-              @action="pushBranch(currentBranch)"
-            />
-          </div>
-        </div>
         <div
           v-for="branch in otherLocalBranches"
           :key="'local-' + branch.name"
@@ -191,9 +165,8 @@ const {
 const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
 const branchListEl = ref(null);
 
-// 現在ブランチは一覧に並べず、一覧の一番上にPush/Pull専用の行として出す
-// （一覧をスクロールしなくても常に見えるようにするため）。
-const currentBranch = computed(() => localBranches.value.find((b) => b.current) || null);
+// 現在ブランチのPush/Pullは折り畳みヘッダー（WorkspaceDetail.vue）側に
+// 出すため、一覧には現在ブランチ以外だけを並べる。
 const otherLocalBranches = computed(() => localBranches.value.filter((b) => !b.current));
 
 const {
@@ -384,11 +357,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   text-transform: uppercase;
   letter-spacing: 0.02em;
   vertical-align: middle;
-}
-
-.branch-item-current {
-  color: var(--accent);
-  cursor: default;
 }
 
 .branch-item.remote-only {
