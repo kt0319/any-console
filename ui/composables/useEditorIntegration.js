@@ -3,6 +3,8 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
+import { isTouchInput } from "../utils/device.js";
+import { emit } from "../app-bridge.js";
 
 export function useEditorIntegration() {
   const workspaceStore = useWorkspaceStore();
@@ -42,6 +44,13 @@ export function useEditorIntegration() {
   }
 
   function openInEditor(path) {
+    // vscode:// 等のカスタムURLスキームはローカルのデスクトップエディタを起動する
+    // 前提のため、モバイルでは対応するアプリが無くwindow.open()が黙って失敗する
+    // （何も起きたように見えない）。理由が分かるようトーストで明示する。
+    if (isTouchInput()) {
+      emit("toast:show", { message: "Editor integration isn't available on mobile", type: "info" });
+      return;
+    }
     const url = buildEditorUrl(path);
     if (url) window.open(url, "_blank");
   }
