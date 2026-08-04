@@ -15,6 +15,10 @@ function fakeFile(name) {
   return { name };
 }
 
+function fakeEntry(name) {
+  return { file: fakeFile(name), relativePath: name };
+}
+
 function jsonResponse(data) {
   return { ok: true, json: async () => data };
 }
@@ -66,7 +70,7 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     });
     const { onCancel } = useConfirm();
 
-    const done = uploadDroppedFiles([fakeFile("a.txt"), fakeFile("b.txt")]);
+    const done = uploadDroppedFiles([fakeEntry("a.txt"), fakeEntry("b.txt")]);
     await waitForConfirmThen(onCancel);
     await done;
 
@@ -84,7 +88,7 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     });
     const { onCancel } = useConfirm();
 
-    const done = uploadDroppedFiles([fakeFile("a.txt"), fakeFile("b.txt")]);
+    const done = uploadDroppedFiles([fakeEntry("a.txt"), fakeEntry("b.txt")]);
     await waitForConfirmThen(onCancel);
     await done;
 
@@ -101,7 +105,7 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     });
     const { onOk } = useConfirm();
 
-    const done = uploadDroppedFiles([fakeFile("a.txt"), fakeFile("b.txt")]);
+    const done = uploadDroppedFiles([fakeEntry("a.txt"), fakeEntry("b.txt")]);
     await waitForConfirmThen(onOk);
     await done;
 

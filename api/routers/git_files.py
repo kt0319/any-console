@@ -108,8 +108,14 @@ async def upload_file_to_workspace(
     file: UploadFile = File(...),
 ):
     ws_path, target_dir, rel_dir = resolve_workspace_file(name, path)
+    if target_dir.exists() and not target_dir.is_dir():
+        raise bad_request(f"Not a directory: {path}")
     if not target_dir.is_dir():
-        raise not_found("Directory not found")
+        # フォルダをまとめてドロップした時、サブディレクトリがまだ無ければ
+        # アップロードと同時に作成する（フラットな単一ファイルアップロード
+        # では既存ディレクトリへの書き込みのみになりこの分岐は通らない）。
+        with file_operation_guard("Cannot create directory"):
+            target_dir.mkdir(parents=True, exist_ok=True)
 
     filename = unicodedata.normalize("NFC", (file.filename or "").strip())
     if not filename or filename in {".", ".."} or "/" in filename or "\\" in filename:

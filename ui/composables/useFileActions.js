@@ -7,6 +7,7 @@ import { useToast } from "./useToast.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
+import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.js";
 
 export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
@@ -126,21 +127,34 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     if (skippedCount > 0) toast.error(`${skippedCount} file(s) skipped (overwrite declined)`);
   }
 
-  async function uploadDroppedFiles(files) {
-    if (files.length === 0) return;
+  // entries: { file: File, relativePath: string }[]。ドロップされたのが
+  // フォルダの場合、relativePathにフォルダ階層（例: "src/app.js"）が入る
+  // （useFileDragDropのcollectDroppedFileEntries / webkitRelativePath経由）。
+  // フォルダ内のファイル（サブディレクトリ持ち）は上書き確認の対象にせず、
+  // そのままアップロードする（既存名との衝突チェックは直下ファイルのみ）。
+  async function uploadDroppedFiles(entries) {
+    if (entries.length === 0) return;
     await withWorkspace(async (workspace) => {
       const uploadPath = getUploadDirPath();
-      const existing = await fetchExistingNames(workspace, uploadPath);
-      const { targets, overwrite, skippedCount } = await resolveUploadTargets(files, existing);
-      if (targets.length === 0) {
-        emitUploadToasts(0, 0, skippedCount);
-        return;
-      }
+      const flatEntries = entries.filter((e) => !splitRelativePath(e.relativePath).dir);
+      const nestedEntries = entries.filter((e) => splitRelativePath(e.relativePath).dir);
+
+      const existing = flatEntries.length > 0 ? await fetchExistingNames(workspace, uploadPath) : new Set();
+      const { targets, overwrite, skippedCount } = flatEntries.length > 0
+        ? await resolveUploadTargets(flatEntries.map((e) => e.file), existing)
+        : { targets: [], overwrite: false, skippedCount: 0 };
 
       let successCount = 0;
       let failCount = 0;
       for (const file of targets) {
         const ok = await uploadOne(workspace, uploadPath, file, overwrite);
+        if (ok) successCount += 1;
+        else failCount += 1;
+      }
+      for (const entry of nestedEntries) {
+        const { dir } = splitRelativePath(entry.relativePath);
+        const targetDir = resolveUploadTargetDir(uploadPath, dir);
+        const ok = await uploadOne(workspace, targetDir, entry.file, false);
         if (ok) successCount += 1;
         else failCount += 1;
       }

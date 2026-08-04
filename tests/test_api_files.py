@@ -251,6 +251,28 @@ class TestFileUpload:
         assert res.json()["path"] == "docs/note.txt"
         assert (sub / "note.txt").read_bytes() == b"data"
 
+    def test_upload_creates_missing_subdir(self, client, workspace):
+        # フォルダドロップアップロード: サブディレクトリが無ければ作成してから書き込む
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": "new/nested"},
+            files={"file": ("note.txt", b"data", "text/plain")},
+        )
+        assert res.status_code == 200
+        assert res.json()["path"] == "new/nested/note.txt"
+        assert (workspace / "new" / "nested" / "note.txt").read_bytes() == b"data"
+
+    def test_upload_path_exists_as_file_returns_400(self, client, workspace):
+        (workspace / "notadir").write_text("x", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": "notadir"},
+            files={"file": ("note.txt", b"data", "text/plain")},
+        )
+        assert res.status_code == 400
+
     def test_upload_existing_file_returns_409(self, client, workspace):
         (workspace / "exists.txt").write_text("old", encoding="utf-8")
         res = client.post(

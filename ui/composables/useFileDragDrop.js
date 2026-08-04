@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { collectDroppedFileEntries } from "../utils/file-drop-entries.js";
 
 export function useFileDragDrop({ uploadFn, isDiffMode }) {
   const isDropActive = ref(false);
@@ -39,9 +40,9 @@ export function useFileDragDrop({ uploadFn, isDiffMode }) {
     if (isDiffMode() || !hasFileDrag(e)) return;
     e.preventDefault();
     resetDropState();
-    const droppedFiles = Array.from(e?.dataTransfer?.files || []).filter((f) => f && f.name);
-    if (droppedFiles.length === 0) return;
-    await uploadFn(droppedFiles);
+    const entries = await collectDroppedFileEntries(e?.dataTransfer);
+    if (entries.length === 0) return;
+    await uploadFn(entries);
   }
 
   function onWindowDrop() {
@@ -58,7 +59,8 @@ export function useFileDragDrop({ uploadFn, isDiffMode }) {
   async function onUploadInputChange(e) {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      await uploadFn(files);
+      const entries = files.map((file) => ({ file, relativePath: file.webkitRelativePath || file.name }));
+      await uploadFn(entries);
     }
     e.target.value = "";
   }
