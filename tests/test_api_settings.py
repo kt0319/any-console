@@ -216,7 +216,6 @@ class TestInfoPillSettings:
         "files": True,
         "add": True,
         "order": ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"],
-        "position": "top",
     }
 
     def test_get_default(self, client):
@@ -282,24 +281,6 @@ class TestInfoPillSettings:
         )
         assert res.status_code == 200
         assert res.json()["order"] == ["files", "branch", "history", "changes", "prs", "actions", "devserver", "add"]
-
-    def test_put_and_get_position(self, client):
-        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "position": "bottom"})
-        assert res.status_code == 200
-        assert res.json()["position"] == "bottom"
-
-        res = client.get("/settings/info-pills", headers=AUTH)
-        assert res.json()["position"] == "bottom"
-
-    def test_put_rejects_invalid_position(self, client):
-        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "position": "left"})
-        assert res.status_code == 422
-
-    def test_get_falls_back_to_default_position_when_invalid(self, client, isolate_fs):
-        import json as _json
-        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"info_pills": {"position": "left"}}}))
-        res = client.get("/settings/info-pills", headers=AUTH)
-        assert res.json()["position"] == "top"
 
 
 class TestCircleKeypadSettings:

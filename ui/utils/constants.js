@@ -14,7 +14,6 @@ export const KEYBOARD_CLOSE_DELAY_MS = 500;
 export const KEYBOARD_OPEN_DELAY_MS = 300;
 export const ORIENTATION_CHANGE_DELAY_MS = 300;
 export const DEBOUNCE_FIT_MS = 100;
-export const DRAG_STATE_RESET_MS = 100;
 
 export const WS_MSG_RESIZE = 0x00;
 export const WS_CLOSE_SESSION_NOT_FOUND = 1008;

@@ -67,34 +67,14 @@ describe("info-pill-config store: load 堅牢化", () => {
     expect(store.order).toEqual(customOrder);
   });
 
-  it("save は現在の各フィールド値・order・positionをまとめてPUTする", async () => {
+  it("save は現在の各フィールド値・orderをまとめてPUTする", async () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
     store.branch = false;
     store.devserver = false;
     await store.save();
     expect(auth.apiFetch).toHaveBeenCalledWith("/settings/info-pills", {
       method: "PUT",
-      body: { ...ALL_TRUE, branch: false, devserver: false, order: DEFAULT_ORDER, position: "top" },
-    });
-  });
-
-  it("load はサーバのpositionを反映し、不正値はtopにフォールバックする", async () => {
-    auth.apiFetch = vi.fn().mockResolvedValue(okRes({ ...ALL_TRUE, position: "bottom" }));
-    await store.load();
-    expect(store.position).toBe("bottom");
-
-    auth.apiFetch = vi.fn().mockResolvedValue(okRes({ ...ALL_TRUE, position: "invalid" }));
-    await store.load();
-    expect(store.position).toBe("top");
-  });
-
-  it("setPositionはpositionを更新しsaveする", async () => {
-    auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
-    store.setPosition("bottom");
-    expect(store.position).toBe("bottom");
-    expect(auth.apiFetch).toHaveBeenCalledWith("/settings/info-pills", {
-      method: "PUT",
-      body: { ...ALL_TRUE, order: DEFAULT_ORDER, position: "bottom" },
+      body: { ...ALL_TRUE, branch: false, devserver: false, order: DEFAULT_ORDER },
     });
   });
 

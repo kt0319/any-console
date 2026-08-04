@@ -14,8 +14,7 @@
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="pill-group"
-        :class="{ 'pill-group-bottom': infoPillConfig.position === 'bottom' }"
-        :style="pillDragging ? { transform: `translateY(${dragOffsetY}px)` } : null"
+        :class="{ 'pill-group-bottom': layoutStore.isPanelBottom }"
         ref="pillEl"
       >
         <Transition name="pill-swap" mode="out-in">
@@ -162,16 +161,13 @@
              （閉じるボタンの左隣）に来る。 -->
         <div
           class="terminal-info-pill"
-          ref="infoPillEl"
-          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
+          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working' }"
           :data-tooltip="pillTooltip"
           :aria-label="pillTooltip"
           role="button"
           tabindex="0"
-          @mousedown="onPillMouseDown"
-          @click="onPillClick"
+          @click="activatePill"
           @keydown="onPillKeydown"
-          @touchstart.passive="onPillTouchStart"
         >
           <span class="terminal-info-pill-info">
             <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
@@ -218,7 +214,6 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 import { ACTIVE_FIT_DELAY_MS, PILL_MORE_PEEK_DURATION_MS } from "../utils/constants.js";
-import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -433,7 +428,6 @@ const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, conne
 const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
-const infoPillEl = ref(null);
 let activeFitTimer = null;
 
 // 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
@@ -456,10 +450,9 @@ watch(paneEl, (paneNode) => {
   roPane.observe(paneNode);
 });
 
-const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 const pillTooltip = computed(() => {
   const name = props.tab.workspace || props.tab.label || "";
-  const action = layoutStore.isTouchDevice ? "Tap for details" : "Drag to move  ·  Click for details";
+  const action = layoutStore.isTouchDevice ? "Tap for details" : "Click for details";
   return name ? `${name}  ·  ${action}` : action;
 });
 
@@ -795,25 +788,11 @@ function activatePill() {
   }
 }
 
-// キーボードでの Enter/Space はマウス/タッチのドラッグ判定（pillMouseDownTime等）を
-// 経由しないため、onPillClick とは別に activatePill を直接呼ぶ。
 function onPillKeydown(e) {
   if (e.key !== "Enter" && e.key !== " ") return;
   e.preventDefault();
   activatePill();
 }
-
-// ワークスペースピルを上下にドラッグすると、離した位置（画面の上半分/
-// 下半分）に応じてピル群全体の表示位置（top/bottom）を切り替える。
-function onPillReposition(clientY) {
-  infoPillConfig.setPosition(clientY < window.innerHeight / 2 ? "top" : "bottom");
-}
-
-const { pillDragging, dragOffsetY, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
-  canDrag,
-  onTabClick: activatePill,
-  onReposition: onPillReposition,
-});
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {
@@ -955,15 +934,6 @@ onMounted(() => {
     observeFrameResize(props.tab, frameEl.value);
     requestAnimationFrame(() => fitTerminal(props.tab));
   }
-  if (infoPillEl.value) {
-    // pillEl（.pill-group）ではなく infoPillEl（.terminal-info-pill）にスコープする。
-    // pillEl には横スクロール可能な .pill-trailing も含まれており、そちらで
-    // 始まったタッチも拾ってしまうと、ボタン群のスワイプスクロールより先に
-    // ドラッグ判定（onPillTouchMove の e.preventDefault）が発火してスクロール
-    // できなくなる。touchstart は元々 infoPillEl 側にしか付いていないため合わせる。
-    infoPillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
-    infoPillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
-  }
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
@@ -1010,10 +980,6 @@ onBeforeUnmount(() => {
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
-  if (infoPillEl.value) {
-    infoPillEl.value.removeEventListener("touchmove", onPillTouchMove);
-    infoPillEl.value.removeEventListener("touchend", onPillTouchEnd);
-  }
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }
@@ -1406,10 +1372,6 @@ defineExpose({
   }
 }
 
-.terminal-info-pill.dragging {
-  opacity: 0.5;
-}
-
 .pill-close-btn {
   display: flex;
   align-items: center;
@@ -1550,15 +1512,6 @@ defineExpose({
   .pill-group.pill-group-bottom {
     top: auto;
     bottom: 20px;
-  }
-
-  .terminal-info-pill {
-    cursor: grab;
-  }
-
-  .terminal-info-pill.dragging {
-    opacity: 0.5;
-    cursor: grabbing;
   }
 }
 

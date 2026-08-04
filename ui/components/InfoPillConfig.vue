@@ -2,14 +2,6 @@
   <div class="modal-scroll-body">
     <div v-if="!infoPillConfig.loaded" class="text-muted-center">Loading...</div>
     <template v-else>
-      <div class="settings-item">
-        <span class="settings-item-label">Position</span>
-        <span class="settings-note">Where the pill group is anchored on screen.</span>
-        <div class="pill-position-radios">
-          <label class="form-check-label"><input type="radio" :checked="infoPillConfig.position === 'top'" @change="infoPillConfig.setPosition('top')" /> Top</label>
-          <label class="form-check-label"><input type="radio" :checked="infoPillConfig.position === 'bottom'" @change="infoPillConfig.setPosition('bottom')" /> Bottom</label>
-        </div>
-      </div>
       <label
         v-for="(item, idx) in orderedToggles"
         :key="item.field"
@@ -79,10 +71,5 @@ function setField(field, value) {
    ここだけ通常の並び順（handle→checkbox→copy）に上書きする。 */
 .pill-toggle-row {
   justify-content: flex-start;
-}
-
-.pill-position-radios {
-  display: flex;
-  gap: 16px;
 }
 </style>
