@@ -60,12 +60,21 @@
                 v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-files-btn"
+                :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working' }"
                 :aria-label="filesTooltip"
                 :data-tooltip="filesTooltip"
                 @pointerdown.stop
                 @click.stop="openFiles"
               >
-                <span class="mdi mdi-folder-outline"></span>
+                <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
+                  <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
+                  <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+                </span>
+                <span v-else-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
+                  <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
+                  <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+                </span>
+                <span v-else class="mdi mdi-folder-outline"></span>
               </button>
               <button
                 v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
@@ -161,27 +170,6 @@
               </button>
               </template>
           </div>
-        </div>
-        <div
-          class="terminal-info-pill"
-          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working' }"
-          :data-tooltip="pillTooltip"
-          :aria-label="pillTooltip"
-          role="button"
-          tabindex="0"
-          @click="activatePill"
-          @keydown="onPillKeydown"
-        >
-          <span class="terminal-info-pill-info">
-            <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
-              <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
-              <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-            </span>
-            <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
-              <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
-              <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-            </span>
-          </span>
         </div>
         <button
           v-if="layoutStore.isSplitMode"
@@ -473,12 +461,6 @@ watch(paneEl, (paneNode) => {
   roPane.observe(paneNode);
 });
 
-const pillTooltip = computed(() => {
-  const name = props.tab.workspace || props.tab.label || "";
-  const action = layoutStore.isTouchDevice ? "Tap for details" : "Click for details";
-  return name ? `${name}  ·  ${action}` : action;
-});
-
 // アイコンのみのボタンでも、PCでホバーした時にその時点の実際の値
 // （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
 // わかるようにする。固定の説明文言だけだと、展開しないと現在値を
@@ -491,9 +473,12 @@ const branchTooltip = computed(() => {
   if (!hasUpstream.value) parts.push("no upstream");
   return parts.length ? `Branches: ${name} (${parts.join(", ")})` : `Branches: ${name}`;
 });
-const filesTooltip = computed(() =>
-  isGitRepo.value ? "Browse files" : "Browse files in this terminal's directory",
-);
+// Filesピルはワークスペースピルと統合したため、ワークスペース名も併記する。
+const filesTooltip = computed(() => {
+  const name = props.tab.workspace || props.tab.label || "";
+  const action = isGitRepo.value ? "Browse files" : "Browse files in this terminal's directory";
+  return name ? `${name}  ·  ${action}` : action;
+});
 const changesTooltip = computed(() =>
   `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
@@ -813,27 +798,6 @@ watch(
   },
 );
 
-// ワークスペースピル本体のタップ/クリックは Jobs/Files ペインを直接開く。
-function activatePill() {
-  if (props.tab.workspace) {
-    workspaceStore.selectedWorkspace = props.tab.workspace;
-    // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
-    // それ以外は Files ペインを開く。
-    const hasPushPullMark = layoutStore.isSplitMode && isGitRepo.value && (ahead.value > 0 || behind.value > 0);
-    emit("git:openFileModal", { pane: hasPushPullMark ? "branch" : "files" });
-  } else if (props.tab.sessionId) {
-    // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
-    openBareTerminalFiles();
-  } else {
-    emit("workspace:openModal");
-  }
-}
-
-function onPillKeydown(e) {
-  if (e.key !== "Enter" && e.key !== " ") return;
-  e.preventDefault();
-  activatePill();
-}
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {
@@ -1070,11 +1034,11 @@ defineExpose({
 }
 
 /* right は固定値（JS計算なし）。.pill-group 自体を flex コンテナにして
-   terminal-info-pill / pill-trailing（幅アニメーション）/ 閉じるボタンを
-   直接の flex子として並べることで、閉じるボタンは常にブラウザ標準の
-   flexレイアウトで右端に位置する。ボタン数が増減して pill-trailing の
-   width が変わっても、right が固定なので pill-group 自体は伸縮に応じて
-   左方向へ自然に広がるだけで、右端がズレたり見切れたりしない。 */
+   pill-normal-group（展開ボタン群+閉じるボタン）を直接の flex子として
+   並べることで、閉じるボタンは常にブラウザ標準の flexレイアウトで
+   右端に位置する。ボタン数が増減して pill-trailing の width が変わっても、
+   right が固定なので pill-group 自体は伸縮に応じて左方向へ自然に広がる
+   だけで、右端がズレたり見切れたりしない。 */
 .pill-group {
   position: absolute;
   top: 10px;
@@ -1264,32 +1228,7 @@ defineExpose({
   display: none;
 }
 
-.terminal-info-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 5px 12px;
-  border: 1px solid rgba(59, 66, 97, 0.9);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
-  color: var(--text-secondary);
-  opacity: 1;
-  font-size: 13px;
-  line-height: 1.2;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  cursor: pointer;
-  gap: 6px;
-  /* flex-shrink:0（デフォルトの1のまま放置しない）: 展開ボタン群のポップ
-     アニメーション中に、このピル自体の幅が兄弟の伸縮に引っ張られて揺れる
-     ことがないよう、ピル本体の幅は常に自分のコンテンツだけで決まるようにする。 */
-  flex-shrink: 0;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.terminal-info-pill img {
+.pill-files-btn img {
   pointer-events: none;
   -webkit-user-drag: none;
 }
@@ -1408,16 +1347,14 @@ defineExpose({
   color: var(--warning);
 }
 
-/* PCでピルをホバーした時、アクティブなワークスペースピルと同じ地色に
-   することで「今触れている対象」がわかるようにする。低不透明度だと
-   端末出力が透けて他ピルより薄く見える問題が既出のため、他ピルと同じ
-   不透明度を保ったまま色味だけアクセントに寄せた配色（アクティブ時の
-   ワークスペースピルと同じ色）を使う。 */
+/* PCでピルをホバーした時、「今触れている対象」がわかるよう地色を
+   アクセントに寄せる。低不透明度だと端末出力が透けて他ピルより薄く
+   見える問題が既出のため、他ピルと同じ不透明度を保ったまま色味だけ
+   変える。 */
 @media (hover: hover) and (pointer: fine) {
   .pill-branch-btn:hover,
   .pill-numstat-btn:hover,
-  .pill-devserver-btn:hover,
-  .terminal-info-pill:hover {
+  .pill-devserver-btn:hover {
     background: rgba(38, 56, 82, 0.92);
   }
 }
@@ -1462,13 +1399,6 @@ defineExpose({
   }
 }
 
-.terminal-info-pill-info {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
 .pill-icon-slot {
   display: inline-flex;
   align-items: center;
@@ -1495,17 +1425,17 @@ defineExpose({
   border: 1px solid rgba(26, 27, 38, 0.88);
 }
 
-.terminal-info-pill :deep(.favicon-icon) {
+.pill-files-btn :deep(.favicon-icon) {
   width: 14px;
   height: 14px;
 }
 
-.terminal-info-pill:active {
+.pill-files-btn:active {
   transform: scale(0.93);
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-.terminal-info-pill.tab-activity {
+.pill-files-btn.tab-activity {
   animation: pill-activity-glow 3s ease-in-out 1;
 }
 
@@ -1514,7 +1444,7 @@ defineExpose({
   50% { border-color: rgba(130, 170, 255, 0.7); }
 }
 
-.terminal-info-pill.pill-working {
+.pill-files-btn.pill-working {
   background-image: linear-gradient(
     90deg,
     rgba(26, 27, 38, 0.88) 0%,
@@ -1527,7 +1457,7 @@ defineExpose({
   animation: pill-working-pulse 2s linear infinite;
 }
 
-.terminal-pane.active .terminal-info-pill.pill-working {
+.terminal-pane.active .pill-files-btn.pill-working {
   animation: none;
   background-image: none;
 }

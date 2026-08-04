@@ -43,7 +43,7 @@ const TOGGLES = [
   {
     field: "files",
     label: "Files",
-    note: "Browse this terminal's files. Shown for any terminal with an active session, Git or not.",
+    note: "Shows the workspace's own icon (with a dirty-changes dot when applicable) and opens the files browser. Shown for any terminal with an active session, Git or not.",
   },
   {
     field: "history",
