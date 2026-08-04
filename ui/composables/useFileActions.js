@@ -43,22 +43,9 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
 
   // 現在ブラウズ中のパス（開いているファイル、またはブラウズ中のディレクトリ）を対象にする。
   // どちらも getCurrentPath() がそのフルパスを保持しているため同じロジックで扱える。
-  async function renameCurrentPath() {
-    const filePath = getCurrentPath();
-    if (!filePath) return;
-    const fileName = baseName(filePath);
-    const newName = await prompt({
-      title: "Rename",
-      message: `Enter a new name for "${fileName}".`,
-      initialValue: fileName,
-      placeholder: fileName,
-    });
-    if (!newName || newName === fileName) return;
-    const dir = parentDir(filePath);
-    const destPath = dir ? `${dir}/${newName}` : newName;
-    await renameFile(filePath, destPath, dir);
-  }
-
+  // Rename（ファイル名だけ変更）とMove（パスごと変更）は同じrenameFile APIを呼ぶ
+  // だけの違いのため、フルパスを編集できる1つの操作に統合する
+  // （同じ階層内でファイル名部分だけ書き換えればRenameとして機能する）。
   async function moveCurrentPath() {
     const filePath = getCurrentPath();
     if (!filePath) return;
@@ -176,7 +163,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
 
   return {
     downloadFile,
-    renameCurrentPath, moveCurrentPath, deleteCurrentPath,
+    moveCurrentPath, deleteCurrentPath,
     uploadDroppedFiles,
   };
 }

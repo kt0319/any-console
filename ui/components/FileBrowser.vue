@@ -34,8 +34,7 @@
           <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
           <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span> Download</button>
           <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span> GitHub</button>
-          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span> Rename</button>
-          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
+          <button type="button" class="file-browser-header-btn" aria-label="Rename or move" data-tooltip="Rename or move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
           <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
         </template>
         <template v-else>
@@ -45,8 +44,7 @@
           <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span> Upload</button>
           <template v-if="currentPath">
             <button type="button" class="file-browser-header-btn" aria-label="Download folder" data-tooltip="Download folder as zip" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span> Download</button>
-            <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span> Rename</button>
-            <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
+            <button type="button" class="file-browser-header-btn" aria-label="Rename or move" data-tooltip="Rename or move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
             <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
           </template>
         </template>
@@ -133,7 +131,7 @@ const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWork
 
 const {
   downloadFile,
-  renameCurrentPath, moveCurrentPath, deleteCurrentPath,
+  moveCurrentPath, deleteCurrentPath,
   uploadDroppedFiles,
 } = useFileActions({
   getCurrentPath: () => currentPath.value,
