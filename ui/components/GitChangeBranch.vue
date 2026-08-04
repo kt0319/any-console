@@ -300,14 +300,15 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 
 .branch-default-badge {
   margin-left: 6px;
-  padding: 1px 6px;
+  padding: 0 5px;
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  opacity: 0.75;
   vertical-align: middle;
 }
 
