@@ -164,14 +164,10 @@
           </div>
         </div>
         </Transition>
-        <!-- ワークスペースピル本体・閉じるボタンは peekingKey の有無に関わらず
-             .pill-group の直接の flex子として常時固定表示する。peekピルは
-             上の Transition 内で .pill-trailing の位置（＝ワークスペースピル
-             の左隣）にだけ差し込まれ、ワークスペースピル・閉じるボタンの
-             位置は動かない。並び順は「展開ボタン群/peekピル→ワークスペース
-             ピル→閉じるボタン」で固定し、ワークスペースピルは常に右端
-             （閉じるボタンの左隣）に来る。 -->
+        <!-- ワークスペースピル本体・閉じるボタンは、peek表示中は隠して
+             peekピルにスペースを譲る（peekingKeyが無い通常時だけ表示）。 -->
         <div
+          v-if="!peekingKey"
           class="terminal-info-pill"
           :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working' }"
           :data-tooltip="pillTooltip"
@@ -193,7 +189,7 @@
           </span>
         </div>
         <button
-          v-if="layoutStore.isSplitMode"
+          v-if="!peekingKey && layoutStore.isSplitMode"
           type="button"
           class="pill-close-btn pill-minus-btn"
           aria-label="Remove from split"
@@ -203,7 +199,7 @@
           @click.stop
         ><span class="mdi mdi-minus"></span></button>
         <button
-          v-if="!layoutStore.isSplitMode"
+          v-if="!peekingKey && !layoutStore.isSplitMode"
           type="button"
           class="pill-close-btn pill-tab-close-btn"
           aria-label="Close tab"
@@ -1107,14 +1103,13 @@ defineExpose({
    1つの子として .pill-group 内の同じ位置（ワークスペースピルの左隣）で
    排他的に表示され、切替時は通常ピルが左へフェードアウトしてから peekピルが
    右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
-   ピル本体・閉じるボタンはこの Transition の外（.pill-group の直接の
-   flex子）にあり、常に位置が固定される。
+   ピル本体・閉じるボタンは peek表示中は v-if で非表示にし、peekピルへ
+   スペースを譲る。
    値が変化した時に表示する peekピルは、無駄に大きくせず内容に合わせた幅
    のまま表示する。上限だけ、キーによらず .pill-trailing と同じ
    trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
-   ぶんを差し引いた値）を max-width に使う（ワークスペースピル・閉じる
-   ボタンを画面外へ押し出さないため）。ラベルがこの上限にも収まらない時
-   だけ、末尾が見えるところで止まる1回きりのマーキーで流す（下記
+   ぶんを差し引いた値）を max-width に使う。ラベルがこの上限にも収まらない
+   時だけ、末尾が見えるところで止まる1回きりのマーキーで流す（下記
    .pill-peek-marquee-run、scrollWidth実測でscript側が判定する）。 */
 /* 展開ボタン群（pill-devserver-btn/pill-numstat-btn/pill-branch-btn）と
    peekピル（pill-peek-wide）に共通のピル外観（枠線・角丸・背景・最低高さ）。
