@@ -1269,7 +1269,7 @@ defineExpose({
   align-items: center;
   min-height: 32px;
   padding: 5px 12px;
-  border: 1px solid rgba(108, 113, 137, 0.9);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
@@ -1505,10 +1505,10 @@ defineExpose({
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-/* アクティブなペインのワークスペースピルは枠線の色でアクセントを付ける
-   （背景色は変えない）。 */
+/* アクティブなペインのワークスペースピルは枠線を明るくして示す
+   （背景色は変えない）。非アクティブ時は暗めのグレーに留める。 */
 .terminal-pane.active .terminal-info-pill {
-  border-color: var(--accent);
+  border-color: rgba(108, 113, 137, 0.9);
 }
 
 .terminal-info-pill.tab-activity {
