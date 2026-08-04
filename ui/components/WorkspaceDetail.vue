@@ -19,7 +19,7 @@
     <!-- タブコンテンツ -->
     <div class="workspace-tab-content">
       <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
-        <div v-if="!isViewingCommitFiles" class="git-history-branch-branches">
+        <div v-show="!isViewingCommitFiles" class="git-history-branch-branches">
           <div class="branch-summary-header">
             <button
               type="button"
