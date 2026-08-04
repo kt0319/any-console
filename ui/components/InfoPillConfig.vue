@@ -42,7 +42,7 @@ if (!infoPillConfig.loaded) infoPillConfig.load();
 const TOGGLES = [
   {
     field: "files",
-    label: "Files",
+    label: "Workspace",
     note: "Shows the workspace's own icon (with a dirty-changes dot when applicable) and opens the files browser. Shown for any terminal with an active session, Git or not.",
   },
   {
