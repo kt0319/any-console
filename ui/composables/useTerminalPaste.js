@@ -3,6 +3,16 @@ import { useAuthStore } from "../stores/auth.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { emit } from "../app-bridge.js";
 
+// 非split時は非アクティブなタブも v-show で表示切替するだけでマウントされ
+// 続けるため（TerminalBase.vue）、開いているタブの数だけ document への
+// paste リスナーが登録される。isActiveガードで通常は1つしか処理に進まない
+// はずだが、PWA環境でCtrl+V/右クリック貼り付けの両方から同一画像が2枚
+// 貼り付けられる不具合が報告されており、ブラウザ側でpasteイベントが
+// 二重発火している可能性がある。モジュール全体で共有する短時間ロックで
+// 同一画像の連続処理を弾く。
+let lastImagePasteAt = 0;
+const IMAGE_PASTE_DEDUPE_MS = 500;
+
 export function useTerminalPaste({ tab, isActive }) {
   const auth = useAuthStore();
 
@@ -15,6 +25,12 @@ export function useTerminalPaste({ tab, isActive }) {
       : null;
 
     if (imageFile) {
+      const now = Date.now();
+      if (now - lastImagePasteAt < IMAGE_PASTE_DEDUPE_MS) {
+        e.preventDefault();
+        return;
+      }
+      lastImagePasteAt = now;
       e.preventDefault();
       emit("keyboard:deactivate");
       await uploadImageToTerminal({
