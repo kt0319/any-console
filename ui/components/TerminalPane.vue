@@ -60,7 +60,7 @@
                 v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-files-btn"
-                :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working' }"
+                :class="pillActivityClass"
                 :aria-label="filesTooltip"
                 :data-tooltip="filesTooltip"
                 @pointerdown.stop
@@ -80,6 +80,7 @@
                 v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-history-btn"
+                :class="pillActivityClass"
                 :aria-label="historyTooltip"
                 :data-tooltip="historyTooltip"
                 @pointerdown.stop
@@ -91,6 +92,7 @@
                 v-else-if="key === 'changes' && isGitRepo && isDirty && infoPillConfig.changes"
                 type="button"
                 class="pill-chip pill-numstat-btn"
+                :class="pillActivityClass"
                 :aria-label="changesTooltip"
                 :data-tooltip="changesTooltip"
                 @pointerdown.stop
@@ -102,6 +104,7 @@
                 v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
                 type="button"
                 class="pill-chip pill-branch-btn"
+                :class="pillActivityClass"
                 :aria-label="branchTooltip"
                 :data-tooltip="branchTooltip"
                 @pointerdown.stop
@@ -115,6 +118,7 @@
                 v-else-if="key === 'prs' && branchPR && infoPillConfig.prs"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-pr-btn"
+                :class="pillActivityClass"
                 :aria-label="prsTooltip"
                 :data-tooltip="prsTooltip"
                 @pointerdown.stop
@@ -126,7 +130,7 @@
                 v-else-if="key === 'actions' && visibleBranchAction && infoPillConfig.actions"
                 type="button"
                 class="pill-chip pill-devserver-btn"
-                :class="actionStatusClass"
+                :class="[actionStatusClass, pillActivityClass]"
                 :aria-label="actionsTooltip"
                 :data-tooltip="actionsTooltip"
                 @pointerdown.stop
@@ -138,6 +142,7 @@
                 v-else-if="key === 'devserver' && devServerEntry && infoPillConfig.devserver"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-server-btn"
+                :class="pillActivityClass"
                 :aria-label="devServerTooltip"
                 :data-tooltip="devServerTooltip"
                 @pointerdown.stop
@@ -149,6 +154,7 @@
                 v-else-if="key === 'add' && !isGitRepo && tab.sessionId && infoPillConfig.add"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-add-btn"
+                :class="pillActivityClass"
                 aria-label="Add or open this directory as a workspace"
                 data-tooltip="Add or open this directory as a workspace"
                 @pointerdown.stop
@@ -160,6 +166,7 @@
                 v-else-if="key === 'dispatch' && tabDispatchItems.length > 0 && infoPillConfig.dispatch"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-dispatch-btn"
+                :class="pillActivityClass"
                 :aria-label="dispatchTooltip"
                 :data-tooltip="dispatchTooltip"
                 @pointerdown.stop
@@ -434,6 +441,12 @@ function openDispatch() {
 }
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
+// 新規出力通知(tab-activity)・エージェント実行中(pill-working)のアニメーションは
+// 特定のピルに限らず、全ピル共通の見た目にする。
+const pillActivityClass = computed(() => ({
+  "tab-activity": props.tab._activity,
+  "pill-working": agentState.value === "working",
+}));
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
 const paneEl = ref(null);
@@ -1435,7 +1448,7 @@ defineExpose({
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-.pill-files-btn.tab-activity {
+.pill-chip.tab-activity {
   animation: pill-activity-glow 3s ease-in-out 1;
 }
 
@@ -1444,7 +1457,7 @@ defineExpose({
   50% { border-color: rgba(130, 170, 255, 0.7); }
 }
 
-.pill-files-btn.pill-working {
+.pill-chip.pill-working {
   background-image: linear-gradient(
     90deg,
     rgba(26, 27, 38, 0.88) 0%,
@@ -1457,7 +1470,7 @@ defineExpose({
   animation: pill-working-pulse 2s linear infinite;
 }
 
-.terminal-pane.active .pill-files-btn.pill-working {
+.terminal-pane.active .pill-chip.pill-working {
   animation: none;
   background-image: none;
 }
