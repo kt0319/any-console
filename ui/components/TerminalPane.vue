@@ -33,7 +33,7 @@
           <span v-else class="mdi pill-peek-icon" :class="peekIconClass"></span>
           <span class="pill-peek-text pill-peek-marquee" :style="{ maxWidth: trailingMaxWidth + 'px' }">
             <span
-              ref="marqueeTextEl"
+              :ref="setMarqueeTextEl"
               class="pill-peek-marquee-text"
               :class="{ 'pill-peek-marquee-run': marqueeRun }"
               :style="marqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' } : null"
@@ -751,15 +751,31 @@ const peekSignature = computed(() => {
 // infiniteループはしない）。History以外の全ラベルにも同じ扱いを揃える。
 const marqueeRun = ref(false);
 const marqueeTextEl = ref(null);
+
+function measureMarquee() {
+  const el = marqueeTextEl.value;
+  const container = el?.parentElement;
+  marqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
+}
+
+// peekピルは Transition(mode="out-in") 配下にあり、キー切替時は旧要素の
+// leaveアニメーション完了を待ってから新要素がDOMへ挿入される。peekSignature
+// の変化を起点に nextTick() だけで測るとこの挿入待ちより早く走ってしまい、
+// marqueeTextEl がまだ null/旧要素のままで測定に失敗する（挿入後は再測定
+// されず、動くべき時に動かないまま固定される）。実際にDOMへ挿入された瞬間
+// （関数refのマウント時）にも測るようにして、このレースを避ける。
+function setMarqueeTextEl(el) {
+  marqueeTextEl.value = el;
+  if (el) nextTick(measureMarquee);
+}
+
 watch(
   peekSignature,
   async (sig) => {
     if (!sig) { marqueeRun.value = false; return; }
     marqueeRun.value = false;
     await nextTick();
-    const el = marqueeTextEl.value;
-    const container = el?.parentElement;
-    marqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
+    if (marqueeTextEl.value) measureMarquee();
   },
 );
 
