@@ -186,6 +186,8 @@ test.describe("workspace detail panes", () => {
   test("Historyペイン内のBranchesに現在ブランチが表示され Add ダイアログを開閉できる", async ({ page }) => {
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
+    // Branch一覧は既定で畳まれているため、シェブロンボタンで開く
+    await page.locator(".branch-summary-toggle").click();
 
     const current = page.locator(".branch-item.current");
     await expect(current).toBeVisible({ timeout: 10_000 });
@@ -205,6 +207,7 @@ test.describe("workspace detail panes", () => {
     const newBranch = "e2e/branch-test";
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
+    await page.locator(".branch-summary-toggle").click();
     await expect(page.locator(".branch-item.current")).toBeVisible({ timeout: 10_000 });
 
     await page.locator('.branch-toolbar-btn[aria-label="Add"]').click();

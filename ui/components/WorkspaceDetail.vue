@@ -20,7 +20,20 @@
     <div class="workspace-tab-content">
       <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
         <div class="git-history-branch-branches">
-          <GitChangeBranch ref="gitBranch" />
+          <button
+            type="button"
+            class="branch-summary-toggle"
+            :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
+            :aria-expanded="branchSectionExpanded"
+            @click="toggleBranchSection"
+          >
+            <span class="mdi mdi-source-branch branch-summary-icon"></span>
+            <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
+            <span class="mdi branch-summary-chevron" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+          </button>
+          <div v-show="branchSectionExpanded" class="branch-summary-body">
+            <GitChangeBranch ref="gitBranch" />
+          </div>
         </div>
         <GitHistory
           ref="gitHistory"
@@ -112,6 +125,9 @@ const jobsPane = ref(null);
 const terminalSelectPane = ref(null);
 
 const activePane = ref("jobs");
+// HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
+// （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
+const branchSectionExpanded = ref(false);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 const selectedDiffIsWorkingTree = ref(false);
@@ -159,6 +175,21 @@ function updateViewTitle() {
 let loadedWorkspace = null;
 let historyLoadedFor = null;
 let filesLoadedFor = null;
+let branchLoadedFor = null;
+
+function loadBranchSection() {
+  if (branchLoadedFor === workspaceStore.selectedWorkspace) return;
+  branchLoadedFor = workspaceStore.selectedWorkspace;
+  nextTick(() => {
+    gitBranch.value?.load();
+    gitBranch.value?.backgroundFetch();
+  });
+}
+
+function toggleBranchSection() {
+  branchSectionExpanded.value = !branchSectionExpanded.value;
+  if (branchSectionExpanded.value) loadBranchSection();
+}
 
 function clearDiffSelection() {
   selectedDiffFile.value = "";
@@ -204,6 +235,8 @@ function open(options) {
   if (workspaceChanged) {
     historyLoadedFor = null;
     filesLoadedFor = null;
+    branchLoadedFor = null;
+    branchSectionExpanded.value = false;
     loadedWorkspace = filesKey;
   }
 
@@ -212,7 +245,9 @@ function open(options) {
 
 async function switchPane(key) {
   // 後方互換: "github" → "issues"、"browser"/"branch" → "history"
-  // （BranchはHistoryタブへ統合し、常に上下に並べて両方表示する）
+  // （BranchはHistoryタブへ統合。Branchピル/ディープリンク経由の時だけ
+  // Branch一覧を開いた状態にする）
+  const wantsBranchExpanded = key === "branch";
   if (key === "github") key = "issues";
   if (key === "browser" || key === "branch") key = "history";
 
@@ -221,13 +256,13 @@ async function switchPane(key) {
   updateViewTitle();
 
   if (key === "history") {
+    if (wantsBranchExpanded) branchSectionExpanded.value = true;
+    if (branchSectionExpanded.value) loadBranchSection();
     nextTick(() => {
       if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
         gitHistory.value?.load();
       }
-      gitBranch.value?.load();
-      gitBranch.value?.backgroundFetch();
     });
   } else if (key === "changes") {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
@@ -347,18 +382,65 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* HistoryタブはBranch一覧とコミット履歴を上下に並べて常に両方表示する
-   （ブランチのpush/pull/削除・コミット履歴の閲覧を1タブで完結させる）。
-   Branch一覧は件数が少ないことが多いため高さを上限で抑え、コミット履歴
-   側に残りの高さを譲る。 */
+/* HistoryタブはBranch一覧をコミット履歴の上に置くが、既定では現在の
+   ブランチ名 + シェブロンボタンだけの1行に畳んでおく（常時全部出すと
+   コミット履歴の表示領域を圧迫するため）。クリックで開閉する。 */
 .git-history-branch-branches {
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
-  max-height: 40%;
   min-height: 0;
-  overflow: hidden;
   border-bottom: 1px solid var(--border);
+}
+
+.branch-summary-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.branch-summary-icon {
+  color: var(--success);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.branch-summary-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-summary-chevron {
+  color: var(--text-muted);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-summary-toggle:hover {
+    background: rgba(130, 170, 255, 0.08);
+  }
+}
+
+.branch-summary-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40vh;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
 }
 
 /* タブバー */
