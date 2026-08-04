@@ -1129,7 +1129,7 @@ defineExpose({
 /* アクティブなペインのピル（展開ボタン群・peekピル）は枠線を明るくする。
    ワークスペースピルと同じ扱い。 */
 .terminal-pane.active .pill-chip {
-  border-color: rgba(108, 113, 137, 0.9);
+  border-color: rgba(140, 145, 165, 0.95);
 }
 
 .pill-peek-wide {
@@ -1514,7 +1514,7 @@ defineExpose({
 /* アクティブなペインのワークスペースピルは枠線を明るくして示す
    （背景色は変えない）。非アクティブ時は暗めのグレーに留める。 */
 .terminal-pane.active .terminal-info-pill {
-  border-color: rgba(108, 113, 137, 0.9);
+  border-color: rgba(140, 145, 165, 0.95);
 }
 
 .terminal-info-pill.tab-activity {
