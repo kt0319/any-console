@@ -1121,9 +1121,15 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   min-height: 32px;
-  border: 1px solid rgba(108, 113, 137, 0.9);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
+}
+
+/* アクティブなペインのピル（展開ボタン群・peekピル）は枠線を明るくする。
+   ワークスペースピルと同じ扱い。 */
+.terminal-pane.active .pill-chip {
+  border-color: rgba(108, 113, 137, 0.9);
 }
 
 .pill-peek-wide {
