@@ -2,20 +2,11 @@ import { onMounted, onBeforeUnmount } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { emit } from "../app-bridge.js";
-import { debugLog } from "./useClientLogs.js";
-
-// 右クリックの「Paste」から画像を貼り付けると2枚アップロードされる不具合を
-// 調査中。原因特定まではデバッグログのみ（デバッグモードON時、Settings >
-// System Info のログに出る）で発火状況を可視化する。原因が分かり次第、
-// 対症療法ではなく発生源を止める形に直す。
-let pasteEventSeq = 0;
 
 export function useTerminalPaste({ tab, isActive }) {
   const auth = useAuthStore();
 
   async function onPaste(e) {
-    const seq = ++pasteEventSeq;
-    debugLog(`[terminal-paste #${seq}] fired type=${e.type} isTrusted=${e.isTrusted} timeStamp=${e.timeStamp.toFixed(1)} isActive=${isActive.value} tabId=${tab.value?.id}`);
     if (!isActive.value) return;
 
     const files = e.clipboardData?.files;
@@ -24,8 +15,13 @@ export function useTerminalPaste({ tab, isActive }) {
       : null;
 
     if (imageFile) {
-      debugLog(`[terminal-paste #${seq}] image detected name=${imageFile.name} size=${imageFile.size} lastModified=${imageFile.lastModified}`);
       e.preventDefault();
+      // xterm 自身も textarea に paste リスナーを持っており、preventDefault()
+      // だけではそちらへの伝播を止められない。右クリックの「Paste」経由だと
+      // クリップボードに text/plain（ファイルパス等）も同時に乗っていることが
+      // あり、xterm 側がそれを別途ペーストして「画像が2つ貼り付く」ように
+      // 見える不具合があった。ここで処理を確定させたらそれ以上伝播させない。
+      e.stopPropagation();
       emit("keyboard:deactivate");
       await uploadImageToTerminal({
         file: imageFile,
