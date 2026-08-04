@@ -31,6 +31,9 @@
         </li>
       </ul>
       <div class="empty-pane-actions">
+        <button type="button" class="empty-pane-action-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click.stop="onAddWorkspace">
+          <span class="mdi mdi-folder-plus-outline"></span> Add workspace
+        </button>
         <button type="button" class="empty-pane-action-btn" :disabled="!canAddPane" aria-label="Add pane" data-tooltip="Add pane" @click.stop="onAddPane">
           <span class="mdi mdi-plus-box-outline"></span> Add pane
         </button>
@@ -46,6 +49,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { isEmptyPaneId } from "../utils/empty-pane.js";
+import { emit } from "../app-bridge.js";
 import SplitModeSelector from "./SplitModeSelector.vue";
 
 const props = defineProps({
@@ -96,6 +100,10 @@ function onSelectMode(mode) {
 
 function onAddPane() {
   layoutStore.addPane(props.paneIndex);
+}
+
+function onAddWorkspace() {
+  emit("workspace:openAdd");
 }
 
 function onRemovePane() {
