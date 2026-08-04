@@ -23,6 +23,12 @@
           :key="peekingKey"
           class="pill-chip pill-peek-wide"
           :class="peekColorClass"
+          role="button"
+          tabindex="0"
+          @pointerdown.stop
+          @click.stop="onPeekClick"
+          @keydown.enter.stop.prevent="onPeekClick"
+          @keydown.space.stop.prevent="onPeekClick"
         >
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
@@ -437,6 +443,44 @@ function openDispatch() {
     emit("settings:open", { view: "DispatchRunView", state: { itemId: tabDispatchItems.value[0].id } });
   } else {
     emit("settings:open", { view: "DispatchQueueConfig" });
+  }
+}
+
+// peekピル（値が変化した時に一時表示する長いピル）自体をクリック/タップした時、
+// 対応する通常ピルと同じ遷移先を開く。devserver-stopは「検出されなくなった」
+// という通知のみで開く対象が無いため対象外。
+function onPeekClick() {
+  switch (peekingKey.value) {
+    case "workspace":
+    case "files":
+      openFiles();
+      break;
+    case "history":
+      openHistory();
+      break;
+    case "changes":
+      openChanges();
+      break;
+    case "branch":
+      openBranch();
+      break;
+    case "prs":
+      openPRs();
+      break;
+    case "actions":
+      openActions();
+      break;
+    case "devserver":
+      openDevServer();
+      break;
+    case "add":
+      registerCurrentDir();
+      break;
+    case "dispatch":
+      openDispatch();
+      break;
+    default:
+      break;
   }
 }
 
@@ -1126,6 +1170,11 @@ defineExpose({
   padding: 5px 14px;
   color: var(--text-secondary);
   font-size: 13px;
+  cursor: pointer;
+}
+
+.pill-peek-wide:active {
+  transform: scale(0.97);
 }
 
 .pill-peek-icon,
