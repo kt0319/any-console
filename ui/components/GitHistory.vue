@@ -2,7 +2,7 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
-      <div class="git-log-entry git-log-commit diff-files-selected-commit" @click="showSelectedCommitMessage">
+      <div class="git-log-entry git-log-commit diff-files-selected-commit">
         <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
           <span class="mdi mdi-arrow-left"></span>
         </button>
@@ -24,6 +24,7 @@
           v-if="selectedCommitForFiles.hash !== '__dirty__'"
           :branches="entryBranches(selectedCommitForFiles)"
           @click.stop
+          @show-detail="showSelectedCommitMessage"
           @exec="onCommitAction(selectedCommitForFiles, $event)"
         />
       </div>

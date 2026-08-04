@@ -22,33 +22,32 @@
       <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
       <span v-if="props.diffFile" class="file-browser-header-actions">
-        <button type="button" class="file-browser-header-btn" aria-label="Show in Files" data-tooltip="Show in Files" @click="browseToDiffFolder"><span class="mdi mdi-folder-open-outline" aria-hidden="true"></span></button>
-        <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDiffFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
-        <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadDiffFile"><span class="mdi mdi-download" aria-hidden="true"></span></button>
-        <button v-if="diffGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openDiffFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
-        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Discard" data-tooltip="Discard" @click="discardDiffFile"><span class="mdi mdi-undo" aria-hidden="true"></span></button>
-        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteDiffFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+        <button type="button" class="file-browser-header-btn" aria-label="Show in Files" data-tooltip="Show in Files" @click="browseToDiffFolder"><span class="mdi mdi-folder-open-outline" aria-hidden="true"></span> Show in Files</button>
+        <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDiffFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
+        <button v-if="diffGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openDiffFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span> GitHub</button>
+        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Discard" data-tooltip="Discard" @click="discardDiffFile"><span class="mdi mdi-undo" aria-hidden="true"></span> Discard</button>
+        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteDiffFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
       </span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent || showHistory">
-          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span></button>
-          <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span> {{ showHistory ? 'Show file' : 'History' }}</button>
+          <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
+          <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span> Download</button>
+          <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span> GitHub</button>
+          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span> Rename</button>
+          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
+          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-          <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :data-tooltip="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
-          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :data-tooltip="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span> {{ showGitignored ? 'Hide ignored' : 'Show ignored' }}</button>
+          <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
+          <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span> Upload</button>
           <template v-if="currentPath">
-            <button type="button" class="file-browser-header-btn" aria-label="Download folder" data-tooltip="Download folder as zip" @click="downloadFile(currentPath)"><span class="mdi mdi-folder-zip-outline" aria-hidden="true"></span></button>
-            <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
-            <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
-            <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+            <button type="button" class="file-browser-header-btn" aria-label="Download folder" data-tooltip="Download folder as zip" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span> Download</button>
+            <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span> Rename</button>
+            <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
+            <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
           </template>
         </template>
       </span>
@@ -108,6 +107,7 @@ import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.js";
 import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
 import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.js";
 import { useShowGitignored } from "../composables/useShowGitignored.js";
+import { useIsMobile } from "../composables/useIsMobile.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatRelativeTime } from "../utils/format.js";
 import { entrySizeText } from "../utils/file-browser.js";
@@ -146,6 +146,12 @@ const {
   buildEditorUrl, openInEditor,
 } = useEditorIntegration();
 
+// エディタ連携（vscode://等のカスタムURLスキーム）はローカルのデスクトップ
+// エディタを起動する前提のため、モバイルでは対応するアプリが無く実質使えない
+// （useEditorIntegration.openInEditor参照）。ボタン自体を出さない。
+const { isMobile } = useIsMobile();
+const showEditorButton = computed(() => !!editorUrlTemplate.value && !isMobile.value);
+
 const {
   diffHtml, diffNewFileContent,
 } = useFileDiff({
@@ -155,7 +161,7 @@ const {
 
 const {
   githubUrl: diffGithubUrl, openGithub: openDiffFileGithub, openEditor: openDiffFileInEditor,
-  download: downloadDiffFile, browseToFolder: browseToDiffFolder,
+  browseToFolder: browseToDiffFolder,
   discard: discardDiffFile, deleteFile: deleteDiffFile,
 } = useDiffFileHeaderActions({
   filePath: computed(() => props.diffFile),
@@ -303,21 +309,30 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
 }
 
 .file-browser-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-muted);
-  font-size: 16px;
-  padding: 4px 8px;
+  font-size: 12px;
+  padding: 4px 10px;
   cursor: pointer;
   line-height: 1;
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.file-browser-header-btn .mdi {
+  font-size: 16px;
 }
 
 .file-browser-header-actions {
   margin-left: auto;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 

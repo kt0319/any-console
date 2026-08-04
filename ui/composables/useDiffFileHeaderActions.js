@@ -11,7 +11,7 @@ import { emit } from "../app-bridge.js";
 export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, editorUrlTemplate, openInEditor }) {
   const workspaceStore = useWorkspaceStore();
   const { withWorkspace } = useWorkspace();
-  const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
+  const { deleteWorkspaceFile } = useWorkspaceFile();
   const { apiCommand } = useApi();
   const { confirm } = useConfirm();
 
@@ -29,10 +29,6 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
   function openEditor() {
     if (!editorUrlTemplate.value || !filePath.value) return;
     openInEditor(filePath.value);
-  }
-
-  async function download() {
-    await downloadWorkspaceFile(filePath.value);
   }
 
   function browseToFolder() {
@@ -63,6 +59,6 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
   }
 
   return {
-    githubUrl, openGithub, openEditor, download, browseToFolder, discard, deleteFile,
+    githubUrl, openGithub, openEditor, browseToFolder, discard, deleteFile,
   };
 }
