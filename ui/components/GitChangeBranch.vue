@@ -44,9 +44,6 @@
       </div>
     </div>
     <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isBusy }">
-      <div class="branch-section-header">
-        <span>LOCAL</span>
-      </div>
         <div
           v-for="branch in localBranches"
           :key="'local-' + branch.name"
@@ -99,14 +96,6 @@
             >Delete</button>
           </div>
         </div>
-        <div
-          class="branch-section-header branch-section-header-toggle"
-          :class="{ 'is-busy': isBusy }"
-          @click="fetchRemote"
-        >
-          <span>REMOTE</span>
-          <span v-if="isFetchingRemote" class="branch-section-loading">Loading...</span>
-        </div>
         <template v-if="remoteLoaded">
           <div
             v-for="branch in remoteBranches"
@@ -125,7 +114,7 @@
           </div>
           <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
         </template>
-        <div v-else-if="!isRemoteBranchListLoading" class="branch-item-empty">Tap REMOTE to fetch from origin</div>
+        <div v-else-if="!isRemoteBranchListLoading" class="branch-item-empty">Tap Fetch to load remote branches</div>
     </div>
   </div>
 </template>
@@ -383,43 +372,9 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   font-style: italic;
 }
 
-.branch-section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  box-sizing: border-box;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
-  border-bottom: 1px solid var(--border);
-}
-
-.branch-section-header-toggle {
-  width: 100%;
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-}
-
-.branch-section-header-toggle.is-busy {
-  pointer-events: none;
-  opacity: 0.7;
-}
-
 .modal-scroll-body.is-fetching {
   pointer-events: none;
   opacity: 0.6;
-}
-
-.branch-section-loading {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-muted);
 }
 
 .branch-worktree-icon {
