@@ -110,6 +110,9 @@
         </template>
     </div>
     <div class="branch-footer">
+      <button type="button" class="branch-footer-btn" aria-label="Add" data-tooltip="Add branch or worktree" :disabled="isBusy" @click="openAddModal">
+        <span class="mdi mdi-plus"></span> Add
+      </button>
       <button type="button" class="branch-footer-btn" aria-label="Fetch" data-tooltip="Fetch remote branches" :disabled="isBusy" @click="fetchRemote">
         <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-toolbar-spin' : 'mdi-refresh'"></span> Fetch
       </button>
@@ -194,7 +197,7 @@ watch(branches, (list) => {
   branchEmit("count", list.filter((b) => !b.remote).length);
 });
 
-defineExpose({ load: loadBranchList, backgroundFetch, openAddModal });
+defineExpose({ load: loadBranchList, backgroundFetch });
 </script>
 
 <style scoped>
@@ -208,7 +211,7 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal });
 
 .branch-footer {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   padding: 6px 8px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;

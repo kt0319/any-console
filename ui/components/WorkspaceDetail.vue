@@ -33,15 +33,6 @@
             </button>
             <button
               type="button"
-              class="branch-summary-add-btn"
-              aria-label="Add branch or worktree"
-              data-tooltip="Add branch or worktree"
-              @click="onAddBranch"
-            >
-              <span class="mdi mdi-plus"></span>
-            </button>
-            <button
-              type="button"
               class="branch-summary-chevron-btn"
               :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
               :aria-expanded="branchSectionExpanded"
@@ -210,14 +201,6 @@ function toggleBranchSection() {
   if (branchSectionExpanded.value) loadBranchSection();
 }
 
-function onAddBranch() {
-  if (!branchSectionExpanded.value) {
-    branchSectionExpanded.value = true;
-    loadBranchSection();
-  }
-  nextTick(() => gitBranch.value?.openAddModal());
-}
-
 function clearDiffSelection() {
   selectedDiffFile.value = "";
   diffMessage.value = "";
@@ -272,9 +255,7 @@ function open(options) {
 
 async function switchPane(key) {
   // 後方互換: "github" → "issues"、"browser"/"branch" → "history"
-  // （BranchはHistoryタブへ統合。Branchピル/ディープリンク経由の時だけ
-  // Branch一覧を開いた状態にする）
-  const wantsBranchExpanded = key === "branch";
+  // （BranchはHistoryタブへ統合。Branch一覧は常に畳んだ状態で開始する）
   if (key === "github") key = "issues";
   if (key === "browser" || key === "branch") key = "history";
 
@@ -283,8 +264,6 @@ async function switchPane(key) {
   updateViewTitle();
 
   if (key === "history") {
-    if (wantsBranchExpanded) branchSectionExpanded.value = true;
-    if (branchSectionExpanded.value) loadBranchSection();
     nextTick(() => {
       if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
@@ -441,23 +420,6 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.branch-summary-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-right: 8px;
-  flex-shrink: 0;
-  padding: 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 15px;
-  cursor: pointer;
-}
-
 .branch-summary-chevron-btn {
   display: flex;
   align-items: center;
@@ -473,11 +435,6 @@ onMounted(() => {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .branch-summary-add-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
   .branch-summary-chevron-btn:hover .branch-summary-chevron {
     color: var(--text-primary);
   }

@@ -194,7 +194,7 @@ test.describe("workspace detail panes", () => {
     await expect(current.locator(".branch-item-name")).toContainText(branchName);
 
     // Add ダイアログ（Branch / Worktree 選択）を開いて Cancel で閉じる
-    await page.locator('.branch-summary-add-btn').click();
+    await page.locator('.branch-footer-btn[aria-label="Add"]').click();
     const addDialog = page.locator(".branch-add-dialog");
     await expect(addDialog).toBeVisible({ timeout: 5000 });
     await expect(addDialog).toContainText("Branch");
@@ -210,7 +210,7 @@ test.describe("workspace detail panes", () => {
     await page.locator(".branch-summary-toggle").click();
     await expect(page.locator(".branch-item.current")).toBeVisible({ timeout: 10_000 });
 
-    await page.locator('.branch-summary-add-btn').click();
+    await page.locator('.branch-footer-btn[aria-label="Add"]').click();
     const addDialog = page.locator(".branch-add-dialog");
     await expect(addDialog).toBeVisible({ timeout: 5000 });
     await addDialog.locator('input[type="radio"][value="branch"]').check();
