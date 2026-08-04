@@ -148,6 +148,18 @@
               >
                 <span class="mdi mdi-folder-plus-outline"></span>
               </button>
+              <button
+                v-else-if="key === 'dispatch' && tabDispatchItems.length > 0 && infoPillConfig.dispatch"
+                type="button"
+                class="pill-chip pill-devserver-btn pill-dispatch-btn"
+                :aria-label="dispatchTooltip"
+                :data-tooltip="dispatchTooltip"
+                @pointerdown.stop
+                @click.stop="openDispatch"
+              >
+                <span class="mdi mdi-tray-full"></span>
+                <span v-if="tabDispatchItems.length > 1" class="pill-branch-count">{{ tabDispatchItems.length }}</span>
+              </button>
               </template>
           </div>
         </div>
@@ -227,6 +239,7 @@ import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
 import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
@@ -422,6 +435,23 @@ function openActions() {
   emit("git:openFileModal", { pane: "actions" });
 }
 
+const { queue: dispatchQueue } = useDispatchConfirm();
+const tabDispatchItems = computed(() => {
+  if (!props.tab.workspace) return [];
+  return dispatchQueue.value.filter((item) =>
+    (item.request.effective_workspace || item.request.workspace) === props.tab.workspace);
+});
+
+// 1件だけなら詳細（DispatchRunView）へ直接飛び、複数ある時はどれを開くか
+// 選べるよう一覧（DispatchQueueConfig）を開く。
+function openDispatch() {
+  if (tabDispatchItems.value.length === 1) {
+    emit("settings:open", { view: "DispatchRunView", state: { itemId: tabDispatchItems.value[0].id } });
+  } else {
+    emit("settings:open", { view: "DispatchQueueConfig" });
+  }
+}
+
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
@@ -482,6 +512,14 @@ const devServerTooltip = computed(() => {
   const p = devServerEntry.value;
   if (!p) return "Dev Server";
   return `Dev Server: ${p.scheme || "http"}://${location.hostname}:${p.proxy_port}`;
+});
+const dispatchTooltip = computed(() => {
+  const items = tabDispatchItems.value;
+  if (items.length === 1) {
+    const req = items[0].request;
+    return `Dispatch: ${req.job && req.job !== "terminal" ? req.job : "run"}`;
+  }
+  return items.length ? `Dispatch: ${items.length} pending` : "Dispatch";
 });
 
 const prsTooltip = computed(() => {
@@ -572,6 +610,9 @@ const trailingPeekItems = computed(() => {
   }
   if (!isGitRepo.value && props.tab.sessionId && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
+  }
+  if (tabDispatchItems.value.length > 0 && infoPillConfig.dispatch) {
+    items.push({ key: "dispatch", text: tabDispatchItems.value.map((i) => i.id).join(",") });
   }
   return items;
 });
@@ -685,6 +726,7 @@ const peekIconClass = computed(() => {
     case "devserver": return "mdi-server";
     case "devserver-stop": return "mdi-server-off";
     case "add": return "mdi-folder-plus-outline";
+    case "dispatch": return "mdi-tray-full";
     default: return "";
   }
 });
@@ -705,6 +747,7 @@ const peekColorClass = computed(() => {
       if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
       return "";
     case "devserver": return "pill-peek-accent";
+    case "dispatch": return "pill-peek-warning";
     default: return "";
   }
 });
@@ -723,6 +766,7 @@ const peekText = computed(() => {
     case "devserver": return devServerEntry.value ? `Dev Server :${devServerEntry.value.proxy_port}` : "Server";
     case "devserver-stop": return "Dev Server Stop";
     case "add": return "Add";
+    case "dispatch": return dispatchTooltip.value;
     case "workspace": return props.tab.workspace || props.tab.label || "";
     default: return "";
   }
@@ -1288,6 +1332,10 @@ defineExpose({
 
 .pill-add-btn .mdi {
   color: var(--accent);
+}
+
+.pill-dispatch-btn .mdi {
+  color: var(--warning);
 }
 
 /* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。

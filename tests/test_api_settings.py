@@ -215,7 +215,8 @@ class TestInfoPillSettings:
         "devserver": True,
         "files": True,
         "add": True,
-        "order": ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"],
+        "dispatch": True,
+        "order": ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"],
     }
 
     def test_get_default(self, client):
@@ -256,7 +257,7 @@ class TestInfoPillSettings:
         assert res.json()["order"] == self.DEFAULTS["order"]
 
     def test_put_and_get_custom_order(self, client):
-        custom_order = ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
+        custom_order = ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add", "dispatch"]
         res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "order": custom_order})
         assert res.status_code == 200
         assert res.json()["order"] == custom_order
@@ -271,7 +272,7 @@ class TestInfoPillSettings:
             json={**self.DEFAULTS, "order": ["bogus", "branch", "files"]},
         )
         assert res.status_code == 200
-        assert res.json()["order"] == ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
+        assert res.json()["order"] == ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add", "dispatch"]
 
     def test_put_order_dedupes_repeated_keys(self, client):
         res = client.put(
@@ -280,7 +281,7 @@ class TestInfoPillSettings:
             json={**self.DEFAULTS, "order": ["files", "files", "branch"]},
         )
         assert res.status_code == 200
-        assert res.json()["order"] == ["files", "branch", "history", "changes", "prs", "actions", "devserver", "add"]
+        assert res.json()["order"] == ["files", "branch", "history", "changes", "prs", "actions", "devserver", "add", "dispatch"]
 
 
 class TestCircleKeypadSettings:

@@ -48,6 +48,7 @@ const TOGGLES = [
   { field: "actions", label: "GitHub Actions", note: "Show the GitHub Actions run status button for the current branch." },
   { field: "devserver", label: "Dev Server", note: "Show the detected dev server button." },
   { field: "add", label: "Add / Open", note: "Show the add-or-open-workspace button for non-Git terminals." },
+  { field: "dispatch", label: "Dispatch", note: "Show pending dispatch requests targeting this workspace." },
 ];
 
 const orderedToggles = computed(() =>

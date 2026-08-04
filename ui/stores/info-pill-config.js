@@ -3,8 +3,8 @@ import { ref } from "vue";
 import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
-const FIELDS = ["branch", "history", "prs", "actions", "changes", "devserver", "files", "add"];
-const DEFAULT_ORDER = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"];
+const FIELDS = ["branch", "history", "prs", "actions", "changes", "devserver", "files", "add", "dispatch"];
+const DEFAULT_ORDER = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"];
 
 export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const branch = ref(true);
@@ -15,10 +15,11 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const devserver = ref(true);
   const files = ref(true);
   const add = ref(true);
+  const dispatch = ref(true);
   const order = ref([...DEFAULT_ORDER]);
   const loaded = ref(false);
 
-  const fieldRefs = { branch, history, prs, actions, changes, devserver, files, add };
+  const fieldRefs = { branch, history, prs, actions, changes, devserver, files, add, dispatch };
 
   // 取得失敗を defaults で握りつぶすと、サーバに設定があってもリセットされたように
   // 見える（loaded=true で確定してしまい再取得もされない）。失敗時は 1 回リトライし、
@@ -61,5 +62,5 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     save();
   }
 
-  return { branch, history, prs, actions, changes, devserver, files, add, order, loaded, load, save, reorder };
+  return { branch, history, prs, actions, changes, devserver, files, add, dispatch, order, loaded, load, save, reorder };
 });

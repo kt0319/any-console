@@ -8,11 +8,11 @@ import { useAuthStore } from "../../ui/stores/auth.js";
 const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
 
-const DEFAULT_ORDER = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"];
+const DEFAULT_ORDER = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"];
 
 const ALL_TRUE = {
   branch: true, history: true, prs: true, actions: true, changes: true,
-  devserver: true, files: true, add: true,
+  devserver: true, files: true, add: true, dispatch: true,
 };
 
 describe("info-pill-config store: load 堅牢化", () => {
@@ -61,7 +61,7 @@ describe("info-pill-config store: load 堅牢化", () => {
   });
 
   it("load はサーバのorderを反映する", async () => {
-    const customOrder = ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"];
+    const customOrder = ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add", "dispatch"];
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ ...ALL_TRUE, order: customOrder }));
     await store.load();
     expect(store.order).toEqual(customOrder);
@@ -81,7 +81,7 @@ describe("info-pill-config store: load 堅牢化", () => {
   it("reorderは指定インデックスへ並べ替えてsaveする（useListDragSortのonReorder互換）", async () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
     store.reorder(0, 1);
-    expect(store.order).toEqual(["history", "files", "changes", "branch", "prs", "actions", "devserver", "add"]);
+    expect(store.order).toEqual(["history", "files", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"]);
     expect(auth.apiFetch).toHaveBeenCalledTimes(1);
 
     store.reorder(1, 0);

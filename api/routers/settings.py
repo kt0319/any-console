@@ -150,7 +150,7 @@ def put_notification_settings(body: NotificationSettings):
     return {"status": "ok", "phrase_notify_grace_sec": body.phrase_notify_grace_sec}
 
 
-INFO_PILL_FIELDS = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"]
+INFO_PILL_FIELDS = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"]
 
 
 class InfoPillSettings(BaseModel):
@@ -162,6 +162,7 @@ class InfoPillSettings(BaseModel):
     devserver: bool = True
     files: bool = True
     add: bool = True
+    dispatch: bool = True
     order: list[str] = Field(default_factory=lambda: list(INFO_PILL_FIELDS))
 
 
