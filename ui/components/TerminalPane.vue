@@ -539,9 +539,6 @@ const trailingPeekItems = computed(() => {
   if ((isGitRepo.value || props.tab.sessionId) && infoPillConfig.files) {
     items.push({ key: "files", text: "Files" });
   }
-  if (isGitRepo.value && infoPillConfig.history) {
-    items.push({ key: "history", text: paneWorkspace.value?.last_commit_message || "" });
-  }
   if (isGitRepo.value && isDirty.value && infoPillConfig.changes) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
   }
@@ -552,7 +549,14 @@ const trailingPeekItems = computed(() => {
     // ahead/behind（Push/Pullバッジ）もこのボタン自身に描画されるため、
     // 同じ"branch"キーのシグネチャに含める（別キーにすると対応するボタンが
     // 無いため、findChangedTrailingItemに拾われてもpeekが表示されない）。
+    // history より前に置く: ブランチ切替え時は最終コミットメッセージも同時に
+    // 変わり、両方とも変化扱いになる。findChangedTrailingItemは並び順で最初の
+    // 変化を返すため、historyが先だとブランチ変更がhistoryのpeekに奪われて
+    // しまう。ブランチ切替えの通知としてはbranch側を優先したい。
     items.push({ key: "branch", text: `${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}` });
+  }
+  if (isGitRepo.value && infoPillConfig.history) {
+    items.push({ key: "history", text: paneWorkspace.value?.last_commit_message || "" });
   }
   if (branchPR.value && infoPillConfig.prs) {
     items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
