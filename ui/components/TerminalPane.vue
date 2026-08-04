@@ -151,7 +151,7 @@
                 <span class="mdi mdi-server"></span>
               </button>
               <button
-                v-else-if="key === 'add' && !isGitRepo && tab.sessionId && infoPillConfig.add"
+                v-else-if="key === 'add' && !tab.workspace && tab.sessionId && infoPillConfig.add"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-add-btn"
                 :class="pillActivityClass"
@@ -599,7 +599,7 @@ const trailingPeekItems = computed(() => {
   if (devServerEntry.value && infoPillConfig.devserver) {
     items.push({ key: "devserver", text: `Server:${devServerEntry.value.proxy_port}` });
   }
-  if (!isGitRepo.value && props.tab.sessionId && infoPillConfig.add) {
+  if (!props.tab.workspace && props.tab.sessionId && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
   }
   if (tabDispatchItems.value.length > 0 && infoPillConfig.dispatch) {
