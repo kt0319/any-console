@@ -31,8 +31,8 @@
         </li>
       </ul>
       <div class="empty-pane-actions">
-        <button type="button" class="empty-pane-action-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click.stop="onAddWorkspace">
-          <span class="mdi mdi-folder-plus-outline"></span> Add workspace
+        <button type="button" class="empty-pane-action-btn" aria-label="Open workspace" data-tooltip="Open workspace" @click.stop="onOpenWorkspace">
+          <span class="mdi mdi-folder-outline"></span> Open workspace
         </button>
         <button type="button" class="empty-pane-action-btn" :disabled="!canAddPane" aria-label="Add pane" data-tooltip="Add pane" @click.stop="onAddPane">
           <span class="mdi mdi-plus-box-outline"></span> Add pane
@@ -102,8 +102,8 @@ function onAddPane() {
   layoutStore.addPane(props.paneIndex);
 }
 
-function onAddWorkspace() {
-  emit("workspace:openAdd");
+function onOpenWorkspace() {
+  emit("workspace:openModal");
 }
 
 function onRemovePane() {
