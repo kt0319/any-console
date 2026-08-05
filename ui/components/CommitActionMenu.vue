@@ -12,7 +12,7 @@
       :aria-label="`Merge ${b}`"
       :data-tooltip="`Merge ${b}`"
       @click="$emit('exec', { action: 'merge', branch: b })"
-    ><span class="mdi mdi-source-merge" aria-hidden="true"></span> Merge {{ b }}</button>
+    ><span class="mdi mdi-source-merge" aria-hidden="true"></span> Merge <span class="file-browser-header-btn-branch">{{ b }}</span></button>
     <button
       v-for="b in branches"
       :key="'rebase-' + b"
@@ -21,7 +21,7 @@
       :aria-label="`Rebase onto ${b}`"
       :data-tooltip="`Rebase onto ${b}`"
       @click="$emit('exec', { action: 'rebase', branch: b })"
-    ><span class="mdi mdi-source-branch-sync" aria-hidden="true"></span> Rebase onto {{ b }}</button>
+    ><span class="mdi mdi-source-branch-sync" aria-hidden="true"></span> Rebase onto <span class="file-browser-header-btn-branch">{{ b }}</span></button>
     <button type="button" class="file-browser-header-btn" aria-label="Reset" data-tooltip="Reset to this commit" @click="$emit('exec', { action: 'reset' })"><span class="mdi mdi-restore" aria-hidden="true"></span> Reset</button>
   </span>
 </template>
@@ -69,6 +69,17 @@ defineEmits(["exec", "show-detail"]);
 
 .file-browser-header-btn .mdi {
   font-size: 16px;
+}
+
+/* origin/feature/xxx のような長いブランチ名でボタンが間延びしないよう、
+   ブランチ名部分だけ省略表示する（全体はaria-label/data-tooltipで確認可）。 */
+.file-browser-header-btn-branch {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
 }
 
 @media (hover: hover) and (pointer: fine) {
