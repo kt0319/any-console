@@ -49,6 +49,7 @@ def isolate_fs(tmp_path, monkeypatch):
     monkeypatch.setattr(devices_mod, "_DEVICES_FILE", data / "devices.json")
     monkeypatch.setattr(devices_mod, "_SERVER_KEY_FILE", data / "server_key")
     monkeypatch.setattr(dispatch_mod, "DISPATCH_QUEUE_FILE", data / "dispatch_queue.json")
+    monkeypatch.setattr(dispatch_mod, "DISPATCH_RECENT_FILE", data / "dispatch_recent.json")
     # push.py は _DATA_DIR をモジュールインポート時に一度だけ束縛するため、
     # ここで明示的に隔離しないと dispatch enqueue のたびに実運用の
     # push_subscriptions.json / vapid_private.txt を読み書きし、実機へ本物の

@@ -759,6 +759,41 @@ class TestPersistence:
         assert "ok" in dispatch_mod._PENDING
         assert "bad" not in dispatch_mod._PENDING
 
+    def test_recent_persists_across_decision_and_reload(self, client, workspace):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert dispatch_mod.DISPATCH_RECENT_FILE.is_file()
+
+        dispatch_mod._RECENT.clear()
+        dispatch_mod._load_persisted_recent()
+
+        assert len(dispatch_mod._RECENT) == 1
+        assert dispatch_mod._RECENT[0]["id"] == dispatch_id
+        assert dispatch_mod._RECENT[0]["decision"] == "approved"
+
+    def test_recent_reload_respects_limit(self, client, workspace):
+        for _ in range(dispatch_mod._RECENT_LIMIT + 3):
+            dispatch_id = _enqueue(client, text="echo hi")
+            client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+
+        dispatch_mod._RECENT.clear()
+        dispatch_mod._load_persisted_recent()
+        assert len(dispatch_mod._RECENT) == dispatch_mod._RECENT_LIMIT
+
+    def test_recent_non_dict_entries_are_skipped(self):
+        import json as json_mod
+        dispatch_mod.DISPATCH_RECENT_FILE.write_text(
+            json_mod.dumps({"items": [
+                {"id": "ok", "request": {"workspace": "test-ws"}, "decision": "approved"},
+                "not-a-dict",
+                {"id": "bad-request", "request": "not-a-dict", "decision": "approved"},
+            ]}),
+            encoding="utf-8",
+        )
+        dispatch_mod._load_persisted_recent()
+        ids = [r["id"] for r in dispatch_mod._RECENT]
+        assert ids == ["ok"]
+
 
 class TestDecisionExecutesIndependently:
     def test_decision_creates_session_without_original_request(self, client, workspace, _mock_tmux):

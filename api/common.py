@@ -48,6 +48,14 @@ DISPATCH_QUEUE_FILE = (
     else PROJECT_ROOT / "dispatch_queue.json"
 )
 
+# dispatch の承認/却下済み直近履歴（Rerun用）。DISPATCH_QUEUE_FILEと同じ
+# 隔離ルールに従う。
+DISPATCH_RECENT_FILE = (
+    DATA_DIR / "dispatch_recent.json"
+    if _DATA_DIR_ENV and _DATA_DIR_ENV.strip()
+    else PROJECT_ROOT / "dispatch_recent.json"
+)
+
 # 現在のコードが理解する config スキーマのバージョン。
 # 破壊的なスキーマ変更を入れる際にインクリメントし、_CONFIG_MIGRATIONS に
 # 旧版 -> 新版の変換を登録する（api/config.py 参照）。

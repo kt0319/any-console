@@ -37,6 +37,7 @@ from ..activity import log_activity
 from ..auth import verify_dispatch_token, verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
+    DISPATCH_RECENT_FILE,
     resolve_workspace_path,
 )
 from ..errors import bad_request, not_found, server_error
@@ -71,10 +72,10 @@ router = APIRouter()
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
 # 承認/却下が決定された直近の項目（新しい順）。承認後にキューから消えて
-# 実行されたことが分からなくなる問題への対応で、直近 N 件だけ一時的に残す。
-# _PENDING と異なり再起動をまたいだ永続化は行わない（未対応の作業ではないため）。
+# 実行されたことが分からなくなる問題への対応で、直近 N 件を残す（Rerunの起点にもなる）。
+# _PENDINGと同じくDISPATCH_RECENT_FILEへ永続化し、サーバ再起動をまたいでも残す。
 _RECENT: list[dict] = []
-_RECENT_LIMIT = 5
+_RECENT_LIMIT = 10
 _PUSH_TEXT_PREVIEW_LEN = 120
 _subscribers: set[WebSocket] = set()
 _broadcast_task: asyncio.Task | None = None
@@ -88,6 +89,7 @@ BROADCAST_SEND_TIMEOUT_SEC = 5
 def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
     _RECENT.insert(0, {"id": dispatch_id, "request": payload, "decision": decision})
     del _RECENT[_RECENT_LIMIT:]
+    _persist_recent()
 
 
 def _queue_payload() -> dict:
@@ -206,6 +208,35 @@ def _load_persisted_pending() -> None:
     for dispatch_id, request_payload in items.items():
         if isinstance(request_payload, dict):
             _PENDING[dispatch_id] = request_payload
+
+
+def _persist_recent() -> None:
+    """承認/却下済み直近履歴を専用ファイルへ書き出す（サーバ再起動をまたいで
+    Rerunできるようにするため）。"""
+    tmp_path = DISPATCH_RECENT_FILE.with_suffix(".tmp")
+    try:
+        tmp_path.write_text(json.dumps({"items": _RECENT}, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path.replace(DISPATCH_RECENT_FILE)
+    except OSError as e:
+        logger.warning("dispatch recent persist failed: %s", e)
+
+
+def _load_persisted_recent() -> None:
+    if not DISPATCH_RECENT_FILE.is_file():
+        return
+    try:
+        raw = json.loads(DISPATCH_RECENT_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("dispatch recent read failed: %s", e)
+        return
+    items = raw.get("items") if isinstance(raw, dict) else None
+    if not isinstance(items, list):
+        return
+    valid = [
+        item for item in items
+        if isinstance(item, dict) and isinstance(item.get("id"), str) and isinstance(item.get("request"), dict)
+    ]
+    _RECENT[:] = valid[:_RECENT_LIMIT]
 
 
 class DispatchRequest(BaseModel):
