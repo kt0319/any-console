@@ -8,6 +8,8 @@
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
     @touchcancel="onTouchCancel"
+    @contextmenu="onContextMenu"
+    @mousedown="onMouseDown"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
@@ -787,7 +789,7 @@ const peekIconClass = computed(() => {
 // 色付けする従来通りの挙動）。
 const peekColorClass = computed(() => {
   switch (peekingKey.value) {
-    case "history": return ["pill-peek-pink", "pill-peek-icon-only"];
+    case "history": return "pill-peek-accent";
     case "changes": return "pill-peek-warning";
     case "prs": return "pill-peek-purple";
     case "branch": return ["pill-peek-success", "pill-peek-icon-only"];
@@ -891,7 +893,7 @@ const paneIndexRef = toRef(props, "paneIndex");
 const circleKeypad = useCircleKeyPad();
 const circleKeypadKeys = circleKeypad.keys;
 const circleKeypadSpecials = circleKeypad.specials;
-const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel } = useTerminalPaneGestures({
+const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onMouseDown } = useTerminalPaneGestures({
   tab: tabRef,
   pillEl,
   circleKeypad,
@@ -1338,11 +1340,11 @@ defineExpose({
 }
 
 .pill-history-btn .mdi {
-  color: var(--pink);
+  color: var(--accent);
 }
 
 .pill-files-btn .mdi {
-  color: var(--accent);
+  color: #14b8a6;
 }
 
 .pill-add-btn .mdi {

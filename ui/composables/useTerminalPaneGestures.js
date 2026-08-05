@@ -95,5 +95,45 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
     if (circleKeypad?.state.visible) circleKeypad.cancel();
   }
 
-  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };
+  // PC向け: 右クリック+ドラッグでもサークルキーパッドを開けるようにする
+  // （タッチのスワイプに相当）。右クリック自体はブラウザのコンテキストメニューを
+  // 出したいことが無いこの用途では常に抑止する（isOnPill時は素通しし、ピル自身の
+  // 右クリックは通常通り扱えるようにする）。
+  let mouseStartX = 0;
+  let mouseStartY = 0;
+  let onMouseMove = null;
+  let onMouseUp = null;
+
+  function onContextMenu(e) {
+    if (isOnPill(e.target)) return;
+    e.preventDefault();
+  }
+
+  function onMouseDown(e) {
+    if (e.button !== 2 || isOnPill(e.target)) return;
+    mouseStartX = e.clientX;
+    mouseStartY = e.clientY;
+
+    onMouseMove = (ev) => {
+      if (!circleKeypad || !circleKeypad.enabled) return;
+      const dx = ev.clientX - mouseStartX;
+      const dy = ev.clientY - mouseStartY;
+      if (!circleKeypad.state.visible && Math.hypot(dx, dy) > CIRCLE_KEYPAD_TRIGGER_PX) {
+        if (layoutStore.isSplitMode && !isActive?.value) onSelectPane?.(paneIndex?.value);
+        circleKeypad.open(mouseStartX, mouseStartY);
+      }
+      if (circleKeypad.state.visible) circleKeypad.update(ev.clientX, ev.clientY);
+    };
+    onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      onMouseMove = null;
+      onMouseUp = null;
+      if (circleKeypad?.state.visible) circleKeypad.commitAndClose(tab.value);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onMouseDown };
 }
