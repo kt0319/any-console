@@ -31,7 +31,7 @@ export const CIRCLE_KEYPAD_BASE_KEYS = [
   { id: "ArrowLeft",  label: "←" },
   { id: "ArrowRight", label: "→" },
   { id: "Tab",        label: "Tab" },
-  { id: "Enter",      label: "↵" },
+  { id: "Enter",      label: "Enter" },
   { id: "Escape",     label: "Esc" },
   { id: "Backspace",  label: "BS" },
   { id: "Delete",     label: "Del" },
