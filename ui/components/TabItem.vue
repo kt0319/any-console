@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-shrink: 0;
   gap: 6px;
-  padding: 11px 16px;
+  padding: 9px 16px;
   border: none;
   border-radius: 0;
   background: transparent;

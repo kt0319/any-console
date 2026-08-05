@@ -321,6 +321,13 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   color: var(--text-muted);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .branch-item:not(.current):hover {
+    background: rgba(130, 170, 255, 0.12);
+    color: var(--accent);
+  }
+}
+
 .branch-item-action {
   color: var(--text-muted);
   font-style: italic;

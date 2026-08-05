@@ -128,7 +128,7 @@ function onRemovePane() {
 }
 
 .empty-pane.active {
-  border-color: #5b77b2;
+  border-color: var(--accent);
 }
 
 .empty-pane-inner {

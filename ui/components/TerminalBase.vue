@@ -127,7 +127,7 @@ defineExpose({ fitAllTerminals, selectPane });
 }
 
 .split-pane.active-pane {
-  border-color: #5b77b2;
+  border-color: var(--accent);
 }
 
 .split-pane :deep(.terminal-frame),

@@ -175,10 +175,10 @@ const tabs = computed(() => {
     {
       key: "files",
       icon: filesBrowsing.value ? "mdi-folder-open-outline" : "mdi-folder-outline",
-      iconColor: "var(--accent)",
+      iconColor: "#14b8a6",
       label: "Files",
     },
-    { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--pink)", hidden: !isGit },
+    { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--accent)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
@@ -462,11 +462,10 @@ onMounted(() => {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 .branch-summary-toggle:active {
-  transform: scale(0.98);
   background: var(--bg-tertiary);
 }
 
