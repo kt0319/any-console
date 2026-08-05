@@ -124,17 +124,18 @@ test.describe("workspace detail panes", () => {
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "Files" }).click();
 
-    // ファイルをクリックすると詳細画面に遷移し、ヘッダーに Rename/Delete が並ぶ
+    // ファイルをクリックすると詳細画面に遷移し、ヘッダーに Move/Delete が並ぶ
+    // （Rename/MoveはMoveへ統合済み。フルパスを編集することでリネームとして機能する）
     const row = page.locator(".file-browser-item", { hasText: "scratch.txt" });
     await expect(row).toBeVisible({ timeout: 10_000 });
     await row.click();
     const headerActions = page.locator(".file-browser-header-actions");
-    await expect(headerActions.getByRole("button", { name: "Rename" })).toBeVisible({ timeout: 5000 });
-    await headerActions.getByRole("button", { name: "Rename" }).click();
+    await expect(headerActions.getByRole("button", { name: "Rename or move" })).toBeVisible({ timeout: 5000 });
+    await headerActions.getByRole("button", { name: "Rename or move" }).click();
 
     const promptDialog = page.locator(".prompt-dialog");
     await expect(promptDialog).toBeVisible({ timeout: 5000 });
-    await expect(promptDialog).toContainText('new name for "scratch.txt"');
+    await expect(promptDialog).toContainText("Enter destination path.");
     await promptDialog.locator(".prompt-input").fill("scratch-renamed.txt");
     await promptDialog.locator(".dialog-btn-ok").click();
 
