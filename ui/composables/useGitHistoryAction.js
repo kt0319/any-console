@@ -33,19 +33,29 @@ export function useGitHistoryAction() {
     );
   }
 
-  async function execReset(entry, mode, closeFn) {
+  // Soft/Mixed/Hardの3択を1つのダイアログで選ばせる。OKボタンをSoft（安全側の
+  // 既定）に割り当て、Mixed/Hardはconfirm()のextra/extra2ボタンを使う
+  // （confirm()の戻り値はOK=true、extra/extra2=それぞれの value 文字列、
+  // Cancel=false）。
+  async function execReset(entry, closeFn) {
     const shortHash = entry.hash;
-    const msg = mode === "hard"
-      ? `reset --hard ${shortHash} will be executed. All working tree changes will be lost. Continue?`
-      : `Execute reset --soft ${shortHash}?`;
-    await confirmAndRun(
-      msg,
-      (ws) => runAndToast(wsEndpoint(ws, "reset"), { commit_hash: entry.fullHash, mode }, {
+    const choice = await confirm(`Reset to ${shortHash}?`, {
+      ok: { label: "Soft" },
+      extra: { label: "Mixed", value: "mixed" },
+      extra2: {
+        label: "Hard", value: "hard", icon: "mdi-alert-outline",
+        desc: "Hard: all working tree changes will be lost.",
+      },
+    });
+    if (choice === false) return;
+    const mode = choice === true ? "soft" : choice;
+    await withWorkspace(async (workspace) => {
+      closeFn?.();
+      await runAndToast(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode }, {
         successMessage: `reset --${mode} ${shortHash} done`,
         errorMessage: `reset --${mode} failed`,
-      }),
-      closeFn,
-    );
+      });
+    });
   }
 
   async function execCreateBranch(entry, closeFn) {

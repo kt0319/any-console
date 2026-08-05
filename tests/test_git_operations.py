@@ -46,6 +46,29 @@ class TestResetSoft:
         log.assert_called_once_with("test-ws", "git_reset", mode="soft", from_commit=second, commit=first)
 
 
+class TestResetMixed:
+    def test_reset_mixed(self, client, git_workspace):
+        first = _git_commit(git_workspace, "a.txt", "a", "first")
+        _git_commit(git_workspace, "b.txt", "b", "second")
+
+        res = client.post("/workspaces/test-ws/reset", headers=AUTH, json={
+            "commit_hash": first,
+            "mode": "mixed",
+        })
+        assert res.status_code == 200
+
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        assert head == first
+        # mixedはworking treeのファイルは残すがステージングは解除する
+        assert (git_workspace / "b.txt").exists()
+        status = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout
+        assert "b.txt" in status
+
+
 class TestResetHard:
     def test_reset_hard(self, client, git_workspace):
         first = _git_commit(git_workspace, "a.txt", "a", "first")

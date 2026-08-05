@@ -3,7 +3,7 @@ import { useGitHistoryAction } from "./useGitHistoryAction.js";
 export function useCommitActionMenu() {
   const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
 
-  function onCommitAction(entry, { action, branch, mode }, closeFn) {
+  function onCommitAction(entry, { action, branch }, closeFn) {
     if (action === "branch") {
       execCommitCreateBranch(entry, closeFn);
     } else if (action === "merge") {
@@ -11,7 +11,7 @@ export function useCommitActionMenu() {
     } else if (action === "rebase") {
       execCommitRebase(branch, closeFn);
     } else if (action === "reset") {
-      execCommitReset(entry, mode, closeFn);
+      execCommitReset(entry, closeFn);
     } else {
       execCommitAction(action, entry, closeFn);
     }

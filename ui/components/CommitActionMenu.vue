@@ -22,8 +22,7 @@
       :data-tooltip="`Rebase onto ${b}`"
       @click="$emit('exec', { action: 'rebase', branch: b })"
     ><span class="mdi mdi-source-branch-sync" aria-hidden="true"></span> Rebase onto {{ b }}</button>
-    <button type="button" class="file-browser-header-btn" aria-label="Reset --soft" data-tooltip="Reset --soft" @click="$emit('exec', { action: 'reset', mode: 'soft' })"><span class="mdi mdi-restore" aria-hidden="true"></span> Reset --soft</button>
-    <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Reset --hard" data-tooltip="Reset --hard" @click="$emit('exec', { action: 'reset', mode: 'hard' })"><span class="mdi mdi-delete-sweep" aria-hidden="true"></span> Reset --hard</button>
+    <button type="button" class="file-browser-header-btn" aria-label="Reset" data-tooltip="Reset to this commit" @click="$emit('exec', { action: 'reset' })"><span class="mdi mdi-restore" aria-hidden="true"></span> Reset</button>
   </span>
 </template>
 
@@ -70,11 +69,6 @@ defineEmits(["exec", "show-detail"]);
 
 .file-browser-header-btn .mdi {
   font-size: 16px;
-}
-
-.file-browser-header-btn-delete {
-  color: var(--error);
-  border-color: var(--error);
 }
 
 @media (hover: hover) and (pointer: fine) {

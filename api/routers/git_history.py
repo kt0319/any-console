@@ -122,7 +122,7 @@ def git_rebase(name: str, body: GitActionRequest):
 @router.post("/workspaces/{name}/reset")
 def git_reset(name: str, body: GitActionRequest):
     commit_hash = validate_commit_ref(body.commit_hash)
-    if body.mode not in ("soft", "hard"):
+    if body.mode not in ("soft", "mixed", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
     ws_path = resolve_workspace_path(name)
     before_hash = rev_parse(ws_path, "HEAD", "rev-parse before reset")
