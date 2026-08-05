@@ -10,6 +10,9 @@
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
           <span class="mdi mdi-tab"></span> Tabs & Sessions
+          <span v-if="openTabCount > 0 || detachedSessionCount > 0" class="settings-menu-version">
+            {{ openTabCount }} open<template v-if="detachedSessionCount > 0"> · {{ detachedSessionCount }} detached</template>
+          </span>
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('DispatchQueueConfig')">
           <span class="mdi mdi-tray-full"></span> Dispatches
@@ -48,6 +51,7 @@
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">
           <span class="mdi mdi-bell-outline"></span> Notifications
+          <span class="settings-menu-version" :class="{ 'settings-menu-version-on': isPushSubscribed }">{{ isPushSubscribed ? "On" : "Off" }}</span>
         </button>
       </div>
 
@@ -75,11 +79,14 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, inject, onMounted, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO, EP_PREVIEW_PORTS } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO, EP_PREVIEW_PORTS, EP_SYSTEM_TMUX_INFO } from "../utils/endpoints.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
+import { usePushNotification } from "../composables/usePushNotification.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { buildDetachedSessionList } from "../utils/detached-sessions.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -89,7 +96,11 @@ const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
 const previewPortCount = ref(0);
+const detachedSessionCount = ref(0);
 const { queue: dispatchQueue } = useDispatchConfirm();
+const { isSubscribed: isPushSubscribed, init: initPush } = usePushNotification();
+const terminalStore = useTerminalStore();
+const openTabCount = computed(() => terminalStore.openTabs.length);
 
 onMounted(async () => {
   const auth = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
@@ -102,6 +113,17 @@ onMounted(async () => {
   if (preview.ok && Array.isArray(preview.data)) {
     previewPortCount.value = preview.data.filter((p) => !p.is_self).length;
   }
+  // Tabs & Sessions項目のカウントにdetached（タブ未割り当て）セッションも
+  // 含めるため、tmux-infoから全セッション数を取得しopenTabsに無いものを数える。
+  const tmuxInfo = await getWithRetry(apiGet, EP_SYSTEM_TMUX_INFO);
+  if (tmuxInfo.ok && Array.isArray(tmuxInfo.data?.sessions)) {
+    const knownTabIds = new Set(terminalStore.openTabs.map((t) => t.sessionId).filter(Boolean));
+    detachedSessionCount.value = buildDetachedSessionList(tmuxInfo.data.sessions, [], knownTabIds, tmuxInfo.data.prefix).length;
+  }
+  // Notifications項目の右にOn/Offを出すため、subscription状態（module-level
+  // ref）をここでも初期化する。NotificationConfig.vueを一度も開いていないと
+  // subscription.valueが未確定のまま（常にOffに見える）ため。
+  await initPush();
 });
 </script>
 
@@ -194,5 +216,9 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.settings-menu-version-on {
+  color: var(--success);
 }
 </style>
