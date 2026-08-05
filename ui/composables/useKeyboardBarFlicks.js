@@ -11,7 +11,7 @@ export function useKeyboardBarFlicks({
   setupFlickRepeat, sendKeyToTerminal,
   dismissKeyboard,
 }) {
-  const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
+  const { onEnter, makeFlickResolver } = useEnterAction({ keyboardInput, sendKeyToTerminal });
   onMounted(() => {
     if (arrowEl.value) {
       const arrowFlick = createArrowFlickHandler({

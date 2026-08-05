@@ -29,7 +29,9 @@
         @keydown.up="(e) => onArrowKey(e, historyPrev)"
         @keydown.down="(e) => onArrowKey(e, historyNext)"
         @compositionstart="composing = true"
+        @compositionupdate="syncDraftFromDom"
         @compositionend="composing = false"
+        @input="syncDraftFromDom"
         @focus="onFocus"
         @blur="onBlur"
       />
@@ -111,6 +113,15 @@ function onFocus() {
   bridgeEmit("oskeyboard:show");
 }
 
+// v-model（vModelText）はIME変換中（compositionstart〜compositionend）は
+// draft.value への反映を止める仕様のため、hasDraft（親のsend/enterアイコン
+// 切替）が変換中の未確定文字列を拾えない。DOMのinput/compositionupdateを
+// 直接見て draft.value を追従させ、変換中でも送信ボタンをsend表示にする。
+function syncDraftFromDom(e) {
+  const value = e.target.value;
+  if (draft.value !== value) draft.value = value;
+}
+
 function moveCursor(delta) {
   const el = inputEl.value;
   if (!el) return;
@@ -142,15 +153,26 @@ function backspace() {
 }
 
 function submit() {
-  if (composing.value && draft.value.trim()) return;
   resetSuppression();
-  const text = draft.value.trim();
+  const el = inputEl.value;
+  // IME変換中はVueのv-model（compositionstart〜endの間はDOMへの反映を
+  // 自前で止める仕様）が追従しないため draft.value が変換中の文字列を
+  // 反映していないことがある。実際に画面に出ている el.value を直接読む。
+  const text = (el ? el.value : draft.value).trim();
   // テキストが空なら Enter 単体送信、あれば text のみ送信（Enter は付けない）。
-  if (!text) { sendKeyToTerminal({ key: "Enter" }); return; }
+  if (!text) {
+    draft.value = "";
+    if (el) el.value = "";
+    sendKeyToTerminal({ key: "Enter" });
+    return;
+  }
   sendTextToTerminal(text);
   inputStore.addInputHistory(text);
   draft.value = "";
-  inputEl.value?.blur();
+  // draft.value を空にしても IME 変換中（el.composing）はVue側がDOM更新を
+  // スキップするため、el.value も直接空にしてIME入力中の未確定文字列を消す。
+  if (el) el.value = "";
+  el?.blur();
   emit("submitted");
 }
 
