@@ -51,7 +51,7 @@
                 <span class="pill-peek-changes-minus">-{{ deletions }}</span>
               </template>
               <template v-else-if="peekingKey === 'branch'">
-                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="branchDoneLabel" class="pill-peek-branch-done"> {{ branchDoneLabel }}</span>
+                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="branchPushDone" class="pill-peek-branch-done pill-peek-branch-push-done"> Push Done</span><span v-if="branchPullDone" class="pill-peek-branch-done pill-peek-branch-pull-done"> Pull Done</span>
               </template>
               <template v-else>{{ peekText }}</template>
             </span>
@@ -137,7 +137,7 @@
               <button
                 v-else-if="key === 'actions' && visibleBranchAction && infoPillConfig.actions"
                 type="button"
-                class="pill-chip pill-devserver-btn"
+                class="pill-chip pill-devserver-btn pill-actions-btn"
                 :class="[actionStatusClass, pillActivityClass]"
                 :aria-label="actionsTooltip"
                 :data-tooltip="actionsTooltip"
@@ -662,7 +662,8 @@ let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
 // branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
 // 「Push Done」「Pull Done」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
-const branchDoneLabel = ref("");
+const branchPushDone = ref(false);
+const branchPullDone = ref(false);
 // paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
 // マウント直後は未解決（undefined）で isGitRepo 等が一時的に false になり得る。
 // このタイミングで prevTrailingSignature を確定させると、ワークスペース情報が
@@ -705,14 +706,15 @@ function advancePeekQueue() {
     return;
   }
   peekingKey.value = next.key;
-  branchDoneLabel.value = next.doneLabel || "";
+  branchPushDone.value = next.pushDone || false;
+  branchPullDone.value = next.pullDone || false;
   const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
   const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
   pillMorePeekTimer = setTimeout(advancePeekQueue, itemMs);
 }
 
-function triggerPeek(key, doneLabel = "") {
-  peekQueue.push({ key, doneLabel });
+function triggerPeek(key, pushDone = false, pullDone = false) {
+  peekQueue.push({ key, pushDone, pullDone });
   if (!pillMorePeekTimer) {
     queueSessionEndsAt = Date.now() + PILL_MORE_PEEK_DURATION_MS;
     advancePeekQueue();
@@ -740,16 +742,16 @@ watch(trailingPeekItems, (items) => {
   if (justResolved) workspaceEverResolved = true;
   if (workspaceEverResolved && !justResolved) {
     for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
-      let doneLabel = "";
+      let pushDone = false;
+      let pullDone = false;
       if (changed.key === "branch") {
         // 直前のシグネチャ（branch:ahead:behind）と比べ、ahead/behindが
         // >0 から 0 へ変わった＝push/pullが完了した瞬間だけラベルを出す。
         const [, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
-        const pushDone = Number(prevAheadStr) > 0 && ahead.value === 0;
-        const pullDone = Number(prevBehindStr) > 0 && behind.value === 0;
-        doneLabel = [pushDone && "Push Done", pullDone && "Pull Done"].filter(Boolean).join(" · ");
+        pushDone = Number(prevAheadStr) > 0 && ahead.value === 0;
+        pullDone = Number(prevBehindStr) > 0 && behind.value === 0;
       }
-      triggerPeek(changed.key, doneLabel);
+      triggerPeek(changed.key, pushDone, pullDone);
     }
   }
   prevTrailingSignature = nextSignature;
@@ -1263,8 +1265,18 @@ defineExpose({
 }
 
 .pill-peek-branch-done {
-  color: var(--success);
   font-weight: 600;
+}
+
+/* push/pull完了ラベルは、それぞれ ahead(push)/behind(pull) の矢印と
+   同じ色に揃える（.pill-peek-branch-ahead / .pill-branch-count.push-count
+   と .pill-peek-branch-behind / .pill-branch-count.pull-count 参照）。 */
+.pill-peek-branch-push-done {
+  color: var(--accent);
+}
+
+.pill-peek-branch-pull-done {
+  color: var(--warning);
 }
 
 /* peekピル⇔通常表示（.pill-normal-group）の切替えは、スライドさせず
@@ -1321,11 +1333,15 @@ defineExpose({
   cursor: pointer;
 }
 
-/* button 自体は color:var(--text-secondary)（ラベル文字用）。Actionsピルは
-   失敗・実行中以外表示されない（visibleBranchAction）ため、アイコン色は
-   その場合のフォールバックとしてのみ使う。 */
+/* button 自体は color:var(--text-secondary)（ラベル文字用）。 */
 .pill-devserver-btn .mdi {
   color: var(--text-muted);
+}
+
+/* Actionsピルはブランドカラーをブラウンにし、WorkspaceDetailのActionsタブ
+   （iconColor）と揃える。失敗・実行中の状態色は下のaction-status-*で上書き。 */
+.pill-actions-btn .mdi {
+  color: #6f4e37;
 }
 
 /* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが

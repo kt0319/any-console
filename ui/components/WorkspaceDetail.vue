@@ -183,7 +183,7 @@ const tabs = computed(() => {
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
-    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", hidden: !isGit || !hasGithub.value },
+    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#6f4e37", hidden: !isGit || !hasGithub.value },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);
