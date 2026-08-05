@@ -256,6 +256,10 @@ function handleBack() {
 function open(options) {
   options = options || {};
   const paneKey = options.pane || "jobs";
+  // branchピル経由（paneKey === "branch"）だけはHistoryタブを開くと同時に
+  // Branch一覧セクションも展開する。History タブ自体を直接開いた場合は
+  // 従来通り畳んだ状態で開始する。
+  const wantBranchExpanded = paneKey === "branch";
   let resolvedPane = paneKey === "browser" ? "history" : paneKey;
   // 非 git ワークスペースで git 専用ペインが指定された場合は files にフォールバック
   const gitOnlyPanes = new Set(["jobs", "history", "changes", "branch", "stash", "issues", "actions", "prs"]);
@@ -282,12 +286,13 @@ function open(options) {
     loadedWorkspace = filesKey;
   }
 
-  switchPane(resolvedPane);
+  switchPane(resolvedPane, { expandBranch: wantBranchExpanded });
 }
 
-async function switchPane(key) {
+async function switchPane(key, opts = {}) {
   // 後方互換: "github" → "issues"、"browser"/"branch" → "history"
-  // （BranchはHistoryタブへ統合。Branch一覧は常に畳んだ状態で開始する）
+  // （BranchはHistoryタブへ統合。Branch一覧は通常畳んだ状態で開始するが、
+  // branchピル経由（opts.expandBranch）の場合だけ展開する）
   if (key === "github") key = "issues";
   if (key === "browser" || key === "branch") key = "history";
 
@@ -305,6 +310,7 @@ async function switchPane(key) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
         gitHistory.value?.load();
       }
+      if (opts.expandBranch) expandBranchSection();
     });
   } else if (key === "changes") {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
