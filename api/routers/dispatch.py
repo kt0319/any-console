@@ -39,7 +39,7 @@ from ..common import (
     DISPATCH_QUEUE_FILE,
     resolve_workspace_path,
 )
-from ..errors import bad_request, server_error
+from ..errors import bad_request, not_found, server_error
 from ..git_info import invalidate_git_info
 from ..git_utils import (
     git_branch,
@@ -573,3 +573,22 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
     # 承認を待たずに返す。結果が必要な呼び出し元はセッションの出現（/terminal/sessions）
     # で確認するか、direct:true で即実行を使う。
     return JSONResponse(status_code=202, content={"status": "pending", "id": dispatch_id})
+
+
+@router.post("/dispatch/{dispatch_id}/rerun")
+async def dispatch_rerun(dispatch_id: str, auth_label: str = Depends(verify_token)):
+    """Dispatch Queueの「Recently executed」（_RECENT、承認/却下済みの直近5件）から
+    同じ内容で新規にキュー登録し直す。_RECENTはプロセス再起動で消える揮発性の履歴の
+    ため、そこにまだ残っている間だけ再実行できる。既存セッションID・branch_status・
+    retry_countは元の実行時点のスナップショットなので引き継がず、通常のPOST /dispatch
+    と同じ経路（既存セッション探索・dedup判定・push通知）へ丸ごと乗せ直す。"""
+    item = next((r for r in _RECENT if r["id"] == dispatch_id), None)
+    if item is None:
+        raise not_found("Dispatch item not found (only the most recent 5 can be rerun)")
+    fields = DispatchRequest.model_fields
+    payload = {k: v for k, v in item["request"].items() if k in fields}
+    body = DispatchRequest(**payload)
+    body.direct = False
+    body.dedup_key = None
+    body.session_id = None
+    return await dispatch(body, (auth_label, False))

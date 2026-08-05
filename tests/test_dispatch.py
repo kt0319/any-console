@@ -188,6 +188,52 @@ class TestDispatchDecision:
         assert res.status_code == 404
 
 
+class TestDispatchRerun:
+    def test_unknown_id_returns_404(self, client):
+        res = client.post("/dispatch/nonexistent/rerun", headers=AUTH)
+        assert res.status_code == 404
+
+    def test_rerun_approved_item_requeues_with_new_id(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert dispatch_mod._RECENT[0]["decision"] == "approved"
+
+        res = client.post(f"/dispatch/{dispatch_id}/rerun", headers=AUTH)
+        assert res.status_code == 202, res.text
+        new_id = res.json()["id"]
+        assert new_id != dispatch_id
+        assert new_id in dispatch_mod._PENDING
+        assert dispatch_mod._PENDING[new_id]["text"] == "echo hi"
+        assert dispatch_mod._PENDING[new_id]["workspace"] == "test-ws"
+
+    def test_rerun_rejected_item_requeues(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
+        assert dispatch_mod._RECENT[0]["decision"] == "rejected"
+
+        res = client.post(f"/dispatch/{dispatch_id}/rerun", headers=AUTH)
+        assert res.status_code == 202, res.text
+        assert res.json()["id"] in dispatch_mod._PENDING
+
+    def test_rerun_does_not_execute_immediately(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        _mock_tmux.clear()
+
+        client.post(f"/dispatch/{dispatch_id}/rerun", headers=AUTH)
+        assert _mock_tmux == []
+
+    def test_rerun_not_in_recent_returns_404(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        for _ in range(dispatch_mod._RECENT_LIMIT):
+            other_id = _enqueue(client, text="echo other")
+            client.post(f"/dispatch/{other_id}/decision", headers=AUTH, json={"approved": True})
+
+        res = client.post(f"/dispatch/{dispatch_id}/rerun", headers=AUTH)
+        assert res.status_code == 404
+
+
 class TestReuseExisting:
     def test_reuse_finds_existing_session(self, client, workspace, _mock_tmux):
         from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock

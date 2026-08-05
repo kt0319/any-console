@@ -54,6 +54,11 @@ export function dispatchDecisionPath(dispatchId) {
   return `/dispatch/${encodeURIComponent(dispatchId)}/decision`;
 }
 
+/** @param {string} dispatchId @returns {string} */
+export function dispatchRerunPath(dispatchId) {
+  return `/dispatch/${encodeURIComponent(dispatchId)}/rerun`;
+}
+
 /** @param {string} pairingId @returns {string} */
 export function pairingStatusPath(pairingId) {
   return `/auth/pairing/${encodeURIComponent(pairingId)}/status`;
