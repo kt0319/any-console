@@ -245,6 +245,7 @@ import { trailingItemsSignature, findChangedTrailingItems } from "../utils/pill-
 import { devServerUrl, devServerOrigin } from "../utils/preview-url.js";
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.js";
 import { firstCommitLine } from "../utils/git.js";
+import { peekIconForKey } from "../utils/info-pills.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -763,23 +764,8 @@ watch(devServerEntry, (entry, prevEntry) => {
 // .pill-peek-wide に表示するアイコン(mdiクラス)。ワークスペース名の変化は
 // テンプレート側で tab.wsIcon/tab.icon の実アイコン（renderIconStr）を
 // 直接使うため、ここでは対象外。
-const peekIconClass = computed(() => {
-  switch (peekingKey.value) {
-    case "files": return "mdi-folder-outline";
-    case "history": return "mdi-history";
-    case "changes": return "mdi-file-document-edit-outline";
-    case "branch": return "mdi-source-branch";
-    case "prs": return "mdi-source-pull";
-    // アイコンはWorkspaceDetail.vueのActionsタブと同じ固定アイコンにし、
-    // 状態は下のpeekColorClass（色）で示す（branch peekと同じ方式）。
-    case "actions": return "mdi-cog-play-outline";
-    case "devserver": return "mdi-server";
-    case "devserver-stop": return "mdi-server-off";
-    case "add": return "mdi-folder-plus-outline";
-    case "dispatch": return "mdi-tray-full";
-    default: return "";
-  }
-});
+// キーごとのアイコンはinfo-pills.jsのディスクリプタテーブルで管理する。
+const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
 
 // 対応する通常ピルのアイコン色と揃える。history/branch/actionsはアイコンだけ
 // 状態色にし、テキスト（コミットメッセージ/ブランチ名/action名）は通常色

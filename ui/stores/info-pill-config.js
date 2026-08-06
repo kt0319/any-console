@@ -1,10 +1,12 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.js";
+import { INFO_PILL_FIELDS } from "../utils/info-pills.js";
 import { useAuthStore } from "./auth.js";
 
-const FIELDS = ["branch", "history", "prs", "actions", "changes", "devserver", "files", "add", "dispatch"];
-const DEFAULT_ORDER = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"];
+// フィールド一覧・デフォルト表示順はinfo-pills.jsのディスクリプタテーブルから導出する。
+const FIELDS = INFO_PILL_FIELDS;
+const DEFAULT_ORDER = INFO_PILL_FIELDS;
 
 export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const branch = ref(true);

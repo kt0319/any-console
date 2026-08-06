@@ -219,6 +219,14 @@ class TestInfoPillSettings:
         "order": ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch"],
     }
 
+    def test_fields_constant_matches_model(self):
+        """INFO_PILL_FIELDS（順序・正規化の元）とInfoPillSettings（GET/PUTの形）は
+        同じピルキー集合を持つこと。片方だけにキーを足すと、orderから無言で
+        消える／GETに現れない片肺状態になるため、二重定義のズレをここで検知する。"""
+        from api.routers.settings import INFO_PILL_FIELDS, InfoPillSettings
+
+        assert set(InfoPillSettings.model_fields) - {"order"} == set(INFO_PILL_FIELDS)
+
     def test_get_default(self, client):
         res = client.get("/settings/info-pills", headers=AUTH)
         assert res.status_code == 200
