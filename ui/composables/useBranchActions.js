@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { useToast } from "./useToast.js";
 import { useGitRemoteAction } from "./useGitRemoteAction.js";
 import { useWorktreeRemove } from "./useWorktreeRemove.js";
@@ -86,8 +87,8 @@ export function useBranchActions(branchList) {
 
   async function deleteBranch(branch) {
     await withWorkspace(async (workspace) => {
-      const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
-      if (!await confirm(`Delete ${label}?`)) return;
+      const label = branch.remote ? "remote branch" : "branch";
+      if (!await confirmIrreversible(confirm, `Delete ${label} "${branch.name}"?`)) return;
       const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
       if (!ok) return;
       if (branch.remote) invalidateRemoteCache(workspace);

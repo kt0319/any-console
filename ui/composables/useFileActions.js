@@ -6,6 +6,7 @@ import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useToast } from "./useToast.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { usePrompt } from "./usePrompt.js";
 import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.js";
 import { basename, dirname } from "../utils/path.js";
@@ -54,7 +55,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     const filePath = getCurrentPath();
     if (!filePath) return;
     const fileName = basename(filePath);
-    if (!await confirm(`Delete "${fileName}"?`)) return;
+    if (!await confirmIrreversible(confirm, `Delete "${fileName}"?`)) return;
     const ok = await deleteWorkspaceFile(filePath, { errorMessage: MSG_DELETE_FAILED });
     if (ok) await navigateToPath(dirname(filePath));
   }
