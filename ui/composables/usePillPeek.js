@@ -32,7 +32,7 @@ export function usePillPeek({
   let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
   let pillMorePeekTimer = null;
   // branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
-  // 「Push Done」「Pull Done」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
+  // 「Pushed」「Pulled」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
   const branchPushDone = ref(false);
   const branchPullDone = ref(false);
   // paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
