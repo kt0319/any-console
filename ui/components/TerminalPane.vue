@@ -114,7 +114,8 @@ import PillPeek from "./PillPeek.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, runStatusIcon } from "../utils/github-runs.js";
 import { firstCommitLine } from "../utils/git.js";
-import { peekIconForKey } from "../utils/info-pills.js";
+import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
 import {
   branchTooltip,
   filesTooltip,
@@ -224,8 +225,7 @@ watch(
 const { queue: dispatchQueue } = useDispatchConfirm();
 const tabDispatchItems = computed(() => {
   if (!props.tab.workspace) return [];
-  return dispatchQueue.value.filter((item) =>
-    (item.request.effective_workspace || item.request.workspace) === props.tab.workspace);
+  return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === props.tab.workspace);
 });
 
 // ピル・peekピルのクリック時の遷移（openPane(key)）はuseInfoPillActionsに集約。
@@ -379,25 +379,16 @@ const { peekingKey, branchPushDone, branchPullDone } = usePillPeek({
 // キーごとのアイコンはinfo-pills.jsのディスクリプタテーブルで管理する。
 const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
 
-// 対応する通常ピルのアイコン色と揃える。history/branch/actionsはアイコンだけ
-// 状態色にし、テキスト（コミットメッセージ/ブランチ名/action名）は通常色
-// （白）のまま読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと
-// 色付けする従来通りの挙動）。
+// キーごとの静的な色はinfo-pills.jsのテーブルで管理し、実行状態で色が変わる
+// actionsだけここで判定する（アイコンのみ状態色にし、テキストは通常色のまま）。
 const peekColorClass = computed(() => {
-  switch (peekingKey.value) {
-    case "history": return "pill-peek-accent";
-    case "changes": return "pill-peek-warning";
-    case "prs": return "pill-peek-purple";
-    case "branch": return ["pill-peek-success", "pill-peek-icon-only"];
-    case "actions":
-      if (isBranchActionSuccess.value) return ["pill-peek-success", "pill-peek-icon-only"];
-      if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];
-      if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
-      return "";
-    case "devserver": return "pill-peek-accent";
-    case "dispatch": return "pill-peek-warning";
-    default: return "";
+  if (peekingKey.value === "actions") {
+    if (isBranchActionSuccess.value) return ["pill-peek-success", "pill-peek-icon-only"];
+    if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];
+    if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
+    return "";
   }
+  return peekColorForKey(peekingKey.value);
 });
 
 // History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。

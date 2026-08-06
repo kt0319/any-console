@@ -170,7 +170,7 @@ import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.js";
-import { buildFlatList, deriveGroupChanges } from "../utils/workspace-groups.js";
+import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/workspace-groups.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -190,24 +190,12 @@ const collapsedGroups = reactive(_collapsedGroups);
 // グループダイアログ
 const groupDialog = ref(null);
 
-// グループなし（トップレベル）
-const ungrouped = computed(() => {
-  const list = workspaceStore.allWorkspaces;
-  const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
-  return list.filter((w) =>
-    !w.group_id &&
-    !(w.worktree && w.worktree_base && baseNames.has(w.worktree_base))
-  );
-});
+// グループなし（トップレベル）。フィルタ規則は workspacesInGroup（共通）参照。
+const ungrouped = computed(() => workspacesInGroup(workspaceStore.allWorkspaces, null));
 
 // グループ内のワークスペース
 function groupedWorkspaces(groupId) {
-  const list = workspaceStore.allWorkspaces;
-  const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
-  return list.filter((w) =>
-    w.group_id === groupId &&
-    !(w.worktree && w.worktree_base && baseNames.has(w.worktree_base))
-  );
+  return workspacesInGroup(workspaceStore.allWorkspaces, groupId);
 }
 
 const displayWorkspaces = computed(() => workspaceStore.allWorkspaces);

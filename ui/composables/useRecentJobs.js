@@ -4,6 +4,7 @@ import { EP_RECENT_JOBS } from "../utils/endpoints.js";
 import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
+import { jobCommandPreview } from "../utils/format.js";
 
 /** @type {import("vue").Ref<Record<string, unknown>[]>} */
 const recentJobs = ref([]);
@@ -84,9 +85,7 @@ export function useRecentJobs() {
   /** Recent Jobs 一覧から選んだジョブをターミナルとして起動する。 */
   async function runRecentJob(recent) {
     if (recent.jobConfirm !== false) {
-      const preview = recent.jobCommand
-        ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand)
-        : recent.jobName;
+      const preview = jobCommandPreview(recent.jobCommand, recent.jobName);
       if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
     }
     emit("terminal:launch", {

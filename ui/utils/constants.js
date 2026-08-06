@@ -66,6 +66,10 @@ export const LS_PREFIX_API_CACHE = "api_cache_";
 export const LS_PREFIX_WS_META = "ws_meta_";
 
 export const MSG_SAVE_FAILED = "Save failed";
+// ジョブ実行確認ダイアログに出すコマンドプレビューの最大文字数（format.js の
+// jobCommandPreview が使用）。
+export const JOB_COMMAND_PREVIEW_MAX = 300;
+
 export const MSG_DELETE_FAILED = "Delete failed";
 export const MSG_ERROR_OCCURRED = "An error occurred";
 

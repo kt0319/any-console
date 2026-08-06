@@ -1,6 +1,27 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildFlatList, deriveGroupChanges } from "../../ui/utils/workspace-groups.js";
+import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../../ui/utils/workspace-groups.js";
+
+describe("workspacesInGroup", () => {
+  const list = [
+    { name: "a" },
+    { name: "b", group_id: "g1" },
+    // ベースが登録済みのworktreeは一覧から除外される（ベース行の下に別途表示）
+    { name: "a-feat", worktree: true, worktree_base: "a" },
+    // ベース未登録のworktreeは通常ワークスペースとして表示される
+    { name: "orphan-feat", worktree: true, worktree_base: "gone" },
+  ];
+
+  it("groupId未指定はグループ未所属（トップレベル）を返す", () => {
+    expect(workspacesInGroup(list, null).map((w) => w.name)).toEqual(["a", "orphan-feat"]);
+    expect(workspacesInGroup(list).map((w) => w.name)).toEqual(["a", "orphan-feat"]);
+  });
+
+  it("groupId指定はそのグループのワークスペースだけ返す", () => {
+    expect(workspacesInGroup(list, "g1").map((w) => w.name)).toEqual(["b"]);
+    expect(workspacesInGroup(list, "g2")).toEqual([]);
+  });
+});
 
 // テスト用ヘルパー
 const ws = (name, groupId = null) => ({ name, id: name, group_id: groupId });

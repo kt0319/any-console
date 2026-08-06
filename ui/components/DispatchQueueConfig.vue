@@ -13,12 +13,7 @@
         :class="{ highlighted: item.id === highlightId }"
       >
         <button type="button" class="dispatch-queue-row-main" @click="pushView('DispatchRunView', { itemId: item.id })">
-          <span class="dispatch-queue-ws">{{ item.request.effective_workspace || item.request.workspace }}</span>
-          <span class="dispatch-queue-meta">
-            <span v-if="item.request.job && item.request.job !== 'terminal'">{{ item.request.job }}</span>
-            <span v-if="item.request.branch">{{ item.request.branch }}</span>
-          </span>
-          <span v-if="item.request.text" class="dispatch-queue-text">{{ item.request.text }}</span>
+          <DispatchQueueRowBody :request="item.request" />
         </button>
       </li>
     </ul>
@@ -31,15 +26,7 @@
             class="dispatch-queue-row-main dispatch-queue-recent-row"
             :class="item.decision === 'approved' ? 'dispatch-queue-recent-approved' : 'dispatch-queue-recent-rejected'"
           >
-            <span class="dispatch-queue-recent-head">
-              <span class="mdi" :class="item.decision === 'approved' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
-              <span class="dispatch-queue-ws">{{ item.request.effective_workspace || item.request.workspace }}</span>
-            </span>
-            <span class="dispatch-queue-meta">
-              <span v-if="item.request.job && item.request.job !== 'terminal'">{{ item.request.job }}</span>
-              <span v-if="item.request.branch">{{ item.request.branch }}</span>
-            </span>
-            <span v-if="item.request.text" class="dispatch-queue-text">{{ item.request.text }}</span>
+            <DispatchQueueRowBody :request="item.request" :decision="item.decision" />
           </span>
           <button
             type="button"
@@ -59,6 +46,7 @@
 import { inject, ref } from "vue";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useToast } from "../composables/useToast.js";
+import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Dispatches";
@@ -169,29 +157,6 @@ async function onRerun(id) {
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-tertiary, rgba(255, 255, 255, 0.04)));
 }
 
-.dispatch-queue-ws {
-  font-size: 13px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dispatch-queue-meta {
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.dispatch-queue-text {
-  font-size: 12px;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (hover: hover) and (pointer: fine) {
   .dispatch-queue-row-main:hover {
     border-color: var(--accent);
@@ -214,19 +179,5 @@ async function onRerun(id) {
 
 .dispatch-queue-recent-rejected {
   opacity: 0.7;
-}
-
-.dispatch-queue-recent-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.dispatch-queue-recent-approved .dispatch-queue-recent-head .mdi {
-  color: var(--success);
-}
-
-.dispatch-queue-recent-rejected .dispatch-queue-recent-head .mdi {
-  color: var(--text-muted);
 }
 </style>

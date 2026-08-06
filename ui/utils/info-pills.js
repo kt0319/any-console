@@ -21,24 +21,29 @@ export const INFO_PILLS = [
     label: "History",
     note: "Browse commit history. Only shown for Git workspaces. Hovering shows the last commit message.",
     peekIcon: "mdi-history",
+    peekColor: "pill-peek-accent",
   },
   {
     key: "changes",
     label: "Changes",
     note: "Uncommitted file/insertion/deletion counts. Only shown while the workspace has uncommitted changes.",
     peekIcon: "mdi-file-document-edit-outline",
+    peekColor: "pill-peek-warning",
   },
   {
     key: "branch",
     label: "Branches",
     note: "Current branch name, with push/pull counts badged on top when the branch has commits to push or pull.",
     peekIcon: "mdi-source-branch",
+    // 状態をアイコンだけで示し、テキスト（ブランチ名）は通常色のまま保つ。
+    peekColor: ["pill-peek-success", "pill-peek-icon-only"],
   },
   {
     key: "prs",
     label: "GitHub PRs",
     note: "Only shown when the current branch has an open GitHub pull request.",
     peekIcon: "mdi-source-pull",
+    peekColor: "pill-peek-purple",
   },
   {
     key: "actions",
@@ -53,6 +58,9 @@ export const INFO_PILLS = [
     label: "Dev Server",
     note: "Only shown when a dev server is auto-detected listening in this workspace's directory.",
     peekIcon: "mdi-server",
+    // Dev Serverは通常ピルと同じアクセント色をアイコンだけに使う
+    // （テキストはこのクラスで色付けしないため icon-only 不要）。
+    peekColor: "pill-peek-accent",
   },
   {
     key: "add",
@@ -65,6 +73,7 @@ export const INFO_PILLS = [
     label: "Dispatch",
     note: "Only shown when a /dispatch API request is waiting for approval against this workspace. Tapping it opens the request directly if there's just one, or the full queue if there are several.",
     peekIcon: "mdi-tray-full",
+    peekColor: "pill-peek-warning",
   },
 ];
 
@@ -83,4 +92,16 @@ const PEEK_ONLY_ICONS = { "devserver-stop": "mdi-server-off" };
 export function peekIconForKey(key) {
   if (key && key in PEEK_ONLY_ICONS) return PEEK_ONLY_ICONS[key];
   return INFO_PILLS.find((p) => p.key === key)?.peekIcon || "";
+}
+
+/**
+ * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
+ * history/branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
+ * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
+ * actionsは実行状態で色が変わるため対象外（呼び出し側で判定する）。
+ * @param {string | null | undefined} key
+ * @returns {string | string[]}
+ */
+export function peekColorForKey(key) {
+  return INFO_PILLS.find((p) => p.key === key)?.peekColor || "";
 }

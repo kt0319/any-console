@@ -1,6 +1,36 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { formatSize, formatRelativeTime } from "../../ui/utils/format.js";
+import { formatSize, formatRelativeTime, truncateTail, jobCommandPreview } from "../../ui/utils/format.js";
+import { JOB_COMMAND_PREVIEW_MAX } from "../../ui/utils/constants.js";
+
+describe("truncateTail", () => {
+  it("上限以内はそのまま返す", () => {
+    expect(truncateTail("abc", 5)).toBe("abc");
+    expect(truncateTail("abcde", 5)).toBe("abcde");
+  });
+
+  it("超過分は切り詰めて...を付ける", () => {
+    expect(truncateTail("abcdef", 5)).toBe("abcde...");
+  });
+
+  it("null/undefinedは空文字", () => {
+    expect(truncateTail(null, 5)).toBe("");
+    expect(truncateTail(undefined, 5)).toBe("");
+  });
+});
+
+describe("jobCommandPreview", () => {
+  it("コマンドをJOB_COMMAND_PREVIEW_MAXで切り詰める", () => {
+    const long = "x".repeat(JOB_COMMAND_PREVIEW_MAX + 10);
+    expect(jobCommandPreview(long, "job")).toBe("x".repeat(JOB_COMMAND_PREVIEW_MAX) + "...");
+    expect(jobCommandPreview("echo hi", "job")).toBe("echo hi");
+  });
+
+  it("コマンドが無ければジョブ名でフォールバック", () => {
+    expect(jobCommandPreview("", "my-job")).toBe("my-job");
+    expect(jobCommandPreview(null, "my-job")).toBe("my-job");
+  });
+});
 
 describe("formatSize", () => {
   it("returns empty string for null", () => {

@@ -5,6 +5,7 @@
 
 import { firstCommitLine } from "./git.js";
 import { devServerOrigin } from "./preview-url.js";
+import { dispatchJobLabel } from "./dispatch-request.js";
 
 /**
  * @param {{branch?: string, ahead?: number, behind?: number, hasUpstream?: boolean}} status
@@ -61,8 +62,7 @@ export function devServerTooltip(entry, hostname) {
  */
 export function dispatchTooltip(items) {
   if (items.length === 1) {
-    const req = items[0].request;
-    return `Dispatch: ${req.job && req.job !== "terminal" ? req.job : "run"}`;
+    return `Dispatch: ${dispatchJobLabel(items[0].request) || "run"}`;
   }
   return items.length ? `Dispatch: ${items.length} pending` : "Dispatch";
 }

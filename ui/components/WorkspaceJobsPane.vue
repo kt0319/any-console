@@ -56,6 +56,7 @@ import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 import { openExternalUrl } from "../utils/open-external.js";
+import { jobCommandPreview } from "../utils/format.js";
 
 const props = defineProps({
   // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と
@@ -139,7 +140,7 @@ async function runJob(job) {
     return;
   }
   if (job.confirm !== false) {
-    const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
+    const preview = jobCommandPreview(job.command, job.name);
     if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
   if (ws.value) recordJob(ws.value, job);

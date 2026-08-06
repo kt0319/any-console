@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { INFO_PILLS, INFO_PILL_FIELDS, peekIconForKey } from "../../ui/utils/info-pills.js";
+import { INFO_PILLS, INFO_PILL_FIELDS, peekIconForKey, peekColorForKey } from "../../ui/utils/info-pills.js";
+
+describe("peekColorForKey", () => {
+  it("キーごとの静的な色クラスを返す", () => {
+    expect(peekColorForKey("history")).toBe("pill-peek-accent");
+    expect(peekColorForKey("changes")).toBe("pill-peek-warning");
+    expect(peekColorForKey("prs")).toBe("pill-peek-purple");
+    expect(peekColorForKey("branch")).toEqual(["pill-peek-success", "pill-peek-icon-only"]);
+    expect(peekColorForKey("devserver")).toBe("pill-peek-accent");
+    expect(peekColorForKey("dispatch")).toBe("pill-peek-warning");
+  });
+
+  it("色指定の無いキー（files/add等）・未知キーは空文字", () => {
+    expect(peekColorForKey("files")).toBe("");
+    expect(peekColorForKey("add")).toBe("");
+    expect(peekColorForKey("workspace")).toBe("");
+    expect(peekColorForKey(null)).toBe("");
+  });
+
+  // actionsは実行状態で色が変わるため、テーブルには持たせない（呼び出し側判定）
+  it("actionsはテーブルに静的な色を持たない", () => {
+    expect(peekColorForKey("actions")).toBe("");
+  });
+});
 
 describe("INFO_PILLS", () => {
   it("キーは重複しない", () => {

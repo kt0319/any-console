@@ -76,7 +76,7 @@ export function useBranchActions(branchList) {
 
   async function pullBranch(branch) {
     if (!branch.current) {
-      emit("toast:show", { message: `Switch to "${branch.name}" to pull`, type: "info" });
+      toast.info(`Switch to "${branch.name}" to pull`);
       return;
     }
     await withWorkspace(async (workspace) => {
@@ -120,7 +120,7 @@ export function useBranchActions(branchList) {
         remoteLoaded.value = false;
         await loadBranchList();
         await loadRemoteBranches();
-        emit("toast:show", { message: "Fetched remote", type: "success" });
+        toast.success("Fetched remote");
       });
     } finally {
       isFetchingRemote.value = false;

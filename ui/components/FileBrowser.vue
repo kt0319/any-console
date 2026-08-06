@@ -21,33 +21,18 @@
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
-      <span v-if="props.diffFile" class="file-browser-header-actions">
-        <button type="button" class="file-browser-header-btn" aria-label="Show in Files" data-tooltip="Show in Files" @click="browseToDiffFolder"><span class="mdi mdi-folder-open-outline" aria-hidden="true"></span> Show in Files</button>
-        <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDiffFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
-        <button v-if="diffGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openDiffFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span> GitHub</button>
-        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Discard" data-tooltip="Discard" @click="discardDiffFile"><span class="mdi mdi-undo" aria-hidden="true"></span> Discard</button>
-        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteDiffFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
-      </span>
-      <span v-if="!props.diffFile" class="file-browser-header-actions">
-        <template v-if="fileContent || showHistory">
-          <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span> {{ showHistory ? 'Show file' : 'History' }}</button>
-          <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
-          <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span> Download</button>
-          <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span> GitHub</button>
-          <button type="button" class="file-browser-header-btn" aria-label="Rename or move" data-tooltip="Rename or move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
-          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
-        </template>
-        <template v-else>
-          <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-          <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :data-tooltip="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span> {{ showGitignored ? 'Hide ignored' : 'Show ignored' }}</button>
-          <button v-if="showEditorButton" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span> Editor</button>
-          <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span> Upload</button>
-          <template v-if="currentPath">
-            <button type="button" class="file-browser-header-btn" aria-label="Download folder" data-tooltip="Download folder as zip" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span> Download</button>
-            <button type="button" class="file-browser-header-btn" aria-label="Rename or move" data-tooltip="Rename or move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span> Move</button>
-            <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span> Delete</button>
-          </template>
-        </template>
+      <span class="file-browser-header-actions">
+        <input v-if="!props.diffFile && !fileContent && !showHistory" ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
+        <button
+          v-for="action in headerActions"
+          :key="action.ariaLabel"
+          type="button"
+          class="file-browser-header-btn"
+          :class="{ 'file-browser-header-btn-delete': action.danger }"
+          :aria-label="action.ariaLabel"
+          :data-tooltip="action.tooltip || action.ariaLabel"
+          @click="action.onClick"
+        ><span class="mdi" :class="action.icon" aria-hidden="true"></span> {{ action.label }}</button>
       </span>
     </div>
 
@@ -202,6 +187,62 @@ const {
   currentPath, fileContent,
   navigateToPath, openFile,
   editorUrlTemplate, openInEditor,
+});
+
+// ヘッダーアクション（Editor/GitHub/Download/Move/Delete等）は diff表示・
+// ファイル表示・ディレクトリ表示で同じボタンが重複するため、宣言的な配列に
+// して v-for で描画する（モードごとの差分は配列の組み立てだけに現れる）。
+const editorAction = (onClick) => ({ icon: "mdi-file-edit-outline", label: "Editor", ariaLabel: "Open in editor", onClick });
+const githubAction = (onClick) => ({ icon: "mdi-github", label: "GitHub", ariaLabel: "GitHub", onClick });
+const moveAction = () => ({ icon: "mdi-file-move-outline", label: "Move", ariaLabel: "Rename or move", onClick: moveCurrentPath });
+const deleteAction = (onClick) => ({ icon: "mdi-delete-outline", label: "Delete", ariaLabel: "Delete", danger: true, onClick });
+
+const headerActions = computed(() => {
+  if (props.diffFile) {
+    return [
+      { icon: "mdi-folder-open-outline", label: "Show in Files", ariaLabel: "Show in Files", onClick: browseToDiffFolder },
+      ...(showEditorButton.value ? [editorAction(openDiffFileInEditor)] : []),
+      ...(diffGithubUrl.value ? [githubAction(openDiffFileGithub)] : []),
+      ...(props.diffIsWorkingTree
+        ? [
+            { icon: "mdi-undo", label: "Discard", ariaLabel: "Discard", danger: true, onClick: discardDiffFile },
+            deleteAction(deleteDiffFile),
+          ]
+        : []),
+    ];
+  }
+  if (fileContent.value || showHistory.value) {
+    return [
+      {
+        icon: showHistory.value ? "mdi-file-document-outline" : "mdi-history",
+        label: showHistory.value ? "Show file" : "History",
+        ariaLabel: showHistory.value ? "Show file" : "Show history",
+        onClick: toggleHistory,
+      },
+      ...(showEditorButton.value ? [editorAction(openCurrentFileInEditor)] : []),
+      { icon: "mdi-download", label: "Download", ariaLabel: "Download", onClick: () => downloadFile(currentPath.value) },
+      ...(openFileGithubUrl.value ? [githubAction(openCurrentFileGithub)] : []),
+      moveAction(),
+      deleteAction(deleteCurrentPath),
+    ];
+  }
+  return [
+    {
+      icon: showGitignored.value ? "mdi-eye-outline" : "mdi-eye-off-outline",
+      label: showGitignored.value ? "Hide ignored" : "Show ignored",
+      ariaLabel: showGitignored.value ? "Hide gitignored files" : "Show gitignored files",
+      onClick: () => { showGitignored.value = !showGitignored.value; },
+    },
+    ...(showEditorButton.value ? [editorAction(openDirInEditor)] : []),
+    { icon: "mdi-upload", label: "Upload", ariaLabel: "Upload files", onClick: () => uploadInputEl.value?.click() },
+    ...(currentPath.value
+      ? [
+          { icon: "mdi-download", label: "Download", ariaLabel: "Download folder", tooltip: "Download folder as zip", onClick: () => downloadFile(currentPath.value) },
+          moveAction(),
+          deleteAction(deleteCurrentPath),
+        ]
+      : []),
+  ];
 });
 
 onMounted(() => {
