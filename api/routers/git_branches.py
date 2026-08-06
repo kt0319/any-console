@@ -96,35 +96,61 @@ def _parse_upstream_track(track: str) -> dict:
 
 def _branch_tracking_info(ws_path) -> dict[str, dict]:
     res = run_git_command(
-        ["for-each-ref", "--format=%(refname:short)|%(upstream:short)|%(upstream:track)", "refs/heads"],
+        ["for-each-ref", "--format=%(refname:short)|%(upstream:short)|%(upstream:track)|%(objectname)", "refs/heads"],
         cwd=ws_path, operation="for-each-ref upstream",
     )
     info: dict[str, dict] = {}
     if res["exit_code"] != 0:
         return info
     for line in res["stdout"].splitlines():
-        parts = line.split("|", 2)
-        if len(parts) != 3:
+        parts = line.split("|", 3)
+        if len(parts) != 4:
             continue
-        name, upstream, track = parts
-        info[name] = {"upstream": upstream or None, **_parse_upstream_track(track)}
+        name, upstream, track, tip = parts
+        info[name] = {"upstream": upstream or None, "tip": tip, **_parse_upstream_track(track)}
     return info
 
 
-def _unpublished_commit_count(ws_path, branch: str) -> int:
+def _unpublished_commit_counts(ws_path, tips: dict[str, str]) -> dict[str, int]:
     """upstream未設定のブランチはgitのupstream:trackが常に空でahead/behindを
     計算できないため、originのどのリモートブランチにも含まれないコミット数を
-    「未push件数」の代わりとして数える（git_info.pyのHEAD向け実装と同じ考え方）。"""
+    「未push件数」の代わりとして数える（git_info.pyのHEAD向け実装と同じ考え方）。
+
+    ブランチごとに `rev-list --count <branch> --not --remotes=origin` を起動すると
+    upstream未設定ブランチの本数ぶん直列にプロセスが増える（N+1）ため、
+    origin未到達コミットの親子関係を1回の rev-list --parents で取り、各ブランチ
+    先端からの到達数をPython側で数える。値は従来のブランチごとのcountと同じ
+    （複数ブランチが共有する未pushコミットはそれぞれのブランチで数える）。
+    """
+    if not tips:
+        return {}
     res = run_git_command(
-        ["rev-list", "--count", branch, "--not", "--remotes=origin"],
+        ["rev-list", "--branches", "--not", "--remotes=origin", "--parents"],
         cwd=ws_path, operation="rev-list unpublished",
     )
     if res["exit_code"] != 0:
-        return 0
-    try:
-        return int(res["stdout"].strip() or "0")
-    except ValueError:
-        return 0
+        return dict.fromkeys(tips, 0)
+    # commit hash -> 親hash一覧。このdictに載っているコミット＝origin未到達。
+    parents: dict[str, list[str]] = {}
+    for line in res["stdout"].splitlines():
+        hashes = line.split()
+        if hashes:
+            parents[hashes[0]] = hashes[1:]
+    counts: dict[str, int] = {}
+    for branch, tip in tips.items():
+        if tip not in parents:
+            counts[branch] = 0
+            continue
+        seen = {tip}
+        stack = [tip]
+        while stack:
+            for parent in parents.get(stack.pop(), ()):
+                # dict外の親はorigin到達済み＝そこで打ち切る（数えない）
+                if parent in parents and parent not in seen:
+                    seen.add(parent)
+                    stack.append(parent)
+        counts[branch] = len(seen)
+    return counts
 
 
 @router.get("/workspaces/{name}/branches")
@@ -134,11 +160,17 @@ def list_branches(name: str):
     current = git_branch(ws_path)
     default_branch = git_default_branch(ws_path)
     tracking = _branch_tracking_info(ws_path)
+    no_upstream_tips = {
+        b: tracking[b]["tip"]
+        for b in branches
+        if b in tracking and not tracking[b].get("upstream") and tracking[b].get("tip")
+    }
+    unpublished = _unpublished_commit_counts(ws_path, no_upstream_tips)
     out = []
     for b in branches:
         t = tracking.get(b, {})
         upstream = t.get("upstream")
-        ahead = t.get("ahead", 0) if upstream else _unpublished_commit_count(ws_path, b)
+        ahead = t.get("ahead", 0) if upstream else unpublished.get(b, 0)
         out.append({
             "name": b,
             "current": b == current,
