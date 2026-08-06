@@ -776,7 +776,9 @@ const peekIconClass = computed(() => {
     case "changes": return "mdi-file-document-edit-outline";
     case "branch": return "mdi-source-branch";
     case "prs": return "mdi-source-pull";
-    case "actions": return isBranchActionSuccess.value ? "mdi-check-circle-outline" : actionStatusIcon.value;
+    // アイコンはWorkspaceDetail.vueのActionsタブと同じ固定アイコンにし、
+    // 状態は下のpeekColorClass（色）で示す（branch peekと同じ方式）。
+    case "actions": return "mdi-cog-play-outline";
     case "devserver": return "mdi-server";
     case "devserver-stop": return "mdi-server-off";
     case "add": return "mdi-folder-plus-outline";
