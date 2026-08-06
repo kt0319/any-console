@@ -351,6 +351,22 @@ class DispatchDecision(BaseModel):
     session_id: str | None = None
 
 
+class DispatchRerun(BaseModel):
+    # true: 承認キューを経由せずその場で実行する（Recently executedから開いた
+    # モーダルのRun。ユーザーがモーダル上で内容を確認・編集済みのため、それ自体を
+    # 承認とみなす）。false（既定）: 従来通り承認待ちキューへ積み直すだけ。
+    run: bool = False
+    # UI で書き換えた値の上書き（DispatchDecision と同じ扱い。None は元の値を使う）。
+    workspace: str | None = None
+    branch: str | None = None
+    base_branch: str | None = None
+    text: str | None = None
+    job: str | None = None
+    match: str | None = None
+    create_branch: bool | None = None
+    session_id: str | None = None
+
+
 @router.post("/dispatch/{dispatch_id}/decision")
 async def dispatch_decision(dispatch_id: str, body: DispatchDecision, _auth: str = Depends(verify_token)):
     """Settingsの「Dispatch Queue」からの承認/却下を受け取る。
@@ -606,20 +622,44 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
 
 
 @router.post("/dispatch/{dispatch_id}/rerun")
-async def dispatch_rerun(dispatch_id: str, auth_label: str = Depends(verify_token)):
+async def dispatch_rerun(
+    dispatch_id: str, body: DispatchRerun | None = None, auth_label: str = Depends(verify_token),
+):
     """Dispatch Queueの「Recently executed」（_RECENT、承認/却下済みの直近
     _RECENT_LIMIT件。DISPATCH_RECENT_FILEへ永続化されサーバ再起動をまたいで残る）
-    から同じ内容で新規にキュー登録し直す。そこにまだ残っている間だけ再実行できる。
+    からの再実行。そこにまだ残っている間だけ再実行できる。
     既存セッションID・branch_status・retry_countは元の実行時点のスナップショット
-    なので引き継がず、通常のPOST /dispatchと同じ経路（既存セッション探索・
-    dedup判定・push通知）へ丸ごと乗せ直す。"""
+    なので引き継がない。
+
+    - 既定（run=false）: 同じ内容（+上書き値）で通常のPOST /dispatchと同じ経路
+      （既存セッション探索・dedup判定・push通知）へ乗せ直し、承認待ちキューへ積む。
+    - run=true: モーダルで内容を確認・編集済みのユーザー操作を承認とみなし、
+      承認キューを経由せずその場で実行して起動結果を返す（decision承認と同じ扱い。
+      履歴には新しいIDでapprovedとして記録する）。"""
     item = next((r for r in _RECENT if r["id"] == dispatch_id), None)
     if item is None:
         raise not_found(f"Dispatch item not found (only the most recent {_RECENT_LIMIT} can be rerun)")
     fields = DispatchRequest.model_fields
     payload = {k: v for k, v in item["request"].items() if k in fields}
-    body = DispatchRequest(**payload)
-    body.direct = False
-    body.dedup_key = None
-    body.session_id = None
-    return await dispatch(body, (auth_label, False))
+    req = DispatchRequest(**payload)
+    req.direct = False
+    req.dedup_key = None
+    req.session_id = None
+    _apply_overrides(req, body.model_dump(exclude={"run"}) if body else None)
+
+    if body and body.run:
+        try:
+            result = _launch(req)
+        except HTTPException as e:
+            log_activity(req.workspace, "dispatch_failed", detail=str(e.detail))
+            raise
+        log_activity(
+            result["workspace"], "dispatch_executed",
+            job=result["job"], session_id=result["session_id"], created=result["created"],
+            auth=auth_label,
+        )
+        _record_recent(secrets.token_urlsafe(8), req.model_dump(), "approved")
+        _schedule_queue_broadcast()
+        return result
+
+    return await dispatch(req, (auth_label, False))

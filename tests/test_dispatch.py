@@ -223,6 +223,40 @@ class TestDispatchRerun:
         client.post(f"/dispatch/{dispatch_id}/rerun", headers=AUTH)
         assert _mock_tmux == []
 
+    def test_rerun_with_overrides_requeues_with_new_values(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+
+        res = client.post(f"/dispatch/{dispatch_id}/rerun", headers=AUTH, json={"text": "echo edited"})
+        assert res.status_code == 202, res.text
+        new_id = res.json()["id"]
+        assert dispatch_mod._PENDING[new_id]["text"] == "echo edited"
+        # 上書きしていない値は元の内容を引き継ぐ
+        assert dispatch_mod._PENDING[new_id]["workspace"] == "test-ws"
+
+    def test_rerun_with_run_true_executes_immediately(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        _mock_tmux.clear()
+        pending_before = dict(dispatch_mod._PENDING)
+
+        res = client.post(
+            f"/dispatch/{dispatch_id}/rerun", headers=AUTH,
+            json={"run": True, "text": "echo edited"},
+        )
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["workspace"] == "test-ws"
+        assert body["session_id"]
+        # 承認キューへは積まず、その場で実行される
+        assert dispatch_mod._PENDING == pending_before
+        assert _mock_tmux != []
+        # 履歴には新しいIDでapprovedとして記録され、上書き後の内容が残る
+        rec = dispatch_mod._RECENT[0]
+        assert rec["id"] != dispatch_id
+        assert rec["decision"] == "approved"
+        assert rec["request"]["text"] == "echo edited"
+
     def test_rerun_not_in_recent_returns_404(self, client, workspace, _mock_tmux):
         dispatch_id = _enqueue(client, text="echo hi")
         client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})

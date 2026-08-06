@@ -22,17 +22,19 @@
       <div class="settings-section-label dispatch-queue-recent-label">Recently executed</div>
       <ul class="dispatch-queue-list">
         <li v-for="item in recent" :key="item.id" class="dispatch-queue-row">
-          <span
+          <button
+            type="button"
             class="dispatch-queue-row-main dispatch-queue-recent-row"
             :class="item.decision === 'approved' ? 'dispatch-queue-recent-approved' : 'dispatch-queue-recent-rejected'"
+            @click="pushView('DispatchRunView', { itemId: item.id })"
           >
             <DispatchQueueRowBody :request="item.request" :decision="item.decision" />
-          </span>
+          </button>
           <button
             type="button"
             class="dispatch-queue-rerun-btn"
-            aria-label="Rerun"
-            data-tooltip="Rerun (queue for approval again)"
+            aria-label="Rerun without changes"
+            data-tooltip="Rerun without changes (queue for approval again)"
             :disabled="rerunningId === item.id"
             @click="onRerun(item.id)"
           ><span class="mdi mdi-replay" aria-hidden="true"></span></button>
@@ -167,12 +169,8 @@ async function onRerun(id) {
   margin-top: 16px;
 }
 
-/* 直近の決定項目はもう操作対象ではない（クリックでRunViewを開けない）ため、
-   カーソルは変えず、承認/却下が一目で分かるようアイコン+枠線色で示す。 */
-.dispatch-queue-recent-row {
-  cursor: default;
-}
-
+/* 直近の決定項目もクリックでRunViewを開き、内容を編集して再実行できる。
+   承認/却下が一目で分かるようアイコン+枠線色で示す。 */
 .dispatch-queue-recent-approved {
   border-color: color-mix(in srgb, var(--success) 40%, var(--border));
 }

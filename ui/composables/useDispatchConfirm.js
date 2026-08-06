@@ -119,5 +119,23 @@ export function useDispatchConfirm() {
     return ok;
   }
 
-  return { queue, recent, runItem, rejectItem, rerunItem };
+  /**
+   * DispatchRunView（Recently executedから開いた場合）のRunから呼ぶ。
+   * モーダルで内容を確認・編集済みのため、承認キューを経由せず上書き後の
+   * 内容でその場で再実行する（run: true）。レスポンスが起動結果を返すため、
+   * 成功時はそのままセッションへ移動する。
+   * @param {string} id
+   * @param {Record<string, any>} overrides
+   * @returns {Promise<boolean>} 実行できたか
+   */
+  async function rerunNow(id, overrides) {
+    const { ok, data } = await apiPost(dispatchRerunPath(id), { run: true, ...overrides }, {
+      errorMessage: "Failed to rerun dispatch (it may no longer be in recent history)",
+    });
+    if (!ok) return false;
+    focusSession(data?.session_id, data?.workspace);
+    return true;
+  }
+
+  return { queue, recent, runItem, rejectItem, rerunItem, rerunNow };
 }

@@ -79,7 +79,8 @@
       <div v-if="runError" class="job-config-error">{{ runError }}</div>
     </div>
 
-    <div v-if="request" class="ws-settings-section ws-delete-section">
+    <!-- 実行済み（Rerun）には破棄する承認待ちが無いため Discard は出さない -->
+    <div v-if="request && !isRerun" class="ws-settings-section ws-delete-section">
       <button type="button" class="ws-delete-btn" :disabled="discarding" @click="discard">
         <span class="mdi mdi-close"></span>
         {{ discarding ? "Discarding..." : "Discard dispatch" }}
@@ -95,6 +96,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.js";
 import { emit, on } from "../app-bridge.js";
 
 // Session select の「新規セッション」を表す特別値。
@@ -103,12 +105,19 @@ const NEW_SESSION_VALUE = "__new_session__";
 const { modalTitle, viewState, popView } = useModalView();
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
-const { queue, runItem, rejectItem } = useDispatchConfirm();
+const { queue, recent, runItem, rejectItem, rerunNow } = useDispatchConfirm();
 const workspaceStore = useWorkspaceStore();
 
 const itemId = viewState.value?.itemId;
-const item = computed(() => queue.value.find((q) => q.id === itemId) || null);
+// 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
+// recent 由来の場合は「編集して再実行」モード（isRerun）になる:
+// Run は承認キューを経由せずその場で再実行し、Discard（承認待ちの破棄）は
+// 対象が無いため出さない。
+const queueItem = computed(() => queue.value.find((q) => q.id === itemId) || null);
+const recentItem = computed(() => queueItem.value ? null : (recent.value.find((r) => r.id === itemId) || null));
+const item = computed(() => queueItem.value || recentItem.value);
 const request = computed(() => item.value?.request || null);
+const isRerun = computed(() => !queueItem.value && !!recentItem.value);
 
 modalTitle.value = "Run Dispatch";
 
@@ -212,6 +221,7 @@ const initialRetryCount = ref(/** @type {number|null} */ (null));
 
 onMounted(() => {
   if (!item.value) { popView(); return; }
+  if (isRerun.value) modalTitle.value = "Rerun Dispatch";
   initFromRequest(request.value);
   initialRetryCount.value = request.value?.retry_count ?? 1;
 });
@@ -228,7 +238,7 @@ watch(() => request.value?.retry_count, (count) => {
 });
 
 watch(selectedSessionId, () => {
-  apiGet("/terminal/sessions").then((res) => {
+  apiGet(EP_TERMINAL_SESSIONS).then((res) => {
     if (res.ok && Array.isArray(res.data)) sessions.value = res.data.filter((s) => !s.detached);
   });
 }, { immediate: true });
@@ -251,7 +261,7 @@ watch(selectedSessionId, (id) => {
 watch(selectedWorkspace, async (ws) => {
   jobs.value = [];
   if (!ws) return;
-  const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/jobs`);
+  const res = await apiGet(wsEndpoint(ws, "jobs"));
   if (res.ok && res.data) {
     jobs.value = Object.entries(res.data).map(([key, def]) => ({ key, label: def.label || key }));
   }
@@ -273,7 +283,7 @@ watch(baseBranchWorkspace, async (ws) => {
   localBranches.value = [];
   localBranchesLoaded.value = false;
   if (!ws) return;
-  const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/branches`);
+  const res = await apiGet(wsEndpoint(ws, "branches"));
   if (res.ok && Array.isArray(res.data)) {
     // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
     // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
@@ -328,7 +338,7 @@ async function run() {
       overrides.base_branch = null;
       overrides.create_branch = null;
     }
-    const ok = await runItem(itemId, overrides);
+    const ok = isRerun.value ? await rerunNow(itemId, overrides) : await runItem(itemId, overrides);
     // Run 成功後はそのままセッションを見せたいので、一覧へ戻さず Settings ごと閉じる。
     if (ok) emit("modal:close");
   } finally {
