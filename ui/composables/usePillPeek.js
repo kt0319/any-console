@@ -44,7 +44,7 @@ export function usePillPeek({
   // 更新だけ行って peek はスキップする。
   let workspaceEverResolved = paneWorkspace.value !== undefined;
   // last_commit_message は paneWorkspace 自体が解決した後もさらに遅れて
-  // 非同期ロードされる（useWorkspaceGitStatus の statusLoading 参照）。
+  // 非同期ロードされる（workspaceStore のステータス取得参照）。
   // これを "history" の変化検出にそのまま使うと、通常のロード完了時にも
   // 「新しくコミットされた」と誤検知してpeekが発火してしまうため、
   // 初めて値が解決した1回だけベースラインを更新して変化扱いにしない。

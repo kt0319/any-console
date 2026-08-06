@@ -99,7 +99,6 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
-import { useIsMobile } from "../composables/useIsMobile.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
 import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
@@ -141,7 +140,6 @@ const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const infoPillConfig = useInfoPillConfigStore();
 const { confirm } = useConfirm();
-const { isMobile } = useIsMobile();
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
 // terminalStore.tabWorkspaceVersion を読むことで、setTabWorkspace（Add で
@@ -152,7 +150,7 @@ const paneWorkspace = computed(() => {
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, isGitRepo, hasUpstream, ahead, behind, changedFiles, insertions, deletions } = useWorkspaceGitStatus(paneWorkspace, isMobile);
+const { isDirty, isGitRepo, hasUpstream, ahead, behind, changedFiles, insertions, deletions } = useWorkspaceGitStatus(paneWorkspace);
 
 // Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
 // 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
@@ -323,9 +321,9 @@ const trailingPeekItems = computed(() => {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
   }
   if (isGitRepo.value && infoPillConfig.branch) {
-    // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
-    // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
-    // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
+    // 省略表示形式（画面回転で変わりうる）を text に使うと、回転しただけで
+    // 「ブランチが変わった」と誤検知して peek が発火してしまう。
+    // 表示形式に依存しない生のブランチ名を使う。
     // ahead/behind（Push/Pullバッジ）もこのボタン自身に描画されるため、
     // 同じ"branch"キーのシグネチャに含める（別キーにすると対応するボタンが
     // 無いため、findChangedTrailingItemに拾われてもpeekが表示されない）。
