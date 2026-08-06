@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { GITHUB_POLL_INTERVAL_MS } from "../../ui/utils/constants.js";
 
 const apiGetMock = vi.fn();
 
@@ -91,14 +92,14 @@ describe("useWorkspaceActions", () => {
       startPolling("ws1");
       expect(apiGetMock).toHaveBeenCalledTimes(0);
 
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(GITHUB_POLL_INTERVAL_MS);
       expect(apiGetMock).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(GITHUB_POLL_INTERVAL_MS);
       expect(apiGetMock).toHaveBeenCalledTimes(2);
 
       stopPolling("ws1");
-      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(GITHUB_POLL_INTERVAL_MS * 3);
       expect(apiGetMock).toHaveBeenCalledTimes(2);
     });
 
@@ -109,11 +110,11 @@ describe("useWorkspaceActions", () => {
       startPolling("ws1");
       startPolling("ws1");
       stopPolling("ws1");
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(GITHUB_POLL_INTERVAL_MS);
       expect(apiGetMock).toHaveBeenCalledTimes(1);
 
       stopPolling("ws1");
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(GITHUB_POLL_INTERVAL_MS);
       expect(apiGetMock).toHaveBeenCalledTimes(1);
     });
 
