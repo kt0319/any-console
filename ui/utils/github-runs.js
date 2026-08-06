@@ -32,3 +32,28 @@ export function isNoticeableRun(run) {
   if (!run) return false;
   return !(run.status === "completed" && run.conclusion !== "failure");
 }
+
+/**
+ * 実行状況で色を変えるためのCSSクラス（成功runはisNoticeableRunで既に非表示の
+ * ため、ここに来るのは失敗=エラー色・進行中=警告色のみ）。
+ * @param {{status?: string, conclusion?: string} | null | undefined} run
+ * @returns {string}
+ */
+export function runStatusClass(run) {
+  if (!run) return "";
+  if (run.status !== "completed") return "action-status-running";
+  if (run.conclusion === "failure") return "action-status-failure";
+  return "";
+}
+
+/**
+ * 色だけで状態を示さないよう、アイコン自体も状態ごとに変える
+ * （AGENTS.md: 色のみで状態を示さない）。
+ * @param {{status?: string, conclusion?: string} | null | undefined} run
+ * @returns {string}
+ */
+export function runStatusIcon(run) {
+  if (!run || run.status !== "completed") return "mdi-progress-clock";
+  if (run.conclusion === "failure") return "mdi-alert-circle-outline";
+  return "mdi-cog-play-outline";
+}

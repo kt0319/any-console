@@ -24,6 +24,8 @@ import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZone
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
 import InfoPillConfig from "../../../ui/components/InfoPillConfig.vue";
+import InfoPillRow from "../../../ui/components/InfoPillRow.vue";
+import PillPeek from "../../../ui/components/PillPeek.vue";
 import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
@@ -230,6 +232,58 @@ describe("a11y: InfoPillConfig", () => {
     await flushPromises();
     await expectNoA11yViolations(wrapper.element);
 
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: InfoPillRow", () => {
+  it("全ピル表示状態でアクセシブルネーム等に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(InfoPillRow, {
+      props: {
+        tab: { id: "t1", sessionId: "s1", workspace: "ws1", label: "ws1" },
+        maxWidth: 400,
+        isGitRepo: true,
+        isDirty: true,
+        ahead: 2,
+        behind: 1,
+        hasPr: true,
+        hasAction: true,
+        hasDevServer: true,
+        dispatchCount: 2,
+        actionStatusClass: "action-status-running",
+        actionStatusIcon: "mdi-progress-clock",
+        tooltips: {
+          files: "ws1  ·  Browse files",
+          history: "History: feat: something",
+          changes: "Changes: 1F +2 -3",
+          branch: "Branches: main",
+          prs: "GitHub PR #1: feat",
+          actions: "GitHub Actions: CI (in_progress)",
+          devserver: "Dev Server: http://localhost:23000",
+          dispatch: "Dispatch: 2 pending",
+        },
+      },
+      attachTo: document.body,
+    });
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: PillPeek", () => {
+  it("peekピル（role=button）に a11y 違反が無い", async () => {
+    const wrapper = mount(PillPeek, {
+      props: {
+        peekingKey: "history",
+        iconClass: "mdi-history",
+        text: "feat: something",
+        tab: { id: "t1" },
+        maxWidth: 300,
+      },
+      attachTo: document.body,
+    });
+    await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });
 });
