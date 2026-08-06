@@ -275,7 +275,11 @@ watch(baseBranchWorkspace, async (ws) => {
   if (!ws) return;
   const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/branches`);
   if (res.ok && Array.isArray(res.data)) {
-    localBranches.value = res.data.map((b) => b.name);
+    // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
+    // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
+    const current = res.data.find((b) => b.current);
+    const rest = res.data.filter((b) => !b.current).map((b) => b.name);
+    localBranches.value = current ? [current.name, ...rest] : rest;
     localBranchesLoaded.value = true;
   }
   if (baseBranch.value && !localBranches.value.includes(baseBranch.value)) {
