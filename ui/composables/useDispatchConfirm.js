@@ -3,7 +3,12 @@ import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { dispatchDecisionPath, dispatchRerunPath, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
+import {
+  dispatchDecisionPath,
+  dispatchRerunPath,
+  EP_JOBS_WORKSPACES,
+  EP_TERMINAL_SESSIONS,
+} from "../utils/endpoints.js";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.js";
 import { emit } from "../app-bridge.js";
 
@@ -52,7 +57,7 @@ export function useDispatchConfirm() {
       return;
     }
     const [sessionsRes, jobsRes] = await Promise.all([
-      getWithRetry(apiGet, "/terminal/sessions"),
+      getWithRetry(apiGet, EP_TERMINAL_SESSIONS),
       getWithRetry(apiGet, EP_JOBS_WORKSPACES),
     ]);
     if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return;
