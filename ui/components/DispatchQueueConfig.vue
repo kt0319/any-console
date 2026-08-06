@@ -30,14 +30,6 @@
           >
             <DispatchQueueRowBody :request="item.request" :decision="item.decision" />
           </button>
-          <button
-            type="button"
-            class="dispatch-queue-rerun-btn"
-            aria-label="Rerun without changes"
-            data-tooltip="Rerun without changes (queue for approval again)"
-            :disabled="rerunningId === item.id"
-            @click="onRerun(item.id)"
-          ><span class="mdi mdi-replay" aria-hidden="true"></span></button>
         </li>
       </ul>
     </template>
@@ -45,9 +37,8 @@
 </template>
 
 <script setup>
-import { inject, ref } from "vue";
+import { inject } from "vue";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useToast } from "../composables/useToast.js";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 const modalTitle = inject("modalTitle");
@@ -59,20 +50,7 @@ const pushView = inject("pushView");
 // 画面遷移は自動で行わず、一覧内でハイライトするだけに留める。
 const highlightId = viewState?.value?.dispatchId ?? null;
 
-const { queue, recent, rerunItem } = useDispatchConfirm();
-const toast = useToast();
-
-const rerunningId = ref(/** @type {string | null} */ (null));
-
-async function onRerun(id) {
-  rerunningId.value = id;
-  try {
-    const ok = await rerunItem(id);
-    if (ok) toast.success("Requeued for approval");
-  } finally {
-    rerunningId.value = null;
-  }
-}
+const { queue, recent } = useDispatchConfirm();
 </script>
 
 <style scoped>
@@ -111,33 +89,6 @@ async function onRerun(id) {
   display: flex;
   align-items: stretch;
   gap: 6px;
-}
-
-.dispatch-queue-rerun-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  flex-shrink: 0;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius, 6px);
-  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.dispatch-queue-rerun-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .dispatch-queue-rerun-btn:not(:disabled):hover {
-    border-color: var(--accent);
-    color: var(--text-primary);
-  }
 }
 
 .dispatch-queue-row-main {

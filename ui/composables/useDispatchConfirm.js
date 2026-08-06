@@ -104,22 +104,6 @@ export function useDispatchConfirm() {
   }
 
   /**
-   * 一覧の「Recently executed」から呼ぶ。同じ内容で新規に承認待ちキューへ
-   * 積み直す（サーバ側は元のdispatch_idではなく新しいIDを発行する。実行済み
-   * セッションID等の当時のスナップショットは引き継がず、通常のdispatchと
-   * 同じ経路で既存セッション探索・dedup判定をやり直す）。承認待ちに積むだけで
-   * 即実行はしないため、キュー一覧側で改めてRun/Discardする。
-   * @param {string} id
-   * @returns {Promise<boolean>} 積み直せたか
-   */
-  async function rerunItem(id) {
-    const { ok } = await apiPost(dispatchRerunPath(id), {}, {
-      errorMessage: "Failed to rerun dispatch (it may no longer be in recent history)",
-    });
-    return ok;
-  }
-
-  /**
    * DispatchRunView（Recently executedから開いた場合）のRunから呼ぶ。
    * モーダルで内容を確認・編集済みのため、承認キューを経由せず上書き後の
    * 内容でその場で再実行する（run: true）。レスポンスが起動結果を返すため、
@@ -137,5 +121,5 @@ export function useDispatchConfirm() {
     return true;
   }
 
-  return { queue, recent, runItem, rejectItem, rerunItem, rerunNow };
+  return { queue, recent, runItem, rejectItem, rerunNow };
 }
