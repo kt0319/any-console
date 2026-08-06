@@ -88,7 +88,16 @@ BROADCAST_SEND_TIMEOUT_SEC = 5
 
 
 def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
-    _RECENT.insert(0, {"id": dispatch_id, "request": payload, "decision": decision})
+    """直近履歴へ追加する。payload は承認時（model_dump 済み）と却下時
+    （_PENDING の生 payload。branch_status 等の実行時メタ入り）で形が違うため、
+    ここで DispatchRequest のフィールドへ正規化してから格納する（永続ファイルの
+    スキーマが安定し、rerun 側で形を吸収する必要がなくなる）。読み込み側
+    （_load_persisted_recent）と rerun は過去に書かれた旧形式も引き続き許容する。"""
+    fields = DispatchRequest.model_fields
+    body = DispatchRequest(**{k: v for k, v in payload.items() if k in fields})
+    request = body.model_dump()
+    request["effective_workspace"] = body.effective_workspace
+    _RECENT.insert(0, {"id": dispatch_id, "request": request, "decision": decision})
     del _RECENT[_RECENT_LIMIT:]
     _persist_recent()
 

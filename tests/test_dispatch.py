@@ -759,6 +759,18 @@ class TestPersistence:
         assert "ok" in dispatch_mod._PENDING
         assert "bad" not in dispatch_mod._PENDING
 
+    def test_recent_record_is_normalized(self, client, workspace):
+        """却下時も承認時と同じ正規化スキーマ（DispatchRequestのフィールド+
+        effective_workspace）で記録されること。_PENDINGの生payloadに入っている
+        実行時メタ（branch_status/retry_count等）は永続履歴には含めない。"""
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
+
+        rec = dispatch_mod._RECENT[0]
+        assert rec["decision"] == "rejected"
+        expected_keys = set(dispatch_mod.DispatchRequest.model_fields) | {"effective_workspace"}
+        assert set(rec["request"]) == expected_keys
+
     def test_recent_persists_across_decision_and_reload(self, client, workspace):
         dispatch_id = _enqueue(client, text="echo hi")
         client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
