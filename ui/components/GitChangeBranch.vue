@@ -88,13 +88,13 @@
               data-tooltip="Delete branch"
               @click="deleteBranch(branch)"
             ><span class="mdi mdi-trash-can-outline"></span></button>
-            <span
-              v-if="branch.current"
-              class="mdi branch-summary-caret"
-              :class="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-              aria-hidden="true"
-            ></span>
           </div>
+          <span
+            v-if="branch.current"
+            class="mdi branch-summary-caret"
+            :class="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            aria-hidden="true"
+          ></span>
         </div>
         <div v-if="remoteLoaded" v-show="expanded">
           <div
