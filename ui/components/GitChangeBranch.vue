@@ -37,8 +37,10 @@
         <div
           v-for="branch in localBranches"
           :key="'local-' + branch.name"
+          v-show="branch.current || expanded"
           :class="['branch-item', { current: branch.current }]"
-          @click="selectBranch(branch)"
+          :aria-expanded="branch.current ? expanded : null"
+          @click="onRowClick(branch)"
         >
           <div class="branch-item-name">
             <span
@@ -86,9 +88,15 @@
               data-tooltip="Delete branch"
               @click="deleteBranch(branch)"
             ><span class="mdi mdi-trash-can-outline"></span></button>
+            <span
+              v-if="branch.current"
+              class="mdi branch-summary-caret"
+              :class="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+              aria-hidden="true"
+            ></span>
           </div>
         </div>
-        <template v-if="remoteLoaded">
+        <div v-if="remoteLoaded" v-show="expanded">
           <div
             v-for="branch in remoteBranches"
             :key="'remote-' + branch.name"
@@ -107,7 +115,23 @@
             </div>
           </div>
           <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
-        </template>
+        </div>
+        <div v-show="expanded" class="branch-summary-toolbar">
+          <button
+            type="button"
+            class="branch-summary-add-btn"
+            aria-label="Add branch or worktree"
+            data-tooltip="Add branch or worktree"
+            @click="openAddModal"
+          ><span class="mdi mdi-plus"></span> Add</button>
+          <button
+            type="button"
+            class="branch-summary-fetch-btn"
+            aria-label="Fetch"
+            data-tooltip="Fetch remote branches"
+            @click="fetchRemote"
+          ><span class="mdi mdi-refresh"></span> Fetch</button>
+        </div>
     </div>
   </div>
 </template>
@@ -122,7 +146,10 @@ import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush } from "../utils/git-branch.js";
 import { emit } from "../app-bridge.js";
 
-const branchEmit = defineEmits(["count"]);
+defineProps({
+  expanded: { type: Boolean, default: false },
+});
+const branchEmit = defineEmits(["count", "toggle"]);
 
 const workspaceStore = useWorkspaceStore();
 
@@ -163,6 +190,17 @@ const {
   closeAddModal,
   submitAddModal,
 } = useBranchAddDialog({ createBranch, createWorktree });
+
+// 現在ブランチの行はセレクトボックスの先頭項目 兼 開閉トグルを兼ねる
+// （selectBranchは現在ブランチをクリックしても元々no-opだったため、
+// そのクリックをtoggleに転用しても既存挙動と衝突しない）。
+function onRowClick(branch) {
+  if (branch.current) {
+    branchEmit("toggle");
+    return;
+  }
+  selectBranch(branch);
+}
 
 function selectBranch(branch) {
   if (branch.current) return;
@@ -312,9 +350,10 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   vertical-align: middle;
 }
 
+/* 現在ブランチの行は一覧の先頭項目 兼 開閉トグル（クリックで展開/折りたたみ）。 */
 .branch-item.current {
   color: var(--accent);
-  cursor: default;
+  cursor: pointer;
 }
 
 .branch-item.remote-only {
@@ -322,7 +361,7 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .branch-item:not(.current):hover {
+  .branch-item:hover {
     background: rgba(130, 170, 255, 0.12);
     color: var(--accent);
   }
@@ -331,6 +370,47 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 .branch-item-action {
   color: var(--text-muted);
   font-style: italic;
+}
+
+.branch-summary-caret {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Add/Fetchは展開時だけ表示するツールバー（トグル行のすぐ下）。 */
+.branch-summary-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+
+.branch-summary-add-btn,
+.branch-summary-fetch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  min-height: 32px;
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-summary-add-btn:hover,
+  .branch-summary-fetch-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .modal-scroll-body.is-fetching {

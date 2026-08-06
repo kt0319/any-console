@@ -187,11 +187,13 @@ test.describe("workspace detail panes", () => {
   test("Historyペイン内のBranchesに現在ブランチが表示され Add ダイアログを開閉できる", async ({ page }) => {
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
-    // 現在ブランチ名は折り畳みヘッダーに表示される
-    await expect(page.locator(".branch-summary-name")).toContainText(branchName, { timeout: 10_000 });
+    // 現在ブランチの行（一覧の先頭項目 兼 開閉トグル）に現在ブランチ名が表示される
+    const currentToggle = page.locator(".branch-item.current");
+    await expect(currentToggle).toBeVisible({ timeout: 10_000 });
+    await expect(currentToggle.locator(".branch-item-name")).toContainText(branchName);
 
-    // Branch一覧は既定で畳まれているため、シェブロンボタンで開く
-    await page.locator(".branch-summary-toggle").click();
+    // Branch一覧は既定で畳まれているため、現在ブランチの行をクリックして開く
+    await currentToggle.click();
 
     const current = page.locator(".branch-item.current");
     await expect(current).toBeVisible({ timeout: 10_000 });
@@ -211,7 +213,7 @@ test.describe("workspace detail panes", () => {
     const newBranch = "e2e/branch-test";
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
-    await page.locator(".branch-summary-toggle").click();
+    await page.locator(".branch-item.current").click();
 
     await page.locator('.branch-summary-add-btn').click();
     const addDialog = page.locator(".branch-add-dialog");

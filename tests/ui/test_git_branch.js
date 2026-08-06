@@ -30,6 +30,20 @@ describe("normalizeLocalBranches", () => {
     expect(b.ahead).toBe(0);
     expect(b.behind).toBe(0);
   });
+
+  it("現在ブランチを一覧の先頭に並べ替える", () => {
+    const result = normalizeLocalBranches([
+      { name: "a" },
+      { name: "b", current: true },
+      { name: "c" },
+    ]);
+    expect(result.map((b) => b.name)).toEqual(["b", "a", "c"]);
+  });
+
+  it("現在ブランチが無ければ元の順序のまま", () => {
+    const result = normalizeLocalBranches([{ name: "a" }, { name: "b" }]);
+    expect(result.map((b) => b.name)).toEqual(["a", "b"]);
+  });
 });
 
 describe("filterRemoteBranches", () => {

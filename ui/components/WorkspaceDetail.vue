@@ -20,39 +20,8 @@
     <div class="workspace-tab-content">
       <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
         <div v-show="!isViewingCommitFiles" class="git-history-branch-branches">
-          <div class="branch-summary-header">
-            <button
-              type="button"
-              class="branch-summary-add-btn"
-              aria-label="Add branch or worktree"
-              data-tooltip="Add branch or worktree"
-              @click="onAddBranch"
-            >
-              <span class="mdi mdi-plus"></span>
-            </button>
-            <button
-              type="button"
-              class="branch-summary-toggle"
-              :aria-label="branchSectionExpanded ? 'Collapse branches' : 'Expand branches'"
-              :aria-expanded="branchSectionExpanded"
-              @click="toggleBranchSection"
-            >
-              <span class="mdi mdi-source-branch branch-summary-icon"></span>
-              <span class="branch-summary-name">{{ workspaceStore.currentWorkspace?.branch || "" }}</span>
-              <span class="mdi branch-summary-caret" :class="branchSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
-            </button>
-            <button
-              type="button"
-              class="branch-summary-fetch-btn"
-              aria-label="Fetch"
-              data-tooltip="Fetch remote branches"
-              @click="onFetchBranch"
-            >
-              <span class="mdi mdi-refresh"></span>
-            </button>
-          </div>
-          <div v-show="branchSectionExpanded" class="branch-summary-body">
-            <GitChangeBranch ref="gitBranch" />
+          <div class="branch-summary-body" :class="{ 'branch-summary-body-expanded': branchSectionExpanded }">
+            <GitChangeBranch ref="gitBranch" :expanded="branchSectionExpanded" @toggle="toggleBranchSection" />
           </div>
         </div>
         <GitHistory
@@ -222,16 +191,6 @@ function expandBranchSection() {
   }
 }
 
-function onAddBranch() {
-  expandBranchSection();
-  nextTick(() => gitBranch.value?.openAddModal());
-}
-
-function onFetchBranch() {
-  expandBranchSection();
-  nextTick(() => gitBranch.value?.fetchRemote());
-}
-
 function clearDiffSelection() {
   selectedDiffFile.value = "";
   diffMessage.value = "";
@@ -310,6 +269,9 @@ async function switchPane(key, opts = {}) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
         gitHistory.value?.load();
       }
+      // 現在ブランチの行は折りたたみ時もセレクトボックスの先頭項目として
+      // 常時表示するため、展開の有無に関わらずHistoryタブに入るたび読み込む。
+      loadBranchSection();
       if (opts.expandBranch) expandBranchSection();
     });
   } else if (key === "changes") {
@@ -442,99 +404,23 @@ onMounted(() => {
   border-bottom: 1px solid var(--border);
 }
 
-.branch-summary-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  flex-shrink: 0;
-}
-
-/* タップ可能に見えるよう、他のボタン（.branch-footer-btn等）と同じ
-   チップ外観（背景+枠線）にする。透明背景+hoverのみだとモバイルで
-   押せる感が無い（AGENTS.md: クリック可能要素はbackground/borderで
-   視覚区別する）。 */
-.branch-summary-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.branch-summary-toggle:active {
-  background: var(--bg-tertiary);
-}
-
-.branch-summary-add-btn,
-.branch-summary-fetch-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  padding: 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 15px;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .branch-summary-add-btn:hover,
-  .branch-summary-fetch-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
-
-.branch-summary-icon {
-  color: var(--success);
-  font-size: 15px;
-  flex-shrink: 0;
-}
-
-.branch-summary-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.branch-summary-caret {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .branch-summary-toggle:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--accent);
-  }
-}
-
+/* 現在ブランチの行（GitChangeBranch.vue内）がセレクトボックスの先頭項目 兼
+   開閉トグルを兼ねるため、ここでは一覧全体を包む箱の見た目だけを持つ。
+   開閉状態は枠線色で示す（AGENTS.md: 色のみで状態を示さない → キャレット
+   の向き・アイコン変化はGitChangeBranch.vue側の行自体が担う）。 */
 .branch-summary-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
   max-height: 40vh;
   overflow: hidden;
-  border-top: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 8px 12px;
+}
+
+.branch-summary-body-expanded {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 
 /* タブバー */

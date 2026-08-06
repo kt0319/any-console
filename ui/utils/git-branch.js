@@ -1,5 +1,6 @@
+// セレクトボックスの先頭項目のように、現在ブランチを一覧の一番上に出す。
 export function normalizeLocalBranches(data) {
-  return (data || []).map((b) => ({
+  const mapped = (data || []).map((b) => ({
     name: b.name || b,
     current: !!b.current,
     isDefault: !!b.is_default,
@@ -9,6 +10,8 @@ export function normalizeLocalBranches(data) {
     upstream: b.upstream || null,
     gone: !!b.gone,
   }));
+  const current = mapped.find((b) => b.current);
+  return current ? [current, ...mapped.filter((b) => !b.current)] : mapped;
 }
 
 export function filterRemoteBranches(data, localBranches) {
