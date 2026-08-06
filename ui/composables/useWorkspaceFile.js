@@ -5,6 +5,7 @@ import { useToast } from "./useToast.js";
 import { triggerBlobDownload } from "../utils/download.js";
 import { extractFilenameFromContentDisposition } from "../utils/content-disposition.js";
 import { workspaceDownloadPath } from "../utils/endpoints.js";
+import { basename } from "../utils/path.js";
 
 export function useWorkspaceFile() {
   const auth = useAuthStore();
@@ -22,7 +23,7 @@ export function useWorkspaceFile() {
         // フォルダをダウンロードした場合、サーバがzip化しfilename="dir.zip"を
         // 返すため、そちらを優先する（filePath由来の名前だと拡張子が付かない）。
         const serverFilename = extractFilenameFromContentDisposition(res.headers?.get?.("content-disposition"));
-        triggerBlobDownload(blob, serverFilename || filePath.split("/").pop() || "download");
+        triggerBlobDownload(blob, serverFilename || basename(filePath) || "download");
         return true;
       } catch {
         toast.error("Download failed");
@@ -39,7 +40,7 @@ export function useWorkspaceFile() {
         { path: filePath },
         { errorMessage },
       );
-      if (ok) toast.success(`Deleted "${filePath.split("/").pop()}"`);
+      if (ok) toast.success(`Deleted "${basename(filePath)}"`);
       return ok;
     });
     return result ?? false;
