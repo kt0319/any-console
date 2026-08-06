@@ -160,7 +160,8 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
-import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
+import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.js";
+import { useWorktreeRemove } from "../composables/useWorktreeRemove.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
@@ -176,7 +177,8 @@ const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
+const { apiGet, apiPut, wsEndpoint } = useApi();
+const { removeWorktreeRequest } = useWorktreeRemove();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -341,16 +343,10 @@ function openEditWs(ws) {
 }
 
 async function removeWorktree(base, wt) {
-  const label = worktreeBranchLabel(wt.worktree_branch || wt.branch) || wt.name;
-  await confirm(`Remove worktree "${label}"? The working tree directory will be deleted. This cannot be undone.`, {
+  await confirm(removeWorktreeConfirmMessage(wt), {
     busyLabel: "Removing...",
     run: async () => {
-      const { ok } = await apiDelete(wsEndpoint(base.name, "worktrees"), {
-        body: { path: wt.path },
-        checkStatus: true,
-        errorMessage: "Failed to remove worktree",
-      });
-      if (!ok) return;
+      if (!await removeWorktreeRequest(base.name, wt)) return;
       await workspaceStore.fetchWorkspaces();
       toast.success("Worktree removed");
     },

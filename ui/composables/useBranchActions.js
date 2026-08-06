@@ -4,12 +4,14 @@ import { useWorkspace } from "./useWorkspace.js";
 import { useConfirm } from "./useConfirm.js";
 import { useToast } from "./useToast.js";
 import { useGitRemoteAction } from "./useGitRemoteAction.js";
+import { useWorktreeRemove } from "./useWorktreeRemove.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { worktreeBranchLabel } from "../utils/worktree.js";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.js";
 import { emit } from "../app-bridge.js";
 
 export function useBranchActions(branchList) {
-  const { apiCommand, apiDelete, wsEndpoint } = useApi();
+  const { apiCommand, wsEndpoint } = useApi();
+  const { removeWorktreeRequest } = useWorktreeRemove();
   const { withWorkspace } = useWorkspace();
   const { confirm } = useConfirm();
   const toast = useToast();
@@ -52,15 +54,11 @@ export function useBranchActions(branchList) {
 
   async function removeWorktree(wt) {
     await withWorkspace(async (workspace) => {
-      if (!await confirm(`Remove worktree "${wt.branch || wt.path}"? The working tree directory will be deleted. This cannot be undone.`)) return;
-      const { ok } = await apiDelete(
-        wsEndpoint(workspace, "worktrees"),
-        { body: { path: wt.path }, checkStatus: true, errorMessage: "Failed to remove worktree" },
-      );
-      if (!ok) return;
+      if (!await confirm(removeWorktreeConfirmMessage(wt))) return;
+      if (!await removeWorktreeRequest(workspace, wt)) return;
       await workspaceStore.fetchWorkspaces();
       await loadWorktrees();
-      toast.success(`Worktree removed: ${workspace} [${wt.branch || wt.path}]`);
+      toast.success(`Worktree removed: ${workspace} [${worktreeConfirmLabel(wt)}]`);
     });
   }
 
