@@ -44,6 +44,7 @@ import { usePreviewWatch } from "../composables/usePreviewWatch.js";
 import { copyText } from "../utils/clipboard.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { devServerUrl } from "../utils/preview-url.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Dev Server Preview";
@@ -60,10 +61,7 @@ function workspaceIconHtml(name) {
 }
 
 function buildPreviewUrl(p) {
-  // ユニークポート方式: any-console が target+20000 で TCP proxy を立てている。
-  // proxy 証明書があれば scheme=https で TLS 終端、無ければ http。
-  if (!p.proxy_port) return "";
-  return `${p.scheme || "http"}://${location.hostname}:${p.proxy_port}/`;
+  return devServerUrl(p, location.hostname);
 }
 
 function openPreview(p) {

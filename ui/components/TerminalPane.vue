@@ -242,6 +242,9 @@ import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
 import { trailingItemsSignature, findChangedTrailingItems } from "../utils/pill-peek.js";
+import { devServerUrl, devServerOrigin } from "../utils/preview-url.js";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.js";
+import { firstCommitLine } from "../utils/git.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -301,9 +304,7 @@ const devServerEntry = computed(() => {
 const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
 const branchPR = computed(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
-  const list = prsByWorkspace.value[props.tab.workspace];
-  if (!list || !paneWorkspace.value?.branch) return null;
-  return list.find((pr) => pr.headRefName === paneWorkspace.value.branch) || null;
+  return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
 });
 
 // GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
@@ -312,20 +313,13 @@ const branchPR = computed(() => {
 const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
 const branchAction = computed(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
-  const list = runsByWorkspace.value[props.tab.workspace];
-  if (!list || !paneWorkspace.value?.branch) return null;
-  return list.find((run) => run.headBranch === paneWorkspace.value.branch) || null;
+  return findRunForBranch(runsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
 });
 
-// failure以外で完了したrunはピル自体を表示しない（失敗中・実行中のrunだけ知らせる。
-// success以外にもcancelled/skipped/timed_out等のconclusionがあり、それらは
-// 実害のない終了として扱う）。
-const visibleBranchAction = computed(() => {
-  const run = branchAction.value;
-  if (!run) return null;
-  if (run.status === "completed" && run.conclusion !== "failure") return null;
-  return run;
-});
+// failure以外で完了したrunはピル自体を表示しない（判定はisNoticeableRun参照）。
+const visibleBranchAction = computed(() =>
+  isNoticeableRun(branchAction.value) ? branchAction.value : null,
+);
 
 const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 
@@ -349,7 +343,7 @@ watch(
 async function openDevServer() {
   const p = devServerEntry.value;
   if (!p) return;
-  const url = `${p.scheme || "http"}://${location.hostname}:${p.proxy_port}/`;
+  const url = devServerUrl(p, location.hostname);
   const ok = await confirm(`Open dev server preview at "${url}"?`, {
     ok: { label: "Open" },
   });
@@ -542,13 +536,13 @@ const changesTooltip = computed(() =>
   `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
 const historyTooltip = computed(() => {
-  const msg = (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim();
+  const msg = firstCommitLine(paneWorkspace.value?.last_commit_message);
   return msg ? `History: ${msg}` : "History";
 });
 const devServerTooltip = computed(() => {
   const p = devServerEntry.value;
   if (!p) return "Dev Server";
-  return `Dev Server: ${p.scheme || "http"}://${location.hostname}:${p.proxy_port}`;
+  return `Dev Server: ${devServerOrigin(p, location.hostname)}`;
 });
 const dispatchTooltip = computed(() => {
   const items = tabDispatchItems.value;
@@ -814,7 +808,7 @@ const peekColorClass = computed(() => {
 const peekText = computed(() => {
   switch (peekingKey.value) {
     case "files": return "Files";
-    case "history": return (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim() || "History";
+    case "history": return firstCommitLine(paneWorkspace.value?.last_commit_message) || "History";
     case "prs": return branchPR.value ? `#${branchPR.value.number} ${branchPR.value.title}` : "";
     case "actions": return branchAction.value
       ? `[${branchAction.value.name}] ${branchAction.value.conclusion || branchAction.value.status}`

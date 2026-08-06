@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useToast } from "./useToast.js";
 import { EP_PREVIEW_PORTS } from "../utils/endpoints.js";
+import { devServerUrl } from "../utils/preview-url.js";
 
 const POLL_INTERVAL_MS = 5000;
 const seen = new Set();
@@ -37,7 +38,7 @@ export function usePreviewWatch() {
     let message;
     if (newEntries.length === 1) {
       const p = newEntries[0];
-      const url = p.proxy_port ? `${p.scheme || "http"}://${window.location.hostname}:${p.proxy_port}/` : null;
+      const url = devServerUrl(p, window.location.hostname);
       message = url ? `Port ${portLabel(p)} detected\nPreview: ${url}` : `Port ${portLabel(p)} detected`;
     } else {
       message = `${newEntries.length} ports detected (${newEntries.map(portLabel).join(", ")})`;
