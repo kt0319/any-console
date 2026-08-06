@@ -2,14 +2,17 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { useToast } from "./useToast.js";
 import { useGitRemoteAction } from "./useGitRemoteAction.js";
+import { useWorktreeRemove } from "./useWorktreeRemove.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { worktreeBranchLabel } from "../utils/worktree.js";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.js";
 import { emit } from "../app-bridge.js";
 
 export function useBranchActions(branchList) {
-  const { apiCommand, apiDelete, wsEndpoint } = useApi();
+  const { apiCommand, wsEndpoint } = useApi();
+  const { removeWorktreeRequest } = useWorktreeRemove();
   const { withWorkspace } = useWorkspace();
   const { confirm } = useConfirm();
   const toast = useToast();
@@ -52,15 +55,11 @@ export function useBranchActions(branchList) {
 
   async function removeWorktree(wt) {
     await withWorkspace(async (workspace) => {
-      if (!await confirm(`Remove worktree "${wt.branch || wt.path}"? The working tree directory will be deleted. This cannot be undone.`)) return;
-      const { ok } = await apiDelete(
-        wsEndpoint(workspace, "worktrees"),
-        { body: { path: wt.path }, checkStatus: true, errorMessage: "Failed to remove worktree" },
-      );
-      if (!ok) return;
+      if (!await confirm(removeWorktreeConfirmMessage(wt))) return;
+      if (!await removeWorktreeRequest(workspace, wt)) return;
       await workspaceStore.fetchWorkspaces();
       await loadWorktrees();
-      toast.success(`Worktree removed: ${workspace} [${wt.branch || wt.path}]`);
+      toast.success(`Worktree removed: ${workspace} [${worktreeConfirmLabel(wt)}]`);
     });
   }
 
@@ -77,7 +76,7 @@ export function useBranchActions(branchList) {
 
   async function pullBranch(branch) {
     if (!branch.current) {
-      emit("toast:show", { message: `Switch to "${branch.name}" to pull`, type: "info" });
+      toast.info(`Switch to "${branch.name}" to pull`);
       return;
     }
     await withWorkspace(async (workspace) => {
@@ -88,8 +87,8 @@ export function useBranchActions(branchList) {
 
   async function deleteBranch(branch) {
     await withWorkspace(async (workspace) => {
-      const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
-      if (!await confirm(`Delete ${label}?`)) return;
+      const label = branch.remote ? "remote branch" : "branch";
+      if (!await confirmIrreversible(confirm, `Delete ${label} "${branch.name}"?`)) return;
       const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
       if (!ok) return;
       if (branch.remote) invalidateRemoteCache(workspace);
@@ -121,7 +120,7 @@ export function useBranchActions(branchList) {
         remoteLoaded.value = false;
         await loadBranchList();
         await loadRemoteBranches();
-        emit("toast:show", { message: "Fetched remote", type: "success" });
+        toast.success("Fetched remote");
       });
     } finally {
       isFetchingRemote.value = false;

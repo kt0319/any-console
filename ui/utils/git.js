@@ -32,6 +32,16 @@ export function parseGitRefs(refsStr) {
   return parsed;
 }
 
+/**
+ * コミットメッセージの1行目（サマリ行）。ツールチップやpeekピル等の
+ * 1行表示に使う。
+ * @param {string | null | undefined} message
+ * @returns {string}
+ */
+export function firstCommitLine(message) {
+  return String(message || "").split("\n")[0].trim();
+}
+
 export function formatGitTime(timeText) {
   if (!timeText) return "-";
   const d = new Date(timeText);

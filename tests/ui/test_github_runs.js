@@ -1,0 +1,62 @@
+import { describe, it, expect } from "vitest";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../../ui/utils/github-runs.js";
+
+describe("findPRForBranch", () => {
+  const prs = [
+    { number: 1, headRefName: "main" },
+    { number: 2, headRefName: "feature/x" },
+  ];
+
+  it("headRefNameが一致するPRを返す", () => {
+    expect(findPRForBranch(prs, "feature/x")).toEqual({ number: 2, headRefName: "feature/x" });
+  });
+
+  it("一致が無ければnull", () => {
+    expect(findPRForBranch(prs, "other")).toBeNull();
+  });
+
+  it("一覧未取得・ブランチ未解決はnull", () => {
+    expect(findPRForBranch(undefined, "main")).toBeNull();
+    expect(findPRForBranch(prs, undefined)).toBeNull();
+    expect(findPRForBranch(prs, "")).toBeNull();
+  });
+});
+
+describe("findRunForBranch", () => {
+  const runs = [
+    { id: 10, headBranch: "main" },
+    { id: 11, headBranch: "feature/x" },
+  ];
+
+  it("headBranchが一致するrunを返す", () => {
+    expect(findRunForBranch(runs, "main")).toEqual({ id: 10, headBranch: "main" });
+  });
+
+  it("一致が無い/一覧未取得/ブランチ未解決はnull", () => {
+    expect(findRunForBranch(runs, "other")).toBeNull();
+    expect(findRunForBranch(null, "main")).toBeNull();
+    expect(findRunForBranch(runs, null)).toBeNull();
+  });
+});
+
+describe("isNoticeableRun", () => {
+  it("実行中のrunは表示対象", () => {
+    expect(isNoticeableRun({ status: "in_progress", conclusion: "" })).toBe(true);
+    expect(isNoticeableRun({ status: "queued", conclusion: "" })).toBe(true);
+  });
+
+  it("失敗で完了したrunは表示対象", () => {
+    expect(isNoticeableRun({ status: "completed", conclusion: "failure" })).toBe(true);
+  });
+
+  it("failure以外で完了したrunは非表示（success/cancelled/skipped等）", () => {
+    expect(isNoticeableRun({ status: "completed", conclusion: "success" })).toBe(false);
+    expect(isNoticeableRun({ status: "completed", conclusion: "cancelled" })).toBe(false);
+    expect(isNoticeableRun({ status: "completed", conclusion: "skipped" })).toBe(false);
+  });
+
+  it("runが無ければfalse", () => {
+    expect(isNoticeableRun(null)).toBe(false);
+    expect(isNoticeableRun(undefined)).toBe(false);
+  });
+});

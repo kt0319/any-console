@@ -94,6 +94,49 @@ class TestBranchListUnpublishedAhead:
         assert entry["upstream"] is None
         assert entry["ahead"] == 1
 
+    def test_multiple_no_upstream_branches_count_shared_commits_each(self, client, git_workspace_with_commit, isolate_fs):
+        # 一括化（rev-list --parents 1回 + Python側到達数計算）後も、複数の
+        # upstream未設定ブランチが未pushコミットを共有する場合はそれぞれの
+        # ブランチで数える（従来のブランチごとの rev-list --count と同じ値）。
+        bare_path = isolate_fs["work"] / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(bare_path)],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        current_branch = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "push", "-u", "origin", current_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        def commit_file(branch_new, filename):
+            if branch_new:
+                subprocess.run(
+                    ["git", "checkout", "-b", branch_new],
+                    cwd=git_workspace_with_commit, check=True, capture_output=True,
+                )
+            (git_workspace_with_commit / filename).write_text("x\n", encoding="utf-8")
+            subprocess.run(["git", "add", filename], cwd=git_workspace_with_commit, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", f"add {filename}"],
+                cwd=git_workspace_with_commit, check=True, capture_output=True,
+            )
+
+        commit_file("feature/a", "a1.txt")
+        commit_file(None, "a2.txt")
+        # feature/a の2コミットを引き継いでさらに1コミット
+        commit_file("feature/b", "b1.txt")
+
+        res = client.get("/workspaces/test-ws/branches", headers=AUTH)
+        assert res.status_code == 200
+        by_name = {b["name"]: b for b in res.json()}
+        assert by_name["feature/a"]["ahead"] == 2
+        assert by_name["feature/b"]["ahead"] == 3
+
     def test_branch_with_upstream_uses_git_tracking_ahead(self, client, git_workspace_with_commit, isolate_fs):
         bare_path = isolate_fs["work"] / "origin.git"
         subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)

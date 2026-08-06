@@ -6,8 +6,10 @@ import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useToast } from "./useToast.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { usePrompt } from "./usePrompt.js";
 import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.js";
+import { basename, dirname } from "../utils/path.js";
 
 export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
@@ -31,16 +33,6 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     await downloadWorkspaceFile(filePath);
   }
 
-  function baseName(filePath) {
-    const idx = filePath.lastIndexOf("/");
-    return idx >= 0 ? filePath.slice(idx + 1) : filePath;
-  }
-
-  function parentDir(filePath) {
-    const idx = filePath.lastIndexOf("/");
-    return idx >= 0 ? filePath.slice(0, idx) : "";
-  }
-
   // 現在ブラウズ中のパス（開いているファイル、またはブラウズ中のディレクトリ）を対象にする。
   // どちらも getCurrentPath() がそのフルパスを保持しているため同じロジックで扱える。
   // Rename（ファイル名だけ変更）とMove（パスごと変更）は同じrenameFile APIを呼ぶ
@@ -56,16 +48,16 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
       placeholder: filePath,
     });
     if (!destPath || destPath === filePath) return;
-    await renameFile(filePath, destPath, parentDir(filePath));
+    await renameFile(filePath, destPath, dirname(filePath));
   }
 
   async function deleteCurrentPath() {
     const filePath = getCurrentPath();
     if (!filePath) return;
-    const fileName = baseName(filePath);
-    if (!await confirm(`Delete "${fileName}"?`)) return;
+    const fileName = basename(filePath);
+    if (!await confirmIrreversible(confirm, `Delete "${fileName}"?`)) return;
     const ok = await deleteWorkspaceFile(filePath, { errorMessage: MSG_DELETE_FAILED });
-    if (ok) await navigateToPath(parentDir(filePath));
+    if (ok) await navigateToPath(dirname(filePath));
   }
 
   const normalizedName = (f) => (f.name || "").normalize("NFC");
@@ -156,9 +148,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     if (!getFileContent()) {
       return cur || "";
     }
-    const idx = cur.lastIndexOf("/");
-    if (idx <= 0) return "";
-    return cur.slice(0, idx);
+    return dirname(cur);
   }
 
   return {

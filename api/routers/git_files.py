@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 import unicodedata
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
@@ -8,7 +9,7 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
 from ..auth import verify_token
-from ..common import MAX_UPLOAD_SIZE
+from ..common import HIDDEN_DIRS, MAX_UPLOAD_SIZE, MAX_ZIP_DOWNLOAD_SIZE
 from ..errors import bad_request, conflict, not_found, too_large
 from ..validators import validate_optional_commit_ref
 from .git_file_utils import (
@@ -190,15 +191,51 @@ def download_file(name: str, path: str = Query(...)):
 
     if target.is_dir():
         tmp_dir = tempfile.mkdtemp(prefix="any-console-zip-")
-        with file_operation_guard("Cannot create archive"):
-            archive_path = shutil.make_archive(
-                str(Path(tmp_dir) / target.name), "zip", root_dir=target.parent, base_dir=target.name,
-            )
+        try:
+            with file_operation_guard("Cannot create archive"):
+                archive_path = _create_zip_archive(target, Path(tmp_dir))
+        except BaseException:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise
         return FileResponse(
-            path=archive_path,
+            path=str(archive_path),
             filename=f"{target.name}.zip",
             media_type="application/zip",
             background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
         )
 
     raise not_found("File not found")
+
+
+def _create_zip_archive(target: Path, tmp_dir: Path) -> Path:
+    """ディレクトリを zip 化する。shutil.make_archive は使わない:
+
+    - HIDDEN_DIRS（.git）は中身ごと除外する（ファイル一覧APIの表示規則と揃える。
+      make_archive だと一覧に見えない .git がまるごと zip に入ってしまう）
+    - symlink は辿らずスキップする（リンク先の実体を格納するとワークスペース外の
+      ファイルが混入しうるため）
+    - 圧縮前サイズの合計が MAX_ZIP_DOWNLOAD_SIZE を超えたら 413 を返す
+      （node_modules 等を含む巨大ディレクトリでワーカーを占有しないため）
+    """
+    archive_path = tmp_dir / f"{target.name}.zip"
+    total_size = 0
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        stack = [target]
+        while stack:
+            current = stack.pop()
+            zf.mkdir(str(current.relative_to(target.parent)))
+            for entry in sorted(current.iterdir(), key=lambda p: p.name):
+                if entry.is_symlink():
+                    continue
+                if entry.is_dir():
+                    if entry.name in HIDDEN_DIRS:
+                        continue
+                    stack.append(entry)
+                elif entry.is_file():
+                    total_size += entry.stat().st_size
+                    if total_size > MAX_ZIP_DOWNLOAD_SIZE:
+                        raise too_large(
+                            f"Folder too large to download (max {MAX_ZIP_DOWNLOAD_SIZE // (1024 * 1024)}MB)"
+                        )
+                    zf.write(entry, str(entry.relative_to(target.parent)))
+    return archive_path

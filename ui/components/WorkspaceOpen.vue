@@ -160,7 +160,8 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
-import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
+import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.js";
+import { useWorktreeRemove } from "../composables/useWorktreeRemove.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
@@ -169,14 +170,15 @@ import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.js";
-import { buildFlatList, deriveGroupChanges } from "../utils/workspace-groups.js";
+import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/workspace-groups.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
+const { apiGet, apiPut, wsEndpoint } = useApi();
+const { removeWorktreeRequest } = useWorktreeRemove();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -188,24 +190,12 @@ const collapsedGroups = reactive(_collapsedGroups);
 // グループダイアログ
 const groupDialog = ref(null);
 
-// グループなし（トップレベル）
-const ungrouped = computed(() => {
-  const list = workspaceStore.allWorkspaces;
-  const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
-  return list.filter((w) =>
-    !w.group_id &&
-    !(w.worktree && w.worktree_base && baseNames.has(w.worktree_base))
-  );
-});
+// グループなし（トップレベル）。フィルタ規則は workspacesInGroup（共通）参照。
+const ungrouped = computed(() => workspacesInGroup(workspaceStore.allWorkspaces, null));
 
 // グループ内のワークスペース
 function groupedWorkspaces(groupId) {
-  const list = workspaceStore.allWorkspaces;
-  const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
-  return list.filter((w) =>
-    w.group_id === groupId &&
-    !(w.worktree && w.worktree_base && baseNames.has(w.worktree_base))
-  );
+  return workspacesInGroup(workspaceStore.allWorkspaces, groupId);
 }
 
 const displayWorkspaces = computed(() => workspaceStore.allWorkspaces);
@@ -341,16 +331,10 @@ function openEditWs(ws) {
 }
 
 async function removeWorktree(base, wt) {
-  const label = worktreeBranchLabel(wt.worktree_branch || wt.branch) || wt.name;
-  await confirm(`Remove worktree "${label}"? The working tree directory will be deleted. This cannot be undone.`, {
+  await confirm(removeWorktreeConfirmMessage(wt), {
     busyLabel: "Removing...",
     run: async () => {
-      const { ok } = await apiDelete(wsEndpoint(base.name, "worktrees"), {
-        body: { path: wt.path },
-        checkStatus: true,
-        errorMessage: "Failed to remove worktree",
-      });
-      if (!ok) return;
+      if (!await removeWorktreeRequest(base.name, wt)) return;
       await workspaceStore.fetchWorkspaces();
       toast.success("Worktree removed");
     },

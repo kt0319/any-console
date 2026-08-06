@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, workspaceDisplayName } from "../../ui/utils/worktree.js";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName } from "../../ui/utils/worktree.js";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -9,6 +9,30 @@ describe("worktreeBranchLabel", () => {
   it("returns empty string for missing branch", () => {
     expect(worktreeBranchLabel("")).toBe("");
     expect(worktreeBranchLabel(undefined)).toBe("");
+  });
+});
+
+describe("worktreeConfirmLabel", () => {
+  it("ワークスペース一覧のworktreeエントリはworktree_branchを優先する", () => {
+    expect(worktreeConfirmLabel({ worktree_branch: "feature/x", name: "proj-feature-x", path: "/tmp/wt" })).toBe("feature/x");
+  });
+
+  it("ブランチ一覧のworktree（branch/pathのみ）はbranchを使う", () => {
+    expect(worktreeConfirmLabel({ branch: "feature/x", path: "/tmp/wt" })).toBe("feature/x");
+  });
+
+  it("ブランチ名が無ければname、それも無ければpathへフォールバックする", () => {
+    expect(worktreeConfirmLabel({ name: "proj-feature-x", path: "/tmp/wt" })).toBe("proj-feature-x");
+    expect(worktreeConfirmLabel({ path: "/tmp/wt" })).toBe("/tmp/wt");
+    expect(worktreeConfirmLabel(undefined)).toBe("");
+  });
+});
+
+describe("removeWorktreeConfirmMessage", () => {
+  it("何が起きるか（ディレクトリ削除・取り消し不可）を明示した文言を作る", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" })).toBe(
+      'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone.',
+    );
   });
 });
 

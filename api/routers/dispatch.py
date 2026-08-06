@@ -23,7 +23,6 @@ dispatch scope の API トークン（api/auth.py）も受け付ける。dispatc
 
 import asyncio
 import functools
-import json
 import logging
 import secrets
 import subprocess
@@ -38,7 +37,9 @@ from ..auth import verify_dispatch_token, verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
     DISPATCH_RECENT_FILE,
+    load_json_file,
     resolve_workspace_path,
+    save_json_file,
 )
 from ..errors import bad_request, not_found, server_error
 from ..git_info import invalidate_git_info
@@ -87,7 +88,16 @@ BROADCAST_SEND_TIMEOUT_SEC = 5
 
 
 def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
-    _RECENT.insert(0, {"id": dispatch_id, "request": payload, "decision": decision})
+    """直近履歴へ追加する。payload は承認時（model_dump 済み）と却下時
+    （_PENDING の生 payload。branch_status 等の実行時メタ入り）で形が違うため、
+    ここで DispatchRequest のフィールドへ正規化してから格納する（永続ファイルの
+    スキーマが安定し、rerun 側で形を吸収する必要がなくなる）。読み込み側
+    （_load_persisted_recent）と rerun は過去に書かれた旧形式も引き続き許容する。"""
+    fields = DispatchRequest.model_fields
+    body = DispatchRequest(**{k: v for k, v in payload.items() if k in fields})
+    request = body.model_dump()
+    request["effective_workspace"] = body.effective_workspace
+    _RECENT.insert(0, {"id": dispatch_id, "request": request, "decision": decision})
     del _RECENT[_RECENT_LIMIT:]
     _persist_recent()
 
@@ -185,24 +195,19 @@ def _send_push_in_background(**kwargs) -> None:
 
 def _persist_pending() -> None:
     """承認待ちリクエストを専用ファイルへ書き出す（サーバ再起動をまたいで残すため）。
-    config.json とは分離する（あちらはエクスポート/インポート対象のユーザー設定のため）。"""
-    tmp_path = DISPATCH_QUEUE_FILE.with_suffix(".tmp")
+    config.json とは分離する（あちらはエクスポート/インポート対象のユーザー設定のため）。
+    永続化失敗でリクエスト処理自体は失敗させない（警告ログのみ）。"""
     try:
-        tmp_path.write_text(json.dumps({"items": _PENDING}, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp_path.replace(DISPATCH_QUEUE_FILE)
+        save_json_file(DISPATCH_QUEUE_FILE, {"items": _PENDING})
     except OSError as e:
         logger.warning("dispatch queue persist failed: %s", e)
 
 
 def _load_persisted_pending() -> None:
-    if not DISPATCH_QUEUE_FILE.is_file():
-        return
-    try:
-        raw = json.loads(DISPATCH_QUEUE_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning("dispatch queue read failed: %s", e)
-        return
-    items = raw.get("items") if isinstance(raw, dict) else None
+    raw = load_json_file(
+        DISPATCH_QUEUE_FILE, {}, validate=lambda d: isinstance(d, dict), log_label="dispatch queue",
+    )
+    items = raw.get("items")
     if not isinstance(items, dict):
         return
     for dispatch_id, request_payload in items.items():
@@ -212,24 +217,18 @@ def _load_persisted_pending() -> None:
 
 def _persist_recent() -> None:
     """承認/却下済み直近履歴を専用ファイルへ書き出す（サーバ再起動をまたいで
-    Rerunできるようにするため）。"""
-    tmp_path = DISPATCH_RECENT_FILE.with_suffix(".tmp")
+    Rerunできるようにするため）。永続化失敗でリクエスト処理自体は失敗させない。"""
     try:
-        tmp_path.write_text(json.dumps({"items": _RECENT}, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp_path.replace(DISPATCH_RECENT_FILE)
+        save_json_file(DISPATCH_RECENT_FILE, {"items": _RECENT})
     except OSError as e:
         logger.warning("dispatch recent persist failed: %s", e)
 
 
 def _load_persisted_recent() -> None:
-    if not DISPATCH_RECENT_FILE.is_file():
-        return
-    try:
-        raw = json.loads(DISPATCH_RECENT_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning("dispatch recent read failed: %s", e)
-        return
-    items = raw.get("items") if isinstance(raw, dict) else None
+    raw = load_json_file(
+        DISPATCH_RECENT_FILE, {}, validate=lambda d: isinstance(d, dict), log_label="dispatch recent",
+    )
+    items = raw.get("items")
     if not isinstance(items, list):
         return
     valid = [
@@ -342,6 +341,22 @@ class DispatchDecision(BaseModel):
     approved: bool
     # UI 確認時にユーザが書き換えた値を上書きとして受け取る。
     # 未指定（None）なら元の DispatchRequest 値をそのまま使う。
+    workspace: str | None = None
+    branch: str | None = None
+    base_branch: str | None = None
+    text: str | None = None
+    job: str | None = None
+    match: str | None = None
+    create_branch: bool | None = None
+    session_id: str | None = None
+
+
+class DispatchRerun(BaseModel):
+    # true: 承認キューを経由せずその場で実行する（Recently executedから開いた
+    # モーダルのRun。ユーザーがモーダル上で内容を確認・編集済みのため、それ自体を
+    # 承認とみなす）。false（既定）: 従来通り承認待ちキューへ積み直すだけ。
+    run: bool = False
+    # UI で書き換えた値の上書き（DispatchDecision と同じ扱い。None は元の値を使う）。
     workspace: str | None = None
     branch: str | None = None
     base_branch: str | None = None
@@ -607,19 +622,44 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
 
 
 @router.post("/dispatch/{dispatch_id}/rerun")
-async def dispatch_rerun(dispatch_id: str, auth_label: str = Depends(verify_token)):
-    """Dispatch Queueの「Recently executed」（_RECENT、承認/却下済みの直近5件）から
-    同じ内容で新規にキュー登録し直す。_RECENTはプロセス再起動で消える揮発性の履歴の
-    ため、そこにまだ残っている間だけ再実行できる。既存セッションID・branch_status・
-    retry_countは元の実行時点のスナップショットなので引き継がず、通常のPOST /dispatch
-    と同じ経路（既存セッション探索・dedup判定・push通知）へ丸ごと乗せ直す。"""
+async def dispatch_rerun(
+    dispatch_id: str, body: DispatchRerun | None = None, auth_label: str = Depends(verify_token),
+):
+    """Dispatch Queueの「Recently executed」（_RECENT、承認/却下済みの直近
+    _RECENT_LIMIT件。DISPATCH_RECENT_FILEへ永続化されサーバ再起動をまたいで残る）
+    からの再実行。そこにまだ残っている間だけ再実行できる。
+    既存セッションID・branch_status・retry_countは元の実行時点のスナップショット
+    なので引き継がない。
+
+    - 既定（run=false）: 同じ内容（+上書き値）で通常のPOST /dispatchと同じ経路
+      （既存セッション探索・dedup判定・push通知）へ乗せ直し、承認待ちキューへ積む。
+    - run=true: モーダルで内容を確認・編集済みのユーザー操作を承認とみなし、
+      承認キューを経由せずその場で実行して起動結果を返す（decision承認と同じ扱い。
+      履歴には新しいIDでapprovedとして記録する）。"""
     item = next((r for r in _RECENT if r["id"] == dispatch_id), None)
     if item is None:
-        raise not_found("Dispatch item not found (only the most recent 5 can be rerun)")
+        raise not_found(f"Dispatch item not found (only the most recent {_RECENT_LIMIT} can be rerun)")
     fields = DispatchRequest.model_fields
     payload = {k: v for k, v in item["request"].items() if k in fields}
-    body = DispatchRequest(**payload)
-    body.direct = False
-    body.dedup_key = None
-    body.session_id = None
-    return await dispatch(body, (auth_label, False))
+    req = DispatchRequest(**payload)
+    req.direct = False
+    req.dedup_key = None
+    req.session_id = None
+    _apply_overrides(req, body.model_dump(exclude={"run"}) if body else None)
+
+    if body and body.run:
+        try:
+            result = _launch(req)
+        except HTTPException as e:
+            log_activity(req.workspace, "dispatch_failed", detail=str(e.detail))
+            raise
+        log_activity(
+            result["workspace"], "dispatch_executed",
+            job=result["job"], session_id=result["session_id"], created=result["created"],
+            auth=auth_label,
+        )
+        _record_recent(secrets.token_urlsafe(8), req.model_dump(), "approved")
+        _schedule_queue_broadcast()
+        return result
+
+    return await dispatch(req, (auth_label, False))

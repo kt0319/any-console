@@ -106,9 +106,9 @@ class TestBranchTrackingInfo:
 
     def test_parses_lines(self):
         stdout = "\n".join([
-            "main|origin/main|[ahead 2]",
-            "feature|origin/feature|[behind 1]",
-            "local-only||",
+            "main|origin/main|[ahead 2]|aaa111",
+            "feature|origin/feature|[behind 1]|bbb222",
+            "local-only|||ccc333",
             "malformed-line",
         ])
         with patch(
@@ -116,9 +116,10 @@ class TestBranchTrackingInfo:
             return_value={"exit_code": 0, "stdout": stdout, "stderr": ""},
         ):
             info = _branch_tracking_info("/path")
-        assert info["main"] == {"upstream": "origin/main", "ahead": 2, "behind": 0, "gone": False}
+        assert info["main"] == {"upstream": "origin/main", "tip": "aaa111", "ahead": 2, "behind": 0, "gone": False}
         assert info["feature"]["behind"] == 1
         assert info["local-only"]["upstream"] is None
+        assert info["local-only"]["tip"] == "ccc333"
         assert "malformed-line" not in info
 
 

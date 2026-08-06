@@ -1,6 +1,22 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
+
+describe("firstCommitLine", () => {
+  it("複数行メッセージの1行目だけを返す", () => {
+    expect(firstCommitLine("feat: 追加\n\n詳細説明")).toBe("feat: 追加");
+  });
+
+  it("前後の空白を落とす", () => {
+    expect(firstCommitLine("  fix: 修正  \nbody")).toBe("fix: 修正");
+  });
+
+  it("null/undefined/空文字は空文字", () => {
+    expect(firstCommitLine(null)).toBe("");
+    expect(firstCommitLine(undefined)).toBe("");
+    expect(firstCommitLine("")).toBe("");
+  });
+});
 
 // ── Tests ──
 

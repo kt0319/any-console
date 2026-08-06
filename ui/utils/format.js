@@ -1,3 +1,27 @@
+import { JOB_COMMAND_PREVIEW_MAX } from "./constants.js";
+
+/**
+ * 末尾を切り詰めて "..." を付ける（超過時のみ）。
+ * @param {string | null | undefined} str
+ * @param {number} maxLen
+ * @returns {string}
+ */
+export function truncateTail(str, maxLen) {
+  const s = String(str || "");
+  return s.length > maxLen ? s.slice(0, maxLen) + "..." : s;
+}
+
+/**
+ * ジョブ実行確認ダイアログに出すコマンドのプレビュー。コマンドが無い
+ * ジョブはジョブ名でフォールバックする（WorkspaceJobsPane / Recent Jobs 共通）。
+ * @param {string | null | undefined} command
+ * @param {string} fallbackName
+ * @returns {string}
+ */
+export function jobCommandPreview(command, fallbackName) {
+  return command ? truncateTail(command, JOB_COMMAND_PREVIEW_MAX) : fallbackName;
+}
+
 export function formatSize(bytes) {
   if (bytes == null) return "";
   if (bytes < 1024) return `${bytes} B`;

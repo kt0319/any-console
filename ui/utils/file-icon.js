@@ -1,3 +1,5 @@
+import { basename } from "./path.js";
+
 const JS = ["\u{E781}", "#f1e05a"];
 const REACT = ["\u{E7BA}", "#3178c6"];
 const SHELL = ["\u{E795}", "#89e051"];
@@ -96,7 +98,7 @@ export function renderFileIcon(entry) {
 }
 
 export function renderFileIconFromPath(path) {
-  const name = String(path || "").split("/").pop() || "";
+  const name = basename(path);
   const nameMatch = NF_NAME_MAP[name];
   if (nameMatch) return iconSpan(nameMatch[0], nameMatch[1]);
 

@@ -25,6 +25,9 @@ export const RECONNECT_BACKOFF_MAX = 5000;
 export const RECONNECTING_OVERLAY_MIN_ATTEMPTS = 2;
 export const CWD_POLL_INTERVAL_MS = 1000;
 export const DEV_SERVER_POLL_INTERVAL_MS = 10000;
+// GitHub（gh CLI経由のPR/Actions一覧）の再取得間隔。ローカルのポートスキャン
+// （DEV_SERVER_POLL_INTERVAL_MS）と違い外部APIを叩くため、控えめな間隔にする。
+export const GITHUB_POLL_INTERVAL_MS = 30000;
 export const MOBILE_BREAKPOINT_PX = 768;
 export const INPUT_HISTORY_MAX = 100;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
@@ -66,6 +69,10 @@ export const LS_PREFIX_API_CACHE = "api_cache_";
 export const LS_PREFIX_WS_META = "ws_meta_";
 
 export const MSG_SAVE_FAILED = "Save failed";
+// ジョブ実行確認ダイアログに出すコマンドプレビューの最大文字数（format.js の
+// jobCommandPreview が使用）。
+export const JOB_COMMAND_PREVIEW_MAX = 300;
+
 export const MSG_DELETE_FAILED = "Delete failed";
 export const MSG_ERROR_OCCURRED = "An error occurred";
 

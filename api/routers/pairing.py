@@ -156,7 +156,8 @@ def _effective_port(request: Request) -> int | None:
     として素通りしてしまい、実際には到達可能なのにペアリングを拒否してしまう。
     """
     if request.url.port is not None:
-        return request.url.port
+        # starlette の URL.port は型スタブ上 Any になる版があるため int に確定させる
+        return int(request.url.port)
     if request.url.scheme == "https":
         return 443
     if request.url.scheme == "http":

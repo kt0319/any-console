@@ -84,6 +84,7 @@ import { isMobileUserAgent } from "../utils/device.js";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { usePushNotification } from "../composables/usePushNotification.js";
+import { usePwaInstall } from "../composables/usePwaInstall.js";
 import StatusOverlay from "./StatusOverlay.vue";
 import RecentJobsList from "./RecentJobsList.vue";
 
@@ -119,12 +120,9 @@ const doneHttpsSetup = computed(() => location.protocol === "https:");
 const eligiblePwaInstall = computed(() => !isLocalDev && location.protocol === "https:");
 const donePwaInstall = computed(() => layoutStore.isPwa);
 
-/** @type {Event | null} beforeinstallprompt でキャプチャした遅延プロンプト（Safari等では発火しない）。 */
-let deferredInstallPrompt = null;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-});
+// beforeinstallprompt のキャプチャはモジュールスコープで1つだけ保持する
+// （再マウントでのリスナ累積・イベント取り逃し防止。usePwaInstall.js 参照）。
+const { promptInstall } = usePwaInstall();
 
 // PWAインストール済み(=isPwa)の場合に出すpush通知の導線。
 // PWA未インストールの間はブラウザ通知の信頼性が低いため、インストール後に出す。
@@ -186,12 +184,7 @@ async function showHttpsInstructions() {
 }
 
 async function installPwa() {
-  if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    return;
-  }
+  if (await promptInstall()) return;
   const instructions = isMobileUserAgent(navigator.userAgent)
     ? "Tap the Share icon, then \"Add to Home Screen\"."
     : "Open your browser's menu and choose \"Install\" (or \"Add to Home Screen\").";

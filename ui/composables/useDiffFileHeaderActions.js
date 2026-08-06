@@ -4,8 +4,10 @@ import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { buildGithubFileUrl } from "../utils/git.js";
 import { workspaceGitDiscardPath } from "../utils/endpoints.js";
+import { basename, dirname } from "../utils/path.js";
 import { emit } from "../app-bridge.js";
 
 export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, editorUrlTemplate, openInEditor }) {
@@ -33,14 +35,12 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
 
   function browseToFolder() {
     if (!filePath.value) return;
-    const parts = filePath.value.split("/");
-    parts.pop();
-    emit("git:browseToFolder", { path: parts.join("/") });
+    emit("git:browseToFolder", { path: dirname(filePath.value) });
   }
 
   async function discard() {
     if (!filePath.value) return;
-    if (!await confirm(`Discard changes to "${filePath.value}"?`)) return;
+    if (!await confirmIrreversible(confirm, `Discard changes to "${filePath.value}"?`)) return;
     await withWorkspace(async (workspace) => {
       const { ok } = await apiCommand(
         workspaceGitDiscardPath(workspace),
@@ -53,7 +53,7 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
 
   async function deleteFile() {
     if (!filePath.value) return;
-    if (!await confirm(`Delete "${filePath.value.split("/").pop()}"?`)) return;
+    if (!await confirmIrreversible(confirm, `Delete "${basename(filePath.value)}"?`)) return;
     const ok = await deleteWorkspaceFile(filePath.value);
     if (ok) emit("git:selectDirty");
   }

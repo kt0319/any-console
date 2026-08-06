@@ -8,6 +8,7 @@ import "./styles/drag-utils.css";
 import "./styles/base.css";
 import "./styles/dialog.css";
 import "./styles/settings-form.css";
+import "./styles/info-pills.css";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
