@@ -51,7 +51,7 @@
                 <span class="pill-peek-changes-minus">-{{ deletions }}</span>
               </template>
               <template v-else-if="peekingKey === 'branch'">
-                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="branchPushDone" class="pill-peek-branch-done pill-peek-branch-push-done"> Push Done</span><span v-if="branchPullDone" class="pill-peek-branch-done pill-peek-branch-pull-done"> Pull Done</span>
+                {{ paneWorkspace?.branch || '' }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="branchPushDone" class="pill-peek-branch-done pill-peek-branch-push-done"> Pushed</span><span v-if="branchPullDone" class="pill-peek-branch-done pill-peek-branch-pull-done"> Pulled</span>
               </template>
               <template v-else>{{ peekText }}</template>
             </span>
@@ -661,7 +661,7 @@ const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
 // branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
-// 「Push Done」「Pull Done」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
+// 「Pushed」「Pulled」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
 const branchPushDone = ref(false);
 const branchPullDone = ref(false);
 // paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
