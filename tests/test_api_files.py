@@ -385,3 +385,60 @@ class TestFileDownload:
             assert "subdir/a.txt" in names
             assert "subdir/nested/b.txt" in names
             assert zf.read("subdir/a.txt") == b"a"
+
+    def test_download_directory_zip_excludes_git_dir(self, client, workspace):
+        # ファイル一覧APIが隠している .git は zip にも入れない（一覧との一貫性）
+        sub = workspace / "subdir"
+        sub.mkdir()
+        (sub / "a.txt").write_text("a", encoding="utf-8")
+        (sub / ".git").mkdir()
+        (sub / ".git" / "config").write_text("secret", encoding="utf-8")
+
+        res = client.get(
+            "/workspaces/test-ws/download",
+            headers=AUTH,
+            params={"path": "subdir"},
+        )
+        assert res.status_code == 200
+        with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
+            names = set(zf.namelist())
+            assert "subdir/a.txt" in names
+            assert not any(".git" in n for n in names)
+
+    def test_download_directory_zip_skips_symlinks(self, client, workspace, tmp_path):
+        # symlink を辿るとワークスペース外の実体が混入しうるためスキップする
+        outside = tmp_path / "outside-secret.txt"
+        outside.write_text("secret", encoding="utf-8")
+        sub = workspace / "subdir"
+        sub.mkdir()
+        (sub / "a.txt").write_text("a", encoding="utf-8")
+        (sub / "link.txt").symlink_to(outside)
+        (sub / "linkdir").symlink_to(tmp_path)
+
+        res = client.get(
+            "/workspaces/test-ws/download",
+            headers=AUTH,
+            params={"path": "subdir"},
+        )
+        assert res.status_code == 200
+        with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
+            names = set(zf.namelist())
+            assert "subdir/a.txt" in names
+            assert not any("link" in n for n in names)
+            assert not any("secret" in n for n in names)
+
+    def test_download_directory_zip_too_large_returns_413(self, client, workspace, monkeypatch):
+        from api.routers import git_files as git_files_mod
+
+        monkeypatch.setattr(git_files_mod, "MAX_ZIP_DOWNLOAD_SIZE", 10)
+        sub = workspace / "subdir"
+        sub.mkdir()
+        (sub / "big.txt").write_text("x" * 100, encoding="utf-8")
+
+        res = client.get(
+            "/workspaces/test-ws/download",
+            headers=AUTH,
+            params={"path": "subdir"},
+        )
+        assert res.status_code == 413
+        assert "too large" in res.json()["detail"].lower()

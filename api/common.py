@@ -73,6 +73,10 @@ BACKGROUND_FETCH_TIMEOUT_SEC = 15
 GIT_LOG_MAX_ENTRIES = 10000
 
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+# フォルダzipダウンロードの上限（圧縮前の合計サイズ）。上限なしだと
+# node_modules・ビルド成果物込みのディレクトリ指定で巨大な一時ファイル生成に
+# ワーカーを長時間占有してしまう（Raspberry Pi等の小型機前提のため控えめに）。
+MAX_ZIP_DOWNLOAD_SIZE = 200 * 1024 * 1024
 WORKSPACE_JOBS_CACHE_TTL_SEC = 60
 GIT_INFO_CACHE_TTL_SEC = 5
 
