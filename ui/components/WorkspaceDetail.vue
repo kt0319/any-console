@@ -86,6 +86,7 @@ import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { usePaneLoader } from "../composables/usePaneLoader.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -165,17 +166,16 @@ function updateViewTitle() {
 }
 
 
-let loadedWorkspace = null;
-let historyLoadedFor = null;
-let filesLoadedFor = null;
-let branchLoadedFor = null;
+// ペインごとの once-load 状態（どのキーで読み込み済みか）は paneLoader に集約する。
+// "view" はワークスペース/セッション切替の検出用（切替時に各ペインを無効化する）。
+const paneLoader = usePaneLoader();
 
 function loadBranchSection() {
-  if (branchLoadedFor === workspaceStore.selectedWorkspace) return;
-  branchLoadedFor = workspaceStore.selectedWorkspace;
-  nextTick(() => {
-    gitBranch.value?.load();
-    gitBranch.value?.backgroundFetch();
+  paneLoader.ensure("branch", workspaceStore.selectedWorkspace, () => {
+    nextTick(() => {
+      gitBranch.value?.load();
+      gitBranch.value?.backgroundFetch();
+    });
   });
 }
 
@@ -235,15 +235,13 @@ function open(options) {
   }
 
   const filesKey = terminalSessionId.value || workspace;
-  const workspaceChanged = filesKey !== loadedWorkspace;
-  if (workspaceChanged) {
-    historyLoadedFor = null;
-    filesLoadedFor = null;
-    branchLoadedFor = null;
+  paneLoader.ensure("view", filesKey, () => {
+    paneLoader.invalidate("history");
+    paneLoader.invalidate("files");
+    paneLoader.invalidate("branch");
     branchSectionExpanded.value = false;
     isViewingCommitFiles.value = false;
-    loadedWorkspace = filesKey;
-  }
+  });
 
   switchPane(resolvedPane, { expandBranch: wantBranchExpanded });
 }
@@ -265,10 +263,7 @@ async function switchPane(key, opts = {}) {
       // 場合）でBranchヘッダーが隠れたまま復帰しなくなるのを防ぐため、
       // Historyタブに入るたびに実際の展開状態へ同期し直す。
       isViewingCommitFiles.value = !!gitHistory.value?.hasExpanded?.();
-      if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
-        historyLoadedFor = workspaceStore.selectedWorkspace;
-        gitHistory.value?.load();
-      }
+      paneLoader.ensure("history", workspaceStore.selectedWorkspace, () => gitHistory.value?.load());
       // 現在ブランチの行は折りたたみ時もセレクトボックスの先頭項目として
       // 常時表示するため、展開の有無に関わらずHistoryタブに入るたび読み込む。
       loadBranchSection();
@@ -283,10 +278,7 @@ async function switchPane(key, opts = {}) {
   } else if (key === "files") {
     nextTick(() => {
       const filesKey = terminalSessionId.value || workspaceStore.selectedWorkspace;
-      if (filesLoadedFor !== filesKey) {
-        filesLoadedFor = filesKey;
-        fileBrowser.value?.load();
-      }
+      paneLoader.ensure("files", filesKey, () => fileBrowser.value?.load());
     });
   }
   // issues/actions/prs は v-if + onMounted で自動ロード
@@ -329,7 +321,8 @@ const _offHandlers = [
   on("git:browseToFolder", ({ path }) => {
     activePane.value = "files";
     clearDiffSelection();
-    filesLoadedFor = workspaceStore.selectedWorkspace;
+    // navigateToPath が読み込みを担うため、files ペインはロード済み扱いにする
+    paneLoader.markLoaded("files", workspaceStore.selectedWorkspace);
     updateViewTitle();
     nextTick(() => fileBrowser.value?.navigateToPath(path));
   }),
@@ -338,7 +331,7 @@ const _offHandlers = [
     if (activePane.value === "history") {
       gitHistory.value?.reload();
     } else {
-      historyLoadedFor = null;
+      paneLoader.invalidate("history");
     }
   }),
 
