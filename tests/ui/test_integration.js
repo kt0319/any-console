@@ -929,10 +929,10 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     expect(layoutStore.isSessionSidebarOpen).toBe(false);
   });
 
-  it("分割モード中は開いていても表示しない", async () => {
+  it("分割モード中も開いていれば表示する", async () => {
     const { layoutStore } = seedSidebar();
     layoutStore.isSplitMode = true;
     await flushPromises();
-    expect(wrapper.find(".session-sidebar").exists()).toBe(false);
+    expect(wrapper.find(".session-sidebar").exists()).toBe(true);
   });
 });

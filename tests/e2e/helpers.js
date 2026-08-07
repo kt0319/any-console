@@ -170,7 +170,7 @@ export async function openWorkspaces(page) {
   if (!(await page.locator(".settings-panel").isVisible())) {
     await page.locator(".tab-menu-btn").click();
   }
-  await page.locator(".session-list-settings-btn", { hasText: "Open Workspace" }).click();
+  await page.locator('.session-tab[aria-label="Open"]').click();
 }
 
 /**

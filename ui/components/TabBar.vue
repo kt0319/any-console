@@ -2,10 +2,8 @@
   <div
     class="tab-bar-row"
     :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
-    :style="{ display: showBarRow ? 'flex' : 'none' }"
   >
     <button
-      v-if="!isSplitMode"
       class="tab-menu-btn"
       :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
       @click="onMenuClick"
@@ -15,7 +13,7 @@
     >
       <span :class="['mdi', isSidebarOpen ? 'mdi-close' : 'mdi-menu']"></span>
     </button>
-    <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }">
+    <div class="tab-bar">
       <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
@@ -49,7 +47,6 @@ const props = defineProps({
 
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
-const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 // PCはセッション一覧+設定の入り口を兼ねる（歯車ボタン廃止）ため文言を変える。
 const sidebarToggleLabel = computed(() => {
@@ -61,8 +58,6 @@ const sortedItems = computed(() => {
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
     .map((tab, i) => ({ type: "tab", tab, index: i }));
 });
-
-const showBarRow = computed(() => !isSplitMode.value);
 
 function onSelect(tab, { skipFocus = false } = {}) {
   emit("tab:select", { tab, skipFocus });
@@ -101,7 +96,7 @@ function onMenuClick() {
 
 <style scoped>
 .tab-bar-row {
-  display: none;
+  display: flex;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;

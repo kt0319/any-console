@@ -174,8 +174,9 @@ import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/w
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
-// セッション一覧の「Open Workspace」ボタン（SessionListView.vue）から
-// 直接開く導線に統一したため、タイトルもそのボタン文言に揃える。
+// タブ帯（SettingsPanel.vue）の短縮ラベルは「Open」だが、ヘッダーの
+// タイトル自体は他の導線（⌘⇧N・Get Startedメニュー等）と共通のため
+// 従来どおり「Open Workspace」のまま変えない。
 modalTitle.value = "Open Workspace";
 
 const workspaceStore = useWorkspaceStore();

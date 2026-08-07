@@ -96,8 +96,14 @@
             </span>
             <span class="device-sub">Last seen: {{ formatRelativeTime(d.last_seen_at) }}</span>
           </div>
-          <button type="button" class="icon-btn-square" :title="d.current ? 'Logout' : 'Revoke'" @click="revoke(d)">
-            <span class="mdi mdi-close"></span>
+          <button
+            type="button"
+            class="icon-btn-square danger"
+            :aria-label="d.current ? 'Logout' : 'Revoke device'"
+            :data-tooltip="d.current ? 'Logout' : 'Revoke'"
+            @click="revoke(d)"
+          >
+            <span class="mdi" :class="d.current ? 'mdi-logout' : 'mdi-trash-can-outline'"></span>
           </button>
         </div>
       </template>
@@ -151,12 +157,12 @@
           </div>
           <button
             type="button"
-            class="icon-btn-square"
+            class="icon-btn-square danger"
             aria-label="Revoke API token"
             data-tooltip="Revoke API token"
             @click="revokeApiToken(t)"
           >
-            <span class="mdi mdi-close"></span>
+            <span class="mdi mdi-trash-can-outline"></span>
           </button>
         </div>
       </template>

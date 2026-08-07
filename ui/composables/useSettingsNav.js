@@ -123,15 +123,32 @@ function registerListeners() {
     if (layoutStore) layoutStore.isSettingsOpen = open;
   }, { immediate: true });
 
+  // Sessions/Dispatches/Dev Server/Open/Settingsはタブ帯（SettingsPanel.vue）
+  // から直接切り替える「根」のビューのため、ModalMenuを挟まず開く
+  // （openViewがSessionListを自動でルートに補うので、ModalMenuを積む
+  // 通常の設定サブ画面と違い、これらはstack[1]に直接乗せてよい）。
+  const ROOT_TAB_VIEWS = new Set(["SessionList", "SessionDispatches", "SessionPreview", "WorkspaceOpen"]);
+
   on("settings:open", (detail) => {
     if (detail?.view) {
-      // 保存済み circle keypad 設定には旧 view 名が残っている可能性があるため読み替える
-      const view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
+      // 保存済み circle keypad 設定・通知タップ等には旧 view 名が残っている
+      // 可能性があるため読み替える（TabConfigは旧Tabs & Sessions画面。
+      // DispatchQueueConfig/PreviewPortsはSessionDispatches/SessionPreview
+      // として独立したタブ帯の根ビューへ統合済み）。
+      let view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
+      if (view === "TabConfig") view = "SessionList";
+      if (view === "DispatchQueueConfig") view = "SessionDispatches";
+      if (view === "PreviewPorts") view = "SessionPreview";
+      const state = detail.state || {};
+      if (ROOT_TAB_VIEWS.has(view)) {
+        openView([{ view, state }]);
+        return;
+      }
       const stack = [{ view: "ModalMenu", state: {} }];
       // PairDeviceConfigは通常AuthConfig配下からのみ遷移するビューのため、
       // 直接開く場合もAuthConfigを積んでおき、戻る操作でAuthConfigに戻れるようにする
       if (view === "PairDeviceConfig") stack.push({ view: "AuthConfig", state: {} });
-      stack.push({ view, state: detail.state || {} });
+      stack.push({ view, state });
       openView(stack);
     } else {
       openView("ModalMenu");
@@ -157,11 +174,6 @@ function registerListeners() {
 
   on("git:openFileModal", (detail) => openWorkspaceDetail(detail));
 
-  on("preview:showPorts", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "PreviewPorts", state: {} },
-  ]));
-
   on("git:openGitHub", () => openWorkspaceDetail({ pane: "issues" }));
 
   on("git:openHistory", (/** @type {{ wsName?: string }} */ { wsName } = {}) => {
@@ -173,12 +185,10 @@ function registerListeners() {
 
   // 設定表示中にタブを切り替えたら閉じてセッション一覧へ戻す（モバイルの
   // オーバーレイがターミナルを隠したままにならないようにするための挙動）。
-  // PCはサイドバーがターミナルを覆わないので対象外。TabConfig（Tabs &
-  // Sessionsペイン）自体もラジオ切り替えで同じイベントを発火するため、
-  // そのビュー表示中は対象外にする。
+  // PCはサイドバーがターミナルを覆わないので対象外。
   on("tab:select", () => {
     if (!layoutStore?.isPanelBottom) return;
-    if (isNavOpen.value && currentView.value !== "TabConfig") closeNav();
+    if (isNavOpen.value) closeNav();
   });
 }
 

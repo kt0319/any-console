@@ -1,57 +1,64 @@
 <template>
-  <div class="modal-scroll-body">
-    <div v-if="loading" class="text-muted-center">Loading...</div>
-    <template v-else>
-      <div class="settings-item-desc">
-        Detected local dev servers on <code>{{ hostname }}</code>.
-      </div>
-      <div v-if="!ports.length" class="settings-item-desc">
-        No ports detected yet. Start a dev server (e.g. <code>npm run dev</code>) in a terminal.
-      </div>
-      <div v-for="p in ports" :key="`${p.session_id}-${p.port}`" class="preview-row">
-        <div class="preview-meta">
-          <div class="preview-top-row">
-            <span v-if="p.workspace" class="preview-label">
-              <span v-html="workspaceIconHtml(p.workspace)"></span>{{ p.workspace }}
-            </span>
-            <span v-else class="preview-label preview-label-none">No workspace</span>
-            <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
-          </div>
-          <div class="preview-port-row">
-            <span class="preview-port">
-              :{{ p.port }}
-              <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
-            </span>
-            <span v-if="p.is_self" class="preview-self">this console</span>
-          </div>
+  <div class="preview-tab">
+    <div class="settings-item-desc">
+      Detected local dev servers on <code>{{ hostname }}</code>.
+    </div>
+    <div v-if="!ports.length" class="settings-item-desc">
+      No ports detected yet. Start a dev server (e.g. <code>npm run dev</code>) in a terminal.
+    </div>
+    <div v-for="p in ports" :key="`${p.session_id}-${p.port}`" class="preview-row">
+      <div class="preview-meta">
+        <div class="preview-top-row">
+          <span v-if="p.workspace" class="preview-label">
+            <span v-html="workspaceIconHtml(p.workspace)"></span>{{ p.workspace }}
+          </span>
+          <span v-else class="preview-label preview-label-none">No workspace</span>
+          <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
         </div>
-        <template v-if="!p.is_self">
-          <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
-            <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
-          </button>
-          <button type="button" class="preview-open" @click="openPreview(p)">
-            <span class="mdi mdi-open-in-new"></span> Open
-          </button>
-        </template>
+        <div class="preview-port-row">
+          <span class="preview-port">
+            :{{ p.port }}
+            <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
+          </span>
+          <span v-if="p.is_self" class="preview-self">this console</span>
+        </div>
       </div>
-    </template>
+      <template v-if="!p.is_self">
+        <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
+          <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
+        </button>
+        <button type="button" class="preview-open" @click="openPreview(p)">
+          <span class="mdi mdi-open-in-new"></span> Open
+        </button>
+      </template>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, inject, onMounted, onUnmounted } from "vue";
-import { usePreviewWatch } from "../composables/usePreviewWatch.js";
+import { inject, onMounted, onBeforeUnmount, ref } from "vue";
 import { copyText } from "../utils/clipboard.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { devServerUrl } from "../utils/preview-url.js";
 
-const modalTitle = inject("modalTitle");
-modalTitle.value = "Dev Server Preview";
+// Sessionsのタブ帯（SettingsPanel.vue）から開くDev Serverタブの中身。
+// 旧PreviewPorts.vue（ModalMenu配下の独立画面）から移植したもの。
+// SessionListView.vueに埋め込むのではなく独立したcurrentView（'SessionPreview'）
+// として遷移するため（詳細はSettingsPanel.vueのコメント参照）、ポーリングは
+// このコンポーネント自身のマウント/アンマウントに紐付ける（usePreviewPortsは
+// ref-counted共有composableのため、TerminalPane/SettingsPanelの他の利用と
+// 重複起動にはならない）。
 
-const { start, stop, ports } = usePreviewWatch();
+const modalTitle = inject("modalTitle");
+modalTitle.value = "Dev Server";
+
+const { ports, start: startPolling, stop: stopPolling } = usePreviewPorts();
+onMounted(startPolling);
+onBeforeUnmount(stopPolling);
+
 const workspaceStore = useWorkspaceStore();
-const loading = ref(true);
 const copiedPort = ref(null);
 const hostname = location.hostname;
 
@@ -80,18 +87,18 @@ async function copyUrl(p) {
     if (copiedPort.value === p.port) copiedPort.value = null;
   }, 1500);
 }
-
-onMounted(async () => {
-  await start();
-  loading.value = false;
-});
-
-onUnmounted(() => {
-  stop();
-});
 </script>
 
 <style scoped>
+.preview-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
 .preview-row {
   display: flex;
   align-items: center;
@@ -184,10 +191,6 @@ onUnmounted(() => {
   padding: 1px 6px;
   border-radius: 8px;
   background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-.preview-skip {
-  font-size: 12px;
   color: var(--text-muted);
 }
 code {
