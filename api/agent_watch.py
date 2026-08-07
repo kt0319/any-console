@@ -8,12 +8,19 @@ push する（routers/status_stream.py が git_watch と同じソケットに相
 
 - 画面差分（既定）: 前回ポーリングから出力が変化していれば working、静止で idle。
   素のシェル・未知ツールを含む全セッションに効く汎用判定。
-- screen manifest（既知エージェントのみ）: 前面プロセス名でエージェントを特定
-  できたセッションは、herdr 由来のルール（screen_manifest.py）の判定
-  （blocked / working / idle）を優先して採用する。スピナーの OSC タイトルで
-  画面静止中の working を、プロンプトボックス検出でステータス行が動き続ける間の
-  idle を正しく判定できる。ルール不一致・unknown・skip_state_update で確定
-  しない場合は画面差分へフォールバックする。
+- screen manifest（既知エージェントのみ）: エージェントを特定できたセッションは、
+  herdr 由来のルール（screen_manifest.py）の判定（blocked / working / idle）を
+  優先して採用する。スピナーの OSC タイトルで画面静止中の working を、
+  プロンプトボックス検出でステータス行が動き続ける間の idle を正しく判定できる。
+  ルール不一致・unknown・skip_state_update で確定しない場合は画面差分へ
+  フォールバックする。特定はプロセス名（#{pane_current_command}）が一次で、
+  当たらなければ前面ジョブの argv（api/foreground.py）でラッパー起動
+  （node スクリプト・sh -c 等）も照合する。
+
+加えて、ジョブタグの無いセッションは前面ジョブの argv をジョブ定義と照合し、
+一致したらジョブメタデータ（TMUX_JOB_NAME 等）を自動で刻印する
+（api/job_match.py）。素のターミナルで手打ちされたジョブ相当のコマンドにも
+notify_phrase・アイコン表示など既存のジョブ機構が有効になる。
 
 ジョブ定義に notify_phrase が設定されている場合、可視ペインにその文字列が
 現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。ただし検出直後に
@@ -43,7 +50,15 @@ from .common import (
     PHRASE_NOTIFY_IDLE_GRACE_SEC,
     TMUX_SESSION_PREFIX,
 )
-from .screen_manifest import ADOPTED_STATES, evaluate_state, identify_agent
+from .foreground import ForegroundInspector
+from .job_match import JobPattern, build_job_patterns, candidate_jobs, match_job
+from .screen_manifest import (
+    ADOPTED_STATES,
+    Manifest,
+    evaluate_state,
+    identify_agent,
+    identify_agent_from_argvs,
+)
 from .tmux import _run_tmux_cmd, capture_visible_pane, list_pane_meta, load_tmux_metadata
 
 logger = logging.getLogger(__name__)
@@ -64,21 +79,88 @@ def classify_agent_state(capture: str, prev_capture: str | None) -> str:
 
 
 def resolve_session_state(
-    capture: str, prev_capture: str | None, pane_command: str, pane_title: str,
+    capture: str, prev_capture: str | None, manifest: Manifest | None, pane_title: str,
 ) -> str:
     """画面差分と screen manifest を統合してセッション状態を決める。
 
-    既知エージェント（前面プロセス名で特定）は manifest 判定
+    既知エージェント（manifest が特定済み）は manifest 判定
     （blocked / working / idle）を優先し、確定しない場合
     （ルール不一致・unknown・skip_state_update）は画面差分の結果を使う。
     """
     state = classify_agent_state(capture, prev_capture)
-    manifest = identify_agent(pane_command)
     if manifest is not None:
         manifest_state = evaluate_state(manifest, capture, osc_title=pane_title)
         if manifest_state in ADOPTED_STATES:
             state = manifest_state
     return state
+
+
+def _detect_manifest(
+    pane_command: str, pane_pid: int, inspector: ForegroundInspector,
+) -> tuple[Manifest | None, list[list[str]] | None]:
+    """エージェント特定。プロセス名で当たらなければ前面ジョブの argv で再照合する。
+
+    Returns:
+        (manifest, argvs): argvs はラッパー照合のために取得した場合のみ非 None
+        （ジョブ照合で再利用し、前面ジョブ取得の二重実行を避ける）。
+    """
+    manifest = identify_agent(pane_command)
+    argvs: list[list[str]] | None = None
+    if manifest is None and pane_pid > 0:
+        argvs = inspector.argvs(pane_pid)
+        manifest = identify_agent_from_argvs(argvs)
+    return manifest, argvs
+
+
+def _apply_job_tag(session_id: str, pattern: JobPattern) -> None:
+    """一致したジョブのメタデータをセッションへ刻印する。
+
+    刻印されれば notify_phrase・アイコン表示など既存のジョブ機構が
+    次のポーリング以降そのまま有効になる。
+    """
+    from .terminal_session import TERMINAL_SESSIONS, sessions_lock
+    label = pattern.definition.label or pattern.name
+    with sessions_lock:
+        cached = TERMINAL_SESSIONS.get(session_id)
+        if cached is not None:
+            cached.job_name = pattern.name
+            cached.job_label = label
+            if not cached.icon and pattern.definition.icon:
+                cached.icon = pattern.definition.icon
+                cached.icon_color = pattern.definition.icon_color
+    if cached is not None:
+        cached.save_metadata()
+    else:
+        tmux_name = TMUX_SESSION_PREFIX + session_id
+        _run_tmux_cmd(
+            "set-environment", "-t", tmux_name, "TMUX_JOB_NAME", pattern.name,
+            ";", "set-environment", "-t", tmux_name, "TMUX_JOB_LABEL", label,
+        )
+    logger.info("auto-tagged job session=%s job=%s", session_id, pattern.name)
+
+
+def _maybe_autotag_job(
+    session_id: str,
+    workspace: str | None,
+    job_name: str | None,
+    pane_pid: int,
+    argvs: list[list[str]] | None,
+    inspector: ForegroundInspector,
+) -> None:
+    """未タグのセッションで前面ジョブがジョブ定義と一致したらタグ付けする。
+
+    既にジョブタグのあるセッション（明示起動・過去の自動タグとも）は
+    上書きしない。照合は完全一致のみ（api/job_match.py）。
+    """
+    if job_name or pane_pid <= 0:
+        return
+    if argvs is None:
+        argvs = inspector.argvs(pane_pid)
+    if not argvs:
+        return
+    pattern = match_job(argvs, build_job_patterns(candidate_jobs(workspace)))
+    if pattern is not None:
+        _apply_job_tag(session_id, pattern)
 
 
 def _list_session_ids() -> list[str] | None:
@@ -247,8 +329,11 @@ def collect_agent_states() -> tuple[
     ws_clear_session_ids: list[str] = []
     now = time.monotonic()
     grace_sec = _notify_grace_sec()
-    # blocked 判定用の (前面プロセス名, ペインタイトル)。周期あたり tmux 1 回で全取得。
+    # manifest 判定・ジョブ照合用の (前面プロセス名, タイトル, シェル PID)。
+    # 周期あたり tmux 1 回で全取得。前面ジョブの argv は必要になったときだけ
+    # inspector 経由で取得する（macOS の ps は周期あたり最大 1 回に集約される）。
     pane_meta = list_pane_meta()
+    inspector = ForegroundInspector()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
@@ -256,9 +341,12 @@ def collect_agent_states() -> tuple[
         workspace, job_name = _session_meta(session_id)
         notify_phrase = _job_notify_phrase(workspace, job_name)
         prev_capture = _last_capture.get(session_id)
-        pane_command, pane_title = pane_meta.get(TMUX_SESSION_PREFIX + session_id, ("", ""))
-        new_state = resolve_session_state(capture, prev_capture, pane_command, pane_title)
+        pane_command, pane_title, pane_pid = pane_meta.get(
+            TMUX_SESSION_PREFIX + session_id, ("", "", 0))
+        manifest, argvs = _detect_manifest(pane_command, pane_pid, inspector)
+        new_state = resolve_session_state(capture, prev_capture, manifest, pane_title)
         states[session_id] = new_state
+        _maybe_autotag_job(session_id, workspace, job_name, pane_pid, argvs, inspector)
         changed = prev_capture is not None and capture != prev_capture
         should_push, should_clear_ws = _should_notify_phrase(
             session_id, notify_phrase, capture, changed, now, grace_sec,

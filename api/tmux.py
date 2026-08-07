@@ -209,8 +209,8 @@ def detect_workspace_from_tmux(tmux_name: str) -> str | None:
     return None
 
 
-def list_pane_meta() -> dict[str, tuple[str, str]]:
-    """全 tmux セッションの (pane_current_command, pane_title) を一括で返す。
+def list_pane_meta() -> dict[str, tuple[str, str, int]]:
+    """全 tmux セッションの (pane_current_command, pane_title, pane_pid) を一括で返す。
 
     キーはセッション名。agent_watch がポーリング 1 周期につき 1 回だけ呼び、
     セッション数に比例した tmux 呼び出しを避ける。本アプリはセッションごとに
@@ -219,16 +219,20 @@ def list_pane_meta() -> dict[str, tuple[str, str]]:
     """
     result = _run_tmux_cmd(
         "list-panes", "-a", "-F",
-        "#{session_name}\t#{pane_current_command}\t#{pane_title}",
+        "#{session_name}\t#{pane_current_command}\t#{pane_pid}\t#{pane_title}",
     )
     if result is None or result.returncode != 0:
         return {}
-    meta: dict[str, tuple[str, str]] = {}
+    meta: dict[str, tuple[str, str, int]] = {}
     for line in result.stdout.splitlines():
         parts = line.split("\t")
-        if len(parts) < 3:
+        if len(parts) < 4:
             continue
-        meta.setdefault(parts[0], (parts[1], "\t".join(parts[2:])))
+        try:
+            pane_pid = int(parts[2])
+        except ValueError:
+            pane_pid = 0
+        meta.setdefault(parts[0], (parts[1], "\t".join(parts[3:]), pane_pid))
     return meta
 
 

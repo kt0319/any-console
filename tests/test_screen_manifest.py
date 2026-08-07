@@ -224,6 +224,25 @@ class TestBundledManifests:
                 assert rule.state in _KNOWN_STATES, \
                     f"{manifest.id}:{rule.id} has unknown state {rule.state}"
 
+    def test_identify_agent_from_argvs(self):
+        from api.screen_manifest import identify_agent_from_argvs as from_argvs
+        # 直接起動
+        assert from_argvs([["claude", "--continue"]]).id == "claude"
+        # ランタイムラッパー（node スクリプト・フラグ・拡張子付き）
+        assert from_argvs([["node", "/usr/lib/node_modules/claude"]]).id == "claude"
+        assert from_argvs([["node", "--require", "x.js", "/y/claude.js"]]).id == "claude"
+        assert from_argvs([["python3", "/opt/codex"]]).id == "codex"
+        # シェル -c 形式
+        assert from_argvs([["zsh", "-c", "claude --continue"]]).id == "claude"
+        # グループ内のいずれかのプロセスが一致すればよい
+        assert from_argvs([["npm", "run", "x"], ["node", "/a/claude"]]).id == "claude"
+        # インライン評価は特定しない
+        assert from_argvs([["node", "-e", "claude"]]) is None
+        # 非一致・空
+        assert from_argvs([["vim", "notes.md"]]) is None
+        assert from_argvs([]) is None
+        assert from_argvs([[]]) is None
+
     def test_identify_agent(self):
         assert identify_agent("claude") is not None
         assert identify_agent("claude").id == "claude"

@@ -20,6 +20,8 @@ api/                          Backend (FastAPI)
   git_watch.py                Filesystem watching (watchfiles) × WebSocket push for realtime git status
   screen_manifest.py          Agent state detection from pane content (herdr manifests: bundled + remote + local override)
   manifest_update.py          Periodic remote manifest updates from herdr.dev (validated, cached under data/)
+  foreground.py               Foreground process group argv inspection (/proc on Linux, ps on macOS)
+  job_match.py                Match foreground argv against job definitions (auto-tag manual runs)
   config.py / config_schema.py  config.json read/write, Pydantic validation
   config_migrations.py        config.json schema versioning + auto-migration
   rate_limiter.py             In-process rate limiter

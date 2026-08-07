@@ -281,16 +281,94 @@ def invalidate_manifest_cache() -> None:
     _manifest_cache.invalidate_all()
 
 
+def _lookup_manifest(name: str) -> Manifest | None:
+    for manifest in load_manifests():
+        if name == manifest.id or name in manifest.aliases:
+            return manifest
+    return None
+
+
+def _normalized_basename(token: str) -> str:
+    """パス・引用符・既知の拡張子を落とした照合用の名前を返す。"""
+    name = token.strip("\"'").replace("\\", "/").rsplit("/", 1)[-1].lower()
+    for ext in (".js", ".mjs", ".cjs", ".py", ".exe", ".cmd"):
+        if name.endswith(ext):
+            return name[: -len(ext)]
+    return name
+
+
 def identify_agent(pane_command: str | None) -> Manifest | None:
     """tmux の `#{pane_current_command}` からエージェントのマニフェストを特定する。"""
     if not pane_command:
         return None
-    name = pane_command.strip().lower().rsplit("/", 1)[-1]
+    name = _normalized_basename(pane_command)
     if not name:
         return None
-    for manifest in load_manifests():
-        if name == manifest.id or name in manifest.aliases:
-            return manifest
+    return _lookup_manifest(name)
+
+
+# ランタイム・シェル経由の起動（`node /path/claude` 等）でエージェント名が
+# argv の後方に来るもの。herdr の wrapped_agent_name_from_runtime_argv の
+# Linux / macOS 向けサブセット。
+_RUNTIME_NAMES = frozenset({"node", "bun", "deno", "python", "python2", "python3"})
+_SHELL_NAMES = frozenset({"sh", "bash", "zsh", "fish"})
+# これらのフラグが来たらスクリプト実行ではない（インライン評価）ので諦める
+_RUNTIME_EVAL_FLAGS = frozenset({"-e", "--eval", "-p", "--print", "-c", "-m"})
+# 値を取るフラグ（次の引数をスクリプト名と誤認しないためスキップする）
+_RUNTIME_VALUE_FLAGS = frozenset({"-r", "--require", "--loader", "--import", "--experimental-loader"})
+
+
+def _runtime_script_name(argv: list[str]) -> str | None:
+    """ランタイム argv からスクリプト名（正規化済み basename）を取り出す。"""
+    i = 1
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--":
+            return _normalized_basename(argv[i + 1]) if i + 1 < len(argv) else None
+        if arg in _RUNTIME_EVAL_FLAGS:
+            return None
+        if arg.startswith("-"):
+            if arg in _RUNTIME_VALUE_FLAGS:
+                i += 1
+            i += 1
+            continue
+        return _normalized_basename(arg)
+    return None
+
+
+def _shell_command_name(argv: list[str]) -> str | None:
+    """`sh -c 'claude ...'` 形式からコマンド名を取り出す。"""
+    for i, arg in enumerate(argv[1:], start=1):
+        if arg == "-c" and i + 1 < len(argv):
+            tokens = argv[i + 1].split()
+            return _normalized_basename(tokens[0]) if tokens else None
+    return None
+
+
+def identify_agent_from_argvs(argvs: list[list[str]]) -> Manifest | None:
+    """前面プロセスグループの argv 一覧からエージェントを特定する。
+
+    プロセス名（`#{pane_current_command}`）で特定できないラッパー起動
+    （node スクリプト・`sh -c` 等）向けのフォールバック。最初に一致した
+    プロセスのマニフェストを返す。
+    """
+    for argv in argvs:
+        if not argv:
+            continue
+        argv0 = _normalized_basename(argv[0])
+        candidates = [argv0]
+        if argv0 in _RUNTIME_NAMES:
+            script = _runtime_script_name(argv)
+            if script:
+                candidates.append(script)
+        elif argv0 in _SHELL_NAMES:
+            command = _shell_command_name(argv)
+            if command:
+                candidates.append(command)
+        for name in candidates:
+            manifest = _lookup_manifest(name)
+            if manifest is not None:
+                return manifest
     return None
 
 
