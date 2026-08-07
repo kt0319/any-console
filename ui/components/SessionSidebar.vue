@@ -35,6 +35,23 @@
             </span>
           </span>
         </button>
+        <InfoPillRow
+          class="session-sidebar-pills"
+          :tab="item.tab"
+          :max-width="9999"
+          :is-git-repo="item.isGitRepo"
+          :is-dirty="item.dirty"
+          :ahead="item.ahead"
+          :behind="item.behind"
+          :has-pr="item.hasPr"
+          :has-action="item.hasAction"
+          :has-dev-server="item.hasDevServer"
+          :dispatch-count="item.dispatchCount"
+          :action-status-class="item.actionStatusClass"
+          :action-status-icon="item.actionStatusIcon"
+          :tooltips="item.tooltips"
+          @open="onPillOpen(item, $event)"
+        />
       </li>
     </ul>
     <div v-else class="session-sidebar-empty">No sessions</div>
@@ -42,12 +59,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { sessionSidebarItems } from "../utils/session-sidebar.js";
+import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
+import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
+import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
+import { useInfoPillActions } from "../composables/useInfoPillActions.js";
+import InfoPillRow from "./InfoPillRow.vue";
 import { emit } from "../app-bridge.js";
 
 // タブバー左端のハンバーガーで開くセッションサイドバー。開いているタブごとに
@@ -59,6 +82,13 @@ import { emit } from "../app-bridge.js";
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
+
+// 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
+// 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
+const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
+const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
+const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
+const { queue: dispatchQueue } = useDispatchConfirm();
 
 // 分割モード中はタブバー（ハンバーガー）自体が隠れるため、サイドバーも出さない。
 const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isSplitMode);
@@ -73,6 +103,11 @@ const items = computed(() => {
     tabFlags: terminalStore.tabFlags,
     agentStates: terminalStore.agentStates,
     phraseNotifySessions: terminalStore.phraseNotifySessions,
+    prsByWorkspace: prsByWorkspace.value,
+    runsByWorkspace: runsByWorkspace.value,
+    previewPorts: previewPorts.value,
+    dispatchQueue: dispatchQueue.value,
+    hostname: location.hostname,
   });
 });
 
@@ -89,6 +124,64 @@ function onSelect(item) {
   if (layoutStore.isPanelBottom) layoutStore.closeSessionSidebar();
 }
 
+// ピルタップ：そのタブへ切替えてから対応ペインを開く（TerminalPaneの
+// ピルと同じ遷移をuseInfoPillActionsで再利用する）。
+function onPillOpen(item, key) {
+  if (item.id !== terminalStore.activeTabId) {
+    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
+  }
+  const { openPane } = useInfoPillActions({
+    tab: ref(item.tab),
+    isGitRepo: ref(item.isGitRepo),
+    devServerEntry: ref(item.devServerEntry),
+    tabDispatchItems: ref(item.dispatchItems),
+  });
+  openPane(key);
+  if (layoutStore.isPanelBottom) layoutStore.closeSessionSidebar();
+}
+
+// サイドバーは常時マウントされたまま開閉だけ切り替わる（v-ifはこの
+// コンポーネント自身のルートにのみ掛かっている）ため、onMounted/
+// onBeforeUnmountではなくisOpenの変化でポーリングを開始/停止する。
+// PR/Actionsはgithub連携のあるgitワークスペースだけ、開いているタブの
+// 集合が変わるたびに増減分だけ開始/停止する（TerminalPaneの同種ロジック
+// を複数ワークスペース分にまとめたもの）。
+const githubWorkspaceKeys = computed(() => {
+  if (!isOpen.value) return [];
+  const keys = new Set();
+  for (const tab of terminalStore.openTabs) {
+    if (!tab.workspace) continue;
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === tab.workspace);
+    if (ws?.is_git_repo && ws?.github_url) keys.add(tab.workspace);
+  }
+  return [...keys];
+});
+
+let activeGithubKeys = /** @type {string[]} */ ([]);
+watch(githubWorkspaceKeys, (keys) => {
+  const keySet = new Set(keys);
+  for (const old of activeGithubKeys) {
+    if (!keySet.has(old)) {
+      stopPRsPolling(old);
+      stopActionsPolling(old);
+    }
+  }
+  for (const key of keys) {
+    if (!activeGithubKeys.includes(key)) {
+      fetchPRs(key);
+      fetchRuns(key);
+      startPRsPolling(key);
+      startActionsPolling(key);
+    }
+  }
+  activeGithubKeys = keys;
+}, { immediate: true });
+
+watch(isOpen, (open) => {
+  if (open) startPreviewPolling();
+  else stopPreviewPolling();
+}, { immediate: true });
+
 // Esc で閉じる。モーダルの Esc（listenForEscape はキャプチャ段階で
 // preventDefault する）と重ねて閉じないよう defaultPrevented を確認する。
 function onKeydown(e) {
@@ -103,6 +196,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", onKeydown);
+  // このコンポーネント自体は基本常時マウントのままだが、念のため
+  // 破棄時にポーリング参照を残さないようにする。
+  for (const key of activeGithubKeys) {
+    stopPRsPolling(key);
+    stopActionsPolling(key);
+  }
+  if (isOpen.value) stopPreviewPolling();
 });
 </script>
 
@@ -133,6 +233,12 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 4px 0;
+}
+
+/* TerminalPaneのピル行と同じ見た目（ui/styles/info-pills.css）をそのまま
+   使うため、ここではサイドバー内での配置だけ調整する。 */
+.session-sidebar-pills {
+  padding: 0 12px 8px 36px;
 }
 
 .session-sidebar-item {

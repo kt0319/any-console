@@ -102,3 +102,69 @@ describe("sessionSidebarItems", () => {
     expect(sessionSidebarItems(undefined, undefined)).toEqual([]);
   });
 });
+
+describe("sessionSidebarItems: Info Pills用データ（PR/Actions/Dev Server/Dispatch）", () => {
+  const tabs = [
+    { id: 1, sessionId: "s1", workspace: "app", label: "app", wsIcon: null, icon: null },
+    { id: 2, sessionId: "s2", workspace: "nogit", label: "nogit", wsIcon: null, icon: null },
+  ];
+  const workspaces = [
+    { name: "app", branch: "main", is_git_repo: true, clean: true, ahead: 0, behind: 0 },
+    { name: "nogit", branch: "", is_git_repo: false },
+  ];
+
+  it("isGitRepoでない・workspace未紐付けはPR/Actions/Dev Serverの対象外", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      prsByWorkspace: { nogit: [{ headRefName: "main" }] },
+      runsByWorkspace: { nogit: [{ headBranch: "main", status: "in_progress" }] },
+    });
+    const nogit = items.find((i) => i.id === 2);
+    expect(nogit.isGitRepo).toBe(false);
+    expect(nogit.hasPr).toBe(false);
+    expect(nogit.hasAction).toBe(false);
+  });
+
+  it("現在のブランチに対応するPR/実行中ActionsがあればhasPr/hasActionが立つ", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      prsByWorkspace: { app: [{ headRefName: "main", number: 1, title: "fix" }] },
+      runsByWorkspace: { app: [{ headBranch: "main", status: "in_progress" }] },
+    });
+    const app = items.find((i) => i.id === 1);
+    expect(app.hasPr).toBe(true);
+    expect(app.hasAction).toBe(true);
+    expect(app.actionStatusClass).toBe("action-status-running");
+    expect(app.tooltips.prs).toContain("#1");
+  });
+
+  it("成功で完了したrunはhasActionを立てない（isNoticeableRunと同じ判定）", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      runsByWorkspace: { app: [{ headBranch: "main", status: "completed", conclusion: "success" }] },
+    });
+    expect(items.find((i) => i.id === 1).hasAction).toBe(false);
+  });
+
+  it("該当workspaceのproxy_port検出でhasDevServerが立つ", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      previewPorts: [{ workspace: "app", proxy_port: 3000 }, { workspace: "nogit", proxy_port: null }],
+    });
+    expect(items.find((i) => i.id === 1).hasDevServer).toBe(true);
+    expect(items.find((i) => i.id === 2).hasDevServer).toBe(false);
+  });
+
+  it("dispatchQueueをworkspaceで絞り込みdispatchCountに反映する", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      dispatchQueue: [{ request: { workspace: "app" } }, { request: { workspace: "other" } }],
+    });
+    expect(items.find((i) => i.id === 1).dispatchCount).toBe(1);
+    expect(items.find((i) => i.id === 2).dispatchCount).toBe(0);
+  });
+
+  it("tooltipsにbranch/changes/devserverの文言を組み立てる", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      previewPorts: [{ workspace: "app", proxy_port: 3000, scheme: "http" }],
+    });
+    const app = items.find((i) => i.id === 1);
+    expect(app.tooltips.branch).toContain("main");
+    expect(app.tooltips.devserver).toContain("Dev Server");
+  });
+});
