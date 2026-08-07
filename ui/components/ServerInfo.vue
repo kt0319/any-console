@@ -70,7 +70,7 @@ import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.js";
+import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "System Info";
@@ -166,7 +166,7 @@ async function load() {
   isLoading.value = true;
   const get = (ep) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
   const [srv, prc, auth] = await Promise.all([
-    get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get("/auth/check"),
+    get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_AUTH_CHECK),
   ]);
 
   sections.value = [

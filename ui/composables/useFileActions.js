@@ -10,6 +10,7 @@ import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { usePrompt } from "./usePrompt.js";
 import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.js";
 import { basename, dirname } from "../utils/path.js";
+import { workspaceFilesPath } from "../utils/endpoints.js";
 
 export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
@@ -63,7 +64,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
   const normalizedName = (f) => (f.name || "").normalize("NFC");
 
   async function fetchExistingNames(workspace, uploadPath) {
-    const listing = await getWithRetry(apiGet, wsEndpoint(workspace, `files?path=${encodeURIComponent(uploadPath)}`));
+    const listing = await getWithRetry(apiGet, workspaceFilesPath(workspace, uploadPath));
     const names = new Set();
     if (listing.ok && listing.data?.entries) {
       for (const e of listing.data.entries) names.add(e.name);

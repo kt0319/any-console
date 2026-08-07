@@ -3,6 +3,7 @@ import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.js";
+import { workspaceCommitDiffPath } from "../utils/endpoints.js";
 
 export function buildFileList(files) {
   return (files || []).map((f) => ({
@@ -54,7 +55,7 @@ export function useGitDiff() {
 
   async function fetchCommitDiff(hash) {
     return await withWorkspace(async (workspace) => {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(hash)}`));
+      const { ok, data } = await apiGet(workspaceCommitDiffPath(workspace, hash));
       if (!ok) return null;
       const diffChunks = parseDiffChunks(data.diff);
       const fileList = buildFileList(data.files);

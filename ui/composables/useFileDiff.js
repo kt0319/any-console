@@ -4,11 +4,12 @@ import { useGitStore } from "../stores/git.js";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { colorDiff, escapeDiffHtml } from "../utils/diff-color.js";
+import { workspaceFileContentPath } from "../utils/endpoints.js";
 
 export function useFileDiff({ getDiffFile, getDiffMessage }) {
   const workspaceStore = useWorkspaceStore();
   const gitStore = useGitStore();
-  const { apiGet, wsEndpoint } = useApi();
+  const { apiGet } = useApi();
 
   const diffHtml = ref("");
   const diffNewFileContent = ref(null);
@@ -22,10 +23,10 @@ export function useFileDiff({ getDiffFile, getDiffMessage }) {
       return;
     }
     const status = (gitStore.diffFileStatuses[file] || "").trim();
-    if (status === "??" || status === "A") {
-      const workspace = workspaceStore.selectedWorkspace;
+    const workspace = workspaceStore.selectedWorkspace;
+    if ((status === "??" || status === "A") && workspace) {
       try {
-        const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, `file-content?path=${encodeURIComponent(file)}`));
+        const { ok, data } = await getWithRetry(apiGet, workspaceFileContentPath(workspace, file));
         if (ok && data) {
           diffNewFileContent.value = data;
           diffHtml.value = "";
