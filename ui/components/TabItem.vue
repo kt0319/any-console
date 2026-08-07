@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-blocked': agentState === 'blocked', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
     :aria-label="tabAriaLabel"
@@ -517,6 +517,19 @@ onBeforeUnmount(() => {
 @keyframes tab-working-pulse {
   0%   { background-position: 200% center; }
   100% { background-position: -200% center; }
+}
+
+/* 既知エージェントの承認・入力待ち（blocked）。working（青の流れるグラデーション）と
+   区別できるよう琥珀色にする。states は排他なので tab-working と同時には付かないが、
+   点滅リズムを phrase-notify より遅くして種類の違いを示す。 */
+.tab-btn.tab-blocked:not(.active) {
+  background-image: none;
+  animation: tab-blocked-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes tab-blocked-blink {
+  0%, 100% { background-color: rgba(255, 190, 100, 0.12); }
+  50% { background-color: rgba(255, 190, 100, 0.32); }
 }
 
 /* notify_phrase 検知の通知マーク。ドット追加だと dirty-dot と場所を取り合う（特に

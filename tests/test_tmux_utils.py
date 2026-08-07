@@ -221,6 +221,40 @@ class TestGetSessionCwd:
             assert get_session_cwd("sess") is None
 
 
+class TestListPaneMeta:
+    def test_parses_sessions(self):
+        from api.tmux import list_pane_meta
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "ac-s1\tclaude\t⠋ Thinking\nac-s2\tzsh\t\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert list_pane_meta() == {
+                "ac-s1": ("claude", "⠋ Thinking"),
+                "ac-s2": ("zsh", ""),
+            }
+
+    def test_first_pane_wins_and_tabs_in_title_survive(self):
+        from api.tmux import list_pane_meta
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "ac-s1\tclaude\ta\tb\nac-s1\tzsh\tsecond\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert list_pane_meta() == {"ac-s1": ("claude", "a\tb")}
+
+    def test_malformed_lines_are_skipped(self):
+        from api.tmux import list_pane_meta
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "broken line\nac-s1\tclaude\ttitle\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert list_pane_meta() == {"ac-s1": ("claude", "title")}
+
+    def test_returns_empty_on_failure(self):
+        from api.tmux import list_pane_meta
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
+            assert list_pane_meta() == {}
+
+
 class TestGetWindowWidth:
     def test_returns_width_on_success(self):
         from api.tmux import get_window_width

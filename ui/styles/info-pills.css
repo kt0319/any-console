@@ -457,6 +457,21 @@
   100% { background-position: -200% center; }
 }
 
+/* 既知エージェントの承認・入力待ち（blocked）。working の青と区別する琥珀色。
+   アクティブペインでは手元の画面で確認できるため working と同様に消灯する。 */
+.pill-chip.pill-blocked {
+  animation: pill-blocked-blink 1.6s ease-in-out infinite;
+}
+
+.terminal-pane.active .pill-chip.pill-blocked {
+  animation: none;
+}
+
+@keyframes pill-blocked-blink {
+  0%, 100% { background-color: rgba(26, 27, 38, 0.88); }
+  50% { background-color: rgba(255, 190, 100, 0.35); }
+}
+
 @media (min-width: 769px) {
   .pill-group {
     top: 20px;

@@ -4,9 +4,13 @@ tmux の可視ペイン内容を定期ポーリングし、出力アクティビ
 状態を判定して、変化のあったセッションだけ status stream の WebSocket 購読者へ
 push する（routers/status_stream.py が git_watch と同じソケットに相乗せする）。
 
-状態は 2 値:
+状態は 3 値:
 - working: 前回ポーリングから出力が変化した
 - idle:    画面が静止している
+- blocked: 既知エージェント（Claude Code / Codex）が承認・入力待ちで止まっている
+           （screen_manifest.py — ベンダリングした herdr のルールで判定。
+           前面プロセス名でエージェントを特定できたセッションのみ対象で、
+           判定できない場合は working/idle にフォールバックする）
 
 ジョブ定義に notify_phrase が設定されている場合、可視ペインにその文字列が
 現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。ただし検出直後に
@@ -36,7 +40,8 @@ from .common import (
     PHRASE_NOTIFY_IDLE_GRACE_SEC,
     TMUX_SESSION_PREFIX,
 )
-from .tmux import _run_tmux_cmd, capture_visible_pane, load_tmux_metadata
+from .screen_manifest import STATE_BLOCKED, evaluate_state, identify_agent
+from .tmux import _run_tmux_cmd, capture_visible_pane, list_pane_meta, load_tmux_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +226,8 @@ def collect_agent_states() -> tuple[
     ws_clear_session_ids: list[str] = []
     now = time.monotonic()
     grace_sec = _notify_grace_sec()
+    # blocked 判定用の (前面プロセス名, ペインタイトル)。周期あたり tmux 1 回で全取得。
+    pane_meta = list_pane_meta()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
@@ -229,6 +236,12 @@ def collect_agent_states() -> tuple[
         notify_phrase = _job_notify_phrase(workspace, job_name)
         prev_capture = _last_capture.get(session_id)
         new_state = classify_agent_state(capture, prev_capture)
+        # 既知エージェントの承認・入力待ちは画面差分より優先して blocked にする
+        # （スピナー静止で idle、確認ダイアログの点滅で working に見える誤判定を防ぐ）。
+        pane_command, pane_title = pane_meta.get(TMUX_SESSION_PREFIX + session_id, ("", ""))
+        manifest = identify_agent(pane_command)
+        if manifest is not None and evaluate_state(manifest, capture, osc_title=pane_title) == STATE_BLOCKED:
+            new_state = STATE_BLOCKED
         states[session_id] = new_state
         changed = prev_capture is not None and capture != prev_capture
         should_push, should_clear_ws = _should_notify_phrase(

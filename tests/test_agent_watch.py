@@ -84,7 +84,8 @@ class _FakeTmuxResult:
 
 
 class TestCollectAgentStates:
-    def _setup_tmux(self, monkeypatch, sessions: list[str], captures: dict[str, str]):
+    def _setup_tmux(self, monkeypatch, sessions: list[str], captures: dict[str, str],
+                    pane_meta: dict[str, tuple[str, str]] | None = None):
         monkeypatch.setattr(
             agent_watch, "_run_tmux_cmd",
             lambda *args: _FakeTmuxResult("\n".join(sessions) + "\n"),
@@ -92,6 +93,10 @@ class TestCollectAgentStates:
         monkeypatch.setattr(
             agent_watch, "capture_visible_pane",
             lambda name: captures.get(name),
+        )
+        monkeypatch.setattr(
+            agent_watch, "list_pane_meta",
+            lambda: pane_meta or {},
         )
 
     def test_notify_phrase_triggers_notification(self, client, monkeypatch):
@@ -381,6 +386,63 @@ class TestNotifyPhraseApi:
         job_name = res.json()["name"]
         jobs = client.get("/common/jobs", headers=AUTH).json()
         assert jobs[job_name].get("notify_phrase", "") == ""
+
+
+class TestBlockedDetection:
+    """screen manifest による blocked 判定の collect_agent_states への統合。"""
+
+    def _setup(self, monkeypatch, captures, pane_meta):
+        monkeypatch.setattr(
+            agent_watch, "_run_tmux_cmd",
+            lambda *args: _FakeTmuxResult("\n".join(captures) + "\n"),
+        )
+        monkeypatch.setattr(agent_watch, "capture_visible_pane", lambda name: captures.get(name))
+        monkeypatch.setattr(agent_watch, "list_pane_meta", lambda: pane_meta)
+        monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: {})
+
+    def test_claude_permission_prompt_marks_blocked(self, client, monkeypatch):
+        screen = (
+            "Running command...\n"
+            "──────────────────────────────\n"
+            "Do you want to proceed?\n"
+            "❯ 1. Yes\n"
+            "  2. No\n"
+            "esc to cancel\n"
+        )
+        self._setup(monkeypatch, {"ac-s1": screen}, {"ac-s1": ("claude", "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_blocked_overrides_working_screen_diff(self, client, monkeypatch):
+        # 確認ダイアログのスピナー等で画面が動いていても blocked を優先する。
+        base = (
+            "──────────────────────────────\n"
+            "Do you want to proceed?\n"
+            "❯ 1. Yes\n"
+            "  2. No\n"
+            "esc to cancel\n"
+        )
+        self._setup(monkeypatch, {"ac-s1": base}, {"ac-s1": ("claude", "")})
+        collect_agent_states()
+        self._setup(monkeypatch, {"ac-s1": base + "tick\n"}, {"ac-s1": ("claude", "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_unknown_agent_keeps_diff_based_state(self, client, monkeypatch):
+        screen = "Do you want to proceed?\n❯ 1. Yes\n  2. No\nesc to cancel\n"
+        self._setup(monkeypatch, {"ac-s1": screen}, {"ac-s1": ("bash", "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_agent_without_prompt_is_not_blocked(self, client, monkeypatch):
+        self._setup(monkeypatch, {"ac-s1": "$ ls\nREADME.md\n$ "}, {"ac-s1": ("claude", "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_missing_pane_meta_is_harmless(self, client, monkeypatch):
+        self._setup(monkeypatch, {"ac-s1": "$ "}, {})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
 
 
 class TestNotifyGraceSec:
