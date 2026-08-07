@@ -28,7 +28,7 @@
           <span class="pill-peek-changes-minus">-{{ deletions }}</span>
         </template>
         <template v-else-if="peekingKey === 'branch'">
-          {{ branchName }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="pushDone" class="pill-peek-branch-done pill-peek-branch-push-done"> Pushed</span><span v-if="pullDone" class="pill-peek-branch-done pill-peek-branch-pull-done"> Pulled</span>
+          {{ branchName }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="pushCount > 0" class="pill-peek-branch-done pill-peek-branch-push-done"> {{ pushCount }} Pushed</span><span v-if="pullCount > 0" class="pill-peek-branch-done pill-peek-branch-pull-done"> {{ pullCount }} Pulled</span>
         </template>
         <template v-else>{{ text }}</template>
       </span>
@@ -61,8 +61,8 @@ const props = defineProps({
   branchName: { type: String, default: "" },
   ahead: { type: Number, default: 0 },
   behind: { type: Number, default: 0 },
-  pushDone: { type: Boolean, default: false },
-  pullDone: { type: Boolean, default: false },
+  pushCount: { type: Number, default: 0 },
+  pullCount: { type: Number, default: 0 },
 });
 
 const emits = defineEmits(["peek-click"]);
