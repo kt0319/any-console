@@ -22,6 +22,7 @@ import AuthConfig from "../../ui/components/AuthConfig.vue";
 import SendSnippet from "../../ui/components/SendSnippet.vue";
 import SendHistory from "../../ui/components/SendHistory.vue";
 import SessionSidebar from "../../ui/components/SessionSidebar.vue";
+import SessionListView from "../../ui/components/SessionListView.vue";
 import { useLayoutStore } from "../../ui/stores/layout.js";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 import { useWorkspaceStore } from "../../ui/stores/workspace.js";
@@ -874,7 +875,13 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     workspaceStore.allWorkspaces = [
       { name: "app", branch: "main", clean: false, ahead: 2, behind: 0, changed_files: 1, insertions: 5, deletions: 2 },
     ];
-    wrapper = mount(SessionSidebar, { attachTo: document.body });
+    // PC はSessionSidebar.vue（サイドバーの入れ物+SettingsPanel）、モバイルは
+    // 歯車廃止によりSessionSidebar.vue自体が描画されなくなった（Modal.vueが
+    // 同じSettingsPanel.vueを全面オーバーレイで出す）ため、行の中身自体
+    // （SessionListView.vue）を直接マウントして検証する。
+    wrapper = panelBottom
+      ? mount(SessionListView, { attachTo: document.body, global: { provide: { modalTitle: ref(""), pushView: () => {} } } })
+      : mount(SessionSidebar, { attachTo: document.body });
     return { layoutStore, terminalStore };
   }
 
@@ -903,27 +910,26 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     expect(layoutStore.isSessionSidebarOpen).toBe(true);
   });
 
-  it("モバイル: 行選択でサイドバーが閉じてタブ表示へ戻る（skipFocus 付き）", async () => {
+  it("モバイル: 行選択でtab:selectがemitされる（skipFocus付き）がサイドバーは閉じない", async () => {
     const { layoutStore } = seedSidebar({ panelBottom: true });
-    expect(wrapper.find(".session-sidebar").classes()).toContain("session-sidebar-full");
     const selected = [];
     const off = on("tab:select", (detail) => selected.push(detail));
     await wrapper.findAll(".session-sidebar-item")[1].trigger("click");
     off();
     expect(selected).toHaveLength(1);
     expect(selected[0].skipFocus).toBe(true);
-    expect(layoutStore.isSessionSidebarOpen).toBe(false);
-    expect(wrapper.find(".session-sidebar").exists()).toBe(false);
+    // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。
+    expect(layoutStore.isSessionSidebarOpen).toBe(true);
   });
 
-  it("モバイル: アクティブな行の選択は tab:select を出さずに閉じるだけ", async () => {
+  it("モバイル: アクティブな行の選択は tab:select を出さない（サイドバーも閉じない）", async () => {
     const { layoutStore } = seedSidebar({ panelBottom: true });
     const selected = [];
     const off = on("tab:select", (detail) => selected.push(detail));
     await wrapper.findAll(".session-sidebar-item")[0].trigger("click");
     off();
     expect(selected).toHaveLength(0);
-    expect(layoutStore.isSessionSidebarOpen).toBe(false);
+    expect(layoutStore.isSessionSidebarOpen).toBe(true);
   });
 
   it("Esc でサイドバーが閉じる", async () => {

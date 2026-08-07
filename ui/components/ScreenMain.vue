@@ -1,13 +1,19 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': keyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
+    <!-- PCのサイドバーはTabBarの行と同じ高さにヘッダー（Sessions/設定タイトル）を
+         揃えたいため、.content-area配下ではなく.main-panel直下に置く。
+         .content-area内に置くとactive-tab-title分だけ下にずれ、TabBarの行と
+         サイドバーのヘッダーの間に無駄な空白ができてしまう（モバイルの
+         Modal.vueは全面オーバーレイのままで問題ないため対象外）。 -->
+    <SessionSidebar />
     <div class="active-tab-title">
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
-    <div class="content-area">
+    <div class="content-area" :class="{ 'content-area-sidebar-open': isSessionSidebarOpen && !isPanelBottom }">
       <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
         <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
       </div>
@@ -19,7 +25,6 @@
       >
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
-      <SessionSidebar />
       <Modal />
     </div>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
@@ -133,6 +138,7 @@ const debugInfo = computed(() => {
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
+const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
 let mainPanelResizeObserver = null;
 
@@ -234,6 +240,16 @@ defineExpose({
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+/* PCでセッションサイドバーを開いている間は、ターミナルに被せず
+   SessionSidebar.vue の幅（280px）ぶん右へ縮める。TabBar.vue の
+   .tab-bar-row-sidebar-open と同じ幅を使う。marginで実際の描画幅を
+   変えることで、TerminalBase配下のResizeObserver（useTerminalResize.js）
+   が幅変化を検知して自動でfitTerminal/sendResizeする（オーバーレイで
+   隠すだけだと見た目は隠れても列数はリサイズされないため）。 */
+.content-area-sidebar-open {
+  margin-left: 280px;
 }
 
 .screen-main-empty {

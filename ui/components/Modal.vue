@@ -4,231 +4,49 @@
     class="modal-overlay"
     role="dialog"
     aria-modal="true"
-    @mousedown.self="closeModal"
+    @mousedown.self="closeNav"
   >
     <div ref="modalEl" class="modal">
-      <div class="modal-header">
-        <button
-          type="button"
-          class="modal-title-wrap"
-          :class="{ 'is-clickable': canNavigateBack, 'no-back': !canNavigateBack }"
-          :tabindex="canNavigateBack ? 0 : -1"
-          :aria-disabled="!canNavigateBack ? 'true' : 'false'"
-          @click="canNavigateBack && onBack()"
-        >
-          <h3 class="modal-title">
-            <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
-            {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template>
-          </h3>
-        </button>
-        <button
-          type="button"
-          class="modal-close-btn"
-          aria-label="Close settings"
-          data-tooltip="Close settings"
-          @click="closeModal"
-        >&times;</button>
-      </div>
-      <div class="modal-body">
-        <ModalMenu v-if="currentView === 'ModalMenu'" />
-        <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
-        <WorkspaceAddView v-if="currentView === 'WorkspaceAdd'" />
-        <WorkspaceEditPane v-if="currentView === 'WorkspaceEdit'" />
-        <JobConfig v-if="currentView === 'JobConfig'" />
-        <TabConfig v-if="currentView === 'TabConfig'" />
-        <DispatchQueueConfig v-if="currentView === 'DispatchQueueConfig'" />
-        <DispatchRunView v-if="currentView === 'DispatchRunView'" />
-        <TerminalConfig v-if="currentView === 'TerminalConfig'" />
-        <EditorConfig v-if="currentView === 'EditorConfig'" />
-        <AuthConfig v-if="currentView === 'AuthConfig'" />
-        <PairDeviceConfig v-if="currentView === 'PairDeviceConfig'" />
-        <ServerInfo v-if="currentView === 'ServerInfo'" />
-        <DisplayConfig v-if="currentView === 'DisplayConfig'" />
-        <SendSnippet v-if="currentView === 'SendSnippet'" />
-        <SendHistory v-if="currentView === 'SendHistory'" />
-        <PreviewPorts v-if="currentView === 'PreviewPorts'" />
-        <NotificationConfig v-if="currentView === 'NotificationConfig'" />
-        <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
-        <InfoPillConfig v-if="currentView === 'InfoPillConfig'" />
-        <ConfigFile v-if="currentView === 'ConfigFile'" />
-        <IconPicker v-if="currentView === 'IconPicker'" />
-        <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
-      </div>
+      <SettingsPanel ref="panelRef" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, provide, nextTick, onMounted } from "vue";
+import { ref, watch } from "vue";
 import { useModal } from "../composables/useModal.js";
-import ModalMenu from "./ModalMenu.vue";
-import WorkspaceOpen from "./WorkspaceOpen.vue";
-import WorkspaceAddView from "./WorkspaceAddView.vue";
-import WorkspaceEditPane from "./WorkspaceEditPane.vue";
-import JobConfig from "./JobConfig.vue";
-import TabConfig from "./TabConfig.vue";
-import DispatchQueueConfig from "./DispatchQueueConfig.vue";
-import DispatchRunView from "./DispatchRunView.vue";
-import TerminalConfig from "./TerminalConfig.vue";
-import EditorConfig from "./EditorConfig.vue";
-import AuthConfig from "./AuthConfig.vue";
-import PairDeviceConfig from "./PairDeviceConfig.vue";
-import ServerInfo from "./ServerInfo.vue";
-import DisplayConfig from "./DisplayConfig.vue";
-import SendSnippet from "./SendSnippet.vue";
-import SendHistory from "./SendHistory.vue";
-import PreviewPorts from "./PreviewPorts.vue";
-import NotificationConfig from "./NotificationConfig.vue";
-import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
-import InfoPillConfig from "./InfoPillConfig.vue";
-import ConfigFile from "./ConfigFile.vue";
-import IconPicker from "./IconPicker.vue";
-import WorkspaceDetail from "./WorkspaceDetail.vue";
-import { on, emit as bridgeEmit } from "../app-bridge.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { useLayoutStore } from "../stores/layout.js";
+import SettingsPanel from "./SettingsPanel.vue";
+
+// モバイル専用のオーバーレイ表示。設定画面の中身・ナビゲーション状態は
+// SettingsPanel.vue / useSettingsNav.js に集約されており、PCではこの
+// オーバーレイを使わずSessionSidebar.vueへ直接インライン表示する
+// （歯車ボタン廃止・ハンバーガー1つにセッション一覧+設定を統合）。
 
 const modal = useModal();
-const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
+const { closeNav } = useSettingsNav();
 const modalEl = ref(null);
-const currentPaneRef = ref(null);
+const panelRef = ref(null);
 
-const viewStack = ref([]);
-const currentView = computed(() => viewStack.value.at(-1)?.view ?? null);
-const currentState = computed(() => viewStack.value.at(-1)?.state ?? {});
-const canNavigateBack = computed(() =>
-  currentView.value != null && currentView.value !== "ModalMenu"
-);
-
-const modalTitle = ref("");
-const modalBranch = ref("");
-provide("modalTitle", modalTitle);
-provide("modalBranch", modalBranch);
-provide("viewState", currentState);
-provide("pushView", pushView);
-provide("popView", popView);
-provide("updateViewState", updateViewState);
-
-function setPaneRef(el) {
-  currentPaneRef.value = el;
-}
-
-function pushView(view, state = {}) {
-  modalBranch.value = "";
-  viewStack.value = [...viewStack.value, { view, state }];
-}
-
-function updateViewState(state) {
-  if (!viewStack.value.length) return;
-  const stack = viewStack.value.slice();
-  stack[stack.length - 1] = { ...stack[stack.length - 1], state };
-  viewStack.value = stack;
-}
-
-function popView(result) {
-  modalBranch.value = "";
-  const popped = viewStack.value.at(-1);
-  const newStack = viewStack.value.slice(0, -1);
-  if (newStack.length === 0) {
-    viewStack.value = newStack;
-    closeModal();
-    return;
-  }
-  if (result != null && popped?.state?.onReturn) {
-    popped.state.onReturn(result, newStack.at(-1));
-  }
-  viewStack.value = newStack;
-}
-
-function openView(views) {
-  viewStack.value = Array.isArray(views)
-    ? views : [{ view: views, state: {} }];
-  openModal();
-}
-
-function openModal() {
-  modal.open(() => modalEl.value, closeModal);
-  layoutStore.isSettingsOpen = true;
-}
-
-function closeModal() {
-  modal.close();
-  viewStack.value = [];
-  modalTitle.value = "";
-  modalBranch.value = "";
-  currentPaneRef.value = null;
-  layoutStore.isSettingsOpen = false;
-  bridgeEmit("settings:closed");
-}
-
-function onBack() {
-  if (currentPaneRef.value?.handleBack?.()) return;
-  popView();
-}
-
-onMounted(() => {
-  on("settings:open", (detail) => {
-    if (detail?.view) {
-      // 保存済み circle keypad 設定には旧 view 名が残っている可能性があるため読み替える
-      const view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
-      const stack = [{ view: "ModalMenu", state: {} }];
-      // PairDeviceConfigは通常AuthConfig配下からのみ遷移するビューのため、
-      // 直接開く場合もAuthConfigを積んでおき、戻る操作でAuthConfigに戻れるようにする
-      if (view === "PairDeviceConfig") stack.push({ view: "AuthConfig", state: {} });
-      stack.push({ view, state: detail.state || {} });
-      openView(stack);
-    } else {
-      openView("ModalMenu");
+// isSessionSidebarOpen（ハンバーガーで開閉）かつモバイルの時だけ、
+// フォーカストラップ・Escハンドリング付きのオーバーレイとして開閉する。
+// ナビゲーションのルートは常にSessionList（セッション一覧）で、設定へ
+// 進んでも同じオーバーレイ内でビューが変わるだけ（isSessionSidebarOpen
+// 自体は開いたまま）。PCはSessionSidebar.vue側が同じisSessionSidebarOpen
+// を見て自身のサイドバーを開くだけで、このオーバーレイ自体は使わない。
+watch(
+  () => layoutStore.isSessionSidebarOpen && layoutStore.isPanelBottom,
+  (shouldShow) => {
+    if (shouldShow) {
+      modal.open(() => modalEl.value, closeNav);
+    } else if (modal.visible.value) {
+      modal.close();
     }
-  });
-
-  on("workspace:openModal", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-  ]));
-
-  on("workspace:openAdd", (detail) => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceAdd", state: { ...detail } },
-  ]));
-
-  on("git:openFileModal", (detail) => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: { detail } },
-  ]));
-
-  on("preview:showPorts", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "PreviewPorts", state: {} },
-  ]));
-
-  on("git:openGitHub", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: { detail: { pane: "issues" } } },
-  ]));
-
-  on("git:openHistory", ({ wsName } = {}) => {
-    if (wsName) workspaceStore.selectedWorkspace = wsName;
-    openView([
-      { view: "ModalMenu", state: {} },
-      { view: "WorkspaceOpen", state: {} },
-      { view: "WorkspaceDetail", state: { detail: { pane: "history" } } },
-    ]);
-  });
-
-  on("modal:close", () => closeModal());
-
-  // 設定ダイアログ表示中にタブを切り替えたら、ターミナルが見えるよう自動で閉じる。
-  // TabConfig（Tabs & Sessionsペイン）自体もラジオ切り替えで同じイベントを発火するため、
-  // そのビュー表示中は対象外にする（切り替える度に自分自身が閉じてしまうのを防ぐ）。
-  on("tab:select", () => {
-    if (modal.visible.value && currentView.value !== "TabConfig") closeModal();
-  });
-});
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>
@@ -256,125 +74,36 @@ onMounted(() => {
   border: none;
   border-radius: 0;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
-.modal-header {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 8px;
-  flex-shrink: 0;
+:deep(.settings-panel-header) {
   border-bottom: none;
   border-top: 1px solid var(--border);
-  margin-bottom: 0;
-  margin-top: 0;
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  order: 1;
 }
 
-.modal-title-wrap {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  justify-content: flex-start;
+:deep(.settings-panel-body) {
+  order: 0;
 }
 
-.modal-title-wrap .modal-title {
-  font-size: 15px;
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: inherit;
-  text-align: left;
-}
-
-.modal-title-wrap.is-clickable {
-  cursor: pointer;
-}
-
-.modal-title-back-icon {
-  font-size: 18px;
-  line-height: 1;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.modal-title-sep {
-  color: var(--text-muted);
-}
-
-.modal-title-branch {
-  font-size: 11px;
-  color: var(--text-primary);
-  font-weight: 400;
-}
-
-/* TabConfig.vue の split-tab-close-btn（Tabs & Sessions一覧のタブクローズ）と同じ見た目に揃える */
-.modal-close-btn {
-  width: 36px;
-  height: 36px;
-  margin-left: auto;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .modal-close-btn:hover {
-    color: var(--text-primary);
-  }
-}
-
-.modal-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-:deep(.modal-scroll-body) {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  padding: 0 8px;
-}
-
-/* PC幅ではモバイルのボトムシート風（ヘッダー下部）をやめ、ヘッダーを上に固定する */
+/* PC幅ではモバイルのボトムシート風（ヘッダー下部）をやめ、ヘッダーを上に固定する。
+   このコンポーネント自体はモバイル専用だが、念のためPC幅でオーバーレイが
+   出てしまった場合でも崩れないよう残しておく。 */
 @media (min-width: 769px) {
-  .modal {
-    flex-direction: column;
-  }
-
-  .modal-header {
+  :deep(.settings-panel-header) {
     border-bottom: 1px solid var(--border);
     border-top: none;
-    margin-bottom: 0;
-    margin-top: 0;
     padding-bottom: 0;
+    order: 0;
+  }
+
+  :deep(.settings-panel-body) {
+    order: 1;
   }
 }
 </style>

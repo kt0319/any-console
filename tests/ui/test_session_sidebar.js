@@ -55,6 +55,15 @@ describe("sessionSidebarItems", () => {
     expect(app.tab).toBe(tabs[0]);
   });
 
+  it("wsIconとjobIconはTabItemと同じく別枠で両方返す", () => {
+    const tabsWithBoth = [
+      { id: 4, sessionId: "s4", workspace: "app", label: "app", wsIcon: { name: "mdi-web", color: "#fff" }, icon: { name: "mdi-play", color: "#0f0" } },
+    ];
+    const items = sessionSidebarItems(tabsWithBoth, workspaces);
+    expect(items[0].wsIcon).toEqual({ name: "mdi-web", color: "#fff" });
+    expect(items[0].jobIcon).toEqual({ name: "mdi-play", color: "#0f0" });
+  });
+
   it("ベアターミナルはラベルへフォールバックし git 情報は空になる", () => {
     const items = sessionSidebarItems(tabs, workspaces);
     const bare = items[1];

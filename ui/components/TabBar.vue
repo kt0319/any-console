@@ -1,13 +1,17 @@
 <template>
-  <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
+  <div
+    class="tab-bar-row"
+    :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
+    :style="{ display: showBarRow ? 'flex' : 'none' }"
+  >
     <button
       v-if="!isSplitMode"
       class="tab-menu-btn"
       :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
       @click="onMenuClick"
-      :aria-label="isSidebarOpen ? 'Close session list' : 'Open session list'"
+      :aria-label="sidebarToggleLabel"
       :aria-expanded="isSidebarOpen ? 'true' : 'false'"
-      :data-tooltip="isSidebarOpen ? 'Close session list' : 'Open session list'"
+      :data-tooltip="sidebarToggleLabel"
     >
       <span :class="['mdi', isSidebarOpen ? 'mdi-close' : 'mdi-menu']"></span>
     </button>
@@ -27,16 +31,6 @@
         <span class="mdi mdi-plus"></span>
       </button>
     </div>
-    <button
-      v-if="!isSplitMode"
-      class="tab-settings-btn"
-      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isPanelBottom }"
-      @click="onSettingsClick"
-      :aria-label="isSettingsOpen ? 'Close settings' : 'Settings'"
-      :data-tooltip="isSettingsOpen ? 'Close settings' : 'Settings'"
-    >
-      <span :class="['mdi', isSettingsOpen ? 'mdi-close' : 'mdi-cog']"></span>
-    </button>
   </div>
 </template>
 
@@ -57,8 +51,12 @@ const props = defineProps({
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
-const isSettingsOpen = computed(() => layoutStore.isSettingsOpen);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
+// PCはセッション一覧+設定の入り口を兼ねる（歯車ボタン廃止）ため文言を変える。
+const sidebarToggleLabel = computed(() => {
+  if (isPanelBottom.value) return isSidebarOpen.value ? "Close session list" : "Open session list";
+  return isSidebarOpen.value ? "Close sessions & settings" : "Open sessions & settings";
+});
 const sortedItems = computed(() => {
   return props.tabs
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
@@ -94,14 +92,6 @@ function onAddClick() {
 function onMenuClick() {
   layoutStore.toggleSessionSidebar();
 }
-
-function onSettingsClick() {
-  if (isSettingsOpen.value) {
-    emit("modal:close");
-  } else {
-    emit("settings:open");
-  }
-}
 </script>
 
 <style scoped>
@@ -111,6 +101,14 @@ function onSettingsClick() {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-height: 37px;
+}
+
+/* PCでセッションサイドバーを開いている間は、サイドバー幅（SessionSidebar.vue
+   の.session-sidebar、280px）ぶんタブバーを右へ縮める。サイドバーは
+   position:absoluteでcontent-area側に重なるオーバーレイのため、タブバー側
+   （TabBarは別要素）は自分では避けてくれず、ここで明示的にずらす。 */
+.tab-bar-row-sidebar-open {
+  margin-left: 280px;
 }
 
 .tab-bar {
@@ -159,8 +157,7 @@ function onSettingsClick() {
   }
 }
 
-.tab-menu-btn,
-.tab-settings-btn {
+.tab-menu-btn {
   position: relative;
   display: flex;
   align-items: center;
@@ -180,20 +177,17 @@ function onSettingsClick() {
   touch-action: manipulation;
 }
 
-.tab-menu-btn:active,
-.tab-settings-btn:active {
+.tab-menu-btn:active {
   background: var(--bg-tertiary);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .tab-menu-btn:hover,
-  .tab-settings-btn:hover {
+  .tab-menu-btn:hover {
     background: var(--bg-tertiary);
   }
 }
 
-.tab-menu-btn.active,
-.tab-settings-btn.active {
+.tab-menu-btn.active {
   color: var(--text-primary);
   background: rgba(130, 170, 255, 0.12);
 }
