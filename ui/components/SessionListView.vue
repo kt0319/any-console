@@ -1,0 +1,478 @@
+<template>
+  <div class="modal-scroll-body session-list-view">
+    <div class="session-list-scroll">
+    <ul v-if="items.length > 0" class="session-sidebar-list">
+      <li v-for="item in items" :key="item.id" class="session-sidebar-li">
+        <button
+          type="button"
+          class="session-sidebar-item"
+          :class="{ active: item.id === activeTabId }"
+          :aria-current="item.id === activeTabId ? 'true' : undefined"
+          @click="onSelect(item)"
+        >
+          <span class="session-sidebar-main">
+            <span v-if="wsIconHtml(item)" class="session-sidebar-icon" v-html="wsIconHtml(item)"></span>
+            <span v-if="jobIconHtml(item)" class="session-sidebar-icon" v-html="jobIconHtml(item)"></span>
+            <span v-if="!wsIconHtml(item) && !jobIconHtml(item)" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
+            <span v-if="item.isWorktree" class="mdi mdi-file-tree session-sidebar-worktree" aria-label="worktree"></span>
+            <span class="session-sidebar-label">{{ item.label }}</span>
+            <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
+            <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className">
+              <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>{{ item.agent.label }}
+            </span>
+          </span>
+          <span v-if="item.branch" class="session-sidebar-sub">
+            <span class="session-sidebar-branch">
+              <span class="session-sidebar-branch-name">{{ item.branch }}</span>
+            </span>
+            <span v-if="item.dirty" class="session-sidebar-changes">
+              <span class="session-sidebar-changes-files">{{ item.changedFiles }}F</span> <span class="session-sidebar-changes-numstat" v-html="numstatHtml(item)"></span>
+            </span>
+          </span>
+        </button>
+        <span class="session-sidebar-pills-row" :class="{ active: item.id === activeTabId }">
+          <InfoPillRow
+            class="session-sidebar-pills"
+            :tab="item.tab"
+            :max-width="9999"
+            :is-git-repo="item.isGitRepo"
+            :is-dirty="item.dirty"
+            :ahead="item.ahead"
+            :behind="item.behind"
+            :has-pr="item.hasPr"
+            :has-action="item.hasAction"
+            :has-dev-server="item.hasDevServer"
+            :dispatch-count="item.dispatchCount"
+            :action-status-class="item.actionStatusClass"
+            :action-status-icon="item.actionStatusIcon"
+            :tooltips="item.tooltips"
+            @open="onPillOpen(item, $event)"
+          />
+          <button
+            type="button"
+            class="pill-close-btn pill-tab-close-btn"
+            aria-label="Close tab"
+            data-tooltip="Close tab"
+            @click.stop="onCloseTab(item)"
+          ><span class="mdi mdi-close"></span></button>
+        </span>
+      </li>
+    </ul>
+    <div v-else class="session-sidebar-empty">No sessions</div>
+    </div>
+    <button type="button" class="session-list-settings-btn" @click="onOpenWorkspace">
+      <span class="mdi mdi-folder-plus-outline" aria-hidden="true"></span>
+      <span>Open Workspace</span>
+    </button>
+    <button type="button" class="session-list-settings-btn" @click="pushView('ModalMenu')">
+      <span class="mdi mdi-cog" aria-hidden="true"></span>
+      <span>Settings</span>
+    </button>
+  </div>
+</template>
+
+<script setup>
+import { computed, ref, watch, onBeforeUnmount, inject } from "vue";
+import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
+import { renderIconStr } from "../utils/render-icon.js";
+import { sessionSidebarItems } from "../utils/session-sidebar.js";
+import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
+import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
+import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
+import { useInfoPillActions } from "../composables/useInfoPillActions.js";
+import { useConfirm } from "../composables/useConfirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.js";
+import InfoPillRow from "./InfoPillRow.vue";
+import { emit } from "../app-bridge.js";
+import { buildNumstatHtml } from "../utils/git.js";
+
+// 統合ナビゲーション（useSettingsNav.js）の一番手前（ルート）のビュー。
+// 開いているタブごとにワークスペース名・ブランチ・変更サマリ・エージェント
+// 状態・Info Pillsを一覧表示する。末尾の「Settings」からModalMenu（設定
+// メニュー）へ進める（同じスタックのpushView）。
+// 行の組み立ては ui/utils/session-sidebar.js（純粋関数）。
+
+const modalTitle = inject("modalTitle");
+const pushView = inject("pushView");
+modalTitle.value = "Sessions";
+
+const terminalStore = useTerminalStore();
+const layoutStore = useLayoutStore();
+const workspaceStore = useWorkspaceStore();
+
+function numstatHtml(item) {
+  return buildNumstatHtml(item.insertions, item.deletions);
+}
+
+// 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
+// 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
+const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
+const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
+const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
+const { queue: dispatchQueue } = useDispatchConfirm();
+const { confirm } = useConfirm();
+
+const activeTabId = computed(() => terminalStore.activeTabId);
+
+const items = computed(() => {
+  // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
+  // tabWorkspaceVersion を読んで依存に含める（TabItem と同じ理由）。
+  terminalStore.tabWorkspaceVersion;
+  return sessionSidebarItems(terminalStore.openTabs, workspaceStore.allWorkspaces, {
+    tabFlags: terminalStore.tabFlags,
+    agentStates: terminalStore.agentStates,
+    phraseNotifySessions: terminalStore.phraseNotifySessions,
+    prsByWorkspace: prsByWorkspace.value,
+    runsByWorkspace: runsByWorkspace.value,
+    previewPorts: previewPorts.value,
+    dispatchQueue: dispatchQueue.value,
+    hostname: location.hostname,
+  });
+});
+
+function wsIconHtml(item) {
+  return item.wsIcon ? renderIconStr(item.wsIcon.name, item.wsIcon.color, 18) : "";
+}
+
+function jobIconHtml(item) {
+  return item.jobIcon ? renderIconStr(item.jobIcon.name, item.jobIcon.color, 18) : "";
+}
+
+// タブバーの「+」（Open Workspace）と同じ遷移。ModalMenu経由の
+// WorkspaceOpenへ積まれる（useSettingsNav.jsのworkspace:openModalリスナー）。
+function onOpenWorkspace() {
+  emit("workspace:openModal");
+}
+
+function onSelect(item) {
+  if (item.id !== terminalStore.activeTabId) {
+    // モバイルはタッチ操作前提のため、ソフトキーボードの誤起動を避けて skipFocus。
+    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
+  }
+  // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。
+  // 閉じるのはハンバーガー/閉じるボタン・Escでの明示操作のみにする。
+}
+
+// ピルタップ：そのタブへ切替えてから対応ペインを開く（TerminalPaneの
+// ピルと同じ遷移をuseInfoPillActionsで再利用する）。
+function onPillOpen(item, key) {
+  if (item.id !== terminalStore.activeTabId) {
+    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
+  }
+  const { openPane } = useInfoPillActions({
+    tab: ref(item.tab),
+    isGitRepo: ref(item.isGitRepo),
+    devServerEntry: ref(item.devServerEntry),
+    tabDispatchItems: ref(item.dispatchItems),
+  });
+  // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして
+  // 表示されるため、ここでサイドバー自体を閉じない（閉じると開いた直後の
+  // ビューごと隠れてしまう）。
+  openPane(key);
+}
+
+// タブを閉じる（破壊的操作のため、TerminalPane/TabConfigと同じ確認ダイアログを通す）。
+async function onCloseTab(item) {
+  const result = await confirmCloseTab(confirm, item.tab);
+  if (result === true) emit("tab:close", { tab: item.tab });
+}
+
+// このビューはSettingsPanel.vueにより「currentView==='SessionList'」の間
+// だけマウントされる（他の設定画面を見ている間はアンマウントされる）ため、
+// ポーリングはこのコンポーネント自身のマウント/アンマウントに素直に紐付く。
+// PR/Actionsはgithub連携のあるgitワークスペースだけ、開いているタブの
+// 集合が変わるたびに増減分だけ開始/停止する（TerminalPaneの同種ロジック
+// を複数ワークスペース分にまとめたもの）。
+const githubWorkspaceKeys = computed(() => {
+  const keys = new Set();
+  for (const tab of terminalStore.openTabs) {
+    if (!tab.workspace) continue;
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === tab.workspace);
+    if (ws?.is_git_repo && ws?.github_url) keys.add(tab.workspace);
+  }
+  return [...keys];
+});
+
+let activeGithubKeys = /** @type {string[]} */ ([]);
+watch(githubWorkspaceKeys, (keys) => {
+  const keySet = new Set(keys);
+  for (const old of activeGithubKeys) {
+    if (!keySet.has(old)) {
+      stopPRsPolling(old);
+      stopActionsPolling(old);
+    }
+  }
+  for (const key of keys) {
+    if (!activeGithubKeys.includes(key)) {
+      fetchPRs(key);
+      fetchRuns(key);
+      startPRsPolling(key);
+      startActionsPolling(key);
+    }
+  }
+  activeGithubKeys = keys;
+}, { immediate: true });
+
+startPreviewPolling();
+
+onBeforeUnmount(() => {
+  for (const key of activeGithubKeys) {
+    stopPRsPolling(key);
+    stopActionsPolling(key);
+  }
+  stopPreviewPolling();
+});
+</script>
+
+<style scoped>
+/* SettingsPanel.vue の :deep(.modal-scroll-body) は「本文全体がそのまま
+   1つスクロールする」前提のスタイル（overflow-y:auto）だが、このビューは
+   下部のSettingsボタンをスクロールに巻き込まず常に最下部へ固定表示したい
+   ため、自身はスクロールさせず（overflow-y:hidden）内側の.session-list-scroll
+   だけをスクロール領域にする。:deep()の詳細度が上回るため!importantで上書き。 */
+.session-list-view {
+  padding: 0 !important;
+  overflow-y: hidden !important;
+}
+
+.session-list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.session-sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.session-list-settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-list-settings-btn .mdi {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .session-list-settings-btn:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
+/* ピル行 + 閉じるボタンのコンテナ。activeタブの背景・左ボーダーは
+   .session-sidebar-item.active と揃え、行全体が一体に見えるようにする
+   （ボタン部分だけがアクティブ色になっていると分断して見えるため）。 */
+.session-sidebar-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 8px 12px;
+  border-left: 3px solid transparent;
+}
+
+.session-sidebar-pills-row.active {
+  background: rgba(130, 170, 255, 0.12);
+  border-left-color: var(--accent);
+}
+
+/* TerminalPaneのピル行と同じ見た目（ui/styles/info-pills.css）を土台に、
+   サイドバー内では行の右端に寄せる。ピル自体の背景（.pill-chip既定は
+   ターミナル背景越しに見える前提の半透明ダーク）はサイドバーの地色
+   （--bg-secondary）に対して浮いて見えるため、サイドバー用に上書きする。 */
+.session-sidebar-pills {
+  display: flex;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* .pill-trailingは既定でflex:1 1 0%（親の残り幅いっぱいに広がる）ため、
+   このコンテナのjustify-content:flex-endが効くよう中身サイズに縮める。 */
+.session-sidebar-pills :deep(.pill-trailing) {
+  flex: 0 1 auto;
+}
+
+.session-sidebar-pills :deep(.pill-chip) {
+  background: var(--bg-tertiary);
+  border-color: var(--border);
+}
+
+.session-sidebar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 12px;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.session-sidebar-item:active {
+  background: var(--bg-tertiary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .session-sidebar-item:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .session-sidebar-item.active:hover {
+    background: rgba(130, 170, 255, 0.12);
+  }
+}
+
+.session-sidebar-item.active {
+  color: var(--text-primary);
+  background: rgba(130, 170, 255, 0.12);
+  border-left-color: var(--accent);
+}
+
+.session-sidebar-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-sidebar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.session-sidebar-icon-default {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.session-sidebar-worktree {
+  font-size: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.session-sidebar-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.session-sidebar-notify {
+  color: var(--accent);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.session-sidebar-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+  padding-left: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.session-sidebar-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.session-sidebar-branch-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.session-sidebar-changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.session-sidebar-changes-files {
+  color: var(--text-muted);
+}
+
+.session-sidebar-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.session-sidebar-agent.agent-state-working {
+  color: var(--accent);
+}
+
+.session-sidebar-agent.agent-state-working .mdi {
+  animation: session-list-working-spin 1.6s linear infinite;
+}
+
+.session-sidebar-agent.agent-state-blocked {
+  color: var(--warning);
+}
+
+.session-sidebar-agent.agent-state-done {
+  color: var(--success);
+}
+
+.session-sidebar-agent.agent-state-idle {
+  color: var(--text-muted);
+}
+
+@keyframes session-list-working-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.session-sidebar-empty {
+  padding: 16px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+</style>

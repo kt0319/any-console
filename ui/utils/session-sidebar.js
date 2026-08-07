@@ -86,6 +86,10 @@ export function sessionSidebarItems(tabs, workspaces, ctx = {}) {
         sessionId: tab.sessionId,
         label,
         icon: tab.wsIcon || tab.icon || null,
+        // TabItem.vueと同じく、ワークスペースアイコンとジョブアイコンは
+        // 別枠として両方出す（wsIconがある時、iconは隠れず併記される）。
+        wsIcon: tab.wsIcon || null,
+        jobIcon: tab.icon || null,
         isWorktree: !!ws?.worktree,
         isGitRepo,
         branch,
