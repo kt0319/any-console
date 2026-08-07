@@ -39,6 +39,7 @@ import { computed } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
 import { emit } from "../app-bridge.js";
 
 const terminalStore = useTerminalStore();
@@ -89,7 +90,16 @@ function onAddClick() {
   emit("workspace:openModal");
 }
 
+const { isOpen: isWorkspaceDetailOpen, close: closeWorkspaceDetail } = useWorkspaceDetailNav();
+
 function onMenuClick() {
+  // モバイルはハンバーガー1つでサイドバーとWorkspaceDetailオーバーレイの
+  // 両方を閉じる（WorkspaceDetailはサイドバーとは独立した状態のため、
+  // 閉じる時だけここで明示的に合わせる。PCはWorkspaceDetailModal.vue側に
+  // 専用の閉じるボタンがあるため対象外）。
+  if (isPanelBottom.value && isSidebarOpen.value && isWorkspaceDetailOpen.value) {
+    closeWorkspaceDetail();
+  }
   layoutStore.toggleSessionSidebar();
 }
 </script>
@@ -104,11 +114,11 @@ function onMenuClick() {
 }
 
 /* PCでセッションサイドバーを開いている間は、サイドバー幅（SessionSidebar.vue
-   の.session-sidebar、280px）ぶんタブバーを右へ縮める。サイドバーは
+   の.session-sidebar、--session-sidebar-width）ぶんタブバーを右へ縮める。サイドバーは
    position:absoluteでcontent-area側に重なるオーバーレイのため、タブバー側
    （TabBarは別要素）は自分では避けてくれず、ここで明示的にずらす。 */
 .tab-bar-row-sidebar-open {
-  margin-left: 280px;
+  margin-left: var(--session-sidebar-width);
 }
 
 .tab-bar {

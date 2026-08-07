@@ -292,7 +292,8 @@ async function loadWorkspaceOverview() {
 }
 
 function openBareTerminal() {
-  bridgeEmit("modal:close");
+  // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
+  // のopenTerminal/runJobと同様）。
   bridgeEmit("terminal:launch", {});
 }
 
@@ -323,7 +324,9 @@ function toggleJobs(ws) {
 
 function openChanges(ws) {
   workspaceStore.selectedWorkspace = ws.name;
-  pushView("WorkspaceDetail", { detail: { pane: "changes" } });
+  // WorkspaceDetailはSettingsのスタックとは独立しているため、他のピル等と
+  // 同じgit:openFileModalイベント経由で開く（useSettingsNav.js参照）。
+  bridgeEmit("git:openFileModal", { pane: "changes" });
 }
 
 function openEditWs(ws) {

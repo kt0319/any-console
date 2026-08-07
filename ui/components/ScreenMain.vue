@@ -26,6 +26,7 @@
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
       <Modal />
+      <WorkspaceDetailModal />
     </div>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
     <div v-if="booting || isLaunching" class="block-layer"></div>
@@ -40,6 +41,7 @@ import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
+import WorkspaceDetailModal from "./WorkspaceDetailModal.vue";
 import SessionSidebar from "./SessionSidebar.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
@@ -243,13 +245,13 @@ defineExpose({
 }
 
 /* PCでセッションサイドバーを開いている間は、ターミナルに被せず
-   SessionSidebar.vue の幅（280px）ぶん右へ縮める。TabBar.vue の
+   SessionSidebar.vue の幅（--session-sidebar-width）ぶん右へ縮める。TabBar.vue の
    .tab-bar-row-sidebar-open と同じ幅を使う。marginで実際の描画幅を
    変えることで、TerminalBase配下のResizeObserver（useTerminalResize.js）
    が幅変化を検知して自動でfitTerminal/sendResizeする（オーバーレイで
    隠すだけだと見た目は隠れても列数はリサイズされないため）。 */
 .content-area-sidebar-open {
-  margin-left: 280px;
+  margin-left: var(--session-sidebar-width);
 }
 
 .screen-main-empty {
