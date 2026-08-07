@@ -37,8 +37,14 @@ export function useBranchList() {
         localBranches.value = normalizeLocalBranches(data);
         const cached = _remoteCache.get(workspace);
         if (cached) {
-          remoteBranches.value = cached;
+          // キャッシュはローカル一覧が更新される前のフィルタ結果のため、
+          // そのまま使うとローカルブランチ作成/チェックアウト後に同名の
+          // ブランチがローカル・リモート両方の一覧に重複して出てしまう。
+          // 最新のlocalBranchesで再フィルタしてからキャッシュも更新する。
+          const refiltered = filterRemoteBranches(cached, localBranches.value);
+          remoteBranches.value = refiltered;
           remoteLoaded.value = true;
+          _remoteCache.set(workspace, refiltered);
         } else {
           remoteBranches.value = [];
           remoteLoaded.value = false;
