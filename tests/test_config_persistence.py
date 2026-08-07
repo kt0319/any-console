@@ -517,3 +517,15 @@ class TestMatchWorkspaceByPath:
         from api.config import match_workspace_by_path
         self._write_entries(isolate_fs, {"ws_x": {"path": "/home/u/p"}})
         assert match_workspace_by_path("/home/u/p") == "ws_x"
+
+    def test_matches_home_relative_registered_path(self, isolate_fs, monkeypatch):
+        # config.jsonにはホーム配下のパスが "~/..." 形式(collapse_user_path)で
+        # 保存されるため、絶対パス(tmux/lsof等から得るcwd)との照合には展開が
+        # 必要（回帰: ホーム配下のワークスペースが一切マッチしなかった不具合）。
+        from api.config import match_workspace_by_path
+        fake_home = isolate_fs["work"]
+        monkeypatch.setenv("HOME", str(fake_home))
+        self._write_entries(isolate_fs, {"ws_a": {"name": "proj", "path": "~/proj"}})
+        assert match_workspace_by_path(str(fake_home / "proj")) == "proj"
+        assert match_workspace_by_path(str(fake_home / "proj" / "sub")) == "proj"
+        assert match_workspace_by_path(str(fake_home / "other")) is None
