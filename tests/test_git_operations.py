@@ -37,7 +37,7 @@ class TestResetSoft:
         first = _git_commit(git_workspace, "a.txt", "a", "first")
         second = _git_commit(git_workspace, "b.txt", "b", "second")
 
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/reset", headers=AUTH, json={
                 "commit_hash": first,
                 "mode": "soft",
@@ -111,7 +111,7 @@ class TestDeleteBranch:
             ["git", "branch", "feature-x"], cwd=git_workspace, check=True, capture_output=True,
         )
 
-        with mock.patch("api.routers.git_branches.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/delete-branch", headers=AUTH, json={
                 "branch": "feature-x",
             })
@@ -153,7 +153,7 @@ class TestCherryPick:
             )
 
         from unittest import mock
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/cherry-pick", headers=AUTH, json={
                 "commit_hash": cherry_hash,
             })
@@ -192,7 +192,7 @@ class TestMerge:
         before = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
         ).stdout.strip()
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/merge", headers=AUTH, json={
                 "branch": "feature",
             })
@@ -241,7 +241,7 @@ class TestRebase:
         before = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
         ).stdout.strip()
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/rebase", headers=AUTH, json={
                 "branch": "feature",
             })
@@ -281,7 +281,7 @@ class TestRevert:
         _git_commit(git_workspace, "a.txt", "a", "init")
         target = _git_commit(git_workspace, "b.txt", "b", "add b")
 
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/revert", headers=AUTH, json={
                 "commit_hash": target,
             })
