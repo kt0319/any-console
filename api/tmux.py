@@ -44,6 +44,10 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     env.setdefault("DISPLAY", ":0")
     if workspace_path:
         env["WORKSPACE"] = workspace_path
+    # エージェント hooks 用の接続情報を注入する（scripts/claude-code-hook.sh が使う。
+    # 失敗時は空 dict = そのセッションでは hooks 無効になるだけで生成は続行する）。
+    from .agent_hooks import hook_session_env
+    env.update(hook_session_env(session_name))
 
     display = env.get("DISPLAY", ":0")
     run_outside_cgroup(

@@ -92,6 +92,11 @@ AGENT_WATCH_POLL_INTERVAL_SEC = 2  # 可視ペインのポーリング間隔
 # 検出後すぐに画面が動いた（ユーザーが反応した）場合は通知を送らない。
 PHRASE_NOTIFY_IDLE_GRACE_SEC = 20
 
+# エージェント hooks（api/agent_hooks.py）: イベントが新鮮とみなされる期間。
+# 期限切れ後は manifest / 画面差分へフォールバックする（hook 取りこぼしで状態が
+# 固着しないための安全弁）。
+AGENT_HOOK_STATE_TTL_SEC = 300
+
 # screen manifest（api/screen_manifest.py / api/manifest_update.py）
 SCREEN_MANIFEST_CACHE_TTL_SEC = 60  # 階層ロード結果のキャッシュ（override 編集の反映猶予）
 AGENT_MANIFEST_UPDATE_INTERVAL_SEC = 24 * 60 * 60  # リモートマニフェストの確認間隔

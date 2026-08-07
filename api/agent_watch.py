@@ -4,10 +4,12 @@ tmux の可視ペイン内容を定期ポーリングし、出力アクティビ
 状態を判定して、変化のあったセッションだけ status stream の WebSocket 購読者へ
 push する（routers/status_stream.py が git_watch と同じソケットに相乗せする）。
 
-状態は 3 値（working / idle / blocked）。判定は 2 系統:
+状態は 3 値（working / idle / blocked）。判定は 3 系統（優先度の高い順に
+hooks > screen manifest > 画面差分）:
 
-- 画面差分（既定）: 前回ポーリングから出力が変化していれば working、静止で idle。
-  素のシェル・未知ツールを含む全セッションに効く汎用判定。
+- agent hooks（設定したエージェントのみ・最優先）: エージェント自身の hooks が
+  POST してきたイベント（api/agent_hooks.py）が新鮮な間はその状態を採用する。
+  画面にもプロセスにも依存しない最も正確なソース。TTL 切れで下位へフォールバック。
 - screen manifest（既知エージェントのみ）: エージェントを特定できたセッションは、
   herdr 由来のルール（screen_manifest.py）の判定（blocked / working / idle）を
   優先して採用する。スピナーの OSC タイトルで画面静止中の working を、
@@ -16,6 +18,8 @@ push する（routers/status_stream.py が git_watch と同じソケットに相
   フォールバックする。特定はプロセス名（#{pane_current_command}）が一次で、
   当たらなければ前面ジョブの argv（api/foreground.py）でラッパー起動
   （node スクリプト・sh -c 等）も照合する。
+- 画面差分（既定・フォールバック）: 前回ポーリングから出力が変化していれば
+  working、静止で idle。素のシェル・未知ツールを含む全セッションに効く汎用判定。
 
 加えて、素のターミナルに対する 2 つの自動紐付けを行う:
 
@@ -52,6 +56,7 @@ from typing import Any
 from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
+from .agent_hooks import hook_state
 from .common import (
     AGENT_WATCH_POLL_INTERVAL_SEC,
     BACKGROUND_EXECUTOR,
@@ -392,8 +397,15 @@ def collect_agent_states() -> tuple[
         workspace = _resolve_workspace(session_id, workspace, pane_path)
         notify_phrase = _job_notify_phrase(workspace, job_name)
         prev_capture = _last_capture.get(session_id)
-        manifest, argvs = _detect_manifest(pane_command, pane_pid, inspector)
-        new_state = resolve_session_state(capture, prev_capture, manifest, pane_title)
+        # hooks 由来の状態が新鮮ならそれを最優先し、manifest 評価は省略する
+        # （エージェント特定・argv 取得はジョブ照合が必要になれば遅延実行される）。
+        argvs: list[list[str]] | None = None
+        hooked = hook_state(session_id)
+        if hooked is not None:
+            new_state = hooked
+        else:
+            manifest, argvs = _detect_manifest(pane_command, pane_pid, inspector)
+            new_state = resolve_session_state(capture, prev_capture, manifest, pane_title)
         states[session_id] = new_state
         _maybe_autotag_job(session_id, workspace, job_name, pane_pid, argvs, inspector)
         changed = prev_capture is not None and capture != prev_capture

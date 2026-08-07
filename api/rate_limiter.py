@@ -50,6 +50,9 @@ _SKIP_EXACT = frozenset({
     "/favicon.png",
     "/apple-touch-icon.png",
     "/auth/check",
+    # エージェントのツール実行ごとに loopback から叩かれる高頻度イベント。
+    # 専用トークン認証があり、UI 操作の rate limit 枠を食い潰さないよう除外する。
+    "/agent-hooks/events",
 })
 
 # Rate limiter を素通しするパスプレフィックス。

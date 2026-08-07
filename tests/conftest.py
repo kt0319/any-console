@@ -71,9 +71,15 @@ def isolate_fs(tmp_path, monkeypatch):
     monkeypatch.setattr(screen_manifest_mod, "REMOTE_DIR", data / "agent-detection" / "remote")
     screen_manifest_mod.invalidate_manifest_cache()
 
+    # agent hooks のトークンファイル・状態もテストごとに隔離する。
+    import api.agent_hooks as agent_hooks_mod
+    monkeypatch.setattr(agent_hooks_mod, "_HOOK_TOKEN_FILE", data / "hook_token")
+    agent_hooks_mod._hook_states.clear()
+
     yield {"work": work, "data": data, "config_file": config_file}
 
     screen_manifest_mod.invalidate_manifest_cache()
+    agent_hooks_mod._hook_states.clear()
 
 
 @pytest.fixture()

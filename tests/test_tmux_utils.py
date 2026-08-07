@@ -221,6 +221,23 @@ class TestGetSessionCwd:
             assert get_session_cwd("sess") is None
 
 
+class TestCreateTmuxSessionHookEnv:
+    def test_injects_hook_connection_env(self, tmp_path):
+        from api import tmux as tmux_mod
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["env"] = kwargs.get("env")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with mock.patch.object(tmux_mod, "run_outside_cgroup", side_effect=fake_run):
+            tmux_mod.create_tmux_session(None, "ac-hooktest")
+        env = captured["env"]
+        assert env["ANY_CONSOLE_SESSION"] == "ac-hooktest"
+        assert env["ANY_CONSOLE_HOOK_URL"].endswith("/agent-hooks/events")
+        assert env["ANY_CONSOLE_HOOK_TOKEN"]
+
+
 class TestListPaneMeta:
     def test_parses_sessions(self):
         from api.tmux import list_pane_meta

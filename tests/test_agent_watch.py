@@ -548,6 +548,50 @@ class TestForegroundIntegration:
         assert not any("set-environment" in args for args in recorded)
 
 
+class TestHookStatePriority:
+    """agent hooks 由来の状態は manifest / 画面差分より優先される。"""
+
+    def _setup(self, monkeypatch, captures, pane_meta):
+        monkeypatch.setattr(
+            agent_watch, "_run_tmux_cmd",
+            lambda *args: _FakeTmuxResult("\n".join(captures) + "\n"),
+        )
+        monkeypatch.setattr(agent_watch, "capture_visible_pane", lambda name: captures.get(name))
+        monkeypatch.setattr(agent_watch, "list_pane_meta", lambda: pane_meta)
+        monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: {})
+        monkeypatch.setattr(agent_watch, "ForegroundInspector", lambda: _FakeInspector({}))
+
+    _CLAUDE_PROMPT = (
+        "──────────────────────────────\n"
+        "Do you want to proceed?\n"
+        "❯ 1. Yes\n"
+        "  2. No\n"
+        "esc to cancel\n"
+    )
+
+    def test_fresh_hook_state_wins_over_manifest(self, client, monkeypatch):
+        from api.agent_hooks import record_event
+        # 画面は claude の許可プロンプト（manifest 判定なら blocked）だが、
+        # hook が Stop（idle）を主張していればそちらを採用する。
+        record_event("s1", "Stop")
+        self._setup(monkeypatch, {"ac-s1": self._CLAUDE_PROMPT}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_hook_blocked_applies_without_agent_process(self, client, monkeypatch):
+        from api.agent_hooks import record_event
+        # プロセス名でエージェント特定できないセッションでも hook だけで blocked になる。
+        record_event("s1", "Notification")
+        self._setup(monkeypatch, {"ac-s1": "$ "}, {"ac-s1": ("zsh", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_without_hook_manifest_still_applies(self, client, monkeypatch):
+        self._setup(monkeypatch, {"ac-s1": self._CLAUDE_PROMPT}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+
 class TestWorkspaceAutoBind:
     """cwd の最長前方一致によるワークスペース自動紐付け。"""
 
