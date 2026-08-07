@@ -458,9 +458,10 @@
 }
 
 /* 既知エージェントの承認・入力待ち（blocked）。working の青と区別する琥珀色。
+   点滅リズムはタブの通知点滅（tab-notify-blink）と揃える。
    アクティブペインでは手元の画面で確認できるため working と同様に消灯する。 */
 .pill-chip.pill-blocked {
-  animation: pill-blocked-blink 1.6s ease-in-out infinite;
+  animation: pill-blocked-blink 1.2s ease-in-out infinite;
 }
 
 .terminal-pane.active .pill-chip.pill-blocked {
