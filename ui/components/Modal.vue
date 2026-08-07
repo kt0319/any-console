@@ -8,6 +8,13 @@
   >
     <div ref="modalEl" class="modal">
       <SettingsPanel ref="panelRef" />
+      <button
+        type="button"
+        class="modal-close-fab"
+        aria-label="Close"
+        data-tooltip="Close"
+        @click="closeNav"
+      >&times;</button>
     </div>
   </div>
 </template>
@@ -66,6 +73,7 @@ watch(
 }
 
 .modal {
+  position: relative;
   background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
   padding: 12px 8px 0;
   width: 100%;
@@ -78,6 +86,28 @@ watch(
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* モバイルはヘッダーが下部（ボトムシート風）に来るため、閉じる操作が
+   ハンバーガー/Esc/バックドロップタップしか無いと分かりにくい。右下に
+   独立した閉じるボタンを浮かせて出す。 */
+.modal-close-fab {
+  position: absolute;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1;
 }
 
 :deep(.settings-panel-header) {
