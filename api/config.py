@@ -9,6 +9,7 @@ from .common import (
     CONFIG_FILE,
     CONFIG_SCHEMA_VERSION,
     GLOBAL_CONFIG_KEY,
+    PHRASE_NOTIFY_IDLE_GRACE_SEC,
     expand_workspace_path,
 )
 from .config_migrations import (
@@ -307,6 +308,22 @@ def load_global_config_section(key: str, default=None):
 def save_global_config_section(key: str, data) -> None:
     with _config_write() as all_config:
         _update_config_section(all_config, GLOBAL_CONFIG_KEY, key, data)
+
+
+def notification_grace_sec(default: int = PHRASE_NOTIFY_IDLE_GRACE_SEC) -> int:
+    """フレーズ検出からプッシュ通知までの猶予秒数（設定 > Notificationsで変更可能）。
+
+    未設定・型不正・負値は default（既定 PHRASE_NOTIFY_IDLE_GRACE_SEC）へ倒す。
+    agent_watch の通知判定と GET /settings/notifications の表示が同じ解決規則を
+    共有するための単一実装。
+    """
+    raw = load_global_config_section("notifications", {})
+    if not isinstance(raw, dict):
+        return default
+    value = raw.get("phrase_notify_grace_sec")
+    if not isinstance(value, int) or value < 0:
+        return default
+    return value
 
 
 def compare_and_update_global_config_section(key: str, expected_current: Any, new_value: Any) -> Any:

@@ -294,20 +294,14 @@ def reset_last_capture(session_id: str) -> None:
 
 
 def _notify_grace_sec() -> int:
-    """フレーズ検出からプッシュ通知までの猶予秒数（設定 > Notificationsで変更可能）。
+    """フレーズ検出からプッシュ通知までの猶予秒数（config.notification_grace_sec 参照）。
 
     ポーリング周期ごとにセッション数分呼ばれる _should_notify_phrase 側では呼ばず、
     collect_agent_states の呼び出し1回につき1回だけ解決してから渡すこと
     （config読み込みのディスクI/Oをセッション数倍にしないため）。
     """
-    from .config import load_global_config_section
-    raw = load_global_config_section("notifications", {})
-    if not isinstance(raw, dict):
-        return PHRASE_NOTIFY_IDLE_GRACE_SEC
-    value = raw.get("phrase_notify_grace_sec")
-    if not isinstance(value, int) or value < 0:
-        return PHRASE_NOTIFY_IDLE_GRACE_SEC
-    return value
+    from .config import notification_grace_sec
+    return notification_grace_sec(default=PHRASE_NOTIFY_IDLE_GRACE_SEC)
 
 
 def _should_notify_phrase(

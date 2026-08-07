@@ -13,6 +13,7 @@ from ..config import (
     find_workspace_key,
     load_all_config,
     load_global_config_section,
+    notification_grace_sec,
     resolve_workspace_id,
     save_all_config,
     save_global_config_section,
@@ -135,13 +136,7 @@ class NotificationSettings(BaseModel):
 
 @router.get("/settings/notifications")
 def get_notification_settings():
-    raw = load_global_config_section("notifications", {})
-    if not isinstance(raw, dict):
-        raw = {}
-    value = raw.get("phrase_notify_grace_sec")
-    if not isinstance(value, int) or value < 0:
-        value = PHRASE_NOTIFY_IDLE_GRACE_SEC
-    return {"phrase_notify_grace_sec": value}
+    return {"phrase_notify_grace_sec": notification_grace_sec()}
 
 
 @router.put("/settings/notifications")
