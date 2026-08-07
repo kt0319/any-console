@@ -149,6 +149,32 @@ A restart is required for changes to take effect.
 
 As above, the `ANY_CONSOLE_DISABLE_AUTH=1` environment variable works only for foreground runs (`./any-console run`) or a custom service environment — not with `./any-console start`, which does not pass your shell environment to the systemd/launchd service.
 
+## Agent hooks (optional)
+
+Terminal sessions running known coding agents (Claude Code, Codex, ...) get automatic
+working / idle / blocked state detection out of the box via screen analysis.
+For Claude Code you can optionally enable hook-based reporting, which is more
+accurate and instant (no polling delay, no dependency on screen rendering).
+
+Add the shipped script to `~/.claude/settings.json` hooks with the event name as
+the argument (see the comment header in `scripts/claude-code-hook.sh` for the
+full snippet):
+
+```jsonc
+{
+  "hooks": {
+    "Notification": [{"hooks": [{"type": "command", "command": "/path/to/any-console/scripts/claude-code-hook.sh Notification"}]}],
+    "Stop":         [{"hooks": [{"type": "command", "command": "/path/to/any-console/scripts/claude-code-hook.sh Stop"}]}]
+    // PreToolUse / PostToolUse / UserPromptSubmit / SessionEnd も同様に追加
+  }
+}
+```
+
+The script only acts inside sessions created by any-console (connection info is
+injected as environment variables) and always exits 0, so it never interferes
+with Claude Code itself. Hook-reported state expires after a few minutes of
+silence and detection falls back to screen analysis automatically.
+
 ## Dispatch API
 
 `POST /dispatch` lets external tools (CI, automation, scripts) launch or send text to a workspace session over HTTP, without opening the UI.

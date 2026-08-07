@@ -153,6 +153,26 @@ describe("parseStatusStreamMessage", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "session_created" }))).toBe(null);
     expect(parseStatusStreamMessage(JSON.stringify({ type: "session_removed" }))).toBe(null);
   });
+
+  it("session_workspace_bound メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({ type: "session_workspace_bound", session_id: "s1", workspace: "proj" });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "session_workspace_bound", session_id: "s1", workspace: "proj" });
+  });
+
+  it("session_workspace_bound の session_id/workspace が文字列でなければ null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "session_workspace_bound", session_id: "s1" }))).toBe(null);
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "session_workspace_bound", workspace: "proj" }))).toBe(null);
+  });
+
+  it("session_job_bound メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job" });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job" });
+  });
+
+  it("session_job_bound のフィールドが不足していれば null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "session_job_bound", session_id: "s1", job_name: "job_x" }))).toBe(null);
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "session_job_bound", job_name: "job_x", job_label: "My Job" }))).toBe(null);
+  });
 });
 
 describe("statusStreamReconnectDelay", () => {

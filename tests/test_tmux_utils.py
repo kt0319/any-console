@@ -221,6 +221,57 @@ class TestGetSessionCwd:
             assert get_session_cwd("sess") is None
 
 
+class TestCreateTmuxSessionHookEnv:
+    def test_injects_hook_connection_env(self, tmp_path):
+        from api import tmux as tmux_mod
+        captured = {}
+
+        def fake_run(cmd, **kwargs):
+            captured["env"] = kwargs.get("env")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        with mock.patch.object(tmux_mod, "run_outside_cgroup", side_effect=fake_run):
+            tmux_mod.create_tmux_session(None, "ac-hooktest")
+        env = captured["env"]
+        assert env["ANY_CONSOLE_SESSION"] == "ac-hooktest"
+        assert env["ANY_CONSOLE_HOOK_URL"].endswith("/agent-hooks/events")
+        assert env["ANY_CONSOLE_HOOK_TOKEN"]
+
+
+class TestListPaneMeta:
+    def test_parses_sessions(self):
+        from api.tmux import list_pane_meta
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "ac-s1\tclaude\t123\t/home/u/proj\t⠋ Thinking\nac-s2\tzsh\t456\t/home/u\t\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert list_pane_meta() == {
+                "ac-s1": ("claude", "⠋ Thinking", 123, "/home/u/proj"),
+                "ac-s2": ("zsh", "", 456, "/home/u"),
+            }
+
+    def test_first_pane_wins_and_tabs_in_title_survive(self):
+        from api.tmux import list_pane_meta
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "ac-s1\tclaude\t123\t/p\ta\tb\nac-s1\tzsh\t456\t/q\tsecond\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert list_pane_meta() == {"ac-s1": ("claude", "a\tb", 123, "/p")}
+
+    def test_malformed_lines_are_skipped(self):
+        from api.tmux import list_pane_meta
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "broken line\nac-s1\tclaude\tnot-a-pid\t/p\ttitle\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert list_pane_meta() == {"ac-s1": ("claude", "title", 0, "/p")}
+
+    def test_returns_empty_on_failure(self):
+        from api.tmux import list_pane_meta
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
+            assert list_pane_meta() == {}
+
+
 class TestGetWindowWidth:
     def test_returns_width_on_success(self):
         from api.tmux import get_window_width

@@ -84,7 +84,8 @@ class _FakeTmuxResult:
 
 
 class TestCollectAgentStates:
-    def _setup_tmux(self, monkeypatch, sessions: list[str], captures: dict[str, str]):
+    def _setup_tmux(self, monkeypatch, sessions: list[str], captures: dict[str, str],
+                    pane_meta: dict[str, tuple[str, str, int, str]] | None = None):
         monkeypatch.setattr(
             agent_watch, "_run_tmux_cmd",
             lambda *args: _FakeTmuxResult("\n".join(sessions) + "\n"),
@@ -92,6 +93,10 @@ class TestCollectAgentStates:
         monkeypatch.setattr(
             agent_watch, "capture_visible_pane",
             lambda name: captures.get(name),
+        )
+        monkeypatch.setattr(
+            agent_watch, "list_pane_meta",
+            lambda: pane_meta or {},
         )
 
     def test_notify_phrase_triggers_notification(self, client, monkeypatch):
@@ -381,6 +386,256 @@ class TestNotifyPhraseApi:
         job_name = res.json()["name"]
         jobs = client.get("/common/jobs", headers=AUTH).json()
         assert jobs[job_name].get("notify_phrase", "") == ""
+
+
+class TestManifestStateDetection:
+    """screen manifest による状態判定（blocked / working / idle）の統合。"""
+
+    def _setup(self, monkeypatch, captures, pane_meta):
+        monkeypatch.setattr(
+            agent_watch, "_run_tmux_cmd",
+            lambda *args: _FakeTmuxResult("\n".join(captures) + "\n"),
+        )
+        monkeypatch.setattr(agent_watch, "capture_visible_pane", lambda name: captures.get(name))
+        monkeypatch.setattr(agent_watch, "list_pane_meta", lambda: pane_meta)
+        monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: {})
+
+    def test_claude_permission_prompt_marks_blocked(self, client, monkeypatch):
+        screen = (
+            "Running command...\n"
+            "──────────────────────────────\n"
+            "Do you want to proceed?\n"
+            "❯ 1. Yes\n"
+            "  2. No\n"
+            "esc to cancel\n"
+        )
+        self._setup(monkeypatch, {"ac-s1": screen}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_blocked_overrides_working_screen_diff(self, client, monkeypatch):
+        # 確認ダイアログのスピナー等で画面が動いていても blocked を優先する。
+        base = (
+            "──────────────────────────────\n"
+            "Do you want to proceed?\n"
+            "❯ 1. Yes\n"
+            "  2. No\n"
+            "esc to cancel\n"
+        )
+        self._setup(monkeypatch, {"ac-s1": base}, {"ac-s1": ("claude", "", 0, "")})
+        collect_agent_states()
+        self._setup(monkeypatch, {"ac-s1": base + "tick\n"}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_unknown_agent_keeps_diff_based_state(self, client, monkeypatch):
+        screen = "Do you want to proceed?\n❯ 1. Yes\n  2. No\nesc to cancel\n"
+        self._setup(monkeypatch, {"ac-s1": screen}, {"ac-s1": ("bash", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_agent_without_prompt_is_not_blocked(self, client, monkeypatch):
+        self._setup(monkeypatch, {"ac-s1": "$ ls\nREADME.md\n$ "}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_missing_pane_meta_is_harmless(self, client, monkeypatch):
+        self._setup(monkeypatch, {"ac-s1": "$ "}, {})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_manifest_idle_overrides_screen_diff(self, client, monkeypatch):
+        # プロンプトボックス（入力待ち）表示中は、画面の一部が動き続けていても idle。
+        box = "──────────\n❯ \n──────────\n"
+        self._setup(monkeypatch, {"ac-s1": "output tick 1\n" + box}, {"ac-s1": ("claude", "", 0, "")})
+        collect_agent_states()
+        self._setup(monkeypatch, {"ac-s1": "output tick 2\n" + box}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_osc_title_spinner_marks_working_on_static_screen(self, client, monkeypatch):
+        # 画面が静止していても OSC タイトルのスピナーで working と判定できる。
+        self._setup(monkeypatch, {"ac-s1": "static output"},
+                    {"ac-s1": ("claude", "⠋ Thinking…", 0, "")})
+        collect_agent_states()
+        states, _, _, _ = collect_agent_states()  # 2回目: 画面差分は idle 判定になる
+        assert states == {"s1": "working"}
+
+
+class _FakeInspector:
+    def __init__(self, argvs_by_pid):
+        self._argvs = argvs_by_pid
+
+    def argvs(self, pid):
+        return self._argvs.get(pid, [])
+
+
+class TestForegroundIntegration:
+    """前面ジョブ argv によるエージェント特定とジョブ自動タグ付け。"""
+
+    def _setup(self, monkeypatch, captures, pane_meta, argvs_by_pid,
+               metadata=None):
+        recorded = []
+
+        def fake_tmux(*args):
+            recorded.append(args)
+            return _FakeTmuxResult("\n".join(captures) + "\n")
+
+        monkeypatch.setattr(agent_watch, "_run_tmux_cmd", fake_tmux)
+        monkeypatch.setattr(agent_watch, "capture_visible_pane", lambda name: captures.get(name))
+        monkeypatch.setattr(agent_watch, "list_pane_meta", lambda: pane_meta)
+        monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: dict(metadata or {}))
+        monkeypatch.setattr(
+            agent_watch, "ForegroundInspector", lambda: _FakeInspector(argvs_by_pid))
+        return recorded
+
+    def test_wrapper_launched_agent_is_detected_via_argv(self, client, monkeypatch):
+        # pane_current_command は node（特定不可）だが argv で claude と分かる
+        screen = (
+            "──────────────────────────────\n"
+            "Do you want to proceed?\n"
+            "❯ 1. Yes\n"
+            "  2. No\n"
+            "esc to cancel\n"
+        )
+        self._setup(
+            monkeypatch, {"ac-s1": screen},
+            {"ac-s1": ("node", "", 42, "")},
+            {42: [["node", "/usr/lib/claude"]]},
+        )
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_manual_command_gets_auto_tagged(self, client, monkeypatch):
+        res = client.post("/common/jobs", headers=AUTH, json={
+            "label": "Dev Server", "command": "npm run dev",
+        })
+        job_name = res.json()["name"]
+        recorded = self._setup(
+            monkeypatch, {"ac-s1": "$ npm run dev\n..."},
+            {"ac-s1": ("npm", "", 42, "")},
+            {42: [["npm", "run", "dev"]]},
+        )
+        collect_agent_states()
+        tag_calls = [args for args in recorded if "set-environment" in args]
+        assert tag_calls, "auto-tag should persist job metadata to tmux env"
+        flat = tag_calls[0]
+        assert "TMUX_JOB_NAME" in flat and job_name in flat
+        assert "TMUX_JOB_LABEL" in flat and "Dev Server" in flat
+
+    def test_existing_job_tag_is_not_overwritten(self, client, monkeypatch):
+        client.post("/common/jobs", headers=AUTH, json={
+            "label": "Dev Server", "command": "npm run dev",
+        })
+        recorded = self._setup(
+            monkeypatch, {"ac-s1": "$ npm run dev\n..."},
+            {"ac-s1": ("npm", "", 42, "")},
+            {42: [["npm", "run", "dev"]]},
+            metadata={"TMUX_JOB_NAME": "existing-job"},
+        )
+        collect_agent_states()
+        assert not any("set-environment" in args for args in recorded)
+
+    def test_no_foreground_job_means_no_tagging(self, client, monkeypatch):
+        client.post("/common/jobs", headers=AUTH, json={
+            "label": "Dev Server", "command": "npm run dev",
+        })
+        recorded = self._setup(
+            monkeypatch, {"ac-s1": "$ "}, {"ac-s1": ("zsh", "", 42, "")}, {42: []},
+        )
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+        assert not any("set-environment" in args for args in recorded)
+
+
+class TestHookStatePriority:
+    """agent hooks 由来の状態は manifest / 画面差分より優先される。"""
+
+    def _setup(self, monkeypatch, captures, pane_meta):
+        monkeypatch.setattr(
+            agent_watch, "_run_tmux_cmd",
+            lambda *args: _FakeTmuxResult("\n".join(captures) + "\n"),
+        )
+        monkeypatch.setattr(agent_watch, "capture_visible_pane", lambda name: captures.get(name))
+        monkeypatch.setattr(agent_watch, "list_pane_meta", lambda: pane_meta)
+        monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: {})
+        monkeypatch.setattr(agent_watch, "ForegroundInspector", lambda: _FakeInspector({}))
+
+    _CLAUDE_PROMPT = (
+        "──────────────────────────────\n"
+        "Do you want to proceed?\n"
+        "❯ 1. Yes\n"
+        "  2. No\n"
+        "esc to cancel\n"
+    )
+
+    def test_fresh_hook_state_wins_over_manifest(self, client, monkeypatch):
+        from api.agent_hooks import record_event
+        # 画面は claude の許可プロンプト（manifest 判定なら blocked）だが、
+        # hook が Stop（idle）を主張していればそちらを採用する。
+        record_event("s1", "Stop")
+        self._setup(monkeypatch, {"ac-s1": self._CLAUDE_PROMPT}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_hook_blocked_applies_without_agent_process(self, client, monkeypatch):
+        from api.agent_hooks import record_event
+        # プロセス名でエージェント特定できないセッションでも hook だけで blocked になる。
+        record_event("s1", "Notification")
+        self._setup(monkeypatch, {"ac-s1": "$ "}, {"ac-s1": ("zsh", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+    def test_without_hook_manifest_still_applies(self, client, monkeypatch):
+        self._setup(monkeypatch, {"ac-s1": self._CLAUDE_PROMPT}, {"ac-s1": ("claude", "", 0, "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "blocked"}
+
+
+class TestWorkspaceAutoBind:
+    """cwd の最長前方一致によるワークスペース自動紐付け。"""
+
+    def _setup(self, monkeypatch, captures, pane_meta, metadata=None):
+        recorded = []
+
+        def fake_tmux(*args):
+            recorded.append(args)
+            return _FakeTmuxResult("\n".join(captures) + "\n")
+
+        monkeypatch.setattr(agent_watch, "_run_tmux_cmd", fake_tmux)
+        monkeypatch.setattr(agent_watch, "capture_visible_pane", lambda name: captures.get(name))
+        monkeypatch.setattr(agent_watch, "list_pane_meta", lambda: pane_meta)
+        monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: dict(metadata or {}))
+        monkeypatch.setattr(
+            agent_watch, "ForegroundInspector", lambda: _FakeInspector({}))
+        return recorded
+
+    def test_bare_terminal_in_workspace_dir_gets_bound(self, client, workspace, monkeypatch):
+        recorded = self._setup(
+            monkeypatch, {"ac-s1": "$ "},
+            {"ac-s1": ("zsh", "", 0, str(workspace) + "/sub")},
+        )
+        collect_agent_states()
+        bind_calls = [args for args in recorded if "TMUX_WORKSPACE" in args]
+        assert bind_calls, "cwd inside a registered workspace should auto-bind"
+        assert "test-ws" in bind_calls[0]
+
+    def test_existing_binding_is_not_overwritten(self, client, workspace, monkeypatch):
+        recorded = self._setup(
+            monkeypatch, {"ac-s1": "$ "},
+            {"ac-s1": ("zsh", "", 0, str(workspace))},
+            metadata={"TMUX_WORKSPACE": "other-ws"},
+        )
+        collect_agent_states()
+        assert not any("TMUX_WORKSPACE" in args for args in recorded)
+
+    def test_unregistered_path_is_not_bound(self, client, workspace, monkeypatch):
+        recorded = self._setup(
+            monkeypatch, {"ac-s1": "$ "},
+            {"ac-s1": ("zsh", "", 0, "/tmp/elsewhere")},
+        )
+        collect_agent_states()
+        assert not any("TMUX_WORKSPACE" in args for args in recorded)
 
 
 class TestNotifyGraceSec:

@@ -85,6 +85,26 @@ class TestNotify:
 
         asyncio.run(run())
 
+    def test_notify_session_workspace_bound_reaches_subscriber(self):
+        async def run():
+            ws = _FakeWS()
+            await session_watch.subscribe(ws)
+            session_watch.notify_session_workspace_bound("s1", "proj")
+            await _wait_for(lambda: bool(ws.sent))
+            assert ws.sent[-1] == {"type": "session_workspace_bound", "session_id": "s1", "workspace": "proj"}
+
+        asyncio.run(run())
+
+    def test_notify_session_job_bound_reaches_subscriber(self):
+        async def run():
+            ws = _FakeWS()
+            await session_watch.subscribe(ws)
+            session_watch.notify_session_job_bound("s1", "job_x", "My Job")
+            await _wait_for(lambda: bool(ws.sent))
+            assert ws.sent[-1] == {"type": "session_job_bound", "session_id": "s1", "job_name": "job_x", "job_label": "My Job"}
+
+        asyncio.run(run())
+
     def test_notify_reaches_all_subscribers(self):
         async def run():
             ws1, ws2 = _FakeWS(), _FakeWS()

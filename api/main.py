@@ -25,6 +25,9 @@ from .common import BACKGROUND_EXECUTOR, BACKGROUND_FETCH_EXECUTOR, MAX_UPLOAD_S
 from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
+from .routers import (
+    agent_hooks as agent_hooks_router,
+)
 from .routers import api_tokens as api_tokens_router
 from .routers import devices as devices_router
 from .routers import (
@@ -225,6 +228,8 @@ async def lifespan(app: FastAPI):
     init_vapid(sub=f"https://{_display_host}")
     set_self_ports([port])
     start_scanner()
+    from .manifest_update import start_updater, stop_updater
+    start_updater()
     _load_persisted_pending()
     _load_persisted_recent()
     if has_subscriptions():
@@ -232,6 +237,7 @@ async def lifespan(app: FastAPI):
         ensure_phrase_task()
     yield
     stop_scanner()
+    stop_updater()
     from .agent_watch import shutdown as agent_watch_shutdown
     agent_watch_shutdown()
     from .git_watch import shutdown as git_watch_shutdown
@@ -270,6 +276,7 @@ app.include_router(status_stream.ws_router)
 app.include_router(system.router)
 app.include_router(settings.router)
 app.include_router(push_router.router)
+app.include_router(agent_hooks_router.router)
 
 
 

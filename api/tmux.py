@@ -44,6 +44,10 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     env.setdefault("DISPLAY", ":0")
     if workspace_path:
         env["WORKSPACE"] = workspace_path
+    # エージェント hooks 用の接続情報を注入する（scripts/claude-code-hook.sh が使う。
+    # 失敗時は空 dict = そのセッションでは hooks 無効になるだけで生成は続行する）。
+    from .agent_hooks import hook_session_env
+    env.update(hook_session_env(session_name))
 
     display = env.get("DISPLAY", ":0")
     run_outside_cgroup(
@@ -207,6 +211,35 @@ def detect_workspace_from_tmux(tmux_name: str) -> str | None:
         if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
             return ws_id
     return None
+
+
+def list_pane_meta() -> dict[str, tuple[str, str, int, str]]:
+    """全 tmux セッションの (pane_current_command, pane_title, pane_pid,
+    pane_current_path) を一括で返す。
+
+    キーはセッション名。agent_watch がポーリング 1 周期につき 1 回だけ呼び、
+    セッション数に比例した tmux 呼び出しを避ける。本アプリはセッションごとに
+    単一ペインで運用するため、複数ペインあれば最初のペインを採用する。
+    タイトルはタブを含みうるため最終列に置く。
+    失敗時は空 dict（呼び出し側は検知なしとして続行する）。
+    """
+    result = _run_tmux_cmd(
+        "list-panes", "-a", "-F",
+        "#{session_name}\t#{pane_current_command}\t#{pane_pid}\t#{pane_current_path}\t#{pane_title}",
+    )
+    if result is None or result.returncode != 0:
+        return {}
+    meta: dict[str, tuple[str, str, int, str]] = {}
+    for line in result.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 5:
+            continue
+        try:
+            pane_pid = int(parts[2])
+        except ValueError:
+            pane_pid = 0
+        meta.setdefault(parts[0], (parts[1], "\t".join(parts[4:]), pane_pid, parts[3]))
+    return meta
 
 
 def get_window_width(tmux_name: str) -> int | None:

@@ -165,10 +165,11 @@ const infoPillConfig = useInfoPillConfigStore();
 const terminalStore = useTerminalStore();
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
-// 新規出力通知(tab-activity)・エージェント実行中(pill-working)のアニメーションは
-// 特定のピルに限らず、全ピル共通の見た目にする。
+// 新規出力通知(tab-activity)・エージェント実行中(pill-working)・承認待ち
+// (pill-blocked)のアニメーションは特定のピルに限らず、全ピル共通の見た目にする。
 const pillActivityClass = computed(() => ({
   "tab-activity": props.tab._activity,
   "pill-working": agentState.value === "working",
+  "pill-blocked": agentState.value === "blocked",
 }));
 </script>

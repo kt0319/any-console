@@ -148,6 +148,8 @@ async def delete_terminal_session(session_id: str):
     if not session:
         raise not_found("Terminal session not found")
     _kill_tmux_session(session)
+    from ..agent_hooks import clear_session
+    clear_session(session_id)
     notify_session_removed(session_id)
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}

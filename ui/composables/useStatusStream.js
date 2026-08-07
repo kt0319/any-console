@@ -2,6 +2,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { applyDispatchQueue } from "./useDispatchConfirm.js";
 import { useSessionSync } from "./useSessionSync.js";
+import { useToast } from "./useToast.js";
 import { on } from "../app-bridge.js";
 import { debugLog } from "./useClientLogs.js";
 import {
@@ -31,6 +32,7 @@ export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
   const terminalStore = useTerminalStore();
   const { syncSessionsFromServer } = useSessionSync();
+  const toast = useToast();
 
   function isClosed() {
     return !socket || socket.readyState === WebSocket.CLOSED;
@@ -62,6 +64,25 @@ export function useStatusStream() {
         terminalStore.clearPhraseNotify(msg.session_id);
       } else if (msg?.type === "session_created" || msg?.type === "session_removed") {
         syncSessionsFromServer();
+      } else if (msg?.type === "session_workspace_bound") {
+        // 素のターミナルがcwd照合で自動ワークスペース紐付けされた通知。該当タブが
+        // 既に開いていれば、次のポーリングを待たずタブアイコン・ピル（Git/Dev
+        // Server等）を即座に更新する（setTabWorkspaceがtab.wsIconと
+        // tabWorkspaceVersionを進め、TerminalPane/TabItemの各computedが
+        // 再評価される）。
+        const tab = terminalStore.openTabs.find((t) => t.sessionId === msg.session_id);
+        if (tab) {
+          const ws = workspaceStore.allWorkspaces.find((w) => w.name === msg.workspace);
+          terminalStore.setTabWorkspace(tab.id, msg.workspace, ws ? { icon: ws.icon, iconColor: ws.icon_color } : null);
+          workspaceStore.fetchStatuses();
+        }
+        toast.success(`Workspace linked: ${msg.workspace}`);
+      } else if (msg?.type === "session_job_bound") {
+        // 前面ジョブのargv照合による自動ジョブタグ付け（cwd照合と同じ仕組みの
+        // ジョブ版）。タブのjobName/jobLabel/アイコンはこのタブが再構築される
+        // まで反映されない（workspaceのようなライブ更新は未実装）ため、まずは
+        // 気付けるようトーストのみ出す。
+        toast.success(`Job detected: ${msg.job_label}`);
       }
     };
     ws.onclose = () => {
