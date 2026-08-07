@@ -8,11 +8,9 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_EXECUTOR,
-    BACKGROUND_FETCH_TIMEOUT_SEC,
     collapse_user_path,
     expand_workspace_path,
     generate_entity_id,
-    run_subprocess_safe,
     safe_resolve_str,
 )
 from ..config import (
@@ -27,6 +25,7 @@ from ..config import (
 from ..errors import bad_request, conflict
 from ..git_info import git_info_to_status_dict
 from ..git_utils import (
+    background_fetch,
     git_branch,
     git_default_branch,
     git_github_url,
@@ -46,11 +45,7 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 def _background_fetch(dirs):
     def fetch(workspace_dir):
-        if run_subprocess_safe(
-            ["git", "fetch", "--quiet"],
-            timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(workspace_dir),
-            log_label=f"background fetch {workspace_dir.name}",
-        ) is None:
+        if not background_fetch(workspace_dir, log_label=f"background fetch {workspace_dir.name}"):
             logger.warning("background fetch failed dir=%s", workspace_dir.name)
 
     list(BACKGROUND_FETCH_EXECUTOR.map(fetch, dirs))

@@ -6,12 +6,28 @@ from pathlib import Path
 from typing import Any
 
 from .common import (
+    BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
+    run_subprocess_safe,
 )
 from .errors import timeout_error
 
 logger = logging.getLogger(__name__)
+
+
+def background_fetch(directory: Path, log_label: str) -> bool:
+    """バックグラウンドの `git fetch --quiet` を実行し、成功したかを返す。
+
+    GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する（バックグラウンド実行のため
+    プロンプトに答えられず、タイムアウトまでワーカーを塞いでしまうのを防ぐ）。
+    """
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    return run_subprocess_safe(
+        ["git", "fetch", "--quiet"],
+        timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(directory), env=env,
+        log_label=log_label,
+    ) is not None
 
 
 def ssh_env() -> dict[str, str]:

@@ -22,22 +22,20 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketDisconnect
 from watchfiles import awatch
 
 from .common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_EXECUTOR,
-    BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_AUTO_FETCH_INTERVAL_SEC,
     GIT_WATCH_DEBOUNCE_MS,
     GIT_WATCH_RETRY_SEC,
     GIT_WATCH_STEP_MS,
-    run_subprocess_safe,
     safe_resolve_str,
 )
 from .git_info import cache_generation_for, invalidate_git_info_cache, refresh_git_info
-from .git_utils import list_git_workspace_paths, run_git_raw
+from .git_utils import background_fetch, list_git_workspace_paths, run_git_raw
+from .ws_broadcast import broadcast_to
 
 logger = logging.getLogger(__name__)
 
@@ -350,14 +348,7 @@ async def _push_status(target: WatchTarget) -> None:
 
 
 async def _broadcast(payload: dict[str, Any]) -> None:
-    dead = []
-    for ws in list(_subscribers):
-        try:
-            await ws.send_json(payload)
-        except (WebSocketDisconnect, RuntimeError, OSError):
-            dead.append(ws)
-    for ws in dead:
-        unsubscribe(ws)
+    await broadcast_to(_subscribers, payload, on_dead=unsubscribe)
 
 
 async def _refresh_targets() -> list[WatchTarget]:
@@ -421,12 +412,7 @@ async def _watch_loop() -> None:  # pragma: no cover - OS の FS イベントに
 
 
 def _fetch_one(directory: Path) -> None:
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-    if run_subprocess_safe(
-        ["git", "fetch", "--quiet"],
-        timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(directory), env=env,
-        log_label=f"auto fetch {directory.name}",
-    ) is None:
+    if not background_fetch(directory, log_label=f"auto fetch {directory.name}"):
         logger.debug("auto fetch failed dir=%s", directory.name)
 
 
