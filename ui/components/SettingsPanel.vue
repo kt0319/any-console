@@ -34,7 +34,6 @@
       <div class="settings-panel-body">
         <SessionListView v-if="currentView === 'SessionList'" />
         <SessionDispatchesTab v-if="currentView === 'SessionDispatches'" />
-        <SessionPreviewTab v-if="currentView === 'SessionPreview'" />
         <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
         <ModalMenu v-if="currentView === 'ModalMenu'" />
         <WorkspaceAddView v-if="currentView === 'WorkspaceAdd'" />
@@ -63,10 +62,8 @@
 import { computed, provide } from "vue";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import SessionListView from "./SessionListView.vue";
 import SessionDispatchesTab from "./SessionDispatchesTab.vue";
-import SessionPreviewTab from "./SessionPreviewTab.vue";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAddView from "./WorkspaceAddView.vue";
@@ -106,13 +103,13 @@ provide("pushView", pushView);
 provide("popView", popView);
 provide("updateViewState", updateViewState);
 
-// Sessions/Dispatches/Dev Server/Open/Settingsの切替えタブ帯。以前は
+// Sessions/Dispatches/Open/Settingsの切替えタブ帯。以前は
 // SessionListView.vue自身がactiveTabを持ち、Open/SettingsもWorkspaceOpen.vue/
 // ModalMenu.vueを内部に埋め込んで表示していたが、その方式だと埋め込んだ
 // 先（ModalMenu→TerminalConfig等）へさらに一段掘り下げるとcurrentViewが
 // 変わりSessionListView自体がアンマウントされ、タブ帯ごと消えてしまう
 // 問題があった。タブ帯をこのSettingsPanel.vue側の常設表示にし、Dispatches/
-// Dev Server/Open/Settingsも他の設定画面と同じ「本物のcurrentView遷移」に
+// Open/Settingsも他の設定画面と同じ「本物のcurrentView遷移」に
 // 統一することで、どれだけ深く（ModalMenu→TerminalConfig→…）進んでも
 // タブ帯は常に表示され続ける。
 // アクティブなタブの判定はviewStackの2番目（stack[0]は常にSessionListが
@@ -121,7 +118,6 @@ provide("updateViewState", updateViewState);
 // すべてSettings扱いにする（ModalMenu配下の設定画面は数が多いため）。
 const TAB_BRANCH_ROOTS = {
   SessionDispatches: "dispatches",
-  SessionPreview: "preview",
   WorkspaceOpen: "openWorkspace",
   WorkspaceAdd: "openWorkspace",
   WorkspaceEdit: "openWorkspace",
@@ -133,14 +129,11 @@ const activeTab = computed(() => {
 });
 
 const { queue: dispatchQueue } = useDispatchConfirm();
-const { ports: previewPorts } = usePreviewPorts();
-const previewPortCount = computed(() => previewPorts.value.filter((p) => !p.is_self).length);
 
 const sessionTabs = computed(() => [
   { key: "sessions", icon: "mdi-view-list-outline", label: "Sessions" },
   { key: "openWorkspace", icon: "mdi-folder-plus-outline", label: "Open" },
   { key: "dispatches", icon: "mdi-tray-full", label: "Dispatches", count: dispatchQueue.value.length },
-  { key: "preview", icon: "mdi-server", label: "Dev Server", count: previewPortCount.value },
   { key: "settings", icon: "mdi-cog", label: "Settings" },
 ]);
 
@@ -150,7 +143,6 @@ const TAB_OPEN_VIEW = {
   sessions: "SessionList",
   openWorkspace: "WorkspaceOpen",
   dispatches: "SessionDispatches",
-  preview: "SessionPreview",
   settings: "ModalMenu",
 };
 
@@ -235,7 +227,7 @@ defineExpose({ onBack });
   font-weight: 400;
 }
 
-/* Sessions/Dispatches/Dev Server/Open/Settingsの切替え帯（.session-tabs）と
+/* Sessions/Dispatches/Open/Settingsの切替え帯（.session-tabs）と
    本文（.settings-panel-body）をまとめる、DOM順を反転できる内側コンテナ。
    ヘッダー（.settings-panel-header）は常に画面上部固定のため反転対象に
    含めず、この内側だけをWorkspaceDetail.vueの.workspace-detailと同じ

@@ -1,7 +1,7 @@
 /**
- * Sessionsページのタブ帯（Sessions / Open / Dispatches / Dev Server / Settings）の
+ * Sessionsページのタブ帯（Sessions / Open / Dispatches / Settings）の
  * E2E スモーク。タブ帯はSettingsPanel.vueの常設表示で、各タブは本物のcurrentView
- * 遷移（SessionList/WorkspaceOpen/SessionDispatches/SessionPreview/ModalMenu）に
+ * 遷移（SessionList/WorkspaceOpen/SessionDispatches/ModalMenu）に
  * なっているため、Settingsタブから内部（Terminal等）へさらに一段掘り下げても
  * タブ帯が消えないことを確認する。
  */
@@ -22,7 +22,7 @@ test.describe("session tabs", () => {
     await login(page, context, token);
   });
 
-  test("Dispatches / Dev Server タブに切り替えられ、タイトルも連動する", async ({ page }) => {
+  test("Dispatches タブに切り替えられ、タイトルも連動する", async ({ page }) => {
     await openSessionsRoot(page);
 
     await expect(page.locator(".session-tab", { hasText: "Sessions" })).toHaveClass(/active/);
@@ -33,10 +33,6 @@ test.describe("session tabs", () => {
     await expect(page.locator(".dispatch-queue-tab")).toBeVisible({ timeout: 5000 });
     await expect(page.locator(".session-tabs")).toBeVisible();
     await expect(page.locator(".modal-title")).toContainText("Dispatches");
-
-    await page.locator(".session-tab", { hasText: "Dev Server" }).click();
-    await expect(page.locator(".preview-tab")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".modal-title")).toContainText("Dev Server");
 
     await page.locator(".session-tab", { hasText: "Sessions" }).click();
     await expect(page.locator(".session-list-scroll")).toBeVisible();
