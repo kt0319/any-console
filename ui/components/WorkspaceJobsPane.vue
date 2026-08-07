@@ -122,12 +122,13 @@ async function load() {
 function openTerminal() {
   const wsName = workspace.value;
   if (!wsName) return;
+  // ワークスペースを開いてもサイドバー/設定は閉じない（PCはターミナルに
+  // 被せず横に並ぶため隠す必要が無く、続けて他のワークスペースも開けるように）。
   emit("terminal:launch", {
     workspace: wsName,
     icon: ws.value?.icon,
     iconColor: ws.value?.icon_color,
   });
-  emit("modal:close");
 }
 
 async function runJob(job) {
@@ -144,6 +145,7 @@ async function runJob(job) {
     if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
   if (ws.value) recordJob(ws.value, job);
+  // ワークスペースを開いてもサイドバー/設定は閉じない（上のopenTerminalと同様）。
   emit("terminal:launch", {
     workspace: wsName,
     icon: ws.value?.icon,
@@ -155,7 +157,6 @@ async function runJob(job) {
     initialCommand: job.command,
     detached: !!job.detached_tab,
   });
-  emit("modal:close");
 }
 
 function startEditJob(job, isCommon) {

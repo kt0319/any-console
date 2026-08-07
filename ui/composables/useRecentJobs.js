@@ -88,6 +88,8 @@ export function useRecentJobs() {
       const preview = jobCommandPreview(recent.jobCommand, recent.jobName);
       if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
     }
+    // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
+    // のopenTerminal/runJobと同様）。
     emit("terminal:launch", {
       workspace: recent.workspace,
       icon: recent.wsIcon,
@@ -99,7 +101,6 @@ export function useRecentJobs() {
       initialCommand: recent.jobCommand,
       detached: !!recent.jobDetachedTab,
     });
-    emit("modal:close");
   }
 
   return { recentJobs, loadRecentJobs, recordJob, runRecentJob, togglePin };

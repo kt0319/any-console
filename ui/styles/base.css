@@ -23,6 +23,10 @@
   --error-bg-20: rgba(255, 85, 114, 0.2);
   --warning-bg-20: rgba(255, 203, 107, 0.2);
   --overlay-bg: rgba(0, 0, 0, 0.35);
+  /* SessionSidebar.vue（PCのセッション一覧+設定サイドバー）の幅。TabBar.vue
+     の.tab-bar-row-sidebar-openとScreenMain.vueの.content-area-sidebar-open
+     がこの幅ぶんターミナル側を縮めるため、3箇所とも同じ値を参照する。 */
+  --session-sidebar-width: 320px;
 }
 
 * {

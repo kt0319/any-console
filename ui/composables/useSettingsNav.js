@@ -2,6 +2,7 @@ import { ref, computed, watch } from "vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.js";
 
 // 設定画面のビュースタック（旧Modal.vueが単独で持っていた状態）をモジュール
 // スコープの単一状態に抽出したもの。モバイルのModal.vue（オーバーレイ表示）と
@@ -49,8 +50,10 @@ function setPaneRef(el) {
   currentPaneRef.value = el;
 }
 
+// PC(SessionSidebar.vue)・モバイル(Modal.vue)どちらもisSessionSidebarOpen
+// を見て表示を切り替えるため、プラットフォームを問わず開く。
 function ensureSidebarOpen() {
-  if (layoutStore && !layoutStore.isPanelBottom) layoutStore.isSessionSidebarOpen = true;
+  if (layoutStore) layoutStore.isSessionSidebarOpen = true;
 }
 
 function pushView(view, state = {}) {
@@ -135,41 +138,35 @@ function registerListeners() {
     }
   });
 
+  // Workspacesは設定メニュー配下ではなく、セッション一覧（SessionListView.vue
+  // の「Open Workspace」）から直接開く導線に統一したため、ModalMenuを挟まない
+  // （SessionListがルートのため、openViewが自動でその手前に補う）。
   on("workspace:openModal", () => openView([
-    { view: "ModalMenu", state: {} },
     { view: "WorkspaceOpen", state: {} },
   ]));
 
   on("workspace:openAdd", (detail) => openView([
-    { view: "ModalMenu", state: {} },
     { view: "WorkspaceOpen", state: {} },
     { view: "WorkspaceAdd", state: { ...detail } },
   ]));
 
-  on("git:openFileModal", (detail) => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: { detail } },
-  ]));
+  // WorkspaceDetail（Files/Changes/History等）はSettingsのスタックとは
+  // 独立したuseWorkspaceDetailNav.jsで開閉する（セッション一覧/設定の表示は
+  // そのまま変えない。WorkspaceDetailModal.vueが全面オーバーレイで表示する）。
+  const { open: openWorkspaceDetail } = useWorkspaceDetailNav();
+
+  on("git:openFileModal", (detail) => openWorkspaceDetail(detail));
 
   on("preview:showPorts", () => openView([
     { view: "ModalMenu", state: {} },
     { view: "PreviewPorts", state: {} },
   ]));
 
-  on("git:openGitHub", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: { detail: { pane: "issues" } } },
-  ]));
+  on("git:openGitHub", () => openWorkspaceDetail({ pane: "issues" }));
 
   on("git:openHistory", (/** @type {{ wsName?: string }} */ { wsName } = {}) => {
     if (workspaceStore && wsName) workspaceStore.selectedWorkspace = wsName;
-    openView([
-      { view: "ModalMenu", state: {} },
-      { view: "WorkspaceOpen", state: {} },
-      { view: "WorkspaceDetail", state: { detail: { pane: "history" } } },
-    ]);
+    openWorkspaceDetail({ pane: "history" });
   });
 
   on("modal:close", () => closeNav());

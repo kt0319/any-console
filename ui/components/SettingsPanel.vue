@@ -39,7 +39,6 @@
       <InfoPillConfig v-if="currentView === 'InfoPillConfig'" />
       <ConfigFile v-if="currentView === 'ConfigFile'" />
       <IconPicker v-if="currentView === 'IconPicker'" />
-      <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
     </div>
   </div>
 </template>
@@ -70,17 +69,17 @@ import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import InfoPillConfig from "./InfoPillConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 import IconPicker from "./IconPicker.vue";
-import WorkspaceDetail from "./WorkspaceDetail.vue";
 
 // Modal.vue（モバイルのオーバーレイ表示）とSessionSidebar.vue（PCのインライン
 // 表示）の両方から使う設定画面の中身。ナビゲーション状態はuseSettingsNav.js
 // （モジュールスコープの単一状態）を共有するため、表示場所が変わっても
-// 同じビュースタックのまま続きから見える。
+// 同じビュースタックのまま続きから見える。WorkspaceDetailはuseWorkspaceDetailNav.js
+// で完全に独立させているため、ここには含まれない（WorkspaceDetailModal.vue参照）。
 
 const {
   currentView, canNavigateBack,
   modalTitle, modalBranch, currentState,
-  pushView, popView, updateViewState, onBack, setPaneRef,
+  pushView, popView, updateViewState, onBack,
 } = useSettingsNav();
 
 provide("modalTitle", modalTitle);

@@ -5,9 +5,6 @@
         <span class="settings-category-title">Workspaces</span>
       </div>
       <div class="settings-menu-group">
-        <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
-          <span class="mdi mdi-folder-multiple"></span> Workspaces
-        </button>
         <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
           <span class="mdi mdi-tab"></span> Tabs & Sessions
           <span v-if="openTabCount > 0 || detachedSessionCount > 0" class="settings-menu-version">

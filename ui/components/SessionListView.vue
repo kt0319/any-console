@@ -251,6 +251,16 @@ onBeforeUnmount(() => {
   padding: 4px 0;
 }
 
+/* セッション（タブ）ごとに罫線で区切る。最後の行は下の「Open Workspace」/
+   「Settings」ボタン側に既にborder-topがあるため二重線にならないよう省く。 */
+.session-sidebar-li {
+  border-bottom: 1px solid var(--border);
+}
+
+.session-sidebar-li:last-child {
+  border-bottom: none;
+}
+
 .session-list-settings-btn {
   display: flex;
   align-items: center;

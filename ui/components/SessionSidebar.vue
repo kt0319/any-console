@@ -55,7 +55,7 @@ onBeforeUnmount(() => {
   left: 0;
   bottom: 0;
   z-index: 15; /* Modal.vue の .modal-overlay(z-index:20) より下、info-pills(10) より上 */
-  width: 280px;
+  width: var(--session-sidebar-width);
   max-width: 85vw;
   display: flex;
   flex-direction: column;
