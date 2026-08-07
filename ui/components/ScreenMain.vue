@@ -19,6 +19,7 @@
       >
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
+      <SessionSidebar />
       <Modal />
     </div>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
@@ -34,6 +35,7 @@ import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
+import SessionSidebar from "./SessionSidebar.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useLayoutStore } from "../stores/layout.js";
