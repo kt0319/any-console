@@ -225,6 +225,8 @@ async def lifespan(app: FastAPI):
     init_vapid(sub=f"https://{_display_host}")
     set_self_ports([port])
     start_scanner()
+    from .manifest_update import start_updater, stop_updater
+    start_updater()
     _load_persisted_pending()
     _load_persisted_recent()
     if has_subscriptions():
@@ -232,6 +234,7 @@ async def lifespan(app: FastAPI):
         ensure_phrase_task()
     yield
     stop_scanner()
+    stop_updater()
     from .agent_watch import shutdown as agent_watch_shutdown
     agent_watch_shutdown()
     from .git_watch import shutdown as git_watch_shutdown

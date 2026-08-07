@@ -4,15 +4,22 @@
 herdr の manifest.rs に合わせた評価意味論の確認。
 """
 
+import pytest
+
 from api.screen_manifest import (
+    _REGION_COUNT_RE,
     Gate,
     Manifest,
     Rule,
     _gate_matches,
+    compare_manifest_versions,
     evaluate_state,
     identify_agent,
+    invalidate_manifest_cache,
     is_horizontal_rule,
     load_manifests,
+    parse_manifest_text,
+    parse_manifest_version,
     region_text,
     translate_rust_regex,
 )
@@ -46,6 +53,32 @@ class TestTranslateRustRegex:
 
     def test_plain_pattern_is_unchanged(self):
         assert translate_rust_regex(r"(?i)^\s*yes\b") == r"(?i)^\s*yes\b"
+
+    def test_braced_u_escape_is_converted(self):
+        assert translate_rust_regex(r"^⚠[\u{fe0e}\u{fe0f}]?") == "^⚠[\\ufe0e\\ufe0f]?"
+
+    def test_alphabetic_property_is_converted(self):
+        import re
+        pattern = translate_rust_regex(r"^\s*[\x{2800}-\x{28FF}]+\s+\p{Alphabetic}+\w*ing\b")
+        assert re.search(pattern, "  ⠋ Thinking")
+
+
+class TestManifestVersion:
+    def test_parse_dotted_numeric(self):
+        assert parse_manifest_version("2026.08.04.1") == (2026, 8, 4, 1)
+
+    def test_parse_rejects_non_numeric(self):
+        with pytest.raises(ValueError):
+            parse_manifest_version("1.2a")
+        with pytest.raises(ValueError):
+            parse_manifest_version("")
+        with pytest.raises(ValueError):
+            parse_manifest_version("1..2")
+
+    def test_compare_pads_trailing_zeros(self):
+        assert compare_manifest_versions((1, 2), (1, 2, 0)) == 0
+        assert compare_manifest_versions((1, 2, 1), (1, 2)) == 1
+        assert compare_manifest_versions((1, 2), (1, 10)) == -1
 
 
 class TestIsHorizontalRule:
@@ -96,6 +129,16 @@ class TestRegionText:
 
     def test_after_last_prompt_marker_without_marker_returns_all(self):
         assert region_text("after_last_prompt_marker", "a\nb", "", "") == "a\nb"
+
+    def test_top_non_empty_lines_includes_leading_blanks(self):
+        screen = "\nfirst\nsecond\nthird"
+        assert region_text("top_non_empty_lines(2)", screen, "", "") == "\nfirst\nsecond"
+
+    def test_top_non_empty_lines_empty_screen(self):
+        assert region_text("top_non_empty_lines(1)", "\n\n", "", "") == ""
+
+    def test_bottom_lines_counts_raw_lines(self):
+        assert region_text("bottom_lines(2)", "a\nb\nc\n", "", "") == "b\nc"
 
     def test_unknown_region_is_empty(self):
         assert region_text("osc_hyperlink", "screen", "t", "p") == ""
@@ -162,14 +205,21 @@ class TestBundledManifests:
         ids = {m.id for m in load_manifests()}
         assert {"claude", "codex"} <= ids
 
+    def test_all_bundled_manifests_load(self):
+        # \p{...} 等の Rust regex 記法が翻訳できず黙って捨てられていないか検証する。
+        from api.screen_manifest import MANIFEST_DIR
+        toml_count = len(list(MANIFEST_DIR.glob("*.toml")))
+        assert len(load_manifests()) == toml_count
+        ids = [m.id for m in load_manifests()]
+        assert len(ids) == len(set(ids)), "duplicate manifest ids"
+
     def test_all_rules_use_supported_regions_and_states(self):
         # upstream 同期でリージョン・状態が増えた場合にここで検出する
         # （未知リージョンは空文字となり、ルールが黙って死ぬため）。
         for manifest in load_manifests():
             for rule in manifest.rules:
                 region = rule.region
-                base = region.split("(")[0] + "(n)" if "(" in region else region
-                assert region in _SUPPORTED_REGIONS or base == "bottom_non_empty_lines(n)", \
+                assert region in _SUPPORTED_REGIONS or _REGION_COUNT_RE.match(region), \
                     f"{manifest.id}:{rule.id} uses unsupported region {region}"
                 assert rule.state in _KNOWN_STATES, \
                     f"{manifest.id}:{rule.id} has unknown state {rule.state}"
@@ -234,3 +284,112 @@ class TestBundledManifests:
     def test_plain_shell_screen_has_no_state(self):
         claude = identify_agent("claude")
         assert evaluate_state(claude, "$ ls\nREADME.md\n$ ") is None
+
+
+_OVERRIDE_MANIFEST = """\
+id = "claude"
+[[rules]]
+id = "custom"
+state = "blocked"
+priority = 10
+region = "whole_recent"
+contains = ["my custom marker"]
+"""
+
+_REMOTE_MANIFEST = """\
+id = "claude"
+version = "9999.1.1"
+min_engine_version = 2
+[[rules]]
+id = "remote_rule"
+state = "blocked"
+priority = 10
+region = "whole_recent"
+contains = ["remote marker"]
+"""
+
+
+class TestLayeredLoading:
+    """override > remote > bundled の階層解決（data/agent-detection/ 配下）。"""
+
+    def _claude(self):
+        invalidate_manifest_cache()
+        manifest = identify_agent("claude")
+        assert manifest is not None
+        return manifest
+
+    def _write(self, directory, name, content):
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / name).write_text(content, encoding="utf-8")
+
+    def test_bundled_is_default_source(self):
+        assert self._claude().source == "bundled"
+
+    def test_override_wins(self, isolate_fs):
+        import api.screen_manifest as sm
+        self._write(sm.OVERRIDE_DIR, "claude.toml", _OVERRIDE_MANIFEST)
+        manifest = self._claude()
+        assert manifest.source == "override"
+        assert evaluate_state(manifest, "my custom marker") == "blocked"
+
+    def test_remote_newer_than_bundled_wins(self, isolate_fs):
+        import api.screen_manifest as sm
+        self._write(sm.REMOTE_DIR, "claude.toml", _REMOTE_MANIFEST)
+        manifest = self._claude()
+        assert manifest.source == "remote"
+        assert evaluate_state(manifest, "remote marker") == "blocked"
+
+    def test_remote_older_than_bundled_is_ignored(self, isolate_fs):
+        import api.screen_manifest as sm
+        old = _REMOTE_MANIFEST.replace('version = "9999.1.1"', 'version = "1.0.0"')
+        self._write(sm.REMOTE_DIR, "claude.toml", old)
+        assert self._claude().source == "bundled"
+
+    def test_override_beats_remote(self, isolate_fs):
+        import api.screen_manifest as sm
+        self._write(sm.REMOTE_DIR, "claude.toml", _REMOTE_MANIFEST)
+        self._write(sm.OVERRIDE_DIR, "claude.toml", _OVERRIDE_MANIFEST)
+        assert self._claude().source == "override"
+
+    def test_broken_override_falls_back(self, isolate_fs):
+        import api.screen_manifest as sm
+        self._write(sm.OVERRIDE_DIR, "claude.toml", "not [valid toml")
+        assert self._claude().source == "bundled"
+
+    def test_override_with_wrong_id_falls_back(self, isolate_fs):
+        import api.screen_manifest as sm
+        self._write(sm.OVERRIDE_DIR, "claude.toml",
+                    _OVERRIDE_MANIFEST.replace('id = "claude"', 'id = "other"'))
+        assert self._claude().source == "bundled"
+
+    def test_remote_without_required_fields_is_ignored(self, isolate_fs):
+        import api.screen_manifest as sm
+        # remote 階層は version / min_engine_version が必須（herdr と同じ）
+        self._write(sm.REMOTE_DIR, "claude.toml", _OVERRIDE_MANIFEST)
+        assert self._claude().source == "bundled"
+
+    def test_cache_returns_same_until_invalidated(self, isolate_fs):
+        import api.screen_manifest as sm
+        assert self._claude().source == "bundled"
+        self._write(sm.OVERRIDE_DIR, "claude.toml", _OVERRIDE_MANIFEST)
+        # invalidate せずに読むとキャッシュが生きている
+        cached = identify_agent("claude")
+        assert cached is not None and cached.source == "bundled"
+        invalidate_manifest_cache()
+        fresh = identify_agent("claude")
+        assert fresh is not None and fresh.source == "override"
+
+
+class TestEngineVersionGate:
+    def test_manifest_requiring_newer_engine_is_rejected(self):
+        content = _REMOTE_MANIFEST.replace("min_engine_version = 2", "min_engine_version = 99")
+        with pytest.raises(ValueError):
+            parse_manifest_text(content, require_remote_fields=True)
+
+    def test_remote_fields_are_required(self):
+        with pytest.raises(ValueError):
+            parse_manifest_text(_OVERRIDE_MANIFEST, require_remote_fields=True)
+
+    def test_missing_id_is_rejected(self):
+        with pytest.raises(ValueError):
+            parse_manifest_text("[[rules]]\nid = \"r\"\n")

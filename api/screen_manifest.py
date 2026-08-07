@@ -14,8 +14,18 @@ Codex）の blocked（承認・入力待ち）等の状態を判定する。評�
 
 `osc_progress` リージョンは tmux 経由では取得できないため常に空文字になり、
 該当ルールは一致しない（graceful degradation）。`osc_title` は `#{pane_title}`
-を渡す。マニフェストは読み取り専用の同梱データであり、`data/` 配下の状態
-ファイルではない（`DATA_DIR` 隔離の対象外）。
+を渡す。
+
+マニフェストは herdr と同じ 3 階層で解決する（優先度の高い順）:
+
+1. ローカル override: `data/agent-detection/<id>.toml`（ユーザーが手で置く）
+2. リモートキャッシュ: `data/agent-detection/remote/<id>.toml`
+   （`api/manifest_update.py` が herdr.dev から取得・検証して保存する。
+   バージョンが同梱版より古い場合は無視する）
+3. 同梱: `api/agent_manifests/*.toml`（読み取り専用のパッケージデータであり
+   `DATA_DIR` 隔離の対象外。1・2 は状態ファイルなので `DATA_DIR` 配下）
+
+上位階層が壊れている・id が一致しない場合は下位階層へフォールバックする。
 """
 
 from __future__ import annotations
@@ -24,21 +34,38 @@ import logging
 import re
 import tomllib
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
+
+from .common import DATA_DIR, SCREEN_MANIFEST_CACHE_TTL_SEC, TTLCache
 
 logger = logging.getLogger(__name__)
 
 MANIFEST_DIR = Path(__file__).parent / "agent_manifests"
+# ローカル override とリモートキャッシュ（manifest_update.py が書く）の置き場。
+# isolate_fs / ANY_CONSOLE_DATA_DIR による隔離対象なので DATA_DIR 経由で組み立てる。
+OVERRIDE_DIR = DATA_DIR / "agent-detection"
+REMOTE_DIR = DATA_DIR / "agent-detection" / "remote"
+
+# herdr の MANIFEST_ENGINE_VERSION に対応。top_non_empty_lines 対応が v3。
+ENGINE_VERSION = 3
 
 STATE_BLOCKED = "blocked"
 STATE_UNKNOWN = "unknown"
 
-_RUST_UNICODE_ESCAPE_RE = re.compile(r"\\x\{([0-9A-Fa-f]{1,6})\}")
+# Rust regex の波括弧 Unicode エスケープ（\x{...} と \u{...} は等価）
+_RUST_UNICODE_ESCAPE_RE = re.compile(r"\\[xu]\{([0-9A-Fa-f]{1,6})\}")
+# Rust regex の Unicode プロパティクラス。Python re は \p{...} 非対応のため
+# 既知のものだけ等価な表現へ置き換える。未知のプロパティは変換せず残し、
+# re.compile が失敗してマニフェスト単位で捨てられる（fail-safe）。
+_RUST_PROPERTY_EQUIVALENTS = {
+    r"\p{Alphabetic}": r"[^\W\d_]",
+}
 
 
 def translate_rust_regex(pattern: str) -> str:
-    """Rust regex の `\\x{HHHH}` Unicode エスケープを Python `re` の形式へ変換する。"""
+    """Rust regex 固有の記法を Python `re` の形式へ変換する。"""
+    for prop, equivalent in _RUST_PROPERTY_EQUIVALENTS.items():
+        pattern = pattern.replace(prop, equivalent)
 
     def repl(m: re.Match[str]) -> str:
         cp = int(m.group(1), 16)
@@ -47,6 +74,34 @@ def translate_rust_regex(pattern: str) -> str:
         return f"\\U{cp:08x}"
 
     return _RUST_UNICODE_ESCAPE_RE.sub(repl, pattern)
+
+
+def parse_manifest_version(value: str) -> tuple[int, ...]:
+    """ドット区切り数値バージョンをパースする（herdr の ManifestVersion 相当）。
+
+    数値以外・空セグメントは ValueError。比較は compare_manifest_versions で行う。
+    """
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError("version must not be empty")
+    segments = []
+    for segment in trimmed.split("."):
+        if not segment or not segment.isascii() or not segment.isdigit():
+            raise ValueError(f"version {trimmed!r} must be dotted numeric")
+        segments.append(int(segment))
+    return tuple(segments)
+
+
+def compare_manifest_versions(left: tuple[int, ...], right: tuple[int, ...]) -> int:
+    """-1 / 0 / 1 を返す。桁数が違う場合は 0 を補って比較する（1.2 == 1.2.0）。"""
+    length = max(len(left), len(right))
+    padded_left = left + (0,) * (length - len(left))
+    padded_right = right + (0,) * (length - len(right))
+    if padded_left < padded_right:
+        return -1
+    if padded_left > padded_right:
+        return 1
+    return 0
 
 
 @dataclass
@@ -74,6 +129,9 @@ class Manifest:
     id: str
     aliases: list[str]
     rules: list[Rule]
+    version: tuple[int, ...] | None = None
+    min_engine_version: int | None = None
+    source: str = "bundled"  # "bundled" | "remote" | "override"
 
 
 def _compile_gate(raw: dict) -> Gate:
@@ -87,7 +145,24 @@ def _compile_gate(raw: dict) -> Gate:
     )
 
 
-def _compile_manifest(raw: dict) -> Manifest:
+def _compile_manifest(raw: dict, *, source: str = "bundled", require_remote_fields: bool = False) -> Manifest:
+    """パース + コンパイルし、エンジンバージョンを検証する。
+
+    require_remote_fields=True（リモート由来）では herdr と同じく version と
+    min_engine_version を必須にする（バージョン比較・互換判定に必要なため）。
+    """
+    version_raw = raw.get("version")
+    version = parse_manifest_version(str(version_raw)) if version_raw is not None else None
+    min_engine_raw = raw.get("min_engine_version")
+    min_engine = int(min_engine_raw) if min_engine_raw is not None else None
+    if require_remote_fields:
+        if version is None:
+            raise ValueError("remote manifest must include version")
+        if min_engine is None:
+            raise ValueError("remote manifest must include min_engine_version")
+    if min_engine is not None and min_engine > ENGINE_VERSION:
+        raise ValueError(
+            f"manifest requires engine {min_engine}, current engine is {ENGINE_VERSION}")
     rules = []
     for raw_rule in raw.get("rules", []):
         rules.append(Rule(
@@ -102,28 +177,104 @@ def _compile_manifest(raw: dict) -> Manifest:
         id=str(raw.get("id", "")),
         aliases=[str(a).lower() for a in raw.get("aliases", [])],
         rules=rules,
+        version=version,
+        min_engine_version=min_engine,
+        source=source,
     )
 
 
-@lru_cache(maxsize=1)
-def load_manifests() -> tuple[Manifest, ...]:
-    """同梱マニフェストを読み込んでコンパイルする（プロセス内キャッシュ）。
+def parse_manifest_text(
+    content: str, *, source: str = "bundled", require_remote_fields: bool = False,
+) -> Manifest:
+    """TOML 文字列からマニフェストを構築する（manifest_update.py の検証にも使う）。
 
-    1 ファイルでも壊れていたらそのファイルだけ捨てる（fail-safe: 検知しない側へ倒す）。
-    ルール単位のスキップはしない — ガード用ルール（skip_state_update / unknown）が
-    欠けると誤検知側へ倒れるため、ファイル単位で全捨てする。
+    失敗は tomllib.TOMLDecodeError / re.error / ValueError / TypeError で送出。
     """
+    raw = tomllib.loads(content)
+    manifest = _compile_manifest(raw, source=source, require_remote_fields=require_remote_fields)
+    if not manifest.id:
+        raise ValueError("manifest is missing id")
+    return manifest
+
+
+def _load_layered_manifest(path: Path) -> Manifest | None:
+    """同梱 1 ファイルを起点に override > remote > bundled の順で解決する。
+
+    1 ファイルでも壊れていたらその階層だけ捨てて下位へフォールバックする
+    （fail-safe: 検知しない側へ倒す）。ルール単位のスキップはしない — ガード用
+    ルール（skip_state_update / unknown）が欠けると誤検知側へ倒れるため、
+    ファイル単位で全捨てする。
+    """
+    try:
+        bundled = parse_manifest_text(path.read_text(encoding="utf-8"), source="bundled")
+    except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
+        logger.warning("screen manifest load failed file=%s: %s", path.name, e)
+        return None
+
+    # remote / override の探索はファイル名ではなく id 基準（herdr の agent_label 相当。
+    # 同梱ファイル名と id は一致しないことがある: antigravity.toml → id "agy" 等）。
+    resolved = bundled
+    remote_path = REMOTE_DIR / f"{bundled.id}.toml"
+    if remote_path.is_file():
+        try:
+            remote = parse_manifest_text(
+                remote_path.read_text(encoding="utf-8"), source="remote",
+                require_remote_fields=True,
+            )
+            if remote.id != bundled.id:
+                raise ValueError(f"remote manifest id {remote.id!r} does not match {bundled.id!r}")
+            if (bundled.version is not None and remote.version is not None
+                    and compare_manifest_versions(remote.version, bundled.version) < 0):
+                logger.info(
+                    "ignored remote manifest %s: cached version is older than bundled",
+                    remote_path.name)
+            else:
+                resolved = remote
+        except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
+            logger.warning("ignored remote manifest %s: %s", remote_path.name, e)
+
+    override_path = OVERRIDE_DIR / f"{bundled.id}.toml"
+    if override_path.is_file():
+        try:
+            override = parse_manifest_text(
+                override_path.read_text(encoding="utf-8"), source="override")
+            if override.id != bundled.id:
+                raise ValueError(
+                    f"override manifest id {override.id!r} does not match {bundled.id!r}")
+            resolved = override
+        except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
+            logger.warning("ignored override manifest %s: %s", override_path.name, e)
+
+    return resolved
+
+
+_manifest_cache = TTLCache(SCREEN_MANIFEST_CACHE_TTL_SEC)
+_MANIFEST_CACHE_KEY = "manifests"
+
+
+def load_manifests() -> tuple[Manifest, ...]:
+    """全エージェントのマニフェストを階層解決して返す（TTL キャッシュ付き）。
+
+    認識するエージェントは同梱ファイルがあるものに限る（herdr と同じ）。
+    override / remote の変更は TTL（SCREEN_MANIFEST_CACHE_TTL_SEC）経過後、
+    または invalidate_manifest_cache() 呼び出しで反映される。
+    """
+    cached = _manifest_cache.get(_MANIFEST_CACHE_KEY)
+    if cached is not None:
+        return tuple(cached)
     manifests = []
     for path in sorted(MANIFEST_DIR.glob("*.toml")):
-        try:
-            raw = tomllib.loads(path.read_text(encoding="utf-8"))
-            manifest = _compile_manifest(raw)
-        except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
-            logger.warning("screen manifest load failed file=%s: %s", path.name, e)
-            continue
-        if manifest.id:
+        manifest = _load_layered_manifest(path)
+        if manifest is not None:
             manifests.append(manifest)
-    return tuple(manifests)
+    result = tuple(manifests)
+    _manifest_cache.set(_MANIFEST_CACHE_KEY, result)
+    return result
+
+
+def invalidate_manifest_cache() -> None:
+    """リモート更新のコミット後などに階層解決キャッシュを破棄する。"""
+    _manifest_cache.invalidate_all()
 
 
 def identify_agent(pane_command: str | None) -> Manifest | None:
@@ -224,7 +375,25 @@ def _after_last_prompt_marker(lines: list[str], content: str) -> str:
     return "\n".join(lines[index + 1:])
 
 
-_REGION_COUNT_RE = re.compile(r"^bottom_non_empty_lines\((\d+)\)$")
+def _bottom_lines(lines: list[str], count: int) -> str:
+    return "\n".join(lines[max(0, len(lines) - count):])
+
+
+def _top_non_empty_lines(lines: list[str], count: int) -> str:
+    end = None
+    remaining = count
+    for i, line in enumerate(lines):
+        if line.strip():
+            end = i
+            remaining -= 1
+            if remaining == 0:
+                break
+    if end is None:
+        return ""
+    return "\n".join(lines[:end + 1])
+
+
+_REGION_COUNT_RE = re.compile(r"^(bottom_non_empty_lines|bottom_lines|top_non_empty_lines)\((\d+)\)$")
 
 
 def region_text(region: str, screen: str, osc_title: str, osc_progress: str) -> str:
@@ -244,7 +413,12 @@ def region_text(region: str, screen: str, osc_title: str, osc_progress: str) -> 
         return _after_last_prompt_marker(lines, screen)
     m = _REGION_COUNT_RE.match(region)
     if m:
-        return _bottom_non_empty_lines(lines, int(m.group(1)))
+        count = int(m.group(2))
+        if m.group(1) == "bottom_non_empty_lines":
+            return _bottom_non_empty_lines(lines, count)
+        if m.group(1) == "bottom_lines":
+            return _bottom_lines(lines, count)
+        return _top_non_empty_lines(lines, count)
     return ""
 
 

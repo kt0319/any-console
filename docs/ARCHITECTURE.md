@@ -18,7 +18,8 @@ api/                          Backend (FastAPI)
   terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
   git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
   git_watch.py                Filesystem watching (watchfiles) × WebSocket push for realtime git status
-  screen_manifest.py          Agent state detection from pane content (vendored herdr manifests, see agent_manifests/)
+  screen_manifest.py          Agent state detection from pane content (herdr manifests: bundled + remote + local override)
+  manifest_update.py          Periodic remote manifest updates from herdr.dev (validated, cached under data/)
   config.py / config_schema.py  config.json read/write, Pydantic validation
   config_migrations.py        config.json schema versioning + auto-migration
   rate_limiter.py             In-process rate limiter

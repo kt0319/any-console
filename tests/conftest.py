@@ -64,7 +64,16 @@ def isolate_fs(tmp_path, monkeypatch):
     monkeypatch.setattr(push_mod, "_vapid_private_b64", None)
     monkeypatch.setattr(push_mod, "_vapid_public_b64", None)
 
-    return {"work": work, "data": data, "config_file": config_file}
+    # screen manifest の override / remote キャッシュも tmp に隔離する。階層解決の
+    # 結果は TTL キャッシュされるため、テスト間で漏れないよう前後で破棄する。
+    import api.screen_manifest as screen_manifest_mod
+    monkeypatch.setattr(screen_manifest_mod, "OVERRIDE_DIR", data / "agent-detection")
+    monkeypatch.setattr(screen_manifest_mod, "REMOTE_DIR", data / "agent-detection" / "remote")
+    screen_manifest_mod.invalidate_manifest_cache()
+
+    yield {"work": work, "data": data, "config_file": config_file}
+
+    screen_manifest_mod.invalidate_manifest_cache()
 
 
 @pytest.fixture()

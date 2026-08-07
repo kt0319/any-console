@@ -91,6 +91,14 @@ AGENT_WATCH_POLL_INTERVAL_SEC = 2  # 可視ペインのポーリング間隔
 # notify_phrase 検出後、この秒数アクティビティ（画面の変化）が無ければ通知する。
 # 検出後すぐに画面が動いた（ユーザーが反応した）場合は通知を送らない。
 PHRASE_NOTIFY_IDLE_GRACE_SEC = 20
+
+# screen manifest（api/screen_manifest.py / api/manifest_update.py）
+SCREEN_MANIFEST_CACHE_TTL_SEC = 60  # 階層ロード結果のキャッシュ（override 編集の反映猶予）
+AGENT_MANIFEST_UPDATE_INTERVAL_SEC = 24 * 60 * 60  # リモートマニフェストの確認間隔
+# 起動直後は確認しない（E2E 使い捨てサーバ・テストが外部フェッチを踏まないための猶予）
+AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC = 300
+AGENT_MANIFEST_FETCH_TIMEOUT_SEC = 15
+AGENT_MANIFEST_MAX_FETCH_BYTES = 256 * 1024  # herdr と同じ上限
 PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
