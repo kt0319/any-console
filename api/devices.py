@@ -65,6 +65,11 @@ def _hash_secret(raw_secret: str) -> str:
     return hmac.new(_load_or_create_server_key(), raw_secret.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def strip_secret_hash(entry: dict) -> dict:
+    """API レスポンスに secret_hash を漏らさないための共通フィルタ。"""
+    return {k: v for k, v in entry.items() if k != "secret_hash"}
+
+
 def _load() -> dict:
     data = load_json_file(
         _DEVICES_FILE, {"devices": []},
@@ -223,10 +228,7 @@ def revoke_device(device_id: str) -> bool:
 
 def list_devices() -> list[dict]:
     """secret_hash を除いた一覧を返す（UI 表示用）。"""
-    return [
-        {k: v for k, v in dev.items() if k != "secret_hash"}
-        for dev in _load()["devices"]
-    ]
+    return [strip_secret_hash(dev) for dev in _load()["devices"]]
 
 
 def get_device(device_id: str) -> dict | None:
@@ -234,6 +236,5 @@ def get_device(device_id: str) -> dict | None:
         return None
     for dev in _load()["devices"]:
         if dev["id"] == device_id:
-            result: dict = {k: v for k, v in dev.items() if k != "secret_hash"}
-            return result
+            return strip_secret_hash(dev)
     return None
