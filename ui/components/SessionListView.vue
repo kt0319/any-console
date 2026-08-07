@@ -6,7 +6,12 @@
         <button
           type="button"
           class="session-sidebar-item"
-          :class="{ active: item.id === activeTabId }"
+          :class="{
+            active: item.id === activeTabId,
+            'session-working': item.agent?.className === 'agent-state-working',
+            'session-blocked': item.agent?.className === 'agent-state-blocked',
+            'session-phrase-notify': item.phraseNotify,
+          }"
           :aria-current="item.id === activeTabId ? 'true' : undefined"
           @click="onSelect(item)"
         >
@@ -367,6 +372,37 @@ onBeforeUnmount(() => {
   border-left-color: var(--accent);
 }
 
+/* TabItem.vueと同じ演出（tab-working-pulse/tab-notify-blink）を行にも
+   適用する。アクティブ行は既に強調色がついているため対象外にする。 */
+.session-sidebar-item.session-working:not(.active) {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 10%,
+    rgba(130, 170, 255, 0.2) 50%,
+    transparent 90%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: session-sidebar-working-pulse 2s linear infinite;
+}
+
+@keyframes session-sidebar-working-pulse {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+.session-sidebar-item.session-phrase-notify:not(.active),
+.session-sidebar-item.session-blocked:not(.active) {
+  background-image: none;
+  animation: session-sidebar-notify-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes session-sidebar-notify-blink {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(130, 170, 255, 0.35); }
+}
+
 .session-sidebar-main {
   display: flex;
   align-items: center;
@@ -428,10 +464,7 @@ onBeforeUnmount(() => {
 }
 
 .session-sidebar-branch-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 160px;
+  overflow-wrap: anywhere;
 }
 
 .session-sidebar-changes {
@@ -442,8 +475,9 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+/* PillPeek.vueのpill-peek-changes-filesと同じ配色に揃える */
 .session-sidebar-changes-files {
-  color: var(--text-muted);
+  color: var(--warning);
 }
 
 .session-sidebar-agent {
