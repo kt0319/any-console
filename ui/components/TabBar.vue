@@ -40,6 +40,7 @@ import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
+import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { emit } from "../app-bridge.js";
 
 const terminalStore = useTerminalStore();
@@ -91,16 +92,21 @@ function onAddClick() {
 }
 
 const { isOpen: isWorkspaceDetailOpen, close: closeWorkspaceDetail } = useWorkspaceDetailNav();
+const { openView } = useSettingsNav();
 
 function onMenuClick() {
-  // モバイルはハンバーガー1つでサイドバーとWorkspaceDetailオーバーレイの
-  // 両方を閉じる（WorkspaceDetailはサイドバーとは独立した状態のため、
-  // 閉じる時だけここで明示的に合わせる。PCはWorkspaceDetailModal.vue側に
-  // 専用の閉じるボタンがあるため対象外）。
-  if (isPanelBottom.value && isSidebarOpen.value && isWorkspaceDetailOpen.value) {
-    closeWorkspaceDetail();
+  if (isSidebarOpen.value) {
+    // モバイルはハンバーガー1つでサイドバーとWorkspaceDetailオーバーレイの
+    // 両方を閉じる（WorkspaceDetailはサイドバーとは独立した状態のため、
+    // 閉じる時だけここで明示的に合わせる。PCはWorkspaceDetailModal.vue側に
+    // 専用の閉じるボタンがあるため対象外）。
+    if (isPanelBottom.value && isWorkspaceDetailOpen.value) closeWorkspaceDetail();
+    layoutStore.toggleSessionSidebar();
+  } else {
+    // 開く時は常にセッション一覧（SessionList）から始める。前回設定の
+    // 途中まで進んでいても、ハンバーガーで開き直したら一覧に戻す。
+    openView("SessionList");
   }
-  layoutStore.toggleSessionSidebar();
 }
 </script>
 
