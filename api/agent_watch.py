@@ -61,6 +61,8 @@ from .common import (
     BACKGROUND_EXECUTOR,
     PHRASE_NOTIFY_IDLE_GRACE_SEC,
     TMUX_SESSION_PREFIX,
+    cancel_task_quietly,
+    task_stale,
 )
 from .foreground import ForegroundInspector
 from .job_match import JobPattern, build_job_patterns, candidate_jobs, match_job
@@ -474,15 +476,10 @@ def unsubscribe(websocket: WebSocket) -> None:
         _stop_task()
 
 
-def _task_stale(task: asyncio.Task | None, loop: asyncio.AbstractEventLoop) -> bool:
-    # テスト等でイベントループが作り直された場合、旧ループのタスクは無効
-    return task is None or task.done() or task.get_loop() is not loop
-
-
 def _ensure_task() -> None:
     global _poll_task
     loop = asyncio.get_running_loop()
-    if _task_stale(_poll_task, loop):
+    if task_stale(_poll_task, loop):
         _poll_task = loop.create_task(_poll_loop())
 
 
@@ -497,17 +494,13 @@ def ensure_phrase_task() -> None:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return
-    if _task_stale(_poll_task, loop):
+    if task_stale(_poll_task, loop):
         _poll_task = loop.create_task(_poll_loop())
 
 
 def _stop_task() -> None:
     global _poll_task
-    if _poll_task is not None and not _poll_task.done():
-        try:
-            _poll_task.cancel()
-        except RuntimeError:  # 属するループが既に閉じている
-            pass
+    cancel_task_quietly(_poll_task)
     _poll_task = None
     _last_states.clear()
     _last_capture.clear()

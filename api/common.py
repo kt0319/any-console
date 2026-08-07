@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import logging
@@ -193,6 +194,23 @@ BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=8)
 BACKGROUND_FETCH_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 _subprocess_logger = logging.getLogger(__name__)
+
+
+def task_stale(task: asyncio.Task | None, loop: asyncio.AbstractEventLoop) -> bool:
+    """モジュールシングルトンの常駐タスクを起動し直すべきか判定する。
+
+    テスト等でイベントループが作り直された場合、旧ループのタスクは無効。
+    """
+    return task is None or task.done() or task.get_loop() is not loop
+
+
+def cancel_task_quietly(task: asyncio.Task | None) -> None:
+    """常駐タスクを停止する（属するループが既に閉じている場合は無視する）。"""
+    if task is not None and not task.done():
+        try:
+            task.cancel()
+        except RuntimeError:  # 属するループが既に閉じている
+            pass
 
 
 def run_subprocess_safe(
