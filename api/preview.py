@@ -23,6 +23,8 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .common import run_subprocess_safe
+
 logger = logging.getLogger(__name__)
 
 _IS_MACOS = platform.system() == "Darwin"
@@ -33,6 +35,9 @@ _IS_MACOS = platform.system() == "Darwin"
 _CERT_DIR = Path(__file__).resolve().parent.parent / "certs"
 
 SCAN_INTERVAL_SEC = 3.0
+# ポートスキャン（ss / lsof 全体列挙）と単一プロセス情報取得（ps / lsof -p）のタイムアウト
+PORT_SCAN_TIMEOUT_SEC = 2.0
+PROC_INFO_TIMEOUT_SEC = 1.0
 PORT_STALE_SEC = 8  # LISTEN が消えてから一覧から落とすまで（dev server再起動時の瞬断は許容しつつ、停止を早く反映する）
 # /preview/ports へのアクセスからこの秒数を過ぎたら background scan を休止する。
 # パネルを閉じている間は ss を回さない（既存 proxy は維持する）。
@@ -181,14 +186,13 @@ def _label_from_cmdline_parts(parts: list[str]) -> str:
 def _read_cmdline(pid: int) -> str:
     """プロセスの cmdline から表示用ラベルを取得する（_label_from_cmdline_parts 参照）。"""
     if _IS_MACOS:
-        try:
-            out = subprocess.run(
-                ["ps", "-o", "command=", "-p", str(pid)],
-                capture_output=True, text=True, timeout=1.0, check=False,
-            ).stdout
-        except (OSError, subprocess.TimeoutExpired):
+        result = run_subprocess_safe(
+            ["ps", "-o", "command=", "-p", str(pid)],
+            timeout=PROC_INFO_TIMEOUT_SEC, log_label="ps cmdline",
+        )
+        if result is None:
             return ""
-        return _label_from_cmdline_parts(out.strip().split())
+        return _label_from_cmdline_parts(result.stdout.strip().split())
     try:
         raw = open(f"/proc/{pid}/cmdline", "rb").read().split(b"\x00")  # noqa: SIM115
     except (OSError, ValueError):
@@ -200,13 +204,13 @@ def _read_cmdline(pid: int) -> str:
 def _read_cwd(pid: int) -> str | None:
     """プロセスの起動時カレントディレクトリを取得する（取得できなければ None）。"""
     if _IS_MACOS:
-        try:
-            out = subprocess.run(
-                ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
-                capture_output=True, text=True, timeout=1.0, check=False,
-            ).stdout
-        except (OSError, subprocess.TimeoutExpired):
+        result = run_subprocess_safe(
+            ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+            timeout=PROC_INFO_TIMEOUT_SEC, log_label="lsof cwd",
+        )
+        if result is None:
             return None
+        out: str = result.stdout
         for line in out.splitlines():
             if line.startswith("n"):
                 return line[1:]
@@ -229,16 +233,13 @@ def _proxy_listener_ports() -> set[int]:
 
 
 def _scan_listening_ports_linux() -> dict[int, tuple[str, int | None]]:
-    try:
-        out = subprocess.run(
-            ["ss", "-ltnp"], capture_output=True, text=True, timeout=2.0, check=False,
-        ).stdout
-    except (OSError, subprocess.TimeoutExpired) as e:
-        logger.warning("ss failed: %s", e)
+    result = run_subprocess_safe(["ss", "-ltnp"], timeout=PORT_SCAN_TIMEOUT_SEC, log_label="ss")
+    if result is None:
+        logger.warning("ss failed; skipping port scan")
         return {}
     proxy_ports = _proxy_listener_ports()
     found: dict[int, tuple[str, int | None]] = {}
-    for line in out.splitlines():
+    for line in result.stdout.splitlines():
         if not line.startswith("LISTEN"):
             continue
         port_match = _SS_PORT_RE.search(line)
@@ -284,17 +285,16 @@ def _parse_lsof_listeners(out: str) -> list[tuple[int, int, str]]:
 
 
 def _scan_listening_ports_macos() -> dict[int, tuple[str, int | None]]:
-    try:
-        out = subprocess.run(
-            ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-F", "pcn"],
-            capture_output=True, text=True, timeout=2.0, check=False,
-        ).stdout
-    except (OSError, subprocess.TimeoutExpired) as e:
-        logger.warning("lsof failed: %s", e)
+    result = run_subprocess_safe(
+        ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-F", "pcn"],
+        timeout=PORT_SCAN_TIMEOUT_SEC, log_label="lsof listeners",
+    )
+    if result is None:
+        logger.warning("lsof failed; skipping port scan")
         return {}
     proxy_ports = _proxy_listener_ports()
     found: dict[int, tuple[str, int | None]] = {}
-    for port, pid, command in _parse_lsof_listeners(out):
+    for port, pid, command in _parse_lsof_listeners(result.stdout):
         if not (MIN_PORT <= port <= MAX_PORT) or port in proxy_ports:
             continue
         found[port] = (_read_cmdline(pid) or command, pid)
