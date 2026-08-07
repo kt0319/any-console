@@ -84,9 +84,11 @@ export function useViewport() {
     }, { passive: false });
     let lastTouchEnd = 0;
     document.addEventListener("touchend", (e) => {
-      // .tab-settings-btn は設定ダイアログの開閉トグル（すぐ連打されうる）なので
-      // ダブルタップズーム防止の対象から除外する（.modal-overlay 内と同じ扱い）。
-      if (/** @type {Element} */ (e.target)?.closest?.(".modal-overlay, .tab-settings-btn")) return;
+      // .tab-menu-btn（ハンバーガー）と .keyboard-bar（モード切替タブ・クイックキー・
+      // 埋め込みSnippet/Historyパネル）は、すぐ連打されうる操作面なので
+      // ダブルタップズーム防止の対象から除外する（.modal-overlay 内と同じ扱い。
+      // preventDefault すると click が合成されず @click のボタンが効かなくなる）。
+      if (/** @type {Element} */ (e.target)?.closest?.(".modal-overlay, .tab-menu-btn, .keyboard-bar")) return;
       const now = Date.now();
       if (now - lastTouchEnd <= DOUBLE_TAP_ZOOM_PREVENT_MS) e.preventDefault();
       lastTouchEnd = now;
