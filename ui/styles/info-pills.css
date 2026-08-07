@@ -246,7 +246,7 @@
 }
 
 .pill-server-btn .mdi {
-  color: #a3e635;
+  color: var(--lime);
 }
 
 .pill-history-btn .mdi {
