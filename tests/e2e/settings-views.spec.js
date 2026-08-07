@@ -80,6 +80,6 @@ test.describe("settings views", () => {
 
     await openSettingsView(page, "System Info");
     await expect(page.locator(".modal-title")).toContainText("System Info", { timeout: 10_000 });
-    await expect(page.locator(".modal-body")).toContainText(info.hostname, { timeout: 10_000 });
+    await expect(page.locator(".si-body")).toContainText(info.hostname, { timeout: 10_000 });
   });
 });
