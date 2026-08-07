@@ -10,7 +10,7 @@
       <SettingsPanel ref="panelRef" />
       <button
         type="button"
-        class="modal-close-fab"
+        class="modal-close-btn"
         aria-label="Close"
         data-tooltip="Close"
         @click="closeNav"
@@ -90,24 +90,30 @@ watch(
 
 /* モバイルはヘッダーが下部（ボトムシート風）に来るため、閉じる操作が
    ハンバーガー/Esc/バックドロップタップしか無いと分かりにくい。右下に
-   独立した閉じるボタンを浮かせて出す。 */
-.modal-close-fab {
+   独立した閉じるボタンを出す。見た目はWorkspaceDetailModal.vueの
+   .modal-close-btnと同じ形に揃える。 */
+.modal-close-btn {
   position: absolute;
-  right: 16px;
-  bottom: calc(env(safe-area-inset-bottom) + 16px);
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-size: 22px;
+  right: 8px;
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal-close-btn:hover {
+    color: var(--text-primary);
+  }
 }
 
 :deep(.settings-panel-header) {
