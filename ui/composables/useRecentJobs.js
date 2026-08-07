@@ -5,6 +5,7 @@ import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
 import { jobCommandPreview } from "../utils/format.js";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
 
 /** @type {import("vue").Ref<Record<string, unknown>[]>} */
 const recentJobs = ref([]);
@@ -24,9 +25,7 @@ export function useRecentJobs() {
 
   // localStorage はサーバー未応答時のオフライン表示用キャッシュ。正はサーバー側の recent_jobs。
   function _save() {
-    try {
-      localStorage.setItem(LS_KEY_RECENT_JOBS, JSON.stringify(recentJobs.value));
-    } catch { /* ignore */ }
+    safeJsonSave(LS_KEY_RECENT_JOBS, recentJobs.value);
   }
 
   async function _syncToServer() {
@@ -37,11 +36,8 @@ export function useRecentJobs() {
   async function loadRecentJobs() {
     if (loaded) return;
     loaded = true;
-    try {
-      const raw = localStorage.getItem(LS_KEY_RECENT_JOBS);
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(parsed)) recentJobs.value = _sortAndTrim(parsed);
-    } catch { /* ignore */ }
+    const parsed = safeJsonLoad(LS_KEY_RECENT_JOBS, []);
+    if (Array.isArray(parsed)) recentJobs.value = _sortAndTrim(parsed);
 
     const { ok, data } = await apiGet(EP_RECENT_JOBS);
     if (ok && Array.isArray(data?.recent_jobs)) {

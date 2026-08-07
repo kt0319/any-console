@@ -56,7 +56,8 @@ import { ref, inject, onMounted, watch } from "vue";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { useApi } from "../composables/useApi.js";
 import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.js";
-import { NOTIFY_GRACE_DEBOUNCE_MS } from "../utils/constants.js";
+import { LS_KEY_NOTIF_PREFS, NOTIFY_GRACE_DEBOUNCE_MS } from "../utils/constants.js";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Notifications";
@@ -89,22 +90,17 @@ watch(graceSec, (val) => {
   }, NOTIFY_GRACE_DEBOUNCE_MS);
 });
 
-const PREFS_KEY = "notifPrefs";
 const DEFAULT_PREFS = { dispatch: true, phrase: true };
 
 const prefs = ref({ ...DEFAULT_PREFS });
 
 function loadPrefs() {
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (raw) prefs.value = { ...DEFAULT_PREFS, ...JSON.parse(raw) };
-  } catch (_e) {}
+  const saved = safeJsonLoad(LS_KEY_NOTIF_PREFS, null);
+  if (saved) prefs.value = { ...DEFAULT_PREFS, ...saved };
 }
 
 async function savePrefs() {
-  try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs.value));
-  } catch (_e) {}
+  safeJsonSave(LS_KEY_NOTIF_PREFS, prefs.value);
   await syncPrefsToSW();
 }
 

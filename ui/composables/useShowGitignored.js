@@ -1,25 +1,17 @@
 import { ref, watch } from "vue";
 import { LS_PREFIX_WS_META } from "../utils/constants.js";
+import { safeFlagLoad, safeFlagSave } from "../utils/storage.js";
 
 const SHOW_GITIGNORED_KEY_PREFIX = LS_PREFIX_WS_META + "show_gitignored_";
 
 function loadFlag(wsName) {
   if (!wsName) return false;
-  try {
-    return localStorage.getItem(SHOW_GITIGNORED_KEY_PREFIX + wsName) === "1";
-  } catch {
-    return false;
-  }
+  return safeFlagLoad(SHOW_GITIGNORED_KEY_PREFIX + wsName);
 }
 
 function saveFlag(wsName, value) {
   if (!wsName) return;
-  try {
-    if (value) localStorage.setItem(SHOW_GITIGNORED_KEY_PREFIX + wsName, "1");
-    else localStorage.removeItem(SHOW_GITIGNORED_KEY_PREFIX + wsName);
-  } catch {
-    /* quota — ignore */
-  }
+  safeFlagSave(SHOW_GITIGNORED_KEY_PREFIX + wsName, value);
 }
 
 export function useShowGitignored(workspaceNameRef) {

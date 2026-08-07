@@ -6,7 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
-import { safeJsonLoad } from "../utils/storage.js";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
 import { isTouchInput } from "../utils/device.js";
 import { findUrlInBuffer, TERMINAL_URL_REGEX } from "../utils/terminal-buffer-text.js";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.js";
@@ -122,7 +122,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   function saveTerminalSettings() {
-    localStorage.setItem(TERMINAL_SETTINGS_KEY, JSON.stringify(terminalSettings.value));
+    safeJsonSave(TERMINAL_SETTINGS_KEY, terminalSettings.value);
   }
 
   function setTerminalSetting(key, value) {

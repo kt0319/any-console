@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
-import { safeJsonLoad } from "../utils/storage.js";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
 import { NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "../data/keyboard-layout.js";
 
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
@@ -20,12 +20,12 @@ export const useInputStore = defineStore("input", () => {
     inputHistory.value = inputHistory.value.filter((h) => h !== text);
     inputHistory.value.unshift(text);
     if (inputHistory.value.length > INPUT_HISTORY_MAX) inputHistory.value.length = INPUT_HISTORY_MAX;
-    localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory.value));
+    safeJsonSave(INPUT_HISTORY_KEY, inputHistory.value);
   }
 
   function removeInputHistory(text) {
     inputHistory.value = inputHistory.value.filter((h) => h !== text);
-    localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory.value));
+    safeJsonSave(INPUT_HISTORY_KEY, inputHistory.value);
   }
 
   return {
