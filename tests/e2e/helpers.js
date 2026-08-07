@@ -143,7 +143,10 @@ export async function deleteWorkspaceViaApi(request, token, name) {
  */
 export async function openSettingsModal(page) {
   await page.keyboard.press("Meta+Shift+Period");
-  await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
+  // .modal-overlay はモバイル幅（Modal.vue）だけに出る要素のため、PC幅の
+  // デフォルトビューポート（SessionSidebar.vue経由）でも共通して存在する
+  // .settings-panel（Modal.vue/SessionSidebar.vueの両方が使う中身）で待つ。
+  await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -156,11 +159,20 @@ export async function openSettingsView(page, label) {
 }
 
 /**
- * Settings → Workspaces → 「+」ボタンから Add Workspace 画面を開く。
+ * Workspaces（WorkspaceOpen）を開く。SettingsのModalMenu配下ではなく、
+ * タブバーの「+」（Open Workspace）から直接開く導線に統一されている。
+ * @param {import("@playwright/test").Page} page
+ */
+export async function openWorkspaces(page) {
+  await page.locator(".tab-add-btn").click();
+}
+
+/**
+ * Workspaces → 「+」ボタンから Add Workspace 画面を開く。
  * @param {import("@playwright/test").Page} page
  */
 export async function openAddWorkspace(page) {
-  await openSettingsView(page, "Workspaces");
+  await openWorkspaces(page);
   // Add workspaceボタンはEditモード中のみ表示される
   const addBtn = page.locator('[data-tooltip="Add workspace"]');
   if (!(await addBtn.isVisible())) {

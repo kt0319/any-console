@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, expect, loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
+import { test, expect, loadToken, login, deleteWorkspaceViaApi, openWorkspaces, openAddWorkspace } from "./helpers.js";
 
 test.describe.configure({ mode: "serial" });
 
@@ -43,7 +43,6 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("Add Workspace でディレクトリを登録できる", async ({ page }) => {
-    await openSettingsModal(page);
     await openAddWorkspace(page);
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace");
 
@@ -57,8 +56,7 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("ワークスペース名クリックでJobsがインライン展開・再クリックで閉じる", async ({ page }) => {
-    await openSettingsModal(page);
-    await openSettingsView(page, "Workspaces");
+    await openWorkspaces(page);
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
     const jobsInline = row.locator(".picker-ws-jobs-inline");
 
@@ -75,7 +73,6 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("同じ名前の再登録はエラーになる", async ({ page }) => {
-    await openSettingsModal(page);
     await openAddWorkspace(page);
 
     await page.locator(".ws-add-input").fill(wsDir);
@@ -84,7 +81,6 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("存在しないパスはエラーになる", async ({ page }) => {
-    await openSettingsModal(page);
     await openAddWorkspace(page);
 
     // テスト管理下の wsDir 配下で「作っていない」子パスを使う。
@@ -95,8 +91,7 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("Workspaces 一覧に表示され、Edit から Delete できる（確認ダイアログあり）", async ({ page }) => {
-    await openSettingsModal(page);
-    await openSettingsView(page, "Workspaces");
+    await openWorkspaces(page);
     await expect(page.locator(".modal-title")).toHaveText("Workspaces");
 
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-name", { hasText: wsName }) });

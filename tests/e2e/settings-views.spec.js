@@ -7,10 +7,11 @@
 import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
 
 // メニューラベル → 遷移後のモーダルタイトル
-// Add Workspace は Settings 直下ではなく Workspaces 一覧の「+」から開くため、
-// この一覧（Settings → 各ビュー → 戻る、の1階層ループ）には含めない。
+// Workspacesは設定メニュー配下ではなくセッション一覧の「Open Workspace」/
+// タブバーの「+」から直接開く導線のため、この一覧（Settings → 各ビュー →
+// 戻る、の1階層ループ）には含めない（下の別テストで直接確認する）。
+// Add Workspaceも同様にWorkspaces一覧の「+」から開くため対象外。
 const SETTINGS_VIEWS = [
-  ["Workspaces", "Workspaces"],
   ["Tabs & Sessions", "Tabs & Sessions"],
   ["Terminal", "Terminal"],
   ["Info Pills", "Info Pills"],

@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openSettingsModal, openSettingsView, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 const COMMIT_MSG_INITIAL = "feat: e2e 初期コミット";
 const COMMIT_MSG_UI = "test: e2e からのコミット";
@@ -237,8 +237,7 @@ test.describe("workspace detail panes", () => {
 
     // ツールバーのAdd job（Editモード中のみ表示）からJobConfigを開き、
     // Workspaceスコープのまま対象ワークスペースをプルダウンで選ぶ
-    await openSettingsModal(page);
-    await openSettingsView(page, "Workspaces");
+    await openWorkspaces(page);
     await page.locator('[aria-label="Edit workspaces"]').click();
     await page.locator('[aria-label="Add job"]').click();
     await expect(page.locator(".modal-title")).toHaveText("Add Job", { timeout: 5000 });
@@ -280,9 +279,9 @@ test.describe("workspace detail panes", () => {
     await page.locator(".diff-actions button", { hasText: "Stash" }).click();
     await expect(page.locator(".toast", { hasText: "Saved" })).toBeVisible({ timeout: 10_000 });
 
-    // カウント類を読み直すため詳細を開き直すと Stashes タブが現れる
-    await page.locator(".tab-settings-btn").click();
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+    // カウント類を読み直すため詳細を開き直すと Stashes タブが現れる。
+    // openDetail自体がpage.goto()でフルリロードするため、WorkspaceDetail
+    // オーバーレイ（Settingsとは独立）を明示的に閉じる手順は不要。
     await openDetail(page);
     const stashTab = page.locator(".workspace-tabs").getByRole("button", { name: "Stashes" });
     await expect(stashTab).toBeVisible({ timeout: 10_000 });
