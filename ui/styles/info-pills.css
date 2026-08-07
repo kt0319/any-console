@@ -457,8 +457,8 @@
   100% { background-position: -200% center; }
 }
 
-/* 既知エージェントの承認・入力待ち（blocked）。working の青と区別する琥珀色。
-   点滅リズムはタブの通知点滅（tab-notify-blink）と揃える。
+/* 既知エージェントの承認・入力待ち（blocked）。タブの通知点滅と同じ青・同じリズムで
+   点滅する（working の「流れるグラデーション」とは動きの種類で区別する）。
    アクティブペインでは手元の画面で確認できるため working と同様に消灯する。 */
 .pill-chip.pill-blocked {
   animation: pill-blocked-blink 1.2s ease-in-out infinite;
@@ -470,7 +470,7 @@
 
 @keyframes pill-blocked-blink {
   0%, 100% { background-color: rgba(26, 27, 38, 0.88); }
-  50% { background-color: rgba(255, 190, 100, 0.35); }
+  50% { background-color: rgba(100, 150, 255, 0.35); }
 }
 
 @media (min-width: 769px) {

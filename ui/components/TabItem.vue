@@ -519,20 +519,12 @@ onBeforeUnmount(() => {
   100% { background-position: -200% center; }
 }
 
-/* notify_phrase 検知と blocked（承認・入力待ち）の通知点滅。同じリズム・同じ波形で
-   点滅し、色だけで種類を示す（phrase = 青 / blocked = 琥珀）。ドット追加だと
+/* notify_phrase 検知と blocked（承認・入力待ち）の通知点滅。どちらも同じ青の点滅で
+   「このタブに注目」だけを伝え、種類はタブを開いて確認する割り切り。ドット追加だと
    dirty-dot と場所を取り合う（特にパネル下部のアイコンのみ表示）ため、幅を取らない
    背景の点滅で表現する。tab-working（出力中）と同時に付く場合、tab-working の
    background-image（右→左に流れるグラデーション）が残って点滅と混ざって見えるため
-   打ち消す。両方同時のときは要操作の blocked（後勝ち）を優先する。 */
-.tab-btn.tab-phrase-notify:not(.active) {
-  --tab-blink-color: rgba(130, 170, 255, 0.35);
-}
-
-.tab-btn.tab-blocked:not(.active) {
-  --tab-blink-color: rgba(255, 190, 100, 0.35);
-}
-
+   打ち消す。 */
 .tab-btn.tab-phrase-notify:not(.active),
 .tab-btn.tab-blocked:not(.active) {
   background-image: none;
@@ -541,6 +533,6 @@ onBeforeUnmount(() => {
 
 @keyframes tab-notify-blink {
   0%, 100% { background-color: transparent; }
-  50% { background-color: var(--tab-blink-color); }
+  50% { background-color: rgba(130, 170, 255, 0.35); }
 }
 </style>
