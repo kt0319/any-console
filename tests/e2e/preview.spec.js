@@ -35,7 +35,7 @@ test.describe("port preview", () => {
     await login(page, context, token);
 
     await page.keyboard.press("Meta+Shift+Period");
-    await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
     await page.locator(".settings-menu-item", { hasText: "Dev Server Preview" }).click();
     await expect(page.locator(".modal-title")).toHaveText("Dev Server Preview");
 
@@ -58,7 +58,7 @@ test.describe("port preview", () => {
     await expect(popup.locator("body")).toContainText(DUMMY_BODY, { timeout: 10_000 });
     await popup.close();
 
-    await page.locator(".tab-settings-btn").click();
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+    await page.locator(".tab-menu-btn").click();
+    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 });

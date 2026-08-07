@@ -77,7 +77,7 @@ test.describe("terminal split", () => {
     // Tabs & Sessions（TabConfig.vue）の SplitModeSelector ボタンで行う。
     await openSettingsModal(page);
     await openSettingsView(page, "Tabs & Sessions");
-    await page.locator('.modal-overlay .split-tab-mode-option[aria-label="Vertical split"] >> visible=true').click();
+    await page.locator('.settings-panel .split-tab-mode-option[aria-label="Vertical split"] >> visible=true').click();
     await page.keyboard.press("Escape");
 
     await expect(page.locator(".output-container.split-vertical")).toBeVisible({ timeout: 5000 });

@@ -23,11 +23,11 @@ test.describe("global shortcuts", () => {
 
   test("⌘⇧N で Workspaces モーダルが開き、Esc で閉じる", async ({ page }) => {
     await page.keyboard.press("Meta+Shift+KeyN");
-    await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
     await expect(page.locator(".modal-title")).toHaveText("Workspaces");
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 
   test("⌘⇧W でアクティブタブを確認ダイアログ付きで閉じられる", async ({ page }) => {
