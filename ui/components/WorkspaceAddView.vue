@@ -29,7 +29,8 @@ async function onAdded(name) {
   const tabId = viewState.value?.attachTabId;
   if (name && sessionId && tabId != null) {
     await apiPut(terminalSessionWorkspacePath(sessionId), { workspace: name });
-    terminalStore.setTabWorkspace(tabId, name);
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === name);
+    terminalStore.setTabWorkspace(tabId, name, ws ? { icon: ws.icon, iconColor: ws.icon_color } : null);
     workspaceStore.selectedWorkspace = name;
     await workspaceStore.fetchStatuses();
   }

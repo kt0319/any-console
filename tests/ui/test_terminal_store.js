@@ -9,10 +9,10 @@ import { useTerminalStore } from "../../ui/stores/terminal.js";
 // term:null → removeTab / detachTab の dispose をスキップ、sessionId:"" → API fetch をスキップ。
 function seedTabs(store, specs) {
   store.openTabs = specs.map((s) => ({
-    id: s.id,
     sessionId: "",
     term: null,
     ws: null,
+    ...s,
   }));
 }
 
@@ -116,6 +116,20 @@ describe("terminal store: setTabWorkspace", () => {
     store.setTabWorkspace(999, "ws1");
     expect(store.tabWorkspaceVersion).toBe(beforeVersion);
     expect(store.openTabs.find((t) => t.id === 1).workspace).toBeUndefined();
+  });
+
+  it("iconInfoを渡すとtab.wsIconも更新する（タブアイコン即時反映）", () => {
+    seedTabs(store, [{ id: 1, wsIcon: null }]);
+    store.setTabWorkspace(1, "ws1", { icon: "mdi-folder", iconColor: "#f00" });
+    const tab = store.openTabs.find((t) => t.id === 1);
+    expect(tab.wsIcon).toEqual({ name: "mdi-folder", color: "#f00" });
+  });
+
+  it("iconInfoを渡さない場合はtab.wsIconを変更しない", () => {
+    seedTabs(store, [{ id: 1, wsIcon: { name: "mdi-old", color: null } }]);
+    store.setTabWorkspace(1, "ws1");
+    const tab = store.openTabs.find((t) => t.id === 1);
+    expect(tab.wsIcon).toEqual({ name: "mdi-old", color: null });
   });
 });
 

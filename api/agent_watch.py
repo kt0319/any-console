@@ -140,6 +140,8 @@ def _apply_workspace_tag(session_id: str, workspace: str) -> None:
             "TMUX_WORKSPACE", workspace,
         )
     logger.info("auto-bound workspace session=%s workspace=%s", session_id, workspace)
+    from .session_watch import notify_session_workspace_bound
+    notify_session_workspace_bound(session_id, workspace)
 
 
 def _resolve_workspace(session_id: str, workspace: str | None, pane_path: str) -> str | None:
@@ -181,6 +183,8 @@ def _apply_job_tag(session_id: str, pattern: JobPattern) -> None:
             ";", "set-environment", "-t", tmux_name, "TMUX_JOB_LABEL", label,
         )
     logger.info("auto-tagged job session=%s job=%s", session_id, pattern.name)
+    from .session_watch import notify_session_job_bound
+    notify_session_job_bound(session_id, pattern.name, label)
 
 
 def _maybe_autotag_job(

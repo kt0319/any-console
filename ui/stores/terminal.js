@@ -247,10 +247,21 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  function setTabWorkspace(tabId, workspaceName) {
+  /**
+   * @param {number} tabId
+   * @param {string | null} workspaceName
+   * @param {{ icon?: string, iconColor?: string } | null} [iconInfo] 紐付け先
+   *   ワークスペースのアイコン。渡すとタブバー等のアイコン（tab.wsIcon）も
+   *   即座に切り替わる（未指定時はワークスペース名のみ更新。null許容だが
+   *   その場合アイコンは変えない＝呼び出し側がアイコン解決できない場合用）。
+   */
+  function setTabWorkspace(tabId, workspaceName, iconInfo = null) {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (!tab) return;
     tab.workspace = workspaceName || null;
+    if (iconInfo) {
+      tab.wsIcon = iconInfo.icon ? { name: iconInfo.icon, color: iconInfo.iconColor || null } : null;
+    }
     // tab の identity は変えず、tabWorkspaceVersion を進めることで
     // 依存側（TerminalPane 等）に変更を伝える。
     tabWorkspaceVersion.value++;

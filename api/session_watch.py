@@ -42,12 +42,28 @@ def notify_session_removed(session_id: str) -> None:
     _notify("session_removed", session_id)
 
 
-def _notify(event_type: str, session_id: str) -> None:
+def notify_session_workspace_bound(session_id: str, workspace: str) -> None:
+    """cwd照合による自動ワークスペース紐付け（agent_watch._apply_workspace_tag）を
+    購読中の全クライアントへ即時push する。session_created/removed と同様
+    スレッドセーフ（agent_watchのバックグラウンドポーリングスレッドから呼ばれる）。
+    """
+    _notify("session_workspace_bound", session_id, workspace=workspace)
+
+
+def notify_session_job_bound(session_id: str, job_name: str, job_label: str) -> None:
+    """前面ジョブのargv照合による自動ジョブタグ付け（agent_watch._apply_job_tag）を
+    購読中の全クライアントへ即時push する。
+    """
+    _notify("session_job_bound", session_id, job_name=job_name, job_label=job_label)
+
+
+def _notify(event_type: str, session_id: str, **extra: Any) -> None:
     """スレッドセーフ。同期/非同期どちらのルートハンドラからも呼べる。"""
     loop = _loop
     if loop is None or loop.is_closed() or not _subscribers:
         return
-    loop.call_soon_threadsafe(_schedule_broadcast, {"type": event_type, "session_id": session_id})
+    payload = {"type": event_type, "session_id": session_id, **extra}
+    loop.call_soon_threadsafe(_schedule_broadcast, payload)
 
 
 def _schedule_broadcast(payload: dict[str, Any]) -> None:
