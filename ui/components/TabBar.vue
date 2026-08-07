@@ -1,5 +1,16 @@
 <template>
   <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
+    <button
+      v-if="!isSplitMode"
+      class="tab-menu-btn"
+      :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
+      @click="onMenuClick"
+      :aria-label="isSidebarOpen ? 'Close session list' : 'Open session list'"
+      :aria-expanded="isSidebarOpen ? 'true' : 'false'"
+      :data-tooltip="isSidebarOpen ? 'Close session list' : 'Open session list'"
+    >
+      <span :class="['mdi', isSidebarOpen ? 'mdi-close' : 'mdi-menu']"></span>
+    </button>
     <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }">
       <TabItem
         v-for="item in sortedItems"
@@ -47,6 +58,7 @@ const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSettingsOpen = computed(() => layoutStore.isSettingsOpen);
+const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 const sortedItems = computed(() => {
   return props.tabs
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
@@ -77,6 +89,10 @@ function onDetach(tab) {
 function onAddClick() {
   if (Date.now() < suppressAddUntil) return;
   emit("workspace:openModal");
+}
+
+function onMenuClick() {
+  layoutStore.toggleSessionSidebar();
 }
 
 function onSettingsClick() {
@@ -143,6 +159,7 @@ function onSettingsClick() {
   }
 }
 
+.tab-menu-btn,
 .tab-settings-btn {
   position: relative;
   display: flex;
@@ -163,16 +180,19 @@ function onSettingsClick() {
   touch-action: manipulation;
 }
 
+.tab-menu-btn:active,
 .tab-settings-btn:active {
   background: var(--bg-tertiary);
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .tab-menu-btn:hover,
   .tab-settings-btn:hover {
     background: var(--bg-tertiary);
   }
 }
 
+.tab-menu-btn.active,
 .tab-settings-btn.active {
   color: var(--text-primary);
   background: rgba(130, 170, 255, 0.12);

@@ -21,6 +21,8 @@ import DispatchRunView from "../../ui/components/DispatchRunView.vue";
 import AuthConfig from "../../ui/components/AuthConfig.vue";
 import SendSnippet from "../../ui/components/SendSnippet.vue";
 import SendHistory from "../../ui/components/SendHistory.vue";
+import SessionSidebar from "../../ui/components/SessionSidebar.vue";
+import { useLayoutStore } from "../../ui/stores/layout.js";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 import { useWorkspaceStore } from "../../ui/stores/workspace.js";
 import { useInputStore } from "../../ui/stores/input.js";
@@ -840,5 +842,101 @@ describe("useKeyboardBarState: toggleSnippetView の巡回", () => {
     expect(state().snippetPanelView.value).toBe("none");
 
     wrapper.unmount();
+  });
+});
+
+// ── SessionSidebar: ハンバーガーで開くセッション一覧 ─────────────────────────
+
+describe("SessionSidebar: セッション選択とモバイル全面表示", () => {
+  /** @type {import('@vue/test-utils').VueWrapper|null} */
+  let wrapper = null;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+  });
+
+  function seedSidebar({ panelBottom = false } = {}) {
+    const layoutStore = useLayoutStore();
+    const terminalStore = useTerminalStore();
+    const workspaceStore = useWorkspaceStore();
+    layoutStore.isSessionSidebarOpen = true;
+    layoutStore.isPanelBottom = panelBottom;
+    terminalStore.openTabs = [
+      { id: 1, sessionId: "s1", workspace: "app", label: "app", wsIcon: null, icon: null },
+      { id: 2, sessionId: "s2", workspace: null, label: "bare", wsIcon: null, icon: null },
+    ];
+    terminalStore.activeTabId = 1;
+    workspaceStore.allWorkspaces = [
+      { name: "app", branch: "main", clean: false, ahead: 2, behind: 0, changed_files: 1, insertions: 5, deletions: 2 },
+    ];
+    wrapper = mount(SessionSidebar, { attachTo: document.body });
+    return { layoutStore, terminalStore };
+  }
+
+  it("行にブランチ名・変更サマリ・エージェント状態が表示される", async () => {
+    const { terminalStore } = seedSidebar();
+    terminalStore.agentStates.s1 = "working";
+    await flushPromises();
+    const rows = wrapper.findAll(".session-sidebar-item");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].text()).toContain("main");
+    expect(rows[0].text()).toContain("1F +5 -2");
+    expect(rows[0].text()).toContain("Working");
+    expect(rows[0].classes()).toContain("active");
+    expect(rows[1].text()).toContain("bare");
+  });
+
+  it("PC: 行クリックで tab:select が emit されサイドバーは開いたまま", async () => {
+    const { layoutStore } = seedSidebar({ panelBottom: false });
+    const selected = [];
+    const off = on("tab:select", (detail) => selected.push(detail));
+    await wrapper.findAll(".session-sidebar-item")[1].trigger("click");
+    off();
+    expect(selected).toHaveLength(1);
+    expect(selected[0].tab.id).toBe(2);
+    expect(selected[0].skipFocus).toBe(false);
+    expect(layoutStore.isSessionSidebarOpen).toBe(true);
+  });
+
+  it("モバイル: 行選択でサイドバーが閉じてタブ表示へ戻る（skipFocus 付き）", async () => {
+    const { layoutStore } = seedSidebar({ panelBottom: true });
+    expect(wrapper.find(".session-sidebar").classes()).toContain("session-sidebar-full");
+    const selected = [];
+    const off = on("tab:select", (detail) => selected.push(detail));
+    await wrapper.findAll(".session-sidebar-item")[1].trigger("click");
+    off();
+    expect(selected).toHaveLength(1);
+    expect(selected[0].skipFocus).toBe(true);
+    expect(layoutStore.isSessionSidebarOpen).toBe(false);
+    expect(wrapper.find(".session-sidebar").exists()).toBe(false);
+  });
+
+  it("モバイル: アクティブな行の選択は tab:select を出さずに閉じるだけ", async () => {
+    const { layoutStore } = seedSidebar({ panelBottom: true });
+    const selected = [];
+    const off = on("tab:select", (detail) => selected.push(detail));
+    await wrapper.findAll(".session-sidebar-item")[0].trigger("click");
+    off();
+    expect(selected).toHaveLength(0);
+    expect(layoutStore.isSessionSidebarOpen).toBe(false);
+  });
+
+  it("Esc でサイドバーが閉じる", async () => {
+    const { layoutStore } = seedSidebar();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(layoutStore.isSessionSidebarOpen).toBe(false);
+  });
+
+  it("分割モード中は開いていても表示しない", async () => {
+    const { layoutStore } = seedSidebar();
+    layoutStore.isSplitMode = true;
+    await flushPromises();
+    expect(wrapper.find(".session-sidebar").exists()).toBe(false);
   });
 });

@@ -18,6 +18,17 @@ export const useLayoutStore = defineStore("layout", () => {
 
   const isSettingsOpen = ref(false);
 
+  // タブバー左端のハンバーガーで開くセッションサイドバー（SessionSidebar.vue）。
+  const isSessionSidebarOpen = ref(false);
+
+  function toggleSessionSidebar() {
+    isSessionSidebarOpen.value = !isSessionSidebarOpen.value;
+  }
+
+  function closeSessionSidebar() {
+    isSessionSidebarOpen.value = false;
+  }
+
   const isSplitMode = ref(false);
   const splitPaneTabIds = ref(/** @type {(number|string)[]} */ ([]));
   const activePaneIndex = ref(0);
@@ -238,6 +249,9 @@ export const useLayoutStore = defineStore("layout", () => {
     isTouchDevice,
     isPwa,
     isSettingsOpen,
+    isSessionSidebarOpen,
+    toggleSessionSidebar,
+    closeSessionSidebar,
     isSplitMode,
     splitPaneTabIds,
     activePaneIndex,

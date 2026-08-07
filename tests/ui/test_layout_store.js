@@ -241,3 +241,30 @@ describe("layout store: removeEmptyPane（空きペインの × ボタン）", (
     expect(store.isSplitMode).toBe(false);
   });
 });
+
+describe("layout store: セッションサイドバー", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useLayoutStore();
+  });
+
+  it("初期状態は閉じている", () => {
+    expect(store.isSessionSidebarOpen).toBe(false);
+  });
+
+  it("toggleSessionSidebar で開閉が反転する", () => {
+    store.toggleSessionSidebar();
+    expect(store.isSessionSidebarOpen).toBe(true);
+    store.toggleSessionSidebar();
+    expect(store.isSessionSidebarOpen).toBe(false);
+  });
+
+  it("closeSessionSidebar は閉じるだけ（閉じている時は何もしない）", () => {
+    store.toggleSessionSidebar();
+    store.closeSessionSidebar();
+    expect(store.isSessionSidebarOpen).toBe(false);
+    store.closeSessionSidebar();
+    expect(store.isSessionSidebarOpen).toBe(false);
+  });
+});

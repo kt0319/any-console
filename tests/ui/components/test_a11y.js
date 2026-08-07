@@ -27,6 +27,7 @@ import InfoPillConfig from "../../../ui/components/InfoPillConfig.vue";
 import InfoPillRow from "../../../ui/components/InfoPillRow.vue";
 import PillPeek from "../../../ui/components/PillPeek.vue";
 import FileBrowser from "../../../ui/components/FileBrowser.vue";
+import SessionSidebar from "../../../ui/components/SessionSidebar.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
@@ -329,6 +330,31 @@ describe("a11y: FileBrowser (Loading / Error メッセージ)", () => {
     expect(errorEl.exists()).toBe(true);
     await expectNoA11yViolations(errorEl.element);
 
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: SessionSidebar", () => {
+  it("セッションサイドバー（ブランチ・エージェント状態付き）に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const { useLayoutStore } = await import("../../../ui/stores/layout.js");
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.js");
+    const layoutStore = useLayoutStore();
+    const terminalStore = useTerminalStore();
+    layoutStore.isSessionSidebarOpen = true;
+    terminalStore.openTabs = [
+      { id: 1, sessionId: "s1", workspace: "app", label: "app", wsIcon: null, icon: null },
+      { id: 2, sessionId: "s2", workspace: null, label: "bare", wsIcon: null, icon: null },
+    ];
+    terminalStore.activeTabId = 1;
+    terminalStore.agentStates.s1 = "working";
+    terminalStore.agentStates.s2 = "blocked";
+    useWorkspaceStore().allWorkspaces = [
+      { name: "app", branch: "main", clean: false, ahead: 1, behind: 2, changed_files: 1, insertions: 2, deletions: 3 },
+    ];
+    const wrapper = mount(SessionSidebar, { attachTo: document.body });
+    await nextTick();
+    await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });
 });
