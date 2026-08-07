@@ -1,12 +1,12 @@
 /**
  * Detached sessions（タブを閉じずにDetachしたセッション）の E2E スモーク。
  * タブの閉じるボタン→確認ダイアログのDetach選択でタブバーから消え、
- * Sessions一覧に続く形で表示され、「Open as tab」で再アタッチできることを
- * 確認する。
+ * Openタブの「Detached」カテゴリに表示され、「Open as tab」で再アタッチ
+ * できることを確認する。
  *
  * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions, openSettingsModal } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions, openWorkspaces } from "./helpers.js";
 
 test.describe("detached sessions", () => {
   /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
@@ -42,21 +42,13 @@ test.describe("detached sessions", () => {
     await dialog.locator(".confirm-btn-extra2").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 5000 });
 
-    // Sessions一覧（ルートビュー）に続く形でDetachedセクションに現れる。
-    // openSettingsModal()はModalMenuを開くため、タイトルの戻るボタンで
-    // ルート（Sessions）まで遡る。Detachedセクションは既定で折りたたまれて
-    // いるため、見出しボタンをクリックして開く。
-    await openSettingsModal(page);
-    while (await page.locator(".modal-title-wrap.is-clickable").count()) {
-      await page.locator(".modal-title-wrap").click();
-    }
-    await page.locator(".session-sidebar-detached-head").click();
-
-    const detachedRow = page.locator(`.session-sidebar-li[data-session-id="${newSessionId}"]`);
+    // Openタブの「Detached」カテゴリに現れる。
+    await openWorkspaces(page);
+    const detachedRow = page.locator(`.detached-sessions-li[data-session-id="${newSessionId}"]`);
     await expect(detachedRow).toBeVisible({ timeout: 10_000 });
 
-    // 再アタッチ（Open as tab）: タブ行に戻り、Detachedセクションから消える
-    await detachedRow.locator('.session-sidebar-detached-btn[title="Open as tab"]').click();
+    // 再アタッチ（Open as tab）: タブ行に戻り、Detachedカテゴリから消える
+    await detachedRow.locator('.detached-sessions-btn[title="Open as tab"]').click();
     await expect(page.locator(".tab-btn")).toHaveCount(countBefore + 1, { timeout: 10_000 });
     await expect(detachedRow).toHaveCount(0, { timeout: 10_000 });
   });

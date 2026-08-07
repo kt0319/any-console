@@ -8,6 +8,13 @@
         <RecentJobsList />
       </template>
 
+      <template v-if="detachedSessions.length">
+        <div class="settings-category-head">
+          <span class="settings-category-title">Detached</span>
+        </div>
+        <DetachedSessionsList />
+      </template>
+
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
         <span class="ws-toolbar-spacer"></span>
@@ -151,10 +158,12 @@ const _collapsedGroups = new Set();
 </script>
 
 <script setup>
-import { computed, inject, ref, reactive, onMounted, onBeforeUnmount } from "vue";
+import { computed, inject, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
+import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
+import { useDetachedSessions } from "../composables/useDetachedSessions.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
@@ -165,6 +174,7 @@ import { useWorktreeRemove } from "../composables/useWorktreeRemove.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
+import DetachedSessionsList from "./DetachedSessionsList.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
@@ -179,6 +189,7 @@ const pushView = inject("pushView");
 // 従来どおり「Open Workspace」のまま変えない。
 modalTitle.value = "Open Workspace";
 
+const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, wsEndpoint } = useApi();
 const { removeWorktreeRequest } = useWorktreeRemove();
@@ -186,6 +197,7 @@ const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
+const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -350,7 +362,13 @@ async function removeWorktree(base, wt) {
 onMounted(() => {
   loadWorkspaceOverview();
   loadRecentJobs();
+  loadDetachedSessions();
 });
+
+// このビューが開いている間にタブがDetachされる（TabItem/TerminalPaneの
+// 閉じるダイアログ経由）と開いているタブ数が減る。マウント時の1回取得だけ
+// では反映されないため、タブ数が変わるたびに再取得して同期する。
+watch(() => terminalStore.openTabs.length, loadDetachedSessions);
 
 onBeforeUnmount(() => {
   cleanupWsDrag();

@@ -54,51 +54,12 @@
         </li>
       </ul>
       <div v-else class="session-sidebar-empty">No sessions</div>
-
-      <template v-if="detachedSessions.length > 0">
-        <button
-          type="button"
-          class="session-sidebar-detached-head"
-          :aria-expanded="detachedExpanded ? 'true' : 'false'"
-          @click="detachedExpanded = !detachedExpanded"
-        >
-          <span class="mdi" :class="detachedExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right'" aria-hidden="true"></span>
-          <span>Detached</span>
-          <span class="session-sidebar-detached-count">{{ detachedSessions.length }}</span>
-        </button>
-        <ul v-if="detachedExpanded" class="session-sidebar-list">
-          <li v-for="s in detachedSessions" :key="s.tmux_name" class="session-sidebar-li" :data-session-id="s.session_id || null">
-            <div class="session-sidebar-item session-sidebar-item-detached">
-              <span class="session-sidebar-main">
-                <span class="mdi mdi-tab-plus session-sidebar-icon session-sidebar-icon-default"></span>
-                <span class="session-sidebar-label">
-                  {{ s.workspace || s.job_label || s.job_name || (s.external ? s.tmux_name : "terminal") }}
-                </span>
-                <span v-if="s.external" class="session-sidebar-detached-tag">external</span>
-              </span>
-            </div>
-            <span class="session-sidebar-pills-row">
-              <span class="session-sidebar-detached-actions">
-                <button v-if="!s.external" type="button" class="session-sidebar-detached-btn" @click="openDetached(s)" title="Open as tab">
-                  <span class="mdi mdi-tab-plus"></span>
-                </button>
-                <button v-else type="button" class="session-sidebar-detached-btn" @click="adoptDetached(s)" title="Adopt into any-console (rename tmux session)">
-                  <span class="mdi mdi-import"></span>
-                </button>
-                <button type="button" class="session-sidebar-detached-btn danger" @click="closeDetached(s)" title="Close session">
-                  <span class="mdi mdi-close"></span>
-                </button>
-              </span>
-            </span>
-          </li>
-        </ul>
-      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onBeforeUnmount, inject } from "vue";
+import { computed, ref, watch, onBeforeUnmount, inject } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -109,21 +70,7 @@ import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useInfoPillActions } from "../composables/useInfoPillActions.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { useApi } from "../composables/useApi.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
-import { buildDetachedSessionList } from "../utils/detached-sessions.js";
-import { buildSessionTabParamsWithCache } from "../composables/useSessionSync.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import {
-  EP_TERMINAL_SESSIONS,
-  EP_SYSTEM_TMUX_INFO,
-  EP_SYSTEM_TMUX_ADOPT,
-  EP_SYSTEM_TMUX_KILL,
-  EP_JOBS_WORKSPACES,
-  terminalSessionPath,
-  terminalWsPath,
-  terminalSessionDetachedPath,
-} from "../utils/endpoints.js";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import { emit } from "../app-bridge.js";
@@ -145,75 +92,6 @@ const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
-const { apiGet, apiDelete, apiPost, apiPut } = useApi();
-
-// Detached sessions（タブに紐付いていないtmuxセッション）をSessions一覧に
-// 続ける形で表示する。タブ一覧とは別物のためポーリングはせず、マウント時と
-// 操作（Open/Adopt/Close）のたびに再取得する。折りたたみ式（既定は閉じておき、
-// 件数バッジだけ見せる）。
-const detachedSessions = ref([]);
-const detachedExpanded = ref(false);
-const allJobsData = ref({});
-
-async function loadDetachedSessions() {
-  const [tmuxRes, ownedRes, jobsRes] = await Promise.all([
-    getWithRetry(apiGet, EP_SYSTEM_TMUX_INFO),
-    getWithRetry(apiGet, EP_TERMINAL_SESSIONS),
-    getWithRetry(apiGet, EP_JOBS_WORKSPACES),
-  ]);
-  allJobsData.value = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
-  const owned = ownedRes.ok && Array.isArray(ownedRes.data) ? ownedRes.data : [];
-  const knownTabIds = new Set(terminalStore.openTabs.map((t) => t.sessionId).filter(Boolean));
-  const all = tmuxRes.ok && Array.isArray(tmuxRes.data?.sessions) ? tmuxRes.data.sessions : [];
-  const prefix = tmuxRes.ok && tmuxRes.data?.prefix ? tmuxRes.data.prefix : undefined;
-  detachedSessions.value = buildDetachedSessionList(all, owned, knownTabIds, prefix);
-}
-
-function openDetached(s) {
-  const tab = terminalStore.addTerminalTab({
-    ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs: allJobsData.value }),
-    wsUrl: terminalWsPath(s.session_id),
-    jobLabel: s.job_label || (s.workspace || s.session_id),
-    restored: false,
-  });
-  apiPut(terminalSessionDetachedPath(s.session_id), { detached: false }).catch(() => {});
-  emit("tab:select", { tab });
-  loadDetachedSessions();
-}
-
-async function adoptDetached(s) {
-  // 外部 tmux セッションを ac- プレフィックスにリネームして any-console 管理化、
-  // そのままタブとして開く。
-  if (!await confirm(`Adopt "${s.tmux_name}" into any-console? The tmux session will be renamed.`)) return;
-  const { ok, data } = await apiPost(EP_SYSTEM_TMUX_ADOPT, { name: s.tmux_name }, { errorMessage: "Failed to adopt session" });
-  if (!ok || !data?.session_id) return;
-  const tab = terminalStore.addTerminalTab({
-    wsUrl: terminalWsPath(data.session_id),
-    workspace: null,
-    wsIcon: null,
-    wsIconColor: null,
-    icon: "mdi-console",
-    iconColor: null,
-    jobName: null,
-    jobLabel: s.tmux_name,
-    restored: false,
-  });
-  emit("tab:select", { tab });
-  await loadDetachedSessions();
-}
-
-async function closeDetached(s) {
-  const label = s.workspace || s.session_id || s.tmux_name;
-  if (!await confirm(`Close session "${label}"? The tmux session will be killed.`)) return;
-  if (s.session_id) {
-    // any-console 管理セッションは /terminal/sessions API で kill
-    await apiDelete(terminalSessionPath(s.session_id), { errorMessage: "Failed to close session" });
-  } else {
-    // 外部セッション。/system/tmux/kill 経由
-    await apiPost(EP_SYSTEM_TMUX_KILL, { name: s.tmux_name }, { errorMessage: "Failed to kill session" });
-  }
-  await loadDetachedSessions();
-}
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
@@ -310,12 +188,6 @@ watch(githubWorkspaceKeys, (keys) => {
 }, { immediate: true });
 
 startPreviewPolling();
-onMounted(loadDetachedSessions);
-
-// このビューが開いている間にタブがDetachされる（TabItem/TerminalPaneの
-// 閉じるダイアログ経由）と開いているタブ数が減る。マウント時の1回取得だけ
-// では反映されないため、タブ数が変わるたびに再取得して同期する。
-watch(() => terminalStore.openTabs.length, loadDetachedSessions);
 
 onBeforeUnmount(() => {
   for (const key of activeGithubKeys) {
@@ -470,90 +342,4 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
 }
 
-/* Detached sessions（タブに紐付いていないtmuxセッション）はSessions一覧に
-   続ける形で表示する。行の見た目は.session-sidebar-item/.session-sidebar-main
-   /.session-sidebar-pills-rowをそのまま流用し、末尾のアクション部分だけ
-   Open/Adopt/Closeボタンに差し替える。 */
-.session-sidebar-detached-head {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  margin-top: 8px;
-  min-height: 36px;
-  padding: 6px 12px;
-  border: none;
-  border-top: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-align: left;
-  cursor: pointer;
-}
-
-.session-sidebar-detached-head .mdi {
-  font-size: 16px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .session-sidebar-detached-head:hover {
-    color: var(--text-primary);
-  }
-}
-
-.session-sidebar-detached-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-size: 10px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.session-sidebar-item-detached {
-  cursor: default;
-}
-
-.session-sidebar-detached-tag {
-  margin-left: 6px;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-
-.session-sidebar-detached-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.session-sidebar-detached-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.session-sidebar-detached-btn.danger:hover {
-  background: color-mix(in srgb, var(--error) 20%, var(--bg-tertiary));
-  color: var(--error);
-}
 </style>
