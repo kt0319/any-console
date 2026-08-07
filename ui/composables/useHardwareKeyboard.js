@@ -1,6 +1,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useKeyboard } from "./useKeyboard.js";
 import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { keyDefToAnsi } from "../utils/key-ansi.js";
 import { isEditableTarget } from "../utils/dom.js";
 import { isTouchOnly } from "../utils/keyboard.js";
@@ -23,6 +24,7 @@ import {
 export function useHardwareKeyboard({ inputEl, composing }) {
   const { sendKeyToTerminal } = useKeyboard();
   const terminalStore = useTerminalStore();
+  const layoutStore = useLayoutStore();
   const hasHardwareKeyboard = ref(false);
 
   function isFocused() {
@@ -30,6 +32,11 @@ export function useHardwareKeyboard({ inputEl, composing }) {
   }
 
   function onGlobalKeydown(e) {
+    // セッションサイドバー（PC）/設定オーバーレイ（モバイル）表示中は
+    // ターミナルへ流さない。特に Esc はここで preventDefault してしまうと、
+    // SessionSidebar.vue 側の「defaultPrevented なら閉じない」ガード
+    // （確認ダイアログ等との衝突回避用）に弾かれ、Esc で閉じられなくなる。
+    if (layoutStore.isSessionSidebarOpen) return;
     // Shift+Space で input にフォーカス（入力モード切替ショートカット）。
     if (e.code === "Space" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (!isFocused()) {
