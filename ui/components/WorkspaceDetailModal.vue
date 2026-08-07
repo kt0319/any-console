@@ -201,4 +201,17 @@ watch(
     order: 1;
   }
 }
+
+/* GitHistory/GitStash/GitChangeBranch/WorkspaceJobsPane等、多数のペインが
+   共通で使う「スクロール本体」の見た目の契約。SettingsPanel.vueの同名ルール
+   と同じ内容（WorkspaceDetailはSettingsのスタックから独立したため、ここにも
+   必要）。無いとhistoryListEl等のスクロールが効かなくなる。 */
+:deep(.modal-scroll-body) {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 0 8px;
+}
 </style>
