@@ -29,7 +29,6 @@ import subprocess
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.responses import JSONResponse
-from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..activity import log_activity
@@ -61,6 +60,7 @@ from ..tmux import (
     wait_pane_ready,
 )
 from ..validators import validate_branch_name
+from ..ws_broadcast import broadcast_to
 from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
@@ -128,29 +128,15 @@ def unsubscribe(websocket: WebSocket) -> None:
 
 
 async def _broadcast_queue() -> None:
-    """キューの現在の全量を全購読者へ push する。"""
-    payload = _queue_payload()
-    dead = []
-    for ws in list(_subscribers):
-        try:
-            await asyncio.wait_for(ws.send_json(payload), timeout=BROADCAST_SEND_TIMEOUT_SEC)
-        except TimeoutError:
-            # タイムアウト＝半開きの可能性。dispatch 購読だけ黙って外すと、共有 WS が
-            # OPEN のままのクライアントは再接続せず dispatch_queue だけ永続的に stale
-            # になる。WS 自体を閉じ、クライアントの再接続（接続時の全量再同期）へ倒す。
-            dead.append(ws)
-            await _close_ws(ws)
-        except (WebSocketDisconnect, RuntimeError, OSError):
-            dead.append(ws)
-    for ws in dead:
-        unsubscribe(ws)
+    """キューの現在の全量を全購読者へ push する。
 
-
-async def _close_ws(ws: WebSocket) -> None:
-    try:
-        await asyncio.wait_for(ws.close(), timeout=BROADCAST_SEND_TIMEOUT_SEC)
-    except (WebSocketDisconnect, RuntimeError, OSError, TimeoutError):
-        pass
+    send_timeout 付き＝タイムアウトした半開き接続は WS ごと閉じて再接続へ倒す
+    （詳細は ws_broadcast.broadcast_to の docstring 参照）。
+    """
+    await broadcast_to(
+        _subscribers, _queue_payload(),
+        on_dead=unsubscribe, send_timeout=BROADCAST_SEND_TIMEOUT_SEC,
+    )
 
 
 def _schedule_queue_broadcast() -> None:

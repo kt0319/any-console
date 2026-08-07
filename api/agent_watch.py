@@ -54,7 +54,6 @@ import time
 from typing import Any
 
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketDisconnect
 
 from .agent_hooks import hook_state
 from .common import (
@@ -73,6 +72,7 @@ from .screen_manifest import (
     identify_agent_from_argvs,
 )
 from .tmux import _run_tmux_cmd, capture_visible_pane, list_pane_meta, load_tmux_metadata
+from .ws_broadcast import SEND_ERRORS, broadcast_to
 
 logger = logging.getLogger(__name__)
 
@@ -469,7 +469,7 @@ async def subscribe(websocket: WebSocket) -> None:
     if _last_states:
         try:
             await websocket.send_json(states_payload(_last_states))
-        except (WebSocketDisconnect, RuntimeError, OSError):
+        except SEND_ERRORS:
             pass
 
 
@@ -538,14 +538,7 @@ def diff_states(previous: dict[str, str], current: dict[str, str]) -> dict[str, 
 
 
 async def _broadcast(payload: dict[str, Any]) -> None:
-    dead = []
-    for ws in list(_subscribers):
-        try:
-            await ws.send_json(payload)
-        except (WebSocketDisconnect, RuntimeError, OSError):
-            dead.append(ws)
-    for ws in dead:
-        unsubscribe(ws)
+    await broadcast_to(_subscribers, payload, on_dead=unsubscribe)
 
 
 async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに依存
