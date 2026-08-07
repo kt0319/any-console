@@ -388,8 +388,8 @@ class TestNotifyPhraseApi:
         assert jobs[job_name].get("notify_phrase", "") == ""
 
 
-class TestBlockedDetection:
-    """screen manifest による blocked 判定の collect_agent_states への統合。"""
+class TestManifestStateDetection:
+    """screen manifest による状態判定（blocked / working / idle）の統合。"""
 
     def _setup(self, monkeypatch, captures, pane_meta):
         monkeypatch.setattr(
@@ -443,6 +443,23 @@ class TestBlockedDetection:
         self._setup(monkeypatch, {"ac-s1": "$ "}, {})
         states, _, _, _ = collect_agent_states()
         assert states == {"s1": "idle"}
+
+    def test_manifest_idle_overrides_screen_diff(self, client, monkeypatch):
+        # プロンプトボックス（入力待ち）表示中は、画面の一部が動き続けていても idle。
+        box = "──────────\n❯ \n──────────\n"
+        self._setup(monkeypatch, {"ac-s1": "output tick 1\n" + box}, {"ac-s1": ("claude", "")})
+        collect_agent_states()
+        self._setup(monkeypatch, {"ac-s1": "output tick 2\n" + box}, {"ac-s1": ("claude", "")})
+        states, _, _, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
+
+    def test_osc_title_spinner_marks_working_on_static_screen(self, client, monkeypatch):
+        # 画面が静止していても OSC タイトルのスピナーで working と判定できる。
+        self._setup(monkeypatch, {"ac-s1": "static output"},
+                    {"ac-s1": ("claude", "⠋ Thinking…")})
+        collect_agent_states()
+        states, _, _, _ = collect_agent_states()  # 2回目: 画面差分は idle 判定になる
+        assert states == {"s1": "working"}
 
 
 class TestNotifyGraceSec:

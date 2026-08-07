@@ -4,13 +4,16 @@ tmux の可視ペイン内容を定期ポーリングし、出力アクティビ
 状態を判定して、変化のあったセッションだけ status stream の WebSocket 購読者へ
 push する（routers/status_stream.py が git_watch と同じソケットに相乗せする）。
 
-状態は 3 値:
-- working: 前回ポーリングから出力が変化した
-- idle:    画面が静止している
-- blocked: 既知エージェント（Claude Code / Codex）が承認・入力待ちで止まっている
-           （screen_manifest.py — ベンダリングした herdr のルールで判定。
-           前面プロセス名でエージェントを特定できたセッションのみ対象で、
-           判定できない場合は working/idle にフォールバックする）
+状態は 3 値（working / idle / blocked）。判定は 2 系統:
+
+- 画面差分（既定）: 前回ポーリングから出力が変化していれば working、静止で idle。
+  素のシェル・未知ツールを含む全セッションに効く汎用判定。
+- screen manifest（既知エージェントのみ）: 前面プロセス名でエージェントを特定
+  できたセッションは、herdr 由来のルール（screen_manifest.py）の判定
+  （blocked / working / idle）を優先して採用する。スピナーの OSC タイトルで
+  画面静止中の working を、プロンプトボックス検出でステータス行が動き続ける間の
+  idle を正しく判定できる。ルール不一致・unknown・skip_state_update で確定
+  しない場合は画面差分へフォールバックする。
 
 ジョブ定義に notify_phrase が設定されている場合、可視ペインにその文字列が
 現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。ただし検出直後に
@@ -40,7 +43,7 @@ from .common import (
     PHRASE_NOTIFY_IDLE_GRACE_SEC,
     TMUX_SESSION_PREFIX,
 )
-from .screen_manifest import STATE_BLOCKED, evaluate_state, identify_agent
+from .screen_manifest import ADOPTED_STATES, evaluate_state, identify_agent
 from .tmux import _run_tmux_cmd, capture_visible_pane, list_pane_meta, load_tmux_metadata
 
 logger = logging.getLogger(__name__)
@@ -58,6 +61,24 @@ def classify_agent_state(capture: str, prev_capture: str | None) -> str:
     if prev_capture is not None and capture != prev_capture:
         return STATE_WORKING
     return STATE_IDLE
+
+
+def resolve_session_state(
+    capture: str, prev_capture: str | None, pane_command: str, pane_title: str,
+) -> str:
+    """画面差分と screen manifest を統合してセッション状態を決める。
+
+    既知エージェント（前面プロセス名で特定）は manifest 判定
+    （blocked / working / idle）を優先し、確定しない場合
+    （ルール不一致・unknown・skip_state_update）は画面差分の結果を使う。
+    """
+    state = classify_agent_state(capture, prev_capture)
+    manifest = identify_agent(pane_command)
+    if manifest is not None:
+        manifest_state = evaluate_state(manifest, capture, osc_title=pane_title)
+        if manifest_state in ADOPTED_STATES:
+            state = manifest_state
+    return state
 
 
 def _list_session_ids() -> list[str] | None:
@@ -235,13 +256,8 @@ def collect_agent_states() -> tuple[
         workspace, job_name = _session_meta(session_id)
         notify_phrase = _job_notify_phrase(workspace, job_name)
         prev_capture = _last_capture.get(session_id)
-        new_state = classify_agent_state(capture, prev_capture)
-        # 既知エージェントの承認・入力待ちは画面差分より優先して blocked にする
-        # （スピナー静止で idle、確認ダイアログの点滅で working に見える誤判定を防ぐ）。
         pane_command, pane_title = pane_meta.get(TMUX_SESSION_PREFIX + session_id, ("", ""))
-        manifest = identify_agent(pane_command)
-        if manifest is not None and evaluate_state(manifest, capture, osc_title=pane_title) == STATE_BLOCKED:
-            new_state = STATE_BLOCKED
+        new_state = resolve_session_state(capture, prev_capture, pane_command, pane_title)
         states[session_id] = new_state
         changed = prev_capture is not None and capture != prev_capture
         should_push, should_clear_ws = _should_notify_phrase(

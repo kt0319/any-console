@@ -49,8 +49,12 @@ REMOTE_DIR = DATA_DIR / "agent-detection" / "remote"
 # herdr の MANIFEST_ENGINE_VERSION に対応。top_non_empty_lines 対応が v3。
 ENGINE_VERSION = 3
 
+STATE_WORKING = "working"
+STATE_IDLE = "idle"
 STATE_BLOCKED = "blocked"
 STATE_UNKNOWN = "unknown"
+# agent_watch がセッション状態として採用する manifest 判定（unknown は採用しない）
+ADOPTED_STATES = frozenset({STATE_WORKING, STATE_IDLE, STATE_BLOCKED})
 
 # Rust regex の波括弧 Unicode エスケープ（\x{...} と \u{...} は等価）
 _RUST_UNICODE_ESCAPE_RE = re.compile(r"\\[xu]\{([0-9A-Fa-f]{1,6})\}")
