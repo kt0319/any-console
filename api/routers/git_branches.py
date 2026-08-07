@@ -248,12 +248,22 @@ def git_pull(name: str):
         ws_path = resolve_workspace_path(name)
         env = ssh_env()
         before_hash = rev_parse(ws_path, "HEAD", "rev-parse before pull")
+        # --rebase はローカルの未push分をリベースして付け替えるため、
+        # before_hash..HEAD（ローカルHEADのレンジ）で件数を数えるとリベースで
+        # ハッシュが変わった自分のコミットまで「pullしたコミット」として
+        # 混入してしまう。実際にリモートから取得した分だけを見るため、
+        # upstream参照（@{u}）のpull前後の差分を使う。
+        before_upstream = rev_parse(ws_path, "@{u}", "rev-parse upstream before pull")
         stashed = _stash_if_dirty(ws_path, env)
         result = execute_git_action(name, ["pull", "--rebase"], operation="pull", env=env)
         if stashed:
             _unstash(ws_path, env, result)
         if result["status"] == "ok" and before_hash:
-            result["commits"] = _commits_between(ws_path, f"{before_hash}..HEAD")
+            after_upstream = rev_parse(ws_path, "@{u}", "rev-parse upstream after pull") if before_upstream else ""
+            if before_upstream and after_upstream:
+                result["commits"] = _commits_between(ws_path, f"{before_upstream}..{after_upstream}")
+            else:
+                result["commits"] = _commits_between(ws_path, f"{before_hash}..HEAD")
             after_hash = rev_parse(ws_path, "HEAD", "rev-parse after pull")
             log_activity(name, "git_pull", from_commit=before_hash, commit=after_hash)
         return result

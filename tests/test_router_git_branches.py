@@ -298,6 +298,52 @@ class TestGitPullMocked:
         log.assert_called_once_with("test-ws", "git_pull", from_commit="abc123", commit="abc123")
 
 
+class TestGitPullRebaseCommitRange:
+    def test_pull_rebase_reports_only_remote_commits_not_rebased_local_ones(self, client, git_workspace_with_commit, isolate_fs):
+        # git pull --rebase はローカルの未push分をリベースしてハッシュを
+        # 振り直すため、before_hash..HEAD（ローカルHEADのレンジ）で件数を
+        # 数えるとリベースで付け替えられた自分のコミットまで「pullした」
+        # 件数に混入してしまう（回帰）。upstream参照の前後比較で実際の
+        # 取得分だけを数えられているか検証する。
+        bare_path = isolate_fs["work"] / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(bare_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(bare_path)],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        current_branch = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "push", "-u", "origin", current_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        # 別クローンから「他の人が」新しいコミットをpushした状況を再現する
+        other_clone = isolate_fs["work"] / "other-clone"
+        subprocess.run(["git", "clone", str(bare_path), str(other_clone)], check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Other User"], cwd=other_clone, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "other@example.com"], cwd=other_clone, check=True, capture_output=True)
+        (other_clone / "remote_file.txt").write_text("remote\n", encoding="utf-8")
+        subprocess.run(["git", "add", "remote_file.txt"], cwd=other_clone, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "remote change"], cwd=other_clone, check=True, capture_output=True)
+        subprocess.run(["git", "push"], cwd=other_clone, check=True, capture_output=True)
+
+        # ローカル側は未pushのコミットを1つ作る（pull --rebase でリベースされる対象）
+        (git_workspace_with_commit / "local_file.txt").write_text("local\n", encoding="utf-8")
+        subprocess.run(["git", "add", "local_file.txt"], cwd=git_workspace_with_commit, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "local change"], cwd=git_workspace_with_commit, check=True, capture_output=True)
+
+        res = client.post("/workspaces/test-ws/pull", headers=AUTH)
+        assert res.status_code == 200
+        commits = res.json()["commits"]
+        # リモートから実際に取得したのは1件（remote change）のみ。
+        # リベースで付け替えられたローカルの "local change" を含めてはいけない。
+        assert commits["count"] == 1
+        assert commits["messages"] == ["remote change"]
+
+
 class TestGitPushMocked:
     def test_push_success_includes_commits(self, client, git_workspace_with_commit):
         from unittest import mock
