@@ -1,8 +1,4 @@
-import {
-  RECONNECT_BACKOFF_BASE_MS,
-  RECONNECT_BACKOFF_MULTIPLIER,
-  RECONNECT_BACKOFF_MAX,
-} from "./constants.js";
+import { reconnectBackoffDelay } from "./backoff.js";
 import { EP_WORKSPACES_STATUSES_WS } from "./endpoints.js";
 
 /**
@@ -81,11 +77,10 @@ export function parseStatusStreamMessage(raw) {
 }
 
 /**
- * 再接続バックオフ遅延（attempt は 0 始まり）。ターミナル WS と同じ定数系を使う。
+ * 再接続バックオフ遅延（attempt は 0 始まり）。ターミナル WS と同じ計算を共有する。
  * @param {number} attempt
  * @returns {number}
  */
 export function statusStreamReconnectDelay(attempt) {
-  const delay = RECONNECT_BACKOFF_BASE_MS * Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempt);
-  return Math.min(delay, RECONNECT_BACKOFF_MAX);
+  return reconnectBackoffDelay(attempt);
 }
