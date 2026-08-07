@@ -160,11 +160,17 @@ export async function openSettingsView(page, label) {
 
 /**
  * Workspaces（WorkspaceOpen）を開く。SettingsのModalMenu配下ではなく、
- * タブバーの「+」（Open Workspace）から直接開く導線に統一されている。
+ * ハンバーガーで開くセッション一覧の「Open Workspace」から直接開く導線に
+ * 統一されている（タブバーの「+」は廃止済み）。
  * @param {import("@playwright/test").Page} page
  */
 export async function openWorkspaces(page) {
-  await page.locator(".tab-add-btn").click();
+  // ハンバーガーは開く度にセッション一覧へリセットされるが、既に開いている
+  // 状態で押すと閉じてしまうため、未オープンの時だけ押す。
+  if (!(await page.locator(".settings-panel").isVisible())) {
+    await page.locator(".tab-menu-btn").click();
+  }
+  await page.locator(".session-list-settings-btn", { hasText: "Open Workspace" }).click();
 }
 
 /**
