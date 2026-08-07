@@ -49,7 +49,7 @@ test.describe("settings views", () => {
     await openAddWorkspace(page);
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace", { timeout: 10_000 });
     await page.locator(".modal-title-wrap").click();
-    await expect(page.locator(".modal-title")).toHaveText("Workspaces", { timeout: 5000 });
+    await expect(page.locator(".modal-title")).toHaveText("Open Workspace", { timeout: 5000 });
   });
 
   test("Auth ビューにトークン設定状態と自デバイスが表示される", async ({ page }) => {

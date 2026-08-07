@@ -174,7 +174,9 @@ import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/w
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
-modalTitle.value = "Workspaces";
+// セッション一覧の「Open Workspace」ボタン（SessionListView.vue）から
+// 直接開く導線に統一したため、タイトルもそのボタン文言に揃える。
+modalTitle.value = "Open Workspace";
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, wsEndpoint } = useApi();
