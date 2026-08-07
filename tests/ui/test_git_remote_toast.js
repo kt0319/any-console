@@ -5,14 +5,14 @@ import { formatRemoteToast } from "../../ui/utils/git-remote.js";
 describe("formatRemoteToast", () => {
   it("コミットなしの場合はシンプルなヘッダーのみ", () => {
     const msg = formatRemoteToast("my-ws", "Pull", {});
-    expect(msg).toBe("my-ws: Pull done");
+    expect(msg).toBe("my-ws: Pulled");
   });
 
   it("コミット1件の場合は singular 表現でメッセージを表示", () => {
     const msg = formatRemoteToast("my-ws", "Pull", {
       commits: { count: 1, messages: ["fix: null pointer error"] },
     });
-    expect(msg).toBe("my-ws: Pull done (1 commit)\n• fix: null pointer error");
+    expect(msg).toBe("my-ws: Pulled (1 commit)\n• fix: null pointer error");
   });
 
   it("直近3件のコミットメッセージを箇条書きで表示", () => {
@@ -20,7 +20,7 @@ describe("formatRemoteToast", () => {
       commits: { count: 3, messages: ["feat: a", "fix: b", "docs: c"] },
     });
     const lines = msg.split("\n");
-    expect(lines[0]).toBe("ws: Push done (3 commits)");
+    expect(lines[0]).toBe("ws: Pushed (3 commits)");
     expect(lines).toContain("• feat: a");
     expect(lines).toContain("• fix: b");
     expect(lines).toContain("• docs: c");
