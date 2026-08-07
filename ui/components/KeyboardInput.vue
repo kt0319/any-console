@@ -1,17 +1,6 @@
 <template>
   <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
     <form class="keyboard-input-row" autocomplete="off" role="presentation" @submit.prevent="submit">
-      <button
-        type="button"
-        class="keyboard-input-snippet-btn"
-        :class="{ active: snippetView !== 'none' }"
-        :aria-label="snippetButtonLabel"
-        :data-tooltip="snippetButtonLabel"
-        @pointerdown.prevent
-        @click="emit('snippetToggle')"
-      >
-        <span class="mdi" :class="snippetButtonIcon"></span>
-      </button>
       <input
         ref="inputEl"
         v-model="draft"
@@ -49,24 +38,7 @@ import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-const props = defineProps({
-  // "none" | "snippets" | "history"
-  snippetView: { type: String, default: "none" },
-});
-const emit = defineEmits(["focused", "submitted", "snippetToggle"]);
-
-// ボタンのアイコン/ラベルは次にタップしたら遷移する先を表す（予告型）。
-// 巡回順: none(→Snippets) → snippets(→History) → history(→Close) → none…
-const snippetButtonIcon = computed(() => {
-  if (props.snippetView === "snippets") return "mdi-history";
-  if (props.snippetView === "history") return "mdi-close";
-  return "mdi-bookmark-multiple";
-});
-const snippetButtonLabel = computed(() => {
-  if (props.snippetView === "snippets") return "History";
-  if (props.snippetView === "history") return "Close";
-  return "Snippets";
-});
+const emit = defineEmits(["focused", "submitted"]);
 
 const inputStore = useInputStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();

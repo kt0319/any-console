@@ -29,7 +29,16 @@ import { ref, computed, inject, onMounted } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-const modalTitle = inject("modalTitle");
+// embedded=true はキーボードバーのSnippetタブからQWERTYパネル内へ直接
+// オーバーレイ表示する場合（設定モーダルは開かない）。通常（設定モーダルの
+// Settings > Send Snippet経由・circle keypadの"snippets"プリセット経由）は
+// falseで、modalTitle/modal:closeを使う既存の挙動のまま。
+const props = defineProps({
+  embedded: { type: Boolean, default: false },
+});
+const emit = defineEmits(["close"]);
+
+const modalTitle = inject("modalTitle", null);
 const inputStore = useInputStore();
 
 // snippetsCache は末尾が最終使用（addSnippet/moveSnippetToFront とも末尾へ push）。
@@ -52,10 +61,13 @@ function onDelete(idx) {
 function onInsert(command) {
   bridgeEmit("keyboard:setDraft", { command });
   bridgeEmit("snippet:use", { command });
-  bridgeEmit("modal:close");
+  if (props.embedded) emit("close");
+  else bridgeEmit("modal:close");
 }
 
-onMounted(() => { modalTitle.value = "Send Snippet"; });
+onMounted(() => {
+  if (!props.embedded) modalTitle.value = "Send Snippet";
+});
 </script>
 
 <style scoped>

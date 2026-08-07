@@ -795,9 +795,9 @@ describe("SendHistory: 設定画面からのタップ挿入・削除", () => {
   });
 });
 
-// ── useKeyboardBarState: スニペット/履歴パネルの巡回 ────────────────────────
+// ── useKeyboardBarState: スニペット/履歴パネルの直接選択 ────────────────────
 
-describe("useKeyboardBarState: toggleSnippetView の巡回", () => {
+describe("useKeyboardBarState: openSnippetPanel/openHistoryPanel の直接選択", () => {
   function mountState() {
     let state;
     const wrapper = mount(defineComponent({
@@ -809,37 +809,27 @@ describe("useKeyboardBarState: toggleSnippetView の巡回", () => {
     return { wrapper, state: () => state };
   }
 
-  it("none→snippets→history→none の巡回で settings:open / modal:close を発火する", async () => {
-    const openHandler = vi.fn();
-    const closeHandler = vi.fn();
-    const offs = [
-      on("settings:open", openHandler),
-      on("modal:close", closeHandler),
-    ];
+  it("openSnippetPanel/openHistoryPanelでQWERTYパネル内オーバーレイの状態を直接切り替える（選択式・再選択しても閉じない）", () => {
     const { wrapper, state } = mountState();
 
-    state().toggleSnippetView();
+    state().openSnippetPanel();
     expect(state().snippetPanelView.value).toBe("snippets");
-    expect(openHandler).toHaveBeenLastCalledWith({ view: "SendSnippet" });
 
-    state().toggleSnippetView();
+    state().openHistoryPanel();
     expect(state().snippetPanelView.value).toBe("history");
-    expect(openHandler).toHaveBeenLastCalledWith({ view: "SendHistory" });
 
-    state().toggleSnippetView();
-    expect(state().snippetPanelView.value).toBe("none");
-    expect(closeHandler).toHaveBeenCalledOnce();
+    state().openHistoryPanel();
+    expect(state().snippetPanelView.value).toBe("history");
 
     wrapper.unmount();
-    offs.forEach((off) => off());
   });
 
-  it("settings:closed を受けると巡回状態が none にリセットされる", () => {
+  it("closeSnippetPanelでパネル状態が none にリセットされる", () => {
     const { wrapper, state } = mountState();
-    state().toggleSnippetView();
+    state().openSnippetPanel();
     expect(state().snippetPanelView.value).toBe("snippets");
 
-    emit("settings:closed");
+    state().closeSnippetPanel();
     expect(state().snippetPanelView.value).toBe("none");
 
     wrapper.unmount();
