@@ -271,6 +271,25 @@ def list_workspace_entries() -> dict[str, dict]:
         return dict(iter_workspace_entries_from(cfg))
 
 
+def match_workspace_by_path(path: str | None) -> str | None:
+    """パスを登録済みワークスペースのパスと前方一致させ、最長一致の表示名を返す。
+
+    Port Preview の cwd 照合と agent_watch のワークスペース自動紐付けが共用する。
+    """
+    if not path:
+        return None
+    best_name = None
+    best_len = -1
+    for key, entry in list_workspace_entries().items():
+        ws_path = (entry.get("path") or "").rstrip("/")
+        if not ws_path:
+            continue
+        if (path == ws_path or path.startswith(ws_path + "/")) and len(ws_path) > best_len:
+            best_len = len(ws_path)
+            best_name = entry.get("name") or key
+    return best_name
+
+
 def load_global_config_section(key: str, default=None):
     with _config_read() as cfg:
         global_config = cfg.get(GLOBAL_CONFIG_KEY, {})

@@ -226,28 +226,28 @@ class TestListPaneMeta:
         from api.tmux import list_pane_meta
         result = mock.MagicMock()
         result.returncode = 0
-        result.stdout = "ac-s1\tclaude\t123\t⠋ Thinking\nac-s2\tzsh\t456\t\n"
+        result.stdout = "ac-s1\tclaude\t123\t/home/u/proj\t⠋ Thinking\nac-s2\tzsh\t456\t/home/u\t\n"
         with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
             assert list_pane_meta() == {
-                "ac-s1": ("claude", "⠋ Thinking", 123),
-                "ac-s2": ("zsh", "", 456),
+                "ac-s1": ("claude", "⠋ Thinking", 123, "/home/u/proj"),
+                "ac-s2": ("zsh", "", 456, "/home/u"),
             }
 
     def test_first_pane_wins_and_tabs_in_title_survive(self):
         from api.tmux import list_pane_meta
         result = mock.MagicMock()
         result.returncode = 0
-        result.stdout = "ac-s1\tclaude\t123\ta\tb\nac-s1\tzsh\t456\tsecond\n"
+        result.stdout = "ac-s1\tclaude\t123\t/p\ta\tb\nac-s1\tzsh\t456\t/q\tsecond\n"
         with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
-            assert list_pane_meta() == {"ac-s1": ("claude", "a\tb", 123)}
+            assert list_pane_meta() == {"ac-s1": ("claude", "a\tb", 123, "/p")}
 
     def test_malformed_lines_are_skipped(self):
         from api.tmux import list_pane_meta
         result = mock.MagicMock()
         result.returncode = 0
-        result.stdout = "broken line\nac-s1\tclaude\tnot-a-pid\ttitle\n"
+        result.stdout = "broken line\nac-s1\tclaude\tnot-a-pid\t/p\ttitle\n"
         with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
-            assert list_pane_meta() == {"ac-s1": ("claude", "title", 0)}
+            assert list_pane_meta() == {"ac-s1": ("claude", "title", 0, "/p")}
 
     def test_returns_empty_on_failure(self):
         from api.tmux import list_pane_meta

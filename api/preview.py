@@ -219,19 +219,8 @@ def _read_cwd(pid: int) -> str | None:
 
 def _match_workspace(cwd: str | None) -> str | None:
     """cwd を登録済みワークスペースのパスと前方一致させ、最長一致の名前を返す。"""
-    if not cwd:
-        return None
-    from .config import list_workspace_entries
-    best_name = None
-    best_len = -1
-    for key, entry in list_workspace_entries().items():
-        path = (entry.get("path") or "").rstrip("/")
-        if not path:
-            continue
-        if (cwd == path or cwd.startswith(path + "/")) and len(path) > best_len:
-            best_len = len(path)
-            best_name = entry.get("name") or key
-    return best_name
+    from .config import match_workspace_by_path
+    return match_workspace_by_path(cwd)
 
 
 def _proxy_listener_ports() -> set[int]:

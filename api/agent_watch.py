@@ -17,10 +17,18 @@ push する（routers/status_stream.py が git_watch と同じソケットに相
   当たらなければ前面ジョブの argv（api/foreground.py）でラッパー起動
   （node スクリプト・sh -c 等）も照合する。
 
-加えて、ジョブタグの無いセッションは前面ジョブの argv をジョブ定義と照合し、
-一致したらジョブメタデータ（TMUX_JOB_NAME 等）を自動で刻印する
-（api/job_match.py）。素のターミナルで手打ちされたジョブ相当のコマンドにも
-notify_phrase・アイコン表示など既存のジョブ機構が有効になる。
+加えて、素のターミナルに対する 2 つの自動紐付けを行う:
+
+- **ワークスペース**: 未紐付けのセッションはペインの cwd（#{pane_current_path}）を
+  登録済みワークスペースと最長前方一致で照合し、一致したら TMUX_WORKSPACE を
+  刻印する（セッション復元時の detect_workspace_from_tmux と同じ判定をライブでも
+  行い、`cd` しただけで Git ピル・activity 帰属が有効になる）。
+- **ジョブ**: ジョブタグの無いセッションは前面ジョブの argv をジョブ定義と照合し、
+  一致したらジョブメタデータ（TMUX_JOB_NAME 等）を自動で刻印する
+  （api/job_match.py）。素のターミナルで手打ちされたジョブ相当のコマンドにも
+  notify_phrase・アイコン表示など既存のジョブ機構が有効になる。
+
+どちらも既存の紐付け（明示操作・復元時・過去の自動紐付け）は上書きしない。
 
 ジョブ定義に notify_phrase が設定されている場合、可視ペインにその文字列が
 現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。ただし検出直後に
@@ -110,6 +118,42 @@ def _detect_manifest(
         argvs = inspector.argvs(pane_pid)
         manifest = identify_agent_from_argvs(argvs)
     return manifest, argvs
+
+
+def _apply_workspace_tag(session_id: str, workspace: str) -> None:
+    """cwd 照合で判明したワークスペースをセッションへ刻印する。
+
+    復元時の自動判定（detect_workspace_from_tmux）と同じ紐付けをライブの
+    セッションにも適用する。刻印されれば Git ピル・activity 帰属・
+    ワークスペースジョブの照合対象化が有効になる。
+    """
+    from .terminal_session import TERMINAL_SESSIONS, sessions_lock
+    with sessions_lock:
+        cached = TERMINAL_SESSIONS.get(session_id)
+        if cached is not None:
+            cached.workspace = workspace
+    if cached is not None:
+        cached.save_workspace()
+    else:
+        _run_tmux_cmd(
+            "set-environment", "-t", TMUX_SESSION_PREFIX + session_id,
+            "TMUX_WORKSPACE", workspace,
+        )
+    logger.info("auto-bound workspace session=%s workspace=%s", session_id, workspace)
+
+
+def _resolve_workspace(session_id: str, workspace: str | None, pane_path: str) -> str | None:
+    """未紐付けセッションを cwd の最長前方一致で自動紐付けする（ADR 32）。
+
+    既に紐付いているセッションはそのまま返す（上書きしない）。
+    """
+    if workspace or not pane_path:
+        return workspace
+    from .config import match_workspace_by_path
+    matched = match_workspace_by_path(pane_path)
+    if matched is not None:
+        _apply_workspace_tag(session_id, matched)
+    return matched
 
 
 def _apply_job_tag(session_id: str, pattern: JobPattern) -> None:
@@ -339,10 +383,11 @@ def collect_agent_states() -> tuple[
         if capture is None:
             continue
         workspace, job_name = _session_meta(session_id)
+        pane_command, pane_title, pane_pid, pane_path = pane_meta.get(
+            TMUX_SESSION_PREFIX + session_id, ("", "", 0, ""))
+        workspace = _resolve_workspace(session_id, workspace, pane_path)
         notify_phrase = _job_notify_phrase(workspace, job_name)
         prev_capture = _last_capture.get(session_id)
-        pane_command, pane_title, pane_pid = pane_meta.get(
-            TMUX_SESSION_PREFIX + session_id, ("", "", 0))
         manifest, argvs = _detect_manifest(pane_command, pane_pid, inspector)
         new_state = resolve_session_state(capture, prev_capture, manifest, pane_title)
         states[session_id] = new_state
