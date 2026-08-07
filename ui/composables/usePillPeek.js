@@ -32,9 +32,10 @@ export function usePillPeek({
   let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
   let pillMorePeekTimer = null;
   // branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
-  // 「Pushed」「Pulled」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
-  const branchPushDone = ref(false);
-  const branchPullDone = ref(false);
+  // 「Pushed (N)」「Pulled (N)」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
+  // 0は非表示、直前のahead/behind値＝実際に押し出された/取り込まれた件数。
+  const branchPushCount = ref(0);
+  const branchPullCount = ref(0);
   // paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
   // マウント直後は未解決（undefined）で isGitRepo 等が一時的に false になり得る。
   // このタイミングで prevTrailingSignature を確定させると、ワークスペース情報が
@@ -77,15 +78,15 @@ export function usePillPeek({
       return;
     }
     peekingKey.value = next.key;
-    branchPushDone.value = next.pushDone || false;
-    branchPullDone.value = next.pullDone || false;
+    branchPushCount.value = next.pushCount || 0;
+    branchPullCount.value = next.pullCount || 0;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
     pillMorePeekTimer = setTimeout(advancePeekQueue, itemMs);
   }
 
-  function triggerPeek(key, pushDone = false, pullDone = false) {
-    peekQueue.push({ key, pushDone, pullDone });
+  function triggerPeek(key, pushCount = 0, pullCount = 0) {
+    peekQueue.push({ key, pushCount, pullCount });
     if (!pillMorePeekTimer) {
       queueSessionEndsAt = Date.now() + PILL_MORE_PEEK_DURATION_MS;
       advancePeekQueue();
@@ -122,16 +123,19 @@ export function usePillPeek({
     if (justResolved) workspaceEverResolved = true;
     if (workspaceEverResolved && !justResolved) {
       for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
-        let pushDone = false;
-        let pullDone = false;
+        let pushCount = 0;
+        let pullCount = 0;
         if (changed.key === "branch") {
           // 直前のシグネチャ（branch:ahead:behind）と比べ、ahead/behindが
-          // >0 から 0 へ変わった＝push/pullが完了した瞬間だけラベルを出す。
+          // >0 から 0 へ変わった＝push/pullが完了した瞬間。直前の値が
+          // そのまま実際に送信/取得されたコミット数になる。
           const [, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
-          pushDone = Number(prevAheadStr) > 0 && ahead.value === 0;
-          pullDone = Number(prevBehindStr) > 0 && behind.value === 0;
+          const prevAhead = Number(prevAheadStr) || 0;
+          const prevBehind = Number(prevBehindStr) || 0;
+          if (prevAhead > 0 && ahead.value === 0) pushCount = prevAhead;
+          if (prevBehind > 0 && behind.value === 0) pullCount = prevBehind;
         }
-        triggerPeek(changed.key, pushDone, pullDone);
+        triggerPeek(changed.key, pushCount, pullCount);
       }
     }
     prevTrailingSignature = nextSignature;
@@ -154,5 +158,5 @@ export function usePillPeek({
     peekQueue.length = 0;
   });
 
-  return { peekingKey, branchPushDone, branchPullDone };
+  return { peekingKey, branchPushCount, branchPullCount };
 }
