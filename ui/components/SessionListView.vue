@@ -146,8 +146,8 @@ function jobIconHtml(item) {
   return item.jobIcon ? renderIconStr(item.jobIcon.name, item.jobIcon.color, 18) : "";
 }
 
-// タブバーの「+」（Open Workspace）と同じ遷移。ModalMenu経由の
-// WorkspaceOpenへ積まれる（useSettingsNav.jsのworkspace:openModalリスナー）。
+// WorkspaceOpenへ遷移する（useSettingsNav.jsのworkspace:openModalリスナー）。
+// 旧タブバーの「+」ボタンは廃止し、ここが唯一の入り口になった。
 function onOpenWorkspace() {
   emit("workspace:openModal");
 }

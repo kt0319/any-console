@@ -29,8 +29,8 @@ test.describe("any-console smoke", () => {
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
     await login(page, context, token);
-    // ログイン後はメイン画面のタブバー（追加ボタン）が出る
-    await expect(page.locator(".tab-add-btn")).toBeVisible();
+    // ログイン後はメイン画面のタブバー（ハンバーガー）が出る
+    await expect(page.locator(".tab-menu-btn")).toBeVisible();
   });
 
   test("認証はリロード後も維持される", async ({ page, context }) => {
@@ -39,7 +39,7 @@ test.describe("any-console smoke", () => {
     await login(page, context, token);
     await page.reload();
     // デバイス cookie で再認証されるため、ログイン画面には戻らない
-    await expect(page.locator(".tab-add-btn")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".tab-menu-btn")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('input[placeholder="Token"]')).toBeHidden();
   });
 });

@@ -27,9 +27,6 @@
         @refresh="onRefresh"
         @detach="onDetach"
       />
-      <button v-if="!isSplitMode" class="tab-add-btn" @click="onAddClick" title="Open Workspace">
-        <span class="mdi mdi-plus"></span>
-      </button>
     </div>
   </div>
 </template>
@@ -71,11 +68,8 @@ function onSelect(tab, { skipFocus = false } = {}) {
   emit("tab:select", { tab, skipFocus });
 }
 
-let suppressAddUntil = 0;
-
 function onClose(tab) {
   emit("tab:close", { tab });
-  suppressAddUntil = Date.now() + 600;
 }
 
 function onRefresh(tab) {
@@ -84,11 +78,6 @@ function onRefresh(tab) {
 
 function onDetach(tab) {
   terminalStore.detachTab(tab.id);
-}
-
-function onAddClick() {
-  if (Date.now() < suppressAddUntil) return;
-  emit("workspace:openModal");
 }
 
 const { isOpen: isWorkspaceDetailOpen, close: closeWorkspaceDetail } = useWorkspaceDetailNav();
@@ -141,36 +130,6 @@ function onMenuClick() {
 
 .tab-bar::-webkit-scrollbar {
   display: none;
-}
-
-.tab-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  touch-action: manipulation;
-  font-size: 18px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.tab-add-btn:active {
-  background: var(--bg-tertiary);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .tab-add-btn:hover {
-    background: var(--bg-tertiary);
-  }
 }
 
 .tab-menu-btn {
