@@ -32,6 +32,7 @@ from ..git_utils import (
     git_is_repo,
     git_worktree_list,
     list_git_workspace_paths,
+    registered_paths_by_resolved,
     worktree_display_name,
 )
 from ..git_watch import notify_workspaces_changed
@@ -91,11 +92,7 @@ def _workspace_summary(item):
 
 def _registered_workspace_paths() -> set[str]:
     """登録済みワークスペースの解決済みパス集合。動的worktreeの重複判定に使う。"""
-    return {
-        safe_resolve_str(expand_workspace_path(p))
-        for cfg in list_workspace_entries().values()
-        if (p := cfg.get("path"))
-    }
+    return set(registered_paths_by_resolved().keys())
 
 
 def _dynamic_worktree_entries(
@@ -324,13 +321,7 @@ def suggest_workspace_dirs(path: str = ""):
     if not base.is_dir():
         return {"base": str(base), "entries": []}
 
-    existing = set()
-    for cfg in list_workspace_entries().values():
-        p = expand_workspace_path(cfg.get("path", ""))
-        try:
-            existing.add(str(p.resolve()))
-        except OSError:
-            existing.add(str(p))
+    existing = set(registered_paths_by_resolved().keys())
 
     entries = []
     try:

@@ -228,6 +228,24 @@ def list_git_workspace_paths() -> "list[tuple[str, Path]]":
     return result
 
 
+def registered_paths_by_resolved() -> "dict[str, str]":
+    """登録済みワークスペースの resolve 済みパス -> 表示名 の対応表。
+
+    config には home 配下のパスが `~/...` 形式で保存されるため、resolve の前に
+    必ず expanduser を通す（これを欠くと home 配下のワークスペースが一切
+    マッチしなくなる）。パス集合だけ必要な場合は keys() を使う。
+    """
+    from .common import expand_workspace_path, safe_resolve_str
+    from .config import list_workspace_entries
+    result: dict[str, str] = {}
+    for entry in list_workspace_entries().values():
+        p = entry.get("path", "")
+        if not p:
+            continue
+        result[safe_resolve_str(expand_workspace_path(p))] = entry.get("name", "")
+    return result
+
+
 def find_dynamic_worktree_path(name: str) -> "Path | None":
     """'{base} [{branch}]' 形式の動的worktree名からパスを返す。configに登録されていないworktree用。"""
     parts = split_worktree_name(name)
