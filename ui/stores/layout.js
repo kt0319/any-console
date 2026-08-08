@@ -1,9 +1,10 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
-import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
+import { ref, watch } from "vue";
+import { MOBILE_BREAKPOINT_PX, LS_KEY_SESSION_SIDEBAR_OPEN } from "../utils/constants.js";
 import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
 import { calcGridLayout } from "../utils/terminal-layout.js";
 import { isTouchInput } from "../utils/device.js";
+import { safeFlagLoad, safeFlagSave } from "../utils/storage.js";
 import { useTerminalStore } from "./terminal.js";
 
 export const useLayoutStore = defineStore("layout", () => {
@@ -19,7 +20,11 @@ export const useLayoutStore = defineStore("layout", () => {
   const isSettingsOpen = ref(false);
 
   // タブバー左端のハンバーガーで開くセッションサイドバー（SessionSidebar.vue）。
-  const isSessionSidebarOpen = ref(false);
+  // 開閉状態はlocalStorageへ保存し、リロード後も復元する。
+  const isSessionSidebarOpen = ref(safeFlagLoad(LS_KEY_SESSION_SIDEBAR_OPEN));
+  watch(isSessionSidebarOpen, (v) => {
+    safeFlagSave(LS_KEY_SESSION_SIDEBAR_OPEN, v);
+  });
 
   function toggleSessionSidebar() {
     isSessionSidebarOpen.value = !isSessionSidebarOpen.value;

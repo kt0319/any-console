@@ -74,6 +74,7 @@ export const LS_KEY_TERMINAL_SETTINGS = "any_console_terminal_settings";
 export const LS_KEY_ACTIVE_SESSION = "any_console_active_session";
 export const LS_KEY_DEBUG_MODE = "any_console_debug_mode";
 export const LS_KEY_DEBUG_LEVELS = "any_console_debug_levels";
+export const LS_KEY_SESSION_SIDEBAR_OPEN = "any_console_session_sidebar_open";
 export const LS_KEY_NOTIF_PREFS = "notifPrefs";
 
 // フレーズ検出→プッシュ通知の猶予秒数のサーバ契約値
