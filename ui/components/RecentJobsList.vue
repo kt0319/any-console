@@ -4,7 +4,7 @@
       v-for="recent in visibleRecentJobs"
       :key="recent.key"
       type="button"
-      class="recent-jobs-item"
+      class="recent-jobs-item hover-bg"
       :class="{ 'is-detached-tab': recent.jobDetachedTab }"
       @click="runRecentJob(recent)"
     >
@@ -18,7 +18,7 @@
         <span class="recent-jobs-item-name">{{ recent.jobLabel || recent.jobName }}</span>
       </span>
       <span
-        class="recent-jobs-item-pin"
+        class="recent-jobs-item-pin hover-bg-text"
         :class="{ pinned: recent.pinned }"
         role="button"
         tabindex="0"
@@ -31,7 +31,7 @@
     <button
       v-if="allowExpand && hasUnpinnedRecentJobs"
       type="button"
-      class="recent-jobs-more"
+      class="recent-jobs-more hover-bg-text"
       @click="showAll = !showAll"
     >
       <span class="mdi" :class="showAll ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
@@ -86,11 +86,6 @@ const visibleRecentJobs = computed(() => {
   box-sizing: border-box;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .recent-jobs-item:hover {
-    background: var(--bg-tertiary);
-  }
-}
 
 .recent-jobs-item.is-detached-tab {
   opacity: 0.6;
@@ -153,12 +148,6 @@ const visibleRecentJobs = computed(() => {
   color: var(--accent);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .recent-jobs-item-pin:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 
 .recent-jobs-more {
   display: flex;
@@ -175,10 +164,4 @@ const visibleRecentJobs = computed(() => {
   cursor: pointer;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .recent-jobs-more:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 </style>

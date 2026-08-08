@@ -4,7 +4,7 @@
     :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
   >
     <button
-      class="tab-menu-btn"
+      class="tab-menu-btn hover-bg"
       :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
       @click="onMenuClick"
       :aria-label="sidebarToggleLabel"
@@ -151,11 +151,6 @@ function onMenuClick() {
   background: var(--bg-tertiary);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .tab-menu-btn:hover {
-    background: var(--bg-tertiary);
-  }
-}
 
 .tab-menu-btn.active {
   color: var(--text-primary);

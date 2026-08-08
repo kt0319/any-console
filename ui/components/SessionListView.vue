@@ -5,7 +5,7 @@
         <li v-for="item in items" :key="item.id" class="session-sidebar-li">
           <button
             type="button"
-            class="session-sidebar-item"
+            class="session-sidebar-item hover-bg"
             :class="{
               active: item.id === activeTabId,
               'session-working': item.agent?.className === 'agent-state-working',
@@ -305,11 +305,9 @@ onBeforeUnmount(() => {
   background: var(--bg-tertiary);
 }
 
+/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブ行は
+   ホバーでもアクティブ強調色を維持する。 */
 @media (hover: hover) and (pointer: fine) {
-  .session-sidebar-item:hover {
-    background: var(--bg-tertiary);
-  }
-
   .session-sidebar-item.active:hover {
     background: var(--accent-bg-12);
   }

@@ -1,7 +1,7 @@
 <template>
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
-      <div class="job-item-row">
+      <div class="job-item-row hover-bg">
         <button type="button" class="job-item" @click="openTerminal">
           <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
           <span class="job-item-label">Terminal</span>
@@ -10,7 +10,7 @@
       <div
         v-for="job in commonJobs"
         :key="'c-' + job.name"
-        class="job-item-row"
+        class="job-item-row hover-bg"
         :class="{ 'job-item-detached': job.detached_tab }"
       >
         <button type="button" class="job-item" @click="runJob(job)">
@@ -29,7 +29,7 @@
       <div
         v-for="job in localJobs"
         :key="'l-' + job.name"
-        class="job-item-row"
+        class="job-item-row hover-bg"
         :class="{ 'job-item-detached': job.detached_tab }"
       >
         <button type="button" class="job-item" @click="runJob(job)">
@@ -301,9 +301,4 @@ defineExpose({ load });
   flex-shrink: 0;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .job-item-row:hover {
-    background: var(--bg-tertiary);
-  }
-}
 </style>

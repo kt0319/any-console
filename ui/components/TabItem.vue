@@ -1,7 +1,7 @@
 <template>
   <button
     ref="pillEl"
-    class="tab-btn"
+    class="tab-btn hover-bg"
     :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-blocked': agentState === 'blocked', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
@@ -29,7 +29,7 @@
     <span class="tab-extra">
       {{ label }}
       <span
-        class="tab-close"
+        class="tab-close hover-bg-text"
         draggable="false"
         @mousedown.stop.prevent="onClosePress"
         @mouseup.stop="onCloseUp"
@@ -366,11 +366,9 @@ onBeforeUnmount(() => {
   background: var(--accent-bg-12);
 }
 
+/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブタブは
+   ホバーでもアクティブ強調色を維持する。 */
 @media (hover: hover) and (pointer: fine) {
-  .tab-btn:hover {
-    background: var(--bg-tertiary);
-  }
-
   .tab-btn.active:hover {
     background: var(--accent-bg-12);
   }
@@ -473,12 +471,6 @@ onBeforeUnmount(() => {
   padding: 0;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .tab-close:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 
 .tab-btn :deep(.favicon-icon) {
   width: 18px;

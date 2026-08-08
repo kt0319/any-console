@@ -4,13 +4,13 @@
     <div class="url-action-dialog" role="dialog" aria-modal="true" aria-label="Open URL">
       <div class="url-action-url">{{ terminalUrl }}</div>
       <div class="url-action-buttons">
-        <button class="url-action-btn" @click="doUrlOpen">
+        <button class="url-action-btn hover-bg" @click="doUrlOpen">
           <span class="mdi mdi-open-in-new"></span>Open
         </button>
-        <button class="url-action-btn" @click="doUrlCopy">
+        <button class="url-action-btn hover-bg" @click="doUrlCopy">
           <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ copied ? "Copied!" : "Copy URL" }}
         </button>
-        <button class="url-action-btn url-action-btn-cancel" @click="terminalUrl = ''">Cancel</button>
+        <button class="url-action-btn url-action-btn-cancel hover-bg" @click="terminalUrl = ''">Cancel</button>
       </div>
     </div>
   </BaseDialog>
@@ -95,9 +95,4 @@ onMounted(() => {
   margin-top: 2px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .url-action-btn:hover {
-    background: var(--bg-tertiary);
-  }
-}
 </style>

@@ -125,6 +125,22 @@ body {
   animation: notify-blink 1.2s ease-in-out infinite;
 }
 
+/* PCホバーの共通ユーティリティ（CSSルール: hoverはこのmedia guard内でのみ使う）。
+   背景を1段明るくするだけの要素はテンプレートで .hover-bg を、文字色も通常色へ
+   上げる要素は .hover-bg-text を付ける。セレクタを2重にして詳細度を(0,3,0)へ
+   上げ、コンポーネントscopedの基底背景指定（(0,2,0)）に負けないようにする。
+   .active など、より詳細度の高いscopedルールは従来どおり優先される。 */
+@media (hover: hover) and (pointer: fine) {
+  .hover-bg.hover-bg:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .hover-bg-text.hover-bg-text:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
 @keyframes loading-dots {
   0% { content: ""; }
   25% { content: "."; }

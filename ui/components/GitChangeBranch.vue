@@ -119,14 +119,14 @@
         <div v-show="expanded" class="branch-summary-toolbar">
           <button
             type="button"
-            class="branch-summary-add-btn"
+            class="branch-summary-add-btn hover-bg-text"
             aria-label="Add branch or worktree"
             data-tooltip="Add branch or worktree"
             @click="openAddModal"
           ><span class="mdi mdi-plus"></span> Add</button>
           <button
             type="button"
-            class="branch-summary-fetch-btn"
+            class="branch-summary-fetch-btn hover-bg-text"
             aria-label="Fetch"
             data-tooltip="Fetch remote branches"
             @click="fetchRemote"
@@ -405,13 +405,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   cursor: pointer;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .branch-summary-add-btn:hover,
-  .branch-summary-fetch-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 
 .modal-scroll-body.is-fetching {
   pointer-events: none;
