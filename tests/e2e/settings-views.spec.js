@@ -23,6 +23,7 @@ const SETTINGS_VIEWS = [
   ["Notifications", "Notifications"],
   ["Auth", "Auth"],
   ["Config File", "Config File"],
+  ["Dev Server", "Dev Server"],
   ["System Info", "System Info"],
 ];
 

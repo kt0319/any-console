@@ -92,10 +92,6 @@
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
         <span class="mdi mdi-folder-plus-outline"></span> Open
       </button>
-      <button type="button" class="settings-menu-item" @click="pushView('SessionPreview')">
-        <span class="mdi mdi-server"></span> Server
-        <span v-if="previewPortCount" class="settings-menu-version">{{ previewPortCount }}</span>
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('ModalMenu')">
         <span class="mdi mdi-cog"></span> Settings
       </button>
@@ -184,10 +180,6 @@ function onPendingPillOpen(p, key) {
 }
 
 const activeTabId = computed(() => terminalStore.activeTabId);
-
-// Serverメニュー項目のバッジ件数（旧SessionPreviewTab.vue/ModalMenu.vueが
-// 持っていた「自分自身は除く」ロジックと同じ）。
-const previewPortCount = computed(() => previewPorts.value.filter((p) => !p.is_self).length);
 
 const items = computed(() => {
   // tab は markRaw のため tab.workspace 単体の変更は追跡されない。

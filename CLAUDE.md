@@ -97,7 +97,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
   - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
-  - `session-menu.spec.js`: Sessionsページ下部メニュー（Open / Server / Settings）遷移とタイトル連動、ページを離れるとメニューが消えること
+  - `session-menu.spec.js`: Sessionsページ下部メニュー（Open / Settings）遷移とタイトル連動、ページを離れるとメニューが消えること
   - `detached-sessions.spec.js`: Detached sessions（タブに紐付かないtmuxセッション）のOpen/Adopt/Close
   - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
   - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）

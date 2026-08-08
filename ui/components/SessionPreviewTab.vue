@@ -44,14 +44,14 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { devServerUrl } from "../utils/preview-url.js";
 import { openExternal } from "../utils/open-external.js";
 
-// Sessionsページ下部メニューの「Server」項目から開く独立したcurrentView
+// Settings（ModalMenu）の「Dev Server」項目から開くcurrentView
 // （'SessionPreview'）。旧PreviewPorts.vue（ModalMenu配下の独立画面）から
 // 移植したもの。ポーリングはこのコンポーネント自身のマウント/アンマウントに
 // 紐付ける（usePreviewPortsはref-counted共有composableのため、TerminalPaneの
 // 他の利用と重複起動にはならない）。
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Server";
+modalTitle.value = "Dev Server";
 
 const { ports, start: startPolling, stop: stopPolling } = usePreviewPorts();
 onMounted(startPolling);

@@ -1,7 +1,7 @@
 /**
- * Sessionsページ下部メニュー（Open / Server / Settings）の
- * E2E スモーク。各項目は本物のcurrentView遷移（WorkspaceOpen/
- * SessionPreview/ModalMenu）で、Sessionsページを離れるとメニューごと消える
+ * Sessionsページ下部メニュー（Open / Settings）の
+ * E2E スモーク。各項目は本物のcurrentView遷移（WorkspaceOpen/ModalMenu）で、
+ * Sessionsページを離れるとメニューごと消える
  * （SessionListView.vueがアンマウントされるため）。
  */
 import { test, expect, loadToken, login, openSettingsModal, openSettingsView, listSessionIds, cleanupNewSessions } from "./helpers.js";
@@ -28,15 +28,6 @@ test.describe("session list menu", () => {
 
   test.afterEach(async ({ page }) => {
     await cleanupNewSessions(page, sessionIdsBefore);
-  });
-
-  test("Server項目に遷移でき、タイトルも連動する", async ({ page }) => {
-    await openSessionsRoot(page);
-    await expect(page.locator(".modal-title")).toContainText("Sessions");
-
-    await page.locator(".session-list-menu .settings-menu-item", { hasText: "Server" }).click();
-    await expect(page.locator(".preview-tab")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".modal-title")).toContainText("Server");
   });
 
   test("Open / Settings 項目に遷移でき、Sessionsページを離れるとメニューが消える", async ({ page }) => {

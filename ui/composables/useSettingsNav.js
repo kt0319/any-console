@@ -123,17 +123,19 @@ function registerListeners() {
     if (layoutStore) layoutStore.isSettingsOpen = open;
   }, { immediate: true });
 
-  // Sessions/Server/Open/SettingsはSessionListView.vueの下部
-  // メニュー等から直接切り替える「根」のビューのため、ModalMenuを挟まず開く
-  // （openViewがSessionListを自動でルートに補うので、ModalMenuを積む
-  // 通常の設定サブ画面と違い、これらはstack[1]に直接乗せてよい）。
-  const ROOT_TAB_VIEWS = new Set(["SessionList", "SessionPreview", "WorkspaceOpen"]);
+  // Sessions/Open/SettingsはSessionListView.vueの下部メニュー等から直接
+  // 切り替える「根」のビューのため、ModalMenuを挟まず開く（openViewが
+  // SessionListを自動でルートに補うので、ModalMenuを積む通常の設定サブ画面
+  // と違い、これらはstack[1]に直接乗せてよい）。Dev Server（SessionPreview）
+  // はSettings（ModalMenu）配下の通常項目に統合したため対象外。
+  const ROOT_TAB_VIEWS = new Set(["SessionList", "WorkspaceOpen"]);
 
   on("settings:open", (detail) => {
     if (detail?.view) {
       // 保存済み circle keypad 設定・通知タップ等には旧 view 名が残っている
       // 可能性があるため読み替える（TabConfigは旧Tabs & Sessions画面。
-      // PreviewPortsはSessionPreviewとして独立した根ビューへ統合済み）。
+      // PreviewPorts/PreviewConfigはSessionPreview=Dev Serverとして
+      // Settings配下の項目に統合済み）。
       let view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
       if (view === "TabConfig") view = "SessionList";
       if (view === "PreviewPorts") view = "SessionPreview";

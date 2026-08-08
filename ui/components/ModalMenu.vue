@@ -40,6 +40,10 @@
         <button type="button" class="settings-menu-item" @click="pushView('ConfigFile')">
           <span class="mdi mdi-file-cog"></span> Config File
         </button>
+        <button type="button" class="settings-menu-item" @click="pushView('SessionPreview')">
+          <span class="mdi mdi-server"></span> Dev Server
+          <span v-if="previewPortCount" class="settings-menu-version">{{ previewPortCount }}</span>
+        </button>
         <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
           <span class="mdi mdi-information-outline"></span> System Info
           <span v-if="appVersion" class="settings-menu-version">{{ appVersion }}</span>
@@ -50,11 +54,12 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, inject, onMounted, onBeforeUnmount, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 import { usePushNotification } from "../composables/usePushNotification.js";
+import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -64,6 +69,10 @@ const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
 const { isSubscribed: isPushSubscribed, init: initPush } = usePushNotification();
+// Dev Server項目のバッジ件数（旧SessionListView.vueの「Server」メニュー項目と
+// 同じ「自分自身は除く」ロジック）。
+const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
+const previewPortCount = computed(() => previewPorts.value.filter((p) => !p.is_self).length);
 
 onMounted(async () => {
   const auth = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
@@ -74,6 +83,11 @@ onMounted(async () => {
   // ref）をここでも初期化する。NotificationConfig.vueを一度も開いていないと
   // subscription.valueが未確定のまま（常にOffに見える）ため。
   await initPush();
+  startPreviewPolling();
+});
+
+onBeforeUnmount(() => {
+  stopPreviewPolling();
 });
 </script>
 
