@@ -43,11 +43,7 @@
               :tooltips="item.tooltips"
               @open="onPillOpen(item, $event)"
             />
-            <!-- PCは上部タブバー（TabBar.vue/TabItem.vue）にも同じClose tab
-                 ボタンが常時見えており重複するため、モバイルのみ出す
-                 （PCはサイドバータイトル行右端の閉じるボタンで代用）。 -->
             <button
-              v-if="layoutStore.isPanelBottom"
               type="button"
               class="pill-close-btn pill-tab-close-btn"
               aria-label="Close tab"
