@@ -91,9 +91,10 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 - `tests/e2e/*.spec.js` に Playwright スモークを置く（CI の `e2e` ジョブで実行。ローカル手動実行も可）
 - CI は PR・main への push・workflow_dispatch で**全スペック**を実行する（`npm run test:e2e`）。PR ブランチへの push は `pull_request` イベントの 1 回のみ実行され、PR を開く前のブランチ push と docs/Markdown のみの変更では CI は走らない
-  - **smoke サブセット**（`smoke` / `terminal` / `mobile` — 認証・ターミナル・モバイル主要フローの壊れたら即死する経路）はローカルでの素早い確認用（`npm run test:e2e:smoke`）
+  - **smoke サブセット**（`smoke` / `terminal` / `mobile` / `api-contract` — 認証・ターミナル・モバイル主要フロー・API ワイヤ契約の壊れたら即死する経路）はローカルでの素早い確認用（`npm run test:e2e:smoke`）
   - smoke サブセットに spec を足す・外す時は `package.json` の `test:e2e:smoke` を更新する（パターンは `e2e/<name>.spec.js` 形式で書く — 部分一致のため `terminal` だけだと `mobile-terminal` にも一致する）
   - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・認証維持）
+  - `api-contract.spec.js`: API ワイヤ契約（`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・/auth/check /pair 応答形・WS 認証拒否・ログアウト）。UI を介さず request/WS で検証する。バックエンド Rust 移行（`docs/RUST_MIGRATION.md`）の互換性回帰網を兼ねるため、実装差し替え時は必ずこのスペックを移行前後の両方に通すこと
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
   - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ

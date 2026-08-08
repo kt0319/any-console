@@ -233,7 +233,12 @@ Phase 0 のスコープ判断（実装時に確定した事項）:
 
 1. **E2E が最上位の回帰網**: 各フェーズの完了条件は「使い捨てサーバモードで `npm run test:e2e` 全通過」。Rust サーバ起動に対応するよう `playwright.config.js` の webServer を段階的に切替
 2. **pytest の移植**: 移行モジュールに対応する `tests/test_*.py` を cargo test へ移植してから実装を差し替える（テストファースト）。カバレッジ閾値 85% は Rust 側でも cargo-llvm-cov で維持
-3. **契約テスト**: `tests/test_contract.py` 相当を共通化し、Python / Rust 両実装に同一のリクエスト/レスポンス検証を適用（移行期間中のドリフト検出）
+3. **契約テスト**: `tests/e2e/api-contract.spec.js`（実装済み）がワイヤレベルの契約
+   （`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・WS 認証拒否等）を
+   UI を介さず固定する。`ANY_CONSOLE_URL` の向き先を変えるだけで Python 直結 /
+   Rust front 経由の両方に同一検証を適用できる（Phase 0 で両構成の通過を確認済み）。
+   ルート群を移行するたびに、そのルートの応答形をこのスペックへ追記してから
+   実装を差し替える
 
 ---
 
