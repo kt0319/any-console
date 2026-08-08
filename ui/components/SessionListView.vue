@@ -347,26 +347,18 @@ onBeforeUnmount(() => {
     transparent 100%
   );
   background-size: 200% 100%;
-  animation: session-sidebar-working-pulse 2s linear infinite;
+  animation: working-pulse 2s linear infinite;
 }
 
-@keyframes session-sidebar-working-pulse {
-  0%   { background-position: 200% center; }
-  100% { background-position: -200% center; }
-}
 
 .session-sidebar-item.session-phrase-notify:not(.active),
 .session-sidebar-item.session-blocked:not(.active),
 .session-sidebar-pills-row.session-phrase-notify:not(.active),
 .session-sidebar-pills-row.session-blocked:not(.active) {
   background-image: none;
-  animation: session-sidebar-notify-blink 1.2s ease-in-out infinite;
+  animation: notify-blink 1.2s ease-in-out infinite;
 }
 
-@keyframes session-sidebar-notify-blink {
-  0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(130, 170, 255, 0.35); }
-}
 
 .session-sidebar-empty {
   padding: 16px 12px;

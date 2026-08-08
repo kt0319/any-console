@@ -107,9 +107,6 @@ onMounted(async () => {
   color: var(--success);
 }
 .pair-claim-spin {
-  animation: pair-claim-spin 0.6s linear infinite;
-}
-@keyframes pair-claim-spin {
-  to { transform: rotate(360deg); }
+  animation: spin 0.6s linear infinite;
 }
 </style>

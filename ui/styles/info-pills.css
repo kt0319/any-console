@@ -444,7 +444,7 @@
     rgba(26, 27, 38, 0.88) 100%
   );
   background-size: 200% 100%;
-  animation: pill-working-pulse 2s linear infinite;
+  animation: working-pulse 2s linear infinite;
 }
 
 .terminal-pane.active .pill-chip.pill-working {
@@ -452,10 +452,6 @@
   background-image: none;
 }
 
-@keyframes pill-working-pulse {
-  0%   { background-position: 200% center; }
-  100% { background-position: -200% center; }
-}
 
 /* 既知エージェントの承認・入力待ち（blocked）。タブの通知点滅と同じ青・同じリズムで
    点滅する（working の「流れるグラデーション」とは動きの種類で区別する）。

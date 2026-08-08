@@ -80,6 +80,19 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* working（出力中）の「右→左に流れるグラデーション」共通アニメーション
+   （タブ・セッションサイドバー・Info Pill で共用） */
+@keyframes working-pulse {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* notify_phrase 検知・blocked（承認/入力待ち）の通知点滅の共通アニメーション */
+@keyframes notify-blink {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(130, 170, 255, 0.35); }
+}
+
 @keyframes loading-dots {
   0% { content: ""; }
   25% { content: "."; }

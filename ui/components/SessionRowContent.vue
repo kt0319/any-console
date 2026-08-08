@@ -130,7 +130,7 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
 }
 
 .session-sidebar-agent.agent-state-working .mdi {
-  animation: session-list-working-spin 1.6s linear infinite;
+  animation: spin 1.6s linear infinite;
 }
 
 .session-sidebar-agent.agent-state-blocked {
@@ -145,8 +145,4 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
   color: var(--text-muted);
 }
 
-@keyframes session-list-working-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 </style>

@@ -256,7 +256,6 @@ defineExpose({ load });
 .si-refresh { background: none; border: none; color: var(--text-muted); padding: 0; cursor: pointer; font-size: 20px; line-height: 1; }
 .si-refresh:disabled { opacity: 0.4; cursor: default; }
 .si-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
 .si-kill-btn { background: none; border: none; color: var(--text-muted); padding: 0 0 0 8px; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; }

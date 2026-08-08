@@ -338,9 +338,6 @@ defineExpose({ show, hide, visible });
   margin-top: 12px;
 }
 .scan-spin {
-  animation: scan-spin 0.6s linear infinite;
-}
-@keyframes scan-spin {
-  to { transform: rotate(360deg); }
+  animation: spin 0.6s linear infinite;
 }
 </style>
