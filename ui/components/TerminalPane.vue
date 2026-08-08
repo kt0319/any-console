@@ -38,6 +38,7 @@
           :behind="behind"
           :push-count="branchPushCount"
           :pull-count="branchPullCount"
+          :peek-duration-ms="peekDurationMs"
           @peek-click="onPeekClick"
         />
         <div v-else key="normal" class="pill-normal-group">
@@ -337,7 +338,7 @@ const trailingPeekItems = computed(() => {
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
 // 数秒だけ表示する。変化検出・キュー・タイマーはusePillPeekに集約。
-const { peekingKey, branchPushCount, branchPullCount } = usePillPeek({
+const { peekingKey, peekDurationMs, branchPushCount, branchPullCount } = usePillPeek({
   trailingPeekItems,
   paneWorkspace,
   workspaceKey: () => props.tab.workspace,

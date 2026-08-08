@@ -29,6 +29,9 @@ export function usePillPeek({
   behind,
 }) {
   const peekingKey = ref(null);
+  // このpeekが実際に表示される時間（キューで分割された場合はPILL_MORE_PEEK_DURATION_MS
+  // より短くなる）。PillPeek.vueがマーキーの再生時間をこれに合わせるため。
+  const peekDurationMs = ref(PILL_MORE_PEEK_DURATION_MS);
   let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
   let pillMorePeekTimer = null;
   // branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
@@ -82,6 +85,7 @@ export function usePillPeek({
     branchPullCount.value = next.pullCount || 0;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
+    peekDurationMs.value = itemMs;
     pillMorePeekTimer = setTimeout(advancePeekQueue, itemMs);
   }
 
@@ -158,5 +162,5 @@ export function usePillPeek({
     peekQueue.length = 0;
   });
 
-  return { peekingKey, branchPushCount, branchPullCount };
+  return { peekingKey, peekDurationMs, branchPushCount, branchPullCount };
 }
