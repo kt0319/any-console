@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     GIT_LOG_MAX_ENTRIES,
@@ -166,10 +165,11 @@ def git_stash_list(name: str):
 @router.post("/workspaces/{name}/stash-drop")
 def git_stash_drop(name: str, body: GitActionRequest):
     ref = validate_stash_ref(body.stash_ref)
-    result = execute_git_action(name, ["stash", "drop", ref], operation="stash drop", log_extra=f"ref={ref}")
-    if result["status"] == "ok":
-        log_activity(name, "git_stash_drop", ref=ref)
-    return result
+    return execute_git_action_with_activity(
+        name, None, ["stash", "drop", ref],
+        operation="stash drop", event="git_stash_drop", log_extra=f"ref={ref}",
+        resolve_head=False, ref=ref,
+    )
 
 
 @router.post("/workspaces/{name}/stash-pop-ref")

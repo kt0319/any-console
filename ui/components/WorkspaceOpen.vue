@@ -11,25 +11,25 @@
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
         <span class="ws-toolbar-spacer"></span>
-        <button v-if="!isEditMode" type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
+        <button v-if="!isEditMode" type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
         </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
           <span class="ws-toolbar-btn-label">WS</span>
         </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-plus"></span>
           <span class="ws-toolbar-btn-label">Group</span>
         </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
           <span class="mdi mdi-plus"></span>
           <span class="ws-toolbar-btn-label">Job</span>
         </button>
         <button
           type="button"
-          class="ws-toolbar-btn"
+          class="ws-toolbar-btn hover-bg-text"
           :class="{ active: isEditMode }"
           :aria-label="isEditMode ? 'Done editing' : 'Edit workspaces'"
           :data-tooltip="isEditMode ? 'Done editing' : 'Edit workspaces'"
@@ -65,7 +65,7 @@
               <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
               {{ item.group.name }}
             </button>
-            <button v-if="isEditMode" type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
+            <button v-if="isEditMode" type="button" class="picker-ws-edit-btn hover-bg-text" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
           </div>
@@ -76,7 +76,7 @@
             :class="{ dragging: dragIdx === flatIdx, 'picker-ws-group-inset': item.groupId !== null }"
             :style="dragIdx === flatIdx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
           >
-            <div class="picker-ws-row picker-ws-row-top">
+            <div class="picker-ws-row picker-ws-row-top hover-bg">
               <span
                 v-if="isEditMode"
                 class="drag-handle picker-ws-drag-handle"
@@ -102,7 +102,7 @@
                   <GitActionBtn v-if="item.ws.ahead > 0" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, pushActionFor(item.ws))" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, pushActionFor(item.ws))" />
                 </template>
                 <template v-if="isEditMode">
-                  <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
+                  <button type="button" class="picker-ws-edit-btn hover-bg-text" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
                     <span class="mdi mdi-pencil-outline"></span>
                   </button>
                 </template>
@@ -115,7 +115,7 @@
             <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
               <template v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name">
                 <div class="picker-ws-worktree-item">
-                  <button type="button" class="picker-ws-worktree-open" @click="toggleJobs(wt)">
+                  <button type="button" class="picker-ws-worktree-open hover-bg" @click="toggleJobs(wt)">
                     <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
                     <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
                     <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
@@ -564,15 +564,9 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
+/* 行・ボタンの通常ホバー（背景/文字色）は base.css の .hover-bg /
+   .hover-bg-text ユーティリティをテンプレート側で付ける。 */
 @media (hover: hover) and (pointer: fine) {
-  .picker-ws-row-top:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .picker-ws-worktree-open:hover {
-    background: var(--bg-tertiary);
-  }
-
   .picker-ws-worktree-del:hover {
     background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
   }
@@ -634,12 +628,6 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .picker-ws-edit-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 
 .picker-ws-mini-btn {
   position: relative;
@@ -784,12 +772,6 @@ button.git-badge:disabled {
   flex-shrink: 0;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .ws-toolbar-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 
 .ws-toolbar-btn-terminal {
   color: var(--accent);

@@ -19,6 +19,7 @@
   --border: #3b4261;
   --radius: 8px;
   --accent-bg-20: rgba(130, 170, 255, 0.2);
+  --accent-bg-12: rgba(130, 170, 255, 0.12);
   --white-30: rgba(255, 255, 255, 0.3);
   --success-bg-20: rgba(195, 232, 141, 0.2);
   --error-bg-20: rgba(255, 85, 114, 0.2);
@@ -91,6 +92,53 @@ body {
 @keyframes notify-blink {
   0%, 100% { background-color: transparent; }
   50% { background-color: rgba(130, 170, 255, 0.35); }
+}
+
+/* working（出力中）の流れるグラデーションと通知点滅の共通見た目。
+   タブ（TabItem.vue）とセッションサイドバー行（SessionListView.vue）は
+   同じ演出を使うため、宣言はここに集約する。アクティブなタブ・行は
+   既に強調色がついているため対象外にする。通知点滅は working と同時に
+   付く場合にグラデーションが残って混ざって見えるため background-image を
+   打ち消す。 */
+.tab-btn.tab-working:not(.active),
+.session-sidebar-item.session-working:not(.active),
+.session-sidebar-pills-row.session-working:not(.active) {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 10%,
+    var(--accent-bg-20) 50%,
+    transparent 90%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: working-pulse 2s linear infinite;
+}
+
+.tab-btn.tab-phrase-notify:not(.active),
+.tab-btn.tab-blocked:not(.active),
+.session-sidebar-item.session-phrase-notify:not(.active),
+.session-sidebar-item.session-blocked:not(.active),
+.session-sidebar-pills-row.session-phrase-notify:not(.active),
+.session-sidebar-pills-row.session-blocked:not(.active) {
+  background-image: none;
+  animation: notify-blink 1.2s ease-in-out infinite;
+}
+
+/* PCホバーの共通ユーティリティ（CSSルール: hoverはこのmedia guard内でのみ使う）。
+   背景を1段明るくするだけの要素はテンプレートで .hover-bg を、文字色も通常色へ
+   上げる要素は .hover-bg-text を付ける。セレクタを2重にして詳細度を(0,3,0)へ
+   上げ、コンポーネントscopedの基底背景指定（(0,2,0)）に負けないようにする。
+   .active など、より詳細度の高いscopedルールは従来どおり優先される。 */
+@media (hover: hover) and (pointer: fine) {
+  .hover-bg.hover-bg:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .hover-bg-text.hover-bg-text:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 @keyframes loading-dots {

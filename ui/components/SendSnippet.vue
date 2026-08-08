@@ -25,20 +25,20 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted } from "vue";
+import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
 
-// embedded=true はキーボードバーのSnippetタブからQWERTYパネル内へ直接
-// オーバーレイ表示する場合（設定モーダルは開かない）。通常（設定モーダルの
-// Settings > Send Snippet経由・circle keypadの"snippets"プリセット経由）は
-// falseで、modalTitle/modal:closeを使う既存の挙動のまま。
+// embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.js 参照
+// （SendHistory.vue と共通。circle keypadの"snippets"プリセット経由も
+// embedded=false の設定モーダル表示）。
 const props = defineProps({
   embedded: { type: Boolean, default: false },
 });
 const emit = defineEmits(["close"]);
 
-const modalTitle = inject("modalTitle", null);
+const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send Snippet", emit });
 const inputStore = useInputStore();
 
 // snippetsCache は末尾が最終使用（addSnippet/moveSnippetToFront とも末尾へ push）。
@@ -61,13 +61,8 @@ function onDelete(idx) {
 function onInsert(command) {
   bridgeEmit("keyboard:setDraft", { command });
   bridgeEmit("snippet:use", { command });
-  if (props.embedded) emit("close");
-  else bridgeEmit("modal:close");
+  closePanel();
 }
-
-onMounted(() => {
-  if (!props.embedded) modalTitle.value = "Send Snippet";
-});
 </script>
 
 <style scoped>
@@ -109,57 +104,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.snippet-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.snippet-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.snippet-command {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  font-size: 13px;
-  color: var(--text-primary);
-  word-break: break-all;
-  cursor: pointer;
-}
-
-.snippet-delete {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .snippet-delete:hover {
-    color: var(--error);
-  }
-}
-
-.snippet-empty {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
+/* 一覧（.snippet-list / -row / -command / -delete / -empty）の見た目は
+   ui/styles/command-list.css（グローバル）で SendHistory.vue と共用する。 */
 </style>

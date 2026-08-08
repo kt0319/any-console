@@ -7,48 +7,17 @@
          ソフトキーボード（QWERTYパネル）を開いている間だけ表示する。 -->
     <div v-if="isFullKeyboard" class="keyboard-bar-tabs">
       <button
+        v-for="t in KEYBOARD_BAR_TABS"
+        :key="t.id"
         type="button"
         class="quick-key keyboard-bar-tab"
-        :class="{ active: isFullKeyboard && !showFnView && snippetPanelView === 'none' }"
-        aria-label="QWERTY"
-        data-tooltip="QWERTY"
-        @click="onQwertyTabClick"
+        :class="{ active: isTabActive(t.id) }"
+        :aria-label="t.label"
+        :data-tooltip="t.label"
+        @click="onTabClick(t.id)"
       >
-        <span class="mdi mdi-keyboard-outline"></span>
-        <span class="keyboard-bar-tab-label">QWERTY</span>
-      </button>
-      <button
-        type="button"
-        class="quick-key keyboard-bar-tab"
-        :class="{ active: showFnView }"
-        aria-label="Fn"
-        data-tooltip="Fn"
-        @click="onFnTabClick"
-      >
-        <span class="mdi mdi-function-variant"></span>
-        <span class="keyboard-bar-tab-label">Fn</span>
-      </button>
-      <button
-        type="button"
-        class="quick-key keyboard-bar-tab"
-        :class="{ active: snippetPanelView === 'history' }"
-        aria-label="History"
-        data-tooltip="History"
-        @click="openHistoryPanel"
-      >
-        <span class="mdi mdi-history"></span>
-        <span class="keyboard-bar-tab-label">History</span>
-      </button>
-      <button
-        type="button"
-        class="quick-key keyboard-bar-tab"
-        :class="{ active: snippetPanelView === 'snippets' }"
-        aria-label="Snippet"
-        data-tooltip="Snippet"
-        @click="openSnippetPanel"
-      >
-        <span class="mdi mdi-bookmark-multiple"></span>
-        <span class="keyboard-bar-tab-label">Snippet</span>
+        <span class="mdi" :class="t.icon"></span>
+        <span class="keyboard-bar-tab-label">{{ t.label }}</span>
       </button>
       <button
         type="button"
@@ -261,6 +230,29 @@ function onFnTabClick() {
     clearModifiers();
   }
   if (!showFnView.value) toggleFnView();
+}
+
+// モード切替タブの定義（並び＝表示順）。aria-label / data-tooltip は
+// 可視ラベルと同一文言。active判定・クリック時の遷移は下の2関数で揃える。
+const KEYBOARD_BAR_TABS = [
+  { id: "qwerty", label: "QWERTY", icon: "mdi-keyboard-outline" },
+  { id: "fn", label: "Fn", icon: "mdi-function-variant" },
+  { id: "history", label: "History", icon: "mdi-history" },
+  { id: "snippets", label: "Snippet", icon: "mdi-bookmark-multiple" },
+];
+
+function isTabActive(id) {
+  if (id === "qwerty") return isFullKeyboard.value && !showFnView.value && snippetPanelView.value === "none";
+  if (id === "fn") return showFnView.value;
+  if (id === "history") return snippetPanelView.value === "history";
+  return snippetPanelView.value === "snippets";
+}
+
+function onTabClick(id) {
+  if (id === "qwerty") onQwertyTabClick();
+  else if (id === "fn") onFnTabClick();
+  else if (id === "history") openHistoryPanel();
+  else openSnippetPanel();
 }
 
 useKeyboardBarFlicks({

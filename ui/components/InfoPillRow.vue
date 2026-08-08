@@ -23,7 +23,7 @@
             <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
             <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
           </span>
-          <span v-else class="mdi mdi-folder-outline"></span>
+          <span v-else class="mdi" :class="peekIconForKey('files')"></span>
         </button>
         <button
           v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
@@ -35,7 +35,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'history')"
         >
-          <span class="mdi mdi-history"></span>
+          <span class="mdi" :class="peekIconForKey('history')"></span>
         </button>
         <button
           v-else-if="key === 'changes' && isGitRepo && isDirty && infoPillConfig.changes"
@@ -47,7 +47,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'changes')"
         >
-          <span class="mdi mdi-file-document-edit-outline"></span>
+          <span class="mdi" :class="peekIconForKey('changes')"></span>
         </button>
         <button
           v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
@@ -59,7 +59,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'branch')"
         >
-          <span class="mdi mdi-source-branch"></span>
+          <span class="mdi" :class="peekIconForKey('branch')"></span>
           <span v-if="ahead > 0" class="pill-branch-count push-count"><span class="mdi mdi-arrow-up-thin"></span>{{ ahead }}</span>
           <span v-if="behind > 0" class="pill-branch-count pull-count"><span class="mdi mdi-arrow-down-thin"></span>{{ behind }}</span>
         </button>
@@ -73,7 +73,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'prs')"
         >
-          <span class="mdi mdi-source-pull"></span>
+          <span class="mdi" :class="peekIconForKey('prs')"></span>
         </button>
         <button
           v-else-if="key === 'actions' && hasAction && infoPillConfig.actions"
@@ -97,19 +97,19 @@
           @pointerdown.stop
           @click.stop="emits('open', 'devserver')"
         >
-          <span class="mdi mdi-server"></span>
+          <span class="mdi" :class="peekIconForKey('devserver')"></span>
         </button>
         <button
           v-else-if="key === 'add' && !tab.workspace && tab.sessionId && infoPillConfig.add"
           type="button"
           class="pill-chip pill-devserver-btn pill-add-btn"
           :class="pillActivityClass"
-          aria-label="Add or open this directory as a workspace"
-          data-tooltip="Add or open this directory as a workspace"
+          :aria-label="tooltips.add"
+          :data-tooltip="tooltips.add"
           @pointerdown.stop
           @click.stop="emits('open', 'add')"
         >
-          <span class="mdi mdi-folder-plus-outline"></span>
+          <span class="mdi" :class="peekIconForKey('add')"></span>
         </button>
         <button
           v-else-if="key === 'dispatch' && dispatchCount > 0 && infoPillConfig.dispatch"
@@ -121,7 +121,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'dispatch')"
         >
-          <span class="mdi mdi-tray-full"></span>
+          <span class="mdi" :class="peekIconForKey('dispatch')"></span>
           <span v-if="dispatchCount > 1" class="pill-branch-count">{{ dispatchCount }}</span>
         </button>
         </template>
@@ -132,6 +132,7 @@
 <script setup>
 import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.js";
+import { peekIconForKey } from "../utils/info-pills.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { useTerminalStore } from "../stores/terminal.js";
 

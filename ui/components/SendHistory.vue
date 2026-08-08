@@ -13,20 +13,19 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
 
-// embedded=true はキーボードバーのHistoryタブからQWERTYパネル内へ直接
-// オーバーレイ表示する場合（設定モーダルは開かない）。通常（設定モーダルの
-// Settings > Send History経由）はfalseで、modalTitle/modal:closeを使う
-// 既存の挙動のまま。
+// embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.js 参照
+// （SendSnippet.vue と共通）。
 const props = defineProps({
   embedded: { type: Boolean, default: false },
 });
 const emit = defineEmits(["close"]);
 
-const modalTitle = inject("modalTitle", null);
+const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send History", emit });
 const inputStore = useInputStore();
 const scrollBodyEl = ref(null);
 
@@ -40,69 +39,14 @@ function onDelete(text) {
 
 function onInsert(command) {
   bridgeEmit("keyboard:setDraft", { command });
-  if (props.embedded) emit("close");
-  else bridgeEmit("modal:close");
+  closePanel();
 }
 
 onMounted(async () => {
-  if (!props.embedded) modalTitle.value = "Send History";
   await nextTick();
   if (scrollBodyEl.value) scrollBodyEl.value.scrollTop = scrollBodyEl.value.scrollHeight;
 });
 </script>
 
-<style scoped>
-.history-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.history-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.history-command {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  font-size: 13px;
-  color: var(--text-primary);
-  word-break: break-all;
-  cursor: pointer;
-}
-
-.history-delete {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .history-delete:hover {
-    color: var(--error);
-  }
-}
-
-.history-empty {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-</style>
+<!-- 一覧の見た目は ui/styles/command-list.css（グローバル）で
+     SendSnippet.vue と共用する。 -->

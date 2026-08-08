@@ -23,7 +23,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .common import run_subprocess_safe
+from .common import cancel_task_quietly, run_subprocess_safe, task_stale
 
 logger = logging.getLogger(__name__)
 
@@ -514,14 +514,15 @@ async def _scan_loop() -> None:
 
 def start_scanner() -> None:
     global _scan_task
-    if _scan_task and not _scan_task.done():
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
         return
-    loop = asyncio.get_event_loop()
-    _scan_task = loop.create_task(_scan_loop())
+    if task_stale(_scan_task, loop):
+        _scan_task = loop.create_task(_scan_loop())
 
 
 def stop_scanner() -> None:
     global _scan_task
-    if _scan_task and not _scan_task.done():
-        _scan_task.cancel()
+    cancel_task_quietly(_scan_task)
     _scan_task = None

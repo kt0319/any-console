@@ -7,6 +7,8 @@ import "./styles/a11y.css";
 import "./styles/drag-utils.css";
 import "./styles/base.css";
 import "./styles/dialog.css";
+import "./styles/modal-shell.css";
+import "./styles/command-list.css";
 import "./styles/settings-form.css";
 import "./styles/info-pills.css";
 import App from "./components/App.vue";

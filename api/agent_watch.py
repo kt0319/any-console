@@ -51,7 +51,10 @@ git_watch と同じく購読者がいる間だけポーリングタスクが動�
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from .terminal_session import TerminalSession
 
 from fastapi import WebSocket
 
@@ -127,6 +130,34 @@ def _detect_manifest(
     return manifest, argvs
 
 
+def _stamp_session(
+    session_id: str,
+    mutate: "Callable[[TerminalSession], None]",
+    save: "Callable[[TerminalSession], None]",
+    env_pairs: list[tuple[str, str]],
+) -> None:
+    """自動紐付けの結果をセッションへ刻印する共通処理。
+
+    キャッシュ済みセッションは mutate → save で永続化し、未キャッシュなら
+    tmux の session environment へフォールバックする（復元時に拾われる）。
+    """
+    from .terminal_session import TERMINAL_SESSIONS, sessions_lock
+    with sessions_lock:
+        cached = TERMINAL_SESSIONS.get(session_id)
+        if cached is not None:
+            mutate(cached)
+    if cached is not None:
+        save(cached)
+    else:
+        tmux_name = TMUX_SESSION_PREFIX + session_id
+        args: list[str] = []
+        for key, value in env_pairs:
+            if args:
+                args.append(";")
+            args.extend(("set-environment", "-t", tmux_name, key, value))
+        _run_tmux_cmd(*args)
+
+
 def _apply_workspace_tag(session_id: str, workspace: str) -> None:
     """cwd 照合で判明したワークスペースをセッションへ刻印する。
 
@@ -134,18 +165,13 @@ def _apply_workspace_tag(session_id: str, workspace: str) -> None:
     セッションにも適用する。刻印されれば Git ピル・activity 帰属・
     ワークスペースジョブの照合対象化が有効になる。
     """
-    from .terminal_session import TERMINAL_SESSIONS, sessions_lock
-    with sessions_lock:
-        cached = TERMINAL_SESSIONS.get(session_id)
-        if cached is not None:
-            cached.workspace = workspace
-    if cached is not None:
-        cached.save_workspace()
-    else:
-        _run_tmux_cmd(
-            "set-environment", "-t", TMUX_SESSION_PREFIX + session_id,
-            "TMUX_WORKSPACE", workspace,
-        )
+    def mutate(session: "TerminalSession") -> None:
+        session.workspace = workspace
+
+    _stamp_session(
+        session_id, mutate, lambda session: session.save_workspace(),
+        [("TMUX_WORKSPACE", workspace)],
+    )
     logger.info("auto-bound workspace session=%s workspace=%s", session_id, workspace)
     from .session_watch import notify_session_workspace_bound
     notify_session_workspace_bound(session_id, workspace)
@@ -171,24 +197,19 @@ def _apply_job_tag(session_id: str, pattern: JobPattern) -> None:
     刻印されれば notify_phrase・アイコン表示など既存のジョブ機構が
     次のポーリング以降そのまま有効になる。
     """
-    from .terminal_session import TERMINAL_SESSIONS, sessions_lock
     label = pattern.definition.label or pattern.name
-    with sessions_lock:
-        cached = TERMINAL_SESSIONS.get(session_id)
-        if cached is not None:
-            cached.job_name = pattern.name
-            cached.job_label = label
-            if not cached.icon and pattern.definition.icon:
-                cached.icon = pattern.definition.icon
-                cached.icon_color = pattern.definition.icon_color
-    if cached is not None:
-        cached.save_metadata()
-    else:
-        tmux_name = TMUX_SESSION_PREFIX + session_id
-        _run_tmux_cmd(
-            "set-environment", "-t", tmux_name, "TMUX_JOB_NAME", pattern.name,
-            ";", "set-environment", "-t", tmux_name, "TMUX_JOB_LABEL", label,
-        )
+
+    def mutate(session: "TerminalSession") -> None:
+        session.job_name = pattern.name
+        session.job_label = label
+        if not session.icon and pattern.definition.icon:
+            session.icon = pattern.definition.icon
+            session.icon_color = pattern.definition.icon_color
+
+    _stamp_session(
+        session_id, mutate, lambda session: session.save_metadata(),
+        [("TMUX_JOB_NAME", pattern.name), ("TMUX_JOB_LABEL", label)],
+    )
     logger.info("auto-tagged job session=%s job=%s", session_id, pattern.name)
     from .session_watch import notify_session_job_bound
     notify_session_job_bound(session_id, pattern.name, label)
@@ -461,7 +482,7 @@ async def subscribe(websocket: WebSocket) -> None:
     空白が生まれないようにする。
     """
     _subscribers.add(websocket)
-    _ensure_task()
+    ensure_phrase_task()
     if _last_states:
         try:
             await websocket.send_json(states_payload(_last_states))
@@ -476,15 +497,8 @@ def unsubscribe(websocket: WebSocket) -> None:
         _stop_task()
 
 
-def _ensure_task() -> None:
-    global _poll_task
-    loop = asyncio.get_running_loop()
-    if task_stale(_poll_task, loop):
-        _poll_task = loop.create_task(_poll_loop())
-
-
 def ensure_phrase_task() -> None:
-    """push subscription が存在する場合にポーリングタスクを起動する。
+    """状態ポーリングタスクを起動する（購読開始・push subscription 検出時に呼ぶ）。
 
     ブラウザが背景に行き WS 購読者がいなくても phrase 検出を継続するために呼ぶ。
     イベントループが動いていない場合（サーバ起動前など）は無視する。

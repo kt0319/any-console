@@ -65,7 +65,7 @@ const visibleModes = computed(() =>
 }
 
 .split-tab-mode-option.active {
-  background: rgba(130, 170, 255, 0.12);
+  background: var(--accent-bg-12);
   color: var(--accent);
 }
 

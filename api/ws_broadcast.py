@@ -22,6 +22,19 @@ logger = logging.getLogger(__name__)
 SEND_ERRORS = (WebSocketDisconnect, RuntimeError, OSError)
 
 
+def call_threadsafe(
+    loop: asyncio.AbstractEventLoop | None, fn: Callable[..., Any], *args: Any,
+) -> None:
+    """別スレッドからイベントループへ callback を予約する。
+
+    git_watch / session_watch が持つ「モジュールの _loop が未設定・closed なら
+    何もしない」ガード付き call_soon_threadsafe の共通形。
+    """
+    if loop is None or loop.is_closed():
+        return
+    loop.call_soon_threadsafe(fn, *args)
+
+
 async def broadcast_to(
     subscribers: Iterable[WebSocket],
     payload: dict[str, Any],

@@ -37,7 +37,7 @@ from .common import (
 )
 from .git_info import cache_generation_for, invalidate_git_info_cache, refresh_git_info
 from .git_utils import background_fetch, list_git_workspace_paths, run_git_raw
-from .ws_broadcast import broadcast_to
+from .ws_broadcast import broadcast_to, call_threadsafe
 
 logger = logging.getLogger(__name__)
 
@@ -285,10 +285,7 @@ def notify_workspaces_changed() -> None:
 
     ルーターのスレッドプールから呼ばれるためスレッドセーフにしてある。
     """
-    loop = _loop
-    if loop is None or loop.is_closed():
-        return
-    loop.call_soon_threadsafe(_set_restart)
+    call_threadsafe(_loop, _set_restart)
 
 
 def nudge_workspace(workspace_name: str) -> None:
@@ -297,10 +294,9 @@ def nudge_workspace(workspace_name: str) -> None:
     invalidate_git_info から呼ばれる。購読者がいなければ何もしない。
     スレッドセーフ。
     """
-    loop = _loop
-    if loop is None or loop.is_closed() or not _subscribers:
+    if not _subscribers:
         return
-    loop.call_soon_threadsafe(_schedule_push, workspace_name)
+    call_threadsafe(_loop, _schedule_push, workspace_name)
 
 
 def _set_restart() -> None:

@@ -1,7 +1,7 @@
 import { workspaceDisplayName } from "./worktree.js";
 import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, runStatusIcon } from "./github-runs.js";
 import { dispatchWorkspaceLabel } from "./dispatch-request.js";
-import { branchTooltip, filesTooltip, changesTooltip, historyTooltip, devServerTooltip, dispatchTooltip, prsTooltip, actionsTooltip } from "./info-pill-tooltips.js";
+import { buildInfoPillTooltips } from "./info-pill-tooltips.js";
 
 // セッションサイドバー（TabBar のハンバーガーから開く一覧）の表示行を
 // 組み立てる純粋関数群。SessionSidebar.vue から使う。
@@ -109,16 +109,15 @@ export function sessionSidebarItems(tabs, workspaces, ctx = {}) {
         devServerEntry,
         dispatchCount: dispatchItems.length,
         dispatchItems,
-        tooltips: {
-          files: filesTooltip({ name: label, isGitRepo }),
-          history: historyTooltip(ws?.last_commit_message),
-          changes: changesTooltip({ changedFiles, insertions, deletions }),
-          branch: branchTooltip({ branch, ahead, behind, hasUpstream: ws?.has_upstream !== false }),
-          devserver: devServerTooltip(devServerEntry, hostname),
-          dispatch: dispatchTooltip(dispatchItems),
-          prs: prsTooltip(branchPR),
-          actions: actionsTooltip(branchAction),
-        },
+        tooltips: buildInfoPillTooltips({
+          name: label, isGitRepo,
+          branch, ahead, behind, hasUpstream: ws?.has_upstream !== false,
+          changedFiles, insertions, deletions,
+          lastCommitMessage: ws?.last_commit_message,
+          devServerEntry, hostname,
+          dispatchItems,
+          branchPR, branchAction,
+        }),
       };
     });
 }

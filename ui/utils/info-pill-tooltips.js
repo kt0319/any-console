@@ -83,3 +83,41 @@ export function actionsTooltip(run) {
   if (!run) return "GitHub Actions";
   return `GitHub Actions: ${run.name} (${run.conclusion || run.status})`;
 }
+
+export const ADD_PILL_TOOLTIP = "Add or open this directory as a workspace";
+
+/**
+ * InfoPillRow の tooltips prop（キーごとのツールチップ文言）を一括で組み立てる。
+ * TerminalPane.vue（computed）と session-sidebar.js（行データ）が共用する。
+ * @param {{
+ *   name?: string, isGitRepo?: boolean,
+ *   branch?: string, ahead?: number, behind?: number, hasUpstream?: boolean,
+ *   changedFiles?: number, insertions?: number, deletions?: number,
+ *   lastCommitMessage?: string | null,
+ *   devServerEntry?: any, hostname?: string,
+ *   dispatchItems?: {request: Record<string, any>}[],
+ *   branchPR?: any, branchAction?: any,
+ * }} data
+ * @returns {Record<string, string>}
+ */
+export function buildInfoPillTooltips({
+  name = "", isGitRepo = false,
+  branch = "", ahead = 0, behind = 0, hasUpstream = true,
+  changedFiles = 0, insertions = 0, deletions = 0,
+  lastCommitMessage = null,
+  devServerEntry = null, hostname = "",
+  dispatchItems = [],
+  branchPR = null, branchAction = null,
+}) {
+  return {
+    files: filesTooltip({ name, isGitRepo }),
+    history: historyTooltip(lastCommitMessage),
+    changes: changesTooltip({ changedFiles, insertions, deletions }),
+    branch: branchTooltip({ branch, ahead, behind, hasUpstream }),
+    devserver: devServerTooltip(devServerEntry, hostname),
+    dispatch: dispatchTooltip(dispatchItems),
+    prs: prsTooltip(branchPR),
+    actions: actionsTooltip(branchAction),
+    add: ADD_PILL_TOOLTIP,
+  };
+}

@@ -140,7 +140,7 @@ function resetAll() {
 
 .terminal-settings-segmented-btn.active {
   border-color: var(--accent, #82aaff);
-  background: rgba(130, 170, 255, 0.12);
+  background: var(--accent-bg-12);
   color: var(--accent, #82aaff);
 }
 

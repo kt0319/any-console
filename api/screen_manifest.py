@@ -46,6 +46,19 @@ MANIFEST_DIR = Path(__file__).parent / "agent_manifests"
 OVERRIDE_DIR = DATA_DIR / "agent-detection"
 REMOTE_DIR = DATA_DIR / "agent-detection" / "remote"
 
+# マニフェスト読み込み時に「その階層だけ捨てる」対象の例外（parse_manifest_text の
+# 送出系 + ファイル IO）。
+MANIFEST_LOAD_ERRORS = (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError)
+
+
+def remote_manifest_path(agent_id: str) -> Path:
+    """remote 層のマニフェスト保存先（manifest_update.py の書き込み先と共有）。"""
+    return REMOTE_DIR / f"{agent_id}.toml"
+
+
+def override_manifest_path(agent_id: str) -> Path:
+    return OVERRIDE_DIR / f"{agent_id}.toml"
+
 # herdr の MANIFEST_ENGINE_VERSION に対応。top_non_empty_lines 対応が v3。
 ENGINE_VERSION = 3
 
@@ -201,6 +214,26 @@ def parse_manifest_text(
     return manifest
 
 
+def _load_layer(
+    path: Path, bundled_id: str, *, source: str, require_remote_fields: bool = False,
+) -> Manifest | None:
+    """remote / override の 1 階層を読み込む。無い・壊れている場合は None。"""
+    if not path.is_file():
+        return None
+    try:
+        manifest = parse_manifest_text(
+            path.read_text(encoding="utf-8"), source=source,
+            require_remote_fields=require_remote_fields,
+        )
+        if manifest.id != bundled_id:
+            raise ValueError(
+                f"{source} manifest id {manifest.id!r} does not match {bundled_id!r}")
+        return manifest
+    except MANIFEST_LOAD_ERRORS as e:
+        logger.warning("ignored %s manifest %s: %s", source, path.name, e)
+        return None
+
+
 def _load_layered_manifest(path: Path) -> Manifest | None:
     """同梱 1 ファイルを起点に override > remote > bundled の順で解決する。
 
@@ -211,43 +244,29 @@ def _load_layered_manifest(path: Path) -> Manifest | None:
     """
     try:
         bundled = parse_manifest_text(path.read_text(encoding="utf-8"), source="bundled")
-    except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
+    except MANIFEST_LOAD_ERRORS as e:
         logger.warning("screen manifest load failed file=%s: %s", path.name, e)
         return None
 
     # remote / override の探索はファイル名ではなく id 基準（herdr の agent_label 相当。
     # 同梱ファイル名と id は一致しないことがある: antigravity.toml → id "agy" 等）。
     resolved = bundled
-    remote_path = REMOTE_DIR / f"{bundled.id}.toml"
-    if remote_path.is_file():
-        try:
-            remote = parse_manifest_text(
-                remote_path.read_text(encoding="utf-8"), source="remote",
-                require_remote_fields=True,
-            )
-            if remote.id != bundled.id:
-                raise ValueError(f"remote manifest id {remote.id!r} does not match {bundled.id!r}")
-            if (bundled.version is not None and remote.version is not None
-                    and compare_manifest_versions(remote.version, bundled.version) < 0):
-                logger.info(
-                    "ignored remote manifest %s: cached version is older than bundled",
-                    remote_path.name)
-            else:
-                resolved = remote
-        except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
-            logger.warning("ignored remote manifest %s: %s", remote_path.name, e)
+    remote = _load_layer(
+        remote_manifest_path(bundled.id), bundled.id,
+        source="remote", require_remote_fields=True,
+    )
+    if remote is not None:
+        if (bundled.version is not None and remote.version is not None
+                and compare_manifest_versions(remote.version, bundled.version) < 0):
+            logger.info(
+                "ignored remote manifest %s: cached version is older than bundled",
+                remote_manifest_path(bundled.id).name)
+        else:
+            resolved = remote
 
-    override_path = OVERRIDE_DIR / f"{bundled.id}.toml"
-    if override_path.is_file():
-        try:
-            override = parse_manifest_text(
-                override_path.read_text(encoding="utf-8"), source="override")
-            if override.id != bundled.id:
-                raise ValueError(
-                    f"override manifest id {override.id!r} does not match {bundled.id!r}")
-            resolved = override
-        except (OSError, tomllib.TOMLDecodeError, re.error, ValueError, TypeError) as e:
-            logger.warning("ignored override manifest %s: %s", override_path.name, e)
+    override = _load_layer(override_manifest_path(bundled.id), bundled.id, source="override")
+    if override is not None:
+        resolved = override
 
     return resolved
 

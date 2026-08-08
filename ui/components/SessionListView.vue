@@ -5,7 +5,7 @@
         <li v-for="item in items" :key="item.id" class="session-sidebar-li">
           <button
             type="button"
-            class="session-sidebar-item"
+            class="session-sidebar-item hover-bg"
             :class="{
               active: item.id === activeTabId,
               'session-working': item.agent?.className === 'agent-state-working',
@@ -81,8 +81,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { sessionSidebarItems } from "../utils/session-sidebar.js";
-import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
-import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
+import { useGithubPolling } from "../composables/useGithubPolling.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useInfoPillActions } from "../composables/useInfoPillActions.js";
@@ -113,8 +112,8 @@ const { confirm } = useConfirm();
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
-const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
-const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
+// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGithubPollingに集約。
+const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { queue: dispatchQueue } = useDispatchConfirm();
 
@@ -193,18 +192,10 @@ let activeGithubKeys = /** @type {string[]} */ ([]);
 watch(githubWorkspaceKeys, (keys) => {
   const keySet = new Set(keys);
   for (const old of activeGithubKeys) {
-    if (!keySet.has(old)) {
-      stopPRsPolling(old);
-      stopActionsPolling(old);
-    }
+    if (!keySet.has(old)) stopGithubPolling(old);
   }
   for (const key of keys) {
-    if (!activeGithubKeys.includes(key)) {
-      fetchPRs(key);
-      fetchRuns(key);
-      startPRsPolling(key);
-      startActionsPolling(key);
-    }
+    if (!activeGithubKeys.includes(key)) startGithubPolling(key);
   }
   activeGithubKeys = keys;
 }, { immediate: true });
@@ -212,20 +203,17 @@ watch(githubWorkspaceKeys, (keys) => {
 startPreviewPolling();
 
 onBeforeUnmount(() => {
-  for (const key of activeGithubKeys) {
-    stopPRsPolling(key);
-    stopActionsPolling(key);
-  }
+  for (const key of activeGithubKeys) stopGithubPolling(key);
   stopPreviewPolling();
 });
 </script>
 
 <style scoped>
-/* SettingsPanel.vue の :deep(.modal-scroll-body) は「本文全体がそのまま
+/* modal-shell.css の .modal-scroll-body は「本文全体がそのまま
    1つスクロールする」前提のスタイル（overflow-y:auto）だが、このビューは
    下部の.session-list-menuを固定したまま、その上の.session-list-scrollだけを
    スクロールさせたいため、自身はスクロールさせない（overflow-y:hidden）。
-   :deep()の詳細度が上回るため!importantで上書きする。 */
+   詳細度で負けないよう!importantで上書きする。 */
 .session-list-view {
   overflow-y: hidden !important;
 }
@@ -267,7 +255,7 @@ onBeforeUnmount(() => {
 }
 
 .session-sidebar-pills-row.active {
-  background: rgba(130, 170, 255, 0.12);
+  background: var(--accent-bg-12);
   border-left-color: var(--accent);
 }
 
@@ -317,48 +305,23 @@ onBeforeUnmount(() => {
   background: var(--bg-tertiary);
 }
 
+/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブ行は
+   ホバーでもアクティブ強調色を維持する。 */
 @media (hover: hover) and (pointer: fine) {
-  .session-sidebar-item:hover {
-    background: var(--bg-tertiary);
-  }
-
   .session-sidebar-item.active:hover {
-    background: rgba(130, 170, 255, 0.12);
+    background: var(--accent-bg-12);
   }
 }
 
 .session-sidebar-item.active {
   color: var(--text-primary);
-  background: rgba(130, 170, 255, 0.12);
+  background: var(--accent-bg-12);
   border-left-color: var(--accent);
 }
 
-/* TabItem.vueと同じ演出（tab-working-pulse/tab-notify-blink）を行にも
-   適用する。アクティブ行は既に強調色がついているため対象外にする。
-   ピル行（.session-sidebar-pills-row）も同じ行の一部として同期して演出させる。 */
-.session-sidebar-item.session-working:not(.active),
-.session-sidebar-pills-row.session-working:not(.active) {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    transparent 10%,
-    rgba(130, 170, 255, 0.2) 50%,
-    transparent 90%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: working-pulse 2s linear infinite;
-}
-
-
-.session-sidebar-item.session-phrase-notify:not(.active),
-.session-sidebar-item.session-blocked:not(.active),
-.session-sidebar-pills-row.session-phrase-notify:not(.active),
-.session-sidebar-pills-row.session-blocked:not(.active) {
-  background-image: none;
-  animation: notify-blink 1.2s ease-in-out infinite;
-}
-
+/* タブと同じ working グラデーション・通知点滅の演出は ui/styles/base.css
+   （グローバル）でTabItem.vueと共用する。ピル行（.session-sidebar-pills-row）も
+   同じ行の一部として同期して演出させる。 */
 
 .session-sidebar-empty {
   padding: 16px 12px;
@@ -366,9 +329,9 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
 }
 
-/* Open/Dispatches/Settingsへの入口。一覧の下に固定表示するメニュー
-   （ModalMenu.vueの.settings-menu-itemと同じ見た目に揃える。scopedのため
-   クラス名は同じでも競合しない）。 */
+/* Open/Dispatches/Settingsへの入口。一覧の下に固定表示するメニュー。
+   行ボタンの見た目（.settings-menu-item / .settings-menu-version）は
+   ui/styles/settings-form.css（グローバル）でModalMenu.vueと共用する。 */
 .session-list-menu {
   display: flex;
   flex-direction: column;
@@ -376,42 +339,8 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--border);
 }
 
-.settings-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  text-align: left;
-  font-size: 14px;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
 .session-list-menu .settings-menu-item:last-child {
   border-bottom: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .settings-menu-item:hover {
-    background: var(--bg-tertiary);
-  }
-}
-
-.settings-menu-item:active {
-  background: var(--bg-tertiary);
-}
-
-.settings-menu-version {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 </style>

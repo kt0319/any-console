@@ -107,34 +107,9 @@ defineExpose({ onBack });
   border-bottom: 1px solid var(--border);
 }
 
-.modal-title-wrap {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  justify-content: flex-start;
-}
-
-.modal-title-wrap .modal-title {
-  font-size: 15px;
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: inherit;
-  text-align: left;
-}
-
+/* .modal-title-wrap / .modal-title / .modal-title-sep / .modal-title-branch の
+   見た目は ui/styles/modal-shell.css（グローバル）で WorkspaceDetailModal.vue と
+   共用する。 */
 .modal-title-wrap.is-clickable {
   cursor: pointer;
 }
@@ -154,16 +129,6 @@ defineExpose({ onBack });
   white-space: nowrap;
 }
 
-.modal-title-sep {
-  color: var(--text-muted);
-}
-
-.modal-title-branch {
-  font-size: 11px;
-  color: var(--text-primary);
-  font-weight: 400;
-}
-
 .settings-panel-body {
   display: flex;
   flex-direction: column;
@@ -172,12 +137,6 @@ defineExpose({ onBack });
   overflow: hidden;
 }
 
-:deep(.modal-scroll-body) {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  padding: 0 8px;
-}
+/* 各ビューが使う .modal-scroll-body（スクロール本体）の契約は
+   ui/styles/modal-shell.css の .settings-panel-body .modal-scroll-body 参照。 */
 </style>

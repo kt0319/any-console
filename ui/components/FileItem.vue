@@ -1,6 +1,6 @@
 <template>
   <li
-    class="file-browser-item"
+    class="file-browser-item hover-bg"
     :class="{
       selected,
       gitignored,
@@ -72,11 +72,6 @@ defineEmits([
   cursor: pointer;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .file-browser-item:hover {
-    background: var(--bg-tertiary);
-  }
-}
 
 .file-browser-item-icon {
   flex-shrink: 0;
