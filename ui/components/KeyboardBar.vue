@@ -52,6 +52,8 @@
           v-show="!isFullKeyboard"
           ref="keyboardInput"
           v-model:draft="draft"
+          :history-prev="historyPrev"
+          :history-next="historyNext"
           @focused="onInputFocused"
           @submitted="onSubmitted"
         />
@@ -173,6 +175,10 @@ const {
   hideInput, dismissKeyboard, onSubmitted,
 } = useKeyboardBarState({ keyboardInput, clearModifiers });
 
+// フリック矢印キー・KeyboardInput.vueの物理矢印キー入力の両方でこの
+// 単一インスタンスを使う（historyIndexを共有するため。別々に生成すると
+// 片方で辿った履歴位置をもう片方が知らず、混ぜて使った時に履歴が正しく
+// 辿れなくなる）。
 const { historyPrev, historyNext } = useInputDraftHistory(draft);
 
 function doReload() {

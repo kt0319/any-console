@@ -15,8 +15,8 @@
         enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.escape="onEscape"
-        @keydown.up="(e) => onArrowKey(e, historyPrev)"
-        @keydown.down="(e) => onArrowKey(e, historyNext)"
+        @keydown.up="(e) => onArrowKey(e, props.historyPrev)"
+        @keydown.down="(e) => onArrowKey(e, props.historyNext)"
         @compositionstart="composing = true"
         @compositionupdate="syncDraftFromDom"
         @compositionend="composing = false"
@@ -32,13 +32,21 @@
 import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const emit = defineEmits(["focused", "submitted"]);
+// フリックバーの矢印キーと同じ履歴↑↓状態を物理キーボードの矢印キーでも
+// 使うため、useInputDraftHistoryは呼び直さず親（KeyboardBar.vue）が単一
+// 生成したhistoryPrev/historyNextを受け取る（ここで別インスタンスを作ると
+// historyIndexが別々になり、フリックと物理キーを混ぜて使った時に履歴が
+// 正しく辿れなくなる）。
+const props = defineProps({
+  historyPrev: { type: Function, required: true },
+  historyNext: { type: Function, required: true },
+});
 
 const inputStore = useInputStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
@@ -60,10 +68,6 @@ const placeholder = computed(() => {
   if (focused.value) return "↑↓ history";
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
-
-// フリックバーの矢印キーと同じ挙動（履歴↑↓）を
-// 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
-const { historyPrev, historyNext } = useInputDraftHistory(draft);
 
 function onArrowKey(e, action) {
   if (isComposingEvent(e, composing.value)) return;
