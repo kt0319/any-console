@@ -34,7 +34,7 @@ impl CmdResult {
 /// （`-F` のタブ区切り等）を `_` にサニタイズするため、この差があると Python では
 /// パースできる出力が Rust では壊れる（実際に detached sessions 一覧が空になる
 /// 回帰を起こした）。子プロセスの環境を Python と同一条件に揃える。
-fn coerce_c_locale(command: &mut tokio::process::Command) {
+pub(crate) fn coerce_c_locale(command: &mut tokio::process::Command) {
     let is_c_locale = |name: &str| match std::env::var(name) {
         Ok(v) => v.is_empty() || v == "C" || v == "POSIX",
         Err(_) => true,

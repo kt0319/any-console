@@ -175,17 +175,41 @@ Rust も参加すればプロセス間で安全に書けるため、Phase 1 の�
 
 **リスク**: 低。JSON ファイル CRUD が中心で pytest も厚い。
 
-### Phase 2 — Git 系（subprocess の主戦場）
+### Phase 2 — Git 系（subprocess の主戦場）— **進行中**
 
 **目的**: 本アプリの中核機能の一つ。subprocess 実行・パース・ロックのパターンを確立する。
 
-| 対象 | 行数目安 |
-|------|---------|
-| `git_utils.py` / `git_lock.py` / `git_info.py` | 639 |
-| `routers/git_*.py` 一式（branches / files / diff / history / worktree / helpers） | 1,522 |
-| `routers/github.py` | 45 |
+**状況**: git 実行コア（`git_utils.rs`: run_git_raw / run_git_command /
+worktree porcelain パース / 動的 worktree 名解決 / resolve_workspace_path）、
+ワークスペース書き込みロック（`git_lock.rs`: tokio Mutex map + 30秒タイムアウト）、
+activity ログ（`activity.rs`: JSONL 追記 — O_APPEND のため Python との相互追記も
+安全）、履歴/差分/コミット/スタッシュ系ルート一式
+（git-log / file-history / commit-message / cherry-pick / revert / merge /
+rebase / reset / commit / stash 5種 / diff 3種 / discard）を移行済み。
 
-**注意**: git 出力のパースは Python 実装と**同一入力・同一出力**のゴールデンテストを移植する。ワークスペースロック（`git_lock.py`）は tokio の `Mutex` map で等価実装。
+| 対象 | 行数目安 | 状況 |
+|------|---------|------|
+| `git_utils.py` / `git_lock.py` | 323 | **移行済み**（background_fetch / ssh_env は branches 移行時） |
+| `git_info.py` | 317 | Phase 4 へ後ろ倒し（利用者が /workspaces/statuses と git_watch = リアルタイム系のみのため） |
+| `routers/git_history.py` / `git_diff.py` / `git_diff_utils.py` / `git_helpers.py` | 485 | **移行済み** |
+| `routers/git_branches.py`（checkout / pull / push / fetch） | 337 | 次スライス |
+| `routers/git_files.py` / `git_file_utils.py`（ファイル CRUD / zip） | 399 | 次スライス |
+| `routers/git_worktree.py` | 171 | 次スライス |
+| `routers/github.py` | 45 | 次スライス |
+
+**実装時の確定事項**:
+
+- Python の `execute_git_action` は成功時に `invalidate_git_info`
+  （= status stream への即時 nudge）を行うが、git_info / status stream は
+  Python 側に残るため Rust からは呼べない。Python の git_watch が FS イベント
+  （.git/HEAD・index・refs）で検知して push する経路（デバウンス 300ms）が
+  下支えするため、反映が僅かに遅れるだけで機能は劣化しない（Phase 4 で
+  status stream ごと移行して即時 nudge に戻す）
+- ワークスペースロックはプロセス内のみ（Python と同等）。Python に残る
+  dispatch の checkout は元々このロックを取らないため、プロセス間の保護
+  レベルは移行前と同等（後退なし）
+
+**注意**: git 出力のパースは Python 実装と**同一入力・同一出力**のゴールデンテストを移植する。
 
 ### Phase 3 — ジョブ・ディスパッチ
 

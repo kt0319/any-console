@@ -105,6 +105,7 @@ async fn main() {
     let state = Arc::new(AppState {
         paths: paths.clone(),
         config,
+        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

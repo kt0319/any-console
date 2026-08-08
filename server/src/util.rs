@@ -92,6 +92,31 @@ where
     }
 }
 
+/// クエリパラメータ抽出子。パース失敗を 422 `{"detail": ...}` へ変換する
+/// （FastAPI のクエリ型不一致 422 に対応）。
+pub struct QueryParams<T>(pub T);
+
+impl<S, T> axum::extract::FromRequestParts<S> for QueryParams<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        match axum::extract::Query::<T>::from_request_parts(parts, state).await {
+            Ok(axum::extract::Query(v)) => Ok(QueryParams(v)),
+            Err(rejection) => Err(ApiError::new(
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                rejection.body_text(),
+            )),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

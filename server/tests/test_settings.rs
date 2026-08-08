@@ -38,6 +38,7 @@ async fn spawn_front() -> TestFront {
             tmux_prefix: "ac-".to_string(),
         },
         config: ConfigStore::new(dir.path().join("config.json")),
+        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir, false),

@@ -3,11 +3,17 @@
 //! バイナリ（main.rs）と統合テストが共有するライブラリ部。モジュール構成は
 //! Python 側 `api/` のファイル構成に対応させている（移植元の追跡を容易にするため）。
 
+pub mod activity;
 pub mod auth;
 pub mod config;
 pub mod config_migrations;
 pub mod config_schema;
 pub mod errors;
+pub mod git_diff;
+pub mod git_helpers;
+pub mod git_history;
+pub mod git_lock;
+pub mod git_utils;
 pub mod groups;
 pub mod json_store;
 pub mod middleware;
@@ -123,6 +129,49 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             put(groups::update_group).delete(groups::delete_group),
         )
         .route("/group-order", put(groups::update_group_order))
+        // ─── Rust ネイティブ移行済みルート（Phase 2: git 履歴/差分/コミット/スタッシュ）
+        .route("/workspaces/{name}/git-log", get(git_history::git_log))
+        .route(
+            "/workspaces/{name}/file-history",
+            get(git_history::file_history),
+        )
+        .route(
+            "/workspaces/{name}/commit-message",
+            get(git_history::commit_message),
+        )
+        .route(
+            "/workspaces/{name}/cherry-pick",
+            post(git_history::cherry_pick),
+        )
+        .route("/workspaces/{name}/revert", post(git_history::revert))
+        .route("/workspaces/{name}/merge", post(git_history::merge))
+        .route("/workspaces/{name}/rebase", post(git_history::rebase))
+        .route("/workspaces/{name}/reset", post(git_history::reset))
+        .route("/workspaces/{name}/commit", post(git_history::commit))
+        .route(
+            "/workspaces/{name}/stash-list",
+            get(git_history::stash_list),
+        )
+        .route(
+            "/workspaces/{name}/stash-drop",
+            post(git_history::stash_drop),
+        )
+        .route(
+            "/workspaces/{name}/stash-pop-ref",
+            post(git_history::stash_pop_ref),
+        )
+        .route("/workspaces/{name}/stash", post(git_history::stash))
+        .route("/workspaces/{name}/stash-pop", post(git_history::stash_pop))
+        .route("/workspaces/{name}/diff", get(git_diff::workspace_diff))
+        .route(
+            "/workspaces/{name}/diff/{commit_hash}",
+            get(git_diff::commit_diff),
+        )
+        .route(
+            "/workspaces/{name}/file-diff/{commit_hash}",
+            get(git_diff::file_commit_diff),
+        )
+        .route("/workspaces/{name}/git/discard", post(git_diff::discard))
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:
