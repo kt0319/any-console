@@ -95,6 +95,9 @@
 /* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
    使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
 .pill-peek-accent .pill-peek-icon { color: var(--accent); }
+/* Actionsは通常ピル（.pill-actions-btn）と同じブラウンをアイコンだけに使う
+   （状態によらず固定。テキストは元々このクラスで色付けしないため icon-only 不要）。 */
+.pill-peek-brown .pill-peek-icon { color: #6f4e37; }
 
 /* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
    のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
@@ -262,16 +265,6 @@
 }
 
 .pill-dispatch-btn .mdi {
-  color: var(--warning);
-}
-
-/* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。
-   成功runはvisibleBranchActionで非表示になるため、ここは失敗・進行中のみ。 */
-.pill-devserver-btn.action-status-failure .mdi {
-  color: var(--error);
-}
-
-.pill-devserver-btn.action-status-running .mdi {
   color: var(--warning);
 }
 

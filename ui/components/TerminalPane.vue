@@ -288,13 +288,7 @@ const tooltips = computed(() => ({
 
 // 実行状況で色・アイコンを変える（判定はgithub-runs.jsのrunStatusClass/Icon参照）。
 const actionStatusClass = computed(() => runStatusClass(branchAction.value));
-const actionStatusIcon = computed(() => runStatusIcon(branchAction.value));
-
-// 成功で完了した瞬間だけpeekで一度知らせる（通常表示のボタン自体は成功時
-// visibleBranchActionでずっと非表示のまま）。
-const isBranchActionSuccess = computed(() =>
-  branchAction.value?.status === "completed" && branchAction.value?.conclusion === "success",
-);
+const actionStatusIcon = computed(() => runStatusIcon());
 
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
@@ -377,15 +371,9 @@ const { peekingKey, branchPushCount, branchPullCount } = usePillPeek({
 // キーごとのアイコンはinfo-pills.jsのディスクリプタテーブルで管理する。
 const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
 
-// キーごとの静的な色はinfo-pills.jsのテーブルで管理し、実行状態で色が変わる
-// actionsだけここで判定する（アイコンのみ状態色にし、テキストは通常色のまま）。
+// キーごとの静的な色はinfo-pills.jsのテーブルで管理する（actionsも常に
+// ブラウンで固定、状態では変えない）。
 const peekColorClass = computed(() => {
-  if (peekingKey.value === "actions") {
-    if (isBranchActionSuccess.value) return ["pill-peek-success", "pill-peek-icon-only"];
-    if (actionStatusClass.value === "action-status-failure") return ["pill-peek-error", "pill-peek-icon-only"];
-    if (actionStatusClass.value === "action-status-running") return ["pill-peek-warning", "pill-peek-icon-only"];
-    return "";
-  }
   return peekColorForKey(peekingKey.value);
 });
 

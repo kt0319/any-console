@@ -47,13 +47,10 @@ export function runStatusClass(run) {
 }
 
 /**
- * 色だけで状態を示さないよう、アイコン自体も状態ごとに変える
- * （AGENTS.md: 色のみで状態を示さない）。
- * @param {{status?: string, conclusion?: string} | null | undefined} run
+ * 状態によらずWorkspaceDetail.vueのActionsタブと同じmdi-cog-play-outlineに
+ * 統一する（状態の違いは色=action-status-*で示す）。
  * @returns {string}
  */
-export function runStatusIcon(run) {
-  if (!run || run.status !== "completed") return "mdi-progress-clock";
-  if (run.conclusion === "failure") return "mdi-alert-circle-outline";
+export function runStatusIcon() {
   return "mdi-cog-play-outline";
 }

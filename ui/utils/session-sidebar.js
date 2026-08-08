@@ -104,7 +104,7 @@ export function sessionSidebarItems(tabs, workspaces, ctx = {}) {
         hasPr: !!branchPR,
         hasAction: !!visibleBranchAction,
         actionStatusClass: runStatusClass(branchAction),
-        actionStatusIcon: runStatusIcon(branchAction),
+        actionStatusIcon: runStatusIcon(),
         hasDevServer: !!devServerEntry,
         devServerEntry,
         dispatchCount: dispatchItems.length,
