@@ -51,7 +51,7 @@ test.describe("workspace lifecycle", () => {
 
     // 登録成功後は Workspaces 一覧へ戻る（Settings → Workspaces → Add Workspace の1つ上）。
     // 一覧に追加した名前が表示される
-    await expect(page.locator(".modal-title")).toHaveText("Open Workspace", { timeout: 10_000 });
+    await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
     await expect(page.locator(".picker-ws-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
 
@@ -66,7 +66,7 @@ test.describe("workspace lifecycle", () => {
     await expect(jobsInline.locator(".job-item-label", { hasText: "Terminal" })).toBeVisible();
 
     // モーダルは開かない（Jobsのインライン展開のみ）
-    await expect(page.locator(".modal-title")).toHaveText("Open Workspace");
+    await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
     await row.locator(".picker-ws-header-label").click();
     await expect(jobsInline).toHaveCount(0);
@@ -92,7 +92,7 @@ test.describe("workspace lifecycle", () => {
 
   test("Workspaces 一覧に表示され、Edit から Delete できる（確認ダイアログあり）", async ({ page }) => {
     await openWorkspaces(page);
-    await expect(page.locator(".modal-title")).toHaveText("Open Workspace");
+    await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });

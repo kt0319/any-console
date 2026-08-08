@@ -11,19 +11,19 @@
       >
         <h3 class="modal-title">
           <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
-          {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template>
+          <span class="modal-title-text">{{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template></span>
         </h3>
       </button>
     </div>
     <div class="settings-panel-body">
       <SessionListView v-if="currentView === 'SessionList'" />
-      <ModalMenu v-if="currentView === 'ModalMenu'" />
+      <SessionDispatchesTab v-if="currentView === 'SessionDispatches'" />
+      <SessionPreviewTab v-if="currentView === 'SessionPreview'" />
       <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
+      <ModalMenu v-if="currentView === 'ModalMenu'" />
       <WorkspaceAddView v-if="currentView === 'WorkspaceAdd'" />
       <WorkspaceEditPane v-if="currentView === 'WorkspaceEdit'" />
       <JobConfig v-if="currentView === 'JobConfig'" />
-      <TabConfig v-if="currentView === 'TabConfig'" />
-      <DispatchQueueConfig v-if="currentView === 'DispatchQueueConfig'" />
       <DispatchRunView v-if="currentView === 'DispatchRunView'" />
       <TerminalConfig v-if="currentView === 'TerminalConfig'" />
       <EditorConfig v-if="currentView === 'EditorConfig'" />
@@ -33,7 +33,6 @@
       <DisplayConfig v-if="currentView === 'DisplayConfig'" />
       <SendSnippet v-if="currentView === 'SendSnippet'" />
       <SendHistory v-if="currentView === 'SendHistory'" />
-      <PreviewPorts v-if="currentView === 'PreviewPorts'" />
       <NotificationConfig v-if="currentView === 'NotificationConfig'" />
       <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
       <InfoPillConfig v-if="currentView === 'InfoPillConfig'" />
@@ -47,13 +46,13 @@
 import { provide } from "vue";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import SessionListView from "./SessionListView.vue";
+import SessionDispatchesTab from "./SessionDispatchesTab.vue";
+import SessionPreviewTab from "./SessionPreviewTab.vue";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAddView from "./WorkspaceAddView.vue";
 import WorkspaceEditPane from "./WorkspaceEditPane.vue";
 import JobConfig from "./JobConfig.vue";
-import TabConfig from "./TabConfig.vue";
-import DispatchQueueConfig from "./DispatchQueueConfig.vue";
 import DispatchRunView from "./DispatchRunView.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
@@ -63,7 +62,6 @@ import ServerInfo from "./ServerInfo.vue";
 import DisplayConfig from "./DisplayConfig.vue";
 import SendSnippet from "./SendSnippet.vue";
 import SendHistory from "./SendHistory.vue";
-import PreviewPorts from "./PreviewPorts.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import InfoPillConfig from "./InfoPillConfig.vue";
@@ -146,6 +144,14 @@ defineExpose({ onBack });
   line-height: 1;
   flex-shrink: 0;
   color: inherit;
+}
+
+.modal-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal-title-sep {

@@ -26,8 +26,7 @@ import SettingsPanel from "./SettingsPanel.vue";
 const layoutStore = useLayoutStore();
 const { closeNav } = useSettingsNav();
 
-// 分割モード中はタブバー（ハンバーガー）自体が隠れるため、サイドバーも出さない。
-const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isSplitMode && !layoutStore.isPanelBottom);
+const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isPanelBottom);
 
 // Esc で閉じる（モバイルはModal.vue側のuseModalが同様のEscハンドリングを持つ）。
 // closeNavでビュースタックもSessionListへ戻しておく（×ボタンと同じ挙動。

@@ -249,7 +249,7 @@ test.describe("workspace detail panes", () => {
     await page.locator("button.primary", { hasText: "Save" }).click();
 
     // 一覧へ戻り、ワークスペース名クリックでJobsをインライン展開して確認する
-    await expect(page.locator(".modal-title")).toHaveText("Open Workspace", { timeout: 10_000 });
+    await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
     await row.locator(".picker-ws-header-label").click();
     const jobItem = row.locator(".job-item-row", { has: page.locator(".job-item-label", { hasText: jobLabel }) });

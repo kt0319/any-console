@@ -1,16 +1,13 @@
 /**
  * ターミナル分割（split pane）の E2E スモーク。
- * タブをドロップゾーンへドラッグして horizontal split へ遷移できること、
- * および Tabs & Sessions（TabConfig.vue）の SplitModeSelector で
- * vertical split へ軸切替えできることを確認する
- * （stores/layout.js の splitWithDrop / setSplitLayout）。
+ * タブをドロップゾーンへドラッグして horizontal split へ遷移できること
+ * を確認する（stores/layout.js の splitWithDrop）。
  * 以前はワークスペースピルのドラッグでも分割やピル群の画面位置（top/bottom）
  * 切替えができたが、いずれも廃止し、位置はデバイス（PC/モバイル）に応じて
  * 自動で決まるようになった。分割の入口はタブ（TabItem.vue、ネイティブHTML5
- * DnD）のみ。また split mode に入るとタブバー自体が非表示になる（TabBar.vue）
- * ため、分割後の軸切替えはドラッグではなく SplitModeSelector のボタンで行う。
+ * DnD）のみ。split mode 中もタブバー（TabBar.vue）は表示され続ける。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 /**
  * タブをドラッグして指定のドロップゾーンへドロップする。
@@ -55,7 +52,7 @@ test.describe("terminal split", () => {
     await cleanupNewSessions(page, sessionIdsBefore);
   });
 
-  test("タブドラッグで horizontal split に入り、SplitModeSelectorで vertical split へ軸切替えできる", async ({ page }) => {
+  test("タブドラッグで horizontal split に入る", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
 
@@ -72,14 +69,5 @@ test.describe("terminal split", () => {
 
     await dragTabToZone(page, tab, ".drop-left");
     await expect(page.locator(".output-container.split-horizontal")).toBeVisible({ timeout: 5000 });
-
-    // split mode に入るとタブバー（.tab-btn）は非表示になるため、軸切替えは
-    // Tabs & Sessions（TabConfig.vue）の SplitModeSelector ボタンで行う。
-    await openSettingsModal(page);
-    await openSettingsView(page, "Tabs & Sessions");
-    await page.locator('.settings-panel .split-tab-mode-option[aria-label="Vertical split"] >> visible=true').click();
-    await page.keyboard.press("Escape");
-
-    await expect(page.locator(".output-container.split-vertical")).toBeVisible({ timeout: 5000 });
   });
 });

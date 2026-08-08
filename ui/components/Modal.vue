@@ -119,6 +119,10 @@ watch(
 :deep(.settings-panel-header) {
   border-bottom: none;
   border-top: 1px solid var(--border);
+  /* 右下固定の.modal-close-btn（36px + 右8px）と、ヘッダー右端の編集ボタン
+     （.settings-panel-edit-btn）が重ならないよう、閉じるボタン分の余白を
+     ヘッダー右側に確保する。 */
+  padding-right: calc(36px + 8px);
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   order: 1;
 }

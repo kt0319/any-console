@@ -24,7 +24,7 @@ export function rememberJobIcon(sessionId, icon, iconColor) {
 }
 
 // buildSessionTabParams を直接呼ぶ全ての経路（ポーリング再構築・dispatch queue
-// 実行・deep link アタッチ・Tabs & Sessions の Open detached 等）で共通に使う。
+// 実行・deep link アタッチ・Sessions編集モードの Open detached 等）で共通に使う。
 // 解決できたジョブアイコンをキャッシュへ書き込み、かつ /jobs/workspaces が
 // 一時的に不完全な時は既存キャッシュへフォールバックする（resolvedJobIcons を
 // 経由しない経路が増えるたびに mdi-play 固定化の穴が再発しないようにする）。

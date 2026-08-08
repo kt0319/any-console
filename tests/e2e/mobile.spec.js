@@ -16,7 +16,7 @@ test.describe("mobile viewport", () => {
     test.skip((await page.locator(".tab-btn").count()) > 0, "既存セッションがあるため空画面テストをスキップ");
 
     // Get Started メニューが収まって表示される
-    for (const label of ["New Terminal", "Open Workspace", "Settings"]) {
+    for (const label of ["New Terminal", "Open Session", "Settings"]) {
       await expect(page.locator(".screen-empty-menu-item", { hasText: label })).toBeVisible();
     }
 

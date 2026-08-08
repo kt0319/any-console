@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
 import { devServerUrl } from "../utils/preview-url.js";
+import { copyText } from "../utils/clipboard.js";
 
 // Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が
 // 同じopenPane(key)を使う。
@@ -79,10 +80,15 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, tabDispatch
     const p = devServerEntry.value;
     if (!p) return;
     const url = devServerUrl(p, location.hostname);
-    const ok = await confirm(`Open dev server preview at "${url}"?`, {
+    const result = await confirm(`Open dev server preview at "${url}"?`, {
       ok: { label: "Open" },
+      extra: { label: "Copy", value: "copy", icon: "mdi-content-copy" },
     });
-    if (!ok) return;
+    if (result === "copy") {
+      await copyText(url);
+      return;
+    }
+    if (!result) return;
     window.open(url, "_blank", "noopener,noreferrer");
   }
 

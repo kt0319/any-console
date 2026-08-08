@@ -27,7 +27,6 @@ export const BUS_EVENTS = Object.freeze([
   "notification:open-session",
   "oskeyboard:hide",
   "oskeyboard:show",
-  "preview:showPorts",
   "settings:closed",
   "settings:open",
   "snippet:add",

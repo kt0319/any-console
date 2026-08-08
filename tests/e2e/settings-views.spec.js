@@ -7,20 +7,19 @@
 import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
 
 // メニューラベル → 遷移後のモーダルタイトル
-// Workspacesは設定メニュー配下ではなくセッション一覧の「Open Workspace」/
+// Workspacesは設定メニュー配下ではなくセッション一覧の「Open Session」/
 // タブバーの「+」から直接開く導線のため、この一覧（Settings → 各ビュー →
 // 戻る、の1階層ループ）には含めない（下の別テストで直接確認する）。
 // Add Workspaceも同様にWorkspaces一覧の「+」から開くため対象外。
+// Send Snippet/Send Historyは設定メニューから削除し、ソフトキーボード上段の
+// History/Snippetタブから開く導線に一本化したため、このメニュー項目ループ
+// からは対象外（キーボードバー由来のE2Eは別途 keyboard-bar 系スペックで扱う）。
 const SETTINGS_VIEWS = [
-  ["Tabs & Sessions", "Tabs & Sessions"],
   ["Terminal", "Terminal"],
   ["Info Pills", "Info Pills"],
   ["Editor", "Editor"],
   ["Display", "Display"],
-  ["Send Snippet", "Send Snippet"],
-  ["Send History", "Send History"],
   ["Circle Keypad", "Circle Keypad"],
-  ["Dev Server Preview", "Dev Server Preview"],
   ["Notifications", "Notifications"],
   ["Auth", "Auth"],
   ["Config File", "Config File"],
@@ -49,7 +48,7 @@ test.describe("settings views", () => {
     await openAddWorkspace(page);
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace", { timeout: 10_000 });
     await page.locator(".modal-title-wrap").click();
-    await expect(page.locator(".modal-title")).toHaveText("Open Workspace", { timeout: 5000 });
+    await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 5000 });
   });
 
   test("Auth ビューにトークン設定状態と自デバイスが表示される", async ({ page }) => {

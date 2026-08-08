@@ -25,17 +25,18 @@
         >&times;</button>
       </div>
       <div class="settings-panel-body">
-        <WorkspaceDetail :ref="setPaneRef" />
+        <WorkspaceDetail :key="activeTabId" :ref="setPaneRef" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, provide, watch } from "vue";
+import { ref, computed, provide, watch } from "vue";
 import { useModal } from "../composables/useModal.js";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 
 // WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用の全面
@@ -56,6 +57,11 @@ const {
   isOpen, viewState, modalTitle, modalBranch,
   onBack, close, setPaneRef, updateViewState,
 } = useWorkspaceDetailNav();
+const terminalStore = useTerminalStore();
+// タブ切替のたびに<WorkspaceDetail>を再マウントし、useWorkspaceDetailNav.js
+// がタブごとに保持しているisOpen/detail(pane)を確実に反映させる
+// （WorkspaceDetail.vue自体はopen()をonMounted時にしか呼ばないため）。
+const activeTabId = computed(() => terminalStore.activeTabId);
 
 provide("modalTitle", modalTitle);
 provide("modalBranch", modalBranch);

@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-scroll-body">
+  <div class="dispatch-queue-tab">
     <p class="dispatch-queue-desc">
       Requests sent via the /dispatch API (CI, automation, external tools) wait here for approval before running in a workspace.
     </p>
@@ -41,19 +41,32 @@ import { inject } from "vue";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
-const modalTitle = inject("modalTitle");
-modalTitle.value = "Dispatches";
+// Sessionsのタブ帯（SettingsPanel.vue）から開くDispatchesタブの中身。
+// 旧DispatchQueueConfig.vue（ModalMenu配下の独立画面）から移植したもの。
+// SessionListView.vueに埋め込むのではなく独立したcurrentView（'SessionDispatches'）
+// として遷移するため（settingsの内部に一段掘り下げてもタブ帯を消さないため、
+// タブ帯自体をSettingsPanel.vue側の常設表示にした。詳細はSettingsPanel.vueのコメント参照）、
+// 自分自身のマウント時にmodalTitleを設定する。
 
+const modalTitle = inject("modalTitle");
 const viewState = inject("viewState");
 const pushView = inject("pushView");
-// 通知タップ経由で開いた場合、どのdispatchが通知の元かを示すためのハイライト対象。
-// 画面遷移は自動で行わず、一覧内でハイライトするだけに留める。
-const highlightId = viewState?.value?.dispatchId ?? null;
+modalTitle.value = "Dispatches";
 
+const highlightId = viewState?.value?.dispatchId ?? null;
 const { queue, recent } = useDispatchConfirm();
 </script>
 
 <style scoped>
+.dispatch-queue-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
 .settings-section-label {
   font-size: 11px;
   font-weight: 600;
