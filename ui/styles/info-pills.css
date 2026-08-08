@@ -126,16 +126,17 @@
   gap: 6px;
 }
 
-/* ピル幅に収まらない時だけ付与する（script側でscrollWidth実測）。ループ
-   させず、末尾が見えたところで止める1回きりのスクロール。 */
+/* ピル幅に収まらない時だけ付与する（script側でscrollWidth実測）。先頭の
+   文字がピル端に見えている状態（transform無し）からスタートし、ループ
+   させず末尾が見えたところで止める1回きりのスクロール。移動量は
+   script側で実測したはみ出し幅（--pill-peek-marquee-offset）を使う。 */
 .pill-peek-marquee-text.pill-peek-marquee-run {
-  padding-left: 100%;
   animation: pill-peek-scroll linear 1 forwards;
 }
 
 @keyframes pill-peek-scroll {
   from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
+  to { transform: translateX(calc(-1 * var(--pill-peek-marquee-offset, 0px))); }
 }
 
 /* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に

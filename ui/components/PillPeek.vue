@@ -20,7 +20,7 @@
         :ref="setMarqueeTextEl"
         class="pill-peek-marquee-text"
         :class="{ 'pill-peek-marquee-run': marqueeRun }"
-        :style="marqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms' } : null"
+        :style="marqueeRun ? { animationDuration: PILL_MORE_PEEK_DURATION_MS + 'ms', '--pill-peek-marquee-offset': marqueeOffset + 'px' } : null"
       >
         <template v-if="peekingKey === 'changes'">
           <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
@@ -68,16 +68,22 @@ const props = defineProps({
 const emits = defineEmits(["peek-click"]);
 
 // peekピルのラベルがピル幅に収まっている時はマーキーで流さない（収まって
-// いるのに動かすと落ち着かないため）。収まらない時だけ、末尾が見えた
-// ところで止める1回きりのスクロールにする（.pill-peek-marquee-run、
-// infiniteループはしない）。History以外の全ラベルにも同じ扱いを揃える。
+// いるのに動かすと落ち着かないため）。収まらない時だけ、先頭の文字が
+// ピル端に見えている状態からスタートし、末尾が見えたところで止める
+// 1回きりのスクロールにする（.pill-peek-marquee-run、infiniteループは
+// しない）。History以外の全ラベルにも同じ扱いを揃える。
 const marqueeRun = ref(false);
 const marqueeTextEl = ref(null);
+// はみ出し幅（scrollWidth - clientWidth）。末尾がちょうど見える位置で
+// 止まるよう、アニメーションの移動量をこの実測値に合わせる。
+const marqueeOffset = ref(0);
 
 function measureMarquee() {
   const el = marqueeTextEl.value;
   const container = el?.parentElement;
-  marqueeRun.value = !!container && el.scrollWidth > container.clientWidth;
+  const overflow = container ? el.scrollWidth - container.clientWidth : 0;
+  marqueeRun.value = overflow > 0;
+  marqueeOffset.value = Math.max(0, overflow);
 }
 
 // peekピルは Transition(mode="out-in") 配下にあり、キー切替時は旧要素の
