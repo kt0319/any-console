@@ -42,6 +42,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { devServerUrl } from "../utils/preview-url.js";
+import { openExternal } from "../utils/open-external.js";
 
 // Sessionsページ下部メニューの「Server」項目から開く独立したcurrentView
 // （'SessionPreview'）。旧PreviewPorts.vue（ModalMenu配下の独立画面）から
@@ -72,9 +73,9 @@ function buildPreviewUrl(p) {
 function openPreview(p) {
   const url = buildPreviewUrl(p);
   if (!url) return;
-  // iOS PWA モードでは <a target="_blank"> がループするため window.open を使う。
+  // iOS PWA モードでは <a target="_blank"> がループするため window.open 版（openExternal）を使う。
   // ユーザーインタラクション（click）から直接呼ぶのでポップアップブロックに引っかかりにくい。
-  window.open(url, "_blank", "noopener,noreferrer");
+  openExternal(url);
 }
 
 async function copyUrl(p) {

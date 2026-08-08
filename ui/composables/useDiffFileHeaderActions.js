@@ -4,6 +4,7 @@ import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
+import { openExternal } from "../utils/open-external.js";
 import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { buildGithubFileUrl } from "../utils/git.js";
 import { workspaceGitDiscardPath } from "../utils/endpoints.js";
@@ -25,7 +26,7 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
   });
 
   function openGithub() {
-    if (githubUrl.value) window.open(githubUrl.value, "_blank");
+    openExternal(githubUrl.value);
   }
 
   function openEditor() {

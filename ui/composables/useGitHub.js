@@ -2,6 +2,7 @@ import { ref, computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
+import { openExternal } from "../utils/open-external.js";
 
 const _countCache = {};
 
@@ -42,7 +43,7 @@ export function labelStyle(color) {
 }
 
 export function openUrl(url) {
-  if (url) window.open(url, "_blank");
+  openExternal(url);
 }
 
 export function useGitHub() {

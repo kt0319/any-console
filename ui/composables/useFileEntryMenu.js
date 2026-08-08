@@ -2,6 +2,7 @@ import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { joinEntryPath } from "../utils/file-browser.js";
 import { buildGithubFileUrl } from "../utils/git.js";
+import { openExternal } from "../utils/open-external.js";
 
 export function useFileEntryMenu({
   currentPath, fileContent,
@@ -21,7 +22,7 @@ export function useFileEntryMenu({
   });
 
   function openCurrentFileGithub() {
-    if (openFileGithubUrl.value) window.open(openFileGithubUrl.value, "_blank");
+    openExternal(openFileGithubUrl.value);
   }
 
   function openCurrentFileInEditor() {

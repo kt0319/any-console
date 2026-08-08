@@ -4,6 +4,7 @@ import { useConfirm } from "./useConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
+import { openExternal } from "../utils/open-external.js";
 import { devServerUrl } from "../utils/preview-url.js";
 import { copyText } from "../utils/clipboard.js";
 
@@ -89,7 +90,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, tabDispatch
       return;
     }
     if (!result) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    openExternal(url);
   }
 
   // 1件だけなら詳細（DispatchRunView）へ直接飛び、複数ある時はどれを開くか
