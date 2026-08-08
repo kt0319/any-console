@@ -160,9 +160,10 @@ export async function openSettingsView(page, label) {
 
 /**
  * Workspaces（WorkspaceOpen）を開く。SettingsのModalMenu配下ではなく、
- * ハンバーガーで開くセッション一覧下部メニューの「Open」から直接開く導線に
- * 統一されている。下部メニューはSessionsルート表示中しか存在しないため、
- * 既に設定画面の奥にいる場合はタイトルの戻るボタンでルートまで遡ってから開く。
+ * ハンバーガーで開くセッション一覧の最上部にある「Open Session」
+ * から直接開く導線に統一されている。この項目はSessionsルート表示中しか
+ * 存在しないため、既に設定画面の奥にいる場合はタイトルの戻るボタンで
+ * ルートまで遡ってから開く。
  * @param {import("@playwright/test").Page} page
  */
 export async function openWorkspaces(page) {
@@ -174,7 +175,7 @@ export async function openWorkspaces(page) {
   while (await page.locator(".modal-title-wrap.is-clickable").count()) {
     await page.locator(".modal-title-wrap").click();
   }
-  await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open" }).click();
+  await page.locator(".session-list-scroll .settings-menu-item", { hasText: "Open Session" }).click();
 }
 
 /**

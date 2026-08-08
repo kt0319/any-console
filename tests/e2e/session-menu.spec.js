@@ -1,5 +1,5 @@
 /**
- * Sessionsページ下部メニュー（Open / Settings）の
+ * Sessionsページの Open Session（一覧末尾）/ Settings（下部固定メニュー）の
  * E2E スモーク。各項目は本物のcurrentView遷移（WorkspaceOpen/ModalMenu）で、
  * Sessionsページを離れるとメニューごと消える
  * （SessionListView.vueがアンマウントされるため）。
@@ -30,7 +30,7 @@ test.describe("session list menu", () => {
     await cleanupNewSessions(page, sessionIdsBefore);
   });
 
-  test("Open / Settings 項目に遷移でき、Sessionsページを離れるとメニューが消える", async ({ page }) => {
+  test("Open Session / Settings 項目に遷移でき、Sessionsページを離れるとメニューが消える", async ({ page }) => {
     await openSessionsRoot(page);
 
     await page.locator(".session-list-menu .settings-menu-item", { hasText: "Settings" }).click();
@@ -38,15 +38,15 @@ test.describe("session list menu", () => {
     await expect(page.locator(".session-list-menu")).toHaveCount(0);
 
     await page.locator(".modal-title-wrap").click();
-    await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open" }).click();
+    await page.locator(".session-list-scroll .settings-menu-item", { hasText: "Open Session" }).click();
     await expect(page.locator(".terminal-ws-list")).toBeVisible({ timeout: 5000 });
     await expect(page.locator(".session-list-menu")).toHaveCount(0);
     await expect(page.locator(".modal-title")).toContainText("Open Session");
   });
 
-  test("Openから新規タブを作成するとSessionsページへ自動で戻る", async ({ page }) => {
+  test("Open Sessionから新規タブを作成するとSessionsページへ自動で戻る", async ({ page }) => {
     await openSessionsRoot(page);
-    await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open" }).click();
+    await page.locator(".session-list-scroll .settings-menu-item", { hasText: "Open Session" }).click();
     await expect(page.locator(".terminal-ws-list")).toBeVisible({ timeout: 5000 });
 
     await page.locator('[aria-label="New terminal"]').click();

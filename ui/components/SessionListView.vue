@@ -1,6 +1,10 @@
 <template>
   <div class="modal-scroll-body session-list-view">
     <div class="session-list-scroll">
+      <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
+        <span class="mdi mdi-folder-plus-outline"></span> Open Session
+      </button>
+
       <ul v-if="items.length > 0" class="session-sidebar-list">
         <li v-for="item in items" :key="item.id" class="session-sidebar-li">
           <button
@@ -43,7 +47,11 @@
               :tooltips="item.tooltips"
               @open="onPillOpen(item, $event)"
             />
+            <!-- PCは上部タブバー（TabBar.vue/TabItem.vue）にも同じClose tab
+                 ボタンが常時見えており重複するため、モバイルのみ出す
+                 （PCはサイドバータイトル行右端の閉じるボタンで代用）。 -->
             <button
+              v-if="layoutStore.isPanelBottom"
               type="button"
               class="pill-close-btn pill-tab-close-btn"
               aria-label="Close tab"
@@ -89,9 +97,6 @@
     </div>
 
     <div class="session-list-menu">
-      <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
-        <span class="mdi mdi-folder-plus-outline"></span> Open
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('ModalMenu')">
         <span class="mdi mdi-cog"></span> Settings
       </button>
@@ -120,7 +125,8 @@ import { emit } from "../app-bridge.js";
 // 状態・Info Pillsを一覧表示する。
 // 行の組み立ては ui/utils/session-sidebar.js（純粋関数）。
 //
-// Open/Server/Settingsへは下部のメニュー（本物のpushView遷移）から進む。
+// Settingsへは下部固定のメニュー、Open Sessionは一覧の最上部から、
+// それぞれ本物のpushView遷移で進む。
 // タブ帯としてSettingsPanel.vue側に常設表示していた時期もあったが、Sessions
 // ページを離れたらメニューごと消えてよいという方針になったため、埋め込み式の
 // メニューに戻した（メニュー自体はこのビューがマウントされている間だけ存在する）。
@@ -404,9 +410,10 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
 }
 
-/* Open/Server/Settingsへの入口。一覧の下に固定表示するメニュー。
-   行ボタンの見た目（.settings-menu-item / .settings-menu-version）は
-   ui/styles/settings-form.css（グローバル）でModalMenu.vueと共用する。 */
+/* Settingsへの入口。一覧の下に固定表示するメニュー（Open Sessionは
+   一覧末尾へ移動済み）。行ボタンの見た目（.settings-menu-item /
+   .settings-menu-version）は ui/styles/settings-form.css（グローバル）で
+   ModalMenu.vueと共用する。 */
 .session-list-menu {
   display: flex;
   flex-direction: column;

@@ -14,6 +14,18 @@
           <span class="modal-title-text">{{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template></span>
         </h3>
       </button>
+      <!-- PCはサイドバー本体がインライン表示（オーバーレイではない）でEscの
+           発見性が低いため、タイトル行の右端に明示的な閉じるボタンを置く
+           （モバイルはModal.vue自身がオーバーレイの閉じるボタンを持つため
+           対象外）。 -->
+      <button
+        v-if="!layoutStore.isPanelBottom"
+        type="button"
+        class="modal-close-btn"
+        aria-label="Close sessions panel"
+        data-tooltip="Close sessions panel"
+        @click="closeNav"
+      >&times;</button>
     </div>
     <div class="settings-panel-body">
       <SessionListView v-if="currentView === 'SessionList'" />
@@ -43,6 +55,7 @@
 <script setup>
 import { provide } from "vue";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
+import { useLayoutStore } from "../stores/layout.js";
 import SessionListView from "./SessionListView.vue";
 import SessionPreviewTab from "./SessionPreviewTab.vue";
 import ModalMenu from "./ModalMenu.vue";
@@ -70,10 +83,12 @@ import IconPicker from "./IconPicker.vue";
 // 同じビュースタックのまま続きから見える。WorkspaceDetailはuseWorkspaceDetailNav.js
 // で完全に独立させているため、ここには含まれない（WorkspaceDetailModal.vue参照）。
 
+const layoutStore = useLayoutStore();
+
 const {
   currentView, canNavigateBack,
   modalTitle, modalBranch, currentState,
-  pushView, popView, updateViewState, onBack,
+  pushView, popView, updateViewState, onBack, closeNav,
 } = useSettingsNav();
 
 provide("modalTitle", modalTitle);
@@ -103,11 +118,15 @@ defineExpose({ onBack });
   border-bottom: 1px solid var(--border);
 }
 
-/* .modal-title-wrap / .modal-title / .modal-title-sep / .modal-title-branch の
-   見た目は ui/styles/modal-shell.css（グローバル）で WorkspaceDetailModal.vue と
-   共用する。 */
+/* .modal-title-wrap / .modal-title / .modal-title-sep / .modal-title-branch /
+   .modal-close-btn の見た目は ui/styles/modal-shell.css（グローバル）で
+   WorkspaceDetailModal.vue と共用する。 */
 .modal-title-wrap.is-clickable {
   cursor: pointer;
+}
+
+.modal-close-btn {
+  margin-left: auto;
 }
 
 .modal-title-back-icon {

@@ -1,6 +1,8 @@
 /**
- * 設定モーダルの E2E スモーク。
- * 開閉（Esc / Close ボタン）とビュー間ナビゲーション（メニュー → System Info → 戻る）を確認する。
+ * 設定モーダルの E2E スモーク（デフォルトのPCビューポートで実行）。
+ * 開閉（Esc / タイトル行の閉じるボタン）とビュー間ナビゲーション
+ * （メニュー → System Info → 戻る）を確認する。
+ * モバイルでのハンバーガー開閉は mobile.spec.js が別途カバーする。
  */
 import { test, expect, loadToken, login } from "./helpers.js";
 
@@ -35,9 +37,11 @@ test.describe("settings modal", () => {
     await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 
-  test("ハンバーガーボタン（Close）でモーダルが閉じる", async ({ page }) => {
-    // 歯車ボタンは廃止され、ハンバーガー1つでセッション一覧+設定を開閉する。
-    await page.locator(".tab-menu-btn").click();
+  test("タイトル行の閉じるボタンでモーダルが閉じる", async ({ page }) => {
+    // PCはサイドバーが開いている間ハンバーガー自体を隠すため（TabBar.vue）、
+    // 閉じる手段はタイトル行右端の専用ボタン（SettingsPanel.vue）になる。
+    await expect(page.locator(".tab-menu-btn")).toHaveCount(0);
+    await page.locator(".modal-close-btn").click();
     await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 });

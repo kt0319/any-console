@@ -3,7 +3,11 @@
     class="tab-bar-row"
     :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
   >
+    <!-- PCはサイドバー（SettingsPanel.vue）のタイトル行右端に専用の閉じる
+         ボタンがあるため、サイドバーが開いている間はこのボタン自体を隠し
+         タブだけにする。モバイルはこのボタンだけが開閉の手段のため常に出す。 -->
     <button
+      v-if="isPanelBottom || !isSidebarOpen"
       class="tab-menu-btn hover-bg"
       :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
       @click="onMenuClick"
@@ -11,7 +15,7 @@
       :aria-expanded="isSidebarOpen ? 'true' : 'false'"
       :data-tooltip="sidebarToggleLabel"
     >
-      <span :class="['mdi', isSidebarOpen ? 'mdi-close' : 'mdi-menu']"></span>
+      <span :class="['mdi', isSidebarOpen && isPanelBottom ? 'mdi-close' : 'mdi-menu']"></span>
     </button>
     <div class="tab-bar">
       <TabItem

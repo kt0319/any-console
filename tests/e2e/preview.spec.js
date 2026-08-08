@@ -93,8 +93,9 @@ test.describe("port preview", () => {
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
     // サイドバーのセッション行にも同じ .pill-server-btn が出るため、サイドバーを
-    // 閉じて TerminalPane のピル行だけを対象にする。
-    await page.locator(".tab-menu-btn").click();
+    // 閉じて TerminalPane のピル行だけを対象にする（PCはサイドバー展開中
+    // ハンバーガー自体を隠すため、タイトル行の閉じるボタンを使う）。
+    await page.locator(".modal-close-btn").click();
     await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
 
     // GET /preview/ports はアクセス時に同期でスキャンを起こす（api/routers/preview.py）。
