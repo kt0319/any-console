@@ -185,32 +185,41 @@ def capture_visible_pane(tmux_name: str) -> str | None:
     return str(result.stdout)
 
 
+def _display_message(tmux_name: str, fmt: str) -> str | None:
+    """display-message -p で単一のフォーマット値を取得する。失敗時は None。"""
+    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", fmt)
+    if result and result.returncode == 0:
+        return str(result.stdout).strip()
+    return None
+
+
+def _display_message_int(tmux_name: str, fmt: str) -> int | None:
+    value = _display_message(tmux_name, fmt)
+    if value is not None:
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    return None
+
+
 def get_session_cwd(tmux_name: str) -> str | None:
     """tmux セッションのカレントディレクトリを返す。"""
-    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
-    if result and result.returncode == 0:
-        return result.stdout.strip() or None
-    return None
+    return _display_message(tmux_name, "#{pane_current_path}") or None
 
 
 def detect_workspace_from_tmux(tmux_name: str) -> str | None:
-    """ペインのカレントディレクトリからワークスペース ID を推定して返す。"""
-    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
-    if not result or result.returncode != 0:
-        logger.warning(
-            "detect_workspace_from_tmux failed session=%s result=%s returncode=%s",
-            tmux_name, "None" if result is None else "ok",
-            None if result is None else result.returncode,
-        )
+    """ペインのカレントディレクトリからワークスペースを推定して返す。
+
+    照合は match_workspace_by_path（~ 展開・最長前方一致）へ委譲し、
+    ライブ自動紐付け（agent_watch）と同じ判定を復元時にも使う。
+    """
+    pane_path = _display_message(tmux_name, "#{pane_current_path}")
+    if pane_path is None:
+        logger.warning("detect_workspace_from_tmux failed session=%s", tmux_name)
         return None
-    pane_path = result.stdout.strip()
-    from .config import list_workspace_entries
-    entries = list_workspace_entries()
-    for ws_id, config in entries.items():
-        ws_path = config.get("path", "")
-        if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
-            return ws_id
-    return None
+    from .config import match_workspace_by_path
+    return match_workspace_by_path(pane_path)
 
 
 def list_pane_meta() -> dict[str, tuple[str, str, int, str]]:
@@ -243,20 +252,8 @@ def list_pane_meta() -> dict[str, tuple[str, str, int, str]]:
 
 
 def get_window_width(tmux_name: str) -> int | None:
-    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{window_width}")
-    if result and result.returncode == 0:
-        try:
-            return int(result.stdout.strip())
-        except ValueError:
-            pass
-    return None
+    return _display_message_int(tmux_name, "#{window_width}")
 
 
 def get_tmux_created(tmux_name: str) -> int | None:
-    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{session_created}")
-    if result and result.returncode == 0:
-        try:
-            return int(result.stdout.strip())
-        except ValueError:
-            pass
-    return None
+    return _display_message_int(tmux_name, "#{session_created}")
