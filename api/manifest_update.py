@@ -39,8 +39,11 @@ from .common import (
     AGENT_MANIFEST_UPDATE_INTERVAL_SEC,
     AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC,
     BACKGROUND_FETCH_EXECUTOR,
+    cancel_task_quietly,
     load_json_file,
     save_json_file,
+    save_text_file,
+    task_stale,
 )
 from .screen_manifest import (
     compare_manifest_versions,
@@ -73,7 +76,6 @@ def load_status() -> dict[str, Any]:
 
 def _save_status(status: dict[str, Any]) -> None:
     try:
-        _status_path().parent.mkdir(parents=True, exist_ok=True)
         save_json_file(_status_path(), status)
     except OSError as e:
         logger.warning("failed to save manifest update status: %s", e)
@@ -142,7 +144,7 @@ def parse_catalog(content: str) -> list[tuple[str, str]]:
 
 
 def _cached_remote_version(agent_id: str) -> tuple[int, ...] | None:
-    path = screen_manifest.REMOTE_DIR / f"{agent_id}.toml"
+    path = screen_manifest.remote_manifest_path(agent_id)
     if not path.is_file():
         return None
     try:
@@ -177,7 +179,8 @@ def process_agent_manifest(agent_id: str, content: str) -> bool:
         if cmp == 0:
             committed = ""
             try:
-                committed = (screen_manifest.REMOTE_DIR / f"{agent_id}.toml").read_text(encoding="utf-8")
+                committed = screen_manifest.remote_manifest_path(agent_id).read_text(
+                    encoding="utf-8")
             except OSError:
                 pass
             if committed != content:
@@ -186,10 +189,7 @@ def process_agent_manifest(agent_id: str, content: str) -> bool:
             return False
 
     try:
-        screen_manifest.REMOTE_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = screen_manifest.REMOTE_DIR / f".{agent_id}.toml.tmp"
-        tmp.write_text(content, encoding="utf-8")
-        tmp.replace(screen_manifest.REMOTE_DIR / f"{agent_id}.toml")
+        save_text_file(screen_manifest.remote_manifest_path(agent_id), content)
     except OSError as e:
         raise ManifestUpdateError(f"failed to store manifest for {agent_id}: {e}") from e
     return True
@@ -262,15 +262,11 @@ def start_updater() -> None:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return
-    if _update_task is None or _update_task.done():
+    if task_stale(_update_task, loop):
         _update_task = loop.create_task(_update_loop())
 
 
 def stop_updater() -> None:
     global _update_task
-    if _update_task is not None and not _update_task.done():
-        try:
-            _update_task.cancel()
-        except RuntimeError:
-            pass
+    cancel_task_quietly(_update_task)
     _update_task = None

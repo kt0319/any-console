@@ -214,9 +214,18 @@ def is_loopback_host(host: str) -> bool:
         return False
 
 
+# wildcard bind（全インターフェース待受）を表すホスト。空文字は未設定扱い。
+_WILDCARD_BIND_HOSTS = ("0.0.0.0", "::", "")  # noqa: S104
+
+
 def display_bind_host(host: str) -> str:
     """bind ホストをユーザー向け URL に使える形へ変換する（wildcard は localhost）。"""
-    return "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
+    return "localhost" if host in _WILDCARD_BIND_HOSTS else host
+
+
+def connect_bind_host(host: str) -> str:
+    """bind ホストを自ホストへの接続先に使える形へ変換する（wildcard は loopback）。"""
+    return "127.0.0.1" if host in _WILDCARD_BIND_HOSTS else host
 
 
 def task_stale(task: asyncio.Task | None, loop: asyncio.AbstractEventLoop) -> bool:
@@ -377,13 +386,11 @@ def load_json_file(
     return data
 
 
-def save_json_file(path: Path, data: Any) -> None:
-    """data/ 配下の JSON ファイルへ書き込む（親ディレクトリを自動作成）。
+def save_text_file(path: Path, text: str) -> None:
+    """data/ 配下のテキストファイルへアトミックに書き込む（親ディレクトリを自動作成）。
 
-    devices.json のように「リクエストごとに書き、並行して読まれる」ファイルがあるため、
-    tmp ファイルへ書いてから os.replace でアトミックに差し替える
-    （直接 write_text すると並行リーダーが書き込み途中の JSON を読んで
-    認証失敗などの誤動作を起こす）。
+    tmp ファイルへ書いてから os.replace で差し替える（直接 write_text すると
+    並行リーダーが書き込み途中の内容を読んで誤動作を起こす）。
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     # tmp 名は書き込みごとにユニークにする（固定名だと並行ライター同士で
@@ -391,12 +398,21 @@ def save_json_file(path: Path, data: Any) -> None:
     fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(json.dumps(data, ensure_ascii=False, indent=2))
+            f.write(text)
         os.replace(tmp_name, path)
     except OSError:
         with contextlib.suppress(OSError):
             os.unlink(tmp_name)
         raise
+
+
+def save_json_file(path: Path, data: Any) -> None:
+    """data/ 配下の JSON ファイルへ書き込む（親ディレクトリを自動作成）。
+
+    devices.json のように「リクエストごとに書き、並行して読まれる」ファイルがあるため、
+    アトミック書き込み（save_text_file）を使う。
+    """
+    save_text_file(path, json.dumps(data, ensure_ascii=False, indent=2))
 
 
 @overload
