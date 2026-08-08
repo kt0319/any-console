@@ -193,8 +193,8 @@ const tabs = computed(() => {
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
-    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#6f4e37", hidden: !isGit || !hasGithub.value },
-    { key: "dispatch", icon: "mdi-tray-full", label: "Dispatch", iconColor: "var(--warning)", count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
+    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#8c6c50", hidden: !isGit || !hasGithub.value },
+    { key: "dispatch", icon: "mdi-inbox-arrow-down-outline", label: "Dispatch", iconColor: "var(--pink)", count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);

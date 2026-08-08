@@ -74,8 +74,8 @@ export const INFO_PILLS = [
     key: "dispatch",
     label: "Dispatch",
     note: "Only shown when a /dispatch API request is waiting for approval against this workspace. Tapping it opens the request directly if there's just one, or the full queue if there are several.",
-    peekIcon: "mdi-tray-full",
-    peekColor: "pill-peek-warning",
+    peekIcon: "mdi-inbox-arrow-down-outline",
+    peekColor: "pill-peek-pink",
   },
 ];
 

@@ -211,7 +211,7 @@ describe("pendingDispatchSidebarItems", () => {
     expect(app.ahead).toBe(1);
     expect(app.hasPr).toBe(true);
     expect(app.hasDevServer).toBe(true);
-    expect(app.agent).toEqual({ icon: "mdi-tray-full", label: "Pending", className: "agent-state-dispatch-pending" });
+    expect(app.agent).toEqual({ icon: "mdi-inbox-arrow-down-outline", label: "Pending", className: "agent-state-dispatch-pending" });
   });
 
   it("worktreeは「ベース名 | ブランチ」表示になる", () => {

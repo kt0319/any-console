@@ -156,7 +156,7 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
 /* タブがまだ無いワークスペースの承認待ちdispatch行専用（SessionListView.vue、
    実際のエージェント状態ではないが同じバッジ見た目を流用する）。 */
 .session-sidebar-agent.agent-state-dispatch-pending {
-  color: var(--warning);
+  color: var(--pink);
 }
 
 </style>

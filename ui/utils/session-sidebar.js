@@ -169,7 +169,7 @@ export function pendingDispatchSidebarItems(workspaces, openTabWorkspaceNames, c
       isWorktree: !!ws?.worktree,
       // SessionRowContent.vueのagentステータスバッジをそのまま流用し、
       // 「Pending」であることを他の行のWorking/Blocked等と同じ見せ方で示す。
-      agent: { icon: "mdi-tray-full", label: "Pending", className: "agent-state-dispatch-pending" },
+      agent: { icon: "mdi-inbox-arrow-down-outline", label: "Pending", className: "agent-state-dispatch-pending" },
       phraseNotify: false,
       ...pill,
     };
