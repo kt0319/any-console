@@ -67,7 +67,7 @@
           <span class="session-sidebar-pills-row">
             <InfoPillRow
               class="session-sidebar-pills"
-              :tab="{ workspace: p.workspace }"
+              :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
               :max-width="9999"
               :is-git-repo="p.isGitRepo"
               :is-dirty="p.dirty"
