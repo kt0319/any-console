@@ -1,6 +1,9 @@
 # Node
 node_modules/
 
+# Rust (server/)
+server/target/
+
 # Python
 __pycache__/
 *.py[cod]

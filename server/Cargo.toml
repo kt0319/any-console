@@ -1,0 +1,34 @@
+[package]
+name = "any-console-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: Python の dict は挿入順を保持するため、config.json 等の
+# ラウンドトリップでキー順が入れ替わらないよう serde_json も挿入順を維持する。
+serde_json = { version = "1", features = ["preserve_order"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+hmac = "0.12"
+sha2 = "0.10"
+subtle = "2"
+tempfile = "3"
+mime_guess = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes = "1"
+http = "1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+strip = true

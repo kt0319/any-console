@@ -76,9 +76,45 @@ Browser ──▶ Rust (axum) ──┬─▶ 移行済みルート: Rust が直
 
 ## 5. フェーズ計画
 
-### Phase 0 — 基盤とプロキシ骨格（最優先）
+### Phase 0 — 基盤とプロキシ骨格（最優先）— **実装済み**
 
 **目的**: Rust サーバが前段に立ち、全ルートを Python へ透過 proxy した状態で E2E 全通過。ここが移行全体の土台。
+
+**状況**: `server/` crate として実装済み。cargo test（unit 30 + 統合 7）、
+実機スモーク（Python バックエンドを 8889 に立て Rust front 8890 経由で
+HTTP / WS / 静的配信 / 認証を確認）、E2E 全スペック通過
+（42/43 — 唯一の失敗 preview.spec.js は Python 直結でも同様に失敗する
+実行環境要因: コンテナに `ss` が無くポート検出が動かない）。
+
+起動方法（移行期間中の手動 2 プロセス構成）:
+
+```bash
+# Python バックエンドを内部ポートで起動（X-Forwarded-For を信頼させる）
+python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8889 \
+  --proxy-headers --forwarded-allow-ips 127.0.0.1
+
+# Rust front を公開ポートで起動
+cd server && cargo build --release
+ANY_CONSOLE_PROJECT_ROOT=$(pwd)/.. \
+ANY_CONSOLE_RS_PORT=8888 \
+ANY_CONSOLE_UPSTREAM=http://127.0.0.1:8889 \
+./target/release/any-console-server
+```
+
+Phase 0 のスコープ判断（実装時に確定した事項）:
+
+- **config.json / auth.json / devices.json は Rust 側では読み取り専用**。
+  書き込み（正規化・マイグレーション・.bak ローテーション・トークン更新・
+  デバイス登録）は Python が唯一のライターであり続け、プロセス間の
+  read-modify-write 競合を作らない。ライターの移管は該当 API を移す
+  Phase 1 で行う（計画の「config 書き込み系」はここへ後ろ倒し）。
+- 認証コア（メイントークン・デバイス cookie HMAC・Tailscale 信頼判定）は
+  `server/src/auth.rs` に移植・テスト済みだが、Phase 0 では Rust 側に
+  認証必須ルートが無いため配線は Phase 1 から。
+- WS proxy は upstream のハンドシェイク拒否（401/403）をそのまま HTTP で
+  ミラーする（Python 直結と同じ挙動）。
+- `./any-console` ランチャーの 2 プロセス統合起動は未着手（Phase 1 以降、
+  移行済みルートが実利を持つ段階で組み込む）。
 
 | 対象 (Python) | 内容 |
 |---------------|------|
