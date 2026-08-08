@@ -307,6 +307,18 @@ onBeforeUnmount(() => {
   .session-sidebar-item.active:hover {
     background: var(--accent-bg-12);
   }
+
+  /* ピル行（.session-sidebar-pills-row）はボタンではなく独立した兄弟要素の
+     ため、その上をホバーしても本体行（.session-sidebar-item）のhover-bgは
+     効かない。行全体（li）を1つのホバー対象として扱い、ピル行の上にいる時も
+     本体行と同じ背景で連動させる（分断して見えないようにするため）。 */
+  .session-sidebar-li:hover .session-sidebar-item:not(.active) {
+    background: var(--bg-tertiary);
+  }
+
+  .session-sidebar-li:hover .session-sidebar-pills-row:not(.active) {
+    background: var(--bg-tertiary);
+  }
 }
 
 .session-sidebar-item.active {
