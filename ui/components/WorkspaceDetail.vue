@@ -60,6 +60,9 @@
       <div v-if="activePane === 'prs'" class="file-modal-pane">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
+      <div v-if="activePane === 'dispatch'" class="file-modal-pane">
+        <DispatchWorkspacePane />
+      </div>
       <div v-show="activePane === 'select'" class="file-modal-pane">
         <TerminalSelectPane ref="terminalSelectPane" />
       </div>
@@ -78,6 +81,7 @@ import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
+import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -87,6 +91,8 @@ import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { usePaneLoader } from "../composables/usePaneLoader.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -127,6 +133,14 @@ const diffMessage = ref("");
 const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
+const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchConfirm();
+const dispatchCount = computed(() => {
+  const ws = workspaceStore.selectedWorkspace;
+  if (!ws) return 0;
+  return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length
+    + dispatchRecent.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
+});
+
 const fileBrowserDeep = ref(false);
 const terminalSessionId = computed(() => viewState.value?.detail?.terminalSessionId || "");
 const fileBrowserRootLabel = computed(() => viewState.value?.detail?.rootLabel || "");
@@ -154,6 +168,7 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
     { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#6f4e37", hidden: !isGit || !hasGithub.value },
+    { key: "dispatch", icon: "mdi-tray-full", label: "Dispatch", iconColor: "var(--warning)", count: dispatchCount.value || 0, hidden: !!terminalSessionId.value || !dispatchCount.value },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);

@@ -17,7 +17,6 @@
     </div>
     <div class="settings-panel-body">
       <SessionListView v-if="currentView === 'SessionList'" />
-      <SessionDispatchesTab v-if="currentView === 'SessionDispatches'" />
       <SessionPreviewTab v-if="currentView === 'SessionPreview'" />
       <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
       <ModalMenu v-if="currentView === 'ModalMenu'" />
@@ -46,7 +45,6 @@
 import { provide } from "vue";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import SessionListView from "./SessionListView.vue";
-import SessionDispatchesTab from "./SessionDispatchesTab.vue";
 import SessionPreviewTab from "./SessionPreviewTab.vue";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";

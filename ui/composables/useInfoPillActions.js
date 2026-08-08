@@ -93,13 +93,13 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, tabDispatch
     openExternal(url);
   }
 
-  // 1件だけなら詳細（DispatchRunView）へ直接飛び、複数ある時はどれを開くか
-  // 選べるよう一覧（DispatchQueueConfig）を開く。
+  // 1件だけなら詳細（DispatchRunView）へ直接飛び、複数ある時はワークスペース
+  // 詳細のDispatchタブ（どれを開くか選べる一覧）を開く。
   function openDispatch() {
     if (tabDispatchItems.value.length === 1) {
       emit("settings:open", { view: "DispatchRunView", state: { itemId: tabDispatchItems.value[0].id } });
     } else {
-      emit("settings:open", { view: "DispatchQueueConfig" });
+      openWorkspacePane("dispatch");
     }
   }
 

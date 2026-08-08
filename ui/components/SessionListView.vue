@@ -60,10 +60,6 @@
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
         <span class="mdi mdi-folder-plus-outline"></span> Open
       </button>
-      <button type="button" class="settings-menu-item" @click="pushView('SessionDispatches')">
-        <span class="mdi mdi-tray-full"></span> Dispatches
-        <span v-if="dispatchQueue.length" class="settings-menu-version">{{ dispatchQueue.length }}</span>
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('SessionPreview')">
         <span class="mdi mdi-server"></span> Server
         <span v-if="previewPortCount" class="settings-menu-version">{{ previewPortCount }}</span>
@@ -96,7 +92,7 @@ import { emit } from "../app-bridge.js";
 // 状態・Info Pillsを一覧表示する。
 // 行の組み立ては ui/utils/session-sidebar.js（純粋関数）。
 //
-// Open/Dispatches/Settingsへは下部のメニュー（本物のpushView遷移）から進む。
+// Open/Server/Settingsへは下部のメニュー（本物のpushView遷移）から進む。
 // タブ帯としてSettingsPanel.vue側に常設表示していた時期もあったが、Sessions
 // ページを離れたらメニューごと消えてよいという方針になったため、埋め込み式の
 // メニューに戻した（メニュー自体はこのビューがマウントされている間だけ存在する）。
@@ -329,7 +325,7 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
 }
 
-/* Open/Dispatches/Settingsへの入口。一覧の下に固定表示するメニュー。
+/* Open/Server/Settingsへの入口。一覧の下に固定表示するメニュー。
    行ボタンの見た目（.settings-menu-item / .settings-menu-version）は
    ui/styles/settings-form.css（グローバル）でModalMenu.vueと共用する。 */
 .session-list-menu {

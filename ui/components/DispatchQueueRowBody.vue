@@ -54,7 +54,7 @@ defineProps({
   gap: 6px;
 }
 
-/* 承認/却下の色は親（SessionDispatchesTab.vue）の行クラスに応じて変える。 */
+/* 承認/却下の色は親（DispatchWorkspacePane.vue）の行クラスに応じて変える。 */
 .dispatch-queue-recent-approved .dispatch-queue-recent-head .mdi {
   color: var(--success);
 }

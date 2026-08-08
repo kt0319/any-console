@@ -79,12 +79,13 @@ async function bootstrap() {
 
 // dispatch通知タップ時、既存タブが無く新規ウィンドウが開かれた場合（sw.js の
 // notification-open-dispatch-queue は既存クライアント向けの postMessage のため届かない）
-// でも Dispatch Queue を開けるように、起動時にURLパラメータで判定する。
+// でも該当リクエストを開けるように、起動時にURLパラメータで判定する。
 function openDispatchQueueFromUrlIfRequested() {
   const params = new URLSearchParams(location.search);
   if (params.get("openDispatchQueue") !== "1") return;
   const dispatchId = params.get("dispatchId") || null;
-  emit("settings:open", { view: "DispatchQueueConfig", state: { dispatchId } });
+  if (!dispatchId) return;
+  emit("settings:open", { view: "DispatchRunView", state: { itemId: dispatchId } });
 }
 
 bootstrap();
@@ -97,7 +98,8 @@ if ("serviceWorker" in navigator) {
     } else if (event.data?.type === "notification-open-dispatch-queue") {
       // sw.js へ受信を ack する（届いていればURL遷移フォールバックを起こさせないため）。
       event.ports?.[0]?.postMessage("ack");
-      emit("settings:open", { view: "DispatchQueueConfig", state: { dispatchId: event.data.dispatchId || null } });
+      const dispatchId = event.data.dispatchId || null;
+      if (dispatchId) emit("settings:open", { view: "DispatchRunView", state: { itemId: dispatchId } });
     }
   });
 }

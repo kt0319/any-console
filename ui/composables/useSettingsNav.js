@@ -123,22 +123,27 @@ function registerListeners() {
     if (layoutStore) layoutStore.isSettingsOpen = open;
   }, { immediate: true });
 
-  // Sessions/Dispatches/Server/Open/SettingsはSessionListView.vueの下部
+  // Sessions/Server/Open/SettingsはSessionListView.vueの下部
   // メニュー等から直接切り替える「根」のビューのため、ModalMenuを挟まず開く
   // （openViewがSessionListを自動でルートに補うので、ModalMenuを積む
   // 通常の設定サブ画面と違い、これらはstack[1]に直接乗せてよい）。
-  const ROOT_TAB_VIEWS = new Set(["SessionList", "SessionDispatches", "SessionPreview", "WorkspaceOpen"]);
+  const ROOT_TAB_VIEWS = new Set(["SessionList", "SessionPreview", "WorkspaceOpen"]);
 
   on("settings:open", (detail) => {
     if (detail?.view) {
       // 保存済み circle keypad 設定・通知タップ等には旧 view 名が残っている
       // 可能性があるため読み替える（TabConfigは旧Tabs & Sessions画面。
-      // DispatchQueueConfig/PreviewPortsはSessionDispatches/SessionPreview
-      // として独立した根ビューへ統合済み）。
+      // PreviewPortsはSessionPreviewとして独立した根ビューへ統合済み）。
       let view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
       if (view === "TabConfig") view = "SessionList";
-      if (view === "DispatchQueueConfig") view = "SessionDispatches";
       if (view === "PreviewPorts") view = "SessionPreview";
+      // 旧DispatchQueueConfig/SessionDispatches（グローバルなDispatch一覧）は
+      // ワークスペース詳細のDispatchタブへ統合され廃止済みのため読み替え先が無く、
+      // Settingsメニューへフォールバックする。
+      if (view === "DispatchQueueConfig" || view === "SessionDispatches") {
+        openView("ModalMenu");
+        return;
+      }
       const state = detail.state || {};
       if (ROOT_TAB_VIEWS.has(view)) {
         openView([{ view, state }]);
