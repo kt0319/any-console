@@ -87,6 +87,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
 import { useQwertyCamera } from "../composables/useQwertyCamera.js";
 import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.js";
+import { restartTapBounce } from "../utils/dom.js";
 
 // KeyboardBar.vue専用の部品（単独では使わない）。入力欄・矢印/Enterキーなどの
 // 状態はすべてKeyboardBar.vue側で一元管理し、このコンポーネントへはprops経由で
@@ -166,17 +167,12 @@ function onModifierKeyStart(e) {
 function onModifierKeyEnd(e, fn) {
   const el = e.currentTarget;
   el.classList.remove("pressed");
-  el.classList.remove("tap-bounce");
-  void el.offsetWidth;
-  el.classList.add("tap-bounce");
+  restartTapBounce(el);
   fn();
 }
 
 function onNavKeyEnd(e, key) {
-  const el = e.currentTarget;
-  el.classList.remove("tap-bounce");
-  void el.offsetWidth;
-  el.classList.add("tap-bounce");
+  restartTapBounce(e.currentTarget);
   sendKeyToTerminal({ key });
 }
 

@@ -86,23 +86,24 @@ const effectiveDropSide = computed(() => {
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
 // ベアターミナルにワークスペースを紐付けた直後もタブラベルに反映されるよう、
-// tabWorkspaceVersion を読んで依存に含める。
-const label = computed(() => {
+// tabWorkspaceVersion を読んで依存に含める（TerminalPane.vue の
+// paneWorkspace と同じ理由）。label/isDirty/isWorktree はこの computed を
+// 共有して同じ検索を繰り返さない。
+const tabWorkspace = computed(() => {
   terminalStore.tabWorkspaceVersion;
+  return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
+});
+
+const label = computed(() => {
   if (props.tab.workspace) {
-    const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+    const ws = tabWorkspace.value;
     if (ws?.worktree) return workspaceDisplayName(ws);
     return props.tab.workspace;
   }
   return props.tab.label || "terminal";
 });
 
-const isDirty = computed(() => {
-  terminalStore.tabWorkspaceVersion;
-  if (!props.tab.workspace) return false;
-  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
-  return ws?.clean === false;
-});
+const isDirty = computed(() => tabWorkspace.value?.clean === false);
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 
@@ -110,12 +111,7 @@ const hasPhraseNotify = computed(() => !!terminalStore.phraseNotifySessions[prop
 
 const tabAriaLabel = computed(() => (hasPhraseNotify.value ? `${label.value} (phrase detected)` : label.value));
 
-const isWorktree = computed(() => {
-  terminalStore.tabWorkspaceVersion;
-  if (!props.tab.workspace) return false;
-  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
-  return !!ws?.worktree;
-});
+const isWorktree = computed(() => !!tabWorkspace.value?.worktree);
 
 const iconSize = 18;
 
@@ -367,7 +363,7 @@ onBeforeUnmount(() => {
 
 .tab-btn.active {
   color: var(--text-primary);
-  background: rgba(130, 170, 255, 0.12);
+  background: var(--accent-bg-12);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -376,7 +372,7 @@ onBeforeUnmount(() => {
   }
 
   .tab-btn.active:hover {
-    background: rgba(130, 170, 255, 0.12);
+    background: var(--accent-bg-12);
   }
 }
 
@@ -501,30 +497,10 @@ onBeforeUnmount(() => {
   50% { background: rgba(130, 170, 255, 0.25); }
 }
 
-.tab-btn.tab-working:not(.active) {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    transparent 10%,
-    rgba(130, 170, 255, 0.2) 50%,
-    transparent 90%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: working-pulse 2s linear infinite;
-}
-
-
-/* notify_phrase 検知と blocked（承認・入力待ち）の通知点滅。どちらも同じ青の点滅で
-   「このタブに注目」だけを伝え、種類はタブを開いて確認する割り切り。ドット追加だと
-   dirty-dot と場所を取り合う（特にパネル下部のアイコンのみ表示）ため、幅を取らない
-   背景の点滅で表現する。tab-working（出力中）と同時に付く場合、tab-working の
-   background-image（右→左に流れるグラデーション）が残って点滅と混ざって見えるため
-   打ち消す。 */
-.tab-btn.tab-phrase-notify:not(.active),
-.tab-btn.tab-blocked:not(.active) {
-  background-image: none;
-  animation: notify-blink 1.2s ease-in-out infinite;
-}
+/* tab-working（出力中）のグラデーションと tab-phrase-notify / tab-blocked の
+   通知点滅は ui/styles/base.css（グローバル）でセッションサイドバー行と
+   共用する。どちらも同じ青の点滅で「このタブに注目」だけを伝え、種類は
+   タブを開いて確認する割り切り。ドット追加だと dirty-dot と場所を取り合う
+   （特にパネル下部のアイコンのみ表示）ため、幅を取らない背景の演出にする。 */
 
 </style>
