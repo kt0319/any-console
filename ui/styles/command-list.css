@@ -1,0 +1,64 @@
+/* SendHistory.vue（.history-*）と SendSnippet.vue（.snippet-*）で同一の
+   「コマンド一覧」行の見た目。クラス名はコンポーネントごとに保ちつつ
+   （E2E・既存テンプレートの参照を変えないため）、宣言はここに集約する。
+   設定モーダル経由・KeyboardBar の History/Snippet タブ経由の両方で使われる。 */
+
+.history-list,
+.snippet-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-row,
+.snippet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-command,
+.snippet-command {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+  cursor: pointer;
+}
+
+.history-delete,
+.snippet-delete {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .history-delete:hover,
+  .snippet-delete:hover {
+    color: var(--error);
+  }
+}
+
+.history-empty,
+.snippet-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
