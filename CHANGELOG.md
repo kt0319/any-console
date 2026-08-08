@@ -5,6 +5,127 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/kt0319/any-console/compare/v0.10.0...v0.11.0) (2026-08-08)
+
+
+### Features
+
+* branch peekのPushed/Pulledに件数を表示する ([f782028](https://github.com/kt0319/any-console/commit/f7820287d48975c8d95cd0758b8e6238c6b8438b))
+* branch peekのPushed/Pulledに件数を表示する ([a4b63cc](https://github.com/kt0319/any-console/commit/a4b63ccf707bc0eabee0deb83c4ea4258f765dfc))
+* herdrのscreen manifestで既知エージェントの承認待ち(blocked)を検知 ([5db8ca1](https://github.com/kt0319/any-console/commit/5db8ca1cc6d4b69a80293665a9c951eefb264dc3))
+* PCサイドバーはターミナルをリサイズし、WorkspaceDetailを独立オーバーレイに切り出す ([84b75de](https://github.com/kt0319/any-console/commit/84b75deaeee022ab73dc204bf0f3afeb592697e3))
+* pendingワークスペースの承認待ちdispatchをサイドバーで扱えるようにする ([a138598](https://github.com/kt0319/any-console/commit/a138598774e37931072fcfd41d41baf5d2746864))
+* pending行の承認待ちが1件だけならRun Dispatchへ直接飛ぶ ([1ae3aa9](https://github.com/kt0319/any-console/commit/1ae3aa928c8841ad6a8cb75524bd8189774eeee2))
+* screen manifestをherdr同構成に拡張（全エージェント同梱・リモート更新・ローカルoverride） ([e10217a](https://github.com/kt0319/any-console/commit/e10217a62ee3a88a415f864a42a4f1f424309ce7))
+* エージェントhooksをセッション状態の最優先ソースとして追加 ([f407928](https://github.com/kt0319/any-console/commit/f4079288c351566697a29d211aecce85d26569ba))
+* エージェント状態判定システムの実装（manifest・hooks・ジョブ照合） ([986d569](https://github.com/kt0319/any-console/commit/986d569acd4405cdbd4f3229725fab25eb904596))
+* セッションサイドバーの各行にInfo Pills（Files/History/Branch/PRs/Actions等）を表示する ([18b61eb](https://github.com/kt0319/any-console/commit/18b61ebfe97249d6d42f082f6db8f1398a8eb4c9))
+* セッションサイドバーの開閉状態をlocalStorageに保存する ([f491133](https://github.com/kt0319/any-console/commit/f491133afa94a6f2b7807792b2842526a39f0c07))
+* セッションタブ左端のハンバーガーからセッションサイドバーを開けるようにする ([2cb74e9](https://github.com/kt0319/any-console/commit/2cb74e948abc93b33a62c632e17a1b9810a2edeb))
+* セッションタブ左端のハンバーガーからセッションサイドバーを開けるようにする ([dcb4612](https://github.com/kt0319/any-console/commit/dcb4612b24cdafe424de11bf92ff9eb607aff6b1))
+* セッション一覧の行にタブと同じ状態演出を揃える ([9b2a360](https://github.com/kt0319/any-console/commit/9b2a360139d8173699a1b9b926529d7c54eb5170))
+* ソフトキーボードにQWERTY/Fn/History/Snippetの切替タブを追加 ([b08aad2](https://github.com/kt0319/any-console/commit/b08aad276b4f7acb602e95a7ac04485bb9488609))
+* モバイルの設定オーバーレイに右下の閉じるボタンを追加する ([80726a1](https://github.com/kt0319/any-console/commit/80726a167d299394e2aa1ff3cd64e00edf3dc9ed))
+* ワークスペース/ジョブの自動紐付けをpush通知しタブアイコンとトーストで即座に反映する ([c819b5a](https://github.com/kt0319/any-console/commit/c819b5a7c98df33eee271c384908560e9f9bdc46))
+* 前面ジョブのargvでラッパー起動検知と手打ちコマンドのジョブ自動タグ付けを追加 ([85057b2](https://github.com/kt0319/any-console/commit/85057b29ea86c6d75fe306d171851f2873786a54))
+* 実行済みDispatchをモーダルで内容を編集してから再実行できるようにする ([bf699e6](https://github.com/kt0319/any-console/commit/bf699e6e3563cd98a9c83446419972d4332e3f78))
+* 既知エージェントのworking/idleもscreen manifestで判定する ([75addaa](https://github.com/kt0319/any-console/commit/75addaa69f86ed0ce4f9ddee6c9e03ae13488380))
+* 歯車ボタンを廃止しセッション一覧と設定をハンバーガー1つに統合する ([78af690](https://github.com/kt0319/any-console/commit/78af690203c274be29365101490de2d9f2eb4926))
+* 稼働中セッションもペインcwdでワークスペースを自動紐付けする ([b1e6287](https://github.com/kt0319/any-console/commit/b1e62872e978ddc5e11028f0264b8fcec6b695dc))
+
+
+### Bug Fixes
+
+* Actionsピルのアイコンと色を状態によらずタブと統一する ([f6b7847](https://github.com/kt0319/any-console/commit/f6b78470cb852e1114b14d7ac11a0e07b3a7235d))
+* blockedの点滅を通知と同じ青に統一する ([379e554](https://github.com/kt0319/any-console/commit/379e554613137a0ad5f5c9025f9262ebd0f5bb36))
+* branch peekの表記を"Push Done"/"Pull Done"から"Pushed"/"Pulled"に変更 ([4bfcf40](https://github.com/kt0319/any-console/commit/4bfcf408f80f579fb75aaf1bf42ac63c324fcd58))
+* Dispatch Queueの「Rerun without changes」ボタンを削除 ([a1e5e10](https://github.com/kt0319/any-console/commit/a1e5e104f25f99bbe9ba2439b41b4698606d5c58))
+* Dispatch/pendingの見た目をピンクに統一しアイコンも変更する ([9adb0b6](https://github.com/kt0319/any-console/commit/9adb0b63c5967842865f96e87d2c9bb95fd4525f))
+* git pull --rebase後のトーストに自分のリベース済みコミットが混入する不具合を修正 ([d8566b6](https://github.com/kt0319/any-console/commit/d8566b66c6a800b12fc6088e6ab0e1a49dc32a29))
+* Info Pillのマーキーを先頭の文字が見えている状態から開始する ([0b610ff](https://github.com/kt0319/any-console/commit/0b610ffd4efca0053bb66296c68d5f24184eda75))
+* match_workspace_by_pathがホーム配下のワークスペースパスを一切マッチできない不具合を修正 ([41411e8](https://github.com/kt0319/any-console/commit/41411e8538b53ea73d7f0d95ef44a58b8b339f51))
+* pairingのポート判定でURL.portをintに確定させmypyエラーを解消する ([a3b883e](https://github.com/kt0319/any-console/commit/a3b883ebbc974fc0950d92bd39f8742760666710))
+* PCでもサイドバーのセッション行にClose tabボタンを表示する ([b6f133b](https://github.com/kt0319/any-console/commit/b6f133be74b9fbf1569254bf085cf535778fccf3))
+* pending行のFilesピルにワークスペースアイコンを出す ([78048c2](https://github.com/kt0319/any-console/commit/78048c2ec830a9d68a02bab7159e527b5651896a))
+* pull/push成功トーストの表記を"Pull done"/"Push done"から"Pulled"/"Pushed"に統一 ([de92a2e](https://github.com/kt0319/any-console/commit/de92a2e912ed9096251baf2aa4fa0deec0bbf919))
+* PWAインストールプロンプトのリスナ累積とイベント取り逃しを修正する ([e4f3ade](https://github.com/kt0319/any-console/commit/e4f3ade5f8a69e2e980b8b154c5a99daf393be3c))
+* WorkspaceDetailオーバーレイでHistory等のペインがスクロールできない不具合を修正 ([081f828](https://github.com/kt0319/any-console/commit/081f828c611434762e884390099afacabe9db3e7))
+* サイドバー表示中はハードウェアキーボードのキー転送を止めEscで閉じられるようにする ([8bc237a](https://github.com/kt0319/any-console/commit/8bc237af0d94ae9e671847acfcfcd01d0b38ba27))
+* セッション一覧行のホバーがピル部分でも連動するようにする ([9cb88f5](https://github.com/kt0319/any-console/commit/9cb88f5b92f97134c7652c0f0feae6525a32180e))
+* ダブルタップズーム防止の除外を現行のハンバーガーとKeyboardBarに更新する ([95a40a4](https://github.com/kt0319/any-console/commit/95a40a4fb6734966b8ed2029560427e43257abb6))
+* ハンバーガーで開いた時は常にセッション一覧から始まるようにする ([1ff2942](https://github.com/kt0319/any-console/commit/1ff2942e0593657f2204730cfe4af1e559c1d9c1))
+* フォルダzipダウンロードに.git除外・symlinkスキップ・サイズ上限を追加する ([6e9f630](https://github.com/kt0319/any-console/commit/6e9f630d176e821f90623617756e6e93603c8e87))
+* モバイル設定オーバーレイの閉じるボタンをWorkspaceDetailModalと同じ形にする ([30f984d](https://github.com/kt0319/any-console/commit/30f984d7b139afb8fa596a136e3679e8e24d796d))
+* ローカルブランチ作成後にリモートブランチ一覧が重複表示される不具合を修正 ([81b0e78](https://github.com/kt0319/any-console/commit/81b0e788a851ceb8c64c90fa73ea9fb033a61d96))
+* ローカルブランチ作成後にリモートブランチ一覧が重複表示される不具合を修正 ([cf8476b](https://github.com/kt0319/any-console/commit/cf8476b3bef8763791e0943780ebd5a4369449cc))
+* 入力履歴↑↓のフリック矢印と物理キーボードで状態を共有する ([7cce00e](https://github.com/kt0319/any-console/commit/7cce00e717aec2b7024fc289316623d14c3d9be5))
+* 復元時のワークスペース自動判定を match_workspace_by_path に委譲する ([196f740](https://github.com/kt0319/any-console/commit/196f7409441c9b433709987b1984e9b381c053c9))
+* 登録済みワークスペースパスの解決マップを git_utils に一本化 ([c65eb23](https://github.com/kt0319/any-console/commit/c65eb236337e09ed58587b068ca3e7822031ff67))
+* 通知とblockedのタブ点滅を同じリズムに統一し色だけで種類を示す ([26436a0](https://github.com/kt0319/any-console/commit/26436a03fb8e0a8e058ae692fbc0a3c4f1b60fbe))
+
+
+### Performance Improvements
+
+* GitHubのPR/Actionsポーリング間隔を専用定数の30秒に分離する ([7b43163](https://github.com/kt0319/any-console/commit/7b431637a0d7f71d06ee5334213972a055b535ea))
+* ブランチ一覧の未push件数計算をrev-list 1回に一括化する ([09dc81c](https://github.com/kt0319/any-console/commit/09dc81caeec67c0ba837ea6206590f3c14335f3d))
+
+
+### Refactor
+
+* bg-tertiary系ホバーを hover-bg / hover-bg-text ユーティリティに共通化 ([0aef9d7](https://github.com/kt0319/any-console/commit/0aef9d7e007c0cd8e7e240c6cd391f58c98c0cee))
+* bindホスト解決とloopback判定を common / config に共通化 ([3395162](https://github.com/kt0319/any-console/commit/33951624944589b9c1c9d704236ca912e4efdceb))
+* Detached Sessionsの表示位置と操作をシンプルにする ([5482c57](https://github.com/kt0319/any-console/commit/5482c577219dc32841a9c7aab3fdd761f12f91b1))
+* dev server URL組み立てとGitHub PR/run照合をui/utilsへ共通化する ([cb235d9](https://github.com/kt0319/any-console/commit/cb235d9b8fa51e9bf695ac91c29b303d79eb3442))
+* DispatchのセッションURL直書きをEP_TERMINAL_SESSIONS定数に置き換える ([7a9960c](https://github.com/kt0319/any-console/commit/7a9960c4a854c98b7c075f43593d6b750591b8b6))
+* Dispatchをワークスペース詳細のタブに統合する ([4e92f33](https://github.com/kt0319/any-console/commit/4e92f33dd32b27c616d4d4bcefdca135da25da2e))
+* Dispatch履歴の永続化をcommonのsave/load_json_fileへ一本化する ([f143609](https://github.com/kt0319/any-console/commit/f14360903f1530abffffe6e3cecdf8145fbb0e0c))
+* Dispatch直近履歴の保存スキーマをDispatchRequestに正規化する ([da2bb15](https://github.com/kt0319/any-console/commit/da2bb15bfe2e39410d8c69130509636738cc8ff5))
+* Dispatch行・FileBrowserヘッダー等の残る重複を共通化する ([4b7e171](https://github.com/kt0319/any-console/commit/4b7e171fa5ffa8e835026125042582f032809e05))
+* git fetch / stash drop の activity 記録を共通エピローグへ統一 ([7413f77](https://github.com/kt0319/any-console/commit/7413f77eaaf7e7cf7e54e127ca26f7e9e0688d8d))
+* GitHubファイルURL生成を buildGithubFileUrl に一本化 ([598e002](https://github.com/kt0319/any-console/commit/598e002f13b26509932d93848fbd5c9e6e75d320))
+* git操作成功時のactivity記録エピローグを git_helpers に共通化 ([7a56097](https://github.com/kt0319/any-console/commit/7a560974432d5ac6599365bb68d122631a37e98d))
+* Info Pillsのツールチップ組み立てとGitHubポーリング開始/停止を共通化 ([0693057](https://github.com/kt0319/any-console/commit/06930577cb1a3c443e7e25c78b1b2582e76f2511))
+* Info Pills定義をui/utils/info-pills.jsの単一テーブルから導出する ([d86fb51](https://github.com/kt0319/any-console/commit/d86fb512566cc57e340ff1f1a39ce01f5e57d6f2))
+* localStorage 永続化を storage.js のヘルパーに集約 ([f54e951](https://github.com/kt0319/any-console/commit/f54e9516e26aee63e7a5ed225dc753b9c7b72557))
+* Open Sessionをセッション一覧の最上部に配置しPCの閉じるボタンを整理する ([205b7fe](https://github.com/kt0319/any-console/commit/205b7fe99eb81c1f7b6347d796b74a66c63ae45e))
+* Open Sessionを下部固定メニューのSettingsの上に戻す ([1089dd5](https://github.com/kt0319/any-console/commit/1089dd5f4cb33afc1cb082f22ea68d2d10e267e3))
+* Open Workspaceのタイトルをボタン文言に揃える ([012b49e](https://github.com/kt0319/any-console/commit/012b49e51edd0e99c3a15ca6318ff7c1f47faaff))
+* PR/Actionsのワークスペース単位ポーリングを共通ファクトリに一本化する ([215076a](https://github.com/kt0319/any-console/commit/215076a705f723cd0857ecd43cb844ac28319c1e))
+* preview の subprocess 直呼びを run_subprocess_safe に統一 ([a7d7d07](https://github.com/kt0319/any-console/commit/a7d7d076552c93f5576ef0b9cb26c14387805e43))
+* secret_hash 除去フィルタを devices.py の strip_secret_hash に共通化 ([89ea723](https://github.com/kt0319/any-console/commit/89ea723980cc76495765ea154fd23465fa0793f2))
+* SendHistory / SendSnippet の重複を command-list.css と useEmbeddedPanel に集約 ([934c771](https://github.com/kt0319/any-console/commit/934c771ad1efd6cb0ee2d64867ba6c8987b0f4c7))
+* Serverピルのアイコン色をCSS変数（--lime）に切り出す ([c09ba63](https://github.com/kt0319/any-console/commit/c09ba63a95d912d17d4032dfe561e505b84ba738))
+* Server項目をDev Serverに改名しSettings配下へ移動する ([1527b8c](https://github.com/kt0319/any-console/commit/1527b8c6ee54ff775d637803c5f20a5c958cdac3))
+* Sessionsサイドバーと設定画面のナビゲーションを整理する ([82729c5](https://github.com/kt0319/any-console/commit/82729c50bd20fcf86aeb3ab946aed9eb6b57f8bc))
+* TerminalPaneのピルUIをInfoPillRow/PillPeekと専用composableに分割する ([86c983e](https://github.com/kt0319/any-console/commit/86c983ef84d6ad71b405b46e6ff753813d4379b0))
+* WebSocket購読者へのfan-out送信を ws_broadcast に共通化 ([f4ad0d5](https://github.com/kt0319/any-console/commit/f4ad0d51f311f45831c00d8fc00f2ad5643f7936))
+* WorkspaceDetailのペイン読み込み状態をusePaneLoaderに集約する ([b47641c](https://github.com/kt0319/any-console/commit/b47641ccf627e50da32843452460b93045fbbffb))
+* worktree削除の二重実装を共通composableと確認文言ビルダに一本化する ([d4b8749](https://github.com/kt0319/any-console/commit/d4b874996892e098bb5f2178d5b1befc4c9fca6a))
+* サーバ設定ストアの load/save 定型を createServerSettings に共通化 ([70e3413](https://github.com/kt0319/any-console/commit/70e3413909b768e120765e69a6652719721e597b))
+* スレッド越しのループ呼び出しと bind ホスト変換を共通化 ([4e9c015](https://github.com/kt0319/any-console/commit/4e9c0151e69b2155e720c942c327e08a2b5e2eeb))
+* セッションタブバーの「+」ボタンを削除する ([af00aab](https://github.com/kt0319/any-console/commit/af00aabd4ead26e70a186b7d772aab4dde06fe31))
+* タブ・セッション行・ソフトキーボードの残る重複を整理 ([375fd9e](https://github.com/kt0319/any-console/commit/375fd9ef0c681381bb1b4873ce56bc17040b741e))
+* パスのbasename/dirname処理をui/utils/path.jsに共通化する ([cbbc7c0](https://github.com/kt0319/any-console/commit/cbbc7c0f15bcad8eb0325111475fc067d8a319f3))
+* バックグラウンド git fetch を git_utils.background_fetch に共通化 ([d292b0b](https://github.com/kt0319/any-console/commit/d292b0b4eef06f50640414b5fe73c423c188c008))
+* フォーム要素判定とWS再接続バックオフ計算を共通化 ([6d96ba8](https://github.com/kt0319/any-console/commit/6d96ba8ac3b3192498b49502c8cab51e68f91ca8))
+* モーダル・設定メニューの重複CSSをグローバルCSSへ集約 ([1a51807](https://github.com/kt0319/any-console/commit/1a51807b8f1fdfa800b24928e0a562cdee621d29))
+* ワークスペース系URLの組み立てを endpoints.js に集約 ([db10ce5](https://github.com/kt0319/any-console/commit/db10ce5488bf8ab29b08a8610cdeb79ffa91b0e9))
+* 削除・discardの確認文言をconfirmIrreversibleに統一する ([7906c7b](https://github.com/kt0319/any-console/commit/7906c7b607057ae609b3317e52d0ef88d9d1c6ef))
+* 外部URLを開く処理を openExternal に統一 ([f2efc59](https://github.com/kt0319/any-console/commit/f2efc59f7e57c60153d684f0cd510cea5854360e))
+* 常駐タスクの stale 判定と停止を common に共通化 ([1c8974b](https://github.com/kt0319/any-console/commit/1c8974b600d958f42fab4b5e9ec316209d5b2d51))
+* 常駐タスクの起動/停止判定を task_stale / cancel_task_quietly に統一 ([24cb5ed](https://github.com/kt0319/any-console/commit/24cb5edd5ed9ddb4494de311096fed39aa3319fd))
+* 廃止済みWorkspaceStatusBar向けの未使用派生値を削除しドキュメント乖離を修正する ([e746bbc](https://github.com/kt0319/any-console/commit/e746bbc3532748253f27170138397c0546516c1c))
+* 散在していたUI数値定数を constants.js に集約 ([ad1547d](https://github.com/kt0319/any-console/commit/ad1547df717da0d660eb67b85e4cf160705ac156))
+* 通知猶予秒数の解決を config.notification_grace_sec に一本化 ([645afda](https://github.com/kt0319/any-console/commit/645afda49c4d1f171cbb58e84b9ea33318d12467))
+* 重複していたCSSアニメーション定義を base.css に集約 ([c00f455](https://github.com/kt0319/any-console/commit/c00f455d02d19c768d88cca0c610e587fb3ef260))
+
+
+### Tests
+
+* _branch_tracking_infoのフォーマット変更(objectname追加)にテストを追従させる ([0ad9292](https://github.com/kt0319/any-console/commit/0ad9292c53702047513e3914de88aa9e92f58f8a))
+* 廃止済みUIを参照していたE2Eを現行導線に追随させる ([982bb39](https://github.com/kt0319/any-console/commit/982bb39afd53e679795247e73b4c0559a73f2999))
+* 廃止済みセレクタを参照していたE2Eテストを修正する ([67a78ce](https://github.com/kt0319/any-console/commit/67a78ce1c7a3b5e1503746578492b3e2b8746b3e))
+
 ## [0.10.0](https://github.com/kt0319/any-console/compare/v0.9.0...v0.10.0) (2026-08-06)
 
 
