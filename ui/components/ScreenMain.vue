@@ -1,13 +1,19 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': keyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
+    <!-- PCのサイドバーはTabBarの行と同じ高さにヘッダー（Sessions/設定タイトル）を
+         揃えたいため、.content-area配下ではなく.main-panel直下に置く。
+         .content-area内に置くとactive-tab-title分だけ下にずれ、TabBarの行と
+         サイドバーのヘッダーの間に無駄な空白ができてしまう（モバイルの
+         Modal.vueは全面オーバーレイのままで問題ないため対象外）。 -->
+    <SessionSidebar />
     <div class="active-tab-title">
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
-    <div class="content-area">
+    <div class="content-area" :class="{ 'content-area-sidebar-open': isSessionSidebarOpen && !isPanelBottom }">
       <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
         <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
       </div>
@@ -20,6 +26,7 @@
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
       <Modal />
+      <WorkspaceDetailModal />
     </div>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
     <div v-if="booting || isLaunching" class="block-layer"></div>
@@ -34,6 +41,8 @@ import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
+import WorkspaceDetailModal from "./WorkspaceDetailModal.vue";
+import SessionSidebar from "./SessionSidebar.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -131,6 +140,7 @@ const debugInfo = computed(() => {
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
+const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
 let mainPanelResizeObserver = null;
 
@@ -234,6 +244,16 @@ defineExpose({
   min-height: 0;
 }
 
+/* PCでセッションサイドバーを開いている間は、ターミナルに被せず
+   SessionSidebar.vue の幅（--session-sidebar-width）ぶん右へ縮める。TabBar.vue の
+   .tab-bar-row-sidebar-open と同じ幅を使う。marginで実際の描画幅を
+   変えることで、TerminalBase配下のResizeObserver（useTerminalResize.js）
+   が幅変化を検知して自動でfitTerminal/sendResizeする（オーバーレイで
+   隠すだけだと見た目は隠れても列数はリサイズされないため）。 */
+.content-area-sidebar-open {
+  margin-left: var(--session-sidebar-width);
+}
+
 .screen-main-empty {
   flex: 1;
   min-height: 0;
@@ -325,6 +345,11 @@ defineExpose({
   border-bottom: none;
   border-top: 1px solid var(--border);
   padding-bottom: 0;
+  /* モバイルの.tab-btn（padding 12px 16px）はTabBar.vue既定のmin-height(37px)
+     より実高さが大きく、タブが1件も無い時（.tab-barが空）だけ37pxに縮んで
+     見えてしまう。タブ有無で行の高さが変わらないよう、タップターゲットの
+     推奨サイズ（44px）をここで床にする。 */
+  min-height: 44px;
 }
 
 .main-panel.panel-bottom :deep(.tab-bar) {

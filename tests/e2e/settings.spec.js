@@ -11,12 +11,12 @@ test.describe("settings modal", () => {
     await login(page, context, token);
     // 既存セッションの有無に依らず開けるグローバルショートカット（⌘⇧.）で開く
     await page.keyboard.press("Meta+Shift+Period");
-    await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
   });
 
   test("設定メニューが表示される", async ({ page }) => {
     await expect(page.locator(".modal-title")).toHaveText("Settings");
-    for (const label of ["Workspaces", "Terminal", "Auth", "System Info"]) {
+    for (const label of ["Terminal", "Auth", "System Info"]) {
       await expect(page.locator(".settings-menu-item", { hasText: label }).first()).toBeVisible();
     }
   });
@@ -27,16 +27,17 @@ test.describe("settings modal", () => {
     // タイトル（戻るボタン）でメニューに戻れる
     await page.locator(".modal-title-wrap").click();
     await expect(page.locator(".modal-title")).toHaveText("Settings");
-    await expect(page.locator(".settings-menu-item", { hasText: "Workspaces" }).first()).toBeVisible();
+    await expect(page.locator(".settings-menu-item", { hasText: "Terminal" }).first()).toBeVisible();
   });
 
   test("Esc キーでモーダルが閉じる", async ({ page }) => {
     await page.keyboard.press("Escape");
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 
-  test("歯車ボタン（Close）でモーダルが閉じる", async ({ page }) => {
-    await page.locator(".tab-settings-btn").click();
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+  test("ハンバーガーボタン（Close）でモーダルが閉じる", async ({ page }) => {
+    // 歯車ボタンは廃止され、ハンバーガー1つでセッション一覧+設定を開閉する。
+    await page.locator(".tab-menu-btn").click();
+    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 });

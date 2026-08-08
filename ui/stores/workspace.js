@@ -3,26 +3,18 @@ import { ref, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { EP_GROUPS, EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.js";
 import { LS_PREFIX_WS_META } from "../utils/constants.js";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
 
 const STATUS_CACHE_KEY = LS_PREFIX_WS_META + "status_cache";
 const STATUS_CACHE_FIELDS = ["last_commit_message", "branch"];
 
 function loadStatusCache() {
-  try {
-    const raw = localStorage.getItem(STATUS_CACHE_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  const parsed = safeJsonLoad(STATUS_CACHE_KEY, null);
+  return parsed && typeof parsed === "object" ? parsed : {};
 }
 
 function saveStatusCache(cache) {
-  try {
-    localStorage.setItem(STATUS_CACHE_KEY, JSON.stringify(cache));
-  } catch {
-    /* quota or other — ignore */
-  }
+  safeJsonSave(STATUS_CACHE_KEY, cache);
 }
 
 export const useWorkspaceStore = defineStore("workspace", () => {

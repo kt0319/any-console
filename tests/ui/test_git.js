@@ -310,6 +310,11 @@ describe("buildGithubFileUrl", () => {
   it("refが空なら空文字列", () => {
     expect(buildGithubFileUrl("https://github.com/u/repo", "", "src/app.js")).toBe("");
   });
+
+  it("builds tree URL when type is tree", () => {
+    expect(buildGithubFileUrl("https://github.com/u/repo", "main", "src", "tree"))
+      .toBe("https://github.com/u/repo/tree/main/src");
+  });
 });
 
 describe("dirtyBadgeHtml", () => {

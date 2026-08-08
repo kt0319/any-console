@@ -2,11 +2,16 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { terminalSessionFileContentPath, terminalSessionFilesPath } from "../utils/endpoints.js";
+import {
+  terminalSessionFileContentPath,
+  terminalSessionFilesPath,
+  workspaceFileContentPath,
+  workspaceFilesPath,
+} from "../utils/endpoints.js";
 
 export function useFileBrowserNav({ getTerminalSessionId = () => "" } = {}) {
   const workspaceStore = useWorkspaceStore();
-  const { apiGet, wsEndpoint } = useApi();
+  const { apiGet } = useApi();
 
   const currentPath = ref("");
   const entries = ref([]);
@@ -21,7 +26,7 @@ export function useFileBrowserNav({ getTerminalSessionId = () => "" } = {}) {
 
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return "";
-    return wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`);
+    return workspaceFilesPath(workspace, path);
   }
 
   function resolveFileEndpoint(path) {
@@ -30,7 +35,7 @@ export function useFileBrowserNav({ getTerminalSessionId = () => "" } = {}) {
 
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return "";
-    return wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`);
+    return workspaceFileContentPath(workspace, path);
   }
 
   async function navigateToPath(path) {

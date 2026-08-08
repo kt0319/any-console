@@ -21,12 +21,13 @@ import { ref, onMounted } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { on } from "../app-bridge.js";
 import { useCopyFeedback } from "../composables/useCopyFeedback.js";
+import { openExternal } from "../utils/open-external.js";
 
 const terminalUrl = ref("");
 const { copied, copy } = useCopyFeedback();
 
 function doUrlOpen() {
-  if (terminalUrl.value) window.open(terminalUrl.value, "_blank", "noopener,noreferrer");
+  openExternal(terminalUrl.value);
   terminalUrl.value = "";
 }
 

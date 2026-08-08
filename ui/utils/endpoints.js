@@ -11,6 +11,7 @@ export const EP_AUTH_CHECK = "/auth/check";
 export const EP_AUTH_LOGOUT = "/auth/logout";
 export const EP_AUTH_PAIRING_START = "/auth/pairing/start";
 export const EP_DEVICES = "/devices";
+export const EP_DEVICES_REGISTER = "/devices/register";
 export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";
 export const EP_WORKSPACES_SUGGEST = "/workspaces/suggest";
@@ -138,6 +139,16 @@ export function workspaceDownloadPath(workspace, filePath) {
 /** @param {string} workspace @param {string} filePath @returns {string} */
 export function workspaceFileContentPath(workspace, filePath) {
   return `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(filePath)}`;
+}
+
+/** @param {string} workspace @param {string} [path] @returns {string} */
+export function workspaceFilesPath(workspace, path = "") {
+  return `/workspaces/${encodeURIComponent(workspace)}/files?path=${encodeURIComponent(path)}`;
+}
+
+/** @param {string} workspace @param {string} hash @returns {string} */
+export function workspaceCommitDiffPath(workspace, hash) {
+  return `/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(hash)}`;
 }
 
 /** @param {string} workspace @param {string} hash @returns {string} */

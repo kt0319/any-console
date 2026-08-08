@@ -10,6 +10,8 @@ import {
   workspaceGitDiscardPath,
   workspaceDownloadPath,
   workspaceFileContentPath,
+  workspaceFilesPath,
+  workspaceCommitDiffPath,
   workspaceCommitMessagePath,
   workspaceFileHistoryPath,
   workspaceFileDiffPath,
@@ -109,6 +111,30 @@ describe("workspaceFileHistoryPath", () => {
 describe("workspaceFileDiffPath", () => {
   it("builds file diff path", () => {
     expect(workspaceFileDiffPath("repo", "abc123", "src/app.js")).toBe("/workspaces/repo/file-diff/abc123?path=src%2Fapp.js");
+  });
+});
+
+describe("workspaceFilesPath", () => {
+  it("builds files listing path", () => {
+    expect(workspaceFilesPath("repo", "src/lib")).toBe("/workspaces/repo/files?path=src%2Flib");
+  });
+
+  it("defaults to empty path", () => {
+    expect(workspaceFilesPath("repo")).toBe("/workspaces/repo/files?path=");
+  });
+
+  it("encodes workspace name", () => {
+    expect(workspaceFilesPath("my ws", "a")).toBe("/workspaces/my%20ws/files?path=a");
+  });
+});
+
+describe("workspaceCommitDiffPath", () => {
+  it("builds commit diff path", () => {
+    expect(workspaceCommitDiffPath("repo", "abc123")).toBe("/workspaces/repo/diff/abc123");
+  });
+
+  it("encodes hash", () => {
+    expect(workspaceCommitDiffPath("repo", "a b")).toBe("/workspaces/repo/diff/a%20b");
   });
 });
 

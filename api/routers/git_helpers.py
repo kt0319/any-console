@@ -2,6 +2,7 @@ import logging
 import subprocess
 from contextlib import contextmanager
 
+from ..activity import log_activity
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
     GIT_SHORT_TIMEOUT_SEC,
@@ -24,6 +25,25 @@ def execute_git_action(name, args, *, timeout=GIT_LONG_TIMEOUT_SEC, operation=""
         _action_logger.info("git %s workspace=%s%s rc=%d", operation, name, extra, result["exit_code"])
         invalidate_git_info(name)
         return result
+
+
+def execute_git_action_with_activity(
+    name, ws_path, args, *, operation, event, log_extra="", env=None,
+    resolve_head=True, **activity_fields,
+):
+    """execute_git_action の成功時に activity を記録する定型（各 git ルートの共通エピローグ）。
+
+    resolve_head=True なら成功後の HEAD を解決して commit フィールドに載せる。
+    commit を自前で渡すルート（reset・ブランチ削除等）は resolve_head=False にして
+    activity_fields で指定する。result に追記が必要なルート（pull/push の commits 等）は
+    このヘルパーを使わず個別に組む。
+    """
+    result = execute_git_action(name, args, operation=operation, env=env, log_extra=log_extra)
+    if result["status"] == "ok":
+        if resolve_head:
+            activity_fields["commit"] = rev_parse(ws_path, "HEAD", f"rev-parse after {operation}")
+        log_activity(name, event, **activity_fields)
+    return result
 
 
 @contextmanager

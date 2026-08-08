@@ -4,6 +4,7 @@ import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { useToast } from "./useToast.js";
 import { formatRemoteToast } from "../utils/git-remote.js";
+import { TOAST_DEFAULT_DURATION_MS, TOAST_DETAIL_DURATION_MS } from "../utils/constants.js";
 
 /** @type {Record<string, { label: string, confirm: string }>} */
 const REMOTE_ACTIONS = {
@@ -71,7 +72,7 @@ export function useGitRemoteAction() {
     if (!ok) return;
     const message = formatRemoteToast(wsName, label, data);
     const hasDetail = message.includes("\n");
-    toast.success(message, { duration: hasDetail ? 5000 : 3000, action: { event: "git:openHistory", wsName } });
+    toast.success(message, { duration: hasDetail ? TOAST_DETAIL_DURATION_MS : TOAST_DEFAULT_DURATION_MS, action: { event: "git:openHistory", wsName } });
     workspaceStore.fetchStatuses();
   }
 

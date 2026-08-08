@@ -1,3 +1,5 @@
+import { TOOLTIP_HIDE_DELAY_MS } from "./constants.js";
+
 let tooltipEl = null;
 let textEl = null;
 let hideTimer = null;
@@ -43,7 +45,7 @@ function hide() {
   tooltipEl.style.opacity = "0";
   hideTimer = setTimeout(() => {
     if (tooltipEl) tooltipEl.style.display = "none";
-  }, 100);
+  }, TOOLTIP_HIDE_DELAY_MS);
 }
 
 export function installTooltip() {

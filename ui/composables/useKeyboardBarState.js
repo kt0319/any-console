@@ -1,11 +1,6 @@
 import { ref, computed, nextTick, onUnmounted, watch } from "vue";
 import { on, emit } from "../app-bridge.js";
 
-// スニペット/履歴の挿入は設定画面（Modal）側の画面として表示する。
-// ボタンタップごとの巡回順（非表示 → Snippets → History → 非表示）は維持しつつ、
-// 遷移先を設定モーダルの該当ビューへの pushView に置き換える。
-const SNIPPET_PANEL_SETTINGS_VIEW = { snippets: "SendSnippet", history: "SendHistory" };
-
 /**
  * KeyboardBar の入力 / スニペット状態とキーボード開閉を管理する。
  *
@@ -18,8 +13,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }) {
   const isFullKeyboard = ref(false);
   const draft = ref("");
   const inputFocused = ref(false);
-  // ボタンタップごとの巡回順: 非表示 → スニペット一覧 → 入力履歴 → 非表示…
-  const SNIPPET_PANEL_VIEWS = ["none", "snippets", "history"];
   const snippetPanelView = ref("none");
   const showSnippetView = computed(() => snippetPanelView.value !== "none");
   const hasDraft = computed(() => draft.value.trim().length > 0);
@@ -28,20 +21,24 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }) {
     inputFocused.value = !!focused;
   }
 
-  function toggleSnippetView() {
-    const nextIndex = (SNIPPET_PANEL_VIEWS.indexOf(snippetPanelView.value) + 1) % SNIPPET_PANEL_VIEWS.length;
-    const next = SNIPPET_PANEL_VIEWS[nextIndex];
-    snippetPanelView.value = next;
-    if (next === "none") {
-      emit("modal:close");
-      return;
-    }
+  // History/Snippetタブの直接選択。fnビューと同じくQWERTYパネル内に直接
+  // オーバーレイ表示する（設定モーダルは開かない）。タブ帯の他のタブと同じく
+  // 選択式（トグルではない）にするため、既に開いている方を再タップしても
+  // 閉じない（閉じる操作はQWERTYタブ/×ボタンに一本化）。
+  function openSnippetPanelView(view) {
+    snippetPanelView.value = view;
     clearModifiers();
-    emit("settings:open", { view: SNIPPET_PANEL_SETTINGS_VIEW[next] });
+  }
+
+  function openSnippetPanel() {
+    openSnippetPanelView("snippets");
+  }
+
+  function openHistoryPanel() {
+    openSnippetPanelView("history");
   }
 
   function closeSnippetPanel() {
-    if (snippetPanelView.value !== "none") emit("modal:close");
     snippetPanelView.value = "none";
   }
 
@@ -74,9 +71,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }) {
 
   const cleanups = [
     on("keyboard:deactivate", hideInput),
-    // 設定モーダルが（Snippets/History以外の理由も含め）閉じたら巡回状態をリセットする。
-    // そうしないと次のタップが「閉じる」扱いのまま出戻ってしまう。
-    on("settings:closed", () => { snippetPanelView.value = "none"; }),
     on("keyboard:setDraft", ({ command }) => {
       draft.value = command;
     }),
@@ -92,7 +86,7 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }) {
 
   return {
     isFullKeyboard, draft, inputFocused, showSnippetView, snippetPanelView, hasDraft,
-    onInputFocused, toggleSnippetView, closeSnippetPanel,
+    onInputFocused, openSnippetPanel, openHistoryPanel, closeSnippetPanel,
     hideInput, dismissKeyboard, onSubmitted,
   };
 }

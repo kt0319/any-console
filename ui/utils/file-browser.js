@@ -1,4 +1,5 @@
 import { formatSize } from "./format.js";
+import { buildGithubFileUrl } from "./git.js";
 
 export function joinEntryPath(parentPath, name) {
   return parentPath ? `${parentPath}/${name}` : name;
@@ -19,7 +20,9 @@ export function entrySizeText(entry) {
 
 export function buildGithubEntryUrl(workspace, currentPath, entry) {
   if (!workspace?.github_url || !entry) return "";
-  const branch = workspace.branch || "main";
   const type = entry.type === "dir" ? "tree" : "blob";
-  return `${workspace.github_url}/${type}/${branch}/${joinEntryPath(currentPath, entry.name)}`;
+  return buildGithubFileUrl(
+    workspace.github_url, workspace.branch || "main",
+    joinEntryPath(currentPath, entry.name), type,
+  );
 }

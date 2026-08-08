@@ -1,6 +1,5 @@
 import asyncio
 import fcntl
-import ipaddress
 import logging
 import os
 import re
@@ -21,7 +20,15 @@ from fastapi.staticfiles import StaticFiles
 from . import auth as auth_module
 from .auth import verify_token
 from .client_log import ClientLogMiddleware
-from .common import BACKGROUND_EXECUTOR, BACKGROUND_FETCH_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
+from .common import (
+    BACKGROUND_EXECUTOR,
+    BACKGROUND_FETCH_EXECUTOR,
+    MAX_UPLOAD_SIZE,
+    UPLOAD_DIR,
+    display_bind_host,
+    is_loopback_host,
+)
+from .config import resolve_bind
 from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
@@ -48,37 +55,11 @@ from .routers import preview as preview_router
 from .routers import push as push_router
 from .security_headers import SecurityHeadersMiddleware
 
-DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
-DEFAULT_PORT = 8888
-
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
-
-
-def _resolve_bind() -> tuple[str, int]:
-    """config.json の __global__.host / __global__.port を読む。未設定はデフォルト。"""
-    from .config import load_global_config_section
-    host = load_global_config_section("host", "") or DEFAULT_HOST
-    port_raw = load_global_config_section("port", 0)
-    try:
-        port = int(port_raw) if port_raw else DEFAULT_PORT
-    except (TypeError, ValueError):
-        port = DEFAULT_PORT
-    return str(host), port
-
-
-def _is_loopback_host(host: str) -> bool:
-    if not host:
-        return False
-    if host.lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
 
 
 def _is_auth_disabled() -> bool:
@@ -130,7 +111,7 @@ def _print_token_notice(host: str, port: int, token: str) -> None:
     # SECURITY: トークンを URL のクエリに埋め込まない。埋め込むとブラウザ履歴・
     # プロキシ/アクセスログに残る（UI はクエリの token を消費しないので利点もない）。
     # 起動ログへの平文出力は初回ブートストラップに必要な一度きりの妥協。
-    display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
+    display_host = display_bind_host(host)
     url = f"http://{display_host}:{port}/"
     border = "=" * 64
     qr = _render_terminal_qr(token)
@@ -151,7 +132,7 @@ def _print_token_notice(host: str, port: int, token: str) -> None:
 
 
 def _emit_insecure_bind_warning(host: str) -> None:
-    if auth_module.ANY_CONSOLE_TOKEN or _is_loopback_host(host) or _is_auth_disabled():
+    if auth_module.ANY_CONSOLE_TOKEN or is_loopback_host(host) or _is_auth_disabled():
         return
     border = "!" * 72
     logger.warning(
@@ -213,7 +194,7 @@ def _release_singleton_lock() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    host, port = _resolve_bind()
+    host, port = resolve_bind()
     if not _acquire_singleton_lock(port):
         raise SystemExit(1)
     if not _is_auth_disabled():
@@ -224,8 +205,7 @@ async def lifespan(app: FastAPI):
     from .preview import set_self_ports, start_scanner, stop_scanner
     from .push import has_subscriptions, init_vapid
     from .routers.dispatch import _load_persisted_pending, _load_persisted_recent
-    _display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
-    init_vapid(sub=f"https://{_display_host}")
+    init_vapid(sub=f"https://{display_bind_host(host)}")
     set_self_ports([port])
     start_scanner()
     from .manifest_update import start_updater, stop_updater
@@ -520,7 +500,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 if __name__ == "__main__":
     ssl_keyfile = os.environ.get("SSL_KEYFILE")
     ssl_certfile = os.environ.get("SSL_CERTFILE")
-    host, port = _resolve_bind()
+    host, port = resolve_bind()
     if ssl_keyfile and ssl_certfile:
         uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
                     ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile,

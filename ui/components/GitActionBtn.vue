@@ -104,12 +104,9 @@ defineEmits(["action"]);
   border: 2px solid rgba(130, 170, 255, 0.3);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: git-action-spin 0.6s linear infinite;
+  animation: spin 0.6s linear infinite;
 }
 
-@keyframes git-action-spin {
-  to { transform: rotate(360deg); }
-}
 
 .git-action-btn.disabled {
   opacity: 0.6;

@@ -34,7 +34,7 @@ class TestCheckout:
         head = _git_commit(git_workspace, "a.txt", "a", "init")
         subprocess.run(["git", "branch", "feature"], cwd=git_workspace, check=True, capture_output=True)
 
-        with mock.patch("api.routers.git_branches.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/checkout", headers=AUTH, json={"branch": "feature"})
         assert res.status_code == 200
         log.assert_called_once_with("test-ws", "git_checkout", branch="feature", commit=head)
@@ -65,7 +65,7 @@ class TestCreateBranch:
         from unittest import mock
         head = _git_commit(git_workspace, "a.txt", "a", "init")
 
-        with mock.patch("api.routers.git_branches.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/create-branch", headers=AUTH, json={"branch": "new-feature"})
         assert res.status_code == 200
         log.assert_called_once_with("test-ws", "git_create_branch", branch="new-feature", commit=head)
@@ -129,7 +129,7 @@ class TestCommit:
         _git_commit(git_workspace, "a.txt", "a", "init")
         (git_workspace / "b.txt").write_text("new file", encoding="utf-8")
 
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/commit", headers=AUTH, json={"message": "add b"})
         assert res.status_code == 200
 

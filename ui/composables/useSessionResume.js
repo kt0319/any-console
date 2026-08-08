@@ -2,6 +2,7 @@ import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useTerminal } from "./useTerminal.js";
 import { useSessionSync } from "./useSessionSync.js";
+import { SESSION_RESUME_COALESCE_MS } from "../utils/constants.js";
 
 export function useSessionResume({ terminalBaseView }) {
   const terminalStore = useTerminalStore();
@@ -18,7 +19,7 @@ export function useSessionResume({ terminalBaseView }) {
     resumeCoalesceTimer = setTimeout(() => {
       resumeCoalesceTimer = null;
       handleResume();
-    }, 100);
+    }, SESSION_RESUME_COALESCE_MS);
   }
 
   function handleResume() {

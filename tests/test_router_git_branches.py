@@ -364,7 +364,7 @@ class TestCreateBranchWithBase:
     def test_base_branch_appended_to_args(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
-        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe:
+        with mock.patch("api.routers.git_helpers.execute_git_action", return_value=ok) as exe:
             res = client.post(
                 "/workspaces/test-ws/create-branch",
                 headers=AUTH,
@@ -400,8 +400,8 @@ class TestGitSetUpstream:
     def test_set_upstream_invokes_git_action(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
-        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe, \
-             mock.patch("api.routers.git_branches.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.execute_git_action", return_value=ok) as exe, \
+             mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/set-upstream", headers=AUTH)
         assert res.status_code == 200
         args = exe.call_args[0][1]
@@ -414,9 +414,9 @@ class TestGitPushUpstream:
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
         rev_result = {"status": "ok", "exit_code": 0, "stdout": "jkl012\n", "stderr": "", "detail": ""}
-        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe, \
+        with mock.patch("api.routers.git_helpers.execute_git_action", return_value=ok) as exe, \
              mock.patch("api.routers.git_helpers.run_git_command", return_value=rev_result), \
-             mock.patch("api.routers.git_branches.log_activity") as log:
+             mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/push-upstream", headers=AUTH)
         assert res.status_code == 200
         args = exe.call_args[0][1]

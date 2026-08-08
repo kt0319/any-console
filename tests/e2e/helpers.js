@@ -143,7 +143,10 @@ export async function deleteWorkspaceViaApi(request, token, name) {
  */
 export async function openSettingsModal(page) {
   await page.keyboard.press("Meta+Shift+Period");
-  await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
+  // .modal-overlay はモバイル幅（Modal.vue）だけに出る要素のため、PC幅の
+  // デフォルトビューポート（SessionSidebar.vue経由）でも共通して存在する
+  // .settings-panel（Modal.vue/SessionSidebar.vueの両方が使う中身）で待つ。
+  await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -156,11 +159,30 @@ export async function openSettingsView(page, label) {
 }
 
 /**
- * Settings → Workspaces → 「+」ボタンから Add Workspace 画面を開く。
+ * Workspaces（WorkspaceOpen）を開く。SettingsのModalMenu配下ではなく、
+ * ハンバーガーで開くセッション一覧下部メニューの「Open」から直接開く導線に
+ * 統一されている。下部メニューはSessionsルート表示中しか存在しないため、
+ * 既に設定画面の奥にいる場合はタイトルの戻るボタンでルートまで遡ってから開く。
+ * @param {import("@playwright/test").Page} page
+ */
+export async function openWorkspaces(page) {
+  // ハンバーガーは開く度にセッション一覧へリセットされるが、既に開いている
+  // 状態で押すと閉じてしまうため、未オープンの時だけ押す。
+  if (!(await page.locator(".settings-panel").isVisible())) {
+    await page.locator(".tab-menu-btn").click();
+  }
+  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
+    await page.locator(".modal-title-wrap").click();
+  }
+  await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open" }).click();
+}
+
+/**
+ * Workspaces → 「+」ボタンから Add Workspace 画面を開く。
  * @param {import("@playwright/test").Page} page
  */
 export async function openAddWorkspace(page) {
-  await openSettingsView(page, "Workspaces");
+  await openWorkspaces(page);
   // Add workspaceボタンはEditモード中のみ表示される
   const addBtn = page.locator('[data-tooltip="Add workspace"]');
   if (!(await addBtn.isVisible())) {

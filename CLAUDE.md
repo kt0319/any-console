@@ -97,13 +97,14 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
   - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
-  - `tabs.spec.js`: Tabs & Sessions（タブ一覧・アクティブ切替・デタッチ / 再アタッチ・クローズ確認）
+  - `session-menu.spec.js`: Sessionsページ下部メニュー（Open / Dispatches / Server / Settings）遷移とタイトル連動、ページを離れるとメニューが消えること
+  - `detached-sessions.spec.js`: Detached sessions（タブに紐付かないtmuxセッション）のOpen/Adopt/Close
   - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
-  - `snippets.spec.js`: スニペットの追加・削除（テスト前の状態を API で復元）
+  - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit / History / Branches / Jobs / Stash）とディープリンク（テスト用 git リポジトリを一時領域に作成）
   - `split.spec.js`: タブドラッグによるターミナル分割と SplitModeSelector での軸切替え（ピル群の上下位置はドラッグ切替えを廃止し、デバイスに応じて自動決定される）
-  - `preview.spec.js`: Port Preview の検出と proxy 経由アクセス
+  - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログ（Open / Copy）からの proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
   - `mobile-terminal.spec.js`: モバイルでのターミナル + KeyboardBar 表示
   - 共通ヘルパー（ログイン・セッション後始末・設定モーダル操作・Bearer ヘッダ）は `helpers.js`

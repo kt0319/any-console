@@ -8,6 +8,13 @@
         <RecentJobsList />
       </template>
 
+      <template v-if="detachedSessions.length">
+        <div class="settings-category-head">
+          <span class="settings-category-title">Detached</span>
+        </div>
+        <DetachedSessionsList />
+      </template>
+
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
         <span class="ws-toolbar-spacer"></span>
@@ -151,10 +158,12 @@ const _collapsedGroups = new Set();
 </script>
 
 <script setup>
-import { computed, inject, ref, reactive, onMounted, onBeforeUnmount } from "vue";
+import { computed, inject, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
+import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
+import { useDetachedSessions } from "../composables/useDetachedSessions.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
@@ -165,6 +174,7 @@ import { useWorktreeRemove } from "../composables/useWorktreeRemove.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
+import DetachedSessionsList from "./DetachedSessionsList.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
@@ -174,8 +184,10 @@ import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/w
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
-modalTitle.value = "Workspaces";
+const popView = inject("popView");
+modalTitle.value = "Open Session";
 
+const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, wsEndpoint } = useApi();
 const { removeWorktreeRequest } = useWorktreeRemove();
@@ -183,6 +195,7 @@ const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
+const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -292,7 +305,8 @@ async function loadWorkspaceOverview() {
 }
 
 function openBareTerminal() {
-  bridgeEmit("modal:close");
+  // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
+  // のopenTerminal/runJobと同様）。
   bridgeEmit("terminal:launch", {});
 }
 
@@ -323,7 +337,9 @@ function toggleJobs(ws) {
 
 function openChanges(ws) {
   workspaceStore.selectedWorkspace = ws.name;
-  pushView("WorkspaceDetail", { detail: { pane: "changes" } });
+  // WorkspaceDetailはSettingsのスタックとは独立しているため、他のピル等と
+  // 同じgit:openFileModalイベント経由で開く（useSettingsNav.js参照）。
+  bridgeEmit("git:openFileModal", { pane: "changes" });
 }
 
 function openEditWs(ws) {
@@ -344,6 +360,18 @@ async function removeWorktree(base, wt) {
 onMounted(() => {
   loadWorkspaceOverview();
   loadRecentJobs();
+  loadDetachedSessions();
+});
+
+// このビューが開いている間にタブがDetachされる（TabItem/TerminalPaneの
+// 閉じるダイアログ経由）と開いているタブ数が減る。マウント時の1回取得だけ
+// では反映されないため、タブ数が変わるたびに再取得して同期する。
+watch(() => terminalStore.openTabs.length, (newLen, oldLen) => {
+  loadDetachedSessions();
+  // Openページから新規タブを作成した（Workspace/Job/New terminal起動、
+  // WorkspaceJobsPane経由も含む）場合は、作られたタブを見に行きやすいよう
+  // Sessions一覧へ自動で戻る。タブ数が減った時（Detach等）は対象外。
+  if (newLen > oldLen) popView();
 });
 
 onBeforeUnmount(() => {

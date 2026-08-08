@@ -130,15 +130,10 @@ def hook_session_env(tmux_session_name: str) -> dict[str, str]:
     そのセッションでは hooks が無効になるだけ）。
     """
     try:
-        from .config import load_global_config_section
-        host = str(load_global_config_section("host", "") or "")
-        if not host or host in ("0.0.0.0", "::"):  # noqa: S104 - bind 判定であり接続先は loopback
+        from .config import resolve_bind
+        host, port = resolve_bind()
+        if host in ("0.0.0.0", "::"):  # noqa: S104 - bind 判定であり接続先は loopback
             host = "127.0.0.1"
-        port_raw = load_global_config_section("port", 0)
-        try:
-            port = int(port_raw) if port_raw else 8888
-        except (TypeError, ValueError):
-            port = 8888
         return {
             "ANY_CONSOLE_SESSION": tmux_session_name,
             "ANY_CONSOLE_HOOK_URL": f"http://{host}:{port}/agent-hooks/events",

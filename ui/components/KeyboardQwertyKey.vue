@@ -8,7 +8,7 @@
       @change="onCameraFileChange"
     />
     <div class="quick-extra-stack">
-      <div class="quick-extra-layer quick-extra-layer-qwerty" :class="{ 'layer-hidden': inputFocused || showFnView }">
+      <div class="quick-extra-layer quick-extra-layer-qwerty" :class="{ 'layer-hidden': inputFocused || showFnView || panelView !== 'none' }">
         <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
           <div
             v-if="ri === 2"
@@ -39,10 +39,19 @@
               </template>
               <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
             </div>
-            <!-- fn キーの旧スロット。列幅を他行と揃えるための非表示プレースホルダ
-                 （実体は quick-extra-stack 直下に絶対配置で常時右下固定表示） -->
-            <div v-if="ri === 2 && ci === row.length - 1" class="quick-key quick-key-placeholder"></div>
           </template>
+          <!-- カメラキーの右にBSキーを追加する
+               （a行末尾の Backspace/flickUp:Delete キーとは別の入り口として並存）。 -->
+          <div
+            v-if="ri === 2"
+            class="quick-key"
+            @touchstart.prevent="onModifierKeyStart"
+            @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Backspace' }))"
+            @touchcancel="onQuickKeyCancel($event)"
+            @click="sendKeyToTerminal({ key: 'Backspace' })"
+          >
+            <span class="flick-main" style="font-size:11px">BS</span>
+          </div>
         </div>
       </div>
 
@@ -66,45 +75,6 @@
           </div>
         </div>
       </div>
-
-      <!-- fn キー: qwerty / fn のどちらのパネル表示中も同じ右下位置に固定表示する -->
-      <div
-        class="quick-key quick-modifier quick-fn-toggle"
-        :class="{ active: showFnView }"
-        @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, cycleFnKey)"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="cycleFnKey"
-      >
-        <span class="flick-main" style="font-size:12px">{{ fnKeyLabel }}</span>
-      </div>
-    </div>
-    <!-- shift/ctrl/space は KeyboardBar 側（isFullKeyboard 中に入力フォームと入れ替わる行）に移動済み。 -->
-    <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
-      <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
-      <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
-        <span class="flick-hint-top">&uarr;</span>
-        <span class="flick-hint-left">&larr;</span>
-        <span class="flick-main"><span class="mdi mdi-close"></span></span>
-        <span class="flick-hint-right">&rarr;</span>
-        <span class="flick-hint-bottom">&darr;</span>
-      </div>
-      <div
-        class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
-        :class="{ 'enter-send-mode': hasDraft, 'enter-disabled': inputFocused && !hasDraft }"
-        ref="topEnterFlickEl"
-      >
-        <template v-if="hasDraft">
-          <span class="flick-main"><span class="mdi mdi-send"></span></span>
-        </template>
-        <template v-else>
-          <span class="flick-hint-top">Tab</span>
-          <span class="flick-hint-left">BS</span>
-          <span class="flick-main">&crarr;</span>
-          <span class="flick-hint-bottom">Space</span>
-          <span class="flick-hint-right">Del</span>
-        </template>
-      </div>
     </div>
   </div>
 </template>
@@ -114,69 +84,41 @@ import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
-import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
 import { useQwertyCamera } from "../composables/useQwertyCamera.js";
-import { useQwertyBottomRowFlicks } from "../composables/useQwertyBottomRowFlicks.js";
 import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.js";
-import KeyboardInput from "./KeyboardInput.vue";
 
+// KeyboardBar.vue専用の部品（単独では使わない）。入力欄・矢印/Enterキーなどの
+// 状態はすべてKeyboardBar.vue側で一元管理し、このコンポーネントへはprops経由で
+// 渡す（inputFocused/showFnView/panelView）。
 const props = defineProps({
   active: { type: Boolean, default: false },
-  hideBottomRow: { type: Boolean, default: false },
   externalInputFocused: { type: Boolean, default: false },
   externalFnView: { type: Boolean, default: false },
+  // "none" | "snippets" | "history"。History/Snippet表示中はQWERTYグリッド層を
+  // 隠す（実際のSendSnippet/SendHistoryはKeyboardBar.vue側が、このコンポーネント
+  // とbar行の両方を覆うオーバーレイとして描画する。理由はKeyboardBar.vueの
+  // コメント参照）。
+  panelView: { type: String, default: "none" },
 });
 
-const emitLocal = defineEmits(["dismiss", "submitted", "fnToggle"]);
+const emitLocal = defineEmits(["dismiss"]);
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
-const { sendKeyToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { sendKeyToTerminal, modifierState, clearModifiers, getActiveTerminalTab } = useKeyboard();
 
 const keyboardInput = ref(null);
-const _inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
 
-// hideBottomRow=true のとき KeyboardBar が状態を管理する
-const inputFocused = computed(() => props.hideBottomRow ? props.externalInputFocused : _inputFocused.value);
-
-function toggleFnView() {
-  if (props.hideBottomRow) {
-    emitLocal("fnToggle");
-  } else {
-    _showFnView.value = !_showFnView.value;
-  }
-}
-
-// fn キー: タップごとに fnビュー ⇔ 通常グリッドを切り替える。
-function cycleFnKey() {
-  toggleFnView();
-}
-
-// fn キーのラベル。予告型 = 次にタップしたら遷移する先の状態を表示する
-// （qwerty中は次がfnなので "fn"、fn中は次がqwertyなので "ABC"）。
-const fnKeyLabel = computed(() => showFnView.value ? "ABC" : "fn");
-
-const { historyPrev, historyNext } = useInputDraftHistory(draft);
-
-function onInputFocused(focused) {
-  _inputFocused.value = !!focused;
-}
-
-defineExpose({});
-
-const topArrowFlickEl = ref(null);
-const topEnterFlickEl = ref(null);
+const inputFocused = computed(() => props.externalInputFocused);
+const panelView = computed(() => props.panelView);
 
 const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
 const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
 
-// fn ビュー（数字/記号パッド）の開閉状態は shift/ctrl/space と同じく KeyboardBar 側が単一管理する
-// （hideBottomRow=true のとき external-fn-view prop 経由で渡される）。
-const _showFnView = ref(false);
-const showFnView = computed(() => props.hideBottomRow ? props.externalFnView : _showFnView.value);
+const showFnView = computed(() => props.externalFnView);
 // 記号ロック機能は撤去済み。symbolDisplayLabel 等の分岐を壊さないための常時 false の無害な状態。
 const showSymbolView = ref(false);
 
@@ -197,7 +139,6 @@ const {
 watch(() => props.active, (active) => {
   if (!active) {
     clearModifiers();
-    _showFnView.value = false;
     showSymbolView.value = false;
   }
 });
@@ -249,14 +190,4 @@ const navKeys = [
   { label: "F11",   key: "F11" },
   { label: "F12",   key: "F12" },
 ];
-
-useQwertyBottomRowFlicks({
-  arrowEl: topArrowFlickEl,
-  enterEl: topEnterFlickEl,
-  inputFocused, hasDraft, keyboardInput,
-  historyPrev, historyNext,
-  setupFlickRepeat, sendKeyToTerminal,
-  dismissKeyboard: () => emitLocal("dismiss"),
-});
-
 </script>

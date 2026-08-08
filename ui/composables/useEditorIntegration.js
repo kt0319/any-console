@@ -4,6 +4,7 @@ import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 import { isTouchInput } from "../utils/device.js";
+import { openExternal } from "../utils/open-external.js";
 import { emit } from "../app-bridge.js";
 
 export function useEditorIntegration() {
@@ -52,7 +53,7 @@ export function useEditorIntegration() {
       return;
     }
     const url = buildEditorUrl(path);
-    if (url) window.open(url, "_blank");
+    openExternal(url);
   }
 
   return {

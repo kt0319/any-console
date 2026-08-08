@@ -240,7 +240,7 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 }
 
 .branch-toolbar-spin {
-  animation: branch-spinner-spin 0.8s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 .branch-add-overlay {
@@ -437,9 +437,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   color: var(--text-muted);
 }
 
-@keyframes branch-spinner-spin {
-  to { transform: rotate(360deg); }
-}
 
 .branch-item-empty {
   padding: 12px;

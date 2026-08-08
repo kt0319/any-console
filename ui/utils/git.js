@@ -136,9 +136,14 @@ export function entryBranches(entry) {
     .map((r) => r.label);
 }
 
-export function buildGithubFileUrl(githubUrl, ref, path) {
+/**
+ * GitHub のファイル/ディレクトリ URL を組み立てる（GitHub リンク生成の単一実装）。
+ * @param {string} githubUrl @param {string} ref @param {string} path
+ * @param {"blob"|"tree"} [type]
+ */
+export function buildGithubFileUrl(githubUrl, ref, path, type = "blob") {
   if (!githubUrl || !ref) return "";
-  return `${githubUrl}/blob/${ref}/${path}`;
+  return `${githubUrl}/${type}/${ref}/${path}`;
 }
 
 export function abbreviateBranch(branch) {

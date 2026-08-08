@@ -8,7 +8,10 @@ from typing import Any
 from .common import (
     CONFIG_FILE,
     CONFIG_SCHEMA_VERSION,
+    DEFAULT_BIND_HOST,
+    DEFAULT_BIND_PORT,
     GLOBAL_CONFIG_KEY,
+    PHRASE_NOTIFY_IDLE_GRACE_SEC,
     expand_workspace_path,
 )
 from .config_migrations import (
@@ -307,6 +310,37 @@ def load_global_config_section(key: str, default=None):
 def save_global_config_section(key: str, data) -> None:
     with _config_write() as all_config:
         _update_config_section(all_config, GLOBAL_CONFIG_KEY, key, data)
+
+
+def resolve_bind() -> tuple[str, int]:
+    """config.json の __global__.host / __global__.port を読む。未設定はデフォルト。
+
+    main.py の bind と、それを参照する各所（QRペアリングの loopback 判定・
+    agent hooks の URL 組み立て）が同じ解決規則を共有するための単一実装。
+    """
+    host = load_global_config_section("host", "") or DEFAULT_BIND_HOST
+    port_raw = load_global_config_section("port", 0)
+    try:
+        port = int(port_raw) if port_raw else DEFAULT_BIND_PORT
+    except (TypeError, ValueError):
+        port = DEFAULT_BIND_PORT
+    return str(host), port
+
+
+def notification_grace_sec(default: int = PHRASE_NOTIFY_IDLE_GRACE_SEC) -> int:
+    """フレーズ検出からプッシュ通知までの猶予秒数（設定 > Notificationsで変更可能）。
+
+    未設定・型不正・負値は default（既定 PHRASE_NOTIFY_IDLE_GRACE_SEC）へ倒す。
+    agent_watch の通知判定と GET /settings/notifications の表示が同じ解決規則を
+    共有するための単一実装。
+    """
+    raw = load_global_config_section("notifications", {})
+    if not isinstance(raw, dict):
+        return default
+    value = raw.get("phrase_notify_grace_sec")
+    if not isinstance(value, int) or value < 0:
+        return default
+    return value
 
 
 def compare_and_update_global_config_section(key: str, expected_current: Any, new_value: Any) -> Any:

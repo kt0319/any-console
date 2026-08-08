@@ -4,8 +4,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";
 import { isEmptyPaneId, makeEmptyPaneId } from "../utils/empty-pane.js";
 import { EP_SETTINGS_LAYOUT } from "../utils/endpoints.js";
-
-const SAVE_DEBOUNCE_MS = 800;
+import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.js";
 
 let _saveTimer = null;
 

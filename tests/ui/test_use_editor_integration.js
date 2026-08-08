@@ -53,7 +53,7 @@ describe("useEditorIntegration: openInEditor のモバイル挙動", () => {
 
     openInEditor("src/index.js");
 
-    expect(windowOpenSpy).toHaveBeenCalledWith("vscode://file//repo/src/index.js", "_blank");
+    expect(windowOpenSpy).toHaveBeenCalledWith("vscode://file//repo/src/index.js", "_blank", "noopener,noreferrer");
     expect(emitMock).not.toHaveBeenCalled();
     windowOpenSpy.mockRestore();
   });

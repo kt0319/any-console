@@ -6,12 +6,28 @@ from pathlib import Path
 from typing import Any
 
 from .common import (
+    BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
+    run_subprocess_safe,
 )
 from .errors import timeout_error
 
 logger = logging.getLogger(__name__)
+
+
+def background_fetch(directory: Path, log_label: str) -> bool:
+    """バックグラウンドの `git fetch --quiet` を実行し、成功したかを返す。
+
+    GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する（バックグラウンド実行のため
+    プロンプトに答えられず、タイムアウトまでワーカーを塞いでしまうのを防ぐ）。
+    """
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    return run_subprocess_safe(
+        ["git", "fetch", "--quiet"],
+        timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(directory), env=env,
+        log_label=log_label,
+    ) is not None
 
 
 def ssh_env() -> dict[str, str]:
@@ -209,6 +225,24 @@ def list_git_workspace_paths() -> "list[tuple[str, Path]]":
         p = Path(entry.get("path", "")).expanduser()
         if p.is_dir() and git_is_repo(p):
             result.append((entry.get("name") or ws_id, p))
+    return result
+
+
+def registered_paths_by_resolved() -> "dict[str, str]":
+    """登録済みワークスペースの resolve 済みパス -> 表示名 の対応表。
+
+    config には home 配下のパスが `~/...` 形式で保存されるため、resolve の前に
+    必ず expanduser を通す（これを欠くと home 配下のワークスペースが一切
+    マッチしなくなる）。パス集合だけ必要な場合は keys() を使う。
+    """
+    from .common import expand_workspace_path, safe_resolve_str
+    from .config import list_workspace_entries
+    result: dict[str, str] = {}
+    for entry in list_workspace_entries().values():
+        p = entry.get("path", "")
+        if not p:
+            continue
+        result[safe_resolve_str(expand_workspace_path(p))] = entry.get("name", "")
     return result
 
 

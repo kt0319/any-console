@@ -47,11 +47,10 @@
   MagicDNS名が引けず、かつ発行元が `http://localhost:8888` のような
   loopbackアドレスで開いている場合は、そのままリクエストのnetlocを使うと
   QRの宛先が「スキャンした端末自身のlocalhost」になってしまい絶対に
-  繋がらないため、明確なエラーで拒否する（`_is_loopback_host`）。
+  繋がらないため、明確なエラーで拒否する（`is_loopback_host`）。
 """
 
 import hmac
-import ipaddress
 import logging
 import secrets
 import threading
@@ -63,6 +62,7 @@ from pydantic import BaseModel
 from .. import auth as auth_module
 from ..auth import _extract_client_ip as _client_ip
 from ..auth import _resolve_tailscale_name, verify_token
+from ..common import is_loopback_host
 from ..devices import autoname_from_user_agent, register_device
 from ..errors import bad_request, gone, server_error, too_many_requests, unauthorized
 from ..rate_limiter import _FixedWindowCounter
@@ -118,21 +118,8 @@ def _sweep_expired_locked(now: float) -> None:
         _pairings.pop(pid, None)
 
 
-def _is_loopback_host(host: str) -> bool:
-    if not host:
-        return False
-    if host.lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
-
-
 def _bind_is_loopback_only() -> bool:
-    """`__global__.host`(main.py の `_resolve_bind` が読む設定)がloopback専用
-    かどうかを返す。circular import(main.pyがこのルータを登録している)を
-    避けるため、`_is_loopback_host` と同様にconfigを直接読む。
+    """`__global__.host`(config.resolve_bind が読む設定)がloopback専用かどうかを返す。
 
     loopback専用bind(`127.0.0.1`/`::1`)の場合、tailnetの他端末はServeの
     有無に関わらずこのプロセスへ絶対に到達できない。発行元がlocalhost経由で
@@ -140,10 +127,10 @@ def _bind_is_loopback_only() -> bool:
     結局loopbackにしか届かず無意味なQRになってしまうため、差し替え前に
     bind自体がloopback専用でないことも確認する。
     """
-    from ..config import load_global_config_section
+    from ..config import resolve_bind
 
-    host = load_global_config_section("host", "") or "0.0.0.0"  # noqa: S104 (デフォルト値の記述。bind自体はmain.pyが行う)
-    return _is_loopback_host(str(host))
+    host, _port = resolve_bind()
+    return is_loopback_host(host)
 
 
 def _effective_port(request: Request) -> int | None:
@@ -181,7 +168,7 @@ def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) ->
     # http://localhost:8888 のようなloopbackアドレスで開いていると、そのまま
     # リクエストのnetlocを使ってもQRの宛先が「スキャンした端末自身のlocalhost」
     # になってしまい絶対に繋がらない。
-    if _is_loopback_host(request.url.hostname or ""):
+    if is_loopback_host(request.url.hostname or ""):
         raise bad_request(
             "Cannot build a link reachable from another device while viewing "
             "any-console via localhost. Open it via its LAN or Tailscale address instead."

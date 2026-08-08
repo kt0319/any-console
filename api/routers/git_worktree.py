@@ -18,7 +18,6 @@ from ..common import (
     safe_resolve_str,
 )
 from ..config import (
-    list_workspace_entries,
     load_workspace_config,
 )
 from ..errors import bad_request, conflict, not_found
@@ -28,6 +27,7 @@ from ..git_utils import (
     git_branches,
     git_is_repo,
     git_worktree_list,
+    registered_paths_by_resolved,
     run_git_command,
     worktree_display_name,
 )
@@ -47,14 +47,8 @@ def _sanitize_segment(value: str) -> str:
 
 
 def _registered_paths() -> dict[str, str]:
-    """resolve 済みパス -> 表示名 の対応表。"""
-    result: dict[str, str] = {}
-    for entry in list_workspace_entries().values():
-        p = entry.get("path", "")
-        if not p:
-            continue
-        result[safe_resolve_str(p)] = entry.get("name", "")
-    return result
+    """resolve 済みパス -> 表示名 の対応表（git_utils.registered_paths_by_resolved 参照）。"""
+    return registered_paths_by_resolved()
 
 
 def _main_worktree_path(worktrees: list[dict]) -> Path | None:

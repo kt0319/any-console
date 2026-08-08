@@ -49,9 +49,10 @@ export const INFO_PILLS = [
     key: "actions",
     label: "GitHub Actions",
     note: "Only shown while the current branch's latest GitHub Actions run is running or failed (successful/other completed runs stay hidden).",
-    // アイコンはWorkspaceDetail.vueのActionsタブと同じ固定アイコンにし、
-    // 状態はpeekの色クラスで示す（branch peekと同じ方式）。
+    // アイコン・色ともWorkspaceDetail.vueのActionsタブ/通常ピルと同じ固定値
+    // （状態では変えない）。
     peekIcon: "mdi-cog-play-outline",
+    peekColor: "pill-peek-brown",
   },
   {
     key: "devserver",
@@ -98,7 +99,6 @@ export function peekIconForKey(key) {
  * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
  * history/branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
  * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
- * actionsは実行状態で色が変わるため対象外（呼び出し側で判定する）。
  * @param {string | null | undefined} key
  * @returns {string | string[]}
  */

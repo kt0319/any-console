@@ -54,7 +54,6 @@ import time
 from typing import Any
 
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketDisconnect
 
 from .agent_hooks import hook_state
 from .common import (
@@ -62,6 +61,8 @@ from .common import (
     BACKGROUND_EXECUTOR,
     PHRASE_NOTIFY_IDLE_GRACE_SEC,
     TMUX_SESSION_PREFIX,
+    cancel_task_quietly,
+    task_stale,
 )
 from .foreground import ForegroundInspector
 from .job_match import JobPattern, build_job_patterns, candidate_jobs, match_job
@@ -73,6 +74,7 @@ from .screen_manifest import (
     identify_agent_from_argvs,
 )
 from .tmux import _run_tmux_cmd, capture_visible_pane, list_pane_meta, load_tmux_metadata
+from .ws_broadcast import SEND_ERRORS, broadcast_to
 
 logger = logging.getLogger(__name__)
 
@@ -294,20 +296,14 @@ def reset_last_capture(session_id: str) -> None:
 
 
 def _notify_grace_sec() -> int:
-    """フレーズ検出からプッシュ通知までの猶予秒数（設定 > Notificationsで変更可能）。
+    """フレーズ検出からプッシュ通知までの猶予秒数（config.notification_grace_sec 参照）。
 
     ポーリング周期ごとにセッション数分呼ばれる _should_notify_phrase 側では呼ばず、
     collect_agent_states の呼び出し1回につき1回だけ解決してから渡すこと
     （config読み込みのディスクI/Oをセッション数倍にしないため）。
     """
-    from .config import load_global_config_section
-    raw = load_global_config_section("notifications", {})
-    if not isinstance(raw, dict):
-        return PHRASE_NOTIFY_IDLE_GRACE_SEC
-    value = raw.get("phrase_notify_grace_sec")
-    if not isinstance(value, int) or value < 0:
-        return PHRASE_NOTIFY_IDLE_GRACE_SEC
-    return value
+    from .config import notification_grace_sec
+    return notification_grace_sec(default=PHRASE_NOTIFY_IDLE_GRACE_SEC)
 
 
 def _should_notify_phrase(
@@ -469,7 +465,7 @@ async def subscribe(websocket: WebSocket) -> None:
     if _last_states:
         try:
             await websocket.send_json(states_payload(_last_states))
-        except (WebSocketDisconnect, RuntimeError, OSError):
+        except SEND_ERRORS:
             pass
 
 
@@ -480,15 +476,10 @@ def unsubscribe(websocket: WebSocket) -> None:
         _stop_task()
 
 
-def _task_stale(task: asyncio.Task | None, loop: asyncio.AbstractEventLoop) -> bool:
-    # テスト等でイベントループが作り直された場合、旧ループのタスクは無効
-    return task is None or task.done() or task.get_loop() is not loop
-
-
 def _ensure_task() -> None:
     global _poll_task
     loop = asyncio.get_running_loop()
-    if _task_stale(_poll_task, loop):
+    if task_stale(_poll_task, loop):
         _poll_task = loop.create_task(_poll_loop())
 
 
@@ -503,17 +494,13 @@ def ensure_phrase_task() -> None:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return
-    if _task_stale(_poll_task, loop):
+    if task_stale(_poll_task, loop):
         _poll_task = loop.create_task(_poll_loop())
 
 
 def _stop_task() -> None:
     global _poll_task
-    if _poll_task is not None and not _poll_task.done():
-        try:
-            _poll_task.cancel()
-        except RuntimeError:  # 属するループが既に閉じている
-            pass
+    cancel_task_quietly(_poll_task)
     _poll_task = None
     _last_states.clear()
     _last_capture.clear()
@@ -538,14 +525,7 @@ def diff_states(previous: dict[str, str], current: dict[str, str]) -> dict[str, 
 
 
 async def _broadcast(payload: dict[str, Any]) -> None:
-    dead = []
-    for ws in list(_subscribers):
-        try:
-            await ws.send_json(payload)
-        except (WebSocketDisconnect, RuntimeError, OSError):
-            dead.append(ws)
-    for ws in dead:
-        unsubscribe(ws)
+    await broadcast_to(_subscribers, payload, on_dead=unsubscribe)
 
 
 async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに依存

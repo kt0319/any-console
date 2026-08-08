@@ -97,10 +97,7 @@ const {
 }
 
 .confirm-btn-spin {
-  animation: confirm-btn-spin 0.6s linear infinite;
+  animation: spin 0.6s linear infinite;
 }
 
-@keyframes confirm-btn-spin {
-  to { transform: rotate(360deg); }
-}
 </style>

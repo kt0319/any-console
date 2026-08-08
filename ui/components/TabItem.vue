@@ -511,13 +511,9 @@ onBeforeUnmount(() => {
     transparent 100%
   );
   background-size: 200% 100%;
-  animation: tab-working-pulse 2s linear infinite;
+  animation: working-pulse 2s linear infinite;
 }
 
-@keyframes tab-working-pulse {
-  0%   { background-position: 200% center; }
-  100% { background-position: -200% center; }
-}
 
 /* notify_phrase 検知と blocked（承認・入力待ち）の通知点滅。どちらも同じ青の点滅で
    「このタブに注目」だけを伝え、種類はタブを開いて確認する割り切り。ドット追加だと
@@ -528,11 +524,7 @@ onBeforeUnmount(() => {
 .tab-btn.tab-phrase-notify:not(.active),
 .tab-btn.tab-blocked:not(.active) {
   background-image: none;
-  animation: tab-notify-blink 1.2s ease-in-out infinite;
+  animation: notify-blink 1.2s ease-in-out infinite;
 }
 
-@keyframes tab-notify-blink {
-  0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(130, 170, 255, 0.35); }
-}
 </style>

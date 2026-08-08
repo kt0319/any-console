@@ -9,6 +9,7 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey("branch")).toEqual(["pill-peek-success", "pill-peek-icon-only"]);
     expect(peekColorForKey("devserver")).toBe("pill-peek-accent");
     expect(peekColorForKey("dispatch")).toBe("pill-peek-warning");
+    expect(peekColorForKey("actions")).toBe("pill-peek-brown");
   });
 
   it("色指定の無いキー（files/add等）・未知キーは空文字", () => {
@@ -16,11 +17,6 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey("add")).toBe("");
     expect(peekColorForKey("workspace")).toBe("");
     expect(peekColorForKey(null)).toBe("");
-  });
-
-  // actionsは実行状態で色が変わるため、テーブルには持たせない（呼び出し側判定）
-  it("actionsはテーブルに静的な色を持たない", () => {
-    expect(peekColorForKey("actions")).toBe("");
   });
 });
 

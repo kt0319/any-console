@@ -1,7 +1,7 @@
 /**
  * グローバルキーボードショートカットの E2E スモーク（useGlobalShortcuts.js）。
  * ⌘⇧T（New Terminal）と ⌘⇧.（Settings）は terminal / settings スペックで
- * 使用済みのため、ここでは ⌘⇧N（Open Workspace）と ⌘⇧W（Close Tab）を確認する。
+ * 使用済みのため、ここでは ⌘⇧N（Open Session）と ⌘⇧W（Close Tab）を確認する。
  */
 import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
@@ -21,13 +21,13 @@ test.describe("global shortcuts", () => {
     await cleanupNewSessions(page, sessionIdsBefore);
   });
 
-  test("⌘⇧N で Workspaces モーダルが開き、Esc で閉じる", async ({ page }) => {
+  test("⌘⇧N で Open Session モーダルが開き、Esc で閉じる", async ({ page }) => {
     await page.keyboard.press("Meta+Shift+KeyN");
-    await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".modal-title")).toHaveText("Workspaces");
+    await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
   });
 
   test("⌘⇧W でアクティブタブを確認ダイアログ付きで閉じられる", async ({ page }) => {

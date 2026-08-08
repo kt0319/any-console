@@ -18,7 +18,12 @@ from ..git_utils import (
     ssh_env,
 )
 from ..validators import validate_branch_name, validate_commit_ref
-from .git_helpers import execute_git_action, get_current_branch, rev_parse
+from .git_helpers import (
+    execute_git_action,
+    execute_git_action_with_activity,
+    get_current_branch,
+    rev_parse,
+)
 
 _COMMIT_PREVIEW_LIMIT = 3
 
@@ -197,20 +202,20 @@ def delete_branch(name: str, body: DeleteBranchRequest):
     ws_path = resolve_workspace_path(name)
     if body.remote:
         before_hash = rev_parse(ws_path, f"origin/{branch}", "rev-parse remote branch before delete")
-        result = execute_git_action(
-            name, ["push", "origin", "--delete", branch],
-            operation="delete remote branch", env=ssh_env(), log_extra=f"branch={branch}",
+        return execute_git_action_with_activity(
+            name, ws_path, ["push", "origin", "--delete", branch],
+            operation="delete remote branch", event="git_delete_branch",
+            env=ssh_env(), log_extra=f"branch={branch}",
+            resolve_head=False, branch=branch, remote=True, commit=before_hash,
         )
-        if result["status"] == "ok":
-            log_activity(name, "git_delete_branch", branch=branch, remote=True, commit=before_hash)
-        return result
     if branch == get_current_branch(ws_path):
         raise bad_request("Cannot delete the current branch")
     before_hash = rev_parse(ws_path, branch, "rev-parse branch before delete")
-    result = execute_git_action(name, ["branch", "-D", branch], operation="delete branch", log_extra=f"branch={branch}")
-    if result["status"] == "ok":
-        log_activity(name, "git_delete_branch", branch=branch, remote=False, commit=before_hash)
-    return result
+    return execute_git_action_with_activity(
+        name, ws_path, ["branch", "-D", branch],
+        operation="delete branch", event="git_delete_branch", log_extra=f"branch={branch}",
+        resolve_head=False, branch=branch, remote=False, commit=before_hash,
+    )
 
 
 @router.post("/workspaces/{name}/create-branch")
@@ -222,11 +227,11 @@ def create_branch(name: str, body: CheckoutRequest):
         args.append(validate_commit_ref(body.start_point))
     elif body.base_branch:
         args.append(validate_branch_name(body.base_branch))
-    result = execute_git_action(name, args, operation="create-branch", log_extra=f"branch={branch}")
-    if result["status"] == "ok":
-        commit = rev_parse(ws_path, "HEAD", "rev-parse after create-branch")
-        log_activity(name, "git_create_branch", branch=branch, commit=commit)
-    return result
+    return execute_git_action_with_activity(
+        name, ws_path, args,
+        operation="create-branch", event="git_create_branch", log_extra=f"branch={branch}",
+        branch=branch,
+    )
 
 
 @router.post("/workspaces/{name}/checkout")
@@ -235,11 +240,11 @@ def checkout_branch(name: str, body: CheckoutRequest):
     branch = validate_branch_name(body.branch)
     local_branches = git_branches(ws_path)
     args = ["checkout", branch] if branch in local_branches else ["checkout", "-b", branch, f"origin/{branch}"]
-    result = execute_git_action(name, args, operation="checkout", log_extra=f"branch={branch}")
-    if result["status"] == "ok":
-        commit = rev_parse(ws_path, "HEAD", "rev-parse after checkout")
-        log_activity(name, "git_checkout", branch=branch, commit=commit)
-    return result
+    return execute_git_action_with_activity(
+        name, ws_path, args,
+        operation="checkout", event="git_checkout", log_extra=f"branch={branch}",
+        branch=branch,
+    )
 
 
 @router.post("/workspaces/{name}/pull")
@@ -307,23 +312,21 @@ def git_push_branch(name: str, body: PushBranchRequest):
 def git_set_upstream(name: str):
     ws_path = resolve_workspace_path(name)
     branch = get_current_branch(ws_path)
-    result = execute_git_action(
-        name, ["branch", "--set-upstream-to", f"origin/{branch}"],
-        operation="set upstream", env=ssh_env(), log_extra=f"branch={branch}",
+    return execute_git_action_with_activity(
+        name, ws_path, ["branch", "--set-upstream-to", f"origin/{branch}"],
+        operation="set upstream", event="git_set_upstream",
+        env=ssh_env(), log_extra=f"branch={branch}",
+        resolve_head=False, branch=branch,
     )
-    if result["status"] == "ok":
-        log_activity(name, "git_set_upstream", branch=branch)
-    return result
 
 
 @router.post("/workspaces/{name}/push-upstream")
 def git_push_upstream(name: str):
     ws_path = resolve_workspace_path(name)
-    result = execute_git_action(name, ["push", "-u", "origin", "HEAD"], operation="push upstream", env=ssh_env())
-    if result["status"] == "ok":
-        commit = rev_parse(ws_path, "HEAD", "rev-parse after push upstream")
-        log_activity(name, "git_push", commit=commit)
-    return result
+    return execute_git_action_with_activity(
+        name, ws_path, ["push", "-u", "origin", "HEAD"],
+        operation="push upstream", event="git_push", env=ssh_env(),
+    )
 
 
 @router.post("/workspaces/{name}/fetch")

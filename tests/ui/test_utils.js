@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.js";
-import { safeJsonLoad } from "../../ui/utils/storage.js";
+import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../../ui/utils/storage.js";
 
 // ── Tests ──
 
@@ -66,5 +66,54 @@ describe("safeJsonLoad", () => {
   it("returns fallback when localStorage.getItem throws", () => {
     globalThis.localStorage = { getItem: () => { throw new Error("SecurityError"); } };
     expect(safeJsonLoad("key", "default")).toEqual("default");
+  });
+});
+
+describe("safeJsonSave", () => {
+  it("stores the JSON-stringified value", () => {
+    const stored = {};
+    globalThis.localStorage = { setItem: (k, v) => { stored[k] = v; } };
+    safeJsonSave("key", { a: 1 });
+    expect(stored.key).toBe(JSON.stringify({ a: 1 }));
+  });
+
+  it("swallows quota errors", () => {
+    globalThis.localStorage = { setItem: () => { throw new Error("QuotaExceededError"); } };
+    expect(() => safeJsonSave("key", [1, 2])).not.toThrow();
+  });
+});
+
+describe("safeFlagLoad", () => {
+  it('returns true only when stored value is "1"', () => {
+    globalThis.localStorage = { getItem: () => "1" };
+    expect(safeFlagLoad("key")).toBe(true);
+    globalThis.localStorage = { getItem: () => "0" };
+    expect(safeFlagLoad("key")).toBe(false);
+    globalThis.localStorage = { getItem: () => null };
+    expect(safeFlagLoad("key")).toBe(false);
+  });
+
+  it("returns false when localStorage.getItem throws", () => {
+    globalThis.localStorage = { getItem: () => { throw new Error("SecurityError"); } };
+    expect(safeFlagLoad("key")).toBe(false);
+  });
+});
+
+describe("safeFlagSave", () => {
+  it('stores "1" for true and removes the key for false', () => {
+    const stored = { key: "1" };
+    globalThis.localStorage = {
+      setItem: (k, v) => { stored[k] = v; },
+      removeItem: (k) => { delete stored[k]; },
+    };
+    safeFlagSave("key", false);
+    expect(stored.key).toBeUndefined();
+    safeFlagSave("key", true);
+    expect(stored.key).toBe("1");
+  });
+
+  it("swallows quota errors", () => {
+    globalThis.localStorage = { setItem: () => { throw new Error("QuotaExceededError"); } };
+    expect(() => safeFlagSave("key", true)).not.toThrow();
   });
 });

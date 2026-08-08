@@ -1,6 +1,8 @@
 import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { joinEntryPath } from "../utils/file-browser.js";
+import { buildGithubFileUrl } from "../utils/git.js";
+import { openExternal } from "../utils/open-external.js";
 
 export function useFileEntryMenu({
   currentPath, fileContent,
@@ -16,12 +18,11 @@ export function useFileEntryMenu({
   const openFileGithubUrl = computed(() => {
     const ws = workspaceStore.currentWorkspace;
     if (!ws?.github_url || !currentPath.value || !fileContent.value) return "";
-    const branch = ws.branch || "main";
-    return `${ws.github_url}/blob/${branch}/${currentPath.value}`;
+    return buildGithubFileUrl(ws.github_url, ws.branch || "main", currentPath.value);
   });
 
   function openCurrentFileGithub() {
-    if (openFileGithubUrl.value) window.open(openFileGithubUrl.value, "_blank");
+    openExternal(openFileGithubUrl.value);
   }
 
   function openCurrentFileInEditor() {

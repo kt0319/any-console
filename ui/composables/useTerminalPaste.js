@@ -1,6 +1,7 @@
 import { onMounted, onBeforeUnmount } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import { isEditableTarget } from "../utils/dom.js";
 import { emit } from "../app-bridge.js";
 
 export function useTerminalPaste({ tab, isActive }) {
@@ -39,12 +40,7 @@ export function useTerminalPaste({ tab, isActive }) {
     const textarea = tab.value.term?.textarea;
     const termElement = tab.value.term?.element;
     const activeEl = /** @type {HTMLElement | null} */ (document.activeElement);
-    const activeIsOtherInput = activeEl && activeEl !== textarea && (
-      activeEl.tagName === "INPUT" ||
-      activeEl.tagName === "TEXTAREA" ||
-      activeEl.tagName === "SELECT" ||
-      activeEl.isContentEditable
-    );
+    const activeIsOtherInput = activeEl && activeEl !== textarea && isEditableTarget(activeEl);
     const focusInsideTerm = activeEl && termElement && termElement.contains(activeEl);
     if (textarea && !activeIsOtherInput && !focusInsideTerm) {
       const text = e.clipboardData?.getData("text/plain");

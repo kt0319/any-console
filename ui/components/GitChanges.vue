@@ -154,12 +154,9 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 }
 
 .diff-action-spin {
-  animation: diff-action-spin 0.6s linear infinite;
+  animation: spin 0.6s linear infinite;
 }
 
-@keyframes diff-action-spin {
-  to { transform: rotate(360deg); }
-}
 
 .diff-file-list {
   display: flex;

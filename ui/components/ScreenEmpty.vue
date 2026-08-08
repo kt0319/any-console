@@ -45,7 +45,7 @@
           </button>
           <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
             <span class="mdi mdi-plus screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Open Workspace</span>
+            <span class="screen-empty-menu-label">Open Session</span>
             <span class="screen-empty-menu-shortcut">⌘⇧N</span>
           </button>
           <button type="button" class="screen-empty-menu-item" @click="openSettings">

@@ -95,6 +95,9 @@
 /* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
    使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
 .pill-peek-accent .pill-peek-icon { color: var(--accent); }
+/* Actionsは通常ピル（.pill-actions-btn）と同じブラウンをアイコンだけに使う
+   （状態によらず固定。テキストは元々このクラスで色付けしないため icon-only 不要）。 */
+.pill-peek-brown .pill-peek-icon { color: #6f4e37; }
 
 /* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
    のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
@@ -246,7 +249,7 @@
 }
 
 .pill-server-btn .mdi {
-  color: var(--accent);
+  color: var(--lime);
 }
 
 .pill-history-btn .mdi {
@@ -262,16 +265,6 @@
 }
 
 .pill-dispatch-btn .mdi {
-  color: var(--warning);
-}
-
-/* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。
-   成功runはvisibleBranchActionで非表示になるため、ここは失敗・進行中のみ。 */
-.pill-devserver-btn.action-status-failure .mdi {
-  color: var(--error);
-}
-
-.pill-devserver-btn.action-status-running .mdi {
   color: var(--warning);
 }
 
@@ -444,7 +437,7 @@
     rgba(26, 27, 38, 0.88) 100%
   );
   background-size: 200% 100%;
-  animation: pill-working-pulse 2s linear infinite;
+  animation: working-pulse 2s linear infinite;
 }
 
 .terminal-pane.active .pill-chip.pill-working {
@@ -452,10 +445,6 @@
   background-image: none;
 }
 
-@keyframes pill-working-pulse {
-  0%   { background-position: 200% center; }
-  100% { background-position: -200% center; }
-}
 
 /* 既知エージェントの承認・入力待ち（blocked）。タブの通知点滅と同じ青・同じリズムで
    点滅する（working の「流れるグラデーション」とは動きの種類で区別する）。

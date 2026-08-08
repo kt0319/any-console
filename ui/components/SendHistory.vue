@@ -17,7 +17,16 @@ import { ref, computed, inject, onMounted, nextTick } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-const modalTitle = inject("modalTitle");
+// embedded=true はキーボードバーのHistoryタブからQWERTYパネル内へ直接
+// オーバーレイ表示する場合（設定モーダルは開かない）。通常（設定モーダルの
+// Settings > Send History経由）はfalseで、modalTitle/modal:closeを使う
+// 既存の挙動のまま。
+const props = defineProps({
+  embedded: { type: Boolean, default: false },
+});
+const emit = defineEmits(["close"]);
+
+const modalTitle = inject("modalTitle", null);
 const inputStore = useInputStore();
 const scrollBodyEl = ref(null);
 
@@ -31,11 +40,12 @@ function onDelete(text) {
 
 function onInsert(command) {
   bridgeEmit("keyboard:setDraft", { command });
-  bridgeEmit("modal:close");
+  if (props.embedded) emit("close");
+  else bridgeEmit("modal:close");
 }
 
 onMounted(async () => {
-  modalTitle.value = "Send History";
+  if (!props.embedded) modalTitle.value = "Send History";
   await nextTick();
   if (scrollBodyEl.value) scrollBodyEl.value.scrollTop = scrollBodyEl.value.scrollHeight;
 });

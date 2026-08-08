@@ -8,11 +8,9 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_EXECUTOR,
-    BACKGROUND_FETCH_TIMEOUT_SEC,
     collapse_user_path,
     expand_workspace_path,
     generate_entity_id,
-    run_subprocess_safe,
     safe_resolve_str,
 )
 from ..config import (
@@ -27,12 +25,14 @@ from ..config import (
 from ..errors import bad_request, conflict
 from ..git_info import git_info_to_status_dict
 from ..git_utils import (
+    background_fetch,
     git_branch,
     git_default_branch,
     git_github_url,
     git_is_repo,
     git_worktree_list,
     list_git_workspace_paths,
+    registered_paths_by_resolved,
     worktree_display_name,
 )
 from ..git_watch import notify_workspaces_changed
@@ -46,11 +46,7 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 def _background_fetch(dirs):
     def fetch(workspace_dir):
-        if run_subprocess_safe(
-            ["git", "fetch", "--quiet"],
-            timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(workspace_dir),
-            log_label=f"background fetch {workspace_dir.name}",
-        ) is None:
+        if not background_fetch(workspace_dir, log_label=f"background fetch {workspace_dir.name}"):
             logger.warning("background fetch failed dir=%s", workspace_dir.name)
 
     list(BACKGROUND_FETCH_EXECUTOR.map(fetch, dirs))
@@ -96,11 +92,7 @@ def _workspace_summary(item):
 
 def _registered_workspace_paths() -> set[str]:
     """登録済みワークスペースの解決済みパス集合。動的worktreeの重複判定に使う。"""
-    return {
-        safe_resolve_str(expand_workspace_path(p))
-        for cfg in list_workspace_entries().values()
-        if (p := cfg.get("path"))
-    }
+    return set(registered_paths_by_resolved().keys())
 
 
 def _dynamic_worktree_entries(
@@ -329,13 +321,7 @@ def suggest_workspace_dirs(path: str = ""):
     if not base.is_dir():
         return {"base": str(base), "entries": []}
 
-    existing = set()
-    for cfg in list_workspace_entries().values():
-        p = expand_workspace_path(cfg.get("path", ""))
-        try:
-            existing.add(str(p.resolve()))
-        except OSError:
-            existing.add(str(p))
+    existing = set(registered_paths_by_resolved().keys())
 
     entries = []
     try:

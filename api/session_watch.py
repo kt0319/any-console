@@ -12,7 +12,8 @@ import logging
 from typing import Any
 
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketDisconnect
+
+from .ws_broadcast import broadcast_to
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +72,4 @@ def _schedule_broadcast(payload: dict[str, Any]) -> None:
 
 
 async def _broadcast(payload: dict[str, Any]) -> None:
-    dead = []
-    for ws in list(_subscribers):
-        try:
-            await ws.send_json(payload)
-        except (WebSocketDisconnect, RuntimeError, OSError):
-            dead.append(ws)
-    for ws in dead:
-        _subscribers.discard(ws)
+    await broadcast_to(_subscribers, payload, on_dead=_subscribers.discard)

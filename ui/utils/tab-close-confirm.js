@@ -20,7 +20,7 @@ export function confirmCloseTab(confirm, tab) {
       label: "Detach",
       value: "detach",
       icon: "mdi-minus-circle-outline",
-      desc: "Detach: hides the tab without ending the session. Reopen it anytime from the Detached tabs section in Tabs & Sessions.",
+      desc: "Detach: hides the tab without ending the session.",
     },
     ok: { label: "Close", icon: "mdi-close", danger: true },
   });

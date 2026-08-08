@@ -1,6 +1,19 @@
 <template>
-  <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
-    <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }">
+  <div
+    class="tab-bar-row"
+    :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
+  >
+    <button
+      class="tab-menu-btn"
+      :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
+      @click="onMenuClick"
+      :aria-label="sidebarToggleLabel"
+      :aria-expanded="isSidebarOpen ? 'true' : 'false'"
+      :data-tooltip="sidebarToggleLabel"
+    >
+      <span :class="['mdi', isSidebarOpen ? 'mdi-close' : 'mdi-menu']"></span>
+    </button>
+    <div class="tab-bar">
       <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
@@ -12,20 +25,7 @@
         @refresh="onRefresh"
         @detach="onDetach"
       />
-      <button v-if="!isSplitMode" class="tab-add-btn" @click="onAddClick" title="Open Workspace">
-        <span class="mdi mdi-plus"></span>
-      </button>
     </div>
-    <button
-      v-if="!isSplitMode"
-      class="tab-settings-btn"
-      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isPanelBottom }"
-      @click="onSettingsClick"
-      :aria-label="isSettingsOpen ? 'Close settings' : 'Settings'"
-      :data-tooltip="isSettingsOpen ? 'Close settings' : 'Settings'"
-    >
-      <span :class="['mdi', isSettingsOpen ? 'mdi-close' : 'mdi-cog']"></span>
-    </button>
   </div>
 </template>
 
@@ -34,6 +34,8 @@ import { computed } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
+import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { emit } from "../app-bridge.js";
 
 const terminalStore = useTerminalStore();
@@ -45,25 +47,24 @@ const props = defineProps({
 
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
-const isSplitMode = computed(() => layoutStore.isSplitMode);
-const isSettingsOpen = computed(() => layoutStore.isSettingsOpen);
+const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
+// PCはセッション一覧+設定の入り口を兼ねる（歯車ボタン廃止）ため文言を変える。
+const sidebarToggleLabel = computed(() => {
+  if (isPanelBottom.value) return isSidebarOpen.value ? "Close session list" : "Open session list";
+  return isSidebarOpen.value ? "Close sessions & settings" : "Open sessions & settings";
+});
 const sortedItems = computed(() => {
   return props.tabs
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
     .map((tab, i) => ({ type: "tab", tab, index: i }));
 });
 
-const showBarRow = computed(() => !isSplitMode.value);
-
 function onSelect(tab, { skipFocus = false } = {}) {
   emit("tab:select", { tab, skipFocus });
 }
 
-let suppressAddUntil = 0;
-
 function onClose(tab) {
   emit("tab:close", { tab });
-  suppressAddUntil = Date.now() + 600;
 }
 
 function onRefresh(tab) {
@@ -74,27 +75,40 @@ function onDetach(tab) {
   terminalStore.detachTab(tab.id);
 }
 
-function onAddClick() {
-  if (Date.now() < suppressAddUntil) return;
-  emit("workspace:openModal");
-}
+const { isOpen: isWorkspaceDetailOpen, close: closeWorkspaceDetail } = useWorkspaceDetailNav();
+const { openView } = useSettingsNav();
 
-function onSettingsClick() {
-  if (isSettingsOpen.value) {
-    emit("modal:close");
+function onMenuClick() {
+  if (isSidebarOpen.value) {
+    // モバイルはハンバーガー1つでサイドバーとWorkspaceDetailオーバーレイの
+    // 両方を閉じる（WorkspaceDetailはサイドバーとは独立した状態のため、
+    // 閉じる時だけここで明示的に合わせる。PCはWorkspaceDetailModal.vue側に
+    // 専用の閉じるボタンがあるため対象外）。
+    if (isPanelBottom.value && isWorkspaceDetailOpen.value) closeWorkspaceDetail();
+    layoutStore.toggleSessionSidebar();
   } else {
-    emit("settings:open");
+    // 開く時は常にセッション一覧（SessionList）から始める。前回設定の
+    // 途中まで進んでいても、ハンバーガーで開き直したら一覧に戻す。
+    openView("SessionList");
   }
 }
 </script>
 
 <style scoped>
 .tab-bar-row {
-  display: none;
+  display: flex;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-height: 37px;
+}
+
+/* PCでセッションサイドバーを開いている間は、サイドバー幅（SessionSidebar.vue
+   の.session-sidebar、--session-sidebar-width）ぶんタブバーを右へ縮める。サイドバーは
+   position:absoluteでcontent-area側に重なるオーバーレイのため、タブバー側
+   （TabBarは別要素）は自分では避けてくれず、ここで明示的にずらす。 */
+.tab-bar-row-sidebar-open {
+  margin-left: var(--session-sidebar-width);
 }
 
 .tab-bar {
@@ -113,37 +127,7 @@ function onSettingsClick() {
   display: none;
 }
 
-.tab-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  touch-action: manipulation;
-  font-size: 18px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.tab-add-btn:active {
-  background: var(--bg-tertiary);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .tab-add-btn:hover {
-    background: var(--bg-tertiary);
-  }
-}
-
-.tab-settings-btn {
+.tab-menu-btn {
   position: relative;
   display: flex;
   align-items: center;
@@ -163,17 +147,17 @@ function onSettingsClick() {
   touch-action: manipulation;
 }
 
-.tab-settings-btn:active {
+.tab-menu-btn:active {
   background: var(--bg-tertiary);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .tab-settings-btn:hover {
+  .tab-menu-btn:hover {
     background: var(--bg-tertiary);
   }
 }
 
-.tab-settings-btn.active {
+.tab-menu-btn.active {
   color: var(--text-primary);
   background: rgba(130, 170, 255, 0.12);
 }

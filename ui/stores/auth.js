@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_PREFIX_API_CACHE, LS_PREFIX_WS_META } from "../utils/constants.js";
-import { EP_AUTH_CHECK, EP_AUTH_LOGOUT, pairingClaimPath } from "../utils/endpoints.js";
+import { EP_AUTH_CHECK, EP_AUTH_LOGOUT, EP_DEVICES_REGISTER, pairingClaimPath } from "../utils/endpoints.js";
 
 export const useAuthStore = defineStore("auth", () => {
   // 実トークンは cookie で管理されるため保持しない。認証済みかどうかのフラグのみ持つ。
@@ -29,7 +29,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function registerDevice(rawToken, name = "") {
-    const res = await fetch("/devices/register", {
+    const res = await fetch(EP_DEVICES_REGISTER, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: rawToken, name }),

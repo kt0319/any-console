@@ -1,7 +1,8 @@
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
+import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.js";
+import { reconnectBackoffDelay } from "../utils/backoff.js";
 import { emit } from "../app-bridge.js";
 import { useToast } from "./useToast.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
@@ -112,7 +113,7 @@ export function useTerminal() {
       tab._writeCount = (tab._writeCount || 0) + 1;
       clearTimeout(tab._postWriteRefresh);
       tab._postWriteRefresh = setTimeout(() => {
-        if (tab._writeCount >= 50 && tab.term) {
+        if (tab._writeCount >= TERMINAL_BULK_WRITE_REFRESH_THRESHOLD && tab.term) {
           try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
         }
         tab._writeCount = 0;
@@ -139,9 +140,7 @@ export function useTerminal() {
       }
 
       const attempts = tab._reconnectAttempts || 0;
-      const delay = attempts === 0
-        ? RECONNECT_INITIAL_DELAY
-        : Math.min(Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempts - 1) * RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX);
+      const delay = reconnectBackoffDelay(attempts, { initialDelay: RECONNECT_INITIAL_DELAY });
       tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
       debugLog("[WS] reconnect", tab.sessionId?.slice(-8), `attempt=${attempts + 1}`, `delay=${delay}ms`);

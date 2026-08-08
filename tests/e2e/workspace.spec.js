@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, expect, loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
+import { test, expect, loadToken, login, deleteWorkspaceViaApi, openWorkspaces, openAddWorkspace } from "./helpers.js";
 
 test.describe.configure({ mode: "serial" });
 
@@ -43,7 +43,6 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("Add Workspace でディレクトリを登録できる", async ({ page }) => {
-    await openSettingsModal(page);
     await openAddWorkspace(page);
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace");
 
@@ -52,13 +51,12 @@ test.describe("workspace lifecycle", () => {
 
     // 登録成功後は Workspaces 一覧へ戻る（Settings → Workspaces → Add Workspace の1つ上）。
     // 一覧に追加した名前が表示される
-    await expect(page.locator(".modal-title")).toHaveText("Workspaces", { timeout: 10_000 });
+    await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
     await expect(page.locator(".picker-ws-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
 
   test("ワークスペース名クリックでJobsがインライン展開・再クリックで閉じる", async ({ page }) => {
-    await openSettingsModal(page);
-    await openSettingsView(page, "Workspaces");
+    await openWorkspaces(page);
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
     const jobsInline = row.locator(".picker-ws-jobs-inline");
 
@@ -68,14 +66,13 @@ test.describe("workspace lifecycle", () => {
     await expect(jobsInline.locator(".job-item-label", { hasText: "Terminal" })).toBeVisible();
 
     // モーダルは開かない（Jobsのインライン展開のみ）
-    await expect(page.locator(".modal-title")).toHaveText("Workspaces");
+    await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
     await row.locator(".picker-ws-header-label").click();
     await expect(jobsInline).toHaveCount(0);
   });
 
   test("同じ名前の再登録はエラーになる", async ({ page }) => {
-    await openSettingsModal(page);
     await openAddWorkspace(page);
 
     await page.locator(".ws-add-input").fill(wsDir);
@@ -84,7 +81,6 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("存在しないパスはエラーになる", async ({ page }) => {
-    await openSettingsModal(page);
     await openAddWorkspace(page);
 
     // テスト管理下の wsDir 配下で「作っていない」子パスを使う。
@@ -95,9 +91,8 @@ test.describe("workspace lifecycle", () => {
   });
 
   test("Workspaces 一覧に表示され、Edit から Delete できる（確認ダイアログあり）", async ({ page }) => {
-    await openSettingsModal(page);
-    await openSettingsView(page, "Workspaces");
-    await expect(page.locator(".modal-title")).toHaveText("Workspaces");
+    await openWorkspaces(page);
+    await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
