@@ -100,8 +100,7 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
-import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
-import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
+import { useGithubPolling } from "../composables/useGithubPolling.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useInfoPillActions } from "../composables/useInfoPillActions.js";
@@ -115,16 +114,7 @@ import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, run
 import { firstCommitLine } from "../utils/git.js";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
-import {
-  branchTooltip,
-  filesTooltip,
-  changesTooltip,
-  historyTooltip,
-  devServerTooltip,
-  dispatchTooltip,
-  prsTooltip,
-  actionsTooltip,
-} from "../utils/info-pill-tooltips.js";
+import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -181,7 +171,8 @@ const devServerEntry = computed(() => {
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
 // （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
-const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
+// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGithubPollingに集約。
+const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
 const branchPR = computed(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -190,7 +181,6 @@ const branchPR = computed(() => {
 // GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
 // 実行中→完了への遷移をピルに反映するため、表示中は定期的に再取得する
 // （参照カウント式のポーリングはuseWorkspaceActions側に集約）。
-const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
 const branchAction = computed(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findRunForBranch(runsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -206,16 +196,8 @@ const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.valu
 watch(
   githubWorkspaceKey,
   (workspace, prevWorkspace) => {
-    if (prevWorkspace) {
-      stopPRsPolling(prevWorkspace);
-      stopActionsPolling(prevWorkspace);
-    }
-    if (workspace) {
-      fetchPRs(workspace);
-      fetchRuns(workspace);
-      startPRsPolling(workspace);
-      startActionsPolling(workspace);
-    }
+    if (prevWorkspace) stopGithubPolling(prevWorkspace);
+    if (workspace) startGithubPolling(workspace);
   },
   { immediate: true },
 );
@@ -270,20 +252,22 @@ watch(paneEl, (paneNode) => {
 // アイコンのみのボタンでも、PCでホバーした時にその時点の実際の値
 // （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
 // わかるようにする。文言の組み立てはinfo-pill-tooltips.js（純粋関数）。
-const tooltips = computed(() => ({
-  branch: branchTooltip({
-    branch: paneWorkspace.value?.branch || "",
-    ahead: ahead.value,
-    behind: behind.value,
-    hasUpstream: hasUpstream.value,
-  }),
-  files: filesTooltip({ name: props.tab.workspace || props.tab.label || "", isGitRepo: isGitRepo.value }),
-  changes: changesTooltip({ changedFiles: changedFiles.value, insertions: insertions.value, deletions: deletions.value }),
-  history: historyTooltip(paneWorkspace.value?.last_commit_message),
-  devserver: devServerTooltip(devServerEntry.value, location.hostname),
-  dispatch: dispatchTooltip(tabDispatchItems.value),
-  prs: prsTooltip(branchPR.value),
-  actions: actionsTooltip(branchAction.value),
+const tooltips = computed(() => buildInfoPillTooltips({
+  name: props.tab.workspace || props.tab.label || "",
+  isGitRepo: isGitRepo.value,
+  branch: paneWorkspace.value?.branch || "",
+  ahead: ahead.value,
+  behind: behind.value,
+  hasUpstream: hasUpstream.value,
+  changedFiles: changedFiles.value,
+  insertions: insertions.value,
+  deletions: deletions.value,
+  lastCommitMessage: paneWorkspace.value?.last_commit_message,
+  devServerEntry: devServerEntry.value,
+  hostname: location.hostname,
+  dispatchItems: tabDispatchItems.value,
+  branchPR: branchPR.value,
+  branchAction: branchAction.value,
 }));
 
 // 実行状況で色・アイコンを変える（判定はgithub-runs.jsのrunStatusClass/Icon参照）。
@@ -589,10 +573,7 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
-  if (githubWorkspaceKey.value) {
-    stopPRsPolling(githubWorkspaceKey.value);
-    stopActionsPolling(githubWorkspaceKey.value);
-  }
+  if (githubWorkspaceKey.value) stopGithubPolling(githubWorkspaceKey.value);
   roPane?.disconnect();
   roPane = null;
   if (frameEl.value) {

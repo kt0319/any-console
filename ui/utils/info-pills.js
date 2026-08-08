@@ -1,7 +1,8 @@
 // Info Pills（TerminalPaneのピル群）の種別ごとの定義を1箇所に集約する
 // ディスクリプタテーブル。設定ストアのフィールド一覧・デフォルト表示順
 // （ui/stores/info-pill-config.js）、設定画面のトグルのラベル・説明
-// （InfoPillConfig.vue）、peekピルのアイコン（TerminalPane.vue）はすべて
+// （InfoPillConfig.vue）、ピル本体（InfoPillRow.vue）と peekピル
+// （TerminalPane.vue）のアイコンはすべて
 // ここから導出する。新しいピルを追加する時はまずこのテーブルへ1エントリ足す
 // （バックエンド api/routers/settings.py の INFO_PILL_FIELDS にも同じキーを
 // 追加する。tests/test_api_settings.py が両者の整合を検証している）。
@@ -85,8 +86,8 @@ export const INFO_PILL_FIELDS = INFO_PILLS.map((p) => p.key);
 const PEEK_ONLY_ICONS = { "devserver-stop": "mdi-server-off" };
 
 /**
- * peekピルに出すmdiアイコンクラス。対応するピルが無いキー（workspace等）は
- * 空文字（テンプレート側が実アイコンを直接描画する）。
+ * ピル本体・peekピルに出すmdiアイコンクラス。対応するピルが無いキー
+ * （workspace等）は空文字（テンプレート側が実アイコンを直接描画する）。
  * @param {string | null | undefined} key
  * @returns {string}
  */
