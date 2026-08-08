@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.js";
 import { EP_SETTINGS_CIRCLE_KEYPAD } from "../utils/endpoints.js";
-import { useAuthStore } from "./auth.js";
+import { createServerSettings } from "../utils/server-settings.js";
 
 function sanitizeKeys(keys) {
   if (!Array.isArray(keys) || keys.length !== 8) return defaultKeyDefs();
@@ -32,34 +32,16 @@ export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", ()
   const enabled = ref(true);
   const loaded = ref(false);
 
-  // 取得失敗を defaults で握りつぶすと、サーバに設定があってもリセットされたように
-  // 見える（loaded=true で確定してしまい再取得もされない）。失敗時は 1 回リトライし、
-  // それでもダメなら loaded を立てず、次に開いたときの再取得に委ねる。
-  // res.ok かつ空配列（初回・未保存）は正当な defaults なので通常成功として扱う。
-  async function load() {
-    const auth = useAuthStore();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await auth.apiFetch(EP_SETTINGS_CIRCLE_KEYPAD);
-        if (res && res.ok) {
-          const data = await res.json();
-          keys.value = sanitizeKeys(data.keys);
-          specials.value = sanitizeSpecials(data.specials);
-          enabled.value = data.enabled !== false;
-          loaded.value = true;
-          return;
-        }
-      } catch { /* リトライへ */ }
-    }
-  }
-
-  async function save() {
-    const auth = useAuthStore();
-    await auth.apiFetch(EP_SETTINGS_CIRCLE_KEYPAD, {
-      method: "PUT",
-      body: { keys: keys.value, specials: specials.value, enabled: enabled.value },
-    });
-  }
+  // load のリトライ・loaded 確定の方針は createServerSettings 参照。
+  const { load, save } = createServerSettings(EP_SETTINGS_CIRCLE_KEYPAD, {
+    loaded,
+    apply(data) {
+      keys.value = sanitizeKeys(data.keys);
+      specials.value = sanitizeSpecials(data.specials);
+      enabled.value = data.enabled !== false;
+    },
+    serialize: () => ({ keys: keys.value, specials: specials.value, enabled: enabled.value }),
+  });
 
   function resetToDefaults() {
     keys.value = defaultKeyDefs();

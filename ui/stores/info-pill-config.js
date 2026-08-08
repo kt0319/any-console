@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.js";
 import { INFO_PILL_FIELDS } from "../utils/info-pills.js";
-import { useAuthStore } from "./auth.js";
+import { createServerSettings } from "../utils/server-settings.js";
 
 // フィールド一覧・デフォルト表示順はinfo-pills.jsのディスクリプタテーブルから導出する。
 const FIELDS = INFO_PILL_FIELDS;
@@ -23,33 +23,21 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
 
   const fieldRefs = { branch, history, prs, actions, changes, devserver, files, add, dispatch };
 
-  // 取得失敗を defaults で握りつぶすと、サーバに設定があってもリセットされたように
-  // 見える（loaded=true で確定してしまい再取得もされない）。失敗時は 1 回リトライし、
-  // それでもダメなら loaded を立てず、次に開いたときの再取得に委ねる。
-  async function load() {
-    const auth = useAuthStore();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await auth.apiFetch(EP_SETTINGS_INFO_PILLS);
-        if (res && res.ok) {
-          const data = await res.json();
-          for (const field of FIELDS) {
-            fieldRefs[field].value = data?.[field] !== false;
-          }
-          order.value = Array.isArray(data?.order) && data.order.length ? data.order : [...DEFAULT_ORDER];
-          loaded.value = true;
-          return;
-        }
-      } catch { /* リトライへ */ }
-    }
-  }
-
-  async function save() {
-    const auth = useAuthStore();
-    const body = { order: order.value };
-    for (const field of FIELDS) body[field] = fieldRefs[field].value;
-    await auth.apiFetch(EP_SETTINGS_INFO_PILLS, { method: "PUT", body });
-  }
+  // load のリトライ・loaded 確定の方針は createServerSettings 参照。
+  const { load, save } = createServerSettings(EP_SETTINGS_INFO_PILLS, {
+    loaded,
+    apply(data) {
+      for (const field of FIELDS) {
+        fieldRefs[field].value = data?.[field] !== false;
+      }
+      order.value = Array.isArray(data?.order) && data.order.length ? data.order : [...DEFAULT_ORDER];
+    },
+    serialize() {
+      const body = { order: order.value };
+      for (const field of FIELDS) body[field] = fieldRefs[field].value;
+      return body;
+    },
+  });
 
   // useListDragSort の onReorder(fromIdx, toIdx) にそのまま渡せる形にする
   // （SessionListView.vue の terminalStore.moveTab と同じsplice方式）。
