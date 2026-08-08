@@ -228,19 +228,19 @@ class TestEffectivePort:
 
 class TestIsLoopbackHost:
     def test_localhost(self):
-        assert pairing_mod._is_loopback_host("localhost") is True
+        assert pairing_mod.is_loopback_host("localhost") is True
 
     def test_ipv4_loopback(self):
-        assert pairing_mod._is_loopback_host("127.0.0.1") is True
+        assert pairing_mod.is_loopback_host("127.0.0.1") is True
 
     def test_ipv6_loopback(self):
-        assert pairing_mod._is_loopback_host("::1") is True
+        assert pairing_mod.is_loopback_host("::1") is True
 
     def test_lan_ip_is_not_loopback(self):
-        assert pairing_mod._is_loopback_host("192.168.1.10") is False
+        assert pairing_mod.is_loopback_host("192.168.1.10") is False
 
     def test_empty_is_not_loopback(self):
-        assert pairing_mod._is_loopback_host("") is False
+        assert pairing_mod.is_loopback_host("") is False
 
 
 class TestStatus:

@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import ipaddress
 import json
 import logging
 import os
@@ -194,6 +195,28 @@ BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=8)
 BACKGROUND_FETCH_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 _subprocess_logger = logging.getLogger(__name__)
+
+
+# サーバの bind 先デフォルト（config.json の __global__.host / port が未設定の場合）。
+DEFAULT_BIND_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
+DEFAULT_BIND_PORT = 8888
+
+
+def is_loopback_host(host: str) -> bool:
+    """host が loopback（localhost / 127.x / ::1）かを判定する純関数。"""
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def display_bind_host(host: str) -> str:
+    """bind ホストをユーザー向け URL に使える形へ変換する（wildcard は localhost）。"""
+    return "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
 
 
 def task_stale(task: asyncio.Task | None, loop: asyncio.AbstractEventLoop) -> bool:
