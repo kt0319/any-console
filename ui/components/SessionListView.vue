@@ -1,10 +1,6 @@
 <template>
   <div class="modal-scroll-body session-list-view">
     <div class="session-list-scroll">
-      <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
-        <span class="mdi mdi-folder-plus-outline"></span> Open Session
-      </button>
-
       <ul v-if="items.length > 0" class="session-sidebar-list">
         <li v-for="item in items" :key="item.id" class="session-sidebar-li">
           <button
@@ -97,6 +93,9 @@
     </div>
 
     <div class="session-list-menu">
+      <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
+        <span class="mdi mdi-folder-plus-outline"></span> Open Session
+      </button>
       <button type="button" class="settings-menu-item" @click="pushView('ModalMenu')">
         <span class="mdi mdi-cog"></span> Settings
       </button>
@@ -125,8 +124,7 @@ import { emit } from "../app-bridge.js";
 // 状態・Info Pillsを一覧表示する。
 // 行の組み立ては ui/utils/session-sidebar.js（純粋関数）。
 //
-// Settingsへは下部固定のメニュー、Open Sessionは一覧の最上部から、
-// それぞれ本物のpushView遷移で進む。
+// Open Session/Settingsへは下部固定のメニュー（本物のpushView遷移）から進む。
 // タブ帯としてSettingsPanel.vue側に常設表示していた時期もあったが、Sessions
 // ページを離れたらメニューごと消えてよいという方針になったため、埋め込み式の
 // メニューに戻した（メニュー自体はこのビューがマウントされている間だけ存在する）。
@@ -410,10 +408,9 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
 }
 
-/* Settingsへの入口。一覧の下に固定表示するメニュー（Open Sessionは
-   一覧末尾へ移動済み）。行ボタンの見た目（.settings-menu-item /
-   .settings-menu-version）は ui/styles/settings-form.css（グローバル）で
-   ModalMenu.vueと共用する。 */
+/* Open Session/Settingsへの入口。一覧の下に固定表示するメニュー。
+   行ボタンの見た目（.settings-menu-item / .settings-menu-version）は
+   ui/styles/settings-form.css（グローバル）でModalMenu.vueと共用する。 */
 .session-list-menu {
   display: flex;
   flex-direction: column;
