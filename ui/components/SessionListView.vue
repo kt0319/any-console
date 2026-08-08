@@ -163,13 +163,17 @@ const pendingDispatchWorkspaces = computed(() => {
 
 function onOpenPendingDispatch(p) {
   workspaceStore.selectedWorkspace = p.workspace;
-  emit("git:openFileModal", { pane: "dispatch" });
+  // 承認待ちが1件だけなら一覧を経由せずRun Dispatchへ直接飛ぶ。
+  const dispatchItemId = p.dispatchItems.length === 1 ? p.dispatchItems[0].id : undefined;
+  emit("git:openFileModal", { pane: "dispatch", dispatchItemId });
 }
 
 // pendingワークスペース行はBranch/PR/Actions/DevServer等のピルも通常の行と
 // 同じく出すため、それぞれ対応するペインへ遷移できるよう
 // useInfoPillActionsを共有する（タブが無いのでitem.tab固定でopenPaneのみ使う）。
+// dispatchキーだけはonOpenPendingDispatchと同じ1件ショートカットを使う。
 function onPendingPillOpen(p, key) {
+  if (key === "dispatch") { onOpenPendingDispatch(p); return; }
   workspaceStore.selectedWorkspace = p.workspace;
   const { openPane } = useInfoPillActions({
     tab: ref({ workspace: p.workspace }),
