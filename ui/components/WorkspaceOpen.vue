@@ -8,13 +8,6 @@
         <RecentJobsList />
       </template>
 
-      <template v-if="detachedSessions.length">
-        <div class="settings-category-head">
-          <span class="settings-category-title">Detached</span>
-        </div>
-        <DetachedSessionsList />
-      </template>
-
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
         <span class="ws-toolbar-spacer"></span>
@@ -145,6 +138,13 @@
         </div>
         </template>
       </div>
+
+      <template v-if="detachedSessions.length">
+        <div class="settings-category-head">
+          <span class="settings-category-title">Detached Sessions</span>
+        </div>
+        <DetachedSessionsList />
+      </template>
     </div>
 
     <!-- グループ名入力モーダル -->

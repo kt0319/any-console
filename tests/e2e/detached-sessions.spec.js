@@ -1,7 +1,7 @@
 /**
  * Detached sessions（タブを閉じずにDetachしたセッション）の E2E スモーク。
  * タブの閉じるボタン→確認ダイアログのDetach選択でタブバーから消え、
- * Openタブの「Detached」カテゴリに表示され、「Open as tab」で再アタッチ
+ * Openタブの「Detached Sessions」カテゴリに表示され、行タップで再アタッチ
  * できることを確認する。
  *
  * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
@@ -42,13 +42,13 @@ test.describe("detached sessions", () => {
     await dialog.locator(".confirm-btn-extra2").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 5000 });
 
-    // Openタブの「Detached」カテゴリに現れる。
+    // Openタブの「Detached Sessions」カテゴリに現れる。
     await openWorkspaces(page);
     const detachedRow = page.locator(`.detached-sessions-li[data-session-id="${newSessionId}"]`);
     await expect(detachedRow).toBeVisible({ timeout: 10_000 });
 
-    // 再アタッチ（Open as tab）: タブ行に戻り、Detachedカテゴリから消える
-    await detachedRow.locator('.detached-sessions-btn[title="Open as tab"]').click();
+    // 再アタッチ: 行タップでOpen as tab。タブ行に戻り、Detachedカテゴリから消える
+    await detachedRow.click();
     await expect(page.locator(".tab-btn")).toHaveCount(countBefore + 1, { timeout: 10_000 });
     await expect(detachedRow).toHaveCount(0, { timeout: 10_000 });
   });
