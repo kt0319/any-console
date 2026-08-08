@@ -103,6 +103,7 @@ async fn main() {
     let auth = Auth::load(paths.data_dir.clone(), config.trust_tailscale_auth());
 
     let state = Arc::new(AppState {
+        paths: paths.clone(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

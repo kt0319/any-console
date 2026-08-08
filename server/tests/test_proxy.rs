@@ -102,6 +102,14 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
     std::fs::write(dist.join("sw.js"), "// rust sw").unwrap();
     std::fs::write(dist.join("assets/app-hash.js"), "js!").unwrap();
     let state = Arc::new(AppState {
+        paths: any_console_server::paths::Paths {
+            project_root: dir.path().to_path_buf(),
+            data_dir: dir.path().join("data"),
+            config_file: dir.path().join("config.json"),
+            frontend_dir: dist.clone(),
+            icons_dir: dir.path().join("icons"),
+            tmux_prefix: "ac-".to_string(),
+        },
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),

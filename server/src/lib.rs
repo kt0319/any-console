@@ -13,13 +13,16 @@ pub mod proxy;
 pub mod rate_limit;
 pub mod state;
 pub mod static_files;
+pub mod subprocess;
+pub mod system;
+pub mod util;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 
 use crate::state::AppState;
@@ -65,6 +68,17 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/", get(index))
         .route("/pair/{pairing_id}", get(pair_page))
         .route("/sw.js", get(sw_js))
+        // ─── Rust ネイティブ移行済みルート（Phase 1: system）───────────────
+        .route("/system/info", get(system::info))
+        .route("/system/processes", get(system::processes))
+        .route("/system/process/kill", post(system::process_kill))
+        .route("/system/tmux-info", get(system::tmux_info))
+        .route("/system/tmux/kill", post(system::tmux_kill))
+        .route("/system/tmux/adopt", post(system::tmux_adopt))
+        .route("/system/update/check", get(system::update_check))
+        .route("/system/update/apply", post(system::update_apply))
+        .route("/client-errors", post(system::client_errors))
+        // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:
         // SecurityHeaders → RateLimit → ClientLog → ルート

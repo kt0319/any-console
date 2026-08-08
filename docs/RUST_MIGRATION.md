@@ -129,19 +129,34 @@ Phase 0 のスコープ判断（実装時に確定した事項）:
 
 **完了条件**: `ANY_CONSOLE_URL` を Rust サーバに向けて `npm run test:e2e` 全通過（実処理はまだほぼ Python）。
 
-### Phase 1 — 低リスク API 群（状態レス・ファイル CRUD）
+### Phase 1 — 低リスク API 群（状態レス・ファイル CRUD）— **進行中**
 
 **目的**: 実ルートの移行実績を作り、パターン（handler / テスト / エラー変換）を確立する。
 
-| 対象 | 行数目安 |
-|------|---------|
-| `routers/system.py`（システム情報） | 493 |
-| `routers/settings.py` + `icons.py` | 469 |
-| `routers/workspaces.py` + `routers/groups.py` | 452 |
-| `routers/devices.py` + `devices.py` | 339 |
-| `routers/api_tokens.py` | 52 |
-| `activity.py` / `gh_utils.py` | 79 |
-| 画像アップロード（main.py 内） | — |
+**状況**: 認証の配線（`RequireAuth` 抽出子・auth.json の mtime 監視による
+トークン動的リロード）と system router 一式（`server/src/system.rs`）を移行済み。
+Rust front はこれらのルートを proxy せずネイティブ応答する。実機で Python 直結と
+Rust 応答のキー・値の同等性を比較検証済み（`user` は getpwuid 解決まで一致）。
+
+**実装時に確定した順序変更**: `routers/devices.py` / `routers/api_tokens.py` は
+Phase 1 から**除外**し、認証ドメイン全体の移管時（Phase 4 以降）へ後ろ倒しする。
+devices.json / auth.json への書き込み排他が Python 側ではプロセス内
+`threading.Lock` のみで、config.json と違い fcntl ファイルロックが無いため、
+移行期間中に両プロセスがこれらを書くと lost update が起きうる（Python は
+cookie 認証を通る全リクエストで devices.json の last_seen を書くため、
+Python にルートが residual に残る間は Rust 側から書けない）。
+一方 workspaces / groups / settings（config.json 書き込み）は fcntl ロックに
+Rust も参加すればプロセス間で安全に書けるため、Phase 1 の残り対象はこちら。
+
+| 対象 | 行数目安 | 状況 |
+|------|---------|------|
+| `routers/system.py`（システム情報） | 493 | **移行済み** |
+| `routers/settings.py` + `icons.py` | 469 | |
+| `routers/workspaces.py` + `routers/groups.py` | 452 | |
+| `routers/devices.py` + `devices.py` | 339 | Phase 4 以降へ後ろ倒し |
+| `routers/api_tokens.py` | 52 | Phase 4 以降へ後ろ倒し |
+| `activity.py` / `gh_utils.py` | 79 | |
+| 画像アップロード（main.py 内） | — | |
 
 **リスク**: 低。JSON ファイル CRUD が中心で pytest も厚い。
 

@@ -116,6 +116,28 @@ test.describe("API contract", () => {
     expect(body.detail).toContain("Unsupported type");
   });
 
+  test("/system/info と /system/tmux-info の応答形", async ({ request }) => {
+    const token = loadToken();
+    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    const info = await request.get(`${BASE_URL}/system/info`, { headers: bearerHeaders(token) });
+    expect(info.status()).toBe(200);
+    const infoBody = await info.json();
+    for (const key of ["hostname", "user", "install_dir"]) {
+      expect(typeof infoBody[key], key).toBe("string");
+    }
+    const tmux = await request.get(`${BASE_URL}/system/tmux-info`, {
+      headers: bearerHeaders(token),
+    });
+    expect(tmux.status()).toBe(200);
+    const tmuxBody = await tmux.json();
+    expect(typeof tmuxBody.prefix).toBe("string");
+    expect(typeof tmuxBody.available).toBe("boolean");
+    expect(Array.isArray(tmuxBody.sessions)).toBeTruthy();
+    // 未認証は 401
+    const unauthorized = await request.get(`${BASE_URL}/system/info`);
+    expect(unauthorized.status()).toBe(401);
+  });
+
   test("ステータスストリーム WS はトークン必須（不正は接続拒否）", async ({ page }) => {
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");

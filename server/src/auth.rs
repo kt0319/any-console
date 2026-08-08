@@ -71,28 +71,54 @@ pub fn is_trusted_proxy_source(client_host: &str) -> bool {
     }
 }
 
+#[derive(Debug, Default)]
+struct TokenCache {
+    token: String,
+    mtime: Option<std::time::SystemTime>,
+    loaded: bool,
+}
+
 pub struct Auth {
     data_dir: PathBuf,
-    /// メイントークン。空文字は認証無効化（auth.json 不在 or token 未設定）。
-    /// Python 同様に起動時ロード・以降固定（トークン変更は Settings API = Python 側
-    /// 経由であり、反映には Rust 側の再起動が必要。Phase 1 で動的リロードに置換）。
-    token: String,
+    /// メイントークンのキャッシュ。auth.json の mtime が変わったら読み直す —
+    /// 移行期間中はトークンのローテーション（Settings API = Python 側の書き込み）が
+    /// 別プロセスで起きるため、起動時ロードのままだと Rust 側ルートが古いトークンで
+    /// 固まる。空文字は認証無効化（auth.json 不在 or token 未設定）。
+    cache: std::sync::Mutex<TokenCache>,
     trust_tailscale: bool,
 }
 
 impl Auth {
     pub fn load(data_dir: PathBuf, trust_tailscale: bool) -> Self {
-        let auth = load_json_file(&data_dir.join("auth.json"), json!({}), None);
-        let token = auth
-            .get("token")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
         Self {
             data_dir,
-            token,
+            cache: std::sync::Mutex::new(TokenCache::default()),
             trust_tailscale,
         }
+    }
+
+    /// Tailscale ヘッダ信頼の opt-in 状態（起動時に確定 — Python 側のキャッシュと同じ
+    /// く、変更の反映には再起動が必要）。
+    pub fn trust_tailscale(&self) -> bool {
+        self.trust_tailscale
+    }
+
+    /// 現在のメイントークン。auth.json の mtime を毎回 stat し、変化時のみ再読込する。
+    fn current_token(&self) -> String {
+        let path = self.data_dir.join("auth.json");
+        let mtime = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        let mut cache = self.cache.lock().expect("auth cache lock poisoned");
+        if !cache.loaded || cache.mtime != mtime {
+            let auth = load_json_file(&path, json!({}), None);
+            cache.token = auth
+                .get("token")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            cache.mtime = mtime;
+            cache.loaded = true;
+        }
+        cache.token.clone()
     }
 
     /// HMAC-SHA256(data/server_key, secret) の hex（`api/devices.py` `_hash_secret`）。
@@ -138,7 +164,8 @@ impl Auth {
         headers: Option<&http::HeaderMap>,
         cookies: Option<&HashMap<String, String>>,
     ) -> Option<AuthResult> {
-        if self.token.is_empty() {
+        let token = self.current_token();
+        if token.is_empty() {
             return Some(AuthResult {
                 kind: AuthKind::Disabled,
                 label: String::new(),
@@ -175,13 +202,44 @@ impl Auth {
                 });
             }
         }
-        if constant_time_eq(bearer, &self.token) {
+        if constant_time_eq(bearer, &token) {
             return Some(AuthResult {
                 kind: AuthKind::Main,
                 label: bearer.to_string(),
             });
         }
         None
+    }
+}
+
+/// 認証必須ルート用の axum 抽出子（Python の `Depends(verify_token)` に対応）。
+/// 失敗時は 401 `{"detail": "Invalid token"}`。
+pub struct RequireAuth(#[allow(dead_code)] pub AuthResult);
+
+impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for RequireAuth {
+    type Rejection = crate::errors::ApiError;
+
+    async fn from_request_parts(
+        parts: &mut http::request::Parts,
+        state: &std::sync::Arc<crate::state::AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        let bearer = parts
+            .headers
+            .get(http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .unwrap_or("");
+        let client_ip = parts
+            .extensions
+            .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+            .map(|ci| ci.0.ip().to_string())
+            .unwrap_or_default();
+        let cookies = parse_cookies(&parts.headers);
+        state
+            .auth
+            .authenticate(bearer, &client_ip, Some(&parts.headers), Some(&cookies))
+            .map(RequireAuth)
+            .ok_or_else(|| crate::errors::unauthorized("Invalid token"))
     }
 }
 
@@ -229,6 +287,28 @@ mod tests {
         assert_eq!(r.kind, AuthKind::Main);
         assert!(auth.authenticate("wrong", "1.2.3.4", None, None).is_none());
         assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
+    }
+
+    #[test]
+    fn token_rotation_is_picked_up_without_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "old-token");
+        assert!(auth
+            .authenticate("old-token", "1.2.3.4", None, None)
+            .is_some());
+        // 別プロセス（Python の Settings API）によるローテーションを模す
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        save_json_file(
+            &dir.path().join("auth.json"),
+            &json!({"token": "new-token"}),
+        )
+        .unwrap();
+        assert!(auth
+            .authenticate("old-token", "1.2.3.4", None, None)
+            .is_none());
+        assert!(auth
+            .authenticate("new-token", "1.2.3.4", None, None)
+            .is_some());
     }
 
     #[test]

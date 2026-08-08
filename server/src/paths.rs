@@ -61,12 +61,15 @@ pub struct Paths {
     pub config_file: PathBuf,
     pub frontend_dir: PathBuf,
     pub icons_dir: PathBuf,
+    pub tmux_prefix: String,
 }
 
 impl Paths {
     pub fn from_env(project_root: PathBuf) -> Self {
         let env_value = std::env::var("ANY_CONSOLE_DATA_DIR").ok();
         let (data_dir, config_file) = resolve_data_paths(&project_root, env_value.as_deref());
+        let tmux_prefix =
+            resolve_tmux_prefix(std::env::var("ANY_CONSOLE_TMUX_PREFIX").ok().as_deref());
         // Python main.py の DIST_DIR と同じ場所（vite.config.js の outDir =
         // PROJECT_ROOT/dist）。Rust 側はビルド済み dist の配信のみサポートし、
         // ソースモード（ui/ 直接配信 + キャッシュバスト書き換え）は Python へ proxy する。
@@ -77,6 +80,7 @@ impl Paths {
             project_root,
             data_dir,
             config_file,
+            tmux_prefix,
         }
     }
 }
