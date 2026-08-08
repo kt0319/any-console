@@ -102,11 +102,12 @@ pub async fn execute_git_action_with_activity(
     args: &[&str],
     operation: &str,
     event: &str,
+    env: &[(&str, &str)],
     log_extra: &str,
     resolve_head: bool,
     mut activity_fields: Map<String, Value>,
 ) -> Result<Value, ApiError> {
-    let result = execute_git_action(state, name, args, operation, &[], log_extra).await?;
+    let result = execute_git_action(state, name, args, operation, env, log_extra).await?;
     if result["status"] == "ok" {
         if resolve_head {
             if let Some(ws) = ws_path {

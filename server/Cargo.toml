@@ -6,14 +6,14 @@ license = "MIT"
 publish = false
 
 [dependencies]
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
 serde = { version = "1", features = ["derive"] }
 # preserve_order: Python の dict は挿入順を保持するため、config.json 等の
 # ラウンドトリップでキー順が入れ替わらないよう serde_json も挿入順を維持する。
 serde_json = { version = "1", features = ["preserve_order"] }
-reqwest = { version = "0.12", default-features = false, features = ["stream", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "multipart"] }
 tokio-tungstenite = "0.26"
 futures-util = "0.3"
 hmac = "0.12"
@@ -23,6 +23,9 @@ getrandom = "0.3"
 subtle = "2"
 tempfile = "3"
 mime_guess = "2"
+unicode-normalization = "0.1"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+tokio-util = { version = "0.7", features = ["io"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bytes = "1"

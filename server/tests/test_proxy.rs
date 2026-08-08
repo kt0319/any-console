@@ -112,6 +112,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
         },
         config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
         git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
+        gh_cache: any_console_server::github::GhCache::new(),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),

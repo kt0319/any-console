@@ -9,11 +9,15 @@ pub mod config;
 pub mod config_migrations;
 pub mod config_schema;
 pub mod errors;
+pub mod git_branches;
 pub mod git_diff;
+pub mod git_files;
 pub mod git_helpers;
 pub mod git_history;
 pub mod git_lock;
 pub mod git_utils;
+pub mod git_worktree;
+pub mod github;
 pub mod groups;
 pub mod json_store;
 pub mod middleware;
@@ -172,6 +176,66 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(git_diff::file_commit_diff),
         )
         .route("/workspaces/{name}/git/discard", post(git_diff::discard))
+        // ─── Rust ネイティブ移行済みルート（Phase 2: ブランチ/ファイル/worktree/GitHub）
+        .route(
+            "/workspaces/{name}/branches",
+            get(git_branches::list_branches),
+        )
+        .route(
+            "/workspaces/{name}/branches/remote",
+            get(git_branches::list_remote_branches),
+        )
+        .route(
+            "/workspaces/{name}/delete-branch",
+            post(git_branches::delete_branch),
+        )
+        .route(
+            "/workspaces/{name}/create-branch",
+            post(git_branches::create_branch),
+        )
+        .route(
+            "/workspaces/{name}/checkout",
+            post(git_branches::checkout_branch),
+        )
+        .route("/workspaces/{name}/pull", post(git_branches::pull))
+        .route("/workspaces/{name}/push", post(git_branches::push))
+        .route(
+            "/workspaces/{name}/push-branch",
+            post(git_branches::push_branch),
+        )
+        .route(
+            "/workspaces/{name}/set-upstream",
+            post(git_branches::set_upstream),
+        )
+        .route(
+            "/workspaces/{name}/push-upstream",
+            post(git_branches::push_upstream),
+        )
+        .route("/workspaces/{name}/fetch", post(git_branches::fetch))
+        .route("/workspaces/{name}/files", get(git_files::list_files))
+        .route(
+            "/workspaces/{name}/file-content",
+            get(git_files::file_content),
+        )
+        .route(
+            "/workspaces/{name}/upload",
+            post(git_files::upload).layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
+        )
+        .route("/workspaces/{name}/rename", post(git_files::rename))
+        .route(
+            "/workspaces/{name}/delete-file",
+            post(git_files::delete_file),
+        )
+        .route("/workspaces/{name}/download", get(git_files::download))
+        .route(
+            "/workspaces/{name}/worktrees",
+            get(git_worktree::list_worktrees)
+                .post(git_worktree::create_worktree)
+                .delete(git_worktree::delete_worktree),
+        )
+        .route("/workspaces/{name}/github/issues", get(github::issues))
+        .route("/workspaces/{name}/github/pulls", get(github::pulls))
+        .route("/workspaces/{name}/github/runs", get(github::runs))
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:

@@ -175,7 +175,7 @@ Rust も参加すればプロセス間で安全に書けるため、Phase 1 の�
 
 **リスク**: 低。JSON ファイル CRUD が中心で pytest も厚い。
 
-### Phase 2 — Git 系（subprocess の主戦場）— **進行中**
+### Phase 2 — Git 系（subprocess の主戦場）— **実装済み**
 
 **目的**: 本アプリの中核機能の一つ。subprocess 実行・パース・ロックのパターンを確立する。
 
@@ -189,13 +189,13 @@ rebase / reset / commit / stash 5種 / diff 3種 / discard）を移行済み。
 
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
-| `git_utils.py` / `git_lock.py` | 323 | **移行済み**（background_fetch / ssh_env は branches 移行時） |
+| `git_utils.py` / `git_lock.py` | 323 | **移行済み**（background_fetch は workspaces 移行時 = Phase 4） |
 | `git_info.py` | 317 | Phase 4 へ後ろ倒し（利用者が /workspaces/statuses と git_watch = リアルタイム系のみのため） |
 | `routers/git_history.py` / `git_diff.py` / `git_diff_utils.py` / `git_helpers.py` | 485 | **移行済み** |
-| `routers/git_branches.py`（checkout / pull / push / fetch） | 337 | 次スライス |
-| `routers/git_files.py` / `git_file_utils.py`（ファイル CRUD / zip） | 399 | 次スライス |
-| `routers/git_worktree.py` | 171 | 次スライス |
-| `routers/github.py` | 45 | 次スライス |
+| `routers/git_branches.py`（checkout / pull / push / fetch） | 337 | **移行済み**（ssh_env・追跡情報・未push件数アルゴリズム含む） |
+| `routers/git_files.py` / `git_file_utils.py`（ファイル CRUD / zip） | 399 | **移行済み**（multipart アップロード・zip ダウンロード・ref 指定閲覧含む） |
+| `routers/git_worktree.py` | 171 | **移行済み** |
+| `routers/github.py` | 45 | **移行済み**（gh CLI 30秒 TTL キャッシュ含む） |
 
 **実装時の確定事項**:
 

@@ -38,6 +38,7 @@ async fn spawn_front() -> TestFront {
         },
         config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
         git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
+        gh_cache: any_console_server::github::GhCache::new(),
         // 未移行ルートへ触れたら失敗するよう、繋がらない upstream を指す
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,

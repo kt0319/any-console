@@ -192,6 +192,15 @@ impl ConfigStore {
         None
     }
 
+    /// workspace のエントリ dict を返す（見つからなければ空 — Python
+    /// `load_workspace_config` 相当）。
+    pub fn load_workspace_config(&self, workspace_name: &str) -> Map<String, Value> {
+        let cfg = self.load_all();
+        Self::find_workspace_key(&cfg, workspace_name)
+            .and_then(|key| cfg.get(&key).and_then(Value::as_object).cloned())
+            .unwrap_or_default()
+    }
+
     pub fn resolve_workspace_id(&self, identifier: &str) -> Option<String> {
         if identifier.is_empty() {
             return None;

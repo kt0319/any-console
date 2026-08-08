@@ -99,12 +99,105 @@ pub async fn run_git_command(
     }
 }
 
-/// HEAD 等の ref を解決したハッシュ文字列（失敗時は空文字 — Python `rev_parse` 相当）。
-pub async fn rev_parse_head(directory: &Path) -> String {
-    run_git_query(&["rev-parse", "HEAD"], directory, GIT_STANDARD_TIMEOUT_SEC)
+/// ref を解決したハッシュ文字列（失敗時は空文字 — Python `rev_parse` 相当）。
+pub async fn rev_parse(directory: &Path, git_ref: &str) -> String {
+    run_git_query(&["rev-parse", git_ref], directory, GIT_STANDARD_TIMEOUT_SEC)
         .await
         .map(|s| s.trim().to_string())
         .unwrap_or_default()
+}
+
+pub async fn rev_parse_head(directory: &Path) -> String {
+    rev_parse(directory, "HEAD").await
+}
+
+/// SSH agent ソケットの補完（Python `ssh_env` 相当）。
+/// SSH_AUTH_SOCK が未設定なら既知の候補パスを探して環境変数の追加分として返す。
+pub fn ssh_env_additions() -> Vec<(String, String)> {
+    if std::env::var("SSH_AUTH_SOCK").is_ok_and(|v| !v.is_empty()) {
+        return Vec::new();
+    }
+    // SAFETY: getuid は常に成功する。
+    let uid = unsafe { libc::getuid() };
+    for cand in [
+        format!("/run/user/{uid}/gnupg/S.gpg-agent.ssh"),
+        format!("/run/user/{uid}/ssh-agent.socket"),
+    ] {
+        if std::path::Path::new(&cand).exists() {
+            return vec![("SSH_AUTH_SOCK".to_string(), cand)];
+        }
+    }
+    Vec::new()
+}
+
+/// リモート（origin）のデフォルトブランチ名（`refs/remotes/origin/HEAD` から解決）。
+pub async fn git_default_branch(directory: &Path) -> Option<String> {
+    let out = run_git_query(
+        &["symbolic-ref", "refs/remotes/origin/HEAD"],
+        directory,
+        GIT_QUICK_TIMEOUT_SEC,
+    )
+    .await?;
+    let git_ref = out.trim();
+    git_ref
+        .strip_prefix("refs/remotes/origin/")
+        .map(String::from)
+}
+
+/// ローカルのリモート追跡 ref からリモートブランチ名一覧を返す（読み取り専用）。
+pub async fn git_remote_branches(directory: &Path) -> Vec<String> {
+    let Some(out) = run_git_query(
+        &["for-each-ref", "--format=%(refname)", "refs/remotes"],
+        directory,
+        GIT_QUICK_TIMEOUT_SEC,
+    )
+    .await
+    else {
+        tracing::warn!("git_remote_branches failed dir={}", directory.display());
+        return Vec::new();
+    };
+    let mut branches: Vec<String> = Vec::new();
+    for git_ref in out.trim().lines() {
+        let git_ref = git_ref.trim();
+        let Some(b) = git_ref.strip_prefix("refs/remotes/") else {
+            continue;
+        };
+        if b.is_empty() || b.rsplit('/').next() == Some("HEAD") {
+            continue;
+        }
+        let b = match b.split_once('/') {
+            Some((_, rest)) => rest,
+            None => b,
+        };
+        if !branches.iter().any(|x| x == b) {
+            branches.push(b.to_string());
+        }
+    }
+    branches
+}
+
+/// 登録済みワークスペースの resolve 済みパス -> 表示名 の対応表
+/// （Python `registered_paths_by_resolved` 相当）。
+pub fn registered_paths_by_resolved(
+    store: &ConfigStore,
+) -> std::collections::HashMap<String, String> {
+    let mut result = std::collections::HashMap::new();
+    for entry in store.list_workspace_entries().values() {
+        let p = entry.get("path").and_then(Value::as_str).unwrap_or("");
+        if p.is_empty() {
+            continue;
+        }
+        let resolved = crate::paths::safe_resolve_str(&crate::paths::expand_user_path(p));
+        result.insert(
+            resolved,
+            entry
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        );
+    }
+    result
 }
 
 pub async fn git_branch(directory: &Path) -> Option<String> {

@@ -26,6 +26,26 @@ pub fn expand_user_path(s: &str) -> PathBuf {
     expand_user(s)
 }
 
+/// パスを解決した絶対パス文字列を返す（Python `safe_resolve_str` 相当）。
+/// canonicalize（symlink 解決込み）を試み、失敗時はレキシカルな正規化で代替する。
+pub fn safe_resolve_str(path: &Path) -> String {
+    if let Ok(c) = path.canonicalize() {
+        return c.to_string_lossy().into_owned();
+    }
+    let abs = absolutize(path.to_path_buf());
+    let mut normalized = PathBuf::new();
+    for comp in abs.components() {
+        match comp {
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => normalized.push(other),
+        }
+    }
+    normalized.to_string_lossy().into_owned()
+}
+
 /// 相対パスをカレントディレクトリ基準で絶対化する（存在しないパスも扱えるよう
 /// canonicalize は使わない — Python の `resolve()` は存在チェックなしで解決する）。
 fn absolutize(p: PathBuf) -> PathBuf {

@@ -77,6 +77,7 @@ async fn spawn_front() -> TestFront {
         },
         config: store,
         git_locks: WorkspaceLocks::new(),
+        gh_cache: any_console_server::github::GhCache::new(),
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir.clone(), false),
@@ -358,4 +359,278 @@ async fn file_history_follows_renames_within_workspace() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 422);
+}
+
+// ─── Phase 2 後半: ブランチ / ファイル / worktree ────────────────────────────
+
+#[tokio::test]
+async fn branch_lifecycle_and_listing() {
+    let front = spawn_front().await;
+    // 作成 → 一覧に current として現れる
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/create-branch",
+        &json!({"branch": "feat/x"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let arr = branches.as_array().unwrap();
+    let feat = arr.iter().find(|b| b["name"] == "feat/x").unwrap();
+    assert_eq!(feat["current"], true);
+    assert_eq!(feat["upstream"], Value::Null);
+    // upstream 未設定ブランチの ahead は未 push 件数（origin 不在なので全コミット数）
+    assert!(feat["ahead"].as_i64().unwrap() >= 1);
+
+    // main へ戻って削除
+    post_json(
+        &front,
+        "/workspaces/repo/checkout",
+        &json!({"branch": "main"}),
+    )
+    .await
+    .error_for_status()
+    .unwrap();
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/delete-branch",
+        &json!({"branch": "feat/x"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    // current の削除は 400
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/delete-branch",
+        &json!({"branch": "main"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["detail"], "Cannot delete the current branch");
+}
+
+#[tokio::test]
+async fn files_listing_and_content() {
+    let front = spawn_front().await;
+    std::fs::create_dir(front.ws_path.join("sub")).unwrap();
+    std::fs::write(front.ws_path.join("sub/inner.txt"), "inner\n").unwrap();
+    std::fs::write(front.ws_path.join("logo.png"), b"\x89PNG fake").unwrap();
+
+    let body = get_json(&front, "/workspaces/repo/files").await;
+    assert_eq!(body["status"], "ok");
+    let entries = body["entries"].as_array().unwrap();
+    // dir が先・name 昇順
+    assert_eq!(entries[0]["name"], "sub");
+    assert_eq!(entries[0]["type"], "dir");
+    assert_eq!(entries[0]["count"], 1);
+    let names: Vec<&str> = entries
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"a.txt") && names.contains(&"logo.png"));
+    assert!(!names.contains(&".git"));
+
+    let content = get_json(&front, "/workspaces/repo/file-content?path=a.txt").await;
+    assert_eq!(content["content"], "hello\n");
+    let img = get_json(&front, "/workspaces/repo/file-content?path=logo.png").await;
+    assert_eq!(img["image"], true);
+    assert!(img["data_url"]
+        .as_str()
+        .unwrap()
+        .starts_with("data:image/png;base64,"));
+
+    // HEAD ref 指定の閲覧（コミット済み内容のみ見える）
+    let head = {
+        let log = get_json(&front, "/workspaces/repo/git-log").await;
+        log["stdout"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .split('\t')
+            .next()
+            .unwrap()
+            .to_string()
+    };
+    let body = get_json(&front, &format!("/workspaces/repo/files?ref={head}")).await;
+    let names: Vec<&str> = body["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"a.txt"));
+    assert!(
+        !names.contains(&"sub"),
+        "未コミットのディレクトリは ref 閲覧に出ない"
+    );
+    let content = get_json(
+        &front,
+        &format!("/workspaces/repo/file-content?path=a.txt&ref={head}"),
+    )
+    .await;
+    assert_eq!(content["content"], "hello\n");
+}
+
+#[tokio::test]
+async fn upload_rename_delete_download_cycle() {
+    let front = spawn_front().await;
+    // upload（multipart）
+    let form = reqwest::multipart::Form::new()
+        .text("path", "")
+        .text("overwrite", "false")
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(b"uploaded".to_vec()).file_name("up.txt"),
+        );
+    let resp = client()
+        .post(format!("http://{}/workspaces/repo/upload", front.addr))
+        .bearer_auth(TOKEN)
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["path"], "up.txt");
+    assert_eq!(body["size"], 8);
+
+    // 同名は overwrite 無しで 409
+    let form = reqwest::multipart::Form::new().text("path", "").part(
+        "file",
+        reqwest::multipart::Part::bytes(b"x".to_vec()).file_name("up.txt"),
+    );
+    let resp = client()
+        .post(format!("http://{}/workspaces/repo/upload", front.addr))
+        .bearer_auth(TOKEN)
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 409);
+
+    // rename
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/rename",
+        &json!({"src": "up.txt", "dest": "renamed.txt"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.ws_path.join("renamed.txt").is_file());
+
+    // download（単一ファイル）
+    let resp = client()
+        .get(format!(
+            "http://{}/workspaces/repo/download?path=renamed.txt",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(resp.headers()["content-disposition"]
+        .to_str()
+        .unwrap()
+        .contains("renamed.txt"));
+    assert_eq!(resp.bytes().await.unwrap().as_ref(), b"uploaded");
+
+    // download（ディレクトリ → zip、.git は除外される）
+    let resp = client()
+        .get(format!(
+            "http://{}/workspaces/repo/download?path=",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.headers()["content-type"], "application/zip");
+    let zip_bytes = resp.bytes().await.unwrap();
+    assert!(zip_bytes.len() > 4);
+    assert_eq!(&zip_bytes[..2], b"PK");
+
+    // delete
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/delete-file",
+        &json!({"path": "renamed.txt"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert!(!front.ws_path.join("renamed.txt").exists());
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/delete-file",
+        &json!({"path": "renamed.txt"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 404);
+}
+
+#[tokio::test]
+async fn worktree_create_list_delete() {
+    let front = spawn_front().await;
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/worktrees",
+        &json!({"branch": "wt-branch"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+    assert_eq!(body["workspace"]["name"], "repo [wt-branch]");
+    let wt_path = body["workspace"]["path"].as_str().unwrap().to_string();
+    assert!(std::path::Path::new(&wt_path).is_dir());
+
+    let listing = get_json(&front, "/workspaces/repo/worktrees").await;
+    let items = listing["worktrees"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["is_main"], true);
+    let wt = items.iter().find(|w| w["branch"] == "wt-branch").unwrap();
+    assert_eq!(wt["is_main"], false);
+
+    // 動的 worktree 名でルートが解決できる（git-log が引ける）
+    let encoded = "repo%20%5Bwt-branch%5D"; // "repo [wt-branch]"
+    let log = get_json(&front, &format!("/workspaces/{encoded}/git-log")).await;
+    assert_eq!(log["status"], "ok");
+
+    // メイン worktree の削除は 400
+    let main_path = items[0]["path"].as_str().unwrap();
+    let resp = client()
+        .delete(format!("http://{}/workspaces/repo/worktrees", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"path": main_path}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+
+    // worktree 削除
+    let resp = client()
+        .delete(format!("http://{}/workspaces/repo/worktrees", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"path": wt_path}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    // 無関係パスの削除は 404
+    let resp = client()
+        .delete(format!("http://{}/workspaces/repo/worktrees", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"path": "/tmp"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404);
 }
