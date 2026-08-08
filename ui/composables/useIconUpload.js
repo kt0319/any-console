@@ -23,7 +23,7 @@ export function useIconUpload() {
       return null;
     }
     if (file.size > ICON_UPLOAD_MAX_SIZE) {
-      toast.error("Image must be 500KB or less");
+      toast.error("Image must be 512KB or less");
       return null;
     }
     try {

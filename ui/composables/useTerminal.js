@@ -1,7 +1,7 @@
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
+import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.js";
 import { reconnectBackoffDelay } from "../utils/backoff.js";
 import { emit } from "../app-bridge.js";
 import { useToast } from "./useToast.js";
@@ -113,7 +113,7 @@ export function useTerminal() {
       tab._writeCount = (tab._writeCount || 0) + 1;
       clearTimeout(tab._postWriteRefresh);
       tab._postWriteRefresh = setTimeout(() => {
-        if (tab._writeCount >= 50 && tab.term) {
+        if (tab._writeCount >= TERMINAL_BULK_WRITE_REFRESH_THRESHOLD && tab.term) {
           try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
         }
         tab._writeCount = 0;

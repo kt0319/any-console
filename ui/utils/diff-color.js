@@ -1,3 +1,5 @@
+import { escapeHtml } from "./escape-html.js";
+
 const DIFF_COLORS = {
   "+": "var(--diff-add, #9ece6a)",
   "-": "var(--diff-del, #f7768e)",
@@ -6,9 +8,7 @@ const DIFF_COLORS = {
 
 export function escapeDiffHtml(str) {
   if (!str) return "";
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
+  return escapeHtml(str);
 }
 
 export function colorDiff(text) {

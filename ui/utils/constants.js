@@ -34,10 +34,20 @@ export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 export const RECENT_JOBS_MAX = 10;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
+// 複数行の詳細（pull したコミット一覧等）を含むトーストは読む時間を長めに取る
+export const TOAST_DETAIL_DURATION_MS = 5000;
 export const PILL_MORE_PEEK_DURATION_MS = 4000;
 export const URL_COPIED_RESET_MS = 1500;
 export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
 export const NOTIFY_GRACE_DEBOUNCE_MS = 500;
+export const DIRECTORY_SUGGEST_DEBOUNCE_MS = 150;
+export const LAYOUT_SAVE_DEBOUNCE_MS = 800;
+// 短時間に連続する復帰トリガー（visibilitychange / focus / online）を1回にまとめる窓
+export const SESSION_RESUME_COALESCE_MS = 100;
+export const TOOLTIP_HIDE_DELAY_MS = 100;
+// 1回の POST_WRITE_REFRESH_MS 窓内でこの回数以上 write が来たら「大量出力」と
+// みなして書き込み静止後に全画面 refresh する（描画残り対策）
+export const TERMINAL_BULK_WRITE_REFRESH_THRESHOLD = 50;
 export const FRAME_FIT_DEBOUNCE_MS = 250;
 export const FIT_WRITE_QUIET_MS = 120;
 export const FIT_MAX_WAIT_MS = 1000;
@@ -65,6 +75,12 @@ export const LS_KEY_ACTIVE_SESSION = "any_console_active_session";
 export const LS_KEY_DEBUG_MODE = "any_console_debug_mode";
 export const LS_KEY_DEBUG_LEVELS = "any_console_debug_levels";
 export const LS_KEY_NOTIF_PREFS = "notifPrefs";
+
+// フレーズ検出→プッシュ通知の猶予秒数のサーバ契約値
+// （api/routers/settings.py の PHRASE_NOTIFY_GRACE_SEC_MAX / api/common.py の
+// PHRASE_NOTIFY_IDLE_GRACE_SEC と一致させる）
+export const PHRASE_NOTIFY_GRACE_SEC_MAX = 600;
+export const PHRASE_NOTIFY_GRACE_SEC_DEFAULT = 20;
 export const DEBUG_LEVELS = ["log", "info", "warn", "error"];
 export const LS_PREFIX_API_CACHE = "api_cache_";
 export const LS_PREFIX_WS_META = "ws_meta_";

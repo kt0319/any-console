@@ -1,8 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { EP_WORKSPACES_SUGGEST } from "../utils/endpoints.js";
-
-const SUGGEST_DEBOUNCE_MS = 150;
+import { DIRECTORY_SUGGEST_DEBOUNCE_MS as SUGGEST_DEBOUNCE_MS } from "../utils/constants.js";
 
 export function useDirectorySuggest(addPath) {
   const { apiGet } = useApi();

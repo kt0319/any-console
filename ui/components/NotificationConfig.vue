@@ -56,14 +56,16 @@ import { ref, inject, onMounted, watch } from "vue";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { useApi } from "../composables/useApi.js";
 import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.js";
-import { LS_KEY_NOTIF_PREFS, NOTIFY_GRACE_DEBOUNCE_MS } from "../utils/constants.js";
+import {
+  LS_KEY_NOTIF_PREFS,
+  NOTIFY_GRACE_DEBOUNCE_MS,
+  PHRASE_NOTIFY_GRACE_SEC_DEFAULT,
+  PHRASE_NOTIFY_GRACE_SEC_MAX,
+} from "../utils/constants.js";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Notifications";
-
-const PHRASE_NOTIFY_GRACE_SEC_MAX = 600;
-const PHRASE_NOTIFY_GRACE_SEC_DEFAULT = 20;
 
 const { isSupported, isSubscribed, permission, subscribe, unsubscribe, init } = usePushNotification();
 const { apiGet, apiPut } = useApi();
