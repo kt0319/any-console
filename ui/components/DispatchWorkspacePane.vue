@@ -6,7 +6,7 @@
         <div class="settings-section-label">Pending dispatches</div>
         <ul class="dispatch-queue-list">
           <li v-for="item in pending" :key="item.id" class="dispatch-queue-row">
-            <button type="button" class="dispatch-queue-row-main" @click="pushView('DispatchRunView', { itemId: item.id })">
+            <button type="button" class="dispatch-queue-row-main" @click="emits('select', item.id)">
               <DispatchQueueRowBody :request="item.request" />
             </button>
           </li>
@@ -21,7 +21,7 @@
               type="button"
               class="dispatch-queue-row-main dispatch-queue-recent-row"
               :class="item.decision === 'approved' ? 'dispatch-queue-recent-approved' : 'dispatch-queue-recent-rejected'"
-              @click="pushView('DispatchRunView', { itemId: item.id })"
+              @click="emits('select', item.id)"
             >
               <DispatchQueueRowBody :request="item.request" :decision="item.decision" />
             </button>
@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { computed, inject } from "vue";
+import { computed } from "vue";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
@@ -43,12 +43,12 @@ import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 // （全ワークスペース横断のグローバル一覧、Settings配下の独立画面）を廃止し、
 // 対応するワークスペースの項目だけに絞ってここへ統合した
 // （GitHubActionsPane.vue等、他のGitHub系タブと同じ「ワークスペース詳細内の
-// タブ」パターンに揃える）。DispatchRunViewへの遷移はSettings側のpushViewを
-// 使う（WorkspaceJobsPane.vueのJobConfig遷移と同じ導線。WorkspaceDetailModal.vue
-// がuseSettingsNav.jsの実体をprovideしている）。
+// タブ」パターンに揃える）。1件選ぶとDispatchRunViewを表示するが、Settings側
+// のpushViewには乗せず、選択IDをWorkspaceDetail.vueへemitしてタブ内で
+// ローカルに切り替える（Settings側の別レイヤーとして開いてしまっていたため）。
 
 const workspaceStore = useWorkspaceStore();
-const pushView = inject("pushView");
+const emits = defineEmits(["select"]);
 const { queue, recent: allRecent } = useDispatchConfirm();
 
 const pending = computed(() =>

@@ -15,9 +15,8 @@ import { copyText } from "../utils/clipboard.js";
 //   tab: import("vue").Ref<Record<string, any>>,
 //   isGitRepo: import("vue").Ref<boolean>,
 //   devServerEntry: import("vue").Ref<Record<string, any> | null>,
-//   tabDispatchItems: import("vue").Ref<{id: string}[]>,
 // }} options
-export function useInfoPillActions({ tab, isGitRepo, devServerEntry, tabDispatchItems }) {
+export function useInfoPillActions({ tab, isGitRepo, devServerEntry }) {
   const workspaceStore = useWorkspaceStore();
   const { apiGet } = useApi();
   const { confirm } = useConfirm();
@@ -93,14 +92,11 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, tabDispatch
     openExternal(url);
   }
 
-  // 1件だけなら詳細（DispatchRunView）へ直接飛び、複数ある時はワークスペース
-  // 詳細のDispatchタブ（どれを開くか選べる一覧）を開く。
+  // 他のピル（history/changes/branch/prs/actions）と同じく、常にワークスペース
+  // 詳細のDispatchタブを開く（件数によらず動作を揃える。1件だけの時の個別
+  // 詳細へはDispatchタブの行から進む）。
   function openDispatch() {
-    if (tabDispatchItems.value.length === 1) {
-      emit("settings:open", { view: "DispatchRunView", state: { itemId: tabDispatchItems.value[0].id } });
-    } else {
-      openWorkspacePane("dispatch");
-    }
+    openWorkspacePane("dispatch");
   }
 
   // ピル/peekピルのキー → 遷移先。devserver-stopは「検出されなくなった」

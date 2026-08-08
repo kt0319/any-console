@@ -69,6 +69,9 @@ provide("viewState", viewState);
 provide("pushView", pushView);
 provide("popView", popView);
 provide("updateViewState", updateViewState);
+// DispatchRunViewがRun成功後にこのオーバーレイごと閉じるために使う
+// （WorkspaceDetail.vue参照）。
+provide("closeWorkspaceDetail", close);
 
 const modalEl = ref(null);
 

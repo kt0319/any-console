@@ -54,6 +54,38 @@
         </li>
       </ul>
       <div v-else class="session-sidebar-empty">No sessions</div>
+
+      <!-- タブがまだ無いワークスペースの承認待ちdispatch。通常のセッション行と
+           同じ見た目（SessionRowContent + InfoPillRow）で出す。見出しは出さず、
+           行のPendingバッジとワークスペース名の非アクティブ色だけで区別する。 -->
+      <template v-if="pendingDispatchWorkspaces.length > 0">
+        <ul class="session-sidebar-list session-sidebar-list-pending">
+        <li v-for="p in pendingDispatchWorkspaces" :key="p.workspace" class="session-sidebar-li">
+          <button type="button" class="session-sidebar-item hover-bg" @click="onOpenPendingDispatch(p)">
+            <SessionRowContent :item="p" dim />
+          </button>
+          <span class="session-sidebar-pills-row">
+            <InfoPillRow
+              class="session-sidebar-pills"
+              :tab="{ workspace: p.workspace }"
+              :max-width="9999"
+              :is-git-repo="p.isGitRepo"
+              :is-dirty="p.dirty"
+              :ahead="p.ahead"
+              :behind="p.behind"
+              :has-pr="p.hasPr"
+              :has-action="p.hasAction"
+              :has-dev-server="p.hasDevServer"
+              :dispatch-count="p.dispatchCount"
+              :action-status-class="p.actionStatusClass"
+              :action-status-icon="p.actionStatusIcon"
+              :tooltips="p.tooltips"
+              @open="onPendingPillOpen(p, $event)"
+            />
+          </span>
+        </li>
+        </ul>
+      </template>
     </div>
 
     <div class="session-list-menu">
@@ -76,7 +108,7 @@ import { computed, ref, watch, onBeforeUnmount, inject } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { sessionSidebarItems } from "../utils/session-sidebar.js";
+import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.js";
 import { useGithubPolling } from "../composables/useGithubPolling.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
@@ -112,6 +144,40 @@ const { confirm } = useConfirm();
 const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { queue: dispatchQueue } = useDispatchConfirm();
+
+// 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、
+// タブ一覧の下に別枠で出す（タブが既にあるワークスペースはInfoPillRowの
+// dispatchピルで足りるため対象外）。通常のセッション行と同じ情報
+// （Branch/Changes/PR/Actions/DevServer/Dispatchの各ピル）で出すため、
+// 組み立てロジックはsessionSidebarItemsと共有する（session-sidebar.js）。
+const pendingDispatchWorkspaces = computed(() => {
+  const openTabWorkspaces = new Set(terminalStore.openTabs.map((t) => t.workspace).filter(Boolean));
+  return pendingDispatchSidebarItems(workspaceStore.allWorkspaces, openTabWorkspaces, {
+    prsByWorkspace: prsByWorkspace.value,
+    runsByWorkspace: runsByWorkspace.value,
+    previewPorts: previewPorts.value,
+    dispatchQueue: dispatchQueue.value,
+    hostname: location.hostname,
+  });
+});
+
+function onOpenPendingDispatch(p) {
+  workspaceStore.selectedWorkspace = p.workspace;
+  emit("git:openFileModal", { pane: "dispatch" });
+}
+
+// pendingワークスペース行はBranch/PR/Actions/DevServer等のピルも通常の行と
+// 同じく出すため、それぞれ対応するペインへ遷移できるよう
+// useInfoPillActionsを共有する（タブが無いのでitem.tab固定でopenPaneのみ使う）。
+function onPendingPillOpen(p, key) {
+  workspaceStore.selectedWorkspace = p.workspace;
+  const { openPane } = useInfoPillActions({
+    tab: ref({ workspace: p.workspace }),
+    isGitRepo: ref(p.isGitRepo),
+    devServerEntry: ref(p.devServerEntry),
+  });
+  openPane(key);
+}
 
 const activeTabId = computed(() => terminalStore.activeTabId);
 
@@ -154,7 +220,6 @@ function onPillOpen(item, key) {
     tab: ref(item.tab),
     isGitRepo: ref(item.isGitRepo),
     devServerEntry: ref(item.devServerEntry),
-    tabDispatchItems: ref(item.dispatchItems),
   });
   // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして
   // 表示されるため、ここでサイドバー自体を閉じない（閉じると開いた直後の
@@ -224,6 +289,12 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 4px 0;
+}
+
+/* pending行の一覧は見出しを出さず、開いているセッション一覧との罫線だけで
+   区切る。 */
+.session-sidebar-list-pending {
+  border-top: 1px solid var(--border);
 }
 
 /* セッション（タブ）ごとに罫線で区切る。 */

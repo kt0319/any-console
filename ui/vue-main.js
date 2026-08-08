@@ -11,8 +11,12 @@ import "./styles/modal-shell.css";
 import "./styles/command-list.css";
 import "./styles/settings-form.css";
 import "./styles/info-pills.css";
+import { watch } from "vue";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
+import { useWorkspaceStore } from "./stores/workspace.js";
+import { useDispatchConfirm } from "./composables/useDispatchConfirm.js";
+import { dispatchWorkspaceLabel } from "./utils/dispatch-request.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
 import { installTooltip } from "./utils/tooltip.js";
 import { emit } from "./app-bridge.js";
@@ -77,7 +81,28 @@ async function bootstrap() {
   }
 }
 
-// dispatch通知タップ時、既存タブが無く新規ウィンドウが開かれた場合（sw.js の
+// dispatch通知タップ時、該当リクエストをワークスペース詳細のDispatchタブへ
+// 直接開く（DispatchRunViewはSettings側の画面ではなくWorkspaceDetail.vue内の
+// ローカル表示のため、対象ワークスペースを解決してからgit:openFileModalで開く）。
+// 起動直後はまだdispatchキューがWSで届いていないことがあるため、届くまで待つ。
+function openDispatchRunView(dispatchId) {
+  const { queue, recent } = useDispatchConfirm();
+  const workspaceStore = useWorkspaceStore();
+  function tryOpen() {
+    const item = queue.value.find((q) => q.id === dispatchId) || recent.value.find((r) => r.id === dispatchId);
+    const wsName = item ? dispatchWorkspaceLabel(item.request) : "";
+    if (!wsName) return false;
+    workspaceStore.selectedWorkspace = wsName;
+    emit("git:openFileModal", { pane: "dispatch", dispatchItemId: dispatchId });
+    return true;
+  }
+  if (tryOpen()) return;
+  const stopWatch = watch(queue, () => {
+    if (tryOpen()) stopWatch();
+  });
+}
+
+// 既存タブが無く新規ウィンドウが開かれた場合（sw.js の
 // notification-open-dispatch-queue は既存クライアント向けの postMessage のため届かない）
 // でも該当リクエストを開けるように、起動時にURLパラメータで判定する。
 function openDispatchQueueFromUrlIfRequested() {
@@ -85,7 +110,7 @@ function openDispatchQueueFromUrlIfRequested() {
   if (params.get("openDispatchQueue") !== "1") return;
   const dispatchId = params.get("dispatchId") || null;
   if (!dispatchId) return;
-  emit("settings:open", { view: "DispatchRunView", state: { itemId: dispatchId } });
+  openDispatchRunView(dispatchId);
 }
 
 bootstrap();
@@ -99,7 +124,7 @@ if ("serviceWorker" in navigator) {
       // sw.js へ受信を ack する（届いていればURL遷移フォールバックを起こさせないため）。
       event.ports?.[0]?.postMessage("ack");
       const dispatchId = event.data.dispatchId || null;
-      if (dispatchId) emit("settings:open", { view: "DispatchRunView", state: { itemId: dispatchId } });
+      if (dispatchId) openDispatchRunView(dispatchId);
     }
   });
 }

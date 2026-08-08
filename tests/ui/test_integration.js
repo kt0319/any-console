@@ -366,23 +366,14 @@ describe("DispatchRunView: dedup_key による置き換えの検知", () => {
     applyDispatchQueue([]);
   });
 
-  it("同じ id のまま payload が置き換わったら popView する（古い内容のまま実行されないように）", async () => {
+  it("同じ id のまま payload が置き換わったら back を emit する（古い内容のまま実行されないように）", async () => {
     applyDispatchQueue([
       { id: "d1", request: { workspace: "ws1", text: "first", branch: "main", retry_count: 1 } },
     ]);
 
-    const popView = vi.fn();
-    mount(DispatchRunView, {
-      global: {
-        provide: {
-          modalTitle: ref(""),
-          viewState: ref({ itemId: "d1" }),
-          popView,
-        },
-      },
-    });
+    const wrapper = mount(DispatchRunView, { props: { itemId: "d1" } });
     await flushPromises();
-    expect(popView).not.toHaveBeenCalled();
+    expect(wrapper.emitted("back")).toBeUndefined();
 
     // dispatch_id は変えず内容だけ置き換わるケース（同一 dedup_key の連続失敗）。
     applyDispatchQueue([
@@ -390,24 +381,15 @@ describe("DispatchRunView: dedup_key による置き換えの検知", () => {
     ]);
     await flushPromises();
 
-    expect(popView).toHaveBeenCalled();
+    expect(wrapper.emitted("back")).toBeTruthy();
   });
 
-  it("retry_count が変わらない再描画では popView しない", async () => {
+  it("retry_count が変わらない再描画では back を emit しない", async () => {
     applyDispatchQueue([
       { id: "d1", request: { workspace: "ws1", text: "first", branch: "main", retry_count: 1 } },
     ]);
 
-    const popView = vi.fn();
-    mount(DispatchRunView, {
-      global: {
-        provide: {
-          modalTitle: ref(""),
-          viewState: ref({ itemId: "d1" }),
-          popView,
-        },
-      },
-    });
+    const wrapper = mount(DispatchRunView, { props: { itemId: "d1" } });
     await flushPromises();
 
     // 同じスナップショットの再配信（内容変化なし）。
@@ -416,22 +398,14 @@ describe("DispatchRunView: dedup_key による置き換えの検知", () => {
     ]);
     await flushPromises();
 
-    expect(popView).not.toHaveBeenCalled();
+    expect(wrapper.emitted("back")).toBeUndefined();
   });
 });
 
 // ── DispatchRunView: dirty workspace のブランチ切替ブロック ──────────────────
 
 function mountDispatchRunView(itemId = "d1") {
-  return mount(DispatchRunView, {
-    global: {
-      provide: {
-        modalTitle: ref(""),
-        viewState: ref({ itemId }),
-        popView: vi.fn(),
-      },
-    },
-  });
+  return mount(DispatchRunView, { props: { itemId } });
 }
 
 function findRunButton(wrapper) {
@@ -844,6 +818,9 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
 
   beforeEach(() => {
     setActivePinia(createPinia());
+    // 前のdescribe（DispatchRunView系）が残したdispatchキューはモジュール
+    // スコープの共有stateのため、このdescribeへ漏れないようリセットする。
+    applyDispatchQueue([]);
   });
 
   afterEach(() => {

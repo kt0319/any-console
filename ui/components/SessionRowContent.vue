@@ -4,7 +4,7 @@
     <span v-if="jobIconHtml" class="session-sidebar-icon" v-html="jobIconHtml"></span>
     <span v-if="!wsIconHtml && !jobIconHtml" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
     <span v-if="item.isWorktree" class="mdi mdi-file-tree session-sidebar-worktree" aria-label="worktree"></span>
-    <span class="session-sidebar-label">{{ item.label }}</span>
+    <span class="session-sidebar-label" :class="{ 'session-sidebar-label-dim': dim }">{{ item.label }}</span>
     <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
     <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className">
       <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>{{ item.agent.label }}
@@ -31,6 +31,9 @@ import { buildNumstatHtml } from "../utils/git.js";
 
 const props = defineProps({
   item: { type: Object, required: true },
+  // タブがまだ無いpendingワークスペース行（SessionListView.vue）用。
+  // アクティブなセッションではないことが伝わるよう名前を控えめな色にする。
+  dim: { type: Boolean, default: false },
 });
 
 const wsIconHtml = computed(() => (props.item.wsIcon ? renderIconStr(props.item.wsIcon.name, props.item.wsIcon.color, 18) : ""));
@@ -73,6 +76,11 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
+}
+
+.session-sidebar-label-dim {
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 .session-sidebar-notify {
@@ -143,6 +151,12 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
 
 .session-sidebar-agent.agent-state-idle {
   color: var(--text-muted);
+}
+
+/* タブがまだ無いワークスペースの承認待ちdispatch行専用（SessionListView.vue、
+   実際のエージェント状態ではないが同じバッジ見た目を流用する）。 */
+.session-sidebar-agent.agent-state-dispatch-pending {
+  color: var(--warning);
 }
 
 </style>

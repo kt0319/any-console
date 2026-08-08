@@ -23,7 +23,6 @@
       <WorkspaceAddView v-if="currentView === 'WorkspaceAdd'" />
       <WorkspaceEditPane v-if="currentView === 'WorkspaceEdit'" />
       <JobConfig v-if="currentView === 'JobConfig'" />
-      <DispatchRunView v-if="currentView === 'DispatchRunView'" />
       <TerminalConfig v-if="currentView === 'TerminalConfig'" />
       <EditorConfig v-if="currentView === 'EditorConfig'" />
       <AuthConfig v-if="currentView === 'AuthConfig'" />
@@ -51,7 +50,6 @@ import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAddView from "./WorkspaceAddView.vue";
 import WorkspaceEditPane from "./WorkspaceEditPane.vue";
 import JobConfig from "./JobConfig.vue";
-import DispatchRunView from "./DispatchRunView.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import AuthConfig from "./AuthConfig.vue";

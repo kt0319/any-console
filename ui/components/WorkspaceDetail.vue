@@ -61,7 +61,13 @@
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
       <div v-if="activePane === 'dispatch'" class="file-modal-pane">
-        <DispatchWorkspacePane />
+        <DispatchRunView
+          v-if="selectedDispatchId"
+          :item-id="selectedDispatchId"
+          @back="selectedDispatchId = null"
+          @done="onDispatchRunDone"
+        />
+        <DispatchWorkspacePane v-else @select="selectedDispatchId = $event" />
       </div>
       <div v-show="activePane === 'select'" class="file-modal-pane">
         <TerminalSelectPane ref="terminalSelectPane" />
@@ -71,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, inject, nextTick, onMounted, onUnmounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitChanges from "./GitChanges.vue";
@@ -82,6 +88,7 @@ import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
 import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
+import DispatchRunView from "./DispatchRunView.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -121,6 +128,18 @@ const githubPrs = ref(null);
 const jobsPane = ref(null);
 const terminalSelectPane = ref(null);
 
+// DispatchタブでDispatchWorkspacePane（一覧）→DispatchRunView（1件の詳細/実行）
+// をローカルに切り替えるための状態。Settings側のpushViewには乗せない
+// （別レイヤーとして開いてしまい、ワークスペース詳細の外に見えてしまうため）。
+const selectedDispatchId = ref(null);
+// Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
+// （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.jsのcloseをprovideする）。
+const closeWorkspaceDetail = inject("closeWorkspaceDetail");
+function onDispatchRunDone() {
+  selectedDispatchId.value = null;
+  closeWorkspaceDetail?.();
+}
+
 const activePane = ref("jobs");
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
 // （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
@@ -134,11 +153,18 @@ const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
 const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchConfirm();
-const dispatchCount = computed(() => {
+// タブのバッジ数字は承認待ち（pending）件数のみでよい（実行済みrecentは
+// 件数に含めない）。ただしタブ自体の表示可否はrecentしか無い場合でも
+// 履歴を見返せるよう、pending/recentのどちらかがあれば出す。
+const dispatchPendingCount = computed(() => {
   const ws = workspaceStore.selectedWorkspace;
   if (!ws) return 0;
-  return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length
-    + dispatchRecent.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
+  return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
+});
+const dispatchRecentCount = computed(() => {
+  const ws = workspaceStore.selectedWorkspace;
+  if (!ws) return 0;
+  return dispatchRecent.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
 });
 
 const fileBrowserDeep = ref(false);
@@ -168,7 +194,7 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
     { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#6f4e37", hidden: !isGit || !hasGithub.value },
-    { key: "dispatch", icon: "mdi-tray-full", label: "Dispatch", iconColor: "var(--warning)", count: dispatchCount.value || 0, hidden: !!terminalSessionId.value || !dispatchCount.value },
+    { key: "dispatch", icon: "mdi-tray-full", label: "Dispatch", iconColor: "var(--warning)", count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);
@@ -214,6 +240,10 @@ function clearDiffSelection() {
 }
 
 function handleBack() {
+  if (activePane.value === "dispatch" && selectedDispatchId.value) {
+    selectedDispatchId.value = null;
+    return true;
+  }
   if (activePane.value === "history" && gitHistory.value?.hasExpanded?.()) {
     gitHistory.value?.closeExpanded?.();
     clearDiffSelection();
@@ -256,9 +286,14 @@ function open(options) {
     paneLoader.invalidate("branch");
     branchSectionExpanded.value = false;
     isViewingCommitFiles.value = false;
+    selectedDispatchId.value = null;
   });
 
   switchPane(resolvedPane, { expandBranch: wantBranchExpanded });
+  // dispatch通知タップ等、特定の1件を直接開きたい場合（vue-main.js参照）。
+  if (resolvedPane === "dispatch" && options.dispatchItemId) {
+    selectedDispatchId.value = options.dispatchItemId;
+  }
 }
 
 async function switchPane(key, opts = {}) {

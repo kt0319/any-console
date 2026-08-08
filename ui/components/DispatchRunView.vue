@@ -1,5 +1,11 @@
 <template>
   <div class="modal-scroll-body">
+    <div class="dispatch-run-header">
+      <button type="button" class="dispatch-run-back-btn" aria-label="Back to dispatch list" data-tooltip="Back" @click="emits('back')">
+        <span class="mdi mdi-arrow-left"></span>
+      </button>
+      <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
+    </div>
     <div v-if="request" class="ws-settings-section">
       <div class="ws-settings-row">
         <span class="ws-settings-label">Session</span>
@@ -93,22 +99,29 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { useModalView } from "../composables/useModalView.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.js";
-import { emit, on } from "../app-bridge.js";
+import { on } from "../app-bridge.js";
 
 // Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new_session__";
 
-const { modalTitle, viewState, popView } = useModalView();
+// ワークスペース詳細のDispatchタブ内で、一覧（DispatchWorkspacePane）から
+// 選ばれた1件を表示するローカルな画面遷移として使う（WorkspaceDetail.vueが
+// activePane === 'dispatch' の中でv-ifを切り替える）。Settings側のpushView
+// スタックには乗せない（サイドバー側に別レイヤーとして出てしまっていたため）。
+const props = defineProps({
+  itemId: { type: String, required: true },
+});
+const emits = defineEmits(["back", "done"]);
+
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { queue, recent, runItem, rejectItem, rerunNow } = useDispatchConfirm();
 const workspaceStore = useWorkspaceStore();
 
-const itemId = viewState.value?.itemId;
+const itemId = props.itemId;
 // 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
 // recent 由来の場合は「編集して再実行」モード（isRerun）になる:
 // Run は承認キューを経由せずその場で再実行し、Discard（承認待ちの破棄）は
@@ -118,8 +131,6 @@ const recentItem = computed(() => queueItem.value ? null : (recent.value.find((r
 const item = computed(() => queueItem.value || recentItem.value);
 const request = computed(() => item.value?.request || null);
 const isRerun = computed(() => !queueItem.value && !!recentItem.value);
-
-modalTitle.value = "Run Dispatch";
 
 const branch = ref("");
 const baseBranch = ref("");
@@ -220,20 +231,19 @@ const dirtyBlockReason = computed(() => {
 const initialRetryCount = ref(/** @type {number|null} */ (null));
 
 onMounted(() => {
-  if (!item.value) { popView(); return; }
-  if (isRerun.value) modalTitle.value = "Rerun Dispatch";
+  if (!item.value) { emits("back"); return; }
   initFromRequest(request.value);
   initialRetryCount.value = request.value?.retry_count ?? 1;
 });
 
 const offItemRemoved = on("dispatch:itemRemoved", ({ id }) => {
-  if (id === itemId) popView();
+  if (id === itemId) emits("back");
 });
 onUnmounted(offItemRemoved);
 
 watch(() => request.value?.retry_count, (count) => {
   if (initialRetryCount.value !== null && count !== undefined && count !== initialRetryCount.value) {
-    popView();
+    emits("back");
   }
 });
 
@@ -339,8 +349,9 @@ async function run() {
       overrides.create_branch = null;
     }
     const ok = isRerun.value ? await rerunNow(itemId, overrides) : await runItem(itemId, overrides);
-    // Run 成功後はそのままセッションを見せたいので、一覧へ戻さず Settings ごと閉じる。
-    if (ok) emit("modal:close");
+    // Run 成功後はそのままセッションを見せたいので、一覧へ戻さずワークスペース
+    // 詳細ごと閉じる（emits("done")、WorkspaceDetail.vue参照）。
+    if (ok) emits("done");
   } finally {
     running.value = false;
   }
@@ -353,7 +364,7 @@ async function discard() {
   discarding.value = true;
   try {
     const ok = await rejectItem(itemId);
-    if (ok) popView();
+    if (ok) emits("back");
   } finally {
     discarding.value = false;
   }
@@ -361,6 +372,43 @@ async function discard() {
 </script>
 
 <style scoped>
+/* ワークスペース詳細のDispatchタブ内での一覧への戻り導線
+   （GitHistory.vueのdiff-files-close-btnと同じ見た目のパターン）。 */
+.dispatch-run-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 8px;
+}
+
+.dispatch-run-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dispatch-run-back-btn:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
+.dispatch-run-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 /* "Base branch" 等の長いラベルに合わせて列幅を揃える（Session/Workspace/Job と同じ開始位置にする）。 */
 .ws-settings-label {
   min-width: 84px;

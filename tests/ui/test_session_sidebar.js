@@ -7,6 +7,7 @@ import {
   AGENT_STATE_META,
   agentStateDescriptor,
   sessionSidebarItems,
+  pendingDispatchSidebarItems,
 } from "../../ui/utils/session-sidebar.js";
 
 describe("agentStateDescriptor", () => {
@@ -175,5 +176,57 @@ describe("sessionSidebarItems: Info Pills用データ（PR/Actions/Dev Server/Di
     const app = items.find((i) => i.id === 1);
     expect(app.tooltips.branch).toContain("main");
     expect(app.tooltips.devserver).toContain("Dev Server");
+  });
+});
+
+describe("pendingDispatchSidebarItems", () => {
+  const workspaces = [
+    { name: "app", branch: "main", is_git_repo: true, clean: false, ahead: 1, changed_files: 2 },
+    { name: "wt", branch: "feat/x", worktree: true, worktree_base: "app", worktree_branch: "feat/x" },
+  ];
+
+  it("タブが開いていないワークスペースだけをワークスペース単位でまとめる", () => {
+    const items = pendingDispatchSidebarItems(workspaces, new Set(["already-open"]), {
+      dispatchQueue: [
+        { request: { workspace: "app" } },
+        { request: { workspace: "app" } },
+        { request: { workspace: "already-open" } },
+      ],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].workspace).toBe("app");
+    expect(items[0].dispatchCount).toBe(2);
+  });
+
+  it("sessionSidebarItemsと同じくgit/PR/Actions/DevServerの各ピル用フィールドを持つ", () => {
+    const items = pendingDispatchSidebarItems(workspaces, new Set(), {
+      dispatchQueue: [{ request: { workspace: "app" } }],
+      prsByWorkspace: { app: [{ headRefName: "main", number: 1, title: "fix" }] },
+      previewPorts: [{ workspace: "app", proxy_port: 3000 }],
+    });
+    const app = items.find((i) => i.workspace === "app");
+    expect(app.isGitRepo).toBe(true);
+    expect(app.branch).toBe("main");
+    expect(app.dirty).toBe(true);
+    expect(app.ahead).toBe(1);
+    expect(app.hasPr).toBe(true);
+    expect(app.hasDevServer).toBe(true);
+    expect(app.agent).toEqual({ icon: "mdi-tray-full", label: "Pending", className: "agent-state-dispatch-pending" });
+  });
+
+  it("worktreeは「ベース名 | ブランチ」表示になる", () => {
+    const items = pendingDispatchSidebarItems(workspaces, new Set(), {
+      dispatchQueue: [{ request: { workspace: "wt" } }],
+    });
+    expect(items[0].label).toBe("app | feat/x");
+    expect(items[0].isWorktree).toBe(true);
+  });
+
+  it("該当ワークスペースが未登録でもワークスペース名をラベルに使う", () => {
+    const items = pendingDispatchSidebarItems([], new Set(), {
+      dispatchQueue: [{ request: { workspace: "unknown-ws" } }],
+    });
+    expect(items[0].label).toBe("unknown-ws");
+    expect(items[0].wsIcon).toBeNull();
   });
 });
