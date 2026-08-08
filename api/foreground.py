@@ -21,11 +21,10 @@ from __future__ import annotations
 import logging
 import os
 
-from .common import run_subprocess_safe
+from .common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe
 
 logger = logging.getLogger(__name__)
 
-PS_TIMEOUT_SEC = 5
 # 子孫走査の安全上限（異常なプロセスツリーでの暴走防止）
 _MAX_DESCENDANTS = 64
 
@@ -143,7 +142,7 @@ class ForegroundInspector:
         if self._ps_rows is None:
             result = run_subprocess_safe(
                 ["ps", "-axo", "pid=,pgid=,tpgid=,command="],
-                timeout=PS_TIMEOUT_SEC, log_label="ps",
+                timeout=SYSTEM_CMD_TIMEOUT_SEC, log_label="ps",
             )
             if result is None or result.returncode != 0:
                 self._ps_rows = []

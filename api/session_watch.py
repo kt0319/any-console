@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import WebSocket
 
-from .ws_broadcast import broadcast_to
+from .ws_broadcast import broadcast_to, call_threadsafe
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,10 @@ def notify_session_job_bound(session_id: str, job_name: str, job_label: str) -> 
 
 def _notify(event_type: str, session_id: str, **extra: Any) -> None:
     """スレッドセーフ。同期/非同期どちらのルートハンドラからも呼べる。"""
-    loop = _loop
-    if loop is None or loop.is_closed() or not _subscribers:
+    if not _subscribers:
         return
     payload = {"type": event_type, "session_id": session_id, **extra}
-    loop.call_soon_threadsafe(_schedule_broadcast, payload)
+    call_threadsafe(_loop, _schedule_broadcast, payload)
 
 
 def _schedule_broadcast(payload: dict[str, Any]) -> None:

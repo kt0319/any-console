@@ -26,7 +26,12 @@ import secrets
 import threading
 import time
 
-from .common import AGENT_HOOK_STATE_TTL_SEC, DATA_DIR, TMUX_SESSION_PREFIX
+from .common import (
+    AGENT_HOOK_STATE_TTL_SEC,
+    DATA_DIR,
+    TMUX_SESSION_PREFIX,
+    connect_bind_host,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +137,7 @@ def hook_session_env(tmux_session_name: str) -> dict[str, str]:
     try:
         from .config import resolve_bind
         host, port = resolve_bind()
-        if host in ("0.0.0.0", "::"):  # noqa: S104 - bind 判定であり接続先は loopback
-            host = "127.0.0.1"
+        host = connect_bind_host(host)
         return {
             "ANY_CONSOLE_SESSION": tmux_session_name,
             "ANY_CONSOLE_HOOK_URL": f"http://{host}:{port}/agent-hooks/events",
