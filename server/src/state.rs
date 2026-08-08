@@ -1,6 +1,7 @@
 //! アプリ全体の共有状態。
 
 use crate::auth::Auth;
+use crate::config::ConfigStore;
 use crate::paths::Paths;
 use crate::proxy::Proxy;
 use crate::rate_limit::FixedWindowCounter;
@@ -8,6 +9,7 @@ use crate::static_files::StaticCtx;
 
 pub struct AppState {
     pub paths: Paths,
+    pub config: ConfigStore,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,

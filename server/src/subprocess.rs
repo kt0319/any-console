@@ -26,6 +26,24 @@ impl CmdResult {
     }
 }
 
+/// CPython の C ロケール強制（PEP 538）を再現する。
+///
+/// Python バックエンドは C ロケール（LANG 等が未設定 / "C" / "POSIX"）を検出すると
+/// 起動時に `LC_CTYPE=C.UTF-8` を注入し、それが subprocess の子にも引き継がれる。
+/// tmux はクライアントのロケールが UTF-8 でないとフォーマット出力の制御文字
+/// （`-F` のタブ区切り等）を `_` にサニタイズするため、この差があると Python では
+/// パースできる出力が Rust では壊れる（実際に detached sessions 一覧が空になる
+/// 回帰を起こした）。子プロセスの環境を Python と同一条件に揃える。
+fn coerce_c_locale(command: &mut tokio::process::Command) {
+    let is_c_locale = |name: &str| match std::env::var(name) {
+        Ok(v) => v.is_empty() || v == "C" || v == "POSIX",
+        Err(_) => true,
+    };
+    if is_c_locale("LC_ALL") && is_c_locale("LC_CTYPE") && is_c_locale("LANG") {
+        command.env("LC_CTYPE", "C.UTF-8");
+    }
+}
+
 pub async fn run_subprocess_safe(
     cmd: &[&str],
     timeout_sec: f64,
@@ -34,6 +52,7 @@ pub async fn run_subprocess_safe(
     let (program, args) = cmd.split_first()?;
     let mut command = tokio::process::Command::new(program);
     command.args(args).kill_on_drop(true);
+    coerce_c_locale(&mut command);
     if let Some(dir) = cwd {
         command.current_dir(dir);
     }
@@ -124,6 +143,30 @@ mod tests {
         assert!(run_subprocess_safe(&["sleep", "5"], 0.2, None)
             .await
             .is_none());
+    }
+
+    #[tokio::test]
+    async fn tmux_format_tabs_survive_locale_coercion() {
+        // tmux 未導入環境（rust CI ジョブ等）ではスキップ
+        if run_subprocess_safe(&["tmux", "-V"], 5.0, None)
+            .await
+            .is_none()
+        {
+            return;
+        }
+        let name = format!("ac-test-{}", crate::util::token_hex(4));
+        let created =
+            run_subprocess_safe(&["tmux", "new-session", "-d", "-s", &name], 5.0, None).await;
+        if !created.is_some_and(|r| r.success()) {
+            return; // tmux サーバを起動できない環境ではスキップ
+        }
+        let fmt = "#{session_name}\t#{session_windows}";
+        let r = run_tmux_cmd(&["list-sessions", "-F", fmt]).await.unwrap();
+        kill_tmux_by_name(&name).await;
+        assert!(r.success());
+        // C ロケールでも PEP 538 相当の強制でタブがサニタイズされないこと
+        let line = r.stdout.lines().find(|l| l.starts_with(&name)).unwrap();
+        assert!(line.contains('\t'), "tab must survive: {line:?}");
     }
 
     #[tokio::test]

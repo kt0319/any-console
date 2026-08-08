@@ -5,12 +5,16 @@
 
 pub mod auth;
 pub mod config;
+pub mod config_migrations;
+pub mod config_schema;
 pub mod errors;
+pub mod groups;
 pub mod json_store;
 pub mod middleware;
 pub mod paths;
 pub mod proxy;
 pub mod rate_limit;
+pub mod settings;
 pub mod state;
 pub mod static_files;
 pub mod subprocess;
@@ -22,7 +26,7 @@ use std::sync::Arc;
 
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::Router;
 
 use crate::state::AppState;
@@ -78,6 +82,47 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/system/update/check", get(system::update_check))
         .route("/system/update/apply", post(system::update_apply))
         .route("/client-errors", post(system::client_errors))
+        // ─── Rust ネイティブ移行済みルート（Phase 1: settings / groups）────
+        // GET/PUT /settings/auth と /recent-jobs は Python のまま（settings.rs 冒頭参照）
+        .route("/settings/config-health", get(settings::config_health))
+        .route("/settings/export", get(settings::export_settings))
+        .route("/settings/import", post(settings::import_settings))
+        .route(
+            "/settings/editor",
+            get(settings::get_editor).put(settings::put_editor),
+        )
+        .route(
+            "/settings/notifications",
+            get(settings::get_notifications).put(settings::put_notifications),
+        )
+        .route(
+            "/settings/info-pills",
+            get(settings::get_info_pills).put(settings::put_info_pills),
+        )
+        .route(
+            "/settings/circle-keypad",
+            get(settings::get_circle_keypad).put(settings::put_circle_keypad),
+        )
+        .route(
+            "/settings/layout",
+            get(settings::get_layout)
+                .put(settings::put_layout)
+                .delete(settings::delete_layout),
+        )
+        .route(
+            "/snippets",
+            get(settings::get_snippets).put(settings::put_snippets),
+        )
+        .route("/workspace-order", put(settings::put_workspace_order))
+        .route(
+            "/groups",
+            get(groups::list_groups).post(groups::create_group),
+        )
+        .route(
+            "/groups/{group_id}",
+            put(groups::update_group).delete(groups::delete_group),
+        )
+        .route("/group-order", put(groups::update_group_order))
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:

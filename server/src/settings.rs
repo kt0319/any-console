@@ -1,0 +1,653 @@
+//! 設定 API（Python 側 `api/routers/settings.py` のサブセット移植 +
+//! `api/routers/workspaces.py` の PUT /workspace-order）。
+//!
+//! config.json のグローバルセクションを読み書きするルートを移行する。
+//! **移行対象外**（proxy のまま Python が担当）:
+//! - GET/PUT /settings/auth — auth.json ドメイン（ライター移管は後続フェーズ）
+//! - GET/PUT /recent-jobs — GET の除去計算が jobs 解決（jobs_common.py）に依存
+
+use std::sync::Arc;
+
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::Json;
+use serde::Deserialize;
+use serde_json::{json, Map, Value};
+
+use crate::auth::RequireAuth;
+use crate::config::{ConfigStore, GLOBAL_CONFIG_KEY};
+use crate::errors::{bad_request, too_large, ApiError};
+use crate::state::AppState;
+use crate::util::JsonBody;
+
+pub const MAX_LABEL_LENGTH: usize = 200;
+pub const MAX_COMMAND_LENGTH: usize = 10000;
+const LABEL_PREVIEW_LEN: usize = 20;
+const MAX_IMPORT_SIZE: usize = 1024 * 1024;
+const PHRASE_NOTIFY_IDLE_GRACE_SEC: i64 = 20;
+const PHRASE_NOTIFY_GRACE_SEC_MAX: i64 = 600;
+
+/// Pydantic の Field(max_length=...) 相当（超過は 422）。
+fn check_max_len(field: &str, value: &str, max: usize) -> Result<(), ApiError> {
+    if value.chars().count() > max {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("{field} exceeds max length {max}"),
+        ));
+    }
+    Ok(())
+}
+
+fn save_global(store: &ConfigStore, key: &str, value: Value) -> Result<(), ApiError> {
+    store
+        .save_global_section(key, value)
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e))
+}
+
+// ─── /settings/config-health・/settings/export・/settings/import ────────────
+
+pub async fn config_health(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+    Json(state.config.check_health())
+}
+
+pub async fn export_settings(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Json<Value> {
+    Json(Value::Object(state.config.load_all()))
+}
+
+pub async fn import_settings(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    body: axum::body::Bytes,
+) -> Result<Json<Value>, ApiError> {
+    if body.len() > MAX_IMPORT_SIZE {
+        return Err(too_large("Import data too large (max 1MB)"));
+    }
+    let data: Value = serde_json::from_slice(&body).map_err(|_| bad_request("Invalid JSON"))?;
+    let Some(data) = data.as_object() else {
+        return Err(bad_request("Expected JSON object"));
+    };
+    let mut current = state.config.load_all();
+    for (identifier, ws_config) in data {
+        apply_import_entry(&mut current, identifier, ws_config);
+    }
+    state.config.save_all(&current).map_err(bad_request)?;
+    Ok(Json(json!({"status": "ok"})))
+}
+
+/// Python `_apply_import_entry` と同一: global は丸ごと置換、workspace は
+/// 既存エントリ（パスが実在するもの）にのみマージし、name は既存を維持する。
+fn apply_import_entry(current: &mut Map<String, Value>, identifier: &str, ws_config: &Value) {
+    let Some(ws_obj) = ws_config.as_object() else {
+        return;
+    };
+    if identifier == GLOBAL_CONFIG_KEY {
+        current.insert(identifier.to_string(), ws_config.clone());
+        return;
+    }
+    let Some(target_id) = ConfigStore::find_workspace_key(current, identifier) else {
+        return;
+    };
+    let existing = current
+        .get(&target_id)
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let path = existing.get("path").and_then(Value::as_str).unwrap_or("");
+    if !crate::paths::expand_user_path(path).is_dir() {
+        return;
+    }
+    let mut merged = existing.clone();
+    for (k, v) in ws_obj {
+        merged.insert(k.clone(), v.clone());
+    }
+    let name = existing
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&target_id);
+    merged.insert("name".to_string(), Value::String(name.to_string()));
+    current.insert(target_id.clone(), Value::Object(merged));
+}
+
+// ─── /settings/editor ───────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct EditorSettings {
+    #[serde(default)]
+    url_template: String,
+}
+
+pub async fn get_editor(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+    let editor = state
+        .config
+        .load_global_section("editor")
+        .unwrap_or(json!({}));
+    let url_template = editor
+        .as_object()
+        .and_then(|o| o.get("url_template"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    Json(json!({"url_template": url_template}))
+}
+
+pub async fn put_editor(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<EditorSettings>,
+) -> Result<Json<Value>, ApiError> {
+    check_max_len("url_template", &body.url_template, 2000)?;
+    let url_template = body.url_template.trim().to_string();
+    save_global(
+        &state.config,
+        "editor",
+        json!({"url_template": url_template}),
+    )?;
+    Ok(Json(json!({"status": "ok", "url_template": url_template})))
+}
+
+// ─── /settings/notifications ────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct NotificationSettings {
+    #[serde(default = "default_grace")]
+    phrase_notify_grace_sec: i64,
+}
+
+fn default_grace() -> i64 {
+    PHRASE_NOTIFY_IDLE_GRACE_SEC
+}
+
+/// Python `notification_grace_sec` と同一の解決規則。
+fn notification_grace_sec(store: &ConfigStore) -> i64 {
+    let raw = store.load_global_section("notifications");
+    let Some(obj) = raw.as_ref().and_then(Value::as_object) else {
+        return PHRASE_NOTIFY_IDLE_GRACE_SEC;
+    };
+    match obj.get("phrase_notify_grace_sec") {
+        Some(Value::Number(n)) if !obj["phrase_notify_grace_sec"].is_boolean() => n
+            .as_i64()
+            .filter(|&v| v >= 0)
+            .unwrap_or(PHRASE_NOTIFY_IDLE_GRACE_SEC),
+        _ => PHRASE_NOTIFY_IDLE_GRACE_SEC,
+    }
+}
+
+pub async fn get_notifications(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Json<Value> {
+    Json(json!({"phrase_notify_grace_sec": notification_grace_sec(&state.config)}))
+}
+
+pub async fn put_notifications(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<NotificationSettings>,
+) -> Result<Json<Value>, ApiError> {
+    let v = body.phrase_notify_grace_sec;
+    if !(0..=PHRASE_NOTIFY_GRACE_SEC_MAX).contains(&v) {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("phrase_notify_grace_sec must be between 0 and {PHRASE_NOTIFY_GRACE_SEC_MAX}"),
+        ));
+    }
+    save_global(
+        &state.config,
+        "notifications",
+        json!({"phrase_notify_grace_sec": v}),
+    )?;
+    Ok(Json(json!({"status": "ok", "phrase_notify_grace_sec": v})))
+}
+
+// ─── /settings/info-pills ───────────────────────────────────────────────────
+
+const INFO_PILL_FIELDS: &[&str] = &[
+    "files",
+    "history",
+    "changes",
+    "branch",
+    "prs",
+    "actions",
+    "devserver",
+    "add",
+    "dispatch",
+];
+
+/// 未知のキーを除外し、重複は初出のみ残し、欠けているキーはデフォルト順で末尾に補う。
+fn normalize_pill_order(order: &[String]) -> Vec<String> {
+    let mut known: Vec<String> = Vec::new();
+    for key in order {
+        if INFO_PILL_FIELDS.contains(&key.as_str()) && !known.contains(key) {
+            known.push(key.clone());
+        }
+    }
+    for key in INFO_PILL_FIELDS {
+        if !known.iter().any(|k| k == key) {
+            known.push(key.to_string());
+        }
+    }
+    known
+}
+
+#[derive(Deserialize)]
+pub struct InfoPillSettings {
+    #[serde(default = "yes")]
+    branch: bool,
+    #[serde(default = "yes")]
+    history: bool,
+    #[serde(default = "yes")]
+    prs: bool,
+    #[serde(default = "yes")]
+    actions: bool,
+    #[serde(default = "yes")]
+    changes: bool,
+    #[serde(default = "yes")]
+    devserver: bool,
+    #[serde(default = "yes")]
+    files: bool,
+    #[serde(default = "yes")]
+    add: bool,
+    #[serde(default = "yes")]
+    dispatch: bool,
+    #[serde(default)]
+    order: Vec<String>,
+}
+
+fn yes() -> bool {
+    true
+}
+
+pub async fn get_info_pills(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+    let raw = state
+        .config
+        .load_global_section("info_pills")
+        .unwrap_or(json!({}));
+    let raw = raw.as_object().cloned().unwrap_or_default();
+    let mut result = Map::new();
+    for field in [
+        "branch",
+        "history",
+        "prs",
+        "actions",
+        "changes",
+        "devserver",
+        "files",
+        "add",
+        "dispatch",
+    ] {
+        let v = raw
+            .get(field)
+            .map(|v| v.as_bool().unwrap_or(true) || v.as_i64().is_some_and(|n| n != 0))
+            .unwrap_or(true);
+        result.insert(field.to_string(), Value::Bool(v));
+    }
+    let order: Vec<String> = raw
+        .get("order")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    result.insert(
+        "order".to_string(),
+        Value::Array(
+            normalize_pill_order(&order)
+                .into_iter()
+                .map(Value::String)
+                .collect(),
+        ),
+    );
+    Json(Value::Object(result))
+}
+
+pub async fn put_info_pills(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<InfoPillSettings>,
+) -> Result<Json<Value>, ApiError> {
+    let mut data = Map::new();
+    for (key, v) in [
+        ("branch", body.branch),
+        ("history", body.history),
+        ("prs", body.prs),
+        ("actions", body.actions),
+        ("changes", body.changes),
+        ("devserver", body.devserver),
+        ("files", body.files),
+        ("add", body.add),
+        ("dispatch", body.dispatch),
+    ] {
+        data.insert(key.to_string(), Value::Bool(v));
+    }
+    data.insert(
+        "order".to_string(),
+        Value::Array(
+            normalize_pill_order(&body.order)
+                .into_iter()
+                .map(Value::String)
+                .collect(),
+        ),
+    );
+    save_global(&state.config, "info_pills", Value::Object(data.clone()))?;
+    let mut resp = Map::new();
+    resp.insert("status".to_string(), Value::String("ok".to_string()));
+    resp.extend(data);
+    Ok(Json(Value::Object(resp)))
+}
+
+// ─── /settings/circle-keypad ────────────────────────────────────────────────
+
+const CIRCLE_KEYPAD_KEY_COUNT: usize = 8;
+const CIRCLE_KEYPAD_SPECIAL_COUNT: usize = 4;
+const CIRCLE_KEYPAD_LABEL_MAX: usize = 20;
+const CIRCLE_KEYPAD_ACTION_MAX: usize = 60;
+const CIRCLE_KEYPAD_KEY_NAME_MAX: usize = 30;
+
+#[derive(Deserialize, serde::Serialize)]
+pub struct CircleKeypadKeyDef {
+    key: String,
+    #[serde(default)]
+    ctrl: bool,
+    #[serde(default)]
+    shift: bool,
+    #[serde(default)]
+    alt: bool,
+    #[serde(default)]
+    label: String,
+}
+
+#[derive(Deserialize, serde::Serialize)]
+pub struct CircleKeypadSpecialDef {
+    label: String,
+    action: String,
+    #[serde(default)]
+    payload: Option<Map<String, Value>>,
+}
+
+#[derive(Deserialize)]
+pub struct CircleKeypadSettings {
+    #[serde(default)]
+    keys: Vec<CircleKeypadKeyDef>,
+    #[serde(default)]
+    specials: Vec<CircleKeypadSpecialDef>,
+    #[serde(default = "yes")]
+    enabled: bool,
+}
+
+pub async fn get_circle_keypad(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Json<Value> {
+    let raw = state
+        .config
+        .load_global_section("circle_keypad")
+        .unwrap_or(json!({}));
+    let raw = raw.as_object().cloned().unwrap_or_default();
+    let keys = raw
+        .get("keys")
+        .filter(|v| v.is_array())
+        .cloned()
+        .unwrap_or(json!([]));
+    let specials = raw
+        .get("specials")
+        .filter(|v| v.is_array())
+        .cloned()
+        .unwrap_or(json!([]));
+    let enabled = raw
+        .get("enabled")
+        .map(|v| !matches!(v, Value::Bool(false) | Value::Null))
+        .unwrap_or(true);
+    Json(json!({"keys": keys, "specials": specials, "enabled": enabled}))
+}
+
+pub async fn put_circle_keypad(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<CircleKeypadSettings>,
+) -> Result<Json<Value>, ApiError> {
+    for k in &body.keys {
+        check_max_len("key", &k.key, CIRCLE_KEYPAD_KEY_NAME_MAX)?;
+        check_max_len("label", &k.label, CIRCLE_KEYPAD_LABEL_MAX)?;
+    }
+    for s in &body.specials {
+        check_max_len("label", &s.label, CIRCLE_KEYPAD_LABEL_MAX)?;
+        check_max_len("action", &s.action, CIRCLE_KEYPAD_ACTION_MAX)?;
+    }
+    if !matches!(body.keys.len(), 0 | CIRCLE_KEYPAD_KEY_COUNT) {
+        return Err(bad_request(format!(
+            "keys must have 0 or {CIRCLE_KEYPAD_KEY_COUNT} items"
+        )));
+    }
+    if !matches!(body.specials.len(), 0 | CIRCLE_KEYPAD_SPECIAL_COUNT) {
+        return Err(bad_request(format!(
+            "specials must have 0 or {CIRCLE_KEYPAD_SPECIAL_COUNT} items"
+        )));
+    }
+    let data = json!({
+        "keys": body.keys,
+        "specials": body.specials,
+        "enabled": body.enabled,
+    });
+    save_global(&state.config, "circle_keypad", data)?;
+    Ok(Json(json!({"status": "ok"})))
+}
+
+// ─── /settings/layout ───────────────────────────────────────────────────────
+
+const SPLIT_LAYOUT_VALUES: &[&str] = &["horizontal", "vertical", "grid"];
+const SPLIT_SESSION_IDS_MAX: usize = 16;
+
+#[derive(Deserialize, serde::Serialize)]
+pub struct SplitLayoutSettings {
+    #[serde(default)]
+    session_ids: Vec<Option<String>>,
+    #[serde(default = "default_layout")]
+    layout: String,
+    #[serde(default)]
+    active_pane_index: i64,
+}
+
+fn default_layout() -> String {
+    "horizontal".to_string()
+}
+
+pub async fn get_layout(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+    let raw = state
+        .config
+        .load_global_section("layout")
+        .unwrap_or(json!({}));
+    let split = raw
+        .as_object()
+        .and_then(|o| o.get("split"))
+        .filter(|v| v.is_object())
+        .cloned()
+        .unwrap_or(Value::Null);
+    Json(json!({"split": split}))
+}
+
+pub async fn put_layout(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<SplitLayoutSettings>,
+) -> Result<Json<Value>, ApiError> {
+    if !SPLIT_LAYOUT_VALUES.contains(&body.layout.as_str()) {
+        let mut sorted: Vec<&str> = SPLIT_LAYOUT_VALUES.to_vec();
+        sorted.sort_unstable();
+        return Err(bad_request(format!(
+            "layout must be one of: {}",
+            sorted.join(", ")
+        )));
+    }
+    if body.session_ids.len() > SPLIT_SESSION_IDS_MAX {
+        return Err(bad_request(format!(
+            "session_ids must have at most {SPLIT_SESSION_IDS_MAX} items"
+        )));
+    }
+    let split = serde_json::to_value(&body).expect("serializable");
+    save_global(&state.config, "layout", json!({"split": split}))?;
+    Ok(Json(json!({"status": "ok"})))
+}
+
+pub async fn delete_layout(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Result<Json<Value>, ApiError> {
+    save_global(&state.config, "layout", json!({}))?;
+    Ok(Json(json!({"status": "ok"})))
+}
+
+// ─── /snippets ──────────────────────────────────────────────────────────────
+
+fn default_label(command: &str) -> String {
+    let chars: Vec<char> = command.chars().collect();
+    if chars.len() > LABEL_PREVIEW_LEN {
+        format!(
+            "{}...",
+            chars[..LABEL_PREVIEW_LEN].iter().collect::<String>()
+        )
+    } else {
+        command.to_string()
+    }
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    s.chars().take(max).collect()
+}
+
+#[derive(Deserialize)]
+pub struct SnippetItem {
+    #[serde(default)]
+    label: String,
+    command: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateSnippetsRequest {
+    #[serde(default)]
+    snippets: Vec<SnippetItem>,
+}
+
+pub async fn get_snippets(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+    let raw = state
+        .config
+        .load_global_section("snippets")
+        .unwrap_or(json!([]));
+    let items = raw.as_array().cloned().unwrap_or_default();
+    let mut sanitized = Vec::new();
+    for item in items {
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
+        let command = obj
+            .get("command")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if command.is_empty() {
+            continue;
+        }
+        let mut label = obj
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if label.is_empty() {
+            label = default_label(&command);
+        }
+        sanitized.push(json!({
+            "label": truncate_chars(&label, MAX_LABEL_LENGTH),
+            "command": truncate_chars(&command, MAX_COMMAND_LENGTH),
+        }));
+    }
+    Json(json!({"snippets": sanitized}))
+}
+
+pub async fn put_snippets(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<UpdateSnippetsRequest>,
+) -> Result<Json<Value>, ApiError> {
+    for item in &body.snippets {
+        check_max_len("label", &item.label, MAX_LABEL_LENGTH)?;
+        check_max_len("command", &item.command, MAX_COMMAND_LENGTH)?;
+    }
+    let mut snippets = Vec::new();
+    for item in &body.snippets {
+        let command = item.command.trim().to_string();
+        if command.is_empty() {
+            continue;
+        }
+        let label = {
+            let l = item.label.trim();
+            if l.is_empty() {
+                default_label(&command)
+            } else {
+                l.to_string()
+            }
+        };
+        snippets.push(json!({
+            "label": truncate_chars(&label, MAX_LABEL_LENGTH),
+            "command": truncate_chars(&command, MAX_COMMAND_LENGTH),
+        }));
+    }
+    save_global(&state.config, "snippets", Value::Array(snippets.clone()))?;
+    Ok(Json(json!({"status": "ok", "snippets": snippets})))
+}
+
+// ─── PUT /workspace-order（workspaces.py から）──────────────────────────────
+
+#[derive(Deserialize)]
+pub struct WorkspaceOrderRequest {
+    order: Vec<String>,
+}
+
+pub async fn put_workspace_order(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<WorkspaceOrderRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let count = body.order.len();
+    save_global(
+        &state.config,
+        "workspace_order",
+        Value::Array(body.order.into_iter().map(Value::String).collect()),
+    )?;
+    tracing::info!("workspace order updated count={count}");
+    Ok(Json(json!({"status": "ok"})))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pill_order_normalization() {
+        let out = normalize_pill_order(&["branch".into(), "unknown".into(), "branch".into()]);
+        assert_eq!(out[0], "branch");
+        assert_eq!(out.len(), INFO_PILL_FIELDS.len());
+        assert!(!out.contains(&"unknown".to_string()));
+        // 欠けたキーはデフォルト順で末尾補完
+        let default_out = normalize_pill_order(&[]);
+        assert_eq!(
+            default_out,
+            INFO_PILL_FIELDS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn default_label_previews_long_commands() {
+        assert_eq!(default_label("ls"), "ls");
+        let long = "a".repeat(30);
+        assert_eq!(default_label(&long), format!("{}...", "a".repeat(20)));
+    }
+}

@@ -110,6 +110,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
             icons_dir: dir.path().join("icons"),
             tmux_prefix: "ac-".to_string(),
         },
+        config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),

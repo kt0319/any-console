@@ -1,68 +1,302 @@
-//! config.json の読み取り（Python 側 `api/config.py` のサブセット）。
+//! config.json の読み書きエンジン（Python 側 `api/config.py` の移植）。
 //!
-//! Phase 0 では Rust 側は config.json を **読み取り専用** で扱う。書き込み
-//! （正規化・スキーマ検証・マイグレーション・.bak ローテーション）は Python 側が
-//! 引き続き唯一のライターであり、プロセスをまたいだ read-modify-write 競合を
-//! 作らない。書き込み系は設定 API（settings router）を移行する Phase 1 で、
-//! ライターの役割ごと Rust へ移す。
+//! 移行期間中は Python プロセスと同じ config.json を両プロセスが読み書きする。
+//! Python は `config.lock` への fcntl flock（読み取り SH / 書き込み EX）で
+//! read-modify-write を直列化しており、Rust 側も**同じロックファイルの flock に
+//! 参加する**ことでプロセス間の lost update を防ぐ（auth.json / devices.json には
+//! このファイルロックが無いため、そちらのライター移管は後続フェーズ）。
 //!
-//! 読み取りに fcntl ロックは不要: Python のライターはアトミック rename で
-//! 差し替えるため、リーダーが書き込み途中の内容を見ることはない（Python 側の
-//! 共有ロックは read-modify-write サイクルの保護であり、純粋な読み取りには効かない）。
+//! 読み書きの挙動は Python と同一:
+//! - 読み込み: 壊れていれば .bak から復旧、正規化、バージョンマイグレーション。
+//!   復旧・マイグレーションが起きた場合はその場で書き戻す
+//! - 書き込み: 正規化（エラーがあれば拒否）→ .bak ローテーション → tmp+rename
 
+use std::io::Write;
 use std::path::PathBuf;
 
 use serde_json::{Map, Value};
+
+use crate::config_migrations::{get_config_version, migrate_config_version, CONFIG_SCHEMA_VERSION};
+use crate::config_schema::{normalize_loaded_config, validate_config_entry};
 
 pub const GLOBAL_CONFIG_KEY: &str = "__global__";
 pub const DEFAULT_BIND_HOST: &str = "0.0.0.0";
 pub const DEFAULT_BIND_PORT: u16 = 8888;
 
+/// workspace / group 共通の永続IDプレフィックス（保存済み config 互換のため変更しない）。
+pub const ENTITY_ID_PREFIX: &str = "ws_";
+
+pub fn generate_entity_id() -> String {
+    format!("{ENTITY_ID_PREFIX}{}", crate::util::token_hex(6))
+}
+
 #[derive(Debug, Clone)]
-pub struct ConfigReader {
+pub struct ConfigStore {
     pub config_file: PathBuf,
 }
 
-impl ConfigReader {
+/// flock を保持したままにするためのガード（drop で unlock）。
+struct FileLock(#[allow(dead_code)] std::fs::File);
+
+impl ConfigStore {
     pub fn new(config_file: PathBuf) -> Self {
         Self { config_file }
     }
 
-    /// config.json を読む。壊れていれば .bak へフォールバックする
-    /// （Python `_read_config_unlocked` と同じ復旧規則。ただし読み取り専用のため
-    /// 復旧結果の書き戻しは行わず、次回 Python 側の読み込みに委ねる）。
-    fn read_raw(&self) -> Map<String, Value> {
-        let parse = |path: &PathBuf| -> Option<Map<String, Value>> {
-            let text = std::fs::read_to_string(path).ok()?;
-            match serde_json::from_str::<Value>(&text).ok()? {
-                Value::Object(m) => Some(m),
-                _ => None,
-            }
-        };
-        if let Some(m) = parse(&self.config_file) {
-            return m;
+    /// Python `_file_lock` と同じ `config.lock` を flock する。
+    fn file_lock(&self, exclusive: bool) -> Option<FileLock> {
+        let lock_path = self.config_file.with_extension("lock");
+        if let Some(parent) = lock_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
         }
-        let bak = self.config_file.with_extension("bak");
-        parse(&bak).unwrap_or_default()
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&lock_path)
+            .ok()?;
+        let ok = if exclusive {
+            file.lock().is_ok()
+        } else {
+            file.lock_shared().is_ok()
+        };
+        ok.then_some(FileLock(file))
     }
 
-    /// `__global__.<key>` を返す。
-    pub fn global_section(&self, key: &str) -> Option<Value> {
-        self.read_raw()
+    fn try_restore_from_bak(&self) -> Option<Map<String, Value>> {
+        let bak = self.config_file.with_extension("bak");
+        let text = std::fs::read_to_string(&bak)
+            .map_err(|_| {
+                tracing::error!("config.json is broken and no .bak exists; starting empty")
+            })
+            .ok()?;
+        match serde_json::from_str::<Value>(&text) {
+            Ok(Value::Object(m)) => {
+                tracing::warn!("Restored config from {}", bak.display());
+                Some(m)
+            }
+            _ => {
+                tracing::error!("config.bak is also unreadable; starting empty");
+                None
+            }
+        }
+    }
+
+    /// Python `_read_config_unlocked` と同一の復旧・正規化・マイグレーション。
+    fn read_unlocked(&self) -> Map<String, Value> {
+        let mut restore_needed = false;
+        let raw: Map<String, Value> = if self.config_file.is_file() {
+            match std::fs::read_to_string(&self.config_file) {
+                Ok(text) => match serde_json::from_str::<Value>(&text) {
+                    Ok(v) => match v {
+                        Value::Object(m) => m,
+                        _ => Map::new(),
+                    },
+                    Err(e) => {
+                        tracing::error!("config.json is invalid JSON: {e}");
+                        match self.try_restore_from_bak() {
+                            Some(m) => {
+                                restore_needed = true;
+                                m
+                            }
+                            None => return Map::new(),
+                        }
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!(
+                        "config read failed path={}: {e}",
+                        self.config_file.display()
+                    );
+                    return Map::new();
+                }
+            }
+        } else {
+            Map::new()
+        };
+
+        let (normalized, errors) = normalize_loaded_config(&Value::Object(raw), GLOBAL_CONFIG_KEY);
+        for (name, error) in errors {
+            tracing::warn!("config validation failed key={name}: {error}");
+        }
+        let (migrated, did_migrate) = migrate_config_version(normalized);
+        if restore_needed || did_migrate {
+            if let Err(e) = self.write_unlocked(&migrated) {
+                tracing::warn!("config write-back after restore/migration failed: {e}");
+            }
+        }
+        migrated
+    }
+
+    /// Python `_write_config_unlocked` と同一: 正規化（エラーは拒否）→ .bak
+    /// ローテーション → tmp 書き込み → rename。末尾改行付き・2スペースインデント。
+    fn write_unlocked(&self, config: &Map<String, Value>) -> Result<(), String> {
+        let (normalized, errors) =
+            normalize_loaded_config(&Value::Object(config.clone()), GLOBAL_CONFIG_KEY);
+        if let Some((name, error)) = errors.first() {
+            return Err(format!("Invalid config entry '{name}': {error}"));
+        }
+        let parent = self
+            .config_file
+            .parent()
+            .ok_or_else(|| "config path has no parent".to_string())?;
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        let bak = self.config_file.with_extension("bak");
+        if self.config_file.exists() {
+            std::fs::rename(&self.config_file, &bak).map_err(|e| e.to_string())?;
+        }
+        let tmp = self.config_file.with_extension("tmp");
+        let text =
+            serde_json::to_string_pretty(&Value::Object(normalized)).map_err(|e| e.to_string())?;
+        let mut f = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+        f.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+        f.write_all(b"\n").map_err(|e| e.to_string())?;
+        drop(f);
+        std::fs::rename(&tmp, &self.config_file).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn load_all(&self) -> Map<String, Value> {
+        let _lock = self.file_lock(false);
+        self.read_unlocked()
+    }
+
+    pub fn save_all(&self, config: &Map<String, Value>) -> Result<(), String> {
+        let _lock = self.file_lock(true);
+        self.write_unlocked(config)
+    }
+
+    /// `__global__` を除外した workspace エントリのみを返す。
+    pub fn list_workspace_entries(&self) -> Map<String, Value> {
+        self.load_all()
+            .into_iter()
+            .filter(|(k, v)| k != GLOBAL_CONFIG_KEY && v.is_object())
+            .collect()
+    }
+
+    /// ID または表示名（name フィールド）から workspace のキー（ID）を解決する。
+    pub fn find_workspace_key(config: &Map<String, Value>, identifier: &str) -> Option<String> {
+        if identifier == GLOBAL_CONFIG_KEY {
+            return None;
+        }
+        if config.get(identifier).is_some_and(Value::is_object) {
+            return Some(identifier.to_string());
+        }
+        for (key, entry) in config {
+            if key == GLOBAL_CONFIG_KEY || !entry.is_object() {
+                continue;
+            }
+            if entry.get("name").and_then(Value::as_str) == Some(identifier) {
+                return Some(key.clone());
+            }
+        }
+        None
+    }
+
+    pub fn resolve_workspace_id(&self, identifier: &str) -> Option<String> {
+        if identifier.is_empty() {
+            return None;
+        }
+        let cfg = self.load_all();
+        Self::find_workspace_key(&cfg, identifier)
+    }
+
+    pub fn load_global_section(&self, key: &str) -> Option<Value> {
+        self.load_all()
             .get(GLOBAL_CONFIG_KEY)?
             .as_object()?
             .get(key)
             .cloned()
     }
 
-    /// `__global__.host` / `__global__.port` を読む。未設定はデフォルト
-    /// （Python `resolve_bind` と同一規則: 空文字 host・0/型不正 port はデフォルトへ）。
+    /// Python `save_global_config_section` と同一（EX ロック下で read-modify-write）。
+    pub fn save_global_section(&self, key: &str, data: Value) -> Result<(), String> {
+        let _lock = self.file_lock(true);
+        let mut all = self.read_unlocked();
+        let mut global = all
+            .get(GLOBAL_CONFIG_KEY)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        global.insert(key.to_string(), data);
+        let validated =
+            validate_config_entry(GLOBAL_CONFIG_KEY, &Value::Object(global), GLOBAL_CONFIG_KEY)?;
+        all.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(validated));
+        self.write_unlocked(&all)
+    }
+
+    /// Python `check_config_health` と同一の判定。
+    pub fn check_health(&self) -> Value {
+        let _lock = self.file_lock(false);
+        let bak = self.config_file.with_extension("bak");
+
+        if !self.config_file.is_file() {
+            return serde_json::json!({"ok": true, "errors": [], "source": "empty"});
+        }
+        let parse = |path: &PathBuf| -> Result<Value, String> {
+            let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+            serde_json::from_str::<Value>(&text).map_err(|e| e.to_string())
+        };
+        let (raw, source) = match parse(&self.config_file) {
+            Ok(v) => (v, "config.json"),
+            Err(json_err) => {
+                if bak.is_file() {
+                    match parse(&bak) {
+                        Ok(v) => (v, "config.bak"),
+                        Err(_) => {
+                            let msg = format!(
+                                "config.json is invalid JSON and backup is also broken: {json_err}"
+                            );
+                            return serde_json::json!({
+                                "ok": false,
+                                "errors": [{"key": "__root__", "message": msg}],
+                                "source": "broken",
+                            });
+                        }
+                    }
+                } else {
+                    return serde_json::json!({
+                        "ok": false,
+                        "errors": [{"key": "__root__", "message": format!("config.json is invalid JSON: {json_err}")}],
+                        "source": "broken",
+                    });
+                }
+            }
+        };
+
+        let (_, errors) = normalize_loaded_config(&raw, GLOBAL_CONFIG_KEY);
+        let mut error_list: Vec<Value> = errors
+            .into_iter()
+            .map(|(key, message)| serde_json::json!({"key": key, "message": message}))
+            .collect();
+
+        let config_version = raw.as_object().map(get_config_version).unwrap_or(0);
+        if config_version > CONFIG_SCHEMA_VERSION {
+            error_list.push(serde_json::json!({
+                "key": "__version__",
+                "message": format!(
+                    "config_version {config_version} is newer than this app supports ({CONFIG_SCHEMA_VERSION}). Update the app to avoid losing settings."
+                ),
+            }));
+        }
+
+        serde_json::json!({
+            "ok": source == "config.json" && error_list.is_empty(),
+            "errors": error_list,
+            "source": source,
+            "config_version": config_version,
+            "supported_config_version": CONFIG_SCHEMA_VERSION,
+        })
+    }
+
+    // ─── 起動時ヘルパー（Phase 0 から継続）──────────────────────────────────
+
+    /// `__global__.host` / `__global__.port`（未設定はデフォルト）。
     pub fn resolve_bind(&self) -> (String, u16) {
-        let host = match self.global_section("host") {
+        let host = match self.load_global_section("host") {
             Some(Value::String(s)) if !s.is_empty() => s,
             _ => DEFAULT_BIND_HOST.to_string(),
         };
-        let port = match self.global_section("port") {
+        let port = match self.load_global_section("port") {
             Some(Value::Number(n)) => n
                 .as_u64()
                 .filter(|&p| p > 0 && p <= u16::MAX as u64)
@@ -78,7 +312,8 @@ impl ConfigReader {
         (host, port)
     }
 
-    /// 認証無効化フラグ（Python `_is_auth_disabled` と同一: 環境変数が優先）。
+    /// 認証無効化フラグ（環境変数が優先）。
+    #[allow(dead_code)]
     pub fn auth_disabled(&self) -> bool {
         if std::env::var("ANY_CONSOLE_DISABLE_AUTH")
             .map(|v| v.trim() == "1")
@@ -87,12 +322,12 @@ impl ConfigReader {
             return true;
         }
         matches!(
-            self.global_section("auth_disabled"),
+            self.load_global_section("auth_disabled"),
             Some(Value::Bool(true))
         )
     }
 
-    /// Tailscale ヘッダ信頼の opt-in（Python `_is_tailscale_trust_enabled` と同一）。
+    /// Tailscale ヘッダ信頼の opt-in（環境変数が優先）。
     pub fn trust_tailscale_auth(&self) -> bool {
         if std::env::var("ANY_CONSOLE_TRUST_TAILSCALE_AUTH")
             .map(|v| v.trim() == "1")
@@ -101,7 +336,7 @@ impl ConfigReader {
             return true;
         }
         matches!(
-            self.global_section("trust_tailscale_auth"),
+            self.load_global_section("trust_tailscale_auth"),
             Some(Value::Bool(true))
         )
     }
@@ -110,62 +345,165 @@ impl ConfigReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
-    fn writer(dir: &tempfile::TempDir, name: &str, content: &str) -> PathBuf {
-        let p = dir.path().join(name);
-        std::fs::write(&p, content).unwrap();
-        p
+    fn store(dir: &tempfile::TempDir) -> ConfigStore {
+        ConfigStore::new(dir.path().join("config.json"))
+    }
+
+    fn write_file(dir: &tempfile::TempDir, name: &str, content: &str) {
+        std::fs::write(dir.path().join(name), content).unwrap();
     }
 
     #[test]
     fn missing_config_uses_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        let r = ConfigReader::new(dir.path().join("config.json"));
+        let s = store(&dir);
         assert_eq!(
-            r.resolve_bind(),
+            s.resolve_bind(),
             (DEFAULT_BIND_HOST.to_string(), DEFAULT_BIND_PORT)
         );
-        assert!(!r.auth_disabled());
+        assert!(s.load_all().is_empty());
     }
 
     #[test]
     fn reads_global_bind() {
         let dir = tempfile::tempdir().unwrap();
-        let p = writer(
+        write_file(
             &dir,
             "config.json",
-            r#"{"__global__": {"host": "127.0.0.1", "port": 9000}}"#,
+            r#"{"__global__": {"host": "127.0.0.1", "port": 9000, "config_version": 3}}"#,
         );
-        let r = ConfigReader::new(p);
-        assert_eq!(r.resolve_bind(), ("127.0.0.1".to_string(), 9000));
+        assert_eq!(store(&dir).resolve_bind(), ("127.0.0.1".to_string(), 9000));
     }
 
     #[test]
-    fn invalid_port_falls_back() {
+    fn broken_config_falls_back_to_bak_and_restores() {
         let dir = tempfile::tempdir().unwrap();
-        let p = writer(&dir, "config.json", r#"{"__global__": {"port": "abc"}}"#);
-        let r = ConfigReader::new(p);
-        assert_eq!(r.resolve_bind().1, DEFAULT_BIND_PORT);
+        write_file(
+            &dir,
+            "config.bak",
+            r#"{"__global__": {"port": 9100, "config_version": 3}}"#,
+        );
+        write_file(&dir, "config.json", "{broken");
+        let s = store(&dir);
+        assert_eq!(s.resolve_bind().1, 9100);
+        // 復旧が書き戻されている（Python と同じ挙動）
+        let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
+        assert!(text.contains("9100"));
     }
 
     #[test]
-    fn broken_config_falls_back_to_bak() {
+    fn save_and_load_roundtrip_with_python_format() {
         let dir = tempfile::tempdir().unwrap();
-        writer(&dir, "config.bak", r#"{"__global__": {"port": 9100}}"#);
-        let p = writer(&dir, "config.json", "{broken");
-        let r = ConfigReader::new(p);
-        assert_eq!(r.resolve_bind().1, 9100);
+        let s = store(&dir);
+        let mut cfg = Map::new();
+        cfg.insert(
+            GLOBAL_CONFIG_KEY.to_string(),
+            json!({"config_version": 3, "workspace_order": ["ws_a"], "snippets": [{"command": "ls", "label": ""}]}),
+        );
+        cfg.insert(
+            "ws_a".to_string(),
+            json!({"name": "proj", "path": "~/proj", "icon": ""}),
+        );
+        s.save_all(&cfg).unwrap();
+
+        let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
+        assert!(text.ends_with('\n'), "Python と同じ末尾改行");
+        assert!(text.contains("  \"__global__\""), "2スペースインデント");
+        // 正規化でデフォルト値（空 label / 空 icon）が落ちている
+        let loaded = s.load_all();
+        assert_eq!(loaded["ws_a"], json!({"name": "proj", "path": "~/proj"}));
+        assert_eq!(
+            loaded[GLOBAL_CONFIG_KEY]["snippets"],
+            json!([{"command": "ls"}])
+        );
     }
 
     #[test]
-    fn workspace_entries_do_not_leak_into_global() {
+    fn save_rejects_invalid_entries() {
         let dir = tempfile::tempdir().unwrap();
-        let p = writer(
+        let s = store(&dir);
+        let mut cfg = Map::new();
+        cfg.insert("ws_bad".to_string(), json!("not an object"));
+        let err = s.save_all(&cfg).unwrap_err();
+        assert!(err.contains("Invalid config entry 'ws_bad'"));
+    }
+
+    #[test]
+    fn old_version_migrates_on_read() {
+        let dir = tempfile::tempdir().unwrap();
+        write_file(
             &dir,
             "config.json",
-            r#"{"ws_abc": {"name": "proj", "host": "10.0.0.1"}}"#,
+            r#"{"__global__": {"pinned_jobs": [{"key": "k1"}]}}"#,
         );
-        let r = ConfigReader::new(p);
-        assert_eq!(r.resolve_bind().0, DEFAULT_BIND_HOST);
+        let s = store(&dir);
+        let cfg = s.load_all();
+        let global = cfg[GLOBAL_CONFIG_KEY].as_object().unwrap();
+        assert_eq!(global["config_version"], json!(3));
+        assert_eq!(
+            global["recent_jobs"],
+            json!([{"key": "k1", "pinned": true}])
+        );
+        // マイグレーション結果が書き戻されている
+        let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
+        assert!(text.contains("recent_jobs"));
+    }
+
+    #[test]
+    fn save_global_section_merges() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = store(&dir);
+        s.save_global_section("editor", json!({"url_template": "vscode://x"}))
+            .unwrap();
+        s.save_global_section("snippets", json!([{"command": "ls"}]))
+            .unwrap();
+        assert_eq!(
+            s.load_global_section("editor"),
+            Some(json!({"url_template": "vscode://x"}))
+        );
+        assert_eq!(
+            s.load_global_section("snippets"),
+            Some(json!([{"command": "ls"}]))
+        );
+    }
+
+    #[test]
+    fn find_workspace_key_by_id_and_name() {
+        let mut cfg = Map::new();
+        cfg.insert("ws_1".to_string(), json!({"name": "alpha"}));
+        cfg.insert(GLOBAL_CONFIG_KEY.to_string(), json!({}));
+        assert_eq!(
+            ConfigStore::find_workspace_key(&cfg, "ws_1"),
+            Some("ws_1".into())
+        );
+        assert_eq!(
+            ConfigStore::find_workspace_key(&cfg, "alpha"),
+            Some("ws_1".into())
+        );
+        assert_eq!(ConfigStore::find_workspace_key(&cfg, "missing"), None);
+        assert_eq!(
+            ConfigStore::find_workspace_key(&cfg, GLOBAL_CONFIG_KEY),
+            None
+        );
+    }
+
+    #[test]
+    fn check_health_reports_broken_and_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = store(&dir);
+        assert_eq!(s.check_health()["source"], "empty");
+        write_file(
+            &dir,
+            "config.json",
+            r#"{"__global__": {"config_version": 3}}"#,
+        );
+        let h = s.check_health();
+        assert_eq!(h["ok"], json!(true));
+        assert_eq!(h["source"], "config.json");
+        write_file(&dir, "config.json", "{broken");
+        let h = s.check_health();
+        assert_eq!(h["ok"], json!(false));
     }
 }

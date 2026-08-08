@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use any_console_server::auth::Auth;
 use any_console_server::build_router;
-use any_console_server::config::ConfigReader;
+use any_console_server::config::ConfigStore;
 use any_console_server::paths::Paths;
 use any_console_server::proxy::Proxy;
 use any_console_server::rate_limit::{rate_limit_from_env, FixedWindowCounter};
@@ -75,7 +75,7 @@ async fn main() {
 
     let root = project_root();
     let paths = Paths::from_env(root);
-    let config = ConfigReader::new(paths.config_file.clone());
+    let config = ConfigStore::new(paths.config_file.clone());
 
     let (cfg_host, cfg_port) = config.resolve_bind();
     let host = std::env::var("ANY_CONSOLE_RS_HOST")
@@ -104,6 +104,7 @@ async fn main() {
 
     let state = Arc::new(AppState {
         paths: paths.clone(),
+        config,
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

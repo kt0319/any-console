@@ -138,6 +138,21 @@ Phase 0 のスコープ判断（実装時に確定した事項）:
 Rust front はこれらのルートを proxy せずネイティブ応答する。実機で Python 直結と
 Rust 応答のキー・値の同等性を比較検証済み（`user` は getpwuid 解決まで一致）。
 
+続いて **config.json 書き込みエンジン**（`config.rs` / `config_schema.rs` /
+`config_migrations.rs`）を移植し、settings（auth / recent-jobs 除く）・groups・
+workspace-order を移行済み。要点:
+
+- Python の `config.lock` fcntl flock に Rust も参加し、プロセス間の
+  read-modify-write を直列化する
+- Pydantic の正規化（extra 保持・デフォルト値とnullの除去・グローバルの
+  部分救済）と .bak ローテーション・バージョンマイグレーションを同一挙動で
+  再現。実機の相互書き込みテストで、Python 書き→Rust 書き→Python 書きの
+  往復後に config.json が**バイト単位で安定**することを確認済み
+- subprocess 層に CPython の C ロケール強制（PEP 538 相当:
+  `LC_CTYPE=C.UTF-8` 注入）を移植。これが無いと tmux が `-F` フォーマットの
+  タブを `_` にサニタイズし、detached sessions 一覧が空になる（E2E で検出・
+  修正済み。**subprocess 移植時はロケール差に注意** — Phase 2 の git でも同様）
+
 **実装時に確定した順序変更**: `routers/devices.py` / `routers/api_tokens.py` は
 Phase 1 から**除外**し、認証ドメイン全体の移管時（Phase 4 以降）へ後ろ倒しする。
 devices.json / auth.json への書き込み排他が Python 側ではプロセス内
@@ -151,8 +166,8 @@ Rust も参加すればプロセス間で安全に書けるため、Phase 1 の�
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
 | `routers/system.py`（システム情報） | 493 | **移行済み** |
-| `routers/settings.py` + `icons.py` | 469 | |
-| `routers/workspaces.py` + `routers/groups.py` | 452 | |
+| `routers/settings.py` + `icons.py` | 469 | **移行済み**（/settings/auth と /recent-jobs は除く — 前者は auth.json ドメイン、後者は jobs 解決依存） |
+| `routers/workspaces.py` + `routers/groups.py` | 452 | groups + PUT /workspace-order は**移行済み**。workspaces 本体は git ヘルパー（Phase 2）と status stream への nudge（Phase 4）に依存するため後続フェーズで移行 |
 | `routers/devices.py` + `devices.py` | 339 | Phase 4 以降へ後ろ倒し |
 | `routers/api_tokens.py` | 52 | Phase 4 以降へ後ろ倒し |
 | `activity.py` / `gh_utils.py` | 79 | |

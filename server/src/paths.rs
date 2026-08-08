@@ -20,6 +20,12 @@ fn expand_user(raw: &str) -> PathBuf {
     PathBuf::from(raw)
 }
 
+/// config.json に保存されたパス文字列を PathBuf に変換する（`~` を展開する）。
+/// Python `expand_workspace_path` に対応。
+pub fn expand_user_path(s: &str) -> PathBuf {
+    expand_user(s)
+}
+
 /// 相対パスをカレントディレクトリ基準で絶対化する（存在しないパスも扱えるよう
 /// canonicalize は使わない — Python の `resolve()` は存在チェックなしで解決する）。
 fn absolutize(p: PathBuf) -> PathBuf {

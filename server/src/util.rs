@@ -63,6 +63,13 @@ pub fn token_urlsafe(n_bytes: usize) -> String {
     out
 }
 
+/// `secrets.token_hex(n)` 相当: n バイトの乱数を hex 文字列で返す。
+pub fn token_hex(n_bytes: usize) -> String {
+    let mut buf = vec![0u8; n_bytes];
+    getrandom::fill(&mut buf).expect("os rng");
+    buf.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// JSON ボディ抽出子。パース失敗を 422 `{"detail": ...}` へ変換する
 /// （axum 既定の plain text 応答だと `detail` エラー形式の契約から外れるため）。
 pub struct JsonBody<T>(pub T);
