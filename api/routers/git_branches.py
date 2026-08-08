@@ -331,7 +331,7 @@ def git_push_upstream(name: str):
 
 @router.post("/workspaces/{name}/fetch")
 def git_fetch(name: str):
-    result = execute_git_action(name, ["fetch", "--prune"], operation="fetch", env=ssh_env())
-    if result["status"] == "ok":
-        log_activity(name, "git_fetch")
-    return result
+    return execute_git_action_with_activity(
+        name, None, ["fetch", "--prune"],
+        operation="fetch", event="git_fetch", env=ssh_env(), resolve_head=False,
+    )

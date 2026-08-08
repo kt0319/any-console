@@ -428,8 +428,8 @@ class TestGitFetch:
     def test_fetch_logs_activity(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
-        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok), \
-             mock.patch("api.routers.git_branches.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.execute_git_action", return_value=ok), \
+             mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/fetch", headers=AUTH)
         assert res.status_code == 200
         log.assert_called_once_with("test-ws", "git_fetch")

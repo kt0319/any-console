@@ -216,7 +216,7 @@ class TestStash:
         (git_workspace / "a.txt").write_text("mod", encoding="utf-8")
         subprocess.run(["git", "stash"], cwd=git_workspace, check=True, capture_output=True)
 
-        with mock.patch("api.routers.git_history.log_activity") as log:
+        with mock.patch("api.routers.git_helpers.log_activity") as log:
             res = client.post("/workspaces/test-ws/stash-drop", headers=AUTH, json={"stash_ref": "stash@{0}"})
         assert res.status_code == 200
         log.assert_called_once_with("test-ws", "git_stash_drop", ref="stash@{0}")
