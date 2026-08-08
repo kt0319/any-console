@@ -97,35 +97,10 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-.settings-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  text-align: left;
-  font-size: 14px;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
+/* .settings-menu-item / .settings-menu-version の見た目は
+   ui/styles/settings-form.css（グローバル）で定義する。 */
 .settings-menu-group .settings-menu-item:last-child {
   border-bottom: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .settings-menu-item:hover {
-    background: var(--bg-tertiary);
-  }
-}
-
-.settings-menu-item:active {
-  background: var(--bg-tertiary);
 }
 
 .settings-menu-warn {
@@ -143,13 +118,6 @@ onMounted(async () => {
 
 .settings-menu-warn .mdi {
   font-size: 14px;
-}
-
-.settings-menu-version {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .settings-menu-version-on {

@@ -85,17 +85,9 @@ watch(
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: absolute;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  z-index: 20;
-  padding: 0;
-}
-
+/* .modal-overlay / .modal-title系 / .modal-close-btn の共通の見た目は
+   ui/styles/modal-shell.css（グローバル）で Modal.vue / SettingsPanel.vue と
+   共用する。ここには固有の差分だけを置く。 */
 .modal {
   background: color-mix(in srgb, var(--bg-secondary) 85%, transparent);
   width: 100%;
@@ -133,64 +125,13 @@ watch(
   }
 }
 
+/* このタイトルは常にタップで閉じる（戻る）ボタンとして機能する。 */
 .modal-title-wrap {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
-  min-height: 44px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  justify-content: flex-start;
   cursor: pointer;
-}
-
-.modal-title-wrap .modal-title {
-  font-size: 15px;
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: inherit;
-  text-align: left;
-}
-
-.modal-title-sep {
-  color: var(--text-muted);
-}
-
-.modal-title-branch {
-  font-size: 11px;
-  color: var(--text-primary);
-  font-weight: 400;
 }
 
 .modal-close-btn {
-  width: 36px;
-  height: 36px;
   margin-left: auto;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .modal-close-btn:hover {
-    color: var(--text-primary);
-  }
 }
 
 .settings-panel-body {
@@ -208,16 +149,6 @@ watch(
   }
 }
 
-/* GitHistory/GitStash/GitChangeBranch/WorkspaceJobsPane等、多数のペインが
-   共通で使う「スクロール本体」の見た目の契約。SettingsPanel.vueの同名ルール
-   と同じ内容（WorkspaceDetailはSettingsのスタックから独立したため、ここにも
-   必要）。無いとhistoryListEl等のスクロールが効かなくなる。 */
-:deep(.modal-scroll-body) {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  padding: 0 8px;
-}
+/* 各ペインが使う .modal-scroll-body（スクロール本体）の契約は
+   ui/styles/modal-shell.css の .settings-panel-body .modal-scroll-body 参照。 */
 </style>

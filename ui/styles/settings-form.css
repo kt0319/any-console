@@ -66,3 +66,40 @@
   color: var(--text-primary);
   letter-spacing: 0.02em;
 }
+
+/* 設定メニュー（ModalMenu.vue）とセッション一覧下部メニュー
+   （SessionListView.vue）で共用する行ボタン。 */
+.settings-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 14px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settings-menu-item:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
+.settings-menu-item:active {
+  background: var(--bg-tertiary);
+}
+
+/* 行右端の補足表示（バージョン番号・On/Off等）。 */
+.settings-menu-version {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

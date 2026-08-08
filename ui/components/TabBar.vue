@@ -159,7 +159,7 @@ function onMenuClick() {
 
 .tab-menu-btn.active {
   color: var(--text-primary);
-  background: rgba(130, 170, 255, 0.12);
+  background: var(--accent-bg-12);
 }
 
 </style>
