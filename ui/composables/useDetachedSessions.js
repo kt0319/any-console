@@ -10,9 +10,7 @@ import {
   EP_TERMINAL_SESSIONS,
   EP_SYSTEM_TMUX_INFO,
   EP_SYSTEM_TMUX_ADOPT,
-  EP_SYSTEM_TMUX_KILL,
   EP_JOBS_WORKSPACES,
-  terminalSessionPath,
   terminalWsPath,
   terminalSessionDetachedPath,
 } from "../utils/endpoints.js";
@@ -27,14 +25,14 @@ const detachedSessions = ref([]);
 const allJobsData = ref({});
 
 // Detached sessions（タブに紐付いていないtmuxセッション）の一覧取得・
-// Open/Adopt/Close操作。WorkspaceOpen.vueの「Detached」カテゴリから使う
+// Open/Adopt操作。WorkspaceOpen.vueの「Detached Sessions」カテゴリから使う
 // （以前はSessionListView.vueの一覧に続く折りたたみセクションだったが、
 // 「セッションを開く」導線としてOpenタブに統合した）。
 export function useDetachedSessions() {
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
   const { confirm } = useConfirm();
-  const { apiGet, apiDelete, apiPost, apiPut } = useApi();
+  const { apiGet, apiPost, apiPut } = useApi();
 
   async function loadDetachedSessions() {
     const [tmuxRes, ownedRes, jobsRes] = await Promise.all([
@@ -83,18 +81,5 @@ export function useDetachedSessions() {
     await loadDetachedSessions();
   }
 
-  async function closeDetached(s) {
-    const label = s.workspace || s.session_id || s.tmux_name;
-    if (!await confirm(`Close session "${label}"? The tmux session will be killed.`)) return;
-    if (s.session_id) {
-      // any-console 管理セッションは /terminal/sessions API で kill
-      await apiDelete(terminalSessionPath(s.session_id), { errorMessage: "Failed to close session" });
-    } else {
-      // 外部セッション。/system/tmux/kill 経由
-      await apiPost(EP_SYSTEM_TMUX_KILL, { name: s.tmux_name }, { errorMessage: "Failed to kill session" });
-    }
-    await loadDetachedSessions();
-  }
-
-  return { detachedSessions, loadDetachedSessions, openDetached, adoptDetached, closeDetached };
+  return { detachedSessions, loadDetachedSessions, openDetached, adoptDetached };
 }
