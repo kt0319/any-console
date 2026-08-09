@@ -265,9 +265,9 @@ status_stream / git_watch / session_watch）は producer の大半
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
 | `routers/workspaces.py` 本体 + `git_info.py` + background_fetch | 660 | **移行済み** |
-| `ws_broadcast.py` / `routers/status_stream.py` | 141 | Phase 5（producer がターミナル依存） |
+| `ws_broadcast.py` / `routers/status_stream.py` | 141 | **一部移行済み**（`server/src/status_stream.rs` — 購読者管理の共有基盤のみ。実エンドポイントは producer 一式が揃うまで未配線。下記注意参照） |
 | `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | **一部移行済み**（`server/src/git_watch.rs` — 監視対象決定ロジックのみ。FS 監視ループ・購読者管理・自動 fetch は status stream と同時。下記注意参照） |
-| `session_watch.py` | 74 | Phase 5 |
+| `session_watch.py` | 74 | **移行済み**（`server/src/session_watch.rs`。呼び出し元への配線は status stream 一括配線時） |
 | `agent_watch.py`（3値状態判定・自動紐付け） | 584 | **一部移行済み**（`server/src/agent_watch.rs` — 状態判定・通知猶予判定のみ。ポーリングループ・自動紐付け・push 連携は status stream 配線時に一括実装。下記注意参照） |
 | `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。配線は未実施 — agent_watch 移行まで待つ） |
 | `manifest_update.py`（リモートマニフェスト更新） | 272 | **移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側が稼働中のため配線しない。下記注意参照） |
@@ -311,6 +311,20 @@ status_stream / git_watch / session_watch）は producer の大半
   `capture_visible_pane`/`list_pane_meta` 相当の tmux ペイン問い合わせが
   まだ `tmux.rs` に無いことに加え、status stream の実体・`git_watch.rs` の
   FS 監視ループ・`dispatch.rs` の直接配信化と合わせて一括配線する必要がある
+- `status_stream.rs` / `session_watch.rs`: Python 版は git_watch/agent_watch/
+  session_watch/dispatch がそれぞれモジュールローカルな購読者 set を持ち、
+  `call_soon_threadsafe` 経由でイベントループへスケジュールしてから fan-out する
+  設計だった（同期ハンドラの threadpool から呼ばれるため）。Rust 版は `AppState`
+  が保持する単一の `tokio::sync::broadcast` channel（`StatusStreamState`）へ
+  全プロデューサが直接 `send()` するだけでよく、スレッドセーフなスケジューリングも
+  購読者数管理（`receiver_count()`）も broadcast channel が元々備えているため、
+  モジュールごとの購読者 set 管理は不要にした（Python 版からの単純化）。
+  `session_watch.rs` はこの基盤の上にセッション作成・削除・自動紐付けの通知
+  ペイロードを実装済み。まだ呼び出し元（`terminal_session.rs` のセッション作成・
+  `terminal.rs` の削除ハンドラ・`agent_watch.rs` の自動紐付け）へは配線していない
+  — 実エンドポイントが無い間は送信しても購読者が存在しないため、`git_watch.rs`
+  の FS 監視ループ・`agent_watch.rs` のポーリングループ・`dispatch.rs` の直接
+  配信化と合わせて一括配線する
 - `manifest_update.rs` はカタログ・マニフェストの取得検証とコミット判定
   （純粋ロジック + reqwest 経由の fetch）のみ移植した。Python 側の
   `start_updater`/`stop_updater`（`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に
