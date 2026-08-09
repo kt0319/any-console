@@ -463,6 +463,35 @@ async fn workspace_order_saved() {
     );
 }
 
+/// Python の `RecentJobItem`（pydantic）は全フィールドに `max_length` を課す。
+/// 以前は一部フィールド（key/workspace/jobCommand/jobUrl）しか検証しておらず、
+/// jobName 等の巨大な値がそのまま config.json に保存されてしまっていた
+/// （Codex レビュー指摘）。
+#[tokio::test]
+async fn recent_jobs_rejects_oversized_fields() {
+    let front = spawn_front().await;
+    let oversized = "x".repeat(300); // MAX_LABEL_LENGTH (200) 超え
+    for field in [
+        "jobName",
+        "jobLabel",
+        "jobIcon",
+        "jobIconColor",
+        "wsIcon",
+        "wsIconColor",
+        "jobType",
+    ] {
+        let mut item = json!({"key": "k1", "workspace": "ws1"});
+        item[field] = json!(oversized);
+        let resp = put_json(&front, "/recent-jobs", &json!({"recent_jobs": [item]})).await;
+        assert_eq!(resp.status(), 422, "field {field} should be rejected");
+        let body: Value = resp.json().await.unwrap();
+        assert!(
+            body["detail"].as_str().unwrap().contains(field),
+            "{field}: {body:?}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn settings_routes_require_auth() {
     let front = spawn_front().await;

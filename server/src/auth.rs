@@ -1,10 +1,11 @@
 //! 認証コア（Python 側 `api/auth.py` の `_authenticate` と同一の判定順・規則）。
 //!
-//! Phase 0 では auth.json / devices.json / server_key を **読み取り専用** で扱う。
-//! トークンのローテーション・デバイス登録・last_seen 更新などの書き込みは
-//! Python 側が引き続き担う（該当ルートは proxy 経由）。デバイス認証の
-//! last_seen_at タッチも行わない — 認証済みルートは Phase 0 では全て Python へ
-//! proxy されるため、実利用上の欠落はない。
+//! auth.json / devices.json / server_key の書き込み（トークンのローテーション・
+//! デバイス登録等）は引き続き Python 側が担う（該当ルートは proxy 経由）。
+//! ただしデバイス cookie 認証の `last_seen_at` 更新だけは、Rust ネイティブ
+//! ルートを常用する trusted device が `/auth/check` を経由しなくても
+//! stale にならないよう、migration_bridge 経由でスロットリング付きに
+//! タッチする（`maybe_touch_device`）。
 
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -110,6 +111,11 @@ struct TokenCache {
     loaded: bool,
 }
 
+/// Python `devices.py` の `LAST_SEEN_THROTTLE_SEC` と同じ値。この間隔より
+/// 短い間隔での `last_seen_at` 更新は行わない（頻繁な API/WS リクエストの
+/// たびに devices.json への書き込みが走らないようにする）。
+const LAST_SEEN_TOUCH_THROTTLE_SEC: u64 = 60;
+
 pub struct Auth {
     data_dir: PathBuf,
     /// メイントークンのキャッシュ。auth.json の mtime が変わったら読み直す —
@@ -118,6 +124,13 @@ pub struct Auth {
     /// 固まる。空文字は認証無効化（auth.json 不在 or token 未設定）。
     cache: std::sync::Mutex<TokenCache>,
     trust_tailscale: bool,
+    /// デバイス cookie 認証が成功するたびに Python 側 `devices.json` の
+    /// `last_seen_at` を更新するブリッジ（`Proxy::touch_device`）を毎リクエスト
+    /// 叩かないための、device_id ごとの直近タッチ時刻キャッシュ（プロセス内のみ、
+    /// 永続化しない — Python 側の実際のスロットリングは devices.json の
+    /// `last_seen_at` 自体で行われるため、こちらはネットワーク往復を間引く
+    /// ためだけの近似でよい）。
+    last_touch: std::sync::Mutex<HashMap<String, std::time::Instant>>,
 }
 
 impl Auth {
@@ -126,7 +139,26 @@ impl Auth {
             data_dir,
             cache: std::sync::Mutex::new(TokenCache::default()),
             trust_tailscale,
+            last_touch: std::sync::Mutex::new(HashMap::new()),
         }
+    }
+
+    /// device_id の `last_seen_at` を今タッチすべきか（前回タッチから
+    /// `LAST_SEEN_TOUCH_THROTTLE_SEC` 秒以上経過しているか）を判定し、
+    /// タッチする場合は直近タッチ時刻を更新する（呼び出し即座に一度だけ
+    /// true を返す check-and-set — 同時リクエストが束になっても1回しか
+    /// ブリッジを叩かない）。
+    fn should_touch_device(&self, device_id: &str) -> bool {
+        let mut last_touch = self.last_touch.lock().expect("last_touch lock poisoned");
+        let now = std::time::Instant::now();
+        let due = match last_touch.get(device_id) {
+            Some(t) => now.duration_since(*t).as_secs() >= LAST_SEEN_TOUCH_THROTTLE_SEC,
+            None => true,
+        };
+        if due {
+            last_touch.insert(device_id.to_string(), now);
+        }
+        due
     }
 
     /// Tailscale ヘッダ信頼の opt-in 状態（起動時に確定 — Python 側のキャッシュと同じ
@@ -273,6 +305,32 @@ pub fn extract_bearer_token(value: &str) -> &str {
     }
 }
 
+/// デバイス cookie 認証が成功した際、Python 側 `devices.json` の
+/// `last_seen_at` を更新するブリッジをスロットリング付きで叩く（Codex レビュー
+/// 指摘: 常時 Rust ネイティブルートを使う trusted device は `/auth/check`
+/// （Python proxy 経由）を再度叩かない限り `last_seen_at` が更新されず、
+/// Settings > Auth で実際には使われているデバイスが stale に見えていた）。
+fn maybe_touch_device(
+    state: &crate::state::AppState,
+    result: &AuthResult,
+    cookies: &HashMap<String, String>,
+) {
+    if result.kind != AuthKind::Device {
+        return;
+    }
+    let Some(device_id) = result.label.strip_prefix("device:") else {
+        return;
+    };
+    if !state.auth.should_touch_device(device_id) {
+        return;
+    }
+    let secret = cookies
+        .get(COOKIE_DEVICE_SECRET)
+        .cloned()
+        .unwrap_or_default();
+    state.proxy.touch_device(device_id.to_string(), secret);
+}
+
 /// 認証必須ルート用の axum 抽出子（Python の `Depends(verify_token)` に対応）。
 /// 失敗時は 401 `{"detail": "Invalid token"}`。
 pub struct RequireAuth(#[allow(dead_code)] pub AuthResult);
@@ -296,11 +354,12 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
             .map(|ci| ci.0.ip().to_string())
             .unwrap_or_default();
         let cookies = parse_cookies(&parts.headers);
-        state
+        let result = state
             .auth
             .authenticate(bearer, &client_ip, Some(&parts.headers), Some(&cookies))
-            .map(RequireAuth)
-            .ok_or_else(|| crate::errors::unauthorized("Invalid token"))
+            .ok_or_else(|| crate::errors::unauthorized("Invalid token"))?;
+        maybe_touch_device(state, &result, &cookies);
+        Ok(RequireAuth(result))
     }
 }
 
@@ -314,10 +373,14 @@ pub fn verify_ws_token(
     headers: &http::HeaderMap,
 ) -> bool {
     let cookies = parse_cookies(headers);
-    state
+    let Some(result) = state
         .auth
         .authenticate(token, client_ip, Some(headers), Some(&cookies))
-        .is_some()
+    else {
+        return false;
+    };
+    maybe_touch_device(state, &result, &cookies);
+    true
 }
 
 /// Cookie ヘッダ文字列を key→value にパースする（値の `=` を許容）。
@@ -438,6 +501,22 @@ mod tests {
         assert_eq!(extract_bearer_token("Basic tkn"), "");
         assert_eq!(extract_bearer_token("tkn"), "");
         assert_eq!(extract_bearer_token(""), "");
+    }
+
+    #[test]
+    fn should_touch_device_throttles_repeat_calls() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = Auth::load(dir.path().to_path_buf(), false);
+        assert!(
+            auth.should_touch_device("dev_1"),
+            "first call is always due"
+        );
+        assert!(
+            !auth.should_touch_device("dev_1"),
+            "immediate repeat should be throttled"
+        );
+        // 別デバイスは独立してスロットリングされる。
+        assert!(auth.should_touch_device("dev_2"));
     }
 
     #[test]

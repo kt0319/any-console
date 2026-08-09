@@ -723,12 +723,23 @@ pub async fn put_recent_jobs(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<UpdateRecentJobsRequest>,
 ) -> Result<Json<Value>, ApiError> {
+    // Python の RecentJobItem（pydantic）が全フィールドに max_length を課しているのと
+    // 同じ制約を課す（Codex レビュー指摘: 一部フィールドしか検証していなかったため、
+    // Python 版なら 422 になる巨大な jobName 等がそのまま config.json に保存され、
+    // API 契約が変わってしまっていた）。
     for item in &body.recent_jobs {
         for (v, max, field) in [
             (&item.key, MAX_LABEL_LENGTH, "key"),
             (&item.workspace, MAX_LABEL_LENGTH, "workspace"),
+            (&item.ws_icon, MAX_LABEL_LENGTH, "wsIcon"),
+            (&item.ws_icon_color, MAX_LABEL_LENGTH, "wsIconColor"),
+            (&item.job_name, MAX_LABEL_LENGTH, "jobName"),
+            (&item.job_label, MAX_LABEL_LENGTH, "jobLabel"),
+            (&item.job_icon, MAX_LABEL_LENGTH, "jobIcon"),
+            (&item.job_icon_color, MAX_LABEL_LENGTH, "jobIconColor"),
             (&item.job_command, MAX_COMMAND_LENGTH, "jobCommand"),
             (&item.job_url, MAX_COMMAND_LENGTH, "jobUrl"),
+            (&item.job_type, MAX_LABEL_LENGTH, "jobType"),
         ] {
             check_max_len(field, v, max)?;
         }

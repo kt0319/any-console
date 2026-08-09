@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from ..agent_hooks import clear_session
 from ..auth import API_TOKEN_SCOPE_DISPATCH, _verify_api_token
 from ..common import is_loopback_host
+from ..devices import verify_and_touch_device
 from ..errors import forbidden
 from ..git_info import invalidate_git_info
 from ..git_watch import notify_workspaces_changed
@@ -122,3 +123,20 @@ def verify_dispatch_api_token(request: Request, body: VerifyDispatchApiTokenRequ
     if entry is not None and entry.get("scope") == API_TOKEN_SCOPE_DISPATCH:
         return {"ok": True, "label": f"token:{entry['id']}"}
     return {"ok": False, "label": None}
+
+
+class TouchDeviceRequest(BaseModel):
+    device_id: str
+    raw_secret: str
+
+
+@router.post("/internal/touch-device")
+def touch_device(request: Request, body: TouchDeviceRequest):
+    """Rust ネイティブルートでのデバイス cookie 認証成功時に devices.json の
+    last_seen_at を更新する（`devices.verify_and_touch_device` を再利用 —
+    Rust 側は既に照合済みだが、devices.json への書き込みは Python が唯一の
+    ライターであり続けるため、この再照合込みの関数をそのまま呼ぶのが最小の
+    変更で済む。呼び出し元（`server/src/auth.rs`）が60秒スロットリング済み）。"""
+    _require_loopback(request)
+    verify_and_touch_device(body.device_id, body.raw_secret)
+    return {"status": "ok"}

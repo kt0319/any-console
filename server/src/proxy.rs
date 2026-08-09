@@ -181,6 +181,30 @@ impl Proxy {
         });
     }
 
+    /// デバイス cookie 認証成功時に、Python 側 `devices.json` の `last_seen_at` を
+    /// 更新する（migration_bridge — fire-and-forget。devices.json の書き込みは
+    /// 引き続き Python が唯一のライター）。呼び出し元（`auth.rs`）が既に
+    /// 60秒スロットリングしているため、ここでは無条件に叩いてよい
+    /// （Codex レビュー指摘: Rust ネイティブルートを常時使う trusted device が
+    /// `/auth/check` を再度叩かない限り last_seen_at が更新されず、
+    /// Settings > Auth で実際には使われているデバイスが stale に見えていた）。
+    pub fn touch_device(&self, device_id: String, raw_secret: String) {
+        let client = self.client.clone();
+        let url = self.upstream_url("/internal/touch-device");
+        tokio::spawn(async move {
+            let body = serde_json::json!({ "device_id": device_id, "raw_secret": raw_secret });
+            let result = client
+                .post(&url)
+                .json(&body)
+                .timeout(std::time::Duration::from_secs(5))
+                .send()
+                .await;
+            if let Err(e) = result {
+                tracing::debug!("touch-device to upstream failed: {e}");
+            }
+        });
+    }
+
     /// dispatch scope の API トークン検証を Python 側（`auth.py` の
     /// `_verify_api_token` — auth.json の api_tokens 配列）へ委譲する。
     /// 戻り値は (ok, label)。ブリッジ自体の失敗は「無効」として扱う。
