@@ -458,10 +458,9 @@ fn extract_sub_origin(headers: &HeaderMap) -> Option<String> {
         .unwrap_or("");
     let (scheme, rest) = if let Some(r) = origin.strip_prefix("https://") {
         ("https", r)
-    } else if let Some(r) = origin.strip_prefix("http://") {
-        ("http", r)
     } else {
-        return None;
+        let r = origin.strip_prefix("http://")?;
+        ("http", r)
     };
     let host_end = rest.find(['/', ':']).unwrap_or(rest.len());
     if host_end == 0 {
