@@ -266,7 +266,7 @@ status_stream / git_watch / session_watch）は producer の大半
 |------|---------|------|
 | `routers/workspaces.py` 本体 + `git_info.py` + background_fetch | 660 | **移行済み** |
 | `ws_broadcast.py` / `routers/status_stream.py` | 141 | Phase 5（producer がターミナル依存） |
-| `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | Phase 5（status stream と同時） |
+| `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | **一部移行済み**（`server/src/git_watch.rs` — 監視対象決定ロジックのみ。FS 監視ループ・購読者管理・自動 fetch は status stream と同時。下記注意参照） |
 | `session_watch.py` | 74 | Phase 5 |
 | `agent_watch.py`（3値状態判定・自動紐付け） | 584 | Phase 5 |
 | `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。配線は未実施 — agent_watch 移行まで待つ） |
@@ -293,6 +293,15 @@ status_stream / git_watch / session_watch）は producer の大半
   Unicode プロパティは Rust `regex` クレートがネイティブ対応するため、Python 版の
   `translate_rust_regex()`（Rust regex 記法 → Python `re` 変換）に相当する処理は
   不要（同梱 21 マニフェスト全件のコンパイル成功をテストで確認済み）
+- `git_watch.rs` は監視対象の収集（`collect_watch_targets` — 登録済みワークスペース
+  + 動的 worktree、実 git リポジトリでの統合テスト込み）と、変更パスの関連性判定・
+  ワークスペース対応付け・監視ルート組み立て（`is_relevant_change` /
+  `touches_branch_change` / `match_workspaces` / `watch_roots`）のみ移植した。
+  FS 監視ループ本体（`_watch_loop` — Python は watchfiles、Rust 移植では `notify`
+  crate を想定）・WebSocket 購読者管理（`subscribe`/`unsubscribe`）・自動 fetch
+  ループ（`_auto_fetch_loop`）・`nudge_workspace` は status stream の実体
+  （`ws_broadcast.py`/`routers/status_stream.py`）と `agent_watch.py` を合わせて
+  配線するタイミングで一括実装する
 - `manifest_update.rs` はカタログ・マニフェストの取得検証とコミット判定
   （純粋ロジック + reqwest 経由の fetch）のみ移植した。Python 側の
   `start_updater`/`stop_updater`（`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に
