@@ -806,6 +806,25 @@ exit 0 で完走することを確認。続けて `./any-console run` で実際�
 環境では検証できていない — 生成される unit/plist の中身の正しさまでを
 確認した（実機での `./any-console setup` 通し確認は引き続き推奨）。
 
+**既存インストール先の移行パスに関する注意（発見・修正済み）**: 既に
+サービス登録済み（旧バージョンの、`ExecStart=$python_bin -m api.main` の
+unit/plist を持つ）インスタンスがこの変更を取り込んで `restart`
+するだけでは Rust へは切り替わらない — `restart_service()` は
+`systemctl restart`/`launchctl kickstart` するだけで、登録済みの
+unit/plist ファイル自体は書き換えないため、古い定義のまま Python を
+起動し続けてしまう（実害は無い — Python 側のコードは削除していないので
+動き続けるが、Rust の恩恵を受けられないままになる）。`cmd_update`
+は元々 `restart_service()` しか呼んでおらず同じ問題を持っていたため、
+`do_https_setup` が既に持っていた「ユニット定義を作り直し、元々稼働中で
+あった場合のみ再起動する」パターンを `reinstall_service_and_restart_if_active`
+として切り出し、`cmd_update` からも呼ぶよう修正した。したがって:
+- `./any-console update`（release タグ経由のアップグレード）またはサービス
+  未登録から `./any-console setup` を再実行 → 正しく Rust へ切り替わる
+- 単純な `git pull` + `restart`（`update` を経由しない手動操作）→
+  登録済みの unit/plist が古いままなら切り替わらない。切り替えるには
+  `./any-console setup` を再実行するか、サービスを一旦 `uninstall` して
+  作り直す必要がある
+
 ### Phase 6 — Python 撤去・配布切替 — **一部完了**
 
 - proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前々々節参照。HTTP/WS プロキシは
