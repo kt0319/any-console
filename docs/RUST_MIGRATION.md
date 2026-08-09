@@ -268,7 +268,7 @@ status_stream / git_watch / session_watch）は producer の大半
 | `ws_broadcast.py` / `routers/status_stream.py` | 141 | Phase 5（producer がターミナル依存） |
 | `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | **一部移行済み**（`server/src/git_watch.rs` — 監視対象決定ロジックのみ。FS 監視ループ・購読者管理・自動 fetch は status stream と同時。下記注意参照） |
 | `session_watch.py` | 74 | Phase 5 |
-| `agent_watch.py`（3値状態判定・自動紐付け） | 584 | Phase 5 |
+| `agent_watch.py`（3値状態判定・自動紐付け） | 584 | **一部移行済み**（`server/src/agent_watch.rs` — 状態判定・通知猶予判定のみ。ポーリングループ・自動紐付け・push 連携は status stream 配線時に一括実装。下記注意参照） |
 | `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。配線は未実施 — agent_watch 移行まで待つ） |
 | `manifest_update.py`（リモートマニフェスト更新） | 272 | **移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側が稼働中のため配線しない。下記注意参照） |
 | `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。配線は未実施 — agent_watch 移行まで待つ。理由は下記注意参照） |
@@ -302,6 +302,15 @@ status_stream / git_watch / session_watch）は producer の大半
   ループ（`_auto_fetch_loop`）・`nudge_workspace` は status stream の実体
   （`ws_broadcast.py`/`routers/status_stream.py`）と `agent_watch.py` を合わせて
   配線するタイミングで一括実装する
+- `agent_watch.rs` は状態判定（`classify_agent_state`/`resolve_session_state` —
+  画面差分 + screen manifest 統合）・配信スナップショット差分（`diff_states`）・
+  WS ペイロード整形・notify_phrase 検出の猶予判定（`PhraseNotifyTracker`）のみ
+  移植した。ポーリングループ本体・購読者管理・自動紐付け（cwd からの
+  ワークスペース自動判定・前面ジョブからのジョブ自動タグ付けを
+  `TerminalSession` へ刻印する処理）・push 通知連携（`push.py` 経由）は未移植 —
+  `capture_visible_pane`/`list_pane_meta` 相当の tmux ペイン問い合わせが
+  まだ `tmux.rs` に無いことに加え、status stream の実体・`git_watch.rs` の
+  FS 監視ループ・`dispatch.rs` の直接配信化と合わせて一括配線する必要がある
 - `manifest_update.rs` はカタログ・マニフェストの取得検証とコミット判定
   （純粋ロジック + reqwest 経由の fetch）のみ移植した。Python 側の
   `start_updater`/`stop_updater`（`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に
