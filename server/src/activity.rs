@@ -62,9 +62,14 @@ pub fn log_activity(
             .create(true)
             .append(true)
             .open(&path)?;
-        let line = serde_json::to_string(&Value::Object(entry.clone()))?;
+        // 行本体 + 改行を1回の write_all にまとめる（Python 版 `f.write(json + "\n")`
+        // と同じ）。O_APPEND の write(2) はこのサイズなら1回の呼び出し単位で
+        // atomic なため、2回に分けていた場合に起きる「他プロセス/他スレッドの
+        // 書き込みが改行の前に割り込んで行が壊れる」競合を防ぐ（Codex レビュー
+        // 指摘 — Python プロセスも同じファイルへ並行追記しうる）。
+        let mut line = serde_json::to_string(&Value::Object(entry.clone()))?;
+        line.push('\n');
         f.write_all(line.as_bytes())?;
-        f.write_all(b"\n")?;
         Ok(())
     };
     if write().is_err() {
@@ -105,5 +110,55 @@ mod tests {
         let keys: Vec<_> = parsed.as_object().unwrap().keys().cloned().collect();
         assert_eq!(keys, vec!["t", "type", "branch", "commit"]);
         assert!(dir.path().join("activity").join("_global").is_dir());
+    }
+
+    /// 同じ workspace へ多数のスレッドから並行に追記しても、行が他の書き込みと
+    /// 混ざって壊れないこと（Codex レビュー指摘: 本文と改行を2回の write に
+    /// 分けていると、O_APPEND の atomic 保証が「本文」と「改行」それぞれの
+    /// write(2) 単位にしか効かず、他プロセス/他スレッドの書き込みがその間に
+    /// 割り込むと本文だけが連結された壊れた行になりうる）。
+    #[test]
+    fn concurrent_appends_do_not_interleave_or_corrupt_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().to_path_buf();
+        const THREADS: usize = 16;
+        const PER_THREAD: usize = 50;
+        let handles: Vec<_> = (0..THREADS)
+            .map(|t| {
+                let data_dir = data_dir.clone();
+                std::thread::spawn(move || {
+                    for i in 0..PER_THREAD {
+                        let mut fields = Map::new();
+                        // ペイロードを十分な長さにして、書き込みが2回に分かれて
+                        // いた場合に競合が起きやすい状態を作る。
+                        fields.insert(
+                            "payload".to_string(),
+                            json!(format!("thread-{t}-{i}-{}", "x".repeat(200))),
+                        );
+                        log_activity(&data_dir, Some("proj"), "concurrent_test", fields);
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let entries: Vec<_> = std::fs::read_dir(data_dir.join("activity").join("proj"))
+            .unwrap()
+            .collect();
+        assert_eq!(entries.len(), 1);
+        let content = std::fs::read_to_string(entries[0].as_ref().unwrap().path()).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(
+            lines.len(),
+            THREADS * PER_THREAD,
+            "行数が一致しない（連結や欠落の疑い）"
+        );
+        for line in &lines {
+            let parsed: Value = serde_json::from_str(line)
+                .unwrap_or_else(|e| panic!("corrupted line: {line:?}: {e}"));
+            assert_eq!(parsed["type"], "concurrent_test");
+        }
     }
 }
