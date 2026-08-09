@@ -607,6 +607,34 @@ async fn upload_rename_delete_download_cycle() {
     assert_eq!(resp.status(), 404);
 }
 
+/// 非 ASCII ファイル名のダウンロードが 500 にならず、RFC 5987 の
+/// `filename*=utf-8''<percent-encoded>` で Content-Disposition が組み立てられる
+/// こと（Codex レビュー指摘: 以前は生の UTF-8 バイト列をヘッダ値へ直接埋め込んで
+/// おり、`http` クレートの HeaderValue バリデーションに落ちてレスポンス構築自体が
+/// 失敗し 500 になっていた）。
+#[tokio::test]
+async fn download_with_non_ascii_filename_succeeds_with_rfc5987_header() {
+    let front = spawn_front().await;
+    std::fs::write(front.ws_path.join("日本語.txt"), b"content").unwrap();
+
+    let resp = client()
+        .get(format!(
+            "http://{}/workspaces/repo/download?path=%E6%97%A5%E6%9C%AC%E8%AA%9E.txt",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let disposition = resp.headers()["content-disposition"].to_str().unwrap();
+    assert_eq!(
+        disposition,
+        "attachment; filename*=utf-8''%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"
+    );
+    assert_eq!(resp.bytes().await.unwrap().as_ref(), b"content");
+}
+
 #[tokio::test]
 async fn worktree_create_list_delete() {
     let front = spawn_front().await;

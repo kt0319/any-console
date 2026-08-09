@@ -584,13 +584,48 @@ impl futures_util::Stream for TempDirStream {
     }
 }
 
+/// Python `urllib.parse.quote(s, safe="/")` と同じ規則（未予約文字 + `/` は
+/// そのまま、それ以外は UTF-8 バイト単位で `%XX`（大文字16進）にパーセント
+/// エンコードする）。Starlette の `FileResponse` が `Content-Disposition` の
+/// ファイル名決定に使っているのと同じ関数で、`quote()` の結果が元の文字列と
+/// 一致するかどうかで ASCII セーフかどうかを判定する。
+fn percent_encode_like_python_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for byte in s.as_bytes() {
+        let b = *byte;
+        let is_safe = b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~' | b'/');
+        if is_safe {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// `Content-Disposition` のファイル名部分を組み立てる（Starlette
+/// `FileResponse.__init__` と同一規則）。非 ASCII・`"` 等を含み `quote()` 後の
+/// 値が元と変わる場合は RFC 5987 の `filename*=utf-8''<percent-encoded>` の
+/// みを使う（Codex レビュー指摘: 以前は生の UTF-8 文字列をそのまま
+/// `filename="..."` に入れており、HTTP ヘッダ値として無効なバイトを含むと
+/// レスポンス構築自体が失敗し 500 になっていた。ASCII セーフな場合は従来どおり
+/// クォート付きの `filename="..."` のみを使う）。
+fn content_disposition(disposition_type: &str, filename: &str) -> String {
+    let encoded = percent_encode_like_python_quote(filename);
+    if encoded != filename {
+        format!("{disposition_type}; filename*=utf-8''{encoded}")
+    } else {
+        format!("{disposition_type}; filename=\"{filename}\"")
+    }
+}
+
 fn attachment_response(body: Body, filename: &str, media_type: &str) -> Response {
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, media_type)
         .header(
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{}\"", filename.replace('"', "")),
+            content_disposition("attachment", filename),
         )
         .body(body)
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
@@ -725,6 +760,45 @@ pub async fn download(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn percent_encode_matches_python_quote_examples() {
+        assert_eq!(
+            percent_encode_like_python_quote("日本語.txt"),
+            "%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"
+        );
+        assert_eq!(percent_encode_like_python_quote("a b.txt"), "a%20b.txt");
+        assert_eq!(percent_encode_like_python_quote("a\"b.txt"), "a%22b.txt");
+        assert_eq!(percent_encode_like_python_quote("simple.txt"), "simple.txt");
+        assert_eq!(percent_encode_like_python_quote("a/b.txt"), "a/b.txt");
+    }
+
+    #[test]
+    fn content_disposition_uses_plain_filename_when_ascii_safe() {
+        assert_eq!(
+            content_disposition("attachment", "simple.txt"),
+            "attachment; filename=\"simple.txt\""
+        );
+    }
+
+    #[test]
+    fn content_disposition_uses_rfc5987_for_non_ascii_filename() {
+        // これが本来の目的: 非ASCIIファイル名でも有効な HTTP ヘッダ値になり
+        // （生の UTF-8 を直接埋め込んで 500 になっていた回帰の修正確認）、
+        // RFC 5987 の filename* だけを使う（filename= は付けない）。
+        assert_eq!(
+            content_disposition("attachment", "日本語.txt"),
+            "attachment; filename*=utf-8''%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"
+        );
+    }
+
+    #[test]
+    fn content_disposition_uses_rfc5987_when_filename_contains_quote() {
+        assert_eq!(
+            content_disposition("attachment", "a\"b.txt"),
+            "attachment; filename*=utf-8''a%22b.txt"
+        );
+    }
 
     #[test]
     fn content_response_by_extension() {
