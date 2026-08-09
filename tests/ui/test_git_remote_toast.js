@@ -3,9 +3,14 @@ import { describe, it, expect } from "vitest";
 import { formatRemoteToast } from "../../ui/utils/git-remote.js";
 
 describe("formatRemoteToast", () => {
-  it("コミットなしの場合はシンプルなヘッダーのみ", () => {
+  it("コミットなしの場合はPulledと区別できる専用文言", () => {
     const msg = formatRemoteToast("my-ws", "Pull", {});
-    expect(msg).toBe("my-ws: Pulled");
+    expect(msg).toBe("my-ws: Already up to date");
+  });
+
+  it("Pushでコミットなしの場合も専用文言", () => {
+    const msg = formatRemoteToast("my-ws", "Push", {});
+    expect(msg).toBe("my-ws: Nothing to push");
   });
 
   it("コミット1件の場合は singular 表現でメッセージを表示", () => {
