@@ -241,6 +241,63 @@ async fn common_jobs_merge_and_reorder() {
     assert_eq!(resp.status(), 400);
 }
 
+/// 並行ジョブ作成が全件残ること（lost update しないこと）を検証する回帰テスト
+/// （Codex レビュー指摘: load→mutate→save が分離していると後勝ちの書き込みが
+/// 先勝ちの新規ジョブを消してしまう）。共通ジョブ・ワークスペースジョブの
+/// 両方で確認する。
+#[tokio::test]
+async fn concurrent_job_creation_does_not_lose_updates() {
+    let front = spawn_front().await;
+    let addr = front.addr;
+
+    let mut handles = Vec::new();
+    for i in 0..8 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/common/jobs"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"label": format!("common-{i}"), "command": "echo hi"}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 200);
+    }
+    let common = get_json(&front, "/common/jobs").await;
+    assert_eq!(
+        common.as_object().unwrap().len(),
+        8,
+        "common jobs: {common:?}"
+    );
+
+    let mut handles = Vec::new();
+    for i in 0..8 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/workspaces/proj/jobs"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"label": format!("ws-{i}"), "command": "echo hi"}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 200);
+    }
+    let ws_jobs = get_json(&front, "/workspaces/proj/jobs").await;
+    // ws_jobs は共通ジョブとマージされているので 8 (workspace) + 8 (common) = 16
+    assert_eq!(
+        ws_jobs.as_object().unwrap().len(),
+        16,
+        "ws jobs: {ws_jobs:?}"
+    );
+}
+
 #[tokio::test]
 async fn recent_jobs_roundtrip_and_prune() {
     let front = spawn_front().await;

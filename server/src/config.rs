@@ -18,6 +18,7 @@ use serde_json::{Map, Value};
 
 use crate::config_migrations::{get_config_version, migrate_config_version, CONFIG_SCHEMA_VERSION};
 use crate::config_schema::{normalize_loaded_config, validate_config_entry};
+use crate::errors::{server_error, ApiError};
 
 pub const GLOBAL_CONFIG_KEY: &str = "__global__";
 pub const DEFAULT_BIND_HOST: &str = "0.0.0.0";
@@ -82,7 +83,10 @@ impl ConfigStore {
     }
 
     /// Python `_read_config_unlocked` と同一の復旧・正規化・マイグレーション。
-    fn read_unlocked(&self) -> Map<String, Value> {
+    /// ロックの取得・書き戻しは呼び出し側の責務（`load_all`/`with_exclusive` 等）。
+    /// 戻り値の bool は「.bak からの復旧・バージョンマイグレーションが起きたため
+    /// 書き戻しが必要」を示す。
+    fn read_core(&self) -> (Map<String, Value>, bool) {
         let mut restore_needed = false;
         let raw: Map<String, Value> = if self.config_file.is_file() {
             match std::fs::read_to_string(&self.config_file) {
@@ -98,7 +102,7 @@ impl ConfigStore {
                                 restore_needed = true;
                                 m
                             }
-                            None => return Map::new(),
+                            None => return (Map::new(), false),
                         }
                     }
                 },
@@ -107,7 +111,7 @@ impl ConfigStore {
                         "config read failed path={}: {e}",
                         self.config_file.display()
                     );
-                    return Map::new();
+                    return (Map::new(), false);
                 }
             }
         } else {
@@ -119,12 +123,15 @@ impl ConfigStore {
             tracing::warn!("config validation failed key={name}: {error}");
         }
         let (migrated, did_migrate) = migrate_config_version(normalized);
-        if restore_needed || did_migrate {
-            if let Err(e) = self.write_unlocked(&migrated) {
-                tracing::warn!("config write-back after restore/migration failed: {e}");
-            }
-        }
-        migrated
+        (migrated, restore_needed || did_migrate)
+    }
+
+    /// 現在保持しているロック下で読み込む（書き戻しは行わない）。既に排他ロックを
+    /// 取得済みの呼び出し元（`save_all`/`with_exclusive` 等）はこちらを使う —
+    /// どのみち直後に `write_unlocked` するため、復旧/マイグレーションの書き戻しは
+    /// その1回に含まれる。
+    fn read_unlocked(&self) -> Map<String, Value> {
+        self.read_core().0
     }
 
     /// Python `_write_config_unlocked` と同一: 正規化（エラーは拒否）→ .bak
@@ -156,13 +163,57 @@ impl ConfigStore {
     }
 
     pub fn load_all(&self) -> Map<String, Value> {
-        let _lock = self.file_lock(false);
-        self.read_unlocked()
+        let (config, needs_writeback) = {
+            let _lock = self.file_lock(false);
+            self.read_core()
+        };
+        if !needs_writeback {
+            return config;
+        }
+        // .bak からの復旧・バージョンマイグレーションの書き戻しは config.bak/config.tmp
+        // を触るため、共有ロックのままでは他の読み手の書き戻しと競合しうる。
+        // 排他ロックへ昇格し、その下で読み直してから書く（他プロセスが既に
+        // 書き戻し済みなら再度の書き戻しは不要）。
+        let _lock = self.file_lock(true);
+        let (config, needs_writeback) = self.read_core();
+        if needs_writeback {
+            if let Err(e) = self.write_unlocked(&config) {
+                tracing::warn!("config write-back after restore/migration failed: {e}");
+            }
+        }
+        config
     }
 
     pub fn save_all(&self, config: &Map<String, Value>) -> Result<(), String> {
         let _lock = self.file_lock(true);
         self.write_unlocked(config)
+    }
+
+    /// 排他ロックを1回だけ取得し、その中で読み込み→変更→書き込みを行う
+    /// （read-modify-write を1トランザクションにまとめ、concurrent writer 間の
+    /// lost update を防ぐ）。`mutate` が `Err` を返した場合は書き込みを行わない。
+    pub fn with_exclusive<T>(
+        &self,
+        mutate: impl FnOnce(&mut Map<String, Value>) -> Result<T, ApiError>,
+    ) -> Result<T, ApiError> {
+        let _lock = self.file_lock(true);
+        let mut config = self.read_unlocked();
+        let result = mutate(&mut config)?;
+        self.write_unlocked(&config).map_err(server_error)?;
+        Ok(result)
+    }
+
+    /// `__global__.<key>` へ値をマージする（`__global__` の他フィールドは保持する）。
+    /// 純粋な in-memory 操作 — ロック・読み込み・書き込みは呼び出し側
+    /// （`with_exclusive` 等）が担う。
+    pub fn merge_global_section(config: &mut Map<String, Value>, key: &str, value: Value) {
+        let mut global = config
+            .get(GLOBAL_CONFIG_KEY)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        global.insert(key.to_string(), value);
+        config.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(global));
     }
 
     /// `__global__` を除外した workspace エントリのみを返す。

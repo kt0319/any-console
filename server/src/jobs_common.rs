@@ -133,12 +133,35 @@ pub fn load_common_jobs_data(state: &AppState) -> Map<String, Value> {
 }
 
 pub fn save_common_jobs_data(state: &AppState, data: Map<String, Value>) -> Result<(), ApiError> {
-    state
-        .config
-        .save_global_section("jobs", Value::Object(data))
-        .map_err(crate::errors::server_error)?;
+    commit_common_jobs(
+        state,
+        Box::new(move |jobs| {
+            *jobs = data;
+            Ok(())
+        }),
+    )
+}
+
+/// 共通ジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う
+/// （`mutate` は commit 時点の最新データに対して適用される — commit と離れた
+/// 場所で先に読み込んだ古いスナップショットをそのまま書き戻すと、その間に
+/// 別リクエストが加えた変更を lost update してしまうため、`ConfigStore::with_exclusive`
+/// の中で毎回読み直す設計にしている）。
+pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), ApiError> {
+    state.config.with_exclusive(|all| {
+        let mut jobs = section_as_map(
+            all.get(crate::config::GLOBAL_CONFIG_KEY)
+                .and_then(Value::as_object)
+                .and_then(|g| g.get("jobs"))
+                .cloned(),
+        );
+        mutate(&mut jobs)?;
+        ConfigStore::merge_global_section(all, "jobs", Value::Object(jobs));
+        Ok(())
+    })?;
     state.jobs_cache.invalidate(COMMON_JOBS_CACHE_KEY);
     state.jobs_cache.invalidate_all();
+    state.proxy.invalidate_job_cache();
     Ok(())
 }
 
@@ -161,23 +184,47 @@ pub fn save_workspace_jobs_data(
     workspace_name: &str,
     data: Map<String, Value>,
 ) -> Result<(), ApiError> {
-    // Python save_workspace_config_section と同じ: エントリの jobs キーだけ差し替える
-    let cfg = state.config.load_all();
-    let key = ConfigStore::find_workspace_key(&cfg, workspace_name)
-        .unwrap_or_else(|| workspace_name.to_string());
-    let mut all = cfg;
-    let mut entry = all
-        .get(&key)
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-    entry.insert("jobs".to_string(), Value::Object(data));
-    all.insert(key, Value::Object(entry));
-    state
-        .config
-        .save_all(&all)
-        .map_err(crate::errors::server_error)?;
+    commit_workspace_jobs(
+        state,
+        workspace_name,
+        Box::new(move |jobs| {
+            *jobs = data;
+            Ok(())
+        }),
+    )
+}
+
+/// ワークスペースジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う
+/// （Python `save_workspace_config_section` は同じくロック下で read-modify-write
+/// する。`mutate` は commit 時点の最新データに対して適用される — 詳細は
+/// `commit_common_jobs` のコメント参照）。
+pub fn commit_workspace_jobs(
+    state: &AppState,
+    workspace_name: &str,
+    mutate: JobsMutator,
+) -> Result<(), ApiError> {
+    let workspace_name_owned = workspace_name.to_string();
+    state.config.with_exclusive(|all| {
+        // Python save_workspace_config_section と同じ: エントリの jobs キーだけ差し替える
+        let key = ConfigStore::find_workspace_key(all, &workspace_name_owned)
+            .unwrap_or_else(|| workspace_name_owned.clone());
+        let mut entry = all
+            .get(&key)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let mut jobs = entry
+            .get("jobs")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        mutate(&mut jobs)?;
+        entry.insert("jobs".to_string(), Value::Object(jobs));
+        all.insert(key, Value::Object(entry));
+        Ok(())
+    })?;
     state.jobs_cache.invalidate(workspace_name);
+    state.proxy.invalidate_job_cache();
     Ok(())
 }
 
@@ -413,10 +460,19 @@ async fn build_job_entry(
     Ok(Value::Object(entry))
 }
 
+/// `commit_workspace_jobs`/`commit_common_jobs` に渡す mutate クロージャの型。
+type JobsMutator = Box<dyn FnOnce(&mut Map<String, Value>) -> Result<(), ApiError> + Send>;
+
+/// `data` は job_name 未指定時の自動採番（`generate_job_key`）にのみ使う参考
+/// スナップショットで、実際の書き込みは commit 時点の最新データに対して行う
+/// （`commit_fn` に渡す mutate クロージャの中で完結させ、`data` を丸ごと
+/// 書き戻すことによる lost update を避ける — Codex レビュー指摘）。
+/// job_name 指定時（更新）は、commit 時点で該当ジョブが存在するかも
+/// 併せて再検証する（TOCTOU を防ぐ）。
 pub async fn save_job(
     state: &AppState,
-    mut data: Map<String, Value>,
-    save_fn: impl FnOnce(&AppState, Map<String, Value>) -> Result<(), ApiError>,
+    data: Map<String, Value>,
+    commit_fn: impl FnOnce(&AppState, JobsMutator) -> Result<(), ApiError>,
     job_name: Option<String>,
     body: &JobRequest,
     log_context: &str,
@@ -428,51 +484,73 @@ pub async fn save_job(
     } else {
         body.notify_phrase.trim().to_string()
     };
+    let is_update = job_name.is_some();
     let job_name = job_name.unwrap_or_else(|| generate_job_key(&data));
     let entry = build_job_entry(state, &validated, body, &notify_phrase).await?;
-    data.insert(job_name.clone(), entry);
-    save_fn(state, data)?;
+    let job_name_for_commit = job_name.clone();
+    commit_fn(
+        state,
+        Box::new(move |fresh| {
+            if is_update && !fresh.contains_key(&job_name_for_commit) {
+                return Err(not_found(format!("Job '{job_name_for_commit}' not found")));
+            }
+            fresh.insert(job_name_for_commit, entry);
+            Ok(())
+        }),
+    )?;
     tracing::info!("{log_context} job={job_name}");
     Ok(json!({"status": "ok", "name": job_name}))
 }
 
 pub fn delete_job(
     state: &AppState,
-    mut data: Map<String, Value>,
-    save_fn: impl FnOnce(&AppState, Map<String, Value>) -> Result<(), ApiError>,
+    commit_fn: impl FnOnce(&AppState, JobsMutator) -> Result<(), ApiError>,
     job_name: &str,
     not_found_msg: &str,
     log_context: &str,
 ) -> Result<Value, ApiError> {
-    if data.shift_remove(job_name).is_none() {
-        return Err(not_found(not_found_msg));
-    }
-    save_fn(state, data)?;
+    let job_name_owned = job_name.to_string();
+    let not_found_msg_owned = not_found_msg.to_string();
+    commit_fn(
+        state,
+        Box::new(move |fresh| {
+            if fresh.shift_remove(&job_name_owned).is_none() {
+                return Err(not_found(not_found_msg_owned));
+            }
+            Ok(())
+        }),
+    )?;
     tracing::info!("{log_context} job={job_name}");
     Ok(json!({"status": "ok", "name": job_name}))
 }
 
 pub fn reorder_jobs(
     state: &AppState,
-    data: Map<String, Value>,
-    save_fn: impl FnOnce(&AppState, Map<String, Value>) -> Result<(), ApiError>,
+    commit_fn: impl FnOnce(&AppState, JobsMutator) -> Result<(), ApiError>,
     order: &[String],
     log_context: &str,
 ) -> Result<Value, ApiError> {
-    let mut want: Vec<&String> = order.iter().collect();
-    let mut have: Vec<&String> = data.keys().collect();
-    want.sort();
-    have.sort();
-    if want != have {
-        return Err(bad_request("Job list mismatch"));
-    }
-    let mut reordered = Map::new();
-    for name in order {
-        if let Some(v) = data.get(name) {
-            reordered.insert(name.clone(), v.clone());
-        }
-    }
-    save_fn(state, reordered)?;
+    let order_owned: Vec<String> = order.to_vec();
+    commit_fn(
+        state,
+        Box::new(move |fresh| {
+            let mut want: Vec<&String> = order_owned.iter().collect();
+            let mut have: Vec<&String> = fresh.keys().collect();
+            want.sort();
+            have.sort();
+            if want != have {
+                return Err(bad_request("Job list mismatch"));
+            }
+            let mut reordered = Map::new();
+            for name in &order_owned {
+                if let Some(v) = fresh.get(name) {
+                    reordered.insert(name.clone(), v.clone());
+                }
+            }
+            *fresh = reordered;
+            Ok(())
+        }),
+    )?;
     tracing::info!("{log_context} count={}", order.len());
     Ok(json!({"status": "ok"}))
 }

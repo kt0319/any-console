@@ -413,6 +413,54 @@ async fn suggest_lists_directories_with_filters() {
     assert_eq!(body["entries"], json!([]));
 }
 
+/// ワークスペース設定更新（アイコン等）とジョブ作成が同じワークスペースへ並行して
+/// 起きても、どちらも失われないこと（lost update しないこと）を検証する回帰
+/// テスト（Codex レビュー指摘: config 更新はアイコン正規化の await を挟むため、
+/// その間に別リクエストが加えた変更を古いスナップショットで上書きしうる）。
+#[tokio::test]
+async fn concurrent_config_update_and_job_creation_does_not_lose_updates() {
+    let front = spawn_front().await;
+    let addr = front.addr;
+
+    let mut handles = Vec::new();
+    for i in 0..6 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .put(format!("http://{addr}/workspaces/repo/config"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"icon": format!("mdi-icon-{i}"), "icon_color": "#111111"}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for i in 0..6 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/workspaces/repo/jobs"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"label": format!("job-{i}"), "command": "echo hi"}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 200);
+    }
+
+    // アイコン更新は何かしらの値で残っている（最後に勝った1件）。
+    let cfg = load_config(&front);
+    let icon = cfg["ws_repo"]["icon"].as_str().unwrap();
+    assert!(icon.starts_with("mdi-icon-"), "icon: {icon}");
+
+    // ジョブは全 6 件残っている（lost update していない）。
+    let jobs = get_json(&front, "/workspaces/repo/jobs").await;
+    assert_eq!(jobs.as_object().unwrap().len(), 6, "jobs: {jobs:?}");
+}
+
 #[tokio::test]
 async fn workspaces_routes_require_auth() {
     let front = spawn_front().await;

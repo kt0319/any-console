@@ -96,6 +96,18 @@ async def dispatch_queue_relay(request: Request):
     return {"status": "ok"}
 
 
+@router.post("/internal/invalidate-job-cache")
+def invalidate_job_cache(request: Request):
+    """Rust 側の native ジョブ CRUD（作成・更新・削除・並び替え）後に、Python 側
+    ジョブキャッシュ（routers/jobs_common.py の TTLCache）を無効化する。無効化
+    しないと、まだ Python 側に残る /dispatch 実行パス（_resolve_job_def）が
+    最大 60 秒古いジョブ定義を使い続けてしまう。"""
+    _require_loopback(request)
+    from .jobs_common import invalidate_all_job_caches
+    invalidate_all_job_caches()
+    return {"status": "ok"}
+
+
 class VerifyDispatchApiTokenRequest(BaseModel):
     token: str
 

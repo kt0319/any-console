@@ -12,7 +12,7 @@ use serde_json::{json, Map, Value};
 
 use crate::auth::RequireAuth;
 use crate::config::{generate_entity_id, GLOBAL_CONFIG_KEY};
-use crate::errors::{bad_request, not_found, server_error, ApiError};
+use crate::errors::{bad_request, not_found, ApiError};
 use crate::state::AppState;
 use crate::util::JsonBody;
 
@@ -24,13 +24,6 @@ fn load_groups(all_config: &Map<String, Value>) -> Vec<Value> {
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default()
-}
-
-fn save_groups(state: &AppState, groups: Vec<Value>) -> Result<(), ApiError> {
-    state
-        .config
-        .save_global_section("groups", Value::Array(groups))
-        .map_err(server_error)
 }
 
 #[derive(Deserialize)]
@@ -57,9 +50,16 @@ pub async fn create_group(
         return Err(bad_request("Group name is required"));
     }
     let group_id = generate_entity_id();
-    let mut groups = load_groups(&state.config.load_all());
-    groups.push(json!({"id": group_id, "name": name}));
-    save_groups(&state, groups)?;
+    state.config.with_exclusive(|all_config| {
+        let mut groups = load_groups(all_config);
+        groups.push(json!({"id": &group_id, "name": &name}));
+        crate::config::ConfigStore::merge_global_section(
+            all_config,
+            "groups",
+            Value::Array(groups),
+        );
+        Ok(())
+    })?;
     tracing::info!("group created id={group_id} name={name}");
     Ok(Json(json!({"id": group_id, "name": name})))
 }
@@ -74,16 +74,28 @@ pub async fn update_group(
     if name.is_empty() {
         return Err(bad_request("Group name is required"));
     }
-    let mut groups = load_groups(&state.config.load_all());
-    for group in groups.iter_mut() {
-        if group.get("id").and_then(Value::as_str) == Some(group_id.as_str()) {
-            group["name"] = Value::String(name.clone());
-            save_groups(&state, groups)?;
-            tracing::info!("group updated id={group_id} name={name}");
-            return Ok(Json(json!({"id": group_id, "name": name})));
+    state.config.with_exclusive(|all_config| {
+        let mut groups = load_groups(all_config);
+        let found = groups.iter_mut().any(|group| {
+            if group.get("id").and_then(Value::as_str) == Some(group_id.as_str()) {
+                group["name"] = Value::String(name.clone());
+                true
+            } else {
+                false
+            }
+        });
+        if !found {
+            return Err(not_found(format!("Group '{group_id}' not found")));
         }
-    }
-    Err(not_found(format!("Group '{group_id}' not found")))
+        crate::config::ConfigStore::merge_global_section(
+            all_config,
+            "groups",
+            Value::Array(groups),
+        );
+        Ok(())
+    })?;
+    tracing::info!("group updated id={group_id} name={name}");
+    Ok(Json(json!({"id": group_id, "name": name})))
 }
 
 pub async fn delete_group(
@@ -91,36 +103,35 @@ pub async fn delete_group(
     Path(group_id): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    let mut all_config = state.config.load_all();
-    let groups = load_groups(&all_config);
-    let new_groups: Vec<Value> = groups
-        .iter()
-        .filter(|g| g.get("id").and_then(Value::as_str) != Some(group_id.as_str()))
-        .cloned()
-        .collect();
-    if new_groups.len() == groups.len() {
-        return Err(not_found(format!("Group '{group_id}' not found")));
-    }
-    // グループに所属するワークスペースの group_id をクリアする
-    for (key, entry) in all_config.iter_mut() {
-        if key == GLOBAL_CONFIG_KEY {
-            continue;
+    state.config.with_exclusive(|all_config| {
+        let groups = load_groups(all_config);
+        let new_groups: Vec<Value> = groups
+            .iter()
+            .filter(|g| g.get("id").and_then(Value::as_str) != Some(group_id.as_str()))
+            .cloned()
+            .collect();
+        if new_groups.len() == groups.len() {
+            return Err(not_found(format!("Group '{group_id}' not found")));
         }
-        let Some(obj) = entry.as_object_mut() else {
-            continue;
-        };
-        if obj.get("group_id").and_then(Value::as_str) == Some(group_id.as_str()) {
-            obj.insert("group_id".to_string(), Value::Null);
+        // グループに所属するワークスペースの group_id をクリアする
+        for (key, entry) in all_config.iter_mut() {
+            if key == GLOBAL_CONFIG_KEY {
+                continue;
+            }
+            let Some(obj) = entry.as_object_mut() else {
+                continue;
+            };
+            if obj.get("group_id").and_then(Value::as_str) == Some(group_id.as_str()) {
+                obj.insert("group_id".to_string(), Value::Null);
+            }
         }
-    }
-    let mut global = all_config
-        .get(GLOBAL_CONFIG_KEY)
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-    global.insert("groups".to_string(), Value::Array(new_groups));
-    all_config.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(global));
-    state.config.save_all(&all_config).map_err(server_error)?;
+        crate::config::ConfigStore::merge_global_section(
+            all_config,
+            "groups",
+            Value::Array(new_groups),
+        );
+        Ok(())
+    })?;
     tracing::info!("group deleted id={group_id}");
     Ok(Json(json!({"status": "ok"})))
 }
@@ -130,26 +141,33 @@ pub async fn update_group_order(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<GroupOrderRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let groups = load_groups(&state.config.load_all());
     let order_map: std::collections::HashMap<&str, usize> = body
         .order
         .iter()
         .enumerate()
         .map(|(i, gid)| (gid.as_str(), i))
         .collect();
-    let mut sorted_groups = groups;
-    let fallback = sorted_groups.len();
-    sorted_groups.sort_by_key(|g| {
-        g.get("id")
-            .and_then(Value::as_str)
-            .and_then(|id| order_map.get(id).copied())
-            .unwrap_or(fallback)
-    });
-    let ids: Vec<Value> = sorted_groups
-        .iter()
-        .filter_map(|g| g.get("id").cloned())
-        .collect();
-    save_groups(&state, sorted_groups)?;
+    let ids = state.config.with_exclusive(|all_config| {
+        let groups = load_groups(all_config);
+        let mut sorted_groups = groups;
+        let fallback = sorted_groups.len();
+        sorted_groups.sort_by_key(|g| {
+            g.get("id")
+                .and_then(Value::as_str)
+                .and_then(|id| order_map.get(id).copied())
+                .unwrap_or(fallback)
+        });
+        let ids: Vec<Value> = sorted_groups
+            .iter()
+            .filter_map(|g| g.get("id").cloned())
+            .collect();
+        crate::config::ConfigStore::merge_global_section(
+            all_config,
+            "groups",
+            Value::Array(sorted_groups),
+        );
+        Ok(ids)
+    })?;
     tracing::info!("group order updated count={}", body.order.len());
     Ok(Json(Value::Array(ids)))
 }

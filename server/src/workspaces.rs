@@ -46,6 +46,15 @@ fn ensure_workspace_exists(
         .ok_or_else(|| bad_request(format!("Workspace '{name}' not found")))
 }
 
+/// 読み込み済みの config 全体から `__global__` を除く workspace エントリだけを
+/// 列挙する（`ConfigStore::list_workspace_entries` の in-memory 版 — 排他ロック内で
+/// 既に読み込み済みの `Map` に対して再度ディスク読み込みしないために使う）。
+fn workspace_entries(all_config: &Map<String, Value>) -> impl Iterator<Item = (&String, &Value)> {
+    all_config
+        .iter()
+        .filter(|(k, v)| k.as_str() != crate::config::GLOBAL_CONFIG_KEY && v.is_object())
+}
+
 // ─── GET /workspaces ────────────────────────────────────────────────────────
 
 /// Python `_workspace_summary` 相当（expanduser しないバグ互換パス判定）。
@@ -215,13 +224,13 @@ pub struct UpdateConfigRequest {
 }
 
 fn apply_name_update(
-    store: &ConfigStore,
+    all_config: &Map<String, Value>,
     config: &mut Map<String, Value>,
     ws_id: Option<&str>,
     new_name_raw: &str,
 ) -> Result<(), ApiError> {
     let new_name = validate_workspace_name(new_name_raw)?;
-    for (other_id, other_entry) in store.list_workspace_entries() {
+    for (other_id, other_entry) in workspace_entries(all_config) {
         if Some(other_id.as_str()) == ws_id {
             continue;
         }
@@ -234,7 +243,7 @@ fn apply_name_update(
 }
 
 fn apply_path_update(
-    store: &ConfigStore,
+    all_config: &Map<String, Value>,
     config: &mut Map<String, Value>,
     ws_id: Option<&str>,
     new_path_raw: &str,
@@ -247,7 +256,7 @@ fn apply_path_update(
     if !abs_path.is_dir() {
         return Err(bad_request(format!("Directory does not exist: {new_path}")));
     }
-    for (other_id, other_entry) in store.list_workspace_entries() {
+    for (other_id, other_entry) in workspace_entries(all_config) {
         if Some(other_id.as_str()) == ws_id {
             continue;
         }
@@ -272,30 +281,45 @@ pub async fn update_workspace_config(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<UpdateConfigRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let mut config = ensure_workspace_exists(&state.config, &name)?;
+    // 早期の 404 判定用（実際の読み込み・書き込みは下のロック内で再度行う —
+    // ここでの結果は非同期のアイコン正規化の後に古くなりうるため使わない）。
+    ensure_workspace_exists(&state.config, &name)?;
     let icon = normalize_icon(&state.paths.icons_dir, body.icon.trim()).await;
-    config.insert("icon".to_string(), json!(icon));
-    config.insert("icon_color".to_string(), json!(body.icon_color.trim()));
-    config.insert(
-        "group_id".to_string(),
-        body.group_id
-            .as_deref()
-            .filter(|s| !s.is_empty())
-            .map(|s| json!(s))
-            .unwrap_or(Value::Null),
-    );
+    let icon_color = body.icon_color.trim().to_string();
+    let group_id = body
+        .group_id
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| json!(s))
+        .unwrap_or(Value::Null);
 
-    let ws_id = state.config.resolve_workspace_id(&name);
-    if let Some(new_name) = body.name.as_deref() {
-        apply_name_update(&state.config, &mut config, ws_id.as_deref(), new_name)?;
-    }
-    if let Some(new_path) = body.path.as_deref() {
-        apply_path_update(&state.config, &mut config, ws_id.as_deref(), new_path)?;
-    }
-    state
-        .config
-        .save_workspace_config(&name, config)
-        .map_err(server_error)?;
+    // アイコン正規化（ネットワーク I/O を伴いうる）の完了後、読み込み→変更→書き込みを
+    // 1つの排他ロックの下で行う。ここで初めて config を読み直すことで、await の間に
+    // 別リクエスト（例: ジョブ CRUD）が同じワークスペースへ加えた変更を
+    // 上書きしない（Codex レビュー指摘）。
+    state.config.with_exclusive(|all| {
+        let ws_id = ConfigStore::find_workspace_key(all, &name);
+        let key = ws_id
+            .clone()
+            .ok_or_else(|| bad_request(format!("Workspace '{name}' not found")))?;
+        let mut config = all
+            .get(&key)
+            .and_then(Value::as_object)
+            .cloned()
+            .ok_or_else(|| bad_request(format!("Workspace '{name}' not found")))?;
+
+        config.insert("icon".to_string(), json!(icon));
+        config.insert("icon_color".to_string(), json!(icon_color));
+        config.insert("group_id".to_string(), group_id);
+        if let Some(new_name) = body.name.as_deref() {
+            apply_name_update(all, &mut config, ws_id.as_deref(), new_name)?;
+        }
+        if let Some(new_path) = body.path.as_deref() {
+            apply_path_update(all, &mut config, ws_id.as_deref(), new_path)?;
+        }
+        all.insert(key, Value::Object(config));
+        Ok(())
+    })?;
     state.proxy.nudge_git(None);
     tracing::info!("workspace config updated workspace={name}");
     Ok(Json(json!({"status": "ok"})))

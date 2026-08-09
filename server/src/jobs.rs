@@ -14,8 +14,8 @@ use crate::config::GLOBAL_CONFIG_KEY;
 use crate::errors::{not_found, ApiError};
 use crate::git_utils::{dynamic_worktree_entries, resolve_workspace_path};
 use crate::jobs_common::{
-    delete_job, load_common_jobs_data, load_workspace_jobs_data, merge_jobs_serialized,
-    reorder_jobs, resolve_jobs_owner, save_common_jobs_data, save_job, save_workspace_jobs_data,
+    commit_common_jobs, commit_workspace_jobs, delete_job, load_common_jobs_data,
+    load_workspace_jobs_data, merge_jobs_serialized, reorder_jobs, resolve_jobs_owner, save_job,
     serialize_workspace_jobs, JobRequest, ReorderJobsRequest,
 };
 use crate::state::AppState;
@@ -142,7 +142,7 @@ pub async fn create_workspace_job(
     save_job(
         &state,
         data,
-        move |s, d| save_workspace_jobs_data(s, &owner, d),
+        move |s, m| commit_workspace_jobs(s, &owner, m),
         None,
         &body,
         &log_context,
@@ -157,12 +157,11 @@ pub async fn reorder_workspace_jobs(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<ReorderJobsRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let (owner, data) = ws_jobs_data(&state, &name).await?;
+    let (owner, _data) = ws_jobs_data(&state, &name).await?;
     let log_context = format!("jobs reordered workspace={name}");
     reorder_jobs(
         &state,
-        data,
-        move |s, d| save_workspace_jobs_data(s, &owner, d),
+        move |s, m| commit_workspace_jobs(s, &owner, m),
         &body.order,
         &log_context,
     )
@@ -183,7 +182,7 @@ pub async fn update_workspace_job(
     save_job(
         &state,
         data,
-        move |s, d| save_workspace_jobs_data(s, &owner, d),
+        move |s, m| commit_workspace_jobs(s, &owner, m),
         Some(job_name),
         &body,
         &log_context,
@@ -197,12 +196,11 @@ pub async fn delete_workspace_job(
     Path((name, job_name)): Path<(String, String)>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    let (owner, data) = ws_jobs_data(&state, &name).await?;
+    let (owner, _data) = ws_jobs_data(&state, &name).await?;
     let log_context = format!("job deleted workspace={name}");
     delete_job(
         &state,
-        data,
-        move |s, d| save_workspace_jobs_data(s, &owner, d),
+        move |s, m| commit_workspace_jobs(s, &owner, m),
         &job_name,
         &format!("Job '{job_name}' not found"),
         &log_context,
@@ -236,7 +234,7 @@ pub async fn create_common_job(
     save_job(
         &state,
         data,
-        save_common_jobs_data,
+        commit_common_jobs,
         None,
         &body,
         "common job created",
@@ -258,7 +256,7 @@ pub async fn update_common_job(
     save_job(
         &state,
         data,
-        save_common_jobs_data,
+        commit_common_jobs,
         Some(job_name),
         &body,
         "common job updated",
@@ -272,11 +270,9 @@ pub async fn delete_common_job(
     Path(job_name): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    let data = load_common_jobs_data(&state);
     delete_job(
         &state,
-        data,
-        save_common_jobs_data,
+        commit_common_jobs,
         &job_name,
         &format!("Common job '{job_name}' not found"),
         "common job deleted",
@@ -289,11 +285,9 @@ pub async fn reorder_common_jobs(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<ReorderJobsRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let data = load_common_jobs_data(&state);
     reorder_jobs(
         &state,
-        data,
-        save_common_jobs_data,
+        commit_common_jobs,
         &body.order,
         "common jobs reordered",
     )

@@ -101,6 +101,27 @@ impl Proxy {
         });
     }
 
+    /// Rust 側の native ジョブ CRUD（ワークスペース/共通ジョブの作成・更新・削除・
+    /// 並び替え）後に、Python 側 `routers/jobs_common.py` の TTL キャッシュ
+    /// （`_common_jobs_cache`/`_workspace_jobs_cache`）を無効化する
+    /// （migration_bridge — fire-and-forget）。無効化しないと、まだ Python 側に
+    /// 残る `/dispatch` 実行パス（`_resolve_job_def`）が最大 60 秒古いジョブ定義
+    /// （存在確認・実行コマンド・notify_phrase）を使い続けてしまう。
+    pub fn invalidate_job_cache(&self) {
+        let client = self.client.clone();
+        let url = self.upstream_url("/internal/invalidate-job-cache");
+        tokio::spawn(async move {
+            let result = client
+                .post(&url)
+                .timeout(std::time::Duration::from_secs(5))
+                .send()
+                .await;
+            if let Err(e) = result {
+                tracing::debug!("invalidate-job-cache to upstream failed: {e}");
+            }
+        });
+    }
+
     /// ターミナルセッションの作成・削除を Python 側 status stream（session_watch）
     /// へ即時反映する（migration_bridge — fire-and-forget）。event は
     /// "created"/"removed"。"removed" は Python 側 agent_hooks の状態も掃除する。

@@ -97,6 +97,21 @@ def test_dispatch_queue_relay_rejects_non_loopback():
     assert res.status_code == 403
 
 
+def test_invalidate_job_cache_calls_jobs_common():
+    with patch("api.routers.jobs_common.invalidate_all_job_caches") as invalidate:
+        res = loopback_client.post("/internal/invalidate-job-cache")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    invalidate.assert_called_once_with()
+
+
+def test_invalidate_job_cache_rejects_non_loopback():
+    with patch("api.routers.jobs_common.invalidate_all_job_caches") as invalidate:
+        res = non_loopback_client.post("/internal/invalidate-job-cache")
+    assert res.status_code == 403
+    invalidate.assert_not_called()
+
+
 def test_verify_dispatch_api_token_valid_scoped_token():
     with patch("api.routers.migration_bridge._verify_api_token") as verify:
         verify.return_value = {"id": "tok_1", "scope": "dispatch"}

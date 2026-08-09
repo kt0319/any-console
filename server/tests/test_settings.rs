@@ -323,6 +323,39 @@ async fn group_order_sorts_and_returns_ids() {
     assert_eq!(returned, json!([ids[2], ids[0], ids[1]]));
 }
 
+/// 並行 create_group が全件残ること（lost update しないこと）を検証する回帰テスト。
+/// load→mutate→save が分離していると、後勝ちの書き込みが先勝ちの新規グループを
+/// 消してしまう（Codex レビュー指摘）。
+#[tokio::test]
+async fn concurrent_group_creation_does_not_lose_updates() {
+    let front = spawn_front().await;
+    let addr = front.addr;
+    let mut handles = Vec::new();
+    for i in 0..8 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/groups"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"name": format!("group-{i}")}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 200);
+    }
+    let groups = get_json(&front, "/groups").await;
+    let names: std::collections::HashSet<String> = groups
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["name"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(names.len(), 8, "expected 8 distinct groups, got {groups:?}");
+}
+
 #[tokio::test]
 async fn export_health_and_import() {
     let front = spawn_front().await;
@@ -370,6 +403,45 @@ async fn export_health_and_import() {
     assert_eq!(resp.status(), 400);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["detail"], "Invalid JSON");
+}
+
+/// import と並行するグループ作成が失われないこと（lost update しないこと）を
+/// 検証する回帰テスト（Codex レビュー指摘: load→merge→save が分離していると、
+/// import が古いスナップショットで並行変更を上書きしてしまう）。
+#[tokio::test]
+async fn concurrent_import_and_group_creation_does_not_lose_updates() {
+    let front = spawn_front().await;
+    let addr = front.addr;
+
+    let mut handles = Vec::new();
+    handles.push(tokio::spawn(async move {
+        client()
+            .post(format!("http://{addr}/settings/import"))
+            .bearer_auth(TOKEN)
+            .json(&json!({"__global__": {"editor": {"url_template": "imported://race"}}}))
+            .send()
+            .await
+            .unwrap()
+            .status()
+    }));
+    for i in 0..6 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/groups"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"name": format!("race-group-{i}")}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 200);
+    }
+
+    let groups = get_json(&front, "/groups").await;
+    assert_eq!(groups.as_array().unwrap().len(), 6, "groups: {groups:?}");
 }
 
 #[tokio::test]

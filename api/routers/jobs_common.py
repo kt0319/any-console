@@ -63,6 +63,18 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
+def invalidate_all_job_caches() -> None:
+    """Rust 側の native ジョブ CRUD 後に migration_bridge から呼ばれる。
+
+    Rust は config.json を直接書き換えるため、Python 側のこの TTL キャッシュは
+    自分自身の書き込み以外を検知できない。無効化しないと、まだ Python 側に残る
+    /dispatch 実行パス（_resolve_job_def）が最大 WORKSPACE_JOBS_CACHE_TTL_SEC 秒
+    古いジョブ定義（存在確認・実行コマンド・notify_phrase）を使い続けてしまう。
+    """
+    _common_jobs_cache.invalidate_all()
+    _workspace_jobs_cache.invalidate_all()
+
+
 
 def resolve_jobs_owner(workspace_name: str) -> str:
     """worktree のワークスペースはベースのワークスペースとジョブを共有する。

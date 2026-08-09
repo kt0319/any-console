@@ -68,11 +68,30 @@ pub async fn import_settings(
     let Some(data) = data.as_object() else {
         return Err(bad_request("Expected JSON object"));
     };
-    let mut current = state.config.load_all();
-    for (identifier, ws_config) in data {
-        apply_import_entry(&mut current, identifier, ws_config);
-    }
-    state.config.save_all(&current).map_err(bad_request)?;
+    // 読み込み→マージ→書き込みを1つの排他ロックの下で行う。分離していると、
+    // マージ元に使った読み込み後に別リクエストが加えた変更（ワークスペース登録・
+    // ジョブ CRUD 等）を、インポートが古いスナップショットで丸ごと上書きして
+    // しまう（Codex レビュー指摘）。
+    state
+        .config
+        .with_exclusive(|current| {
+            for (identifier, ws_config) in data {
+                apply_import_entry(current, identifier, ws_config);
+            }
+            Ok(())
+        })
+        // `with_exclusive` は書き込み失敗を一律 500 として扱うが、Python の
+        // /settings/import は不正なインポートデータによる検証エラー（ValueError）を
+        // 400 として返す。ここだけはその契約を保つため 400 へ読み替える
+        // （I/O 障害等サーバ起因の失敗は考えにくいが、区別する情報が無いため
+        // インポート特有の「投入データが悪い」を優先する）。
+        .map_err(|e| {
+            if e.status == axum::http::StatusCode::INTERNAL_SERVER_ERROR {
+                bad_request(e.detail)
+            } else {
+                e
+            }
+        })?;
     Ok(Json(json!({"status": "ok"})))
 }
 
