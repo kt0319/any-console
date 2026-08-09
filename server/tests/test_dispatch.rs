@@ -423,6 +423,109 @@ async fn dedup_key_supersedes_previous_pending_item() {
     assert_eq!(last["items"][0]["request"]["retry_count"], 2);
 }
 
+/// 同じ dedup_key を持つ dispatch が並行到着しても pending に1件しか残らないこと
+/// （Codex レビュー指摘: 検索と挿入が別ロックだと両方とも「初回」と誤判定し、
+/// coalesce されず複数件が積まれてしまう）。
+// マルチスレッド runtime にする: `tokio::sync::Mutex::lock().await` は非競合時に
+// 即座に完了し実際には yield しないため、既定の current_thread runtime では
+// 2つのロック区間に分かれた検索→挿入の隙間に別タスクが割り込む機会がほぼ無く、
+// 本番（`#[tokio::main]` = multi_thread）で起きる並行実行の競合を再現できない。
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
+    let front = spawn_front().await;
+    let addr = front.addr;
+    let mut handles = Vec::new();
+    for i in 0..8 {
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/dispatch"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"workspace": "proj", "dedup_key": "ci-failure", "text": format!("run-{i}")}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for h in handles {
+        assert_eq!(h.await.unwrap(), 202);
+    }
+    assert!(
+        wait_for(|| {
+            let queued = front.calls.queue.lock().unwrap();
+            queued
+                .last()
+                .and_then(|last| last["items"][0]["request"]["retry_count"].as_u64())
+                == Some(8)
+        })
+        .await
+    );
+    let queued = front.calls.queue.lock().unwrap();
+    let last = queued.last().unwrap();
+    assert_eq!(
+        last["items"].as_array().unwrap().len(),
+        1,
+        "dedup_key で1件に集約される: {last:?}"
+    );
+}
+
+/// 同じ dispatch_id への decision(approved) が並行到着しても launch は1回しか
+/// 実行されないこと（Codex レビュー指摘: 取得と削除が別ロックだと両方が
+/// Some を引き当てて二重にセッションが起動してしまう）。
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_decision_approvals_launch_session_only_once() {
+    if skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let resp = client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 202);
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+
+    let addr = front.addr;
+    let mut handles = Vec::new();
+    for _ in 0..5 {
+        let dispatch_id = dispatch_id.clone();
+        handles.push(tokio::spawn(async move {
+            client()
+                .post(format!("http://{addr}/dispatch/{dispatch_id}/decision"))
+                .bearer_auth(TOKEN)
+                .json(&json!({"approved": true}))
+                .send()
+                .await
+                .unwrap()
+        }));
+    }
+    let mut ok_bodies = Vec::new();
+    let mut not_found_count = 0;
+    for h in handles {
+        let resp = h.await.unwrap();
+        match resp.status().as_u16() {
+            200 => ok_bodies.push(resp.json::<Value>().await.unwrap()),
+            404 => not_found_count += 1,
+            other => panic!("unexpected status {other}"),
+        }
+    }
+    assert_eq!(
+        ok_bodies.len(),
+        1,
+        "承認は1回だけ成功する（残りは既に消費済みで404）: not_found={not_found_count}"
+    );
+    assert_eq!(not_found_count, 4);
+
+    let session_id = ok_bodies[0]["session_id"].as_str().unwrap().to_string();
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    assert!(any_console_server::subprocess::tmux_session_exists(&full_name).await);
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
 /// pending_text の tmux 環境変数永続化が実際に機能することを end-to-end で検証する
 /// （dispatch.rs 冒頭の設計判断コメントで説明している中核の修正点）。
 #[tokio::test]

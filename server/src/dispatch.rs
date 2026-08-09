@@ -622,34 +622,44 @@ async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, 
 
 // ─── dedup / 通知本文 / branch_status ───────────────────────────────────────
 
-async fn find_pending_by_dedup_key(state: &Arc<AppState>, key: &str) -> Option<(String, Value)> {
-    let pending = state.dispatch.pending.lock().await;
+fn find_pending_by_dedup_key(pending: &Map<String, Value>, key: &str) -> Option<(String, Value)> {
     pending
         .iter()
         .find(|(_, req)| req.get("dedup_key").and_then(Value::as_str) == Some(key))
         .map(|(id, req)| (id.clone(), req.clone()))
 }
 
-/// (使用すべき dispatch_id, retry_count, 初回通知を鳴らすべきか)。
-async fn resolve_dedup(
+/// dedup キーでの既存項目検索から新規項目の挿入までを1回のロック区間で行う
+/// （Codex レビュー指摘: 検索とロック解放を挟んで挿入が別ロックだと、同じ
+/// dedup_key を持つ2件が並行到着したときに両方とも「初回」と誤判定し、
+/// coalesce されず2件とも積まれてしまう）。
+/// 戻り値: (実際に使われた dispatch_id, retry_count, 初回通知を鳴らすべきか)。
+async fn resolve_dedup_and_insert(
     state: &Arc<AppState>,
-    dispatch_id: &str,
+    dispatch_id: String,
     dedup_key: Option<&str>,
+    mut payload: Value,
 ) -> (String, u64, bool) {
-    let Some(key) = dedup_key.filter(|k| !k.is_empty()) else {
-        return (dispatch_id.to_string(), 1, true);
-    };
-    match find_pending_by_dedup_key(state, key).await {
-        None => (dispatch_id.to_string(), 1, true),
-        Some((old_id, old_payload)) => {
-            let retry_count = old_payload
-                .get("retry_count")
-                .and_then(Value::as_u64)
-                .unwrap_or(1)
-                + 1;
-            (old_id, retry_count, retry_count == 1)
-        }
+    let mut pending = state.dispatch.pending.lock().await;
+    let key = dedup_key.filter(|k| !k.is_empty());
+    let (id, retry_count, should_notify) =
+        match key.and_then(|k| find_pending_by_dedup_key(&pending, k)) {
+            None => (dispatch_id, 1, true),
+            Some((old_id, old_payload)) => {
+                let retry_count = old_payload
+                    .get("retry_count")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1)
+                    + 1;
+                pending.shift_remove(&old_id);
+                (old_id, retry_count, retry_count == 1)
+            }
+        };
+    if let Value::Object(map) = &mut payload {
+        map.insert("retry_count".to_string(), json!(retry_count));
     }
+    pending.insert(id.clone(), payload);
+    (id, retry_count, should_notify)
 }
 
 fn dispatch_notification_body(
@@ -825,19 +835,13 @@ async fn dispatch_core(
         return Ok(Json(result).into_response());
     }
 
-    let (dispatch_id, retry_count, should_notify) =
-        resolve_dedup(state, &dispatch_id, body.dedup_key.as_deref()).await;
-    if retry_count > 1 {
-        state
-            .dispatch
-            .pending
-            .lock()
-            .await
-            .shift_remove(&dispatch_id);
-    }
-    if let Value::Object(map) = &mut payload {
-        map.insert("retry_count".to_string(), json!(retry_count));
-    }
+    let (dispatch_id, retry_count, should_notify) = resolve_dedup_and_insert(
+        state,
+        dispatch_id.clone(),
+        body.dedup_key.as_deref(),
+        payload,
+    )
+    .await;
     if should_notify {
         notify_push(state);
     }
@@ -858,12 +862,6 @@ async fn dispatch_core(
         .collect(),
     );
 
-    state
-        .dispatch
-        .pending
-        .lock()
-        .await
-        .insert(dispatch_id.clone(), payload);
     persist_pending(state).await;
     broadcast_queue(state).await;
 
@@ -880,13 +878,15 @@ pub async fn dispatch_decision(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<DispatchDecision>,
 ) -> Result<Json<Value>, ApiError> {
+    // 検索(get)と削除(shift_remove)を1回のロック区間で行う（Codex レビュー指摘:
+    // 別ロックに分かれていると、同じ dispatch_id への decision が並行到着した
+    // とき両方とも Some を引き当て、承認なら launch を二重実行してしまう）。
     let payload = state
         .dispatch
         .pending
         .lock()
         .await
-        .get(&dispatch_id)
-        .cloned();
+        .shift_remove(&dispatch_id);
     let Some(payload) = payload else {
         return Err(not_found("Pending dispatch not found"));
     };
@@ -898,12 +898,6 @@ pub async fn dispatch_decision(
             "dispatch_rejected",
             Map::new(),
         );
-        state
-            .dispatch
-            .pending
-            .lock()
-            .await
-            .shift_remove(&dispatch_id);
         record_recent(&state, &dispatch_id, payload, "rejected").await;
         persist_pending(&state).await;
         broadcast_queue(&state).await;
@@ -911,7 +905,7 @@ pub async fn dispatch_decision(
     }
 
     let mut dispatch_body: DispatchRequest =
-        serde_json::from_value(payload).map_err(|e| server_error(e.to_string()))?;
+        serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
     dispatch_body.apply_overrides(&DecisionOverrides::from(&body));
 
     let result = match launch(&state, &dispatch_body).await {
@@ -925,6 +919,16 @@ pub async fn dispatch_decision(
                     .into_iter()
                     .collect(),
             );
+            // 失敗した項目はキューに残し、値を修正しての再承認・却下をやり直せる
+            // ようにする（Python 版と同じ挙動）。上でクレーム済みのため戻す。
+            state
+                .dispatch
+                .pending
+                .lock()
+                .await
+                .insert(dispatch_id.clone(), payload);
+            persist_pending(&state).await;
+            broadcast_queue(&state).await;
             return Err(e);
         }
     };
@@ -940,12 +944,6 @@ pub async fn dispatch_decision(
         .into_iter()
         .collect(),
     );
-    state
-        .dispatch
-        .pending
-        .lock()
-        .await
-        .shift_remove(&dispatch_id);
     let mut approved_payload = serde_json::to_value(&dispatch_body).unwrap_or_else(|_| json!({}));
     if let Value::Object(map) = &mut approved_payload {
         map.insert(
@@ -1160,10 +1158,12 @@ mod tests {
     async fn resolve_dedup_first_request_uses_own_id_and_notifies() {
         let dir = tempfile::tempdir().unwrap();
         let state = test_state(&dir).await;
-        let (id, retry, notify) = resolve_dedup(&state, "id1", Some("key-a")).await;
+        let (id, retry, notify) =
+            resolve_dedup_and_insert(&state, "id1".to_string(), Some("key-a"), json!({})).await;
         assert_eq!(id, "id1");
         assert_eq!(retry, 1);
         assert!(notify);
+        assert!(state.dispatch.pending.lock().await.contains_key("id1"));
     }
 
     #[tokio::test]
@@ -1174,10 +1174,20 @@ mod tests {
             "old-id".to_string(),
             json!({"dedup_key": "key-a", "retry_count": 1}),
         );
-        let (id, retry, notify) = resolve_dedup(&state, "new-id", Some("key-a")).await;
+        let (id, retry, notify) = resolve_dedup_and_insert(
+            &state,
+            "new-id".to_string(),
+            Some("key-a"),
+            json!({"dedup_key": "key-a"}),
+        )
+        .await;
         assert_eq!(id, "old-id");
         assert_eq!(retry, 2);
         assert!(!notify);
+        let pending = state.dispatch.pending.lock().await;
+        assert!(pending.contains_key("old-id"), "同じ id で置き換わる");
+        assert!(!pending.contains_key("new-id"), "新規 id は残らない");
+        assert_eq!(pending["old-id"]["retry_count"], json!(2));
     }
 
     #[tokio::test]
@@ -1190,10 +1200,14 @@ mod tests {
             .lock()
             .await
             .insert("old-id".to_string(), json!({"dedup_key": null}));
-        let (id, retry, notify) = resolve_dedup(&state, "new-id", None).await;
+        let (id, retry, notify) =
+            resolve_dedup_and_insert(&state, "new-id".to_string(), None, json!({})).await;
         assert_eq!(id, "new-id");
         assert_eq!(retry, 1);
         assert!(notify);
+        let pending = state.dispatch.pending.lock().await;
+        assert!(pending.contains_key("old-id"), "無関係な既存項目は残る");
+        assert!(pending.contains_key("new-id"));
     }
 
     #[tokio::test]
