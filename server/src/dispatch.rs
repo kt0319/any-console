@@ -788,7 +788,7 @@ fn bearer_from_headers(headers: &http::HeaderMap) -> String {
     headers
         .get(http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(crate::auth::extract_bearer_token)
         .unwrap_or("")
         .to_string()
 }

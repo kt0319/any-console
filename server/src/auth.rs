@@ -136,15 +136,36 @@ impl Auth {
     }
 
     /// 現在のメイントークン。auth.json の mtime を毎回 stat し、変化時のみ再読込する。
+    ///
+    /// 読み込み/パースに失敗した場合、一度でも正常なトークンをロード済みなら
+    /// それを維持する（`load_json_file` の「失敗時は既定値」という素朴な扱いを
+    /// そのまま使うと、稼働中に auth.json が一時的に壊れた/読めなくなっただけで
+    /// 空トークン = 認証無効化に倒れ、全ルートが無認証で通ってしまう重大な
+    /// リグレッションになる）。起動直後の初回ロード自体が失敗する場合のみ、
+    /// Python 版と同じくファイル不在時と同様の「無効化」扱いにする。
     fn current_token(&self) -> String {
         let path = self.data_dir.join("auth.json");
         let mtime = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
         let mut cache = self.cache.lock().expect("auth cache lock poisoned");
         if !cache.loaded || cache.mtime != mtime {
-            let auth = load_json_file(&path, json!({}), None);
-            cache.token = auth.get("token").map(coerce_truthy_str).unwrap_or_default();
-            cache.mtime = mtime;
-            cache.loaded = true;
+            let parsed = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|text| serde_json::from_str::<Value>(&text).ok());
+            match parsed {
+                Some(auth) => {
+                    cache.token = auth.get("token").map(coerce_truthy_str).unwrap_or_default();
+                    cache.mtime = mtime;
+                    cache.loaded = true;
+                }
+                None if cache.loaded => {
+                    tracing::warn!("auth.json の再読込に失敗したため直前のトークンを維持します");
+                }
+                None => {
+                    cache.token = String::new();
+                    cache.mtime = mtime;
+                    cache.loaded = true;
+                }
+            }
         }
         cache.token.clone()
     }
@@ -240,6 +261,18 @@ impl Auth {
     }
 }
 
+/// `Authorization` ヘッダの値から Bearer トークンを取り出す。FastAPI の
+/// `HTTPBearer` はスキームを `scheme.lower() == "bearer"` で比較するため、
+/// `bearer <token>` や `BEARER <token>` のような大小文字違いも受け付ける
+/// （素朴に `strip_prefix("Bearer ")` だけだと、標準準拠のクライアントが
+/// 別の大文字小文字で送ってきた場合に Rust 側だけ 401 になってしまう）。
+pub fn extract_bearer_token(value: &str) -> &str {
+    match value.split_once(' ') {
+        Some((scheme, token)) if scheme.eq_ignore_ascii_case("bearer") => token,
+        _ => "",
+    }
+}
+
 /// 認証必須ルート用の axum 抽出子（Python の `Depends(verify_token)` に対応）。
 /// 失敗時は 401 `{"detail": "Invalid token"}`。
 pub struct RequireAuth(#[allow(dead_code)] pub AuthResult);
@@ -255,7 +288,7 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
             .headers
             .get(http::header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(extract_bearer_token)
             .unwrap_or("");
         let client_ip = parts
             .extensions
@@ -347,6 +380,64 @@ mod tests {
         // 無関係な bearer や空文字では通らない（無認証化していないことの確認）。
         assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
         assert!(auth.authenticate("wrong", "1.2.3.4", None, None).is_none());
+    }
+
+    #[test]
+    fn corrupt_reload_keeps_last_known_good_token() {
+        // 一度でも正常なトークンをロード済みなら、稼働中に auth.json が壊れて
+        // 読めなくなっても空トークン（= 認証無効化）へフォールバックしては
+        // ならない。
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "good-token");
+        assert!(auth
+            .authenticate("good-token", "1.2.3.4", None, None)
+            .is_some());
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
+        let r = auth
+            .authenticate("good-token", "1.2.3.4", None, None)
+            .unwrap();
+        assert_eq!(r.kind, AuthKind::Main);
+        // 空 bearer では通らない（無認証化していないことの確認）。
+        assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
+
+        // ファイルが正しい内容に戻れば追従する。
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        save_json_file(
+            &dir.path().join("auth.json"),
+            &json!({"token": "rotated-token"}),
+        )
+        .unwrap();
+        assert!(auth
+            .authenticate("good-token", "1.2.3.4", None, None)
+            .is_none());
+        assert!(auth
+            .authenticate("rotated-token", "1.2.3.4", None, None)
+            .is_some());
+    }
+
+    #[test]
+    fn first_load_failure_falls_back_to_disabled_like_missing_file() {
+        // 一度も正常ロードしていない状態（起動直後）での失敗は、Python 版と
+        // 同じくファイル不在時と同じ「無効化」扱いにする（既存動作からの
+        // 後退ではない）。
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
+        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
+        assert_eq!(r.kind, AuthKind::Disabled);
+    }
+
+    #[test]
+    fn bearer_scheme_is_case_insensitive() {
+        assert_eq!(extract_bearer_token("Bearer tkn"), "tkn");
+        assert_eq!(extract_bearer_token("bearer tkn"), "tkn");
+        assert_eq!(extract_bearer_token("BEARER tkn"), "tkn");
+        assert_eq!(extract_bearer_token("BeArEr tkn"), "tkn");
+        assert_eq!(extract_bearer_token("Basic tkn"), "");
+        assert_eq!(extract_bearer_token("tkn"), "");
+        assert_eq!(extract_bearer_token(""), "");
     }
 
     #[test]

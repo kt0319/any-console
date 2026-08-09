@@ -245,6 +245,16 @@ pub async fn fallback(
     ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     req: Request,
 ) -> Response {
+    // `/internal/*`（api/routers/migration_bridge.py）は Rust プロセス自身が
+    // Python upstream へ直接叩く専用の内部ブリッジで、公開ルートではない。
+    // ここで弾かずに素通しすると、外部クライアントが公開の Rust front 経由で
+    // 到達した際に upstream 側は「Rust からの loopback 接続」としてしか見えず
+    // （`request.client.host` が常に 127.0.0.1 になる）、migration_bridge.py の
+    // loopback チェックをすり抜けて push 送信や dispatch キュー書き換えなどの
+    // 内部専用操作を外部から呼べてしまう（Codex レビュー指摘）。
+    if req.uri().path().starts_with("/internal/") {
+        return crate::errors::not_found("Not Found").into_response();
+    }
     if is_ws_upgrade(&req) {
         // axum 0.8 では Option<WebSocketUpgrade> 抽出子が使えないため手動抽出する。
         use axum::extract::FromRequestParts;

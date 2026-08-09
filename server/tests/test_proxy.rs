@@ -48,6 +48,12 @@ fn upstream_router() -> Router {
             post(|body: String| async move { format!("echo:{body}") }),
         )
         .route(
+            // 実際には migration_bridge.py 側のパスだが、フロントが本当に
+            // upstream まで転送していないことを検証するためのマーカー役。
+            "/internal/send-push",
+            post(|| async { "reached-upstream" }),
+        )
+        .route(
             "/push/vapid-public-key",
             get(|| async { Json(json!({"key": "fake-vapid-key"})) }),
         )
@@ -300,6 +306,26 @@ async fn rate_limit_returns_429_with_detail() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
+}
+
+/// `/internal/*`（migration_bridge.py 専用の Rust→Python 内部ブリッジ）は
+/// 公開ルートではないため、外部クライアントが公開の Rust front 経由で
+/// 到達しても upstream へは転送されない（転送されると upstream からは
+/// Rust 自身の loopback 接続と区別が付かず、migration_bridge.py の
+/// loopback チェックをすり抜けてしまう）。
+#[tokio::test]
+async fn internal_bridge_paths_are_not_proxied_to_upstream() {
+    let upstream = spawn(upstream_router()).await;
+    let front = spawn_front(upstream, 1000).await;
+    let resp = client()
+        .post(format!("http://{}/internal/send-push", front.addr))
+        .json(&json!({"title": "t", "body": "b"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["detail"], "Not Found");
 }
 
 #[tokio::test]
