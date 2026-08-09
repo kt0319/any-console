@@ -15,14 +15,28 @@
 //! （購読者ゼロの間は監視・ポーリングタスクを止めるという設計思想はそのまま維持する
 //! — `receiver_count() == 0` を停止条件に使う）。
 //!
-//! まだ実際の `/workspaces/statuses/ws` エンドポイントへは配線していない —
-//! git_watch の FS 監視ループ・agent_watch のポーリングループ・dispatch の直接
-//! 配信化が揃うまでは、ここに send しても購読者は存在しない（Python 側の同エンドポイントが
-//! 引き続き実トラフィックを処理する）。
+//! WS エンドポイント自体（`status_stream_ws`）はこのファイルで実装済みだが、
+//! まだ `build_router` には配線していない — git_watch の FS 監視ループ・
+//! agent_watch のポーリングループ・dispatch の直接配信化が揃うまでは、配信元
+//! （producer）が無いため接続しても何も届かない（Python 側の同エンドポイントが
+//! 引き続き実トラフィックを処理する）。全 producer が揃った時点で一括配線する。
 
+use std::sync::Arc;
+use std::time::Duration;
+
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+use axum::extract::{ConnectInfo, State};
+use axum::response::{IntoResponse, Response};
+use futures_util::SinkExt;
+use serde::Deserialize;
+use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
-use serde_json::Value;
+use crate::state::AppState;
+use crate::util::QueryParams;
+
+/// Python `WS_PING_INTERVAL_SEC`（`api/common.py`）と同じ間隔。
+const WS_PING_INTERVAL_SEC: u64 = 15;
 
 /// 既定のバッファ容量。broadcast channel は受信が遅い購読者がこの件数分
 /// 遅れると古いメッセージから `Lagged` エラーで欠落させる（tokio の設計）。
@@ -58,6 +72,78 @@ impl Default for StatusStreamState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Deserialize)]
+pub struct WsQuery {
+    #[serde(default)]
+    token: String,
+}
+
+/// `GET /workspaces/statuses/ws`（Python 側 `routers/status_stream.py` の
+/// `workspace_statuses_ws` 相当）。認証確認後にアップグレードし、以後は
+/// `StatusStreamState` への配信をそのままクライアントへ中継する。
+pub async fn status_stream_ws(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
+    QueryParams(query): QueryParams<WsQuery>,
+    headers: http::HeaderMap,
+    ws: WebSocketUpgrade,
+) -> Response {
+    if !crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers) {
+        return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
+    }
+    ws.on_upgrade(move |socket| async move {
+        handle_status_stream_ws(state, socket).await;
+    })
+}
+
+async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket) {
+    let mut rx = state.status_stream.tx.subscribe();
+    tracing::info!("status stream connected");
+
+    let mut ping_interval = tokio::time::interval(Duration::from_secs(WS_PING_INTERVAL_SEC));
+    ping_interval.tick().await; // 初回 tick は即座に完了するため消費しておく
+
+    loop {
+        tokio::select! {
+            broadcast_msg = rx.recv() => {
+                match broadcast_msg {
+                    Ok(payload) => {
+                        if socket.send(Message::Text(payload.to_string().into())).await.is_err() {
+                            break;
+                        }
+                    }
+                    // 受信が遅く buffer 分（`BROADCAST_CAPACITY`）取りこぼした。
+                    // Python 版にも配信保証は無く、次回配信 or クライアント側の
+                    // 再接続時全量同期（`useStatusStream.js`）で復帰する設計のため、
+                    // 切断はせずそのまま継続する。
+                    Err(broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!("status stream lagged, skipped {n} messages");
+                        continue;
+                    }
+                    Err(broadcast::error::RecvError::Closed) => break,
+                }
+            }
+            _ = ping_interval.tick() => {
+                if socket
+                    .send(Message::Text(json!({"type": "ping"}).to_string().into()))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            msg = socket.recv() => {
+                let Some(Ok(msg)) = msg else { break };
+                if matches!(msg, Message::Close(_)) {
+                    break;
+                }
+            }
+        }
+    }
+    let _ = socket.close().await;
+    tracing::info!("status stream disconnected");
 }
 
 #[cfg(test)]

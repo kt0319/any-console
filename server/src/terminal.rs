@@ -19,7 +19,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
-use crate::auth::{parse_cookies, RequireAuth};
+use crate::auth::RequireAuth;
 use crate::errors::{not_found, server_error, timeout_error, ApiError};
 use crate::git_files::{list_directory_entries, read_file_content_response};
 use crate::git_helpers::resolve_and_validate_workspace_path;
@@ -403,19 +403,6 @@ pub struct WsQuery {
     rows: u16,
 }
 
-fn verify_ws_token(
-    state: &AppState,
-    token: &str,
-    client_ip: &str,
-    headers: &http::HeaderMap,
-) -> bool {
-    let cookies = parse_cookies(headers);
-    state
-        .auth
-        .authenticate(token, client_ip, Some(headers), Some(&cookies))
-        .is_some()
-}
-
 pub async fn terminal_ws(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
@@ -424,7 +411,7 @@ pub async fn terminal_ws(
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    if !verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers) {
+    if !crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers) {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
     }
     ws.on_upgrade(move |socket| async move {

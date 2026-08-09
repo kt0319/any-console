@@ -271,6 +271,22 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
     }
 }
 
+/// WebSocket 接続用の認証チェック（Python `verify_ws_token` 相当）。
+/// クエリパラメータの token・Tailscale ヘッダ・デバイス cookie のいずれかで
+/// 認証できれば true（`terminal.rs`/`status_stream.rs` の WS ハンドシェイクで使う）。
+pub fn verify_ws_token(
+    state: &crate::state::AppState,
+    token: &str,
+    client_ip: &str,
+    headers: &http::HeaderMap,
+) -> bool {
+    let cookies = parse_cookies(headers);
+    state
+        .auth
+        .authenticate(token, client_ip, Some(headers), Some(&cookies))
+        .is_some()
+}
+
 /// Cookie ヘッダ文字列を key→value にパースする（値の `=` を許容）。
 pub fn parse_cookies(headers: &http::HeaderMap) -> HashMap<String, String> {
     let mut out = HashMap::new();
