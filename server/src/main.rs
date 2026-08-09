@@ -139,6 +139,11 @@ async fn main() {
     any_console_server::preview::set_self_ports(&state.preview, &self_ports);
     any_console_server::preview::start_scanner(&state);
 
+    // リモート screen manifest（herdr カタログ）の定期確認ループ。
+    tokio::spawn(any_console_server::manifest_update::run_update_loop(
+        state.clone(),
+    ));
+
     let app = build_router(state);
 
     let addr = format!("{host}:{port}");

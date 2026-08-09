@@ -13,15 +13,16 @@
 //!
 //! 結果は `data/agent-detection/status.json` に記録する。
 //!
-//! Python 版が持つ定期実行ループ（`start_updater`/`stop_updater`、
-//! `AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に開始し以後
-//! `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごと）はまだ移植していない —
-//! Python 側の同名ループが既に稼働中で、同じ `data/agent-detection/remote/`
-//! へ二重に書き込む競合を避けるため、`AppState`/`main.rs` へ配線するまでは
-//! 意図的に自律実行させない。ここにあるのは検証済みの純粋ロジック
-//! （カタログ・マニフェストの取得検証・コミット判定）のみ。
+//! 定期実行ループ（`run_update_loop`、`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC`
+//! 後に開始し以後 `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごと）は `main.rs` から
+//! 起動時に一度 `tokio::spawn` される。Python 側の同名ループ（`start_updater`/
+//! `stop_updater`）は `api/main.py` の `lifespan()` から呼び出しを削除済み —
+//! 同じ `data/agent-detection/remote/` への二重書き込みを避けるための一括切替
+//! （`push.py` の `ensure_phrase_task` 削除と同じ理由）。
 
 use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::StreamExt;
 use serde_json::{json, Map, Value};
@@ -32,11 +33,14 @@ use crate::screen_manifest::{
     compare_manifest_versions, parse_manifest_text, parse_manifest_version, value_to_string,
     ManifestStore,
 };
+use crate::state::AppState;
 
 pub const DEFAULT_CATALOG_URL: &str = "https://herdr.dev/agent-detection/index.toml";
 pub const CATALOG_URL_ENV: &str = "ANY_CONSOLE_MANIFEST_CATALOG_URL";
 pub const AGENT_MANIFEST_FETCH_TIMEOUT_SEC: f64 = 15.0;
 pub const AGENT_MANIFEST_MAX_FETCH_BYTES: usize = 256 * 1024;
+pub const AGENT_MANIFEST_UPDATE_INTERVAL_SEC: u64 = 24 * 60 * 60;
+pub const AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC: u64 = 300;
 
 pub fn catalog_url() -> String {
     std::env::var(CATALOG_URL_ENV)
@@ -335,6 +339,20 @@ pub fn remote_update_enabled(config: &ConfigStore) -> bool {
     obj.get("remote_update")
         .and_then(Value::as_bool)
         .unwrap_or(true)
+}
+
+/// リモートマニフェストの定期確認ループ。起動から
+/// `AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に開始し、以後
+/// `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごとに確認する。`main.rs` から
+/// `tokio::spawn` で一度だけ起動する（Python 版 `_update_loop` 相当）。
+pub async fn run_update_loop(state: Arc<AppState>) -> ! {
+    tokio::time::sleep(Duration::from_secs(AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC)).await;
+    loop {
+        if remote_update_enabled(&state.config) {
+            check_and_update(&state.manifest_store, &catalog_url(), fetch_text).await;
+        }
+        tokio::time::sleep(Duration::from_secs(AGENT_MANIFEST_UPDATE_INTERVAL_SEC)).await;
+    }
 }
 
 #[cfg(test)]

@@ -285,7 +285,7 @@ Python 側の bridge 呼び出し（`nudge_git` / `notify_session_event` /
 | `session_watch.py` | 74 | **移行済み**（`server/src/session_watch.rs`。`terminal_session.rs`/`terminal.rs`/`dispatch.rs`/`job_runner.rs` から配線済み） |
 | `agent_watch.py`（3値状態判定・自動紐付け） | 584 | **移行済み**（`server/src/agent_watch.rs` — ポーリングループ本体・push 連携とも本番稼働） |
 | `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。`agent_watch.rs` から利用中） |
-| `manifest_update.py`（リモートマニフェスト更新） | 272 | **一部移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側の `start_updater` が稼働中のため配線しない。下記注意参照） |
+| `manifest_update.py`（リモートマニフェスト更新） | 272 | **移行済み**（`server/src/manifest_update.rs`。定期実行ループ含め全面移植。下記注意参照） |
 | `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。`POST /agent-hooks/events` を `build_router` に配線済み。Python 側 agent_watch ポーリングが status stream 切替により恒久休眠したため配線可能になった） |
 | `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。`agent_watch.rs` から利用中） |
 | `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | **移行済み**（`server/src/preview.rs`。配線済み） |
@@ -346,14 +346,20 @@ Python 側の bridge 呼び出し（`nudge_git` / `notify_session_event` /
   `git_watch::ensure_tasks` / `agent_watch::ensure_tasks` を起動・切断時に
   `maybe_stop_tasks` で停止する構成で本番稼働している
 - `manifest_update.rs` はカタログ・マニフェストの取得検証とコミット判定
-  （純粋ロジック + reqwest 経由の fetch）のみ移植した。Python 側の
-  `start_updater`/`stop_updater`（`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に
-  開始し `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごとに実行する定期タスク）は
-  まだ稼働中のため、Rust 側の定期実行ループはあえて実装・起動しない —
-  両実装が同時に herdr.dev を叩いて `data/agent-detection/remote/` へ
-  二重に書き込むと、ファイル rename の競合や意図しない version 判定になり得る。
-  agent_watch 一式を配線するタイミングで Python 側の `start_updater` 呼び出しを
-  停止しつつ Rust 側のループを起動する一括切替が必要
+  （純粋ロジック + reqwest 経由の fetch）に加え、定期実行ループ
+  （`run_update_loop` — 起動から `AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC`
+  〈300秒〉後に開始し、以後 `AGENT_MANIFEST_UPDATE_INTERVAL_SEC`〈24時間〉ごと）
+  まで全面移植し、`main.rs` から起動時に一度 `tokio::spawn` する。HTTP ルートを
+  持たない純粋なバックグラウンドタスクのため `build_router` への配線は不要
+- **設計判断（push.py の `ensure_phrase_task` 削除と同じ理由）**: この定期タスクは
+  ルート起点ではなく `api/main.py` の `lifespan()` がプロセス起動時に無条件で
+  始動する仕組みだったため、atomic cutover（ルート配線でコードパスを到達不能に
+  するパターン）では防げなかった。両実装が同時に herdr.dev を叩いて
+  `data/agent-detection/remote/` へ二重に書き込むと、ファイル rename の競合や
+  意図しない version 判定になり得るため、Rust 側のループを配線するのと
+  同時に `api/main.py` の `lifespan()` から `start_updater()`/`stop_updater()`
+  の呼び出しを削除した（`manifest_update.py` 自体は削除していない — 呼び出し元を
+  無くしただけ）
 
 ### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **配線完了（terminal/run/dispatch）**
 
