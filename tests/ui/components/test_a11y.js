@@ -28,12 +28,13 @@ import InfoPillRow from "../../../ui/components/InfoPillRow.vue";
 import PillPeek from "../../../ui/components/PillPeek.vue";
 import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import SessionSidebar from "../../../ui/components/SessionSidebar.vue";
+import TabBar from "../../../ui/components/TabBar.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.js";
 import { useAuthStore } from "../../../ui/stores/auth.js";
-import { emit } from "../../../ui/app-bridge.js";
+import { emit, on } from "../../../ui/app-bridge.js";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
 afterEach(() => {
@@ -355,6 +356,51 @@ describe("a11y: SessionSidebar", () => {
     const wrapper = mount(SessionSidebar, { attachTo: document.body });
     await nextTick();
     await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: TabBar", () => {
+  it("タブバーに tablist / tab / aria-selected がある", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.js");
+    const terminalStore = useTerminalStore();
+    const tabs = [
+      { id: 1, sessionId: "s1", workspace: null, label: "one", wsIcon: null, icon: null },
+      { id: 2, sessionId: "s2", workspace: null, label: "two", wsIcon: null, icon: null },
+    ];
+    terminalStore.openTabs = tabs;
+    terminalStore.activeTabId = 1;
+    const cleanup = on("tab:select", ({ tab }) => {
+      terminalStore.activeTabId = tab.id;
+    });
+
+    const wrapper = mount(TabBar, {
+      props: { tabs },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const tablist = wrapper.find('[role="tablist"]');
+    expect(tablist.exists()).toBe(true);
+    const tabsEls = wrapper.findAll('[role="tab"]');
+    expect(tabsEls).toHaveLength(2);
+    expect(tabsEls[0].attributes("aria-selected")).toBe("true");
+    expect(tabsEls[0].attributes("tabindex")).toBe("0");
+    expect(tabsEls[1].attributes("aria-selected")).toBe("false");
+    expect(tabsEls[1].attributes("tabindex")).toBe("-1");
+    await expectNoA11yViolations(wrapper.element);
+
+    await tablist.trigger("keydown", { key: "ArrowRight" });
+    await nextTick();
+    const movedTabs = wrapper.findAll('[role="tab"]');
+    expect(movedTabs[0].attributes("aria-selected")).toBe("false");
+    expect(movedTabs[0].attributes("tabindex")).toBe("-1");
+    expect(movedTabs[1].attributes("aria-selected")).toBe("true");
+    expect(movedTabs[1].attributes("tabindex")).toBe("0");
+
+    cleanup();
     wrapper.unmount();
   });
 });

@@ -3,12 +3,8 @@
     <div class="ws-settings-section">
       <div v-if="isNew" class="ws-settings-row">
         <span class="ws-settings-label">Scope</span>
-        <label class="form-check-label"><input type="radio" :checked="!isCommon" @change="isCommon = false" /> Workspace</label>
-        <label class="form-check-label"><input type="radio" :checked="isCommon" @change="isCommon = true" /> Common</label>
-      </div>
-      <div v-if="isNew && !isCommon" class="ws-settings-row">
-        <span class="ws-settings-label">Workspace</span>
-        <select v-model="workspaceName" class="form-input">
+        <select v-model="scopeSelection" class="form-input">
+          <option value="">(Common job)</option>
           <option v-for="w in workspaceOptions" :key="w.name" :value="w.name">{{ w.name }}</option>
         </select>
       </div>
@@ -17,23 +13,6 @@
         <input type="text" class="form-input" v-model="form.label" placeholder="Display name" autocomplete="off" />
       </div>
       <div class="ws-settings-row">
-        <span class="ws-settings-label">Type</span>
-        <label class="form-check-label"><input type="radio" v-model="form.type" value="command" /> Command</label>
-        <label class="form-check-label"><input type="radio" v-model="form.type" value="browser" /> Browser</label>
-      </div>
-      <div v-if="form.type === 'browser'" class="ws-settings-row">
-        <span class="ws-settings-label">URL</span>
-        <input type="text" class="form-input" v-model="form.url" placeholder="https://example.com" autocomplete="off" />
-      </div>
-      <div v-else class="ws-settings-row ws-settings-row-stack">
-        <span class="ws-settings-label">Command</span>
-        <textarea class="form-input job-command-input" v-model="form.command" placeholder="Command to execute (multi-line shell script supported)" autocomplete="off" rows="3" spellcheck="false"></textarea>
-        <div class="job-command-hint">
-          Use <code v-text="'[[name]]'"></code> to prompt for a value at launch
-          (e.g. <code v-text="'claude [[prompt]]'"></code>). Values are quoted automatically.
-        </div>
-      </div>
-      <div v-if="form.type !== 'browser'" class="ws-settings-row">
         <span class="ws-settings-label">Icon</span>
         <button type="button" class="icon-select-btn" @click="openIconPicker">
           <span class="icon-select-preview">
@@ -42,23 +21,29 @@
           </span>
         </button>
       </div>
-      <template v-if="form.type !== 'browser'">
-        <div class="job-section-divider"></div>
-        <div class="ws-settings-row" style="gap:8px">
-          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
-          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
+      <div class="ws-settings-row ws-settings-row-stack">
+        <span class="ws-settings-label">Command</span>
+        <textarea class="form-input job-command-input" v-model="form.command" placeholder="Command to execute (multi-line shell script supported)" autocomplete="off" rows="3" spellcheck="false"></textarea>
+        <div class="job-command-hint">
+          Use <code v-text="'[[name]]'"></code> to prompt for a value at launch
+          (e.g. <code v-text="'claude [[prompt]]'"></code>). Values are quoted automatically.
         </div>
-        <div class="ws-settings-row ws-settings-row-stack">
-          <span class="ws-settings-label">Notify phrase <span class="job-label-note">(PWA only)</span></span>
-          <input type="text" class="form-input" v-model="form.notify_phrase"
-            placeholder="Phrase to watch in output" spellcheck="false" autocomplete="off" />
-          <div class="notify-phrase-hint">
-            Push notification when this phrase appears in output
-            (delay configurable in Notifications settings).
-            e.g. {{ NOTIFY_EXAMPLES.join(", ") }}
-          </div>
+      </div>
+      <div class="job-section-divider"></div>
+      <div class="ws-settings-row" style="gap:8px">
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
+      </div>
+      <div class="ws-settings-row ws-settings-row-stack">
+        <span class="ws-settings-label">Notify phrase <span class="job-label-note">(PWA only)</span></span>
+        <input type="text" class="form-input" v-model="form.notify_phrase"
+          placeholder="Phrase to watch in output" spellcheck="false" autocomplete="off" />
+        <div class="notify-phrase-hint">
+          Push notification when this phrase appears in output
+          (delay configurable in Notifications settings).
+          e.g. {{ NOTIFY_EXAMPLES.join(", ") }}
         </div>
-      </template>
+      </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? 'Saving...' : 'Save' }}
@@ -85,7 +70,6 @@ import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.js";
-import { extractDomain } from "../utils/icon-url.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut, apiDelete } = useApi();
@@ -99,6 +83,16 @@ const isCommon = ref(!!viewState.value.isCommon);
 // Workspace選択も新規作成時だけ変更可能（開いた行のワークスペースを初期値にする）。
 const workspaceName = ref(viewState.value.workspaceName || "");
 const workspaceOptions = computed(() => workspaceStore.allWorkspaces.filter((w) => w.exists !== false));
+// Scope(Common/Workspace)とWorkspace選択を1つのselectに統合する。空文字列は
+// 「Common job」を表す（Commonの選び忘れでWorkspaceに紐づくミスを防ぐため、
+// ラジオ+条件表示のselectをやめて単一のselectに一本化した）。
+const scopeSelection = computed({
+  get: () => (isCommon.value ? "" : workspaceName.value),
+  set: (value) => {
+    isCommon.value = value === "";
+    if (value !== "") workspaceName.value = value;
+  },
+});
 const initialForm = viewState.value.initialForm;
 
 const DEFAULT_JOB_ICON = "mdi-play-circle-outline";
@@ -113,9 +107,7 @@ const form = ref(
     : jobEntry
       ? {
           label: jobEntry.job.label || "",
-          type: jobEntry.job.type || "command",
           command: jobEntry.job.command || "",
-          url: jobEntry.job.url || "",
           icon: jobEntry.job.icon || DEFAULT_JOB_ICON,
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
@@ -124,9 +116,7 @@ const form = ref(
         }
       : {
           label: "",
-          type: "command",
           command: "",
-          url: "",
           icon: DEFAULT_JOB_ICON,
           icon_color: "",
           confirm: false,
@@ -156,41 +146,24 @@ function openIconPicker() {
 
 onMounted(() => {
   modalTitle.value = isNew ? "Add Job" : "Edit Job";
-  // ワークスペース未指定で開いた場合（ツールバーからの汎用Add Job等）は
-  // 先頭のワークスペースをデフォルト選択にする。指定無しのままだと
-  // <select>は最初のoptionを見た目上選択するがworkspaceName.valueには
-  // 反映されない（v-modelとネイティブselectの初期値ズレ）ため、明示的に揃える。
-  if (!workspaceName.value && workspaceOptions.value.length) {
-    workspaceName.value = workspaceOptions.value[0].name;
-  }
 });
 
 async function saveJob() {
   const f = form.value;
-  if (f.type === "browser") {
-    if (!f.url.trim()) { formError.value = "Please enter a URL"; return; }
-  } else {
-    if (!f.command.trim()) { formError.value = "Please enter a command"; return; }
-  }
+  if (!f.command.trim()) { formError.value = "Please enter a command"; return; }
   saving.value = true;
   formError.value = "";
   try {
     const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName.value, "/jobs");
     const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
-    const trimmedUrl = f.url.trim();
-    const icon = f.type === "browser"
-      ? (trimmedUrl ? `favicon:${extractDomain(trimmedUrl)}` : DEFAULT_JOB_ICON)
-      : (f.icon.trim() || DEFAULT_JOB_ICON);
     const body = {
       label: f.label.trim(),
-      type: f.type,
-      command: f.type === "command" ? f.command.trim() : "",
-      url: f.type === "browser" ? trimmedUrl : "",
-      icon,
-      icon_color: f.type === "browser" ? "" : f.icon_color.trim(),
-      confirm: f.type === "browser" ? false : f.confirm,
-      detached_tab: f.type === "browser" ? false : f.detached_tab,
-      notify_phrase: f.type === "browser" ? "" : f.notify_phrase.trim(),
+      command: f.command.trim(),
+      icon: f.icon.trim() || DEFAULT_JOB_ICON,
+      icon_color: f.icon_color.trim(),
+      confirm: f.confirm,
+      detached_tab: f.detached_tab,
+      notify_phrase: f.notify_phrase.trim(),
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {

@@ -59,8 +59,6 @@ export function useRecentJobs() {
       jobIcon: job.icon || "",
       jobIconColor: job.icon_color || "",
       jobCommand: job.command || "",
-      jobUrl: job.url || "",
-      jobType: job.type || "command",
       jobConfirm: job.confirm ?? null,
       jobDetachedTab: !!job.detached_tab,
       pinned: existing?.pinned || false,

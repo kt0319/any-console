@@ -2,12 +2,27 @@ import { WS_MSG_RESIZE } from "../utils/constants.js";
 import { copyText } from "../utils/clipboard.js";
 import { fitTerminal, sendResize } from "./useTerminalResize.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { keyDefToAnsi } from "../utils/key-ansi.js";
+import { isEditableTarget } from "../utils/dom.js";
+
+const APP_PAGE_KEYS = new Set(["PageUp", "PageDown"]);
+
+function isPlainAppPageKey(e) {
+  return e.type === "keydown"
+    && APP_PAGE_KEYS.has(e.key)
+    && !e.shiftKey
+    && !e.ctrlKey
+    && !e.metaKey
+    && !e.altKey;
+}
 
 export function bindTerminalInput(tab) {
   if (tab._inputBound) return;
   tab._inputBound = true;
 
   const layoutStore = useLayoutStore();
+  const terminalStore = useTerminalStore();
 
   const encoder = new TextEncoder();
 
@@ -19,7 +34,33 @@ export function bindTerminalInput(tab) {
     tab._lastSendAt = performance.now();
   };
 
+  function sendAppPageKey(e) {
+    if (!isPlainAppPageKey(e)) return false;
+    const seq = keyDefToAnsi({ key: e.key });
+    if (!seq) return false;
+    e.preventDefault();
+    sendInput(encoder.encode(seq));
+    return true;
+  }
+
+  function onGlobalKeydown(e) {
+    if (terminalStore.activeTabId !== tab.id) return;
+    if (layoutStore.isSessionSidebarOpen || layoutStore.isSettingsOpen) return;
+    const target = /** @type {HTMLElement | null} */ (e.target);
+    if (target && isEditableTarget(target)) return;
+    if (target?.closest?.("[role='dialog']")) return;
+    if (sendAppPageKey(e)) e.stopPropagation();
+  }
+
+  window.addEventListener("keydown", onGlobalKeydown, true);
+  tab._releaseInput = () => {
+    window.removeEventListener("keydown", onGlobalKeydown, true);
+  };
+
   tab.term?.attachCustomKeyEventHandler((e) => {
+    if (sendAppPageKey(e)) {
+      return false;
+    }
     if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       sendInput(encoder.encode("\n"));

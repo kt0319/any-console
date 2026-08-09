@@ -186,4 +186,41 @@ describe("terminal store: agentStates", () => {
     store.applyAgentStates("not-an-array");
     expect(Object.keys(store.agentStates)).toEqual([]);
   });
+
+  it("working→idle の遷移で doneSessions が立つ", () => {
+    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    expect(store.doneSessions.s1).toBeUndefined();
+    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    expect(store.doneSessions.s1).toBe(true);
+  });
+
+  it("working を経由しない idle は doneSessions を立てない", () => {
+    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    expect(store.doneSessions.s1).toBeUndefined();
+  });
+
+  it("done中にworking/blockedが届くとdoneSessionsはクリアされる", () => {
+    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    expect(store.doneSessions.s1).toBe(true);
+    store.applyAgentStates([{ session_id: "s1", state: "blocked" }]);
+    expect(store.doneSessions.s1).toBeUndefined();
+  });
+
+  it("switchTab でタブを見ると doneSessions がクリアされる", () => {
+    seedTabs(store, [{ id: 1, sessionId: "s1" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    expect(store.doneSessions.s1).toBe(true);
+    store.switchTab(1);
+    expect(store.doneSessions.s1).toBeUndefined();
+  });
+
+  it("clearAgentState で agentStates と doneSessions を両方消す", () => {
+    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    store.clearAgentState("s1");
+    expect(store.agentStates.s1).toBeUndefined();
+    expect(store.doneSessions.s1).toBeUndefined();
+  });
 });

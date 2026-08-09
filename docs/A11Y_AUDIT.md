@@ -84,12 +84,12 @@
 
 | 優先度 | 問題 | 対応方針 |
 |--------|------|---------|
-| Medium | タブバーに `role="tablist"` / `role="tab"` / `aria-selected` が未実装 | ScreenMain.vue のタブ要素に追加 |
+| ~~Medium~~ 完了 | ~~タブバーに `role="tablist"` / `role="tab"` / `aria-selected` が未実装~~ → `TabBar.vue` に `role="tablist"`、`TabItem.vue` に `role="tab"` / `aria-selected` / 選択中タブの `tabindex="0"` を追加（`test_a11y.js` で担保） | — |
 | ~~Medium~~ 完了 | ~~WorkspaceJobsPane のジョブ行（`<div>`）に `role="button"` 等が未実装~~ → ジョブ行を「実行 `<button>` + 編集 `<button>` の兄弟」構造に変更（操作要素のネストを避けつつキーボード操作可能化、`test_WorkspaceJobsPane.js` で担保） | — |
 | ~~Medium~~ 完了 | ~~GitActionBtn の `title` prop を `aria-label` として使用するよう修正~~ → `aria-label` を併設済み（自動検査で担保） | — |
 | ~~Low~~ 完了 | ~~FileBrowser の Loading / Error メッセージに `role="status"` / `role="alert"` を追加~~ → Loading に `role="status"` + `aria-live="polite"`、エラーに `role="alert"` を付与（`test_a11y.js` で担保） | — |
-| Low | `--text-muted` のコントラスト比を WCAG AA（4.5:1）で検証 | ブラウザの DevTools または axe-core で計測 |
-| Low | PromptDialog のフォーカストラップ実装（useModal の trapFocus を適用） | useConfirm と同様に対応 |
+| ~~Low~~ 完了 | ~~`--text-muted` のコントラスト比を WCAG AA（4.5:1）で検証~~ → `#6e7599` は `--bg-primary` 上 3.80:1 / `--bg-secondary` 上 3.24:1 のため、`#919bc4`（primary 6.26:1 / secondary 5.33:1 / tertiary 4.56:1）へ調整 | — |
+| ~~Low~~ 完了 | ~~PromptDialog のフォーカストラップ実装（useModal の trapFocus を適用）~~ → `BaseDialog` 経由で Esc / フォーカストラップ / フォーカス復元を適用済み（`test_a11y.js` で担保） | — |
 
 ---
 

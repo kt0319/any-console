@@ -9,8 +9,6 @@ class JobDefinition:
     icon_color: str = ""
     confirm: bool = True
     detached_tab: bool = False
-    type: str = "command"
-    url: str = ""
     # 通知フレーズ: 可視ペインにこの文字列が現れたらプッシュ通知を送る。
     notify_phrase: str = ""
 

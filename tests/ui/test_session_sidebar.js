@@ -6,13 +6,14 @@ import { describe, it, expect } from "vitest";
 import {
   AGENT_STATE_META,
   agentStateDescriptor,
+  resolveAgentBadgeState,
   sessionSidebarItems,
   pendingDispatchSidebarItems,
 } from "../../ui/utils/session-sidebar.js";
 
 describe("agentStateDescriptor", () => {
   it("既知の状態はアイコン・ラベル・クラス名を返す", () => {
-    for (const state of ["working", "blocked", "done", "idle"]) {
+    for (const state of ["working", "blocked", "done"]) {
       const meta = agentStateDescriptor(state);
       expect(meta).toBe(AGENT_STATE_META[state]);
       expect(meta?.icon).toMatch(/^mdi-/);
@@ -25,6 +26,28 @@ describe("agentStateDescriptor", () => {
     expect(agentStateDescriptor("unknown")).toBeNull();
     expect(agentStateDescriptor("")).toBeNull();
     expect(agentStateDescriptor(undefined)).toBeNull();
+  });
+
+  it("idleはAGENT_STATE_METAに定義が無い（バッジを出さない）", () => {
+    expect(AGENT_STATE_META.idle).toBeUndefined();
+    expect(agentStateDescriptor("idle")).toBeNull();
+  });
+});
+
+describe("resolveAgentBadgeState", () => {
+  it("doneSessionsに含まれていればidleでも常にdoneを返す", () => {
+    expect(resolveAgentBadgeState("idle", true)).toBe("done");
+    expect(resolveAgentBadgeState(undefined, true)).toBe("done");
+  });
+
+  it("doneでなければidleはnullに潰す", () => {
+    expect(resolveAgentBadgeState("idle", false)).toBeNull();
+    expect(resolveAgentBadgeState(undefined, false)).toBeNull();
+  });
+
+  it("working/blockedはdoneでなければそのまま通す", () => {
+    expect(resolveAgentBadgeState("working", false)).toBe("working");
+    expect(resolveAgentBadgeState("blocked", false)).toBe("blocked");
   });
 });
 
@@ -105,6 +128,15 @@ describe("sessionSidebarItems", () => {
     expect(items[2].agent).toBeNull();
     expect(items[0].phraseNotify).toBe(false);
     expect(items[1].phraseNotify).toBe(true);
+  });
+
+  it("idleはバッジ非表示、doneSessionsに含まれていればdoneを表示する", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      agentStates: { s1: "idle", s2: "idle" },
+      doneSessions: { s2: true },
+    });
+    expect(items[0].agent).toBeNull();
+    expect(items[1].agent).toBe(AGENT_STATE_META.done);
   });
 
   it("タブが空・未定義でも空配列を返す", () => {

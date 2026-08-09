@@ -81,18 +81,32 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (!sessionId) return;
     pendingCloseSessionIds.value.delete(sessionId);
   }
-  // sessionId → エージェント状態（blocked/done/working/idle）。status stream WS が更新する。
+  // sessionId → エージェント状態（backendはblocked/working/idleのみを送る）。
+  // status stream WS が更新する。
   const agentStates = reactive(/** @type {Record<string, string>} */ ({}));
+  // sessionId → true。working から idle への遷移（=作業完了）を検知した
+  // セッション。idle自体はバッジ非表示にするため、タブを見る（switchTab）
+  // までは「done」として表示し続けるための別レイヤー。
+  const doneSessions = reactive(/** @type {Record<string, boolean>} */ ({}));
 
   /**
    * status stream WS から届いたエージェント状態をマージする。
+   * working→idle の遷移を「done」として doneSessions に記録し、
+   * idle以外（working/blocked）が届いたら doneSessions はクリアする
+   * （新しい作業の開始、またはblockedでの入力待ちがdoneより優先されるため）。
    * @param {{ session_id: string, state: string }[]} states
    */
   function applyAgentStates(states) {
     if (!Array.isArray(states)) return;
     for (const entry of states) {
       if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
-        agentStates[entry.session_id] = entry.state;
+        const sessionId = entry.session_id;
+        if (entry.state === "idle") {
+          if (agentStates[sessionId] === "working") doneSessions[sessionId] = true;
+        } else {
+          delete doneSessions[sessionId];
+        }
+        agentStates[sessionId] = entry.state;
       }
     }
   }
@@ -103,7 +117,13 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   function clearAgentState(sessionId) {
-    if (sessionId) delete agentStates[sessionId];
+    if (!sessionId) return;
+    delete agentStates[sessionId];
+    delete doneSessions[sessionId];
+  }
+
+  function clearDoneState(sessionId) {
+    if (sessionId) delete doneSessions[sessionId];
   }
 
   // sessionId → notify_phrase 検知フラグ。タブが選択されたら見た扱いでクリアする。
@@ -226,6 +246,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (tab) {
       localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
       clearPhraseNotify(tab.sessionId);
+      clearDoneState(tab.sessionId);
     }
   }
 
@@ -323,6 +344,8 @@ export const useTerminalStore = defineStore("terminal", () => {
     agentStates,
     applyAgentStates,
     clearAgentState,
+    doneSessions,
+    clearDoneState,
     phraseNotifySessions,
     markPhraseNotify,
     clearPhraseNotify,

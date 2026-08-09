@@ -162,6 +162,8 @@ export function useTerminal() {
       tab._frameResizeObserver.disconnect();
       tab._frameResizeObserver = null;
     }
+    tab._releaseInput?.();
+    tab._releaseInput = null;
     clearTimeout(tab._reconnectTimer);
     clearTimeout(tab._activityTimer);
     clearTimeout(tab._postWriteRefresh);

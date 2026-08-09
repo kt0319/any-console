@@ -36,8 +36,6 @@ class RecentJobConfig(_ConfigModel):
     jobIcon: str = ""
     jobIconColor: str = ""
     jobCommand: str = ""
-    jobUrl: str = ""
-    jobType: str = "command"
     jobConfirm: bool | None = None
     jobDetachedTab: bool = False
     pinned: bool = False
@@ -45,8 +43,6 @@ class RecentJobConfig(_ConfigModel):
 
 class JobConfig(_ConfigModel):
     command: str = ""
-    url: str = ""
-    type: str = "command"
     label: str = ""
     icon: str = ""
     icon_color: str = ""
@@ -54,13 +50,9 @@ class JobConfig(_ConfigModel):
     detached_tab: bool = False
 
     @model_validator(mode="after")
-    def _check_command_or_url(self):
-        if self.type == "browser":
-            if not self.url:
-                raise ValueError("url is required for browser type")
-        else:
-            if not self.command:
-                raise ValueError("command is required")
+    def _check_command(self):
+        if not self.command:
+            raise ValueError("command is required")
         return self
 
 

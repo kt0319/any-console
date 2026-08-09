@@ -188,6 +188,7 @@ const items = computed(() => {
   return sessionSidebarItems(terminalStore.openTabs, workspaceStore.allWorkspaces, {
     tabFlags: terminalStore.tabFlags,
     agentStates: terminalStore.agentStates,
+    doneSessions: terminalStore.doneSessions,
     phraseNotifySessions: terminalStore.phraseNotifySessions,
     prsByWorkspace: prsByWorkspace.value,
     runsByWorkspace: runsByWorkspace.value,

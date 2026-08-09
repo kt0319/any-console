@@ -316,7 +316,7 @@ function openBareTerminal() {
 function openAddJob() {
   pushView("JobConfig", {
     workspaceName: "",
-    isCommon: false,
+    isCommon: true,
     jobEntry: null,
     onReturn: () => bridgeEmit("jobs:refresh"),
   });

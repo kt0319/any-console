@@ -32,11 +32,17 @@ export const MOBILE_BREAKPOINT_PX = 768;
 export const INPUT_HISTORY_MAX = 100;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 export const RECENT_JOBS_MAX = 10;
+export const KEYBOARD_INPUT_MIN_HEIGHT_PX = 44;
+export const KEYBOARD_INPUT_MAX_HEIGHT_PX = 120;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
 // 複数行の詳細（pull したコミット一覧等）を含むトーストは読む時間を長めに取る
 export const TOAST_DETAIL_DURATION_MS = 5000;
 export const PILL_MORE_PEEK_DURATION_MS = 4000;
+// マーキーが末尾まで流れ終えてから、peekピル自体が消えるまでの静止時間。
+// マーキーの再生時間を実際の表示時間ぴったりにすると、流れ終わった瞬間に
+// 消えてしまい最後まで読めないため、この分だけ短く設定して余裕を持たせる。
+export const PILL_MARQUEE_END_HOLD_MS = 800;
 export const URL_COPIED_RESET_MS = 1500;
 export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
 export const NOTIFY_GRACE_DEBOUNCE_MS = 500;
