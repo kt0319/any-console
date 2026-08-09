@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // @ts-nocheck
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useCircleKeyPad } from "../../ui/composables/useCircleKeyPad.js";
 import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.js";
@@ -47,5 +47,36 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
     expect(pad.specials.value).toHaveLength(4);
     expect(pad.specials.value[0].action).toBe("");
     expect(pad.specials.value[1].action).toBe("git:openFileModal");
+  });
+
+  it("PageUp / PageDown を ANSI シーケンスとしてターミナルへ送る", () => {
+    const config = useCircleKeyPadConfigStore();
+    config.keys = [
+      { key: "PageUp", ctrl: false, shift: false, alt: false, label: "PgUp" },
+      { key: "PageDown", ctrl: false, shift: false, alt: false, label: "PgDn" },
+      { key: "", ctrl: false, shift: false, alt: false, label: "" },
+      { key: "", ctrl: false, shift: false, alt: false, label: "" },
+      { key: "", ctrl: false, shift: false, alt: false, label: "" },
+      { key: "", ctrl: false, shift: false, alt: false, label: "" },
+      { key: "", ctrl: false, shift: false, alt: false, label: "" },
+      { key: "", ctrl: false, shift: false, alt: false, label: "" },
+    ];
+    const sent = [];
+    const tab = {
+      ws: {
+        readyState: WebSocket.OPEN,
+        send: vi.fn((bytes) => sent.push(new TextDecoder().decode(bytes))),
+      },
+    };
+
+    const pad = useCircleKeyPad();
+    pad.open(0, 0);
+    pad.state.activeId = "key:0";
+    pad.commitAndClose(tab);
+    pad.open(0, 0);
+    pad.state.activeId = "key:1";
+    pad.commitAndClose(tab);
+
+    expect(sent).toEqual(["\x1b[5~", "\x1b[6~"]);
   });
 });
