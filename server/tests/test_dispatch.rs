@@ -250,7 +250,11 @@ fn latest_activity_auth(data_dir: &std::path::Path, workspace: &str, event_type:
 }
 
 async fn wait_for(cond: impl Fn() -> bool) -> bool {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    // CI や `cargo test` の全体並列実行下では CPU 競合で遅延しうるため、余裕を
+    // 持たせる（このモジュールの並行性回帰テストは真の multi_thread runtime で
+    // 実リクエストを飛ばすため、他のテストバイナリと同時実行されると特に影響を
+    // 受けやすい）。
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
     while tokio::time::Instant::now() < deadline {
         if cond() {
             return true;

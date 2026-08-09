@@ -267,6 +267,25 @@ async fn commit_diff_and_file_diff() {
 async fn stash_cycle() {
     let front = spawn_front().await;
     std::fs::write(front.ws_path.join("a.txt"), "stash me\n").unwrap();
+
+    // 不正な JSON ボディは 422 で拒否し、git stash を実行しない（Codex レビュー
+    // 指摘: 以前は parse エラーを黙って include_untracked=false 扱いにして
+    // ミューテーションを実行してしまっていた）。
+    let resp = client()
+        .post(format!("http://{}/workspaces/repo/stash", front.addr))
+        .bearer_auth(TOKEN)
+        .header("content-type", "application/json")
+        .body("{not valid json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 422);
+    assert_eq!(
+        std::fs::read_to_string(front.ws_path.join("a.txt")).unwrap(),
+        "stash me\n",
+        "不正ボディでは stash が実行されない"
+    );
+
     let resp = post_json(&front, "/workspaces/repo/stash", &json!({})).await;
     assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();

@@ -439,12 +439,19 @@ pub async fn stash(
     // Python は `body: GitActionRequest | None = None`（ボディ無しも許容）
     raw_body: axum::body::Bytes,
 ) -> Result<Json<Value>, ApiError> {
+    // Python 版は `body: GitActionRequest | None = None` で、ボディ省略時のみ
+    // None（include_untracked=false）を許容し、非空だが不正なボディは FastAPI の
+    // バリデーションで 422 になる。ここで parse エラーを黙って false 扱いにすると
+    // 不正なリクエストでも実際に git stash（副作用のあるミューテーション）が
+    // 実行されてしまう（Codex レビュー指摘）。
     let include_untracked = if raw_body.is_empty() {
         false
     } else {
         serde_json::from_slice::<GitActionRequest>(&raw_body)
             .map(|b| b.include_untracked)
-            .unwrap_or(false)
+            .map_err(|e| {
+                ApiError::new(axum::http::StatusCode::UNPROCESSABLE_ENTITY, e.to_string())
+            })?
     };
     let mut args = vec!["stash"];
     if include_untracked {
