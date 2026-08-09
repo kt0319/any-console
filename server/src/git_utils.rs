@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use serde_json::{json, Value};
 
 use crate::config::ConfigStore;
@@ -410,6 +411,75 @@ pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathB
     result
 }
 
+/// Python `BACKGROUND_EXECUTOR`（max_workers=8）に対応する並列度。
+const WORKTREE_DISCOVERY_CONCURRENCY: usize = 8;
+
+/// 1ワークスペース分の動的 worktree 列挙（`dynamic_worktree_entries` の並列化
+/// 単位。Python `_entries_for` 相当）。
+async fn worktree_entries_for_workspace(
+    ws_id: String,
+    entry: Value,
+    existing_paths: &std::collections::HashSet<String>,
+    is_git_repo_map: Option<&std::collections::HashMap<String, bool>>,
+    include_github_url: bool,
+) -> Vec<Value> {
+    let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
+    let ws_path = crate::paths::expand_user_path(raw_path);
+    if !ws_path.is_dir() {
+        return Vec::new();
+    }
+    let is_git = match is_git_repo_map {
+        Some(map) => map.get(&ws_id).copied().unwrap_or(false),
+        None => git_is_repo(&ws_path).await,
+    };
+    if !is_git {
+        return Vec::new();
+    }
+    let base_name = entry
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&ws_id)
+        .to_string();
+    let mut out = Vec::new();
+    for wt in git_worktree_list(&ws_path).await.iter().skip(1) {
+        let wt_path_str = wt.get("path").and_then(Value::as_str).unwrap_or("");
+        if wt_path_str.is_empty() {
+            continue;
+        }
+        let wt_path = std::path::Path::new(wt_path_str);
+        if !wt_path.is_dir() || existing_paths.contains(&crate::paths::safe_resolve_str(wt_path)) {
+            continue;
+        }
+        let branch = wt.get("branch").and_then(Value::as_str).unwrap_or("");
+        let mut wt_entry = json!({
+            "id": Value::Null,
+            "name": worktree_display_name(&base_name, branch),
+            "path": wt_path_str,
+            "is_git_repo": true,
+            "branch": branch,
+            "icon": entry.get("icon").and_then(Value::as_str).unwrap_or(""),
+            "icon_color": entry.get("icon_color").and_then(Value::as_str).unwrap_or(""),
+            "exists": true,
+            "worktree": true,
+            "worktree_base": base_name,
+            "worktree_branch": branch,
+        });
+        if include_github_url {
+            // worktree は main リポジトリと git ディレクトリ（remote 設定含む）を
+            // 共有するため、worktree 自身のパスからでも解決できる。
+            if let Some(url) = git_github_url(wt_path).await {
+                wt_entry["github_url"] = json!(url);
+            }
+            if let Some(db) = git_default_branch(wt_path).await {
+                wt_entry["default_branch"] = json!(db);
+            }
+        }
+        out.push(wt_entry);
+    }
+    out
+}
+
 /// 登録済み git ワークスペースの linked worktree を動的に列挙する
 /// （Python `workspaces._dynamic_worktree_entries` 相当）。
 /// config に登録されていない worktree のみを返す。
@@ -419,6 +489,11 @@ pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathB
 /// をそのまま引き継ぐ。バグ互換のため Rust 側でも再判定しない）。
 /// `include_github_url` は /workspaces（都度取得、頻度低）でのみ true にする —
 /// /workspaces/statuses は git_info() が別途 github_url を解決するため二重に呼ばない。
+///
+/// ワークスペースごとの処理は Python 版 `BACKGROUND_EXECUTOR.map`
+/// （max_workers=8）と同じ並列度・順序保持で実行する（Codex レビュー指摘:
+/// 以前は直列だったため、ワークスペース数に比例して遅くなり、頻繁にポーリング
+/// される /workspaces/statuses で顕著だった）。
 pub async fn dynamic_worktree_entries(
     store: &ConfigStore,
     is_git_repo_map: Option<&std::collections::HashMap<String, bool>>,
@@ -426,65 +501,25 @@ pub async fn dynamic_worktree_entries(
 ) -> Vec<Value> {
     let existing_paths: std::collections::HashSet<String> =
         registered_paths_by_resolved(store).into_keys().collect();
-    let mut out = Vec::new();
-    for (ws_id, entry) in store.list_workspace_entries() {
-        let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
-        let ws_path = crate::paths::expand_user_path(raw_path);
-        if !ws_path.is_dir() {
-            continue;
-        }
-        let is_git = match is_git_repo_map {
-            Some(map) => map.get(&ws_id).copied().unwrap_or(false),
-            None => git_is_repo(&ws_path).await,
-        };
-        if !is_git {
-            continue;
-        }
-        let base_name = entry
-            .get("name")
-            .and_then(Value::as_str)
-            .filter(|s| !s.is_empty())
-            .unwrap_or(&ws_id)
-            .to_string();
-        for wt in git_worktree_list(&ws_path).await.iter().skip(1) {
-            let wt_path_str = wt.get("path").and_then(Value::as_str).unwrap_or("");
-            if wt_path_str.is_empty() {
-                continue;
+    let entries: Vec<(String, Value)> = store.list_workspace_entries().into_iter().collect();
+    let results: Vec<Vec<Value>> = futures_util::stream::iter(entries)
+        .map(|(ws_id, entry)| {
+            let existing_paths = &existing_paths;
+            async move {
+                worktree_entries_for_workspace(
+                    ws_id,
+                    entry,
+                    existing_paths,
+                    is_git_repo_map,
+                    include_github_url,
+                )
+                .await
             }
-            let wt_path = std::path::Path::new(wt_path_str);
-            if !wt_path.is_dir()
-                || existing_paths.contains(&crate::paths::safe_resolve_str(wt_path))
-            {
-                continue;
-            }
-            let branch = wt.get("branch").and_then(Value::as_str).unwrap_or("");
-            let mut wt_entry = json!({
-                "id": Value::Null,
-                "name": worktree_display_name(&base_name, branch),
-                "path": wt_path_str,
-                "is_git_repo": true,
-                "branch": branch,
-                "icon": entry.get("icon").and_then(Value::as_str).unwrap_or(""),
-                "icon_color": entry.get("icon_color").and_then(Value::as_str).unwrap_or(""),
-                "exists": true,
-                "worktree": true,
-                "worktree_base": base_name,
-                "worktree_branch": branch,
-            });
-            if include_github_url {
-                // worktree は main リポジトリと git ディレクトリ（remote 設定含む）を
-                // 共有するため、worktree 自身のパスからでも解決できる。
-                if let Some(url) = git_github_url(wt_path).await {
-                    wt_entry["github_url"] = json!(url);
-                }
-                if let Some(db) = git_default_branch(wt_path).await {
-                    wt_entry["default_branch"] = json!(db);
-                }
-            }
-            out.push(wt_entry);
-        }
-    }
-    out
+        })
+        .buffered(WORKTREE_DISCOVERY_CONCURRENCY)
+        .collect()
+        .await;
+    results.into_iter().flatten().collect()
 }
 
 /// workspace 名（ID / 表示名 / 動的worktree名）からパスを解決する
@@ -582,5 +617,65 @@ mod tests {
             .unwrap();
         assert_eq!(cmd["status"], "ok");
         assert!(cmd["stdout"].as_str().unwrap().contains("first"));
+    }
+
+    async fn init_repo_with_worktree(dir: &Path, wt_dir: &Path) {
+        std::fs::create_dir_all(dir).unwrap();
+        for args in [
+            vec!["init", "-q", "-b", "main"],
+            vec!["config", "user.email", "t@example.com"],
+            vec!["config", "user.name", "t"],
+            vec!["commit", "--allow-empty", "-q", "-m", "first"],
+        ] {
+            let r = run_git_raw(&args, dir, 10.0, &[]).await.unwrap();
+            assert_eq!(r.code, 0, "{args:?}: {}", r.stderr);
+        }
+        let r = run_git_raw(
+            &["worktree", "add", wt_dir.to_str().unwrap(), "-b", "feat/x"],
+            dir,
+            10.0,
+            &[],
+        )
+        .await
+        .unwrap();
+        assert_eq!(r.code, 0, "{}", r.stderr);
+    }
+
+    /// `dynamic_worktree_entries` の並列化（`buffered`）が結果の順序を
+    /// ワークスペース登録順のまま保つこと（Codex レビュー指摘に沿って直列 →
+    /// 並列化した際、`buffer_unordered` 等の完了順ベースの combinator に
+    /// 誤って置き換えると、UI の並び順が不安定になる回帰を防ぐ）。
+    #[tokio::test]
+    async fn dynamic_worktree_entries_preserves_workspace_order_under_concurrency() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = crate::config::ConfigStore::new(dir.path().join("config.json"));
+
+        // 複数ワークスペース分の worktree を並行処理させ、順序が入れ替わらない
+        // ことを確認する（登録順: c, a, b — アルファベット順とは異なる）。
+        let mut cfg = store.load_all();
+        let mut names = Vec::new();
+        for label in ["c", "a", "b"] {
+            let repo = dir.path().join(format!("repo-{label}"));
+            let wt = dir.path().join(format!("wt-{label}"));
+            init_repo_with_worktree(&repo, &wt).await;
+            let ws_id = format!("ws_{label}");
+            cfg.insert(
+                ws_id.clone(),
+                json!({"name": label, "path": repo.to_string_lossy()}),
+            );
+            names.push(label.to_string());
+        }
+        store.save_all(&cfg).unwrap();
+
+        let entries = dynamic_worktree_entries(&store, None, false).await;
+        assert_eq!(entries.len(), 3, "{entries:?}");
+        let observed_order: Vec<&str> = entries
+            .iter()
+            .map(|e| e["worktree_base"].as_str().unwrap())
+            .collect();
+        assert_eq!(observed_order, vec!["c", "a", "b"]);
+        for entry in &entries {
+            assert_eq!(entry["worktree_branch"], "feat/x");
+        }
     }
 }

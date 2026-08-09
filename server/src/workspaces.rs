@@ -35,6 +35,12 @@ use crate::util::{JsonBody, QueryParams};
 
 /// Python `BACKGROUND_FETCH_EXECUTOR`（max_workers=4）に対応する並列度。
 const BACKGROUND_FETCH_CONCURRENCY: usize = 4;
+/// Python `BACKGROUND_EXECUTOR`（max_workers=8）に対応する並列度。
+/// `workspace_summary`・`git_info_to_status_dict` の並列 fan-out に使う
+/// （Codex レビュー指摘: 以前は `join_all` で無制限に並列実行しており、
+/// Raspberry Pi 等リソースの限られた実機でワークスペース数が多いとスレッド/
+/// プロセス数が跳ね上がりうる — Python 側は元々このプールで上限を設けている）。
+const BACKGROUND_EXECUTOR_CONCURRENCY: usize = 8;
 
 fn ensure_workspace_exists(
     store: &ConfigStore,
@@ -153,12 +159,16 @@ pub async fn list_workspaces(
         key(a).cmp(&key(b)).then_with(|| a.cmp(b))
     });
 
-    let mut result: Vec<Value> = futures_util::future::join_all(
-        sorted_items
-            .iter()
-            .map(|(id, cfg)| workspace_summary(id, cfg)),
-    )
-    .await;
+    // `buffered` は borrow するクロージャ由来の Future を直接 stream::iter に渡すと
+    // HRTB 推論に失敗するため、先に Future を確定させてから渡す。
+    let summary_futures: Vec<_> = sorted_items
+        .iter()
+        .map(|(id, cfg)| workspace_summary(id, cfg))
+        .collect();
+    let mut result: Vec<Value> = futures_util::stream::iter(summary_futures)
+        .buffered(BACKGROUND_EXECUTOR_CONCURRENCY)
+        .collect()
+        .await;
 
     let is_git_repo_map: HashMap<String, bool> = result
         .iter()
@@ -198,12 +208,14 @@ pub async fn list_workspace_statuses(
             wt["name"].as_str().unwrap_or("").to_string(),
         ));
     }
-    let statuses: Vec<Value> = futures_util::future::join_all(
-        items
-            .iter()
-            .map(|(path, name)| git_info_to_status_dict(&state.git_info_cache, path, name)),
-    )
-    .await;
+    let status_futures: Vec<_> = items
+        .iter()
+        .map(|(path, name)| git_info_to_status_dict(&state.git_info_cache, path, name))
+        .collect();
+    let statuses: Vec<Value> = futures_util::stream::iter(status_futures)
+        .buffered(BACKGROUND_EXECUTOR_CONCURRENCY)
+        .collect()
+        .await;
     Ok(Json(json!({ "statuses": statuses })))
 }
 

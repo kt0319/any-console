@@ -250,11 +250,9 @@ fn latest_activity_auth(data_dir: &std::path::Path, workspace: &str, event_type:
 }
 
 async fn wait_for(cond: impl Fn() -> bool) -> bool {
-    // CI や `cargo test` の全体並列実行下では CPU 競合で遅延しうるため、余裕を
-    // 持たせる（このモジュールの並行性回帰テストは真の multi_thread runtime で
-    // 実リクエストを飛ばすため、他のテストバイナリと同時実行されると特に影響を
-    // 受けやすい）。
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    // CI や `cargo test` の全体並列実行下では CPU 競合で遅延しうるため、多少
+    // 余裕を持たせる。
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
     while tokio::time::Instant::now() < deadline {
         if cond() {
             return true;
@@ -457,7 +455,7 @@ async fn dedup_key_supersedes_previous_pending_item() {
 // 即座に完了し実際には yield しないため、既定の current_thread runtime では
 // 2つのロック区間に分かれた検索→挿入の隙間に別タスクが割り込む機会がほぼ無く、
 // 本番（`#[tokio::main]` = multi_thread）で起きる並行実行の競合を再現できない。
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
     let front = spawn_front().await;
     let addr = front.addr;
@@ -477,29 +475,21 @@ async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
     for h in handles {
         assert_eq!(h.await.unwrap(), 202);
     }
-    assert!(
-        wait_for(|| {
-            let queued = front.calls.queue.lock().unwrap();
-            queued
-                .last()
-                .and_then(|last| last["items"][0]["request"]["retry_count"].as_u64())
-                == Some(8)
-        })
-        .await
-    );
-    let queued = front.calls.queue.lock().unwrap();
-    let last = queued.last().unwrap();
-    assert_eq!(
-        last["items"].as_array().unwrap().len(),
-        1,
-        "dedup_key で1件に集約される: {last:?}"
-    );
+    // dispatch キューへの反映（resolve_dedup_and_insert）は各リクエストの応答を
+    // 返す前に同期的に完了しているため、状態は直接 state.dispatch.pending から
+    // 確認する。upstream への broadcast_dispatch_queue は fire-and-forget（別
+    // タスク）で配信順の保証が無いため、front.calls.queue の「最後の要素」に
+    // 依存すると、CPU 競合下でスナップショットの到着順が入れ替わってフレークする。
+    let pending = front.state.dispatch.pending.lock().await;
+    assert_eq!(pending.len(), 1, "dedup_key で1件に集約される: {pending:?}");
+    let (_, item) = pending.iter().next().unwrap();
+    assert_eq!(item["retry_count"], json!(8), "{item:?}");
 }
 
 /// 同じ dispatch_id への decision(approved) が並行到着しても launch は1回しか
 /// 実行されないこと（Codex レビュー指摘: 取得と削除が別ロックだと両方が
 /// Some を引き当てて二重にセッションが起動してしまう）。
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent_decision_approvals_launch_session_only_once() {
     if skip_if_no_tmux() {
         return;
