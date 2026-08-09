@@ -113,6 +113,10 @@ async fn main() {
         dispatch: any_console_server::dispatch::DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
         status_stream: any_console_server::status_stream::StatusStreamState::new(),
+        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
+            paths.project_root.join("api/agent_manifests"),
+            &paths.data_dir,
+        ),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

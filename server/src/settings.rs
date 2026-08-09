@@ -160,7 +160,7 @@ fn default_grace() -> i64 {
 }
 
 /// Python `notification_grace_sec` と同一の解決規則。
-fn notification_grace_sec(store: &ConfigStore) -> i64 {
+pub(crate) fn notification_grace_sec(store: &ConfigStore) -> i64 {
     let raw = store.load_global_section("notifications");
     let Some(obj) = raw.as_ref().and_then(Value::as_object) else {
         return PHRASE_NOTIFY_IDLE_GRACE_SEC;
