@@ -107,6 +107,7 @@ async fn main() {
         config,
         git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
         gh_cache: any_console_server::github::GhCache::new(),
+        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,

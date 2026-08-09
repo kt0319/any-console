@@ -75,6 +75,31 @@ impl Proxy {
             .replacen("http://", "ws://", 1);
         format!("{ws_base}{path_and_query}")
     }
+
+    /// Python 側に残る status stream へ即時反映を伝える移行期間ブリッジ
+    /// （POST /internal/git-nudge — api/routers/migration_bridge.py）。
+    /// fire-and-forget: 失敗しても git_watch の FS 監視が下支えするため、
+    /// 呼び出し元の応答は遅らせない・失敗させない。
+    /// ターミナルサブシステム（status stream ごと）の移行完了時に削除する。
+    pub fn nudge_git(&self, workspace: Option<String>) {
+        let client = self.client.clone();
+        let url = self.upstream_url("/internal/git-nudge");
+        tokio::spawn(async move {
+            let body = match workspace {
+                Some(w) => serde_json::json!({ "workspace": w }),
+                None => serde_json::json!({}),
+            };
+            let result = client
+                .post(&url)
+                .json(&body)
+                .timeout(std::time::Duration::from_secs(5))
+                .send()
+                .await;
+            if let Err(e) = result {
+                tracing::debug!("git-nudge to upstream failed: {e}");
+            }
+        });
+    }
 }
 
 fn path_and_query(req_uri: &axum::http::Uri) -> String {

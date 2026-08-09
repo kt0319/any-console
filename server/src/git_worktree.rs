@@ -1,8 +1,8 @@
 //! git worktree の作成・一覧・削除（Python 側 `api/routers/git_worktree.py` の移植）。
 //!
 //! worktree を作成すると、その作業ツリーは動的 worktree 名（'{base} [{branch}]'）で
-//! 参照できる。Python 側の `invalidate_git_info`（status stream への即時 nudge）は
-//! git_watch の FS 監視が下支えする（git_helpers.rs の解説参照）。
+//! 参照できる。作成・削除後は Python と同じ位置で `invalidate_git_info`
+//! （ローカルキャッシュ無効化 + Python 側 status stream への nudge）を呼ぶ。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -140,6 +140,7 @@ pub async fn create_worktree(
 
     let result =
         run_git_command(&args, &ws_path, GIT_LONG_TIMEOUT_SEC, "worktree add", &[]).await?;
+    crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
     if result["exit_code"] != 0 {
         let stderr = result["stderr"].as_str().unwrap_or("").trim().to_string();
         return Err(bad_request(if stderr.is_empty() {
@@ -223,6 +224,7 @@ pub async fn delete_worktree(
         &[],
     )
     .await?;
+    crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
     if result["exit_code"] != 0 {
         let stderr = result["stderr"].as_str().unwrap_or("").trim().to_string();
         return Err(bad_request(if stderr.is_empty() {

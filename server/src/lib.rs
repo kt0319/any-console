@@ -14,6 +14,7 @@ pub mod git_diff;
 pub mod git_files;
 pub mod git_helpers;
 pub mod git_history;
+pub mod git_info;
 pub mod git_lock;
 pub mod git_utils;
 pub mod git_worktree;
@@ -33,13 +34,14 @@ pub mod static_files;
 pub mod subprocess;
 pub mod system;
 pub mod util;
+pub mod workspaces;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use axum::Router;
 
 use crate::state::AppState;
@@ -266,6 +268,25 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/recent-jobs",
             get(settings::get_recent_jobs).put(settings::put_recent_jobs),
+        )
+        // ─── Rust ネイティブ移行済みルート（Phase 4: ワークスペース一覧/登録/設定）
+        // /workspaces/statuses/ws（status stream）は Python のまま（Phase 5）
+        .route(
+            "/workspaces",
+            get(workspaces::list_workspaces).post(workspaces::add_workspace),
+        )
+        .route(
+            "/workspaces/statuses",
+            get(workspaces::list_workspace_statuses),
+        )
+        .route(
+            "/workspaces/suggest",
+            get(workspaces::suggest_workspace_dirs),
+        )
+        .route("/workspaces/{name}", delete(workspaces::delete_workspace))
+        .route(
+            "/workspaces/{name}/config",
+            put(workspaces::update_workspace_config),
         )
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)

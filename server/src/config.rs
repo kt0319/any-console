@@ -201,6 +201,64 @@ impl ConfigStore {
             .unwrap_or_default()
     }
 
+    /// Python `save_workspace_config` と同一: EX ロック下で read-modify-write。
+    /// 渡された config に name が無ければ既存エントリの name を引き継ぐ。
+    pub fn save_workspace_config(
+        &self,
+        workspace_name: &str,
+        config: Map<String, Value>,
+    ) -> Result<(), String> {
+        let _lock = self.file_lock(true);
+        let mut all = self.read_unlocked();
+        let key = Self::find_workspace_key(&all, workspace_name)
+            .unwrap_or_else(|| workspace_name.to_string());
+        let mut merged = config;
+        if !merged.contains_key("name") {
+            let existing_name = all
+                .get(&key)
+                .and_then(Value::as_object)
+                .and_then(|e| e.get("name"))
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty());
+            if let Some(name) = existing_name {
+                merged.insert("name".to_string(), Value::String(name.to_string()));
+            }
+        }
+        let validated = validate_config_entry(&key, &Value::Object(merged), GLOBAL_CONFIG_KEY)?;
+        all.insert(key, Value::Object(validated));
+        self.write_unlocked(&all)
+    }
+
+    /// Python `delete_workspace_config` と同一: エントリを削除し、
+    /// `__global__.workspace_order` からも取り除く。存在しなければ何もしない。
+    pub fn delete_workspace_config(&self, workspace_name: &str) -> Result<(), String> {
+        let _lock = self.file_lock(true);
+        let mut all = self.read_unlocked();
+        let Some(key) = Self::find_workspace_key(&all, workspace_name) else {
+            return Ok(());
+        };
+        all.remove(&key);
+        let mut global = all
+            .get(GLOBAL_CONFIG_KEY)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let order = global
+            .get("workspace_order")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if order.iter().any(|v| v.as_str() == Some(key.as_str())) {
+            let filtered: Vec<Value> = order
+                .into_iter()
+                .filter(|v| v.as_str() != Some(key.as_str()))
+                .collect();
+            global.insert("workspace_order".to_string(), Value::Array(filtered));
+            all.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(global));
+        }
+        self.write_unlocked(&all)
+    }
+
     pub fn resolve_workspace_id(&self, identifier: &str) -> Option<String> {
         if identifier.is_empty() {
             return None;

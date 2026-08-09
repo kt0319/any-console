@@ -16,6 +16,21 @@ pub const GIT_QUICK_TIMEOUT_SEC: f64 = 5.0;
 pub const GIT_SHORT_TIMEOUT_SEC: f64 = 10.0;
 pub const GIT_STANDARD_TIMEOUT_SEC: f64 = 30.0;
 pub const GIT_LONG_TIMEOUT_SEC: f64 = 60.0;
+pub const BACKGROUND_FETCH_TIMEOUT_SEC: f64 = 15.0;
+
+/// バックグラウンドの `git fetch --quiet` を実行し、実行できたかを返す
+/// （Python `background_fetch` 相当 — 終了コードは見ない。タイムアウト・OS
+/// エラーのみ false）。GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する。
+pub async fn background_fetch(directory: &Path) -> bool {
+    run_git_raw(
+        &["fetch", "--quiet"],
+        directory,
+        BACKGROUND_FETCH_TIMEOUT_SEC,
+        &[("GIT_TERMINAL_PROMPT", "0")],
+    )
+    .await
+    .is_ok()
+}
 
 #[derive(Debug)]
 pub struct GitOutput {
@@ -242,6 +257,17 @@ pub async fn git_branches(directory: &Path) -> Vec<String> {
     }
 }
 
+/// origin の remote URL から GitHub URL を解決する（Python `git_github_url` 相当）。
+pub async fn git_github_url(directory: &Path) -> Option<String> {
+    let out = run_git_query(
+        &["remote", "get-url", "origin"],
+        directory,
+        GIT_QUICK_TIMEOUT_SEC,
+    )
+    .await?;
+    parse_github_url(out.trim())
+}
+
 pub fn parse_github_url(remote_url: &str) -> Option<String> {
     if !remote_url.contains("github.com") {
         return None;
@@ -357,17 +383,54 @@ pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Opti
     None
 }
 
+/// 登録済みワークスペースのうち実在する git リポジトリを (表示名, パス) で列挙する
+/// （Python `list_git_workspace_paths` 相当 — `~` は展開する）。
+pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathBuf)> {
+    let mut result = Vec::new();
+    for (ws_id, entry) in store.list_workspace_entries() {
+        let p =
+            crate::paths::expand_user_path(entry.get("path").and_then(Value::as_str).unwrap_or(""));
+        if p.is_dir() && git_is_repo(&p).await {
+            let name = entry
+                .get("name")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(&ws_id)
+                .to_string();
+            result.push((name, p));
+        }
+    }
+    result
+}
+
 /// 登録済み git ワークスペースの linked worktree を動的に列挙する
-/// （Python `workspaces._dynamic_worktree_entries` の include_github_url=False 版）。
+/// （Python `workspaces._dynamic_worktree_entries` 相当）。
 /// config に登録されていない worktree のみを返す。
-pub async fn dynamic_worktree_entries(store: &ConfigStore) -> Vec<Value> {
+///
+/// `is_git_repo_map` が渡された場合、git リポジトリ判定はその値を再利用する
+/// （Python と同じく /workspaces のサマリ結果 — expanduser しないパスでの判定 —
+/// をそのまま引き継ぐ。バグ互換のため Rust 側でも再判定しない）。
+/// `include_github_url` は /workspaces（都度取得、頻度低）でのみ true にする —
+/// /workspaces/statuses は git_info() が別途 github_url を解決するため二重に呼ばない。
+pub async fn dynamic_worktree_entries(
+    store: &ConfigStore,
+    is_git_repo_map: Option<&std::collections::HashMap<String, bool>>,
+    include_github_url: bool,
+) -> Vec<Value> {
     let existing_paths: std::collections::HashSet<String> =
         registered_paths_by_resolved(store).into_keys().collect();
     let mut out = Vec::new();
     for (ws_id, entry) in store.list_workspace_entries() {
         let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
         let ws_path = crate::paths::expand_user_path(raw_path);
-        if !ws_path.is_dir() || !git_is_repo(&ws_path).await {
+        if !ws_path.is_dir() {
+            continue;
+        }
+        let is_git = match is_git_repo_map {
+            Some(map) => map.get(&ws_id).copied().unwrap_or(false),
+            None => git_is_repo(&ws_path).await,
+        };
+        if !is_git {
             continue;
         }
         let base_name = entry
@@ -388,7 +451,7 @@ pub async fn dynamic_worktree_entries(store: &ConfigStore) -> Vec<Value> {
                 continue;
             }
             let branch = wt.get("branch").and_then(Value::as_str).unwrap_or("");
-            out.push(json!({
+            let mut wt_entry = json!({
                 "id": Value::Null,
                 "name": worktree_display_name(&base_name, branch),
                 "path": wt_path_str,
@@ -400,7 +463,18 @@ pub async fn dynamic_worktree_entries(store: &ConfigStore) -> Vec<Value> {
                 "worktree": true,
                 "worktree_base": base_name,
                 "worktree_branch": branch,
-            }));
+            });
+            if include_github_url {
+                // worktree は main リポジトリと git ディレクトリ（remote 設定含む）を
+                // 共有するため、worktree 自身のパスからでも解決できる。
+                if let Some(url) = git_github_url(wt_path).await {
+                    wt_entry["github_url"] = json!(url);
+                }
+                if let Some(db) = git_default_branch(wt_path).await {
+                    wt_entry["default_branch"] = json!(db);
+                }
+            }
+            out.push(wt_entry);
         }
     }
     out

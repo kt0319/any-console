@@ -24,7 +24,7 @@ use any_console_server::static_files::StaticCtx;
 fn upstream_router() -> Router {
     Router::new()
         .route(
-            "/workspaces",
+            "/terminal/sessions",
             get(|headers: HeaderMap| async move {
                 Json(json!({
                     "workspaces": [],
@@ -113,6 +113,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
         config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
         git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
         gh_cache: any_console_server::github::GhCache::new(),
+        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
@@ -133,7 +134,7 @@ async fn http_get_is_proxied_with_forwarded_for() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/workspaces", front.addr))
+        .get(format!("http://{}/terminal/sessions", front.addr))
         .header("authorization", "Bearer tkn")
         .send()
         .await
@@ -149,7 +150,7 @@ async fn spoofed_forwarded_for_is_appended_not_trusted() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/workspaces", front.addr))
+        .get(format!("http://{}/terminal/sessions", front.addr))
         .header("x-forwarded-for", "6.6.6.6")
         .send()
         .await
@@ -186,7 +187,7 @@ async fn security_headers_are_added() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/workspaces", front.addr))
+        .get(format!("http://{}/terminal/sessions", front.addr))
         .send()
         .await
         .unwrap();
@@ -224,7 +225,7 @@ async fn static_files_served_by_rust_with_proxy_fallthrough() {
     );
     // dist に無いパスは upstream へ
     let resp = client()
-        .get(format!("http://{}/workspaces", front.addr))
+        .get(format!("http://{}/terminal/sessions", front.addr))
         .send()
         .await
         .unwrap();
@@ -235,7 +236,7 @@ async fn static_files_served_by_rust_with_proxy_fallthrough() {
 async fn rate_limit_returns_429_with_detail() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 2).await;
-    let url = format!("http://{}/workspaces", front.addr);
+    let url = format!("http://{}/terminal/sessions", front.addr);
     assert_eq!(client().get(&url).send().await.unwrap().status(), 200);
     assert_eq!(client().get(&url).send().await.unwrap().status(), 200);
     let resp = client().get(&url).send().await.unwrap();

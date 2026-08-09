@@ -167,7 +167,7 @@ Rust も参加すればプロセス間で安全に書けるため、Phase 1 の�
 |------|---------|------|
 | `routers/system.py`（システム情報） | 493 | **移行済み** |
 | `routers/settings.py` + `icons.py` | 469 | **移行済み**（/settings/auth と /recent-jobs は除く — 前者は auth.json ドメイン、後者は jobs 解決依存） |
-| `routers/workspaces.py` + `routers/groups.py` | 452 | groups + PUT /workspace-order は**移行済み**。workspaces 本体は git ヘルパー（Phase 2）と status stream への nudge（Phase 4）に依存するため後続フェーズで移行 |
+| `routers/workspaces.py` + `routers/groups.py` | 452 | **移行済み**（workspaces 本体は Phase 4 で移行 — 一覧/statuses/登録/設定/削除/suggest。status stream への nudge は migration_bridge 経由） |
 | `routers/devices.py` + `devices.py` | 339 | Phase 4 以降へ後ろ倒し |
 | `routers/api_tokens.py` | 52 | Phase 4 以降へ後ろ倒し |
 | `activity.py` / `gh_utils.py` | 79 | |
@@ -189,8 +189,8 @@ rebase / reset / commit / stash 5種 / diff 3種 / discard）を移行済み。
 
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
-| `git_utils.py` / `git_lock.py` | 323 | **移行済み**（background_fetch は workspaces 移行時 = Phase 4） |
-| `git_info.py` | 317 | Phase 4 へ後ろ倒し（利用者が /workspaces/statuses と git_watch = リアルタイム系のみのため） |
+| `git_utils.py` / `git_lock.py` | 323 | **移行済み**（background_fetch 含む — Phase 4 で追加） |
+| `git_info.py` | 317 | **移行済み**（Phase 4 — 11 クエリ並列 + 5秒 TTL キャッシュ + 世代ガード。Python 側は git_watch の refresh 用に併存） |
 | `routers/git_history.py` / `git_diff.py` / `git_diff_utils.py` / `git_helpers.py` | 485 | **移行済み** |
 | `routers/git_branches.py`（checkout / pull / push / fetch） | 337 | **移行済み**（ssh_env・追跡情報・未push件数アルゴリズム含む） |
 | `routers/git_files.py` / `git_file_utils.py`（ファイル CRUD / zip） | 399 | **移行済み**（multipart アップロード・zip ダウンロード・ref 指定閲覧含む） |
@@ -200,11 +200,11 @@ rebase / reset / commit / stash 5種 / diff 3種 / discard）を移行済み。
 **実装時の確定事項**:
 
 - Python の `execute_git_action` は成功時に `invalidate_git_info`
-  （= status stream への即時 nudge）を行うが、git_info / status stream は
-  Python 側に残るため Rust からは呼べない。Python の git_watch が FS イベント
-  （.git/HEAD・index・refs）で検知して push する経路（デバウンス 300ms）が
-  下支えするため、反映が僅かに遅れるだけで機能は劣化しない（Phase 4 で
-  status stream ごと移行して即時 nudge に戻す）
+  （= status stream への即時 nudge）を行う。Phase 2 時点では git_watch の
+  FS イベント検知（デバウンス 300ms）が下支えする設計だったが、Phase 4 で
+  loopback 限定の `POST /internal/git-nudge`（`api/routers/migration_bridge.py`）
+  を追加し、Rust の git 操作からも即時 nudge を復元済み（fire-and-forget、
+  失敗時は従来どおり FS 監視が下支え）
 - ワークスペースロックはプロセス内のみ（Python と同等）。Python に残る
   dispatch の checkout は元々このロックを取らないため、プロセス間の保護
   レベルは移行前と同等（後退なし）
@@ -237,21 +237,43 @@ pairing は devices.json への書き込み（認証ドメイン）依存のた�
 
 **注意**: dispatch はキュー JSON の互換とステータスストリームへのスナップショット配信（Phase 4 と接続）が要。dispatch トークンの権限境界（direct: true 拒否）はセキュリティ要件なのでテストを厚く移植する。
 
-### Phase 4 — リアルタイム系（WebSocket / FS 監視 / ポーリング）
+### Phase 4 — リアルタイム系（WebSocket / FS 監視 / ポーリング）— **workspaces + git_info 移行済み・WS 系は再スコープ**
 
 **目的**: status stream ソケットに相乗りする監視系一式。ここから難度が上がる。
 
-| 対象 | 行数目安 |
-|------|---------|
-| `ws_broadcast.py` / `routers/status_stream.py` | 141 |
-| `git_watch.py`（watchfiles → notify、自動 fetch） | 433 |
-| `session_watch.py` | 74 |
-| `agent_watch.py`（3値状態判定・自動紐付け） | 584 |
-| `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 |
-| `manifest_update.py`（リモートマニフェスト更新） | 272 |
-| `agent_hooks.py` + `routers/agent_hooks.py` | 180 |
-| `foreground.py`（/proc・ps の前面 argv 検査） | 176 |
-| `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 |
+**状況**: ポーリング系のスライス（workspaces ルーター本体 + git_info パイプライン +
+プロセス間 nudge ブリッジ）を移行済み:
+
+- `workspaces.rs`: GET /workspaces（サマリ並列取得・workspace_order ソート・
+  動的 worktree 列挙・background fetch 並列 4）/ GET /workspaces/statuses /
+  POST・DELETE /workspaces / PUT /workspaces/{name}/config / GET /workspaces/suggest。
+  サマリのパス判定が expanduser しない挙動もバグ互換で維持
+- `git_info.rs`: 11 の git クエリを並列実行し branch / upstream / ahead-behind /
+  diff 統計を集約。5 秒 TTL キャッシュ + 計算中 invalidate の世代ガード（Python と同一設計）
+- `api/routers/migration_bridge.py`（**Python 側に新設・移行完了時に削除**）:
+  loopback 限定 `POST /internal/git-nudge`。Rust の git 操作・ワークスペース変更から
+  Python 側 status stream（git_watch）への即時 push を復元する
+- `config.rs` に save/delete_workspace_config（flock 下 read-modify-write、
+  workspace_order の掃除含む）を追加
+
+**実装時に確定した再スコープ**: status stream WS 本体（ws_broadcast /
+status_stream / git_watch / session_watch）は producer の大半
+（session_watch・agent_watch・dispatch スナップショット）がターミナル状態に
+依存するため、**Phase 5（ターミナル）と同時に移行**する。agent 状態系・preview も
+同様に後続へ:
+
+| 対象 | 行数目安 | 状況 |
+|------|---------|------|
+| `routers/workspaces.py` 本体 + `git_info.py` + background_fetch | 660 | **移行済み** |
+| `ws_broadcast.py` / `routers/status_stream.py` | 141 | Phase 5（producer がターミナル依存） |
+| `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | Phase 5（status stream と同時） |
+| `session_watch.py` | 74 | Phase 5 |
+| `agent_watch.py`（3値状態判定・自動紐付け） | 584 | Phase 5 |
+| `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | Phase 5 |
+| `manifest_update.py`（リモートマニフェスト更新） | 272 | Phase 5 |
+| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | Phase 5 |
+| `foreground.py`（/proc・ps の前面 argv 検査） | 176 | Phase 5 |
+| `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | Phase 5 |
 
 **注意**:
 - git_watch は「購読者ゼロで全停止」のライフサイクル管理が肝。tokio の task 管理で等価に

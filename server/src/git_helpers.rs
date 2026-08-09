@@ -15,6 +15,20 @@ use crate::state::AppState;
 
 // ─── validators（api/validators.py）────────────────────────────────────────
 
+pub fn validate_workspace_name(name: &str) -> Result<String, ApiError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(bad_request("Workspace name is required"));
+    }
+    let ok = name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'));
+    if !ok {
+        return Err(bad_request(format!("Invalid workspace name: {name}")));
+    }
+    Ok(name.to_string())
+}
+
 pub fn validate_branch_name(branch: &str) -> Result<String, ApiError> {
     let branch = branch.trim();
     if branch.is_empty() {
@@ -60,11 +74,9 @@ pub fn validate_stash_ref(stash_ref: &str) -> Result<String, ApiError> {
 
 /// ワークスペースロック下で git コマンドを実行する（Python `execute_git_action`）。
 ///
-/// Python 側はここで `invalidate_git_info`（= status stream への即時 nudge）も行うが、
-/// git_info / status stream は Python プロセスに残っているため Rust からは呼べない。
-/// Python の git_watch が FS イベント（.git/HEAD・index・refs）で変更を検知して
-/// push する経路（デバウンス 300ms）が下支えするため、反映は僅かに遅れるだけで
-/// 機能は劣化しない（status stream 移行 = Phase 4 で即時 nudge に戻す）。
+/// Python 側の `invalidate_git_info`（= status stream への即時 nudge）に対応して、
+/// Rust ローカルの git_info キャッシュを無効化し、Python 側へ /internal/git-nudge を
+/// 送る（migration_bridge — status stream が Python に残る移行期間の即時反映）。
 pub async fn execute_git_action(
     state: &Arc<AppState>,
     name: &str,
@@ -88,7 +100,15 @@ pub async fn execute_git_action(
         extra,
         result["exit_code"]
     );
+    invalidate_git_info(state, name, &ws_path);
     Ok(result)
+}
+
+/// Python `invalidate_git_info` の Rust 対応: ローカルキャッシュの無効化 +
+/// Python 側 status stream への即時 nudge（fire-and-forget）。
+pub fn invalidate_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
+    state.git_info_cache.invalidate(ws_path);
+    state.proxy.nudge_git(Some(name.to_string()));
 }
 
 /// execute_git_action の成功時に activity を記録する定型（Python

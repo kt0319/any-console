@@ -26,6 +26,22 @@ pub fn expand_user_path(s: &str) -> PathBuf {
     expand_user(s)
 }
 
+/// ホームディレクトリ配下のパスを `~/...` 形式の文字列に変換する
+/// （Python `collapse_user_path` 相当。ホーム自身は Python の
+/// `relative_to` が `.` を返すのに合わせて "~/." になる）。
+pub fn collapse_user_path(p: &Path) -> String {
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        if let Ok(rel) = p.strip_prefix(&home) {
+            if rel.as_os_str().is_empty() {
+                return "~/.".to_string();
+            }
+            return format!("~/{}", rel.to_string_lossy());
+        }
+    }
+    p.to_string_lossy().into_owned()
+}
+
 /// パスを解決した絶対パス文字列を返す（Python `safe_resolve_str` 相当）。
 /// canonicalize（symlink 解決込み）を試み、失敗時はレキシカルな正規化で代替する。
 pub fn safe_resolve_str(path: &Path) -> String {

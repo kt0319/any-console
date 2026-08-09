@@ -87,7 +87,7 @@ pub async fn list_all_workspace_jobs(
         );
     }
     // 動的 worktree（config 未登録）はベースのジョブ定義を引き継ぐ
-    for wt in dynamic_worktree_entries(&state.config).await {
+    for wt in dynamic_worktree_entries(&state.config, None, false).await {
         let name = wt
             .get("name")
             .and_then(Value::as_str)
