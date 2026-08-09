@@ -23,6 +23,7 @@ pub mod git_worktree;
 pub mod github;
 pub mod groups;
 pub mod icons;
+pub mod job_match;
 pub mod job_runner;
 pub mod jobs;
 pub mod jobs_common;
