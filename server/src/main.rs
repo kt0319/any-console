@@ -109,6 +109,7 @@ async fn main() {
         gh_cache: any_console_server::github::GhCache::new(),
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
+        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

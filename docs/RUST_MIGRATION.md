@@ -280,38 +280,15 @@ status_stream / git_watch / session_watch）は producer の大半
 - foreground.py の Linux(/proc) / macOS(ps) 二系統分岐はそのまま移植（クロスプラットフォーム一級サポートの方針）
 - 状態判定の優先順位（hooks > manifest > 画面差分）はロジック単体テストを先に移植してから配線する
 
-### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **PTY/tmux/セッションレジストリ 移行済み・配線は継続中**
+### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **PTY/tmux/セッションレジストリ/terminal router 移行済み・配線は dispatch.rs 待ち**
 
 **目的**: 製品の心臓部。pty × tmux × WebSocket の三つ巴で、pytest カバレッジ除外領域＝自動テストが最も薄い。
 
-**状況**: 最もリスクの高い OS プリミティブ（PTY fork/exec と tmux セッション制御）と、
-その上に乗るセッションレジストリ（`TerminalSession`/`ClientBridge`/マルチクライアント
-アタッチ）を先行して移行・実 tmux での統合テストまで確認済み。**まだどのルートにも
-配線していない**（`build_router` 未登録・全リクエストは引き続き Python へ proxy —
-挙動への影響ゼロ）。`routers/terminal.py`（HTTP + WS）の移行、および `/run`・`/dispatch`
-の同時移行（下記「重要な設計判断」参照）は後続の作業として継続する。
-
-- `terminal_session.rs`: `TerminalSession`（tmux ベースセッション1つ = 1シェル）と
-  `ClientBridge`（WS クライアント1接続 = 1 tmux アタッチ）、レジストリ
-  `TerminalRegistry`（`Arc<Mutex<TerminalSession>>` ごとの粒度でロック — セッション
-  単位の同時実行を registry 全体のロックで塞がない）。WebSocket/axum には依存せず、
-  PTY からの読み取りは `mpsc::UnboundedSender<PtyEvent>` へ流すだけに留める（実際の
-  WS 送受信は router 側の責務として分離。Python の `routers/terminal.py` が
-  `_bridge_reader`/`start_bridge_reader` を呼ぶのに対応する箇所は router 実装時に
-  この chennel を axum の `WebSocket::send` へポンプするだけで済む）
-  - `create_registered_session`: 容量チェック（`MAX_TERMINAL_SESSIONS`=20）→ ID 生成
-    → tmux 作成 → 登録 → メタデータ保存。workspace 名からの ID 生成は動的 worktree
-    表示名からベース名を剥がす（`worktree_base_of`、`git_utils.rs` に追加）
-  - `get_or_register`: レジストリ未登録でも tmux 実在確認 → 環境変数からのメタデータ
-    復元で on-demand 登録する（`from_tmux`）。これにより「別プロセスが作成した
-    tmux セッション」も透過的に解決できる（tmux 自体が永続化層のため、`/run`・
-    `/dispatch` を後で移行する際もレジストリの再構築だけで済む）
-  - PTY のクローズは `pty::terminate`（signal のみ）と Arc の自然な drop（fd の
-    クローズ）を分離し、reader task・ClientBridge の双方が同じ fd を安全に共有できる
-    ようにした（`pty::close` は排他所有向けに従来通り残す）
-- `pty.rs`: `terminate(pid)` を追加（fd クローズと signal 送出を分離）
-
-**重要な設計判断（後続作業のために記録）**: `/dispatch`（`routers/dispatch.py`）は
+**状況**: 最もリスクの高い OS プリミティブ（PTY fork/exec と tmux セッション制御）、
+その上に乗るセッションレジストリ、`routers/terminal.py` 相当の HTTP + WS ルート一式を
+先行して移行・実 tmux での統合テストまで確認済み。**まだどのルートにも配線していない**
+（`build_router` 未登録・全リクエストは引き続き Python へ proxy — 挙動への影響ゼロ）。
+下記「重要な設計判断」の通り `/run`・`/dispatch` が揃うまで配線を保留する。
 
 - `pty.rs`: `nix::pty::forkpty`（glibc `forkpty(3)` = openpty+fork+login_tty を1ステップ
   で行う。CPython の `os.forkpty()` と同じ土台）で PTY 上に子プロセスを fork+exec する。
@@ -320,41 +297,82 @@ status_stream / git_watch / session_watch）は producer の大半
   プロセスの fork 直後にアロケータのロックを取ろうとして永久ブロックする既知の踏み穴を
   避けるため）。読み取りは `tokio::io::unix::AsyncFd` で non-blocking fd を async 化
   （Python の `PTY_EXECUTOR` スレッドプールに対する epoll ベースの代替。外部から見た
-  挙動は同一）。EIO（tmux セッション終了時に PTY マスタから返る）は EOF として扱う
+  挙動は同一）。EIO（tmux セッション終了時に PTY マスタから返る）は EOF として扱う。
+  `terminate(pid)` で fd クローズと signal 送出を分離し、`Arc<AsyncPty>` を複数箇所
+  （reader task・ClientBridge）が安全に共有できるようにした
 - `tmux.rs`: セッション作成（`systemd-run --user --scope --quiet` 優先 → プレーン
   `tmux` へフォールバック）、PTY 経由のアタッチ（`attach_tmux_session`）、
-  メタデータの読み書き（tmux 環境変数 = `set-environment`/`show-environment`）、
+  メタデータの読み書き（tmux 環境変数 = `set-environment`/`show-environment`。
+  `TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER` も読み取り対象に含む — 後述）、
   ペイン状態問い合わせ（capture-pane・display-message 各種）を移行。hook 用環境変数
   （`ANY_CONSOLE_HOOK_URL`/`_TOKEN`）の組み立ても含む（`data/hook_token` は
   Python の `agent_hooks.get_hook_token` と同一ファイル・同一 best-effort 挙動）
 - `config.rs` に `match_workspace_by_path`（最長前方一致でのワークスペース自動判定。
   tmux アタッチ時の workspace 検出に使う）を追加
-- 実 tmux でのセッション作成→メタデータ書き込み→アタッチ→コマンド送信→出力読み取り
-  →終了の一連を統合テストで確認済み（`tmux::tests::create_attach_and_kill_real_session`）
+- `terminal_session.rs`: `TerminalSession`（tmux ベースセッション1つ = 1シェル）と
+  `ClientBridge`（WS クライアント1接続 = 1 tmux アタッチ）、レジストリ
+  `TerminalRegistry`（`Arc<Mutex<TerminalSession>>` ごとの粒度でロック — セッション
+  単位の同時実行を registry 全体のロックで塞がない）。WebSocket/axum には依存せず、
+  PTY からの読み取りは `mpsc::UnboundedSender<PtyEvent>` へ流すだけに留める（実際の
+  WS 送受信は router 側の責務として分離）
+  - `create_registered_session`: 容量チェック（`MAX_TERMINAL_SESSIONS`=20）→ ID 生成
+    → tmux 作成 → 登録 → メタデータ保存。workspace 名からの ID 生成は動的 worktree
+    表示名からベース名を剥がす（`worktree_base_of`、`git_utils.rs` に追加）
+  - `get_or_register`: レジストリ未登録でも tmux 実在確認 → 環境変数からのメタデータ
+    復元で on-demand 登録する（`from_tmux`）。これにより「別プロセスが作成した
+    tmux セッション」も透過的に解決できる（tmux 自体が永続化層のため）
+- `terminal.rs`: `routers/terminal.py` の HTTP 全エンドポイント（sessions 一覧・history
+  capture（複数クライアント接続中の resize-window 抑止ロジック込み）・削除・cwd・
+  files/file-content（`git_files.rs` の `list_directory_entries`/
+  `read_file_content_response` を `pub(crate)` 化して再利用）・workspace/detached
+  更新・tab order）とネイティブ WS ハンドラ（axum の `WebSocketUpgrade` を直接処理 —
+  初めて proxy を経由しない WS エンドポイント）を移行。WS 接続後に
+  `TMUX_PENDING_TEXT`/`_ENTER`（後述）を flush する処理も含む
 
 **重要な設計判断（後続作業のために記録）**: `/dispatch`（`routers/dispatch.py`）は
 `create_registered_session` で作成した `TerminalSession` に `pending_text`
-（承認された text をクライアント接続後に送る仕組み）をインメモリで持たせている。
+（承認された text をクライアント接続後に送る仕組み）をインメモリで持たせていた。
 ターミナル WS がプロセス分離されると、この状態は生成元プロセスにしか見えないため
 **`/run`・`/dispatch` はターミナル WS 移行と同時に移行しなければならない**
 （`_find_existing_session` の再利用判定も同様に、セッションレジストリを持つプロセスと
-揃っていないと機能しない）。push 通知（VAPID/pywebpush）と dispatch キューの
-ステータスストリーム配信（`type="dispatch_queue"`、WS 自体は当面 Python 側に残る）は
-Python 側への loopback ブリッジ（`migration_bridge.py` 拡張）で当面つなぐ方針。
+揃っていないと機能しない）。この対応として、pending text の永続化先を
+インメモリフィールドから **tmux 環境変数**（`TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER`）
+へ変更した（`dispatch.rs` 実装時に同様に設定する）。tmux 自体が永続化層になるため、
+どちらの言語がセッションを作った/WS が誰に繋がったかに依存せず安全に受け渡せる。
+
+push 通知（VAPID/pywebpush）と dispatch キューのステータスストリーム配信
+（`type="dispatch_queue"`、WS 自体は当面 Python 側に残る）・dispatch scope の API
+トークン検証は、Python 側への loopback ブリッジで当面つなぐ（`migration_bridge.py`
+に追加済み）:
+- `POST /internal/session-event`（Rust→Python）: ターミナルセッションの作成/削除を
+  session_watch へ即時反映（削除時は `agent_hooks.clear_session` も呼ぶ）
+- `POST /internal/send-push`（Rust→Python）: `push.send_push_notification` を実行
+- `POST /internal/dispatch-queue`（Rust→Python）: dispatch キューの全量スナップ
+  ショットを status stream WS 購読者へ中継。`routers/dispatch.py` 側は
+  `set_bridged_payload` で受け取った値を優先する（Rust 移行後は `_PENDING`/`_RECENT`
+  が更新されなくなるため）よう最小限の追加のみ行った（ルート本体は未変更）
+- `POST /internal/verify-dispatch-api-token`（Rust→Python）: 既存の
+  `auth._verify_api_token`（auth.json の api_tokens 配列照合）を再利用する。
+  メイン/Tailscale/デバイス認証は Rust の `Auth.authenticate()` で完結するため、
+  このブリッジは「どれにも該当しなかった場合」だけ呼ばれる
+- `agent_watch.py` は `TERMINAL_SESSIONS` のインメモリキャッシュがヒットしなければ
+  tmux 環境変数へ直接フォールバックする既存の設計（cache-miss 時は
+  `_run_tmux_cmd`/`load_tmux_metadata` を直接叩く）のおかげで、Rust がレジストリを
+  持つようになっても変更不要で動き続けることを確認した（コード調査のみ、実装変更なし）
 
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
 | `tmux.py` | 259 | **移行済み**（`server/src/tmux.rs`） |
 | `terminal_pty.py`（forkpty / read / resize / close） | 77 | **移行済み**（`server/src/pty.rs`） |
 | `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 | **移行済み**（`server/src/terminal_session.rs`。配線は未実施） |
-| `routers/terminal.py` | 416 | 配線継続中 |
+| `routers/terminal.py` | 416 | **移行済み**（`server/src/terminal.rs`。配線は未実施） |
 | `routers/job_runner.py`（`/run`） | 131 | ターミナル配線と同時に移行 |
 | `routers/dispatch.py` | 651 | ターミナル配線と同時に移行（上記設計判断） |
 | `push.py`（VAPID / Web Push） | 180 | 当面 Python 側にブリッジ経由で残す |
 
 **注意**:
 - tmux の `window-size latest` ポリシー・複数クライアント同時アタッチ・detached セッション（adopt/close）の E2E（`terminal.spec.js` / `detached-sessions.spec.js` / `mobile-terminal.spec.js`）を macOS / Linux 両方で回す
-- 配線（`build_router` への登録）は `terminal_session.rs` + WS ハンドラ + `/run`/`/dispatch` が揃った時点で一括して行う（片方だけ配線すると上記の pending_text 不整合が実際に発生するため）
+- 配線（`build_router` への登録）は `terminal.rs`（WS 含む）+ `/run`/`/dispatch` が揃った時点で一括して行う（片方だけ配線すると上記の pending_text 不整合が実際に発生するため）
 - 切替前に**手動スモーク期間**を設ける（iOS Safari / Android Chrome の実機確認を含む）
 
 ### Phase 6 — Python 撤去・配布切替

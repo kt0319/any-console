@@ -16,6 +16,7 @@ def _clear_pending():
     dispatch_mod._PENDING.clear()
     dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
+    dispatch_mod._bridged_payload = None
     # テストごとにイベントループが変わるため、前のループのワーカータスク参照を破棄する
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
@@ -23,6 +24,7 @@ def _clear_pending():
     dispatch_mod._PENDING.clear()
     dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
+    dispatch_mod._bridged_payload = None
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
 
@@ -162,6 +164,22 @@ class TestQueueBroadcast:
         assert ws.sent == [
             {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}], "recent": []},
         ]
+
+    def test_bridged_payload_overrides_local_state(self):
+        """Rust 側（server/src/dispatch.rs）からのブリッジ受信後は、ローカルの
+        _PENDING/_RECENT ではなくブリッジされたスナップショットを配信する
+        （Rust 移行後は _PENDING が更新されなくなるため）。"""
+        ws = _FakeWS()
+        bridged = {"type": "dispatch_queue", "items": [{"id": "rust-1", "request": {}}], "recent": []}
+
+        async def run():
+            dispatch_mod._PENDING["local-only"] = {"workspace": "test-ws"}
+            dispatch_mod.set_bridged_payload(bridged)
+            await dispatch_mod.subscribe(ws)
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+        assert ws.sent[-1] == bridged
 
     def test_schedule_during_send_rebroadcasts_latest(self):
         """送信中（await 中）に状態が変わって再スケジュールされた場合、ワーカーは

@@ -102,7 +102,23 @@ def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
     _persist_recent()
 
 
+# Rust 実装（server/src/dispatch.rs）が /dispatch* を処理するようになった後の
+# 全量スナップショット（migration_bridge.py `/internal/dispatch-queue` 経由）。
+# 設定されていればこちらを優先する（Rust 移行後は _PENDING/_RECENT は更新されず
+# 空のままになるため）。
+_bridged_payload: dict | None = None
+
+
+def set_bridged_payload(payload: dict) -> None:
+    """Rust 側からの dispatch キュー全量スナップショットを受け取り、配信予約する。"""
+    global _bridged_payload
+    _bridged_payload = payload
+    _schedule_queue_broadcast()
+
+
 def _queue_payload() -> dict:
+    if _bridged_payload is not None:
+        return _bridged_payload
     return {
         "type": "dispatch_queue",
         "items": [{"id": did, "request": req} for did, req in _PENDING.items()],

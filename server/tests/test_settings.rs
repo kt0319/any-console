@@ -42,6 +42,7 @@ async fn spawn_front() -> TestFront {
         gh_cache: any_console_server::github::GhCache::new(),
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
+        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir, false),

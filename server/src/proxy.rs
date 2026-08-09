@@ -100,6 +100,95 @@ impl Proxy {
             }
         });
     }
+
+    /// ターミナルセッションの作成・削除を Python 側 status stream（session_watch）
+    /// へ即時反映する（migration_bridge — fire-and-forget）。event は
+    /// "created"/"removed"。"removed" は Python 側 agent_hooks の状態も掃除する。
+    pub fn notify_session_event(&self, event: &'static str, session_id: String) {
+        let client = self.client.clone();
+        let url = self.upstream_url("/internal/session-event");
+        tokio::spawn(async move {
+            let body = serde_json::json!({ "event": event, "session_id": session_id });
+            let result = client
+                .post(&url)
+                .json(&body)
+                .timeout(std::time::Duration::from_secs(5))
+                .send()
+                .await;
+            if let Err(e) = result {
+                tracing::debug!("session-event to upstream failed: {e}");
+            }
+        });
+    }
+
+    /// Web Push 通知の送信を Python 側（VAPID/pywebpush）へ委譲する
+    /// （migration_bridge — fire-and-forget。呼び出し元の応答は遅らせない）。
+    pub fn send_push(&self, title: String, body: String, url_path: String, notif_type: String) {
+        let client = self.client.clone();
+        let url = self.upstream_url("/internal/send-push");
+        tokio::spawn(async move {
+            let payload = serde_json::json!({
+                "title": title, "body": body, "url": url_path, "notif_type": notif_type,
+            });
+            let result = client
+                .post(&url)
+                .json(&payload)
+                .timeout(std::time::Duration::from_secs(10))
+                .send()
+                .await;
+            if let Err(e) = result {
+                tracing::debug!("send-push to upstream failed: {e}");
+            }
+        });
+    }
+
+    /// dispatch キューの全量スナップショットを Python 側 status stream（WS 購読者）
+    /// へ中継する（migration_bridge — fire-and-forget。WS 自体は Python に残る）。
+    pub fn broadcast_dispatch_queue(&self, payload: serde_json::Value) {
+        let client = self.client.clone();
+        let url = self.upstream_url("/internal/dispatch-queue");
+        tokio::spawn(async move {
+            let result = client
+                .post(&url)
+                .json(&payload)
+                .timeout(std::time::Duration::from_secs(5))
+                .send()
+                .await;
+            if let Err(e) = result {
+                tracing::debug!("dispatch-queue relay to upstream failed: {e}");
+            }
+        });
+    }
+
+    /// dispatch scope の API トークン検証を Python 側（`auth.py` の
+    /// `_verify_api_token` — auth.json の api_tokens 配列）へ委譲する。
+    /// 戻り値は (ok, label)。ブリッジ自体の失敗は「無効」として扱う。
+    pub async fn verify_dispatch_api_token(&self, token: &str) -> (bool, Option<String>) {
+        let url = self.upstream_url("/internal/verify-dispatch-api-token");
+        let body = serde_json::json!({ "token": token });
+        let resp = match self
+            .client
+            .post(&url)
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!("verify-dispatch-api-token bridge failed: {e}");
+                return (false, None);
+            }
+        };
+        match resp.json::<serde_json::Value>().await {
+            Ok(v) => {
+                let ok = v["ok"].as_bool().unwrap_or(false);
+                let label = v["label"].as_str().map(String::from);
+                (ok, label)
+            }
+            Err(_) => (false, None),
+        }
+    }
 }
 
 fn path_and_query(req_uri: &axum::http::Uri) -> String {

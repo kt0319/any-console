@@ -29,7 +29,10 @@ pub const TMUX_ATTR_ENV_NAMES: &[&str] = &[
     "TMUX_INTERACTIVE",
 ];
 
-/// `load_tmux_metadata` が読み取る全キー（TMUX_DETACHED は個別管理のため別枠）。
+/// `load_tmux_metadata` が読み取る全キー（TMUX_DETACHED・TMUX_PENDING_* は
+/// 個別管理のため `TMUX_ATTR_ENV_NAMES` とは別枠）。TMUX_PENDING_TEXT/_ENTER は
+/// dispatch（`dispatch.rs`）が新規セッションへ予約するテキストの永続化に使う
+/// （プロセスをまたいでも tmux 環境変数経由で安全に受け渡せる）。
 const TMUX_META_ENV_NAMES: &[&str] = &[
     "TMUX_WORKSPACE",
     "TMUX_ICON",
@@ -38,6 +41,8 @@ const TMUX_META_ENV_NAMES: &[&str] = &[
     "TMUX_JOB_LABEL",
     "TMUX_INTERACTIVE",
     "TMUX_DETACHED",
+    "TMUX_PENDING_TEXT",
+    "TMUX_PENDING_ENTER",
 ];
 
 // ─── hook 用環境変数（Python `agent_hooks.hook_session_env` 相当）─────────────

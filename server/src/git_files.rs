@@ -120,7 +120,7 @@ fn build_content_response(path: &str, ext: &str, raw: &[u8], size: u64) -> Value
     json!({"status": "ok", "path": path, "content": content, "size": size})
 }
 
-fn read_file_content_response(path: &str, target: &FsPath) -> Result<Value, ApiError> {
+pub(crate) fn read_file_content_response(path: &str, target: &FsPath) -> Result<Value, ApiError> {
     let size = target
         .metadata()
         .map_err(|e| map_io_error("Stat failed", e))?
@@ -251,7 +251,10 @@ fn build_file_or_dir_entry(entry: &std::fs::DirEntry, is_ignored: bool) -> Value
     item
 }
 
-async fn list_directory_entries(ws_path: &FsPath, target: &FsPath) -> Result<Vec<Value>, ApiError> {
+pub(crate) async fn list_directory_entries(
+    ws_path: &FsPath,
+    target: &FsPath,
+) -> Result<Vec<Value>, ApiError> {
     let ignored = gitignored_names(target).await;
     let mut entries = Vec::new();
     let read_dir =

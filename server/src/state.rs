@@ -10,6 +10,7 @@ use crate::paths::Paths;
 use crate::proxy::Proxy;
 use crate::rate_limit::FixedWindowCounter;
 use crate::static_files::StaticCtx;
+use crate::terminal_session::TerminalRegistry;
 
 pub struct AppState {
     pub paths: Paths,
@@ -18,6 +19,7 @@ pub struct AppState {
     pub gh_cache: GhCache,
     pub git_info_cache: GitInfoCache,
     pub jobs_cache: JobsCache,
+    pub terminal_registry: TerminalRegistry,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,
