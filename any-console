@@ -25,21 +25,20 @@ LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
 # journalctl が無いため stdout/stderr はログファイルへ出す。
 LOG_FILE="$SCRIPT_DIR/logs/$SERVICE_NAME.log"
 
-# Python 依存はシステムを汚さないよう専用 venv に隔離する（externally-managed
-# 環境での pip エラー回避と再現性のため）。サービス起動も venv の python を使う。
-VENV_DIR="$SCRIPT_DIR/.venv"
+# サーバ本体は Rust バイナリ（cargo build --release の成果物）。python3 は
+# このスクリプト自身の JSON 操作ヘルパー（get_port 等）にのみ引き続き使う。
+RUST_BIN="$SCRIPT_DIR/server/target/release/any-console-server"
 
 error() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
 info()  { echo -e "${GREEN}$1${NC}"; }
 warn()  { echo -e "${YELLOW}$1${NC}"; }
 
-# アプリ実行に使う python を返す。venv があればそれを、無ければシステム python3。
-venv_python() {
-  if [ -x "$VENV_DIR/bin/python3" ]; then
-    echo "$VENV_DIR/bin/python3"
-  else
-    command -v python3
+# サーババイナリのパスを返す。無ければ setup/update を促して終了する。
+rust_binary() {
+  if [ ! -x "$RUST_BIN" ]; then
+    error "Server binary not found at $RUST_BIN — run './any-console setup' or './any-console update' first (or manually: cd server && cargo build --release)"
   fi
+  echo "$RUST_BIN"
 }
 
 # 利用可能なパッケージマネージャを1つ返す（無ければ空文字）。
@@ -138,16 +137,15 @@ check_deps() {
   exit 1
 }
 
-check_python_version() {
-  local python_version
-  python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-  local python_major python_minor
-  python_major=$(echo "$python_version" | cut -d. -f1)
-  python_minor=$(echo "$python_version" | cut -d. -f2)
-  if [ "$python_major" -lt 3 ] || { [ "$python_major" -eq 3 ] && [ "$python_minor" -lt 11 ]; }; then
-    error "Python 3.11+ required (current: $python_version)"
-  fi
-  echo "$python_version"
+# cargo は OS パッケージマネージャ版が古く本プロジェクトのビルドに不十分な
+# ことがあるため、check_deps() の汎用フローには混ぜず rustup を案内する。
+check_cargo() {
+  command -v cargo >/dev/null 2>&1 && return
+  echo ""
+  echo -e "${RED}cargo (Rust toolchain) not found.${NC}" >&2
+  echo "Install via rustup:" >&2
+  echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" >&2
+  exit 1
 }
 
 get_version() {
@@ -608,7 +606,7 @@ prompt_https_setup() {
 is_service_active() {
   if is_macos; then
     # sudo を避けるためプロセスの有無で判定する（単一アプリ前提）。
-    pgrep -f "api.main" >/dev/null 2>&1
+    pgrep -f "any-console-server" >/dev/null 2>&1
   else
     systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
   fi
@@ -661,17 +659,16 @@ install_service() {
 }
 
 # セットアップが「実際に使える状態」かを確認する。
-# 1) 依存が解決し api.main が import できるか（依存欠落・ビルド失敗をここで検出）
+# 1) サーババイナリがビルド済みか（依存欠落・ビルド失敗をここで検出）
 # 2) 既にサーバが動いていれば HTTP で応答するか（curl がある場合のみ）
 verify_install() {
-  local py port code
-  py="$(venv_python)"
+  local port code
 
-  if "$py" -c "import api.main" >/dev/null 2>&1; then
-    info "  OK: dependencies resolve, api.main imports cleanly"
+  if [ -x "$RUST_BIN" ]; then
+    info "  OK: server binary built at $RUST_BIN"
   else
-    warn "  FAILED: api.main does not import. Inspect with:"
-    warn "    $py -c 'import api.main'"
+    warn "  FAILED: server binary not found. Build with:"
+    warn "    cd server && cargo build --release"
     return
   fi
 
@@ -700,22 +697,12 @@ cmd_setup() {
 
   info "[1/7] Checking dependencies"
   check_deps
-  local python_version
-  python_version=$(check_python_version)
-  info "  OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
+  check_cargo
+  info "  OK: node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2), cargo $(cargo --version | cut -d' ' -f2)"
 
   echo ""
-  info "[2/7] Installing Python dependencies (.venv)"
-  if [ ! -d "$VENV_DIR" ]; then
-    python3 -m venv "$VENV_DIR"
-  fi
-  "$VENV_DIR/bin/pip" install --upgrade pip >/dev/null
-  "$VENV_DIR/bin/pip" install -r requirements.txt
-  # Push 通知の依存（pywebpush / http-ece）はネイティブビルドが必要で minimal な
-  # ホストでは失敗しうる。失敗してもセットアップは止めず、push 無効で続行する。
-  if ! "$VENV_DIR/bin/pip" install -r requirements-optional.txt; then
-    warn "  Optional push-notification deps failed to build — continuing without push."
-  fi
+  info "[2/7] Building the server (cargo build --release)"
+  (cd "$SCRIPT_DIR/server" && cargo build --release)
 
   echo ""
   info "[3/7] Installing Node.js dependencies"
@@ -802,11 +789,11 @@ cmd_setup() {
     warn "macOS note: file access prompts"
     echo "  When any-console reads files under a TCC-protected folder (Desktop,"
     echo "  Documents, Downloads, iCloud Drive), macOS may show a one-time"
-    echo "  permission dialog for the Python process. This cannot be suppressed"
+    echo "  permission dialog for the server process. This cannot be suppressed"
     echo "  from code — grant access once via:"
     echo "    System Settings > Privacy & Security > Files and Folders"
     echo "    (or Full Disk Access) > add:"
-    echo "    $(venv_python)"
+    echo "    $RUST_BIN"
     echo "  Then: ./any-console restart"
   fi
   local bind_host bind_port proto ts_host
@@ -824,7 +811,7 @@ cmd_setup() {
   fi
   echo ""
   local auth_token
-  auth_token=$("$(venv_python)" -c "
+  auth_token=$(python3 -c "
 import secrets, json, os, pathlib
 d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
 base = pathlib.Path(d).expanduser() if d.strip() else pathlib.Path('data')
@@ -854,8 +841,8 @@ if not p.exists():
 }
 
 generate_service_unit() {
-  local python_bin ssl_cert ssl_key env_lines=""
-  python_bin="$(venv_python)"
+  local bin ssl_cert ssl_key env_lines=""
+  bin="$(rust_binary)"
   ssl_cert=$(get_ssl_certfile)
   ssl_key=$(get_ssl_keyfile)
   if [ -n "$ssl_cert" ]; then env_lines+="Environment=SSL_CERTFILE=$ssl_cert"$'\n'; fi
@@ -878,7 +865,7 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=$python_bin -m api.main
+ExecStart=$bin
 ${env_lines}KillMode=process
 Restart=always
 RestartSec=3
@@ -904,8 +891,8 @@ install_systemd() {
 }
 
 generate_plist() {
-  local python_bin ssl_cert ssl_key ssl_env=""
-  python_bin="$(venv_python)"
+  local bin ssl_cert ssl_key ssl_env=""
+  bin="$(rust_binary)"
   ssl_cert=$(get_ssl_certfile)
   ssl_key=$(get_ssl_keyfile)
   if [ -n "$ssl_cert" ] && [ -n "$ssl_key" ]; then
@@ -943,9 +930,7 @@ generate_plist() {
   <string>$SCRIPT_DIR</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$python_bin</string>
-    <string>-m</string>
-    <string>api.main</string>
+    <string>$bin</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -1016,14 +1001,11 @@ cmd_update() {
   info "Updating ${current:-(none)} -> $latest"
   git -c advice.detachedHead=false checkout "$latest"
 
-  info "Updating dependencies..."
-  if [ ! -d "$VENV_DIR" ]; then
-    python3 -m venv "$VENV_DIR"
-  fi
-  "$VENV_DIR/bin/pip" install -r requirements.txt
-  if ! "$VENV_DIR/bin/pip" install -r requirements-optional.txt; then
-    warn "  Optional push-notification deps failed to build — continuing without push."
-  fi
+  info "Building the server..."
+  check_cargo
+  (cd "$SCRIPT_DIR/server" && cargo build --release)
+
+  info "Updating frontend dependencies..."
   npm install
 
   info "Building frontend..."
@@ -1115,7 +1097,7 @@ cmd_uninstall() {
         sudo rm -f "$old_plist"
       fi
       # launchd の bootout で止まらなかった残存プロセスを終了する。
-      pkill -f "api.main" 2>/dev/null || true
+      pkill -f "any-console-server" 2>/dev/null || true
       info "  launchd agent removed"
     else
       sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
@@ -1149,13 +1131,13 @@ cmd_uninstall() {
   fi
 
   echo ""
-  echo "Remove .venv/ and node_modules/? (can be reinstalled with setup)"
+  echo "Remove build artifacts (.venv/, node_modules/, server/target/)? (can be reinstalled with setup)"
   read -rp "[y/N] " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
-    rm -rf "$SCRIPT_DIR/.venv" "$SCRIPT_DIR/node_modules"
-    info "  .venv/ and node_modules/ removed"
+    rm -rf "$SCRIPT_DIR/.venv" "$SCRIPT_DIR/node_modules" "$SCRIPT_DIR/server/target"
+    info "  .venv/, node_modules/ and server/target/ removed"
   else
-    info "  .venv/ and node_modules/ kept"
+    info "  .venv/, node_modules/ and server/target/ kept"
   fi
 
   echo ""
@@ -1166,7 +1148,8 @@ cmd_uninstall() {
 
 cmd_run() {
   check_deps
-  check_python_version >/dev/null
+  local bin
+  bin="$(rust_binary)"
   local proto="http" ts_host url
   if has_https; then
     export SSL_CERTFILE="$(get_ssl_certfile)"
@@ -1181,7 +1164,7 @@ cmd_run() {
   fi
   info "Starting any-console in the foreground (Ctrl+C to stop)"
   echo "  URL: $url"
-  exec "$(venv_python)" -m api.main
+  exec "$bin"
 }
 
 cmd_https_setup() {

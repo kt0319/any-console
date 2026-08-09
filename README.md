@@ -243,7 +243,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console version    Show version
 ```
 
-`run` skips the service manager entirely and starts the API directly via `python3 -m api.main`. Useful for WSL or for quick test runs without registering a service.
+`run` skips the service manager entirely and starts the server binary directly in the foreground. Useful for WSL or for quick test runs without registering a service.
 
 ### Updating
 

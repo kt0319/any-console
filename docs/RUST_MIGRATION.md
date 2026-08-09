@@ -756,14 +756,64 @@ TLS 越しでも壊れていないことの実地検証）。証明書なしの�
 `load_tls_server_config` 自体のユニットテスト（正常系・不正 PEM・ファイル
 欠落）も `preview.rs` に追加した。
 
+### ランチャーの Rust 単独起動への切替 — **完了**
+
+**背景**: 上記2節（proxy 撤去・TLS 移設）により Rust が Python 無しで全機能を
+提供できることを実証したが、`./any-console`（本番ランチャー）自体は依然
+`python3 -m api.main` を直接 exec していた。ここを切り替えて初めて、
+実際のインストール・デプロイで Rust が本番トラフィックを受けるようになる。
+
+**実装**: `venv_python()`/`VENV_DIR`（`.venv` セットアップ・`pip install`）を
+`rust_binary()`/`RUST_BIN`（`server/target/release/any-console-server` の
+存在確認）へ置き換え、以下の呼び出し元を更新した:
+
+- `cmd_run`（foreground 実行）: `exec "$(rust_binary)"`
+- `generate_service_unit`（systemd）/`generate_plist`（launchd）: `ExecStart`/
+  `ProgramArguments` をバイナリ直接実行に変更（`-m api.main` 引数は不要 —
+  host/port/TLS 証明書はいずれも Rust 側が Python 版と同じ規則で
+  `config.json`/env var から自己解決するため、追加の CLI 引数無しでそのまま動く）
+- `is_service_active`（macOS の `pgrep -f`）/`cmd_uninstall`（`pkill -f`）:
+  プロセス名マッチを `api.main` → `any-console-server` に変更
+- `verify_install`: `import api.main` の代わりにバイナリの存在確認
+- `cmd_setup`/`cmd_update`: `.venv` セットアップ + `pip install -r
+  requirements*.txt` を `cargo build --release` に置き換え。`check_deps()`
+  の汎用フロー（OS パッケージマネージャでの自動インストール提案）には
+  `cargo` を混ぜず、`check_cargo()` を新設して rustup 個別に案内する
+  （OS パッケージマネージャ版の cargo は古く本プロジェクトのビルドに
+  不十分なことがあるため — CI が要求する clippy lint 通過には比較的新しい
+  rustc が必要だったことが本セッション中に実際にあった）
+- `check_python_version()`（3.11+ 強制）は削除。`python3` 自体は
+  ランチャー自身の JSON 操作ヘルパー（`get_port`/`register_workspace_paths`
+  等）に引き続き必要なため `check_deps()` の対象からは外していない
+  （バージョン不問 — これらのヘルパーは 3.11 固有機能に依存しない）
+
+**設計判断**: 当初検討した「Rust front + Python upstream の2プロセスを
+どう常駐管理するか」（子プロセス化 / systemd unit 2本 / ラッパースクリプト、
+のいずれか）という問題設定自体が、上記2節の実証により不要になった —
+Python が実行時に一切不要と証明できたため、ランチャーは単に実行対象を
+Python から Rust バイナリへ差し替えるだけでよく、2プロセス管理の複雑さを
+一切持ち込まずに済んだ。
+
+**検証**: `ANY_CONSOLE_DATA_DIR` で隔離した一時ディレクトリに対して
+`./any-console setup --non-interactive`（cargo build・npm install・
+npm run build・AI エージェント検出・トークン発行までのフルフロー）を実行し
+exit 0 で完走することを確認。続けて `./any-console run` で実際に Rust
+バイナリが起動し、発行されたトークンで実 HTTP 200 応答を返すことを確認した
+（Python プロセスは一切起動していない）。`generate_service_unit`/
+`generate_plist` の出力内容（`ExecStart`/`ProgramArguments` がバイナリの
+絶対パスを指すこと）も個別に検証済み。実 systemd/launchd への登録
+（`install`/`start`）自体は sudo・実サービスマネージャが無いこのサンドボックス
+環境では検証できていない — 生成される unit/plist の中身の正しさまでを
+確認した（実機での `./any-console setup` 通し確認は引き続き推奨）。
+
 ### Phase 6 — Python 撤去・配布切替 — **一部完了**
 
-- proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前々節参照。HTTP/WS プロキシは
+- proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前々々節参照。HTTP/WS プロキシは
   撤去済み、全 E2E スペックが Python 無しの Rust 単独で通過することを確認済み）
-- TLS 終端の Rust 側移設 — **完了**（前節参照）
-- `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — 未着手
+- TLS 終端の Rust 側移設 — **完了**（前々節参照）
+- `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — **完了**（前節参照）
 - requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — 未着手
-- README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — 未着手
+- README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — 一部着手（README の `run` コマンド説明のみ修正。Requirements 節等の本格更新は未着手）
 - release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — 未着手
 
 ---
