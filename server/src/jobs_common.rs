@@ -261,8 +261,6 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
         "icon_color": s("icon_color", ""),
         "confirm": b("confirm", true),
         "detached_tab": b("detached_tab", false),
-        "type": s("type", "command"),
-        "url": s("url", ""),
         "notify_phrase": s("notify_phrase", ""),
     });
     if let Some(c) = is_common {
@@ -313,12 +311,8 @@ pub fn workspace_job_names(state: &AppState, workspace_name: &str) -> Vec<String
 #[derive(Deserialize)]
 pub struct JobRequest {
     pub label: String,
-    #[serde(default = "default_type")]
-    pub r#type: String,
     #[serde(default)]
     pub command: String,
-    #[serde(default)]
-    pub url: String,
     #[serde(default)]
     pub icon: String,
     #[serde(default)]
@@ -329,10 +323,6 @@ pub struct JobRequest {
     pub detached_tab: bool,
     #[serde(default)]
     pub notify_phrase: String,
-}
-
-fn default_type() -> String {
-    "command".to_string()
 }
 
 fn yes() -> bool {
@@ -348,9 +338,7 @@ pub struct ReorderJobsRequest {
 pub fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
     for (v, max, field) in [
         (&body.label, MAX_LABEL_LENGTH, "label"),
-        (&body.r#type, 20, "type"),
         (&body.command, MAX_COMMAND_LENGTH, "command"),
-        (&body.url, 2000, "url"),
         (&body.icon, MAX_ICON_VALUE_LENGTH, "icon"),
         (&body.icon_color, 20, "icon_color"),
         (&body.notify_phrase, 200, "notify_phrase"),
@@ -382,8 +370,6 @@ pub fn generate_job_key(existing: &Map<String, Value>) -> String {
 struct ValidatedJob {
     label: String,
     command: String,
-    job_type: String,
-    url: String,
 }
 
 fn validate_job_fields(body: &JobRequest) -> Result<ValidatedJob, ApiError> {
@@ -391,36 +377,11 @@ fn validate_job_fields(body: &JobRequest) -> Result<ValidatedJob, ApiError> {
     if label.is_empty() {
         return Err(bad_request("Please enter a display name"));
     }
-    let job_type = {
-        let t = body.r#type.trim();
-        if t.is_empty() {
-            "command"
-        } else {
-            t
-        }
-    };
-    if job_type == "browser" {
-        let url = body.url.trim().to_string();
-        if url.is_empty() {
-            return Err(bad_request("URL is empty"));
-        }
-        return Ok(ValidatedJob {
-            label,
-            command: String::new(),
-            job_type: "browser".into(),
-            url,
-        });
-    }
     let command = body.command.trim().to_string();
     if command.is_empty() {
         return Err(bad_request("Command is empty"));
     }
-    Ok(ValidatedJob {
-        label,
-        command,
-        job_type: "command".into(),
-        url: String::new(),
-    })
+    Ok(ValidatedJob { label, command })
 }
 
 /// Python `build_job_entry` と同一（デフォルト値は保存しない）。
@@ -431,12 +392,7 @@ async fn build_job_entry(
     notify_phrase: &str,
 ) -> Result<Value, ApiError> {
     let mut entry = Map::new();
-    if v.job_type == "browser" {
-        entry.insert("type".to_string(), json!("browser"));
-        entry.insert("url".to_string(), json!(v.url));
-    } else {
-        entry.insert("command".to_string(), json!(v.command));
-    }
+    entry.insert("command".to_string(), json!(v.command));
     if !v.label.is_empty() {
         entry.insert("label".to_string(), json!(v.label));
     }
@@ -479,11 +435,7 @@ pub async fn save_job(
 ) -> Result<Value, ApiError> {
     check_job_request_lengths(body)?;
     let validated = validate_job_fields(body)?;
-    let notify_phrase = if validated.job_type == "browser" {
-        String::new()
-    } else {
-        body.notify_phrase.trim().to_string()
-    };
+    let notify_phrase = body.notify_phrase.trim().to_string();
     let is_update = job_name.is_some();
     let job_name = job_name.unwrap_or_else(|| generate_job_key(&data));
     let entry = build_job_entry(state, &validated, body, &notify_phrase).await?;
@@ -585,7 +537,6 @@ mod tests {
         let d = job_entry_to_dict("job_x", &entry, Some(false));
         assert_eq!(d["label"], "job_x");
         assert_eq!(d["confirm"], true);
-        assert_eq!(d["type"], "command");
         assert_eq!(d["common"], false);
     }
 

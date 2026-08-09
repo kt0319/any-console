@@ -155,11 +155,10 @@ async fn workspace_job_crud_cycle() {
     let jobs = get_json(&front, "/workspaces/proj/jobs").await;
     assert_eq!(jobs[&job_name]["label"], "Renamed");
 
-    // バリデーション: 空 label / 空 command / browser で URL 無し
+    // バリデーション: 空 label / 空 command
     for body in [
         json!({"label": " ", "command": "x"}),
         json!({"label": "L", "command": " "}),
-        json!({"label": "L", "type": "browser", "url": ""}),
     ] {
         let resp = send_json(
             &front,
@@ -331,7 +330,7 @@ async fn recent_jobs_roundtrip_and_prune() {
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["recent_jobs"].as_array().unwrap().len(), 3);
     // Python model_dump と同じく全フィールドを返す
-    assert_eq!(body["recent_jobs"][0]["jobType"], "command");
+    assert_eq!(body["recent_jobs"][0]["jobName"], job_name);
     assert_eq!(body["recent_jobs"][0]["pinned"], true);
 
     // GET で参照先が消えたスナップショット（k2）だけ除去される

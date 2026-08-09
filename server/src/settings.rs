@@ -696,20 +696,12 @@ pub struct RecentJobItem {
     job_icon_color: String,
     #[serde(default, rename = "jobCommand")]
     job_command: String,
-    #[serde(default, rename = "jobUrl")]
-    job_url: String,
-    #[serde(default = "default_job_type", rename = "jobType")]
-    job_type: String,
     #[serde(default, rename = "jobConfirm")]
     job_confirm: Option<bool>,
     #[serde(default, rename = "jobDetachedTab")]
     job_detached_tab: bool,
     #[serde(default)]
     pinned: bool,
-}
-
-fn default_job_type() -> String {
-    "command".to_string()
 }
 
 #[derive(Deserialize)]
@@ -738,8 +730,6 @@ pub async fn put_recent_jobs(
             (&item.job_icon, MAX_LABEL_LENGTH, "jobIcon"),
             (&item.job_icon_color, MAX_LABEL_LENGTH, "jobIconColor"),
             (&item.job_command, MAX_COMMAND_LENGTH, "jobCommand"),
-            (&item.job_url, MAX_COMMAND_LENGTH, "jobUrl"),
-            (&item.job_type, MAX_LABEL_LENGTH, "jobType"),
         ] {
             check_max_len(field, v, max)?;
         }

@@ -208,12 +208,6 @@ fn validate_recent_job(data: &Value) -> Result<Value, String> {
         s("jobIcon"),
         s("jobIconColor"),
         s("jobCommand"),
-        s("jobUrl"),
-        FieldSpec {
-            key: "jobType",
-            default: Value::String("command".into()),
-            kind: FieldKind::Str,
-        },
         // jobConfirm: bool | None = None — null は exclude_none で落ち、bool は常に残す
         FieldSpec {
             key: "jobConfirm",
@@ -234,12 +228,6 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
     };
     let specs = [
         s("command"),
-        s("url"),
-        FieldSpec {
-            key: "type",
-            default: Value::String("command".into()),
-            kind: FieldKind::Str,
-        },
         s("label"),
         s("icon"),
         s("icon_color"),
@@ -255,20 +243,11 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
         },
     ];
     let out = dump_model(data, &specs)?;
-    // Python JobConfig の model_validator: browser 型は url 必須、それ以外は command 必須
+    // Python JobConfig の model_validator: command は必須
     let get_str = |m: &Map<String, Value>, k: &str| {
         m.get(k).and_then(Value::as_str).unwrap_or("").to_string()
     };
-    let job_type = if out.contains_key("type") {
-        get_str(&out, "type")
-    } else {
-        "command".to_string()
-    };
-    if job_type == "browser" {
-        if get_str(&out, "url").is_empty() {
-            return Err("url is required for browser type".to_string());
-        }
-    } else if get_str(&out, "command").is_empty() {
+    if get_str(&out, "command").is_empty() {
         return Err("command is required".to_string());
     }
     Ok(Value::Object(out))
@@ -536,10 +515,8 @@ mod tests {
     }
 
     #[test]
-    fn job_requires_command_or_url() {
+    fn job_requires_command() {
         assert!(validate_job_config(&json!({"command": "npm test"})).is_ok());
-        assert!(validate_job_config(&json!({"type": "browser", "url": "http://x"})).is_ok());
-        assert!(validate_job_config(&json!({"type": "browser"})).is_err());
         assert!(validate_job_config(&json!({"label": "no command"})).is_err());
         // confirm: true はデフォルトなので落ちる
         let out = validate_job_config(&json!({"command": "x", "confirm": true})).unwrap();

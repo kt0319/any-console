@@ -465,7 +465,7 @@ async fn workspace_order_saved() {
 }
 
 /// Python の `RecentJobItem`（pydantic）は全フィールドに `max_length` を課す。
-/// 以前は一部フィールド（key/workspace/jobCommand/jobUrl）しか検証しておらず、
+/// 以前は一部フィールド（key/workspace/jobCommand）しか検証しておらず、
 /// jobName 等の巨大な値がそのまま config.json に保存されてしまっていた
 /// （Codex レビュー指摘）。
 #[tokio::test]
@@ -479,7 +479,6 @@ async fn recent_jobs_rejects_oversized_fields() {
         "jobIconColor",
         "wsIcon",
         "wsIconColor",
-        "jobType",
     ] {
         let mut item = json!({"key": "k1", "workspace": "ws1"});
         item[field] = json!(oversized);
