@@ -226,7 +226,7 @@ pairing は devices.json への書き込み（認証ドメイン）依存のた�
 |------|---------|------|
 | `job_models.py` / `jobs_common.py` / `routers/jobs.py` + `icons.py` | 459 | **移行済み**（TTL キャッシュ・worktree のジョブ共有・/jobs/workspaces の動的 worktree 列挙含む） |
 | `/recent-jobs`（settings.py 内） | — | **移行済み**（Phase 1 保留分を解禁） |
-| `job_match.py` | 112 | **移行済み**（`server/src/job_match.rs`。配線は未実施 — agent_watch 移行まで待つ） |
+| `job_match.py` | 112 | **移行済み**（`server/src/job_match.rs`。`agent_watch.rs` の前面ジョブ argv 照合から利用中） |
 | `routers/job_runner.py` | 131 | Phase 5（ターミナル依存） |
 | `routers/dispatch.py`（承認キュー・dedup・dispatch scope トークン） | 651 | Phase 5（ターミナル依存） |
 | `routers/pairing.py`（QR ペアリング・短命トークン） | 277 | Phase 4 以降（devices 書き込み依存） |
