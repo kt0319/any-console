@@ -960,11 +960,14 @@ pub async fn dispatch_decision(
 pub async fn dispatch_rerun(
     State(state): State<Arc<AppState>>,
     Path(dispatch_id): Path<String>,
-    _auth: RequireAuth,
+    auth: RequireAuth,
     raw_body: axum::body::Bytes,
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
-    let auth_label = "main"; // RequireAuth はメイントークンのみ許可するルート
+    // Python 版は `Depends(verify_token)` の戻り値（実際に認証された経路の
+    // ラベル）をそのまま activity ログ・再 dispatch へ渡す（Codex レビュー指摘:
+    // "main" 固定だと Tailscale/デバイス cookie 経由の認証で誤ったラベルになる）。
+    let auth_label = auth.0.label.as_str();
 
     // Python 版は `body: DispatchRerun | None = None` でリクエストボディ自体の省略を
     // 許容する。axum の `Option<JsonBody<T>>` は自作抽出子に対して自動導出されない

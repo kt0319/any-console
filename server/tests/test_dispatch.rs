@@ -226,6 +226,29 @@ fn skip_if_no_tmux() -> bool {
         .unwrap_or(true)
 }
 
+/// workspace の（当日1ファイルしかないはずの）activity.jsonl から末尾（最新）の
+/// `event_type` エントリの "auth" フィールドを読む。
+fn latest_activity_auth(data_dir: &std::path::Path, workspace: &str, event_type: &str) -> String {
+    let dir = data_dir.join("activity").join(workspace);
+    let mut entries: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{dir:?}: {e}"))
+        .filter_map(|e| e.ok())
+        .collect();
+    entries.sort_by_key(|e| e.file_name());
+    let path = entries
+        .last()
+        .unwrap_or_else(|| panic!("no activity file in {dir:?}"));
+    let content = std::fs::read_to_string(path.path()).unwrap();
+    content
+        .lines()
+        .rev()
+        .find_map(|line| {
+            let v: Value = serde_json::from_str(line).ok()?;
+            (v["type"] == event_type).then(|| v["auth"].as_str().unwrap_or("").to_string())
+        })
+        .unwrap_or_else(|| panic!("no {event_type} entry found in {path:?}"))
+}
+
 async fn wait_for(cond: impl Fn() -> bool) -> bool {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
     while tokio::time::Instant::now() < deadline {
@@ -637,6 +660,16 @@ async fn dispatch_rerun_run_true_executes_immediately() {
     assert_eq!(body["status"], "ok");
     let new_session = body["session_id"].as_str().unwrap().to_string();
     assert_ne!(new_session, first_session);
+
+    // Python 版 `Depends(verify_token)` と同じく、実際に認証された経路のラベルが
+    // activity ログへ残ること（Codex レビュー指摘: 以前は "main" 固定だった。
+    // メイントークン認証時のラベルは生の Bearer 値そのもの — Python の
+    // `_authenticate` も同じ挙動）。
+    assert_eq!(
+        latest_activity_auth(&front.state.paths.data_dir, "proj", "dispatch_executed"),
+        TOKEN
+    );
+
     any_console_server::subprocess::kill_tmux_by_name(&format!(
         "{}{new_session}",
         front.state.paths.tmux_prefix
