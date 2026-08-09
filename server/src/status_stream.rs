@@ -104,8 +104,24 @@ async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket) {
     // Python 版は git_watch/agent_watch/dispatch/session_watch それぞれの
     // subscribe() を個別に呼ぶが、Rust 版は購読者集合が `StatusStreamState`
     // 一本化されているため、producer 側の常駐タスク起動はここでの
-    // `ensure_tasks` 呼び出しだけで済む（`crate::git_watch::ensure_tasks` 相当）。
+    // `ensure_tasks` 呼び出しだけで済む。
     crate::git_watch::ensure_tasks(&state);
+    crate::agent_watch::ensure_tasks(&state);
+    // Python `agent_watch.subscribe` と同じく、既知の agent 状態スナップショットを
+    // この接続にだけ即時送信する（再接続時にポーリング1周期分の空白が生まれない
+    // ようにする — 全購読者への broadcast ではなく、この socket への直送）。
+    if let Some(snapshot) = crate::agent_watch::initial_snapshot(&state).await {
+        if socket
+            .send(Message::Text(snapshot.to_string().into()))
+            .await
+            .is_err()
+        {
+            drop(rx);
+            crate::git_watch::maybe_stop_tasks(&state);
+            crate::agent_watch::maybe_stop_tasks(&state);
+            return;
+        }
+    }
 
     let mut ping_interval = tokio::time::interval(Duration::from_secs(WS_PING_INTERVAL_SEC));
     ping_interval.tick().await; // 初回 tick は即座に完了するため消費しておく
@@ -151,6 +167,7 @@ async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket) {
     // タスク停止判定の前に受信側を明示的に破棄する。
     drop(rx);
     crate::git_watch::maybe_stop_tasks(&state);
+    crate::agent_watch::maybe_stop_tasks(&state);
     let _ = socket.close().await;
     tracing::info!("status stream disconnected");
 }

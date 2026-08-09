@@ -55,7 +55,7 @@ async fn spawn_front() -> TestFront {
             config_file: dir.path().join("config.json"),
             frontend_dir: dir.path().join("dist"),
             icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-test-".to_string(),
+            tmux_prefix: format!("ac-test-{}-", any_console_server::util::token_hex(3)),
         },
         config: ConfigStore::new(dir.path().join("config.json")),
         git_locks: WorkspaceLocks::new(),
@@ -66,6 +66,7 @@ async fn spawn_front() -> TestFront {
         terminal_registry: TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
+        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
         status_stream: StatusStreamState::new(),
         manifest_store: any_console_server::screen_manifest::ManifestStore::new(
             dir.path().join("agent_manifests"),
@@ -249,6 +250,79 @@ async fn connecting_starts_git_watch_and_detects_real_fs_changes() {
         "should have received a statuses push reflecting the new untracked file"
     );
 
+    ws.close(None).await.unwrap();
+    assert!(wait_for(|| front.state.status_stream.subscriber_count() == 0).await);
+}
+
+fn skip_if_no_tmux() -> bool {
+    std::process::Command::new("tmux")
+        .arg("-V")
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(true)
+}
+
+/// 接続 → agent_watch のタスク起動（`ensure_tasks`）→ 実 tmux セッションの状態
+/// ポーリング → `agent_states` 配信、という一連が実際に end-to-end で動くことを
+/// 検証する。`TerminalRegistry` に未登録のセッションも tmux 環境変数だけから
+/// 拾えることも合わせて確認する（Python `agent_watch` の cache-miss フォールバック
+/// 設計と同じ）。
+#[tokio::test]
+async fn connecting_starts_agent_watch_and_reports_real_tmux_session() {
+    if skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let session_id = any_console_server::util::token_hex(4);
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    let out = std::process::Command::new("tmux")
+        .args([
+            "new-session",
+            "-d",
+            "-s",
+            &full_name,
+            "-x",
+            "80",
+            "-y",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let url = format!("ws://{}/workspaces/statuses/ws?token={TOKEN}", front.addr);
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("ws connect");
+    assert!(wait_for(|| front.state.status_stream.subscriber_count() == 1).await);
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let mut found = false;
+    while tokio::time::Instant::now() < deadline {
+        let Ok(Some(Ok(msg))) = tokio::time::timeout(Duration::from_secs(1), ws.next()).await
+        else {
+            continue;
+        };
+        let TgMsg::Text(text) = msg else { continue };
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        if parsed["type"] == "agent_states" {
+            let states = parsed["states"].as_array().unwrap();
+            if states.iter().any(|s| s["session_id"] == session_id) {
+                found = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        found,
+        "should have received an agent_states push for the real tmux session"
+    );
+
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
     ws.close(None).await.unwrap();
     assert!(wait_for(|| front.state.status_stream.subscriber_count() == 0).await);
 }

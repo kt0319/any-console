@@ -1,6 +1,7 @@
 //! アプリ全体の共有状態。
 
 use crate::agent_hooks::AgentHookState;
+use crate::agent_watch::AgentWatchState;
 use crate::auth::Auth;
 use crate::config::ConfigStore;
 use crate::dispatch::DispatchState;
@@ -28,6 +29,7 @@ pub struct AppState {
     pub terminal_registry: TerminalRegistry,
     pub dispatch: DispatchState,
     pub agent_hooks: AgentHookState,
+    pub agent_watch: AgentWatchState,
     pub status_stream: StatusStreamState,
     pub manifest_store: ManifestStore,
     pub proxy: Proxy,

@@ -200,6 +200,7 @@ mod tests {
             terminal_registry: TerminalRegistry::new(),
             dispatch: DispatchState::new(),
             agent_hooks: AgentHookState::new(),
+            agent_watch: crate::agent_watch::AgentWatchState::new(),
             status_stream: crate::status_stream::StatusStreamState::new(),
             manifest_store: crate::screen_manifest::ManifestStore::new(
                 dir.path().join("agent_manifests"),

@@ -139,6 +139,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
+        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
         status_stream: any_console_server::status_stream::StatusStreamState::new(),
         manifest_store: any_console_server::screen_manifest::ManifestStore::new(
             dir.path().join("agent_manifests"),

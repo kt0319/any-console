@@ -113,6 +113,7 @@ async fn main() {
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
+        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
         status_stream: any_console_server::status_stream::StatusStreamState::new(),
         manifest_store: any_console_server::screen_manifest::ManifestStore::new(
             paths.project_root.join("api/agent_manifests"),

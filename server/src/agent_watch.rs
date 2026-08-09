@@ -10,15 +10,19 @@
 //! （tmux 問い合わせ→状態判定→ワークスペース/ジョブの自動紐付け→フレーズ通知判定
 //! までを1関数にまとめた、Python 版 `collect_agent_states` の直接対応）。
 //!
-//! まだ実装していないのは、これを定期実行するポーリングループ本体
-//! （`_poll_loop` 相当 — `StatusStreamState::subscriber_count()` を起動/停止条件に
-//! 使う設計を想定）と、push 通知連携（`push.py` 経由、`state.proxy.send_push` の
-//! ブリッジは既存）だけ。status stream の実エンドポイント配線時にループへ組み込む。
+//! `AgentWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `initial_snapshot` /
+//! `poll_loop` がポーリングループ本体（Python `_poll_loop`/`subscribe`/
+//! `unsubscribe`/`ensure_phrase_task` 相当）と push 通知連携
+//! （`state.proxy.send_push` ブリッジ経由）を担う。status stream WS ハンドラの
+//! 接続/切断（`status_stream.rs`）から呼ぶ。
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 
 use serde_json::{json, Map, Value};
+use tokio::sync::Mutex as AsyncMutex;
+use tokio::task::JoinHandle;
 
 use crate::foreground::ForegroundInspector;
 use crate::job_match::JobPattern;
@@ -27,6 +31,9 @@ use crate::state::AppState;
 
 pub const STATE_WORKING: &str = "working";
 pub const STATE_IDLE: &str = "idle";
+
+/// Python `common.py` の同名定数と同じ値。
+const AGENT_WATCH_POLL_INTERVAL_SEC: u64 = 2;
 
 /// 可視ペインの内容からセッション状態を判定する純関数。
 ///
@@ -481,6 +488,164 @@ pub async fn collect_agent_states(
     }
 }
 
+// ─── 購読者連動ポーリングループ（Python 版 `subscribe`/`unsubscribe`/
+// `ensure_phrase_task`/`_poll_loop` 相当）────────────────────────────────────
+
+/// agent_watch の常駐ポーリングタスクとポーリング間で持ち越す状態を保持する。
+pub struct AgentWatchState {
+    poll_task: std::sync::Mutex<Option<JoinHandle<()>>>,
+    last_capture: AsyncMutex<HashMap<String, String>>,
+    tracker: AsyncMutex<PhraseNotifyTracker>,
+    /// 前回配信した状態一式（`states_payload` の差分計算・新規接続への
+    /// 即時スナップショット送信に使う — Python `_last_states` 相当）。
+    last_states: AsyncMutex<HashMap<String, String>>,
+}
+
+impl AgentWatchState {
+    pub fn new() -> Self {
+        Self {
+            poll_task: std::sync::Mutex::new(None),
+            last_capture: AsyncMutex::new(HashMap::new()),
+            tracker: AsyncMutex::new(PhraseNotifyTracker::new()),
+            last_states: AsyncMutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl Default for AgentWatchState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// push subscription が1件以上登録されているか（Python `push.has_subscriptions`
+/// 相当）。push subscription の管理自体は当面 Python 側に残る（`push.py` は
+/// 移行対象外）ため、Rust はそのデータファイルを直接読む。
+fn has_push_subscriptions(state: &AppState) -> bool {
+    let path = state.paths.data_dir.join("push_subscriptions.json");
+    let data = crate::json_store::load_json_file(&path, json!([]), None);
+    data.as_array().is_some_and(|a| !a.is_empty())
+}
+
+fn task_running(task: &Option<JoinHandle<()>>) -> bool {
+    task.as_ref().is_some_and(|h| !h.is_finished())
+}
+
+/// 購読開始時に呼ぶ（status stream WS ハンドラから）。ポーリングタスクが
+/// 動いていなければ起動する（Python `ensure_phrase_task` 相当）。
+pub fn ensure_tasks(state: &Arc<AppState>) {
+    let mut task = state
+        .agent_watch
+        .poll_task
+        .lock()
+        .expect("agent_watch state poisoned");
+    if !task_running(&task) {
+        *task = Some(tokio::spawn(poll_loop(state.clone())));
+    }
+}
+
+/// 購読解除時に呼ぶ。全体の購読者（`StatusStreamState`）・push subscription が
+/// どちらも無ければタスクを停止する（Python `unsubscribe`/`_stop_task` 相当）。
+pub fn maybe_stop_tasks(state: &Arc<AppState>) {
+    if state.status_stream.subscriber_count() > 0 || has_push_subscriptions(state) {
+        return;
+    }
+    if let Some(h) = state
+        .agent_watch
+        .poll_task
+        .lock()
+        .expect("agent_watch state poisoned")
+        .take()
+    {
+        h.abort();
+    }
+    // Python `_stop_task` と同じく、タスク停止時にポーリング間の持ち越し状態も
+    // 破棄する（次回起動時はまっさらな状態から再構築する）。
+    let state = state.clone();
+    tokio::spawn(async move {
+        *state.agent_watch.last_capture.lock().await = HashMap::new();
+        *state.agent_watch.tracker.lock().await = PhraseNotifyTracker::new();
+        *state.agent_watch.last_states.lock().await = HashMap::new();
+    });
+}
+
+/// 新規接続への即時スナップショット（Python `subscribe` が
+/// `websocket.send_json(states_payload(_last_states))` を直送する処理に対応）。
+/// 既知の状態が無ければ None（何も送らない）。
+pub async fn initial_snapshot(state: &Arc<AppState>) -> Option<Value> {
+    let last_states = state.agent_watch.last_states.lock().await;
+    if last_states.is_empty() {
+        None
+    } else {
+        Some(states_payload(&last_states))
+    }
+}
+
+async fn poll_loop(state: Arc<AppState>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(AGENT_WATCH_POLL_INTERVAL_SEC)).await;
+        if state.status_stream.subscriber_count() == 0 && !has_push_subscriptions(&state) {
+            return;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64();
+        let collected = {
+            let mut last_capture = state.agent_watch.last_capture.lock().await;
+            let mut tracker = state.agent_watch.tracker.lock().await;
+            collect_agent_states(
+                &state,
+                &state.manifest_store,
+                &mut last_capture,
+                &mut tracker,
+                now,
+            )
+            .await
+        };
+        let Some(states) = collected.states else {
+            // tmux コマンド自体が一時的に失敗。直前のスナップショットを保持して
+            // 次の周期に委ね、状態を空で上書きしない。
+            continue;
+        };
+        let changed = {
+            let mut last_states = state.agent_watch.last_states.lock().await;
+            let changed = diff_states(&last_states, &states);
+            *last_states = states;
+            changed
+        };
+        if !changed.is_empty() {
+            state.status_stream.broadcast(states_payload(&changed));
+        }
+        // タブの通知マークは見れば消える表示なので、push の猶予を待たず検出即時に配信する。
+        for (session_id, phrase, workspace) in &collected.ws_notifications {
+            state.status_stream.broadcast(phrase_notify_payload(
+                session_id,
+                phrase,
+                workspace.as_deref(),
+            ));
+        }
+        // push を『見ていた』とみなして見送った session は、出していたタブ通知マークも取り消す。
+        for session_id in &collected.ws_clear_session_ids {
+            state
+                .status_stream
+                .broadcast(phrase_notify_clear_payload(session_id));
+        }
+        for (session_id, phrase, workspace) in &collected.notifications {
+            let body = match workspace {
+                Some(w) => format!("{w}: {phrase}"),
+                None => phrase.clone(),
+            };
+            state.proxy.send_push(
+                "Phrase detected".to_string(),
+                body,
+                format!("/?session={session_id}"),
+                "phrase".to_string(),
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -751,6 +916,7 @@ mod collect_agent_states_tests {
             terminal_registry: TerminalRegistry::new(),
             dispatch: DispatchState::new(),
             agent_hooks: crate::agent_hooks::AgentHookState::new(),
+            agent_watch: crate::agent_watch::AgentWatchState::new(),
             status_stream: crate::status_stream::StatusStreamState::new(),
             manifest_store: ManifestStore::new(dir.path().join("agent_manifests"), dir.path()),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),

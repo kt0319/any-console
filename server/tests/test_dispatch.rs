@@ -185,6 +185,7 @@ async fn spawn_front() -> TestFront {
         terminal_registry: TerminalRegistry::new(),
         dispatch: DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
+        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
         status_stream: any_console_server::status_stream::StatusStreamState::new(),
         manifest_store: any_console_server::screen_manifest::ManifestStore::new(
             dir.path().join("agent_manifests"),
