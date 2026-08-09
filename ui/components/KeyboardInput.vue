@@ -1,11 +1,11 @@
 <template>
   <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
     <form class="keyboard-input-row" autocomplete="off" role="presentation" @submit.prevent="submit">
-      <input
+      <textarea
         ref="inputEl"
         v-model="draft"
         class="keyboard-input"
-        type="text"
+        rows="1"
         name="off"
         inputmode="text"
         autocomplete="off"
@@ -15,27 +15,29 @@
         enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.escape="onEscape"
-        @keydown.up="(e) => onArrowKey(e, props.historyPrev)"
-        @keydown.down="(e) => onArrowKey(e, props.historyNext)"
+        @keydown.enter="onEnterKey"
+        @keydown.up="(e) => onArrowKey(e, props.historyPrev, isFirstLine)"
+        @keydown.down="(e) => onArrowKey(e, props.historyNext, isLastLine)"
         @compositionstart="composing = true"
-        @compositionupdate="syncDraftFromDom"
+        @compositionupdate="onInput"
         @compositionend="composing = false"
-        @input="syncDraftFromDom"
+        @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
-      />
+      ></textarea>
     </form>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch, nextTick, onMounted } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { KEYBOARD_INPUT_MIN_HEIGHT_PX, KEYBOARD_INPUT_MAX_HEIGHT_PX } from "../utils/constants.js";
 
 const emit = defineEmits(["focused", "submitted"]);
 // フリックバーの矢印キーと同じ履歴↑↓状態を物理キーボードの矢印キーでも
@@ -69,10 +71,30 @@ const placeholder = computed(() => {
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
 
-function onArrowKey(e, action) {
+function isFirstLine(el) {
+  return !el.value.slice(0, el.selectionStart ?? 0).includes("\n");
+}
+
+function isLastLine(el) {
+  return !el.value.slice(el.selectionEnd ?? el.value.length).includes("\n");
+}
+
+// 複数行入力中はまずカーソル移動をブラウザ標準に任せ、最初/最後の行にいる
+// ときだけ履歴↑↓として扱う（そうしないと行移動が一切できなくなる）。
+function onArrowKey(e, action, atBoundary) {
   if (isComposingEvent(e, composing.value)) return;
+  const el = inputEl.value;
+  if (el && !atBoundary(el)) return;
   e.preventDefault();
   action();
+}
+
+// Enterで送信、Shift+Enterで改行。IME変換確定のEnterは素通しする。
+function onEnterKey(e) {
+  if (isComposingEvent(e, composing.value)) return;
+  if (e.shiftKey) return;
+  e.preventDefault();
+  submit();
 }
 
 // 入力モード中の Esc で入力モードを抜ける（フォーカスを外す）。
@@ -93,10 +115,21 @@ function onFocus() {
 // draft.value への反映を止める仕様のため、hasDraft（親のsend/enterアイコン
 // 切替）が変換中の未確定文字列を拾えない。DOMのinput/compositionupdateを
 // 直接見て draft.value を追従させ、変換中でも送信ボタンをsend表示にする。
-function syncDraftFromDom(e) {
+function onInput(e) {
   const value = e.target.value;
   if (draft.value !== value) draft.value = value;
 }
+
+function resizeTextarea() {
+  const el = inputEl.value;
+  if (!el) return;
+  el.style.height = "auto";
+  const next = Math.min(el.scrollHeight, KEYBOARD_INPUT_MAX_HEIGHT_PX);
+  el.style.height = `${Math.max(next, KEYBOARD_INPUT_MIN_HEIGHT_PX)}px`;
+}
+
+watch(draft, () => nextTick(resizeTextarea));
+onMounted(resizeTextarea);
 
 function moveCursor(delta) {
   const el = inputEl.value;
