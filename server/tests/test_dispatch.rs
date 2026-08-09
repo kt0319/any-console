@@ -2,8 +2,10 @@
 //!
 //! これらのルートはまだ `build_router` に配線されていない（Phase 5 の設計判断 —
 //! ターミナル WS・`/run` と同時に配線する）ため、テスト専用の Router を直接
-//! 組み立てる。Python 側の migration_bridge（push 通知・dispatch キュー中継・
-//! dispatch scope API トークン検証）はフェイクの upstream サーバで代替する。
+//! 組み立てる。Python 側の migration_bridge（push 通知・dispatch キュー中継）は
+//! フェイクの upstream サーバで代替する。dispatch scope API トークン検証は
+//! `Auth::verify_api_token` へネイティブに移行済みのため、フェイクではなく
+//! `Auth::create_api_token` で実際に発行したトークンを使う。
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex as StdMutex};
@@ -29,24 +31,12 @@ use any_console_server::terminal;
 use any_console_server::terminal_session::TerminalRegistry;
 
 const TOKEN: &str = "dispatch-test-token";
-const SCOPED_TOKEN: &str = "scoped-dispatch-token";
 
 #[derive(Default, Clone)]
 struct FakeUpstreamCalls {
     push: Arc<StdMutex<Vec<Value>>>,
     queue: Arc<StdMutex<Vec<Value>>>,
     session_events: Arc<StdMutex<Vec<Value>>>,
-}
-
-async fn verify_token_handler(
-    AxumState(_calls): AxumState<FakeUpstreamCalls>,
-    Json(body): Json<Value>,
-) -> Json<Value> {
-    if body["token"] == SCOPED_TOKEN {
-        Json(json!({"ok": true, "label": "token:tok_1"}))
-    } else {
-        Json(json!({"ok": false, "label": null}))
-    }
 }
 
 async fn send_push_handler(
@@ -75,10 +65,6 @@ async fn session_event_handler(
 
 fn upstream_router(calls: FakeUpstreamCalls) -> Router {
     Router::new()
-        .route(
-            "/internal/verify-dispatch-api-token",
-            post(verify_token_handler),
-        )
         .route("/internal/send-push", post(send_push_handler))
         .route("/internal/dispatch-queue", post(dispatch_queue_handler))
         .route("/internal/session-event", post(session_event_handler))
@@ -103,6 +89,7 @@ struct TestFront {
     addr: SocketAddr,
     state: Arc<AppState>,
     calls: FakeUpstreamCalls,
+    scoped_token: String,
     _dir: tempfile::TempDir,
 }
 
@@ -192,12 +179,16 @@ async fn spawn_front() -> TestFront {
             dir.path(),
         ),
         preview: any_console_server::preview::PreviewState::new(),
+        pairing: any_console_server::pairing::PairingState::new(),
         proxy: Proxy::new(format!("http://{upstream_addr}")),
         static_ctx: None,
         auth: Auth::load(data_dir, false),
         rate_counter: FixedWindowCounter::new(),
         rate_limit: 10_000,
     });
+    let (_meta, scoped_token) = state
+        .auth
+        .create_api_token("scoped", any_console_server::auth::API_TOKEN_SCOPE_DISPATCH);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let router_state = state.clone();
@@ -213,6 +204,7 @@ async fn spawn_front() -> TestFront {
         addr,
         state,
         calls,
+        scoped_token,
         _dir: dir,
     }
 }
@@ -309,7 +301,7 @@ async fn scoped_token_direct_dispatch_rejected() {
     let front = spawn_front().await;
     let resp = client()
         .post(format!("http://{}/dispatch", front.addr))
-        .bearer_auth(SCOPED_TOKEN)
+        .bearer_auth(&front.scoped_token)
         .json(&json!({"workspace": "proj", "direct": true}))
         .send()
         .await
@@ -327,7 +319,7 @@ async fn scoped_token_queued_dispatch_ignores_session_id() {
     let front = spawn_front().await;
     let resp = client()
         .post(format!("http://{}/dispatch", front.addr))
-        .bearer_auth(SCOPED_TOKEN)
+        .bearer_auth(&front.scoped_token)
         .json(&json!({"workspace": "proj", "session_id": "someone-elses-session"}))
         .send()
         .await

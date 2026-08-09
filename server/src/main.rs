@@ -112,6 +112,7 @@ async fn main() {
             &paths.data_dir,
         ),
         preview: any_console_server::preview::PreviewState::new(),
+        pairing: any_console_server::pairing::PairingState::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

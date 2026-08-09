@@ -154,22 +154,29 @@ workspace-order を移行済み。要点:
   修正済み。**subprocess 移植時はロケール差に注意** — Phase 2 の git でも同様）
 
 **実装時に確定した順序変更**: `routers/devices.py` / `routers/api_tokens.py` は
-Phase 1 から**除外**し、認証ドメイン全体の移管時（Phase 4 以降）へ後ろ倒しする。
+Phase 1 から**除外**し、認証ドメイン全体の移管時へ後ろ倒しした。
 devices.json / auth.json への書き込み排他が Python 側ではプロセス内
 `threading.Lock` のみで、config.json と違い fcntl ファイルロックが無いため、
-移行期間中に両プロセスがこれらを書くと lost update が起きうる（Python は
-cookie 認証を通る全リクエストで devices.json の last_seen を書くため、
-Python にルートが residual に残る間は Rust 側から書けない）。
+両プロセスが同時にこれらを書くと lost update が起きうる。
 一方 workspaces / groups / settings（config.json 書き込み）は fcntl ロックに
-Rust も参加すればプロセス間で安全に書けるため、Phase 1 の残り対象はこちら。
+Rust も参加すればプロセス間で安全に書けるため、Phase 1 の残り対象はこちらだった。
+
+認証ドメインは最終的に、config.json 系で使った「Rust も fcntl ロックに参加する」
+方式ではなく、**atomic cutover**（`/devices/*`・`/auth/check`・`/auth/logout`・
+`/auth/pairing/*/claim`・`/api-tokens/*`・`/settings/auth` を Rust の
+`build_router` へ同時に配線する）で解決した。terminal/dispatch/job_runner
+（Phase 5）で既に使っていたのと同じパターンで、これにより Python 側の
+devices.json/auth.json 書き込みコードパスは配線と同時に永久に到達不能になり、
+Python 側へ fcntl ロックを追加で持ち込む必要が無くなった（詳細は下記
+「認証ドメイン（devices / api_tokens / pairing / auth.json）」参照）。
 
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
 | `routers/system.py`（システム情報） | 493 | **移行済み** |
-| `routers/settings.py` + `icons.py` | 469 | **移行済み**（/settings/auth と /recent-jobs は除く — 前者は auth.json ドメイン、後者は jobs 解決依存） |
+| `routers/settings.py` + `icons.py` | 469 | **移行済み**（/settings/auth 含め全移行 — /recent-jobs は Phase 3 で先行移行済み） |
 | `routers/workspaces.py` + `routers/groups.py` | 452 | **移行済み**（workspaces 本体は Phase 4 で移行 — 一覧/statuses/登録/設定/削除/suggest。status stream への nudge は migration_bridge 経由） |
-| `routers/devices.py` + `devices.py` | 339 | Phase 4 以降へ後ろ倒し |
-| `routers/api_tokens.py` | 52 | Phase 4 以降へ後ろ倒し |
+| `routers/devices.py` + `devices.py` | 339 | **移行済み**（認証ドメイン一括移行 — 下記「認証ドメイン」参照） |
+| `routers/api_tokens.py` | 52 | **移行済み**（認証ドメイン一括移行 — 下記「認証ドメイン」参照） |
 | `activity.py` / `gh_utils.py` | 79 | |
 | 画像アップロード（main.py 内） | — | |
 
@@ -220,7 +227,8 @@ Phase 1 から保留していた /recent-jobs（除去計算 + compare_and_updat
 **実装時に確定した再スコープ**: dispatch / job_runner は実行時に
 `TERMINAL_SESSIONS`（Python プロセス内のターミナル状態）と tmux セッション生成に
 直接依存するため、**ターミナルサブシステムと同時（Phase 5）に移行**する。
-pairing は devices.json への書き込み（認証ドメイン）依存のため Phase 4 以降。
+pairing は devices.json への書き込み（認証ドメイン）依存のため後ろ倒しし、
+最終的に「認証ドメイン」節の atomic cutover にまとめて移行した。
 
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
@@ -229,7 +237,7 @@ pairing は devices.json への書き込み（認証ドメイン）依存のた�
 | `job_match.py` | 112 | **移行済み**（`server/src/job_match.rs`。`agent_watch.rs` の前面ジョブ argv 照合から利用中） |
 | `routers/job_runner.py` | 131 | Phase 5（ターミナル依存） |
 | `routers/dispatch.py`（承認キュー・dedup・dispatch scope トークン） | 651 | Phase 5（ターミナル依存） |
-| `routers/pairing.py`（QR ペアリング・短命トークン） | 277 | Phase 4 以降（devices 書き込み依存） |
+| `routers/pairing.py`（QR ペアリング・短命トークン） | 277 | **移行済み**（`server/src/pairing.rs`。認証ドメインの atomic cutover に含めて配線 — 下記参照） |
 
 **ジョブキャッシュの補足**: Python 側は TTL 60 秒のキャッシュを持ち、Rust の
 書き込みを即時無効化はできないが、TTL 以内に必ず再読込されるため staleness の
@@ -495,6 +503,68 @@ HTTP プローブ（非 HTTP upstream の除外）・idle 連動のバックグ�
 - `ss` が使えない実行環境（このセッションのコンテナ含む）ではスキャンが
   空振りするだけで例外にはならないこと、実バイナリでの起動 + `curl` による
   `/preview/ports` 疎通（401 without auth / 200 `[]` with auth）を確認済み
+
+### 認証ドメイン（devices / api_tokens / pairing / auth.json）— **移行済み**
+
+**状況**: `routers/devices.py` + `devices.py`（デバイス cookie 認証の登録・一覧・
+失効・自動登録）、`auth.py` の API トークン CRUD 部分 + `routers/api_tokens.py`、
+`routers/pairing.py`（QR ペアリング）、`main.py` に直書きされていた
+`/auth/check`・`/auth/logout`、`routers/settings.py` の `/settings/auth`
+（メイントークンのローテーション）を、`server/src/devices.rs` /
+`server/src/auth.rs`（拡張）/ `server/src/pairing.rs` へ移植し、
+`/devices/*`・`/api-tokens/*`・`/auth/pairing/*`・`/auth/check`・`/auth/logout`・
+`/settings/auth` を**同時に** `build_router` へ配線した。
+
+**設計判断（atomic cutover）**: devices.json / auth.json への書き込みは
+config.json と異なり Python 側に fcntl ファイルロックが無い（プロセス内
+`threading.Lock` のみ）。Rust 側にも fcntl ロックを追加で持ち込む代わりに、
+これらのファイルに触れる**全ルートを一括で** Rust ネイティブへ切り替え、
+Python 側の対応コードパスを配線と同時に永久に到達不能にした
+（terminal/dispatch/job_runner — Phase 5 — で既に確立したパターンと同じ）。
+これにより Python/Rust 両プロセスが同じファイルへ read-modify-write する
+瞬間が原理的に存在しなくなり、排他はプロセス内 `Mutex`（`DevicesState`/
+`Auth` が持つ）だけで十分になった。
+
+**実装のポイント**:
+
+- `devices.rs`: `DevicesState`（`devices_lock` + `server_key_lock` の2本の
+  `Mutex`）を `Auth` 構造体へ内包する設計にした。新たに `AppState` へ
+  トップレベルフィールドを追加すると `Auth::authenticate()` の公開シグネチャ
+  が変わり既存呼び出し箇所（テスト含む）へ波及するため、代わりに
+  `Auth::devices()` / `Auth::data_dir()` というアクセサを増やして
+  `devices.rs`/`pairing.rs`/API トークンハンドラから触れるようにした
+- `hash_secret`（HMAC-SHA256、鍵は `data/server_key`）は devices・API トークン
+  共通のロジックとして `devices.rs` 側に実装し、`auth.rs` はそれを呼ぶだけに
+  した（Python 版でも `auth.py` が `devices.py` の `_hash_secret` を再利用して
+  いたのと同じ構造）
+- cookie の `Secure` 属性は常に `false` を返す実装にした。本番運用は
+  Tailscale Serve が外部で TLS を終端し plain HTTP でこのプロセスへ転送する
+  構成（README のセットアップ手順）で、`python3 -m api.main` の実運用起動も
+  `--proxy-headers` を渡さないため、`request.url.scheme` は本番で常に
+  `"http"` になる（Python 版の実際の挙動そのもの）。`--proxy-headers` は
+  本ドキュメントの Phase 0 手動デュアルプロセス検証手順にのみ登場し、
+  実運用では使われない
+- QR ペアリングの URL 組み立て（`pairing.rs`）は MagicDNS 名解決を
+  `subprocess.rs` の `run_tailscale_json` に委譲し、bind が loopback 専用の
+  場合・発行元自身が loopback からアクセスしている場合のガードを
+  Python 版と同一のロジックで再現した
+- dispatch scope API トークンの検証（`POST /dispatch` 専用）は、それまで
+  Python 側 `_verify_api_token` への loopback ブリッジ
+  （`/internal/verify-dispatch-api-token`）経由だったが、`Auth::verify_api_token`
+  がネイティブに使えるようになったため `dispatch.rs` の呼び出し先を差し替え、
+  ブリッジ自体（`migration_bridge.py` 側のエンドポイントと
+  `Proxy::verify_dispatch_api_token`/`Proxy::touch_device`）を削除した
+- 旧 `maybe_touch_device`（Rust 側デバイス cookie 認証成功時に Python の
+  devices.json last_seen_at をブリッジ経由でスロットリング更新していた仕組み。
+  これ自体がこの移行より前のセッションで追加された一時しのぎ）も削除した。
+  今は `devices::verify_and_touch_device` が devices.json を直接
+  read-modify-write するため、ブリッジ往復自体が不要になった
+- CI の `e2e-rust-front` ジョブ相当（Python upstream + Rust front の
+  2プロセス構成で `tests/e2e/api-contract.spec.js` を Rust front 経由で実行）
+  をローカルでも再現して確認した。`/auth/check`・`/auth/logout`・
+  `/devices/*`・`/api-tokens/*`・`/settings/auth`・`/auth/pairing/start`
+  を curl で疎通確認した上で、api-contract.spec.js の 10 ケース全てが
+  Rust front 経由で成功することを確認済み
 
 ### Phase 6 — Python 撤去・配布切替
 

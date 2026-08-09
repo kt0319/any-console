@@ -61,6 +61,7 @@ async fn spawn_front() -> TestFront {
         ),
         // 未移行ルートへ触れたら失敗するよう、繋がらない upstream を指す
         preview: any_console_server::preview::PreviewState::new(),
+        pairing: any_console_server::pairing::PairingState::new(),
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir, false),

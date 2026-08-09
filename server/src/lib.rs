@@ -10,6 +10,7 @@ pub mod auth;
 pub mod config;
 pub mod config_migrations;
 pub mod config_schema;
+pub mod devices;
 pub mod dispatch;
 pub mod errors;
 pub mod foreground;
@@ -33,6 +34,7 @@ pub mod jobs_common;
 pub mod json_store;
 pub mod manifest_update;
 pub mod middleware;
+pub mod pairing;
 pub mod paths;
 pub mod preview;
 pub mod proxy;
@@ -114,7 +116,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/system/update/apply", post(system::update_apply))
         .route("/client-errors", post(system::client_errors))
         // ─── Rust ネイティブ移行済みルート（Phase 1: settings / groups）────
-        // GET/PUT /settings/auth と /recent-jobs は Python のまま（settings.rs 冒頭参照）
         .route("/settings/config-health", get(settings::config_health))
         .route("/settings/export", get(settings::export_settings))
         .route("/settings/import", post(settings::import_settings))
@@ -360,6 +361,36 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         // ─── Rust ネイティブ移行済みルート（dev server ポートプレビュー） ───
         .route("/preview/ports", get(preview::list_detected_ports))
+        // ─── Rust ネイティブ移行済みルート（認証ドメイン: devices.json / auth.json）
+        // devices.json・auth.json への書き込みが Python/Rust の両方から起きる
+        // split-brain を避けるため、この一群は同時に配線する（atomic cutover —
+        // `server/src/devices.rs` / `server/src/pairing.rs` の module doc 参照）。
+        .route("/auth/check", get(auth::auth_check))
+        .route("/auth/logout", post(auth::auth_logout))
+        .route("/devices/register", post(devices::register))
+        .route("/devices", get(devices::list))
+        .route("/devices/{device_id}", delete(devices::revoke))
+        .route(
+            "/api-tokens",
+            post(auth::create_api_token_route).get(auth::list_api_tokens_route),
+        )
+        .route(
+            "/api-tokens/{token_id}",
+            delete(auth::revoke_api_token_route),
+        )
+        .route(
+            "/settings/auth",
+            get(auth::get_auth_settings).put(auth::put_auth_settings),
+        )
+        .route("/auth/pairing/start", post(pairing::start_pairing))
+        .route(
+            "/auth/pairing/{pairing_id}/status",
+            get(pairing::pairing_status),
+        )
+        .route(
+            "/auth/pairing/{pairing_id}/claim",
+            post(pairing::claim_pairing),
+        )
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:

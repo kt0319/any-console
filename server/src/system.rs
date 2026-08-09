@@ -50,6 +50,18 @@ async fn get_app_release(root: &Path) -> String {
     .unwrap_or_default()
 }
 
+/// 最終コミットの日時文字列（例: `2026-07-15 12:34`）。`/auth/check` が使う
+/// （バージョン表記自体は `get_app_release` を使う）。
+pub(crate) async fn get_app_commit_date(root: &Path) -> String {
+    git_out(
+        root,
+        &["log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
+        SYSTEM_CMD_TIMEOUT_SEC,
+    )
+    .await
+    .unwrap_or_default()
+}
+
 /// Python の `str.split(None, maxsplit)` 相当: 空白で最大 n 個に分割し、
 /// 最後の要素には残り全体（先頭空白を除去）を入れる。
 fn split_whitespace_n(line: &str, n: usize) -> Vec<&str> {
@@ -313,7 +325,7 @@ fn parse_tmux_sessions(stdout: &str) -> Vec<Value> {
 
 // ─── GET /system/info ───────────────────────────────────────────────────────
 
-fn hostname() -> String {
+pub(crate) fn hostname() -> String {
     let mut buf = [0u8; 256];
     // SAFETY: gethostname はバッファへ NUL 終端文字列を書くだけ。
     let rc = unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };

@@ -2,8 +2,8 @@
 //! `api/routers/workspaces.py` の PUT /workspace-order）。
 //!
 //! config.json のグローバルセクションを読み書きするルートを移行する。
-//! **移行対象外**（proxy のまま Python が担当）:
-//! - GET/PUT /settings/auth — auth.json ドメイン（ライター移管は後続フェーズ）
+//! GET/PUT /settings/auth（auth.json ドメイン）は `crate::auth` 側に実装がある
+//! （`/devices/*`・`/auth/check` 等との atomic cutover 単位のため）。
 
 use std::sync::Arc;
 

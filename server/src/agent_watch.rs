@@ -920,6 +920,7 @@ mod collect_agent_states_tests {
             status_stream: crate::status_stream::StatusStreamState::new(),
             manifest_store: ManifestStore::new(dir.path().join("agent_manifests"), dir.path()),
             preview: crate::preview::PreviewState::new(),
+            pairing: crate::pairing::PairingState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: crate::auth::Auth::load(dir.path().join("data"), false),

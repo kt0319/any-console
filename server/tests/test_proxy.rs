@@ -24,7 +24,7 @@ use any_console_server::static_files::StaticCtx;
 fn upstream_router() -> Router {
     Router::new()
         .route(
-            "/auth/check",
+            "/mock/proxied",
             get(|headers: HeaderMap| async move {
                 Json(json!({
                     "workspaces": [],
@@ -154,6 +154,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
             dir.path(),
         ),
         preview: any_console_server::preview::PreviewState::new(),
+        pairing: any_console_server::pairing::PairingState::new(),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),
@@ -173,7 +174,7 @@ async fn http_get_is_proxied_with_forwarded_for() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/auth/check", front.addr))
+        .get(format!("http://{}/mock/proxied", front.addr))
         .header("authorization", "Bearer tkn")
         .send()
         .await
@@ -185,14 +186,14 @@ async fn http_get_is_proxied_with_forwarded_for() {
 }
 
 /// クライアントが実際にアクセスした Host が upstream にそのまま引き継がれること
-/// （Codex レビュー指摘: Python 側の pairing URL 生成が Request.url = Host ヘッダ
-/// に依存するため、常に upstream の 127.0.0.1:port に化けると壊れる）。
+/// （Codex レビュー指摘: Python 側にまだ残るルートが Request.url = Host ヘッダに
+/// 依存するものを含みうるため、常に upstream の 127.0.0.1:port に化けると壊れる）。
 #[tokio::test]
 async fn original_host_header_is_forwarded_not_upstream_addr() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/auth/check", front.addr))
+        .get(format!("http://{}/mock/proxied", front.addr))
         .header("host", "example.ts.net:8888")
         .send()
         .await
@@ -207,7 +208,7 @@ async fn spoofed_forwarded_for_is_appended_not_trusted() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/auth/check", front.addr))
+        .get(format!("http://{}/mock/proxied", front.addr))
         .header("x-forwarded-for", "6.6.6.6")
         .send()
         .await
@@ -244,7 +245,7 @@ async fn security_headers_are_added() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/auth/check", front.addr))
+        .get(format!("http://{}/mock/proxied", front.addr))
         .send()
         .await
         .unwrap();
@@ -282,7 +283,7 @@ async fn static_files_served_by_rust_with_proxy_fallthrough() {
     );
     // dist に無いパスは upstream へ
     let resp = client()
-        .get(format!("http://{}/auth/check", front.addr))
+        .get(format!("http://{}/mock/proxied", front.addr))
         .send()
         .await
         .unwrap();

@@ -17,9 +17,9 @@
 //! プロセスが一致している保証が要らなくなる）。
 //!
 //! push 通知（`state.proxy.send_push`）・dispatch キューの status stream 配信
-//! （`state.proxy.broadcast_dispatch_queue`）・dispatch scope API トークン検証
-//! （`state.proxy.verify_dispatch_api_token`）は Python 側への loopback ブリッジ
-//! （`api/routers/migration_bridge.py`）を経由する。
+//! （`state.proxy.broadcast_dispatch_queue`）は Python 側への loopback ブリッジ
+//! （`api/routers/migration_bridge.py`）を経由する。dispatch scope API トークン
+//! 検証は `Auth::verify_api_token`（`auth.rs`）へネイティブに委譲する。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -804,10 +804,11 @@ async fn verify_dispatch_auth(
             AuthKind::Tailscale | AuthKind::Device => (result.label, false),
         });
     }
-    let (ok, label) = state.proxy.verify_dispatch_api_token(bearer).await;
-    if ok {
-        if let Some(label) = label.filter(|l| l.starts_with(API_TOKEN_SCOPE_LABEL_PREFIX)) {
-            return Ok((label, true));
+    if let Some(entry) = state.auth.verify_api_token(bearer) {
+        if entry.get("scope").and_then(Value::as_str) == Some(crate::auth::API_TOKEN_SCOPE_DISPATCH)
+        {
+            let token_id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
+            return Ok((format!("{API_TOKEN_SCOPE_LABEL_PREFIX}{token_id}"), true));
         }
     }
     Err(crate::errors::unauthorized("Invalid token"))
@@ -1372,6 +1373,7 @@ mod tests {
                 dir.path(),
             ),
             preview: crate::preview::PreviewState::new(),
+            pairing: crate::pairing::PairingState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: Auth::load(data_dir, false),

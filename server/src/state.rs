@@ -10,6 +10,7 @@ use crate::git_lock::WorkspaceLocks;
 use crate::git_watch::GitWatchState;
 use crate::github::GhCache;
 use crate::jobs_common::JobsCache;
+use crate::pairing::PairingState;
 use crate::paths::Paths;
 use crate::preview::PreviewState;
 use crate::proxy::Proxy;
@@ -34,6 +35,7 @@ pub struct AppState {
     pub status_stream: StatusStreamState,
     pub manifest_store: ManifestStore,
     pub preview: PreviewState,
+    pub pairing: PairingState,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,
