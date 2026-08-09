@@ -19,6 +19,9 @@ pub mod git_utils;
 pub mod git_worktree;
 pub mod github;
 pub mod groups;
+pub mod icons;
+pub mod jobs;
+pub mod jobs_common;
 pub mod json_store;
 pub mod middleware;
 pub mod paths;
@@ -236,6 +239,34 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/workspaces/{name}/github/issues", get(github::issues))
         .route("/workspaces/{name}/github/pulls", get(github::pulls))
         .route("/workspaces/{name}/github/runs", get(github::runs))
+        // ─── Rust ネイティブ移行済みルート（Phase 3: ジョブ CRUD / recent-jobs）
+        // ジョブ実行（/run・dispatch）はターミナル依存のため Python のまま（Phase 5）
+        .route("/jobs/workspaces", get(jobs::list_all_workspace_jobs))
+        .route(
+            "/workspaces/{name}/jobs",
+            get(jobs::list_workspace_jobs).post(jobs::create_workspace_job),
+        )
+        .route(
+            "/workspaces/{name}/job-order",
+            put(jobs::reorder_workspace_jobs),
+        )
+        .route(
+            "/workspaces/{name}/jobs/{job_name}",
+            put(jobs::update_workspace_job).delete(jobs::delete_workspace_job),
+        )
+        .route(
+            "/common/jobs",
+            get(jobs::list_common_jobs).post(jobs::create_common_job),
+        )
+        .route(
+            "/common/jobs/{job_name}",
+            put(jobs::update_common_job).delete(jobs::delete_common_job),
+        )
+        .route("/common/job-order", put(jobs::reorder_common_jobs))
+        .route(
+            "/recent-jobs",
+            get(settings::get_recent_jobs).put(settings::put_recent_jobs),
+        )
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:

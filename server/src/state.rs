@@ -4,6 +4,7 @@ use crate::auth::Auth;
 use crate::config::ConfigStore;
 use crate::git_lock::WorkspaceLocks;
 use crate::github::GhCache;
+use crate::jobs_common::JobsCache;
 use crate::paths::Paths;
 use crate::proxy::Proxy;
 use crate::rate_limit::FixedWindowCounter;
@@ -14,6 +15,7 @@ pub struct AppState {
     pub config: ConfigStore,
     pub git_locks: WorkspaceLocks,
     pub gh_cache: GhCache,
+    pub jobs_cache: JobsCache,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,

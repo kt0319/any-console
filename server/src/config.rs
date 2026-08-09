@@ -233,6 +233,43 @@ impl ConfigStore {
         self.write_unlocked(&all)
     }
 
+    /// expected_current を前提に算出した new_value を、排他ロック下で再検証してから
+    /// 書き戻す（Python `compare_and_update_global_config_section` 相当）。
+    /// ロック取得後の現在値が expected と一致しなければ new_value を破棄して
+    /// その時点の現在値を返す（lost update 防止）。
+    pub fn compare_and_update_global_section(
+        &self,
+        key: &str,
+        expected_current: &Value,
+        new_value: Value,
+    ) -> Result<Value, String> {
+        let _lock = self.file_lock(true);
+        let mut all = self.read_unlocked();
+        let mut global = all
+            .get(GLOBAL_CONFIG_KEY)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let current = global
+            .get(key)
+            .cloned()
+            .unwrap_or(Value::Object(Map::new()));
+        if &current != expected_current {
+            return Ok(current);
+        }
+        if new_value != current {
+            global.insert(key.to_string(), new_value.clone());
+            let validated = validate_config_entry(
+                GLOBAL_CONFIG_KEY,
+                &Value::Object(global),
+                GLOBAL_CONFIG_KEY,
+            )?;
+            all.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(validated));
+            self.write_unlocked(&all)?;
+        }
+        Ok(new_value)
+    }
+
     /// Python `check_config_health` と同一の判定。
     pub fn check_health(&self) -> Value {
         let _lock = self.file_lock(false);

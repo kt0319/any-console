@@ -78,6 +78,7 @@ async fn spawn_front() -> TestFront {
         config: store,
         git_locks: WorkspaceLocks::new(),
         gh_cache: any_console_server::github::GhCache::new(),
+        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir.clone(), false),

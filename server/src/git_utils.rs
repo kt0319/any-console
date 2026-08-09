@@ -357,6 +357,55 @@ pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Opti
     None
 }
 
+/// 登録済み git ワークスペースの linked worktree を動的に列挙する
+/// （Python `workspaces._dynamic_worktree_entries` の include_github_url=False 版）。
+/// config に登録されていない worktree のみを返す。
+pub async fn dynamic_worktree_entries(store: &ConfigStore) -> Vec<Value> {
+    let existing_paths: std::collections::HashSet<String> =
+        registered_paths_by_resolved(store).into_keys().collect();
+    let mut out = Vec::new();
+    for (ws_id, entry) in store.list_workspace_entries() {
+        let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
+        let ws_path = crate::paths::expand_user_path(raw_path);
+        if !ws_path.is_dir() || !git_is_repo(&ws_path).await {
+            continue;
+        }
+        let base_name = entry
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&ws_id)
+            .to_string();
+        for wt in git_worktree_list(&ws_path).await.iter().skip(1) {
+            let wt_path_str = wt.get("path").and_then(Value::as_str).unwrap_or("");
+            if wt_path_str.is_empty() {
+                continue;
+            }
+            let wt_path = std::path::Path::new(wt_path_str);
+            if !wt_path.is_dir()
+                || existing_paths.contains(&crate::paths::safe_resolve_str(wt_path))
+            {
+                continue;
+            }
+            let branch = wt.get("branch").and_then(Value::as_str).unwrap_or("");
+            out.push(json!({
+                "id": Value::Null,
+                "name": worktree_display_name(&base_name, branch),
+                "path": wt_path_str,
+                "is_git_repo": true,
+                "branch": branch,
+                "icon": entry.get("icon").and_then(Value::as_str).unwrap_or(""),
+                "icon_color": entry.get("icon_color").and_then(Value::as_str).unwrap_or(""),
+                "exists": true,
+                "worktree": true,
+                "worktree_base": base_name,
+                "worktree_branch": branch,
+            }));
+        }
+    }
+    out
+}
+
 /// workspace 名（ID / 表示名 / 動的worktree名）からパスを解決する
 /// （Python `common.resolve_workspace_path` 相当）。
 pub async fn resolve_workspace_path(

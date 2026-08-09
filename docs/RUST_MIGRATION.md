@@ -211,14 +211,29 @@ rebase / reset / commit / stash 5種 / diff 3種 / discard）を移行済み。
 
 **注意**: git 出力のパースは Python 実装と**同一入力・同一出力**のゴールデンテストを移植する。
 
-### Phase 3 — ジョブ・ディスパッチ
+### Phase 3 — ジョブ・ディスパッチ — **ジョブ CRUD 移行済み・実行系は再スコープ**
 
-| 対象 | 行数目安 |
-|------|---------|
-| `job_models.py` / `job_match.py` | 135 |
-| `routers/jobs.py` / `jobs_common.py` / `job_runner.py` | 519 |
-| `routers/dispatch.py`（承認キュー・dedup・dispatch scope トークン） | 651 |
-| `routers/pairing.py`（QR ペアリング・短命トークン） | 277 |
+**状況**: ジョブ定義の CRUD 系（`jobs_common.rs` / `jobs.rs` / `icons.rs`）と、
+Phase 1 から保留していた /recent-jobs（除去計算 + compare_and_update）を移行済み。
+アイコン正規化（data URI 保存・favicon ダウンロード）も含む。
+
+**実装時に確定した再スコープ**: dispatch / job_runner は実行時に
+`TERMINAL_SESSIONS`（Python プロセス内のターミナル状態）と tmux セッション生成に
+直接依存するため、**ターミナルサブシステムと同時（Phase 5）に移行**する。
+pairing は devices.json への書き込み（認証ドメイン）依存のため Phase 4 以降。
+
+| 対象 | 行数目安 | 状況 |
+|------|---------|------|
+| `job_models.py` / `jobs_common.py` / `routers/jobs.py` + `icons.py` | 459 | **移行済み**（TTL キャッシュ・worktree のジョブ共有・/jobs/workspaces の動的 worktree 列挙含む） |
+| `/recent-jobs`（settings.py 内） | — | **移行済み**（Phase 1 保留分を解禁） |
+| `job_match.py` | 112 | Phase 4（agent_watch と同時） |
+| `routers/job_runner.py` | 131 | Phase 5（ターミナル依存） |
+| `routers/dispatch.py`（承認キュー・dedup・dispatch scope トークン） | 651 | Phase 5（ターミナル依存） |
+| `routers/pairing.py`（QR ペアリング・短命トークン） | 277 | Phase 4 以降（devices 書き込み依存） |
+
+**ジョブキャッシュの補足**: Python 側は TTL 60 秒のキャッシュを持ち、Rust の
+書き込みを即時無効化はできないが、TTL 以内に必ず再読込されるため staleness の
+上限は移行前と同じ（Python 内部でも他プロセス書き込みは TTL 待ちだった）。
 
 **注意**: dispatch はキュー JSON の互換とステータスストリームへのスナップショット配信（Phase 4 と接続）が要。dispatch トークンの権限境界（direct: true 拒否）はセキュリティ要件なのでテストを厚く移植する。
 

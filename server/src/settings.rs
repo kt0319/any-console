@@ -4,7 +4,6 @@
 //! config.json のグローバルセクションを読み書きするルートを移行する。
 //! **移行対象外**（proxy のまま Python が担当）:
 //! - GET/PUT /settings/auth — auth.json ドメイン（ライター移管は後続フェーズ）
-//! - GET/PUT /recent-jobs — GET の除去計算が jobs 解決（jobs_common.py）に依存
 
 use std::sync::Arc;
 
@@ -599,6 +598,135 @@ pub async fn put_snippets(
     }
     save_global(&state.config, "snippets", Value::Array(snippets.clone()))?;
     Ok(Json(json!({"status": "ok", "snippets": snippets})))
+}
+
+// ─── /recent-jobs ───────────────────────────────────────────────────────────
+//
+// Phase 1 では jobs 解決に依存するため保留していたが、jobs_common の移行
+// （Phase 3）で解禁。GET はジョブが削除→再作成されて参照先が消えた
+// スナップショットを除去し、除去があれば compare_and_update で排他ロック下に
+// 書き戻す（除去計算中に割り込んだ他クライアントの PUT を上書きしない）。
+
+fn recent_job_still_exists(state: &AppState, item: &Value) -> bool {
+    let workspace = item.get("workspace").and_then(Value::as_str).unwrap_or("");
+    let job_name = item.get("jobName").and_then(Value::as_str).unwrap_or("");
+    if workspace.is_empty() || job_name.is_empty() {
+        return true;
+    }
+    let owner = crate::jobs_common::resolve_jobs_owner(state, workspace);
+    if state.config.resolve_workspace_id(&owner).is_none() {
+        return true; // 判定できない場合は素通し（Python と同一）
+    }
+    crate::jobs_common::workspace_job_names(state, workspace)
+        .iter()
+        .any(|n| n == job_name)
+}
+
+fn prune_recent_jobs(state: &AppState, raw: &Value) -> Vec<Value> {
+    let items = raw.as_array().cloned().unwrap_or_default();
+    items
+        .into_iter()
+        .filter(|item| {
+            item.is_object()
+                && !item
+                    .get("key")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .is_empty()
+        })
+        .filter(|item| recent_job_still_exists(state, item))
+        .collect()
+}
+
+pub async fn get_recent_jobs(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Result<Json<Value>, ApiError> {
+    let raw = state
+        .config
+        .load_global_section("recent_jobs")
+        .unwrap_or(json!([]));
+    let valid = Value::Array(prune_recent_jobs(&state, &raw));
+    let result = if valid != raw {
+        state
+            .config
+            .compare_and_update_global_section("recent_jobs", &raw, valid)
+            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e))?
+    } else {
+        valid
+    };
+    Ok(Json(json!({"recent_jobs": result})))
+}
+
+#[derive(Deserialize, serde::Serialize)]
+pub struct RecentJobItem {
+    key: String,
+    #[serde(default)]
+    workspace: String,
+    #[serde(default, rename = "wsIcon")]
+    ws_icon: String,
+    #[serde(default, rename = "wsIconColor")]
+    ws_icon_color: String,
+    #[serde(default, rename = "jobName")]
+    job_name: String,
+    #[serde(default, rename = "jobLabel")]
+    job_label: String,
+    #[serde(default, rename = "jobIcon")]
+    job_icon: String,
+    #[serde(default, rename = "jobIconColor")]
+    job_icon_color: String,
+    #[serde(default, rename = "jobCommand")]
+    job_command: String,
+    #[serde(default, rename = "jobUrl")]
+    job_url: String,
+    #[serde(default = "default_job_type", rename = "jobType")]
+    job_type: String,
+    #[serde(default, rename = "jobConfirm")]
+    job_confirm: Option<bool>,
+    #[serde(default, rename = "jobDetachedTab")]
+    job_detached_tab: bool,
+    #[serde(default)]
+    pinned: bool,
+}
+
+fn default_job_type() -> String {
+    "command".to_string()
+}
+
+#[derive(Deserialize)]
+pub struct UpdateRecentJobsRequest {
+    #[serde(default)]
+    recent_jobs: Vec<RecentJobItem>,
+}
+
+pub async fn put_recent_jobs(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<UpdateRecentJobsRequest>,
+) -> Result<Json<Value>, ApiError> {
+    for item in &body.recent_jobs {
+        for (v, max, field) in [
+            (&item.key, MAX_LABEL_LENGTH, "key"),
+            (&item.workspace, MAX_LABEL_LENGTH, "workspace"),
+            (&item.job_command, MAX_COMMAND_LENGTH, "jobCommand"),
+            (&item.job_url, MAX_COMMAND_LENGTH, "jobUrl"),
+        ] {
+            check_max_len(field, v, max)?;
+        }
+    }
+    // Python は Pydantic model_dump（全フィールドをキャメルケースで保存）
+    let recent_jobs: Vec<Value> = body
+        .recent_jobs
+        .iter()
+        .filter(|item| !item.key.trim().is_empty())
+        .map(|item| serde_json::to_value(item).expect("serializable"))
+        .collect();
+    save_global(
+        &state.config,
+        "recent_jobs",
+        Value::Array(recent_jobs.clone()),
+    )?;
+    Ok(Json(json!({"status": "ok", "recent_jobs": recent_jobs})))
 }
 
 // ─── PUT /workspace-order（workspaces.py から）──────────────────────────────
