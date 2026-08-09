@@ -58,7 +58,7 @@ fn connect_bind_host(host: &str) -> String {
 /// hook 専用トークンを返す（無ければ生成して `data/hook_token` に保存する。
 /// Python の `agent_hooks.get_hook_token` と同一ファイル・同一 best-effort 挙動 —
 /// 初回作成時のプロセス間競合はガードしない。0600 で保存する）。
-fn get_hook_token(data_dir: &Path) -> String {
+pub(crate) fn get_hook_token(data_dir: &Path) -> String {
     let path = data_dir.join("hook_token");
     if let Ok(existing) = std::fs::read_to_string(&path) {
         let trimmed = existing.trim();

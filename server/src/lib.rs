@@ -4,6 +4,7 @@
 //! Python 側 `api/` のファイル構成に対応させている（移植元の追跡を容易にするため）。
 
 pub mod activity;
+pub mod agent_hooks;
 pub mod auth;
 pub mod config;
 pub mod config_migrations;

@@ -38,7 +38,7 @@ pub struct AuthResult {
 }
 
 /// タイミング攻撃耐性のある文字列比較（Python `hmac.compare_digest` 相当）。
-fn constant_time_eq(a: &str, b: &str) -> bool {
+pub(crate) fn constant_time_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     if a.len() != b.len() {
         return false;

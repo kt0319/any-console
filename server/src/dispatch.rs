@@ -1244,6 +1244,7 @@ mod tests {
             jobs_cache: crate::jobs_common::JobsCache::new(),
             terminal_registry: TerminalRegistry::new(),
             dispatch: DispatchState::new(),
+            agent_hooks: crate::agent_hooks::AgentHookState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: Auth::load(data_dir, false),

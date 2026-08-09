@@ -1,5 +1,6 @@
 //! アプリ全体の共有状態。
 
+use crate::agent_hooks::AgentHookState;
 use crate::auth::Auth;
 use crate::config::ConfigStore;
 use crate::dispatch::DispatchState;
@@ -22,6 +23,7 @@ pub struct AppState {
     pub jobs_cache: JobsCache,
     pub terminal_registry: TerminalRegistry,
     pub dispatch: DispatchState,
+    pub agent_hooks: AgentHookState,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,

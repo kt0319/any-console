@@ -183,6 +183,7 @@ async fn spawn_front() -> TestFront {
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         terminal_registry: TerminalRegistry::new(),
         dispatch: DispatchState::new(),
+        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
         proxy: Proxy::new(format!("http://{upstream_addr}")),
         static_ctx: None,
         auth: Auth::load(data_dir, false),
