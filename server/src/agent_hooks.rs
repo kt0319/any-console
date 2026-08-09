@@ -206,6 +206,7 @@ mod tests {
                 dir.path().join("agent_manifests"),
                 dir.path(),
             ),
+            preview: crate::preview::PreviewState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: crate::auth::Auth::load(dir.path().join("data"), false),

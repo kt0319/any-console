@@ -111,6 +111,7 @@ async fn main() {
             paths.project_root.join("api/agent_manifests"),
             &paths.data_dir,
         ),
+        preview: any_console_server::preview::PreviewState::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,
@@ -125,6 +126,16 @@ async fn main() {
     // Python 側が（Rust を再起動せずに）再起動しても dispatch キューの
     // ブリッジが空白のままにならないよう、一定間隔で再送し続ける常駐タスク。
     tokio::spawn(any_console_server::dispatch::run_bridge_reconciliation_loop(state.clone()));
+
+    // dev server ポートプレビュー: 自分自身（Rust front）と、移行期間中に同じ
+    // マシンで listen している Python upstream のポートは preview 対象から
+    // 除外する（除外しないと自分自身が dev server のように一覧へ出てしまう）。
+    let mut self_ports = vec![port];
+    if let Some(upstream_port) = any_console_server::preview::loopback_port_from_url(&upstream) {
+        self_ports.push(upstream_port);
+    }
+    any_console_server::preview::set_self_ports(&state.preview, &self_ports);
+    any_console_server::preview::start_scanner(&state);
 
     let app = build_router(state);
 

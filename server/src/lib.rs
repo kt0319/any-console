@@ -34,6 +34,7 @@ pub mod json_store;
 pub mod manifest_update;
 pub mod middleware;
 pub mod paths;
+pub mod preview;
 pub mod proxy;
 pub mod pty;
 pub mod rate_limit;
@@ -357,6 +358,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/agent-hooks/events",
             post(agent_hooks::post_agent_hook_event),
         )
+        // ─── Rust ネイティブ移行済みルート（dev server ポートプレビュー） ───
+        .route("/preview/ports", get(preview::list_detected_ports))
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:

@@ -191,6 +191,7 @@ async fn spawn_front() -> TestFront {
             dir.path().join("agent_manifests"),
             dir.path(),
         ),
+        preview: any_console_server::preview::PreviewState::new(),
         proxy: Proxy::new(format!("http://{upstream_addr}")),
         static_ctx: None,
         auth: Auth::load(data_dir, false),

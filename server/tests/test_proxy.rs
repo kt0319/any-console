@@ -153,6 +153,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
             dir.path().join("agent_manifests"),
             dir.path(),
         ),
+        preview: any_console_server::preview::PreviewState::new(),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),

@@ -11,6 +11,7 @@ use crate::git_watch::GitWatchState;
 use crate::github::GhCache;
 use crate::jobs_common::JobsCache;
 use crate::paths::Paths;
+use crate::preview::PreviewState;
 use crate::proxy::Proxy;
 use crate::rate_limit::FixedWindowCounter;
 use crate::screen_manifest::ManifestStore;
@@ -32,6 +33,7 @@ pub struct AppState {
     pub agent_watch: AgentWatchState,
     pub status_stream: StatusStreamState,
     pub manifest_store: ManifestStore,
+    pub preview: PreviewState,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,

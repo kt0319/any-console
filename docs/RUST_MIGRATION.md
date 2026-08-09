@@ -279,7 +279,7 @@ Python 側の bridge 呼び出し（`nudge_git` / `notify_session_event` /
 | `manifest_update.py`（リモートマニフェスト更新） | 272 | **一部移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側の `start_updater` が稼働中のため配線しない。下記注意参照） |
 | `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。`POST /agent-hooks/events` を `build_router` に配線済み。Python 側 agent_watch ポーリングが status stream 切替により恒久休眠したため配線可能になった） |
 | `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。`agent_watch.rs` から利用中） |
-| `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | Phase 5 |
+| `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | **移行済み**（`server/src/preview.rs`。配線済み） |
 
 **注意**:
 - git_watch は「購読者ゼロで全停止」のライフサイクル管理が肝。tokio の task 管理で等価に
@@ -470,6 +470,31 @@ Phase 6（Python 撤去）まで残す）。`main.py` の `app.include_router(..
 - tmux の `window-size latest` ポリシー・複数クライアント同時アタッチ・detached セッション（adopt/close）の E2E（`terminal.spec.js` / `detached-sessions.spec.js` / `mobile-terminal.spec.js`）を macOS / Linux 両方で回す
 - 配線（`build_router` への登録）は `terminal.rs`（WS 含む）+ `/run`/`/dispatch` を一括して行った（上記の pending_text 不整合を避けるため）
 - 実機スモーク（iOS Safari / Android Chrome）は継続してウォッチする（このセッションでは Linux コンテナ内の自動テスト + curl/websockets での手動検証まで実施）
+
+### dev server ポートプレビュー（`preview.py`）— **移行済み**
+
+**状況**: ポートスキャン（Linux `ss -ltnp` / macOS `lsof -iTCP -sTCP:LISTEN`）・
+プロセス情報取得（cmdline/cwd、Linux は `/proc`、macOS は `ps`/`lsof`）・
+workspace 自動紐付け（`ConfigStore::match_workspace_by_path` を再利用）・
+TCP/TLS proxy（`target + 20000` へ listen、Tailscale IP からもアクセス可能）・
+HTTP プローブ（非 HTTP upstream の除外）・idle 連動のバックグラウンドスキャン
+まで `server/src/preview.rs` へ移植し、`GET /preview/ports` を `build_router`
+へ配線済み。TLS 終端は `tokio-rustls` + `rustls-pemfile`（`SSL_CERTFILE`/
+`SSL_KEYFILE` または `certs/*.crt`+`.key` を探索 — Python 版と同じ規則）。
+
+- Python の `_scan_listening_ports_linux`/`_macos` の出力パース部分は純粋関数
+  （`parse_ss_listen_lines`/`parse_lsof_listeners`）に切り出し、Python 側テスト
+  と同じ固定出力フィクスチャで検証した
+- OS 分岐は `system.rs` の `IS_DARWIN` と同じ規約（`const IS_MACOS: bool =
+  cfg!(target_os = "macos")` による実行時 if 分岐）を踏襲し、両ブランチが
+  どちらの OS でもコンパイル・テストできるようにした（`#[cfg(target_os)]`
+  による条件コンパイルは使わない）
+- `main.rs` は自分自身の bind ポートに加え、`ANY_CONSOLE_UPSTREAM` が
+  loopback を指している場合はその Python upstream のポートも self_ports に
+  含める（移行期間中に自分自身が dev server として誤検出されるのを防ぐ）
+- `ss` が使えない実行環境（このセッションのコンテナ含む）ではスキャンが
+  空振りするだけで例外にはならないこと、実バイナリでの起動 + `curl` による
+  `/preview/ports` 疎通（401 without auth / 200 `[]` with auth）を確認済み
 
 ### Phase 6 — Python 撤去・配布切替
 
