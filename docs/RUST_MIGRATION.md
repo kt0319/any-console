@@ -270,7 +270,7 @@ status_stream / git_watch / session_watch）は producer の大半
 | `session_watch.py` | 74 | Phase 5 |
 | `agent_watch.py`（3値状態判定・自動紐付け） | 584 | Phase 5 |
 | `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。配線は未実施 — agent_watch 移行まで待つ） |
-| `manifest_update.py`（リモートマニフェスト更新） | 272 | Phase 5 |
+| `manifest_update.py`（リモートマニフェスト更新） | 272 | **移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側が稼働中のため配線しない。下記注意参照） |
 | `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。配線は未実施 — agent_watch 移行まで待つ。理由は下記注意参照） |
 | `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。配線は未実施） |
 | `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | Phase 5 |
@@ -293,6 +293,15 @@ status_stream / git_watch / session_watch）は producer の大半
   Unicode プロパティは Rust `regex` クレートがネイティブ対応するため、Python 版の
   `translate_rust_regex()`（Rust regex 記法 → Python `re` 変換）に相当する処理は
   不要（同梱 21 マニフェスト全件のコンパイル成功をテストで確認済み）
+- `manifest_update.rs` はカタログ・マニフェストの取得検証とコミット判定
+  （純粋ロジック + reqwest 経由の fetch）のみ移植した。Python 側の
+  `start_updater`/`stop_updater`（`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に
+  開始し `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごとに実行する定期タスク）は
+  まだ稼働中のため、Rust 側の定期実行ループはあえて実装・起動しない —
+  両実装が同時に herdr.dev を叩いて `data/agent-detection/remote/` へ
+  二重に書き込むと、ファイル rename の競合や意図しない version 判定になり得る。
+  agent_watch 一式を配線するタイミングで Python 側の `start_updater` 呼び出しを
+  停止しつつ Rust 側のループを起動する一括切替が必要
 
 ### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **配線完了（terminal/run/dispatch）**
 
