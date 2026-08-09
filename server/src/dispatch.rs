@@ -1245,6 +1245,7 @@ mod tests {
             terminal_registry: TerminalRegistry::new(),
             dispatch: DispatchState::new(),
             agent_hooks: crate::agent_hooks::AgentHookState::new(),
+            status_stream: crate::status_stream::StatusStreamState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: Auth::load(data_dir, false),

@@ -184,6 +184,7 @@ async fn spawn_front() -> TestFront {
         terminal_registry: TerminalRegistry::new(),
         dispatch: DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
+        status_stream: any_console_server::status_stream::StatusStreamState::new(),
         proxy: Proxy::new(format!("http://{upstream_addr}")),
         static_ctx: None,
         auth: Auth::load(data_dir, false),

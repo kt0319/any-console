@@ -12,6 +12,7 @@ use crate::paths::Paths;
 use crate::proxy::Proxy;
 use crate::rate_limit::FixedWindowCounter;
 use crate::static_files::StaticCtx;
+use crate::status_stream::StatusStreamState;
 use crate::terminal_session::TerminalRegistry;
 
 pub struct AppState {
@@ -24,6 +25,7 @@ pub struct AppState {
     pub terminal_registry: TerminalRegistry,
     pub dispatch: DispatchState,
     pub agent_hooks: AgentHookState,
+    pub status_stream: StatusStreamState,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,

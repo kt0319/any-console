@@ -53,6 +53,7 @@ async fn spawn_front() -> TestFront {
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
+        status_stream: any_console_server::status_stream::StatusStreamState::new(),
         proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir, false),
