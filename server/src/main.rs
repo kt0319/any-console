@@ -20,7 +20,6 @@ use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::config::ConfigStore;
 use any_console_server::paths::Paths;
-use any_console_server::proxy::Proxy;
 use any_console_server::rate_limit::{rate_limit_from_env, FixedWindowCounter};
 use any_console_server::state::AppState;
 use any_console_server::static_files::StaticCtx;
@@ -114,20 +113,15 @@ async fn main() {
         preview: any_console_server::preview::PreviewState::new(),
         pairing: any_console_server::pairing::PairingState::new(),
         push: any_console_server::push::PushState::new(),
-        proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,
         rate_counter: FixedWindowCounter::new(),
         rate_limit: rate_limit_from_env(),
     });
 
-    // 永続化済み dispatch キュー/履歴を読み込み、Python 側 status stream へ
-    // 起動直後の初期スナップショットを送る（Python の
-    // `_load_persisted_pending`/`_load_persisted_recent` 相当）。
+    // 永続化済み dispatch キュー/履歴を読み込み、status stream 購読者へ
+    // 起動直後の初期スナップショットを送る。
     any_console_server::dispatch::load_persisted_and_seed_bridge(&state).await;
-    // Python 側が（Rust を再起動せずに）再起動しても dispatch キューの
-    // ブリッジが空白のままにならないよう、一定間隔で再送し続ける常駐タスク。
-    tokio::spawn(any_console_server::dispatch::run_bridge_reconciliation_loop(state.clone()));
 
     // dev server ポートプレビュー: 自分自身（Rust front）と、移行期間中に同じ
     // マシンで listen している Python upstream のポートは preview 対象から

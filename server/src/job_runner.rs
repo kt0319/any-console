@@ -153,9 +153,6 @@ pub async fn execute_job(
         )
         .await?;
     crate::session_watch::notify_session_created(&state, &session_id);
-    state
-        .proxy
-        .notify_session_event("created", session_id.clone());
 
     let tmux_name = { session_arc.lock().await.tmux_session_name.clone() };
     tracing::info!(

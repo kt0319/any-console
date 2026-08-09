@@ -58,13 +58,6 @@ pub struct DispatchState {
     pub pending: Mutex<Map<String, Value>>,
     /// 承認/却下が決定された直近の項目（新しい順、最大 `RECENT_LIMIT` 件）。
     pub recent: Mutex<Vec<Value>>,
-    /// Python 側ブリッジ（migration_bridge.py `/internal/dispatch-queue`）へ
-    /// 送るスナップショットごとに単調増加させる採番。各送信は独立した
-    /// fire-and-forget HTTP タスクのため、ネットワーク経路によっては古い方が
-    /// 後に届くことがある。Python 側はこの revision が既知の最新値以下なら
-    /// 破棄するため、配信順の入れ替わりで古いスナップショットが最終状態として
-    /// 残ってしまうのを防げる（Codex レビュー指摘）。
-    pub bridge_revision: std::sync::atomic::AtomicU64,
 }
 
 impl DispatchState {
@@ -94,9 +87,8 @@ fn recent_file(paths: &Paths) -> PathBuf {
     dispatch_state_file(paths, "dispatch_recent.json")
 }
 
-/// 起動時に永続化済みのキュー/履歴を読み込み、Python 側 status stream へ初期
-/// スナップショットを送る（`main.rs` から一度だけ呼ぶ。Python の
-/// `_load_persisted_pending`/`_load_persisted_recent` 相当 + 起動直後の同期）。
+/// 起動時に永続化済みのキュー/履歴を読み込み、status stream 購読者へ初期
+/// スナップショットを送る（`main.rs` から一度だけ呼ぶ）。
 pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
     let queue_raw = crate::json_store::load_json_file(&queue_file(&state.paths), json!({}), None);
     if let Some(items) = queue_raw.get("items").and_then(Value::as_object) {
@@ -115,30 +107,6 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
         *state.dispatch.recent.lock().await = valid;
     }
     broadcast_queue(state).await;
-}
-
-/// Python 側 `_bridged_payload`（migration_bridge 経由で受け取る dispatch キュー
-/// スナップショット）を定期的に再送し続ける（`main.rs` から起動時に1回
-/// `tokio::spawn` する常駐タスク）。
-///
-/// Rust は dispatch キューの唯一の実体を持つが、status stream WS 自体は
-/// まだ Python 側に残っており、Python は受け取った直近のスナップショットを
-/// プロセス内メモリ（`_bridged_payload`）にしか保持しない。Python が
-/// 再起動（デプロイ・クラッシュ再起動等）すると、Rust を起動し直さない限り
-/// 何もイベントが起きるまで再送されず、その間に（再）接続した WS 購読者は
-/// 空のキューという誤った状態を見てしまう（Codex レビュー指摘）。イベント
-/// 駆動の再送だけでなく一定間隔でも再送することで、この空白期間を打ち切る。
-const DISPATCH_QUEUE_RECONCILE_INTERVAL_SEC: u64 = 30;
-
-pub async fn run_bridge_reconciliation_loop(state: Arc<AppState>) -> ! {
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(
-        DISPATCH_QUEUE_RECONCILE_INTERVAL_SEC,
-    ));
-    interval.tick().await; // 初回 tick は即座に完了するため消費しておく（起動直後は既に送信済み）
-    loop {
-        interval.tick().await;
-        broadcast_queue(&state).await;
-    }
 }
 
 async fn persist_pending(state: &Arc<AppState>) {
@@ -169,29 +137,10 @@ async fn queue_payload(state: &Arc<AppState>) -> Value {
     json!({"type": "dispatch_queue", "items": items, "recent": recent})
 }
 
-/// キューの現在の全量を Python 側 status stream へ中継する（fire-and-forget）。
+/// キューの現在の全量を status stream 購読者へ配信する。
 async fn broadcast_queue(state: &Arc<AppState>) {
     let payload = queue_payload(state).await;
-    // ネイティブの status stream 購読者（`StatusStreamState`）へ直接配信する。
-    // 実エンドポイント配線までは購読者ゼロの無害な no-op。あわせて、まだ
-    // Python 側に残る status stream の購読者向けにブリッジも維持する
-    // （`_bridged_payload` 経由 — 一括配線・ブリッジ撤去まではこちらが実際に
-    // 使われる）。
-    state.status_stream.broadcast(payload.clone());
-    // ブリッジ送信は独立した fire-and-forget HTTP タスクのため、ネットワーク
-    // 経路によっては新しい方が先に、古い方が後に届くことがある。単調増加する
-    // revision を付けて送り、Python 側で古い revision を破棄させることで、
-    // 配信順の入れ替わりが最終状態に残らないようにする。
-    let revision = state
-        .dispatch
-        .bridge_revision
-        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-        + 1;
-    let mut bridged = payload;
-    if let Value::Object(ref mut map) = bridged {
-        map.insert("_bridge_revision".to_string(), json!(revision));
-    }
-    state.proxy.broadcast_dispatch_queue(bridged);
+    state.status_stream.broadcast(payload);
 }
 
 /// status stream WS への新規接続時に呼ぶ（Python `dispatch.subscribe` が
@@ -580,9 +529,6 @@ async fn create_session(
         )
         .await?;
     crate::session_watch::notify_session_created(state, &session_id);
-    state
-        .proxy
-        .notify_session_event("created", session_id.clone());
     tracing::info!("dispatch session created session={session_id} workspace={workspace} job={job}");
     Ok((session_id, session_arc))
 }
@@ -1352,7 +1298,6 @@ mod tests {
         use crate::auth::Auth;
         use crate::config::ConfigStore;
         use crate::git_lock::WorkspaceLocks;
-        use crate::proxy::Proxy;
         use crate::rate_limit::FixedWindowCounter;
         use crate::terminal_session::TerminalRegistry;
         let data_dir = dir.path().join("data");
@@ -1383,7 +1328,6 @@ mod tests {
             preview: crate::preview::PreviewState::new(),
             pairing: crate::pairing::PairingState::new(),
             push: crate::push::PushState::new(),
-            proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: Auth::load(data_dir, false),
             rate_counter: FixedWindowCounter::new(),

@@ -2,8 +2,8 @@
 //!
 //! これらのルートはまだ `build_router` に配線されていない（Phase 5 の設計判断 —
 //! ターミナル WS・`/run` と同時に配線する）ため、テスト専用の Router を直接
-//! 組み立てる。Python 側の migration_bridge（dispatch キュー中継等）はフェイクの
-//! upstream サーバで代替する。dispatch scope API トークン検証は
+//! 組み立てる。dispatch キューの配信は `state.status_stream`（ネイティブ
+//! broadcast channel）を直接購読して検証する。dispatch scope API トークン検証は
 //! `Auth::verify_api_token` へネイティブに移行済みのため、フェイクではなく
 //! `Auth::create_api_token` で実際に発行したトークンを使う。push 通知は
 //! `crate::push` へネイティブに移行済みのため、フェイクの Web Push サービスへ
@@ -28,7 +28,6 @@ use any_console_server::dispatch::{self, DispatchState};
 use any_console_server::git_lock::WorkspaceLocks;
 use any_console_server::json_store::save_json_file;
 use any_console_server::paths::Paths;
-use any_console_server::proxy::Proxy;
 use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 use any_console_server::terminal;
@@ -36,12 +35,6 @@ use any_console_server::terminal_session::TerminalRegistry;
 use any_console_server::util::base64url_encode;
 
 const TOKEN: &str = "dispatch-test-token";
-
-#[derive(Default, Clone)]
-struct FakeUpstreamCalls {
-    queue: Arc<StdMutex<Vec<Value>>>,
-    session_events: Arc<StdMutex<Vec<Value>>>,
-}
 
 /// フェイクの Web Push サービス（fcm.googleapis.com 相当）が受け取ったリクエスト。
 #[derive(Clone)]
@@ -88,29 +81,6 @@ fn generate_test_push_subscriber_keys() -> (String, String) {
     )
 }
 
-async fn dispatch_queue_handler(
-    AxumState(calls): AxumState<FakeUpstreamCalls>,
-    Json(body): Json<Value>,
-) -> Json<Value> {
-    calls.queue.lock().unwrap().push(body);
-    Json(json!({"status": "ok"}))
-}
-
-async fn session_event_handler(
-    AxumState(calls): AxumState<FakeUpstreamCalls>,
-    Json(body): Json<Value>,
-) -> Json<Value> {
-    calls.session_events.lock().unwrap().push(body);
-    Json(json!({"status": "ok"}))
-}
-
-fn upstream_router(calls: FakeUpstreamCalls) -> Router {
-    Router::new()
-        .route("/internal/dispatch-queue", post(dispatch_queue_handler))
-        .route("/internal/session-event", post(session_event_handler))
-        .with_state(calls)
-}
-
 fn push_service_router(calls: Arc<StdMutex<Vec<ReceivedPush>>>) -> Router {
     Router::new()
         .route("/push-endpoint", post(push_service_handler))
@@ -134,7 +104,6 @@ async fn spawn(router: Router) -> SocketAddr {
 struct TestFront {
     addr: SocketAddr,
     state: Arc<AppState>,
-    calls: FakeUpstreamCalls,
     scoped_token: String,
     push_calls: Arc<StdMutex<Vec<ReceivedPush>>>,
     _dir: tempfile::TempDir,
@@ -198,9 +167,6 @@ async fn spawn_front() -> TestFront {
     );
     store.save_all(&cfg).unwrap();
 
-    let calls = FakeUpstreamCalls::default();
-    let upstream_addr = spawn(upstream_router(calls.clone())).await;
-
     let push_calls: Arc<StdMutex<Vec<ReceivedPush>>> = Arc::new(StdMutex::new(Vec::new()));
     let push_service_addr = spawn(push_service_router(push_calls.clone())).await;
     let (p256dh, auth_key) = generate_test_push_subscriber_keys();
@@ -240,7 +206,6 @@ async fn spawn_front() -> TestFront {
         preview: any_console_server::preview::PreviewState::new(),
         pairing: any_console_server::pairing::PairingState::new(),
         push: any_console_server::push::PushState::new(),
-        proxy: Proxy::new(format!("http://{upstream_addr}")),
         static_ctx: None,
         auth: Auth::load(data_dir, false),
         rate_counter: FixedWindowCounter::new(),
@@ -263,7 +228,6 @@ async fn spawn_front() -> TestFront {
     TestFront {
         addr,
         state,
-        calls,
         scoped_token,
         push_calls,
         _dir: dir,
@@ -318,6 +282,30 @@ async fn wait_for(cond: impl Fn() -> bool) -> bool {
     false
 }
 
+/// `state.status_stream` の broadcast channel から、`pred` に一致する最初の
+/// メッセージを受け取るまで読み進める（agent_watch のポーリングループ等が
+/// 同時に無関係なメッセージを送ることがあるため、次の1件を決め打ちしない）。
+async fn recv_broadcast_matching(
+    rx: &mut tokio::sync::broadcast::Receiver<Value>,
+    pred: impl Fn(&Value) -> bool,
+) -> Value {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        assert!(
+            remaining > Duration::ZERO,
+            "timed out waiting for broadcast"
+        );
+        let msg = tokio::time::timeout(remaining, rx.recv())
+            .await
+            .expect("timed out waiting for broadcast")
+            .unwrap();
+        if pred(&msg) {
+            return msg;
+        }
+    }
+}
+
 #[tokio::test]
 async fn dispatch_requires_auth() {
     let front = spawn_front().await;
@@ -336,6 +324,7 @@ async fn direct_dispatch_creates_session_and_sends_push() {
         return;
     }
     let front = spawn_front().await;
+    let mut rx = front.state.status_stream.tx.subscribe();
     let resp = client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
@@ -358,7 +347,10 @@ async fn direct_dispatch_creates_session_and_sends_push() {
         "should include ECE header + ciphertext"
     );
 
-    assert!(wait_for(|| !front.calls.session_events.lock().unwrap().is_empty()).await);
+    // session_created が status stream 購読者へネイティブ配信される
+    // （session_watch::notify_session_created）。
+    let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "session_created").await;
+    assert_eq!(broadcast["session_id"], session_id);
 
     let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
     assert!(any_console_server::subprocess::tmux_session_exists(&full_name).await);
@@ -404,6 +396,7 @@ async fn queued_dispatch_then_decision_approve_launches_session() {
         return;
     }
     let front = spawn_front().await;
+    let mut rx = front.state.status_stream.tx.subscribe();
     let resp = client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
@@ -415,12 +408,9 @@ async fn queued_dispatch_then_decision_approve_launches_session() {
     let body: Value = resp.json().await.unwrap();
     let dispatch_id = body["id"].as_str().unwrap().to_string();
 
-    assert!(wait_for(|| !front.calls.queue.lock().unwrap().is_empty()).await);
-    {
-        let queued = front.calls.queue.lock().unwrap();
-        let last = queued.last().unwrap();
-        assert_eq!(last["items"][0]["id"], dispatch_id);
-    }
+    // キューへの挿入が status stream 購読者へネイティブ配信される。
+    let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "dispatch_queue").await;
+    assert_eq!(broadcast["items"][0]["id"], dispatch_id);
 
     let resp = client()
         .post(format!(
@@ -484,6 +474,7 @@ async fn decision_reject_removes_from_pending() {
 #[tokio::test]
 async fn dedup_key_supersedes_previous_pending_item() {
     let front = spawn_front().await;
+    let mut rx = front.state.status_stream.tx.subscribe();
     let post_dispatch = |text: &str| {
         let addr = front.addr;
         let text = text.to_string();
@@ -504,12 +495,13 @@ async fn dedup_key_supersedes_previous_pending_item() {
     // 同じ dedup_key の再送は古い項目の ID を引き継ぐ
     assert_eq!(id1["id"], id2["id"]);
 
-    assert!(wait_for(|| !front.calls.queue.lock().unwrap().is_empty()).await);
-    let queued = front.calls.queue.lock().unwrap();
-    let last = queued.last().unwrap();
-    assert_eq!(last["items"].as_array().unwrap().len(), 1);
-    assert_eq!(last["items"][0]["request"]["text"], "second");
-    assert_eq!(last["items"][0]["request"]["retry_count"], 2);
+    // 2回目の dispatch による status stream 配信は、1件に集約されたキューを積む。
+    let broadcast = recv_broadcast_matching(&mut rx, |m| {
+        m["type"] == "dispatch_queue" && m["items"][0]["request"]["text"] == "second"
+    })
+    .await;
+    assert_eq!(broadcast["items"].as_array().unwrap().len(), 1);
+    assert_eq!(broadcast["items"][0]["request"]["retry_count"], 2);
 }
 
 /// 同じ dedup_key を持つ dispatch が並行到着しても pending に1件しか残らないこと
@@ -541,9 +533,7 @@ async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
     }
     // dispatch キューへの反映（resolve_dedup_and_insert）は各リクエストの応答を
     // 返す前に同期的に完了しているため、状態は直接 state.dispatch.pending から
-    // 確認する。upstream への broadcast_dispatch_queue は fire-and-forget（別
-    // タスク）で配信順の保証が無いため、front.calls.queue の「最後の要素」に
-    // 依存すると、CPU 競合下でスナップショットの到着順が入れ替わってフレークする。
+    // 確認する。
     let pending = front.state.dispatch.pending.lock().await;
     assert_eq!(pending.len(), 1, "dedup_key で1件に集約される: {pending:?}");
     let (_, item) = pending.iter().next().unwrap();
@@ -911,12 +901,11 @@ async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }
 
-/// Python 側が（Rust を再起動せずに）再起動して `_bridged_payload` が失われても、
-/// 一定間隔の再送で dispatch キューのブリッジが空白のまま放置されないこと
-/// （Codex レビュー指摘: 以前は起動直後の1回きりで、以後はイベント駆動でしか
-/// 再送されなかった）。仮想時間を進めて実時間を待たずに検証する。
-#[tokio::test(start_paused = true)]
-async fn bridge_reconciliation_loop_rebroadcasts_queue_periodically() {
+/// status stream 購読者への配信は、新規接続時に `broadcast_current_queue` で
+/// 現在の全量スナップショットを再送する設計のため（`dispatch.rs` 参照）、
+/// 個々のミューテーションごとの broadcast に加えて追加の定期再送は不要。
+#[tokio::test]
+async fn queue_snapshot_is_resent_on_new_subscription() {
     let front = spawn_front().await;
     front
         .state
@@ -925,66 +914,9 @@ async fn bridge_reconciliation_loop_rebroadcasts_queue_periodically() {
         .lock()
         .await
         .insert("d1".to_string(), json!({"workspace": "proj"}));
-    let calls_before = front.calls.queue.lock().unwrap().len();
 
-    tokio::spawn(dispatch::run_bridge_reconciliation_loop(
-        front.state.clone(),
-    ));
-    // spawn したタスクが最初の interval.tick().await まで進んでタイマーを
-    // 登録する機会を与える（advance() の前に一度スケジューラへ制御を返す）。
-    tokio::task::yield_now().await;
-
-    // reconciliation の間隔（30秒）を1周期分進める。paused runtime なので
-    // 実際には待たない。
-    tokio::time::advance(Duration::from_secs(31)).await;
-
-    assert!(
-        wait_for(|| front.calls.queue.lock().unwrap().len() > calls_before).await,
-        "定期再送が発生していない"
-    );
-    let queued = front.calls.queue.lock().unwrap();
-    let last = queued.last().unwrap();
-    assert_eq!(last["items"][0]["id"], "d1");
-}
-
-/// ブリッジへ送るスナップショットには単調増加する revision が付くこと
-/// （Codex レビュー指摘: 各送信が独立した fire-and-forget HTTP タスクのため、
-/// ネットワーク経路次第では古いスナップショットが後に届くことがある。
-/// revision を見て Python 側が古いものを破棄できるようにする）。
-#[tokio::test]
-async fn bridge_snapshots_carry_monotonically_increasing_revision() {
-    let front = spawn_front().await;
-    let resp = client()
-        .post(format!("http://{}/dispatch", front.addr))
-        .bearer_auth(TOKEN)
-        .json(&json!({"workspace": "proj"}))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 202);
-    let body: Value = resp.json().await.unwrap();
-    let dispatch_id = body["id"].as_str().unwrap().to_string();
-
-    let resp = client()
-        .post(format!(
-            "http://{}/dispatch/{dispatch_id}/decision",
-            front.addr
-        ))
-        .bearer_auth(TOKEN)
-        .json(&json!({"approved": false}))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-
-    assert!(wait_for(|| front.calls.queue.lock().unwrap().len() >= 2).await);
-    let queued = front.calls.queue.lock().unwrap();
-    let revisions: Vec<u64> = queued
-        .iter()
-        .map(|p| p["_bridge_revision"].as_u64().unwrap())
-        .collect();
-    let mut sorted = revisions.clone();
-    sorted.sort_unstable();
-    assert_eq!(revisions, sorted, "revision は送信順に単調増加するはず");
-    assert!(revisions.windows(2).all(|w| w[0] < w[1]), "{revisions:?}");
+    let mut rx = front.state.status_stream.tx.subscribe();
+    dispatch::broadcast_current_queue(&front.state).await;
+    let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "dispatch_queue").await;
+    assert_eq!(broadcast["items"][0]["id"], "d1");
 }

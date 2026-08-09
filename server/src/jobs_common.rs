@@ -163,7 +163,6 @@ pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), A
     })?;
     state.jobs_cache.invalidate(COMMON_JOBS_CACHE_KEY);
     state.jobs_cache.invalidate_all();
-    state.proxy.invalidate_job_cache();
     Ok(())
 }
 
@@ -226,7 +225,6 @@ pub fn commit_workspace_jobs(
         Ok(())
     })?;
     state.jobs_cache.invalidate(workspace_name);
-    state.proxy.invalidate_job_cache();
     Ok(())
 }
 

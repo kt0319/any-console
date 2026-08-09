@@ -215,9 +215,6 @@ pub async fn delete_terminal_session(
     state.terminal_registry.kill(&session_arc).await;
     crate::agent_hooks::clear_session(&state, &session_id);
     crate::session_watch::notify_session_removed(&state, &session_id);
-    state
-        .proxy
-        .notify_session_event("removed", session_id.clone());
     tracing::info!("terminal session deleted session={session_id}");
     Ok(Json(json!({"status": "ok"})))
 }

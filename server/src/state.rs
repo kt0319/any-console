@@ -13,7 +13,6 @@ use crate::jobs_common::JobsCache;
 use crate::pairing::PairingState;
 use crate::paths::Paths;
 use crate::preview::PreviewState;
-use crate::proxy::Proxy;
 use crate::push::PushState;
 use crate::rate_limit::FixedWindowCounter;
 use crate::screen_manifest::ManifestStore;
@@ -38,8 +37,7 @@ pub struct AppState {
     pub preview: PreviewState,
     pub pairing: PairingState,
     pub push: PushState,
-    pub proxy: Proxy,
-    /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
+    /// ui/dist が存在する場合のみ Some（無ければフォールバックが 404 を返す）。
     pub static_ctx: Option<StaticCtx>,
     /// Phase 0 では認証必須ルートを Rust 側で持たないが、以降のフェーズが使う
     /// 認証コアをここで保持・起動時ロードする。

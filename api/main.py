@@ -44,7 +44,6 @@ from .routers import (
     groups,
     job_runner,
     jobs,
-    migration_bridge,
     pairing,
     settings,
     status_stream,
@@ -250,7 +249,6 @@ app.include_router(system.router)
 app.include_router(settings.router)
 app.include_router(push_router.router)
 app.include_router(agent_hooks_router.router)
-app.include_router(migration_bridge.router)
 
 
 

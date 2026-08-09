@@ -14,7 +14,6 @@ use any_console_server::config::ConfigStore;
 use any_console_server::git_lock::WorkspaceLocks;
 use any_console_server::json_store::save_json_file;
 use any_console_server::paths::Paths;
-use any_console_server::proxy::Proxy;
 use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 
@@ -93,7 +92,6 @@ async fn spawn_front() -> TestFront {
         preview: any_console_server::preview::PreviewState::new(),
         pairing: any_console_server::pairing::PairingState::new(),
         push: any_console_server::push::PushState::new(),
-        proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir.clone(), false),
         rate_counter: FixedWindowCounter::new(),

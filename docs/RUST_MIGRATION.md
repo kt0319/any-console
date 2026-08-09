@@ -32,6 +32,12 @@ Browser ──▶ Rust (axum) ──┬─▶ 移行済みルート: Rust が直
                           └─▶ 未移行ルート:   127.0.0.1 の Python へ proxy
 ```
 
+**更新（Phase 1〜5 完了時点）**: 上記の「未移行ルートへの HTTP/WS プロキシ」は
+Phase 5 完了をもって撤去済み。全ルートが Rust ネイティブへ移行し、`fallback()`
+（`server/src/proxy.rs`）は静的ファイル配信 → ネイティブ 404 の二段のみを行う
+（詳細は「Phase 6 準備: ストラングラー完了の検証」節を参照）。図は歴史的経緯として
+残す。
+
 これが成立する根拠（本プロジェクト固有の好条件）:
 
 1. **永続状態はプロセス外にある** — セッションは tmux、設定・キュー・トークンは `data/` 配下の JSON ファイル。プロセス内に閉じた状態は WebSocket ブリッジ・レートリミッタ・TTL キャッシュ程度で、これらはルート群単位で丸ごと移行すれば分割問題が生じない。
@@ -629,13 +635,96 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
   content-coding・VAPID JWT 付き Authorization ヘッダで届くこと）を
   `server/tests/test_dispatch.rs` の統合テストで代替検証した
 
-### Phase 6 — Python 撤去・配布切替
+### Phase 6 準備: ストラングラー完了の検証 — **完了（Rust 単独稼働を実証済み）**
 
-- proxy 層を削除し、Rust 単独バイナリ化
-- `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持）
-- requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去
-- README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記）
-- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64）
+**背景**: Phase 1〜5 の完了によりルート表上は全ルートが移行済みになっていたが、
+「Python が本当に不要か」は route table の突き合わせだけでは証明できない
+（HTTP ルートに現れない起動時ブートストラップ・バックグラウンドループ・
+内部ブリッジが残っていないか、静的配信やエラーハンドリングに Python 依存の
+分岐が残っていないか、など）。Phase 6（Python 撤去）に着手する前に、これを
+実地で検証した。
+
+**監査で判明した事実**:
+
+1. **ルート表は 100% 一致**していた（`api/main.py` の `include_router` 19 本 +
+   直書きルート全てが `server/src/lib.rs` の `build_router` に対応するネイティブ
+   実装を持つ）。ただし以下の3点はルート表の一致だけでは見えないギャップだった:
+2. **本番ランチャー（`./any-console`）は Rust を一切実行していなかった** —
+   `cmd_run`/systemd unit/launchd plist はすべて `python3 -m api.main` を直接
+   execする。Rust front は Phase 0 の手動2プロセス検証手順と CI の
+   `e2e-rust-front` ジョブでしか動いていなかった（本ドキュメントの節「本番
+   プロセス管理」も参照 — 実際の切替はまだ行っていない）。
+3. **未知パスの 404 が Python 依存だった** — `fallback()` は静的ファイルにも
+   ルート表にも当たらないパスを無条件で Python upstream へ HTTP プロキシして
+   いた。全ルートがネイティブ移行済みの現在、これは実質「本当に存在しない
+   パス」の 404 応答を Python に代行させているだけだったが、Python が居ないと
+   502 になってしまっていた。
+4. **`migration_bridge.py`（`/internal/*`）が実効を失っていた** — `git-nudge`・
+   `session-event`・`dispatch-queue`・`invalidate-job-cache` の4エンドポイントは
+   いずれも Python 側の WS 購読者集合（`git_watch`/`session_watch`/
+   `dispatch._bridged_payload`）や TTL キャッシュ（`jobs_common`）を更新する
+   だけだったが、`/workspaces/statuses/ws` が Rust ネイティブ実装で先取りされて
+   いるため Python 側の WS には実接続者が二度と現れず、`/dispatch`・
+   `/agent-hooks/events` も同様にネイティブ実装が先取りしているため
+   Python 側ハンドラ（`_resolve_job_def`・`agent_hooks.clear_session` 等）も
+   呼ばれることがない。つまり4エンドポイントとも「誰も見ていない状態を
+   更新するだけの空撃ち HTTP リクエスト」になっていた（コード読解で全4エンド
+   ポイントの実効性を個別に確認 — 推測ではなく実装追跡による確認）。
+
+**対応**:
+
+- `fallback()` を単純化: 静的ファイル配信を試した後は無条件でネイティブ
+  `{"detail": "Not Found"}` を返す（`proxy_http`/`proxy_ws`/WS ブリッジ等、
+  もう呼ばれない関数は削除）。
+- `state.proxy`（`Proxy` 構造体）を `AppState` から削除。`git_helpers.rs`・
+  `jobs_common.rs`・`job_runner.rs`・`dispatch.rs`・`workspaces.rs`・
+  `terminal.rs` にあった `state.proxy.nudge_git`/`invalidate_job_cache`/
+  `notify_session_event`/`broadcast_dispatch_queue` の4種の fire-and-forget
+  呼び出しをすべて削除した（隣接するネイティブ処理 — `git_watch::nudge_workspace`
+  や `session_watch::notify_session_created` 等 — はそのまま残す）。
+- dispatch キューの「Python 再起動時に空白のブリッジを埋める」ための定期再送
+  ループ（`run_bridge_reconciliation_loop`、30秒間隔）と単調増加 revision
+  付与（`bridge_revision`）を削除した。native の status stream 購読者は
+  WS 接続時に `broadcast_current_queue` で全量スナップショットを受け取るため、
+  この定期再送は Python 向けにしか意味を持たなかった。
+- `migration_bridge.py`（自身のモジュール docstring に「ターミナルサブシステムの
+  移行が完了した時点でこのルーターごと削除する」と明記されていた）を
+  `api/main.py` の登録ごと削除。`tests/test_migration_bridge.py` も削除。
+- Rust 側のテスト（`test_dispatch.rs`・`test_proxy.rs`）はフェイクの upstream
+  サーバへの到達を検証していた箇所を、`state.status_stream` のネイティブ
+  broadcast channel を直接購読して検証する形に書き換えた。
+
+**検証**: `ui/dist` をビルド済みの状態で Rust バイナリのみを起動し
+（`ANY_CONSOLE_UPSTREAM` は到達不能な `http://127.0.0.1:1` を指定 — Python
+プロセス自体を一切起動しない）、`npx playwright test`（`test:e2e:smoke` の
+サブセットではなく**全 53 スペック**）を実行し **52/53 成功**を確認した。
+唯一の失敗はこのサンドボックス環境に `ss` コマンドが無いこと（Linux の
+ポートスキャンが空振りするだけで、実機では問題にならない既知の制限 —
+本ドキュメント Phase 4 節に既出）による preview 検出テストのみで、Python
+依存とは無関係。cargo test 全件・pytest 全件（1508件、移行ブリッジ
+テスト12件削除後）・ruff・mypy もすべて green。
+
+**まだ残っている作業（Phase 6 本体）**:
+
+- 上記2番の通り、`./any-console` ランチャーは実際には切り替えていない
+  （systemd unit / launchd plist の生成ロジック、TLS 終端点の Rust 側移設、
+  `venv`/`requirements*.txt` セットアップの扱いを含む、本番プロセス管理の
+  アーキテクチャ判断がまだ残っている）
+- CI（`.github/workflows/ci.yml`）は依然 Python ジョブ（`test`/`e2e`）を
+  primary の回帰網として実行している。Rust 単独が primary になった時点で
+  構成を見直す
+- `api/`・`requirements*.txt`・`pyproject.toml`・pytest 一式の実削除は
+  行っていない（ロールバック安全網として意図的に残置 — 本ドキュメント既存
+  方針通り）
+
+### Phase 6 — Python 撤去・配布切替 — **一部完了**
+
+- proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前節参照。HTTP/WS プロキシは
+  撤去済み、全 E2E スペックが Python 無しの Rust 単独で通過することを確認済み）
+- `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — 未着手
+- requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — 未着手
+- README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — 未着手
+- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — 未着手
 
 ---
 

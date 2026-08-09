@@ -13,7 +13,6 @@ use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::json_store::save_json_file;
 use any_console_server::paths::Paths;
-use any_console_server::proxy::Proxy;
 use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 
@@ -57,7 +56,6 @@ async fn spawn_front() -> TestFront {
         pairing: any_console_server::pairing::PairingState::new(),
         push: any_console_server::push::PushState::new(),
         // 未移行ルートへ触れたら失敗するよう、繋がらない upstream を指す
-        proxy: Proxy::new("http://127.0.0.1:1".to_string()),
         static_ctx: None,
         auth: Auth::load(data_dir, false),
         rate_counter: FixedWindowCounter::new(),
