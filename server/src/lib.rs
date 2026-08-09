@@ -10,6 +10,7 @@ pub mod config_migrations;
 pub mod config_schema;
 pub mod dispatch;
 pub mod errors;
+pub mod foreground;
 pub mod git_branches;
 pub mod git_diff;
 pub mod git_files;
