@@ -20,6 +20,7 @@ pub mod git_history;
 pub mod git_info;
 pub mod git_lock;
 pub mod git_utils;
+pub mod git_watch;
 pub mod git_worktree;
 pub mod github;
 pub mod groups;
