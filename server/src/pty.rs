@@ -194,10 +194,11 @@ impl AsyncPty {
     }
 }
 
-/// PTY をクローズし、子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る
-/// （Python `close_pty` 相当）。
-pub fn close(master: OwnedFd, pid: Pid) {
-    drop(master); // fd を閉じる
+/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る（Python
+/// `close_pty` の後半部分相当）。fd のクローズは呼び出し側の責務
+/// （`Arc<AsyncPty>` 等、複数箇所が参照を共有する場合は最後の drop で自然に
+/// close されるため、ここでは pid の刈り取りだけを独立して行えるようにする）。
+pub fn terminate(pid: Pid) {
     use nix::sys::signal::{kill, Signal};
     use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
     if kill(pid, Signal::SIGTERM).is_err() {
@@ -213,6 +214,13 @@ pub fn close(master: OwnedFd, pid: Pid) {
         let _ = kill(pid, Signal::SIGKILL);
         let _ = waitpid(pid, Some(WaitPidFlag::WNOHANG));
     }
+}
+
+/// PTY をクローズし、子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る
+/// （Python `close_pty` 相当。fd を排他所有している場合に使う）。
+pub fn close(master: OwnedFd, pid: Pid) {
+    drop(master); // fd を閉じる
+    terminate(pid);
 }
 
 #[cfg(test)]

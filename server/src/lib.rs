@@ -34,6 +34,7 @@ pub mod state;
 pub mod static_files;
 pub mod subprocess;
 pub mod system;
+pub mod terminal_session;
 pub mod tmux;
 pub mod util;
 pub mod workspaces;

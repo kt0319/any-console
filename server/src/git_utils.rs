@@ -359,6 +359,13 @@ pub fn worktree_display_name(base: &str, branch: &str) -> String {
     format!("{base} [{branch}]")
 }
 
+/// worktree 表示名ならベース名を、そうでなければ名前をそのまま返す。
+pub fn worktree_base_of(name: &str) -> String {
+    split_worktree_name(name)
+        .map(|(base, _)| base)
+        .unwrap_or_else(|| name.to_string())
+}
+
 /// '{base} [{branch}]' 形式の動的worktree名からパスを返す（config 未登録の worktree 用）。
 pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Option<PathBuf> {
     let (base_name, branch) = split_worktree_name(name)?;

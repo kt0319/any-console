@@ -280,16 +280,38 @@ status_stream / git_watch / session_watch）は producer の大半
 - foreground.py の Linux(/proc) / macOS(ps) 二系統分岐はそのまま移植（クロスプラットフォーム一級サポートの方針）
 - 状態判定の優先順位（hooks > manifest > 画面差分）はロジック単体テストを先に移植してから配線する
 
-### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **PTY/tmux 基盤 移行済み・配線は継続中**
+### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **PTY/tmux/セッションレジストリ 移行済み・配線は継続中**
 
 **目的**: 製品の心臓部。pty × tmux × WebSocket の三つ巴で、pytest カバレッジ除外領域＝自動テストが最も薄い。
 
-**状況**: 最もリスクの高い OS プリミティブ（PTY fork/exec と tmux セッション制御）を
-先行して移行・実 tmux での統合テストまで確認済み。**まだどのルートにも配線していない**
-（`build_router` 未登録・全リクエストは引き続き Python へ proxy — 挙動への影響ゼロ）。
-`terminal_session.rs`（レジストリ・ClientBridge・WS 配線）と `routers/terminal.py` の
-移行、および `/run`・`/dispatch` の同時移行（下記「重要な設計判断」参照）は後続の
-作業として継続する。
+**状況**: 最もリスクの高い OS プリミティブ（PTY fork/exec と tmux セッション制御）と、
+その上に乗るセッションレジストリ（`TerminalSession`/`ClientBridge`/マルチクライアント
+アタッチ）を先行して移行・実 tmux での統合テストまで確認済み。**まだどのルートにも
+配線していない**（`build_router` 未登録・全リクエストは引き続き Python へ proxy —
+挙動への影響ゼロ）。`routers/terminal.py`（HTTP + WS）の移行、および `/run`・`/dispatch`
+の同時移行（下記「重要な設計判断」参照）は後続の作業として継続する。
+
+- `terminal_session.rs`: `TerminalSession`（tmux ベースセッション1つ = 1シェル）と
+  `ClientBridge`（WS クライアント1接続 = 1 tmux アタッチ）、レジストリ
+  `TerminalRegistry`（`Arc<Mutex<TerminalSession>>` ごとの粒度でロック — セッション
+  単位の同時実行を registry 全体のロックで塞がない）。WebSocket/axum には依存せず、
+  PTY からの読み取りは `mpsc::UnboundedSender<PtyEvent>` へ流すだけに留める（実際の
+  WS 送受信は router 側の責務として分離。Python の `routers/terminal.py` が
+  `_bridge_reader`/`start_bridge_reader` を呼ぶのに対応する箇所は router 実装時に
+  この chennel を axum の `WebSocket::send` へポンプするだけで済む）
+  - `create_registered_session`: 容量チェック（`MAX_TERMINAL_SESSIONS`=20）→ ID 生成
+    → tmux 作成 → 登録 → メタデータ保存。workspace 名からの ID 生成は動的 worktree
+    表示名からベース名を剥がす（`worktree_base_of`、`git_utils.rs` に追加）
+  - `get_or_register`: レジストリ未登録でも tmux 実在確認 → 環境変数からのメタデータ
+    復元で on-demand 登録する（`from_tmux`）。これにより「別プロセスが作成した
+    tmux セッション」も透過的に解決できる（tmux 自体が永続化層のため、`/run`・
+    `/dispatch` を後で移行する際もレジストリの再構築だけで済む）
+  - PTY のクローズは `pty::terminate`（signal のみ）と Arc の自然な drop（fd の
+    クローズ）を分離し、reader task・ClientBridge の双方が同じ fd を安全に共有できる
+    ようにした（`pty::close` は排他所有向けに従来通り残す）
+- `pty.rs`: `terminate(pid)` を追加（fd クローズと signal 送出を分離）
+
+**重要な設計判断（後続作業のために記録）**: `/dispatch`（`routers/dispatch.py`）は
 
 - `pty.rs`: `nix::pty::forkpty`（glibc `forkpty(3)` = openpty+fork+login_tty を1ステップ
   で行う。CPython の `os.forkpty()` と同じ土台）で PTY 上に子プロセスを fork+exec する。
@@ -324,7 +346,7 @@ Python 側への loopback ブリッジ（`migration_bridge.py` 拡張）で当�
 |------|---------|------|
 | `tmux.py` | 259 | **移行済み**（`server/src/tmux.rs`） |
 | `terminal_pty.py`（forkpty / read / resize / close） | 77 | **移行済み**（`server/src/pty.rs`） |
-| `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 | 配線継続中 |
+| `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 | **移行済み**（`server/src/terminal_session.rs`。配線は未実施） |
 | `routers/terminal.py` | 416 | 配線継続中 |
 | `routers/job_runner.py`（`/run`） | 131 | ターミナル配線と同時に移行 |
 | `routers/dispatch.py` | 651 | ターミナル配線と同時に移行（上記設計判断） |
