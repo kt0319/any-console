@@ -129,7 +129,7 @@ Phase 0 のスコープ判断（実装時に確定した事項）:
 
 **完了条件**: `ANY_CONSOLE_URL` を Rust サーバに向けて `npm run test:e2e` 全通過（実処理はまだほぼ Python）。
 
-### Phase 1 — 低リスク API 群（状態レス・ファイル CRUD）— **進行中**
+### Phase 1 — 低リスク API 群（状態レス・ファイル CRUD）— **完了**
 
 **目的**: 実ルートの移行実績を作り、パターン（handler / テスト / エラー変換）を確立する。
 
@@ -177,10 +177,11 @@ Python 側へ fcntl ロックを追加で持ち込む必要が無くなった（
 | `routers/workspaces.py` + `routers/groups.py` | 452 | **移行済み**（workspaces 本体は Phase 4 で移行 — 一覧/statuses/登録/設定/削除/suggest。status stream への nudge は migration_bridge 経由） |
 | `routers/devices.py` + `devices.py` | 339 | **移行済み**（認証ドメイン一括移行 — 下記「認証ドメイン」参照） |
 | `routers/api_tokens.py` | 52 | **移行済み**（認証ドメイン一括移行 — 下記「認証ドメイン」参照） |
-| `activity.py` / `gh_utils.py` | 79 | |
-| 画像アップロード（main.py 内） | — | |
+| `activity.py` | 23 | **移行済み**（`server/src/activity.rs`。git/terminal/dispatch 等、依存する各ルートの移行時に併せて移植済み） |
+| `gh_utils.py` | 56 | **移行済み**（`server/src/github.rs`。gh CLI 30秒 TTL キャッシュ込み） |
+| 画像アップロード（main.py 内） | 105 | **移行済み**（`server/src/upload_image.rs`。`POST /upload-image` を `build_router` へ配線済み — macOS は osascript 経由の NSPasteboard 書き込み、Linux は `sudo -u $SUDO_USER/$USER xclip` を移植） |
 
-**リスク**: 低。JSON ファイル CRUD が中心で pytest も厚い。
+**リスク**: 低。JSON ファイル CRUD が中心で pytest も厚い。Phase 1 の全対象を移行済み。
 
 ### Phase 2 — Git 系（subprocess の主戦場）— **実装済み**
 

@@ -338,7 +338,7 @@ pub(crate) fn hostname() -> String {
 }
 
 /// Python `getpass.getuser()` と同じ解決順: env チェーン → pwd データベース。
-fn current_user() -> String {
+pub(crate) fn current_user() -> String {
     for key in ["LOGNAME", "USER", "LNAME", "USERNAME"] {
         if let Ok(v) = std::env::var(key) {
             if !v.is_empty() {

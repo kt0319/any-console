@@ -51,6 +51,7 @@ pub mod system;
 pub mod terminal;
 pub mod terminal_session;
 pub mod tmux;
+pub mod upload_image;
 pub mod util;
 pub mod workspaces;
 
@@ -115,6 +116,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/system/update/check", get(system::update_check))
         .route("/system/update/apply", post(system::update_apply))
         .route("/client-errors", post(system::client_errors))
+        .route(
+            "/upload-image",
+            post(upload_image::upload_image)
+                .layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
+        )
         // ─── Rust ネイティブ移行済みルート（Phase 1: settings / groups）────
         .route("/settings/config-health", get(settings::config_health))
         .route("/settings/export", get(settings::export_settings))
