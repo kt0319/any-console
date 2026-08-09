@@ -546,8 +546,14 @@ async fn handle_terminal_ws(
     // pending text（dispatch が新規作成セッションへ送る予約テキスト。tmux 環境変数
     // TMUX_PENDING_TEXT/TMUX_PENDING_ENTER 経由 — 詳細は dispatch.rs 側の説明を参照）
     // を attach 後の tmux 初期 redraw を待ってから flush する。
-    {
-        let full_name = { session_arc.lock().await.tmux_session_name.clone() };
+    //
+    // flush 権のクレームは session_arc の Mutex 内で1回だけ行う（詳細は
+    // `TerminalSession::claim_pending_text_flush` のコメント参照）。
+    let flush_target: Option<String> = {
+        let mut session = session_arc.lock().await;
+        session.claim_pending_text_flush()
+    };
+    if let Some(full_name) = flush_target {
         let session_id_for_flush = session_id.clone();
         tokio::spawn(async move {
             flush_pending_text(&full_name, &session_id_for_flush).await;

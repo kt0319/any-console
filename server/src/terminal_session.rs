@@ -75,6 +75,9 @@ pub struct TerminalSession {
     next_bridge_id: u64,
     /// detached セッションは dispatch のターゲット候補から除外する。
     pub detached: bool,
+    /// pending text（TMUX_PENDING_TEXT）の flush 権を既にどれかの WS attach が
+    /// クレーム済みかどうか。`claim_pending_text_flush` 経由でのみ変更する。
+    pending_text_claimed: bool,
 }
 
 impl TerminalSession {
@@ -90,6 +93,7 @@ impl TerminalSession {
             bridges: HashMap::new(),
             next_bridge_id: 0,
             detached: false,
+            pending_text_claimed: false,
         }
     }
 
@@ -251,6 +255,21 @@ impl TerminalSession {
         let ids: Vec<u64> = self.bridges.keys().copied().collect();
         for id in ids {
             self.detach_client_bridge(id);
+        }
+    }
+
+    /// pending text（TMUX_PENDING_TEXT）の flush 権を1回だけクレームする
+    /// （Codex レビュー指摘: 新規作成直後のセッションへ複数 WS クライアントが
+    /// ほぼ同時に attach すると、tmux 環境変数の存在確認と削除が別コマンドで
+    /// 非atomicなため両方が flush してしまい二重送信になる）。呼び出し元は
+    /// `session_arc` の Mutex を保持したままこれを呼ぶことで、プロセス内では
+    /// 最初の1回だけ `Some(tmux_session_name)` を受け取れる。
+    pub fn claim_pending_text_flush(&mut self) -> Option<String> {
+        if self.pending_text_claimed {
+            None
+        } else {
+            self.pending_text_claimed = true;
+            Some(self.tmux_session_name.clone())
         }
     }
 }
@@ -511,5 +530,34 @@ mod tests {
             Err(e) => assert_eq!(e.status, axum::http::StatusCode::NOT_FOUND),
             Ok(_) => panic!("expected not_found error"),
         }
+    }
+
+    /// 新規作成直後のセッションへ複数 WS クライアントがほぼ同時に attach しても、
+    /// pending text の flush 権を得られるのは1回だけであること（Codex レビュー
+    /// 指摘: 検証前は tmux 環境変数の存在確認＋削除が非atomicで、両方の attach が
+    /// flush_pending_text を起動して二重送信していた）。
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn claim_pending_text_flush_only_succeeds_once_under_concurrency() {
+        let session_arc = Arc::new(Mutex::new(TerminalSession::new("tmux-race".to_string())));
+        let mut handles = Vec::new();
+        for _ in 0..20 {
+            let session_arc = session_arc.clone();
+            handles.push(tokio::spawn(async move {
+                session_arc.lock().await.claim_pending_text_flush()
+            }));
+        }
+        let mut claimed = 0;
+        for h in handles {
+            if h.await.unwrap().is_some() {
+                claimed += 1;
+            }
+        }
+        assert_eq!(claimed, 1, "flush 権を得られるのはちょうど1回だけ");
+        // 2回目以降の呼び出しはずっと None（一度きりのクレーム）。
+        assert!(session_arc
+            .lock()
+            .await
+            .claim_pending_text_flush()
+            .is_none());
     }
 }
