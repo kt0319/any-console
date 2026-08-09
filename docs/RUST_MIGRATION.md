@@ -226,7 +226,7 @@ pairing は devices.json への書き込み（認証ドメイン）依存のた�
 |------|---------|------|
 | `job_models.py` / `jobs_common.py` / `routers/jobs.py` + `icons.py` | 459 | **移行済み**（TTL キャッシュ・worktree のジョブ共有・/jobs/workspaces の動的 worktree 列挙含む） |
 | `/recent-jobs`（settings.py 内） | — | **移行済み**（Phase 1 保留分を解禁） |
-| `job_match.py` | 112 | Phase 4（agent_watch と同時） |
+| `job_match.py` | 112 | **移行済み**（`server/src/job_match.rs`。配線は未実施 — agent_watch 移行まで待つ） |
 | `routers/job_runner.py` | 131 | Phase 5（ターミナル依存） |
 | `routers/dispatch.py`（承認キュー・dedup・dispatch scope トークン） | 651 | Phase 5（ターミナル依存） |
 | `routers/pairing.py`（QR ペアリング・短命トークン） | 277 | Phase 4 以降（devices 書き込み依存） |
@@ -269,16 +269,30 @@ status_stream / git_watch / session_watch）は producer の大半
 | `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | Phase 5（status stream と同時） |
 | `session_watch.py` | 74 | Phase 5 |
 | `agent_watch.py`（3値状態判定・自動紐付け） | 584 | Phase 5 |
-| `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | Phase 5 |
+| `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。配線は未実施 — agent_watch 移行まで待つ） |
 | `manifest_update.py`（リモートマニフェスト更新） | 272 | Phase 5 |
-| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | Phase 5 |
-| `foreground.py`（/proc・ps の前面 argv 検査） | 176 | Phase 5 |
+| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。配線は未実施 — agent_watch 移行まで待つ。理由は下記注意参照） |
+| `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。配線は未実施） |
 | `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | Phase 5 |
 
 **注意**:
 - git_watch は「購読者ゼロで全停止」のライフサイクル管理が肝。tokio の task 管理で等価に
 - foreground.py の Linux(/proc) / macOS(ps) 二系統分岐はそのまま移植（クロスプラットフォーム一級サポートの方針）
 - 状態判定の優先順位（hooks > manifest > 画面差分）はロジック単体テストを先に移植してから配線する
+- `foreground.rs` / `job_match.rs` / `agent_hooks.rs` / `screen_manifest.rs` は
+  agent_watch より先に単体（ロジック・TOML パース・TTL キャッシュ）で完成させ、
+  実装・テストは完了済み。ただし `agent_hooks.rs` の `POST /agent-hooks/events`
+  ハンドラは実装済みでも `build_router` には**まだ配線していない**: Python の
+  `agent_watch.py` ポーリングループは同一プロセス内メモリの `_hook_states` dict を
+  直接参照しているため、Rust がこのエンドポイントを先取りすると hook イベントが
+  Rust 側の状態に記録される一方で Python 側の `_hook_states` は永久に空のままとなり、
+  hooks 優先度のフォールバック（hooks > manifest > 画面差分）が機能しなくなる
+  （ターミナルの pending_text で踏んだのと同型のクロスプロセス不整合）。
+  agent_watch.py 自体を Rust に移すタイミングで一括配線する
+- `screen_manifest.rs` の `\x{...}` 波括弧 hex エスケープ・`\p{Alphabetic}`
+  Unicode プロパティは Rust `regex` クレートがネイティブ対応するため、Python 版の
+  `translate_rust_regex()`（Rust regex 記法 → Python `re` 変換）に相当する処理は
+  不要（同梱 21 マニフェスト全件のコンパイル成功をテストで確認済み）
 
 ### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **配線完了（terminal/run/dispatch）**
 
