@@ -128,6 +128,9 @@ async fn main() {
     // 起動直後の初期スナップショットを送る（Python の
     // `_load_persisted_pending`/`_load_persisted_recent` 相当）。
     any_console_server::dispatch::load_persisted_and_seed_bridge(&state).await;
+    // Python 側が（Rust を再起動せずに）再起動しても dispatch キューの
+    // ブリッジが空白のままにならないよう、一定間隔で再送し続ける常駐タスク。
+    tokio::spawn(any_console_server::dispatch::run_bridge_reconciliation_loop(state.clone()));
 
     let app = build_router(state);
 

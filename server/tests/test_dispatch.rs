@@ -713,3 +713,39 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
 
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }
+
+/// Python 側が（Rust を再起動せずに）再起動して `_bridged_payload` が失われても、
+/// 一定間隔の再送で dispatch キューのブリッジが空白のまま放置されないこと
+/// （Codex レビュー指摘: 以前は起動直後の1回きりで、以後はイベント駆動でしか
+/// 再送されなかった）。仮想時間を進めて実時間を待たずに検証する。
+#[tokio::test(start_paused = true)]
+async fn bridge_reconciliation_loop_rebroadcasts_queue_periodically() {
+    let front = spawn_front().await;
+    front
+        .state
+        .dispatch
+        .pending
+        .lock()
+        .await
+        .insert("d1".to_string(), json!({"workspace": "proj"}));
+    let calls_before = front.calls.queue.lock().unwrap().len();
+
+    tokio::spawn(dispatch::run_bridge_reconciliation_loop(
+        front.state.clone(),
+    ));
+    // spawn したタスクが最初の interval.tick().await まで進んでタイマーを
+    // 登録する機会を与える（advance() の前に一度スケジューラへ制御を返す）。
+    tokio::task::yield_now().await;
+
+    // reconciliation の間隔（30秒）を1周期分進める。paused runtime なので
+    // 実際には待たない。
+    tokio::time::advance(Duration::from_secs(31)).await;
+
+    assert!(
+        wait_for(|| front.calls.queue.lock().unwrap().len() > calls_before).await,
+        "定期再送が発生していない"
+    );
+    let queued = front.calls.queue.lock().unwrap();
+    let last = queued.last().unwrap();
+    assert_eq!(last["items"][0]["id"], "d1");
+}

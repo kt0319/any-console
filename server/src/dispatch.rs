@@ -109,6 +109,30 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
     broadcast_queue(state).await;
 }
 
+/// Python 側 `_bridged_payload`（migration_bridge 経由で受け取る dispatch キュー
+/// スナップショット）を定期的に再送し続ける（`main.rs` から起動時に1回
+/// `tokio::spawn` する常駐タスク）。
+///
+/// Rust は dispatch キューの唯一の実体を持つが、status stream WS 自体は
+/// まだ Python 側に残っており、Python は受け取った直近のスナップショットを
+/// プロセス内メモリ（`_bridged_payload`）にしか保持しない。Python が
+/// 再起動（デプロイ・クラッシュ再起動等）すると、Rust を起動し直さない限り
+/// 何もイベントが起きるまで再送されず、その間に（再）接続した WS 購読者は
+/// 空のキューという誤った状態を見てしまう（Codex レビュー指摘）。イベント
+/// 駆動の再送だけでなく一定間隔でも再送することで、この空白期間を打ち切る。
+const DISPATCH_QUEUE_RECONCILE_INTERVAL_SEC: u64 = 30;
+
+pub async fn run_bridge_reconciliation_loop(state: Arc<AppState>) -> ! {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+        DISPATCH_QUEUE_RECONCILE_INTERVAL_SEC,
+    ));
+    interval.tick().await; // 初回 tick は即座に完了するため消費しておく（起動直後は既に送信済み）
+    loop {
+        interval.tick().await;
+        broadcast_queue(&state).await;
+    }
+}
+
 async fn persist_pending(state: &Arc<AppState>) {
     let pending = state.dispatch.pending.lock().await.clone();
     if let Err(e) =

@@ -36,6 +36,8 @@ toml = "1.1.4"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+# start_paused / advance で仮想時間を進める統合テスト用（本番バイナリには含まれない）。
+tokio = { version = "1", features = ["test-util"] }
 
 [profile.release]
 lto = "thin"
