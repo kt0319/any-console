@@ -164,7 +164,20 @@ async fn queue_payload(state: &Arc<AppState>) -> Value {
 /// キューの現在の全量を Python 側 status stream へ中継する（fire-and-forget）。
 async fn broadcast_queue(state: &Arc<AppState>) {
     let payload = queue_payload(state).await;
+    // ネイティブの status stream 購読者（`StatusStreamState`）へ直接配信する。
+    // 実エンドポイント配線までは購読者ゼロの無害な no-op。あわせて、まだ
+    // Python 側に残る status stream の購読者向けにブリッジも維持する
+    // （`_bridged_payload` 経由 — 一括配線・ブリッジ撤去まではこちらが実際に
+    // 使われる）。
+    state.status_stream.broadcast(payload.clone());
     state.proxy.broadcast_dispatch_queue(payload);
+}
+
+/// status stream WS への新規接続時に呼ぶ（Python `dispatch.subscribe` が
+/// `_schedule_queue_broadcast()` で全購読者へ再送するのと同じ効果 — 全量
+/// スナップショットは冪等なので、既存購読者への再送は無害）。
+pub async fn broadcast_current_queue(state: &Arc<AppState>) {
+    broadcast_queue(state).await;
 }
 
 async fn record_recent(

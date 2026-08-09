@@ -107,6 +107,11 @@ async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket) {
     // `ensure_tasks` 呼び出しだけで済む。
     crate::git_watch::ensure_tasks(&state);
     crate::agent_watch::ensure_tasks(&state);
+    // Python `dispatch.subscribe` と同じく、現在の dispatch キュー全量を
+    // 全購読者へ再送する（この接続はここより前に `tx.subscribe()` 済みなので、
+    // 以後の `rx.recv()` ループで自然に受け取る — 冪等な全量スナップショットの
+    // ため、既存購読者への再送も無害）。
+    crate::dispatch::broadcast_current_queue(&state).await;
     // Python `agent_watch.subscribe` と同じく、既知の agent 状態スナップショットを
     // この接続にだけ即時送信する（再接続時にポーリング1周期分の空白が生まれない
     // ようにする — 全購読者への broadcast ではなく、この socket への直送）。

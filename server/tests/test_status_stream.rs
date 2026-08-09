@@ -107,6 +107,34 @@ async fn wait_for(cond: impl Fn() -> bool) -> bool {
     false
 }
 
+type WsStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// 接続直後は git_watch/agent_watch/dispatch の初期同期メッセージ（ping も）が
+/// 混ざりうるため、単純に「次の1通」を見るのではなく `pred` に一致する最初の
+/// メッセージが届くまで読み飛ばす。
+async fn recv_json_until(
+    ws: &mut WsStream,
+    timeout: Duration,
+    pred: impl Fn(&serde_json::Value) -> bool,
+) -> serde_json::Value {
+    let deadline = tokio::time::Instant::now() + timeout;
+    while tokio::time::Instant::now() < deadline {
+        let Ok(Some(Ok(msg))) = tokio::time::timeout(Duration::from_secs(1), ws.next()).await
+        else {
+            continue;
+        };
+        let TgMsg::Text(text) = msg else { continue };
+        let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        if pred(&parsed) {
+            return parsed;
+        }
+    }
+    panic!("timed out waiting for a matching message");
+}
+
 #[tokio::test]
 async fn rejects_connection_without_valid_token() {
     let front = spawn_front().await;
@@ -137,11 +165,10 @@ async fn subscriber_receives_broadcasts_and_disconnect_drops_count() {
         "statuses": [{"name": "proj", "branch": "main"}],
     }));
 
-    let msg = ws.next().await.unwrap().unwrap();
-    let TgMsg::Text(text) = msg else {
-        panic!("expected text frame, got {msg:?}")
-    };
-    let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+    // 接続直後は dispatch の初期同期スナップショット（空でも送られる）が先に
+    // 届きうるため、type=="statuses" が来るまで読み飛ばす。
+    let parsed =
+        recv_json_until(&mut ws, Duration::from_secs(5), |v| v["type"] == "statuses").await;
     assert_eq!(
         parsed,
         json!({"type": "statuses", "statuses": [{"name": "proj", "branch": "main"}]})
@@ -149,6 +176,28 @@ async fn subscriber_receives_broadcasts_and_disconnect_drops_count() {
 
     ws.close(None).await.unwrap();
     assert!(wait_for(|| front.state.status_stream.subscriber_count() == 0).await);
+}
+
+/// 接続すると、既存の pending dispatch がある場合 Python `dispatch.subscribe`
+/// と同じく現在のキュー全量を即座に受け取ること（承認待ちを見逃さない）。
+#[tokio::test]
+async fn connecting_receives_current_dispatch_queue_snapshot() {
+    let front = spawn_front().await;
+    front.state.dispatch.pending.lock().await.insert(
+        "d1".to_string(),
+        json!({"workspace": "proj", "text": "hello"}),
+    );
+
+    let url = format!("ws://{}/workspaces/statuses/ws?token={TOKEN}", front.addr);
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("ws connect");
+
+    let parsed = recv_json_until(&mut ws, Duration::from_secs(5), |v| {
+        v["type"] == "dispatch_queue"
+    })
+    .await;
+    assert_eq!(parsed["items"][0]["id"], "d1");
 }
 
 #[tokio::test]
@@ -165,11 +214,10 @@ async fn multiple_subscribers_all_receive_the_same_broadcast() {
         .broadcast(json!({"type": "session_created", "session_id": "s1"}));
 
     for ws in [&mut ws1, &mut ws2] {
-        let msg = ws.next().await.unwrap().unwrap();
-        let TgMsg::Text(text) = msg else {
-            panic!("expected text frame, got {msg:?}")
-        };
-        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let parsed = recv_json_until(ws, Duration::from_secs(5), |v| {
+            v["type"] == "session_created"
+        })
+        .await;
         assert_eq!(
             parsed,
             json!({"type": "session_created", "session_id": "s1"})
