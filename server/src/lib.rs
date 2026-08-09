@@ -29,6 +29,7 @@ pub mod job_runner;
 pub mod jobs;
 pub mod jobs_common;
 pub mod json_store;
+pub mod manifest_update;
 pub mod middleware;
 pub mod paths;
 pub mod proxy;

@@ -114,7 +114,7 @@ pub struct Manifest {
 
 // ─── TOML → 構造体へのコンパイル ────────────────────────────────────────────
 
-fn value_to_string(v: &toml::Value) -> String {
+pub(crate) fn value_to_string(v: &toml::Value) -> String {
     match v {
         toml::Value::String(s) => s.clone(),
         toml::Value::Integer(i) => i.to_string(),
@@ -300,8 +300,15 @@ impl ManifestStore {
         }
     }
 
-    fn remote_manifest_path(&self, agent_id: &str) -> PathBuf {
+    /// remote 層のマニフェスト保存先（manifest_update の書き込み先と共有）。
+    pub(crate) fn remote_manifest_path(&self, agent_id: &str) -> PathBuf {
         self.remote_dir.join(format!("{agent_id}.toml"))
+    }
+
+    /// `data/agent-detection/` 配下の親ディレクトリ（manifest_update の
+    /// `status.json` 保存先と共有 — Python の `REMOTE_DIR.parent` 相当）。
+    pub(crate) fn override_dir(&self) -> &Path {
+        &self.override_dir
     }
 
     fn override_manifest_path(&self, agent_id: &str) -> PathBuf {
