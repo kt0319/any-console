@@ -707,9 +707,9 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
 **まだ残っている作業（Phase 6 本体）**:
 
 - 上記2番の通り、`./any-console` ランチャーは実際には切り替えていない
-  （systemd unit / launchd plist の生成ロジック、TLS 終端点の Rust 側移設、
-  `venv`/`requirements*.txt` セットアップの扱いを含む、本番プロセス管理の
-  アーキテクチャ判断がまだ残っている）
+  （systemd unit / launchd plist の生成ロジック、`venv`/`requirements*.txt`
+  セットアップの扱いを含む、本番プロセス管理のアーキテクチャ判断がまだ残っている
+  — TLS 終端は下記の通り Rust 側へ移設済み）
 - CI（`.github/workflows/ci.yml`）は依然 Python ジョブ（`test`/`e2e`）を
   primary の回帰網として実行している。Rust 単独が primary になった時点で
   構成を見直す
@@ -717,10 +717,50 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
   行っていない（ロールバック安全網として意図的に残置 — 本ドキュメント既存
   方針通り）
 
+### TLS 終端の Rust 側移設 — **完了**
+
+**背景**: `./any-console` ランチャーを Rust 単独稼働へ切り替えるための前提
+条件のひとつ。Python 版は uvicorn の `ssl_certfile`/`ssl_keyfile` で公開ポート
+自体に TLS を直接終端していた（README の Tailscale HTTPS 設定手順）。Rust
+front が本番の公開ポートを持つようになる以上、TLS 終端も Rust 側に無ければ
+HTTPS ユーザー（PWA インストール等）が使えなくなる。
+
+**実装**: `server/src/main.rs` の起動時 bind を TLS 有無で分岐した。証明書
+探索・読み込みロジック（`find_cert_pair`/`load_tls_server_config`）は
+`preview.rs` が dev server proxy 用に既に持っていたものを `pub` にして共有
+（探索規則は Python 版と同一 — `SSL_CERTFILE`/`SSL_KEYFILE` env var →
+`certs/*.crt`+`.key`）。証明書が見つかれば **axum-server**
+（`default-features = false, features = ["tls-rustls"]` — openssl 系
+feature は無効化。`cargo add --dry-run` で `- openssl`/`- openssl-sys` に
+なることを確認済み、既存の pure-rustls 方針と整合）で `bind_rustls` して
+`serve_connection_with_upgrades` 経由で配信（WebSocket アップグレードも
+正しく扱う）。証明書が無ければ従来通り `axum::serve` の平文 bind。
+
+**ハマりどころ**: rustls 0.23 は `ring`/`aws-lc-rs` の複数 crypto backend が
+依存グラフに同居しうる（本プロジェクトは `reqwest`・`axum-server`・
+`tokio-rustls` それぞれの feature 解決の結果、両方とも依存木に含まれていた —
+`cargo tree -i ring`/`cargo tree -i aws-lc-rs` で確認）。この状態だと
+`rustls::ServerConfig::builder()` が「どちらか自動選択できない」と実行時
+panic する。`main()` の最初で
+`tokio_rustls::rustls::crypto::ring::default_provider().install_default()`
+を明示的に1回呼ぶ必要がある（`ring` を選んだ理由: `aws-lc-rs` は cmake 等の
+ネイティブビルドツールを要求し、Phase 6 で予定しているクロスコンパイル
+（Linux x86_64/aarch64、macOS arm64/x86_64）と相性が悪いため）。
+
+**検証**: openssl でその場生成した自己署名証明書を `certs/` に配置し、実バイナリ
+起動 → `curl -k https://...`（ネイティブルート・404 とも正しい応答）→
+Python の `websockets` ライブラリで `wss://.../workspaces/statuses/ws` へ
+実際に接続しハンドシェイク後のペイロード受信まで確認（WS アップグレードが
+TLS 越しでも壊れていないことの実地検証）。証明書なしの既定経路（平文 HTTP）は
+全 E2E 53 スペック中 52 成功（ss 制限のみ既知失敗）で回帰無しを確認。
+`load_tls_server_config` 自体のユニットテスト（正常系・不正 PEM・ファイル
+欠落）も `preview.rs` に追加した。
+
 ### Phase 6 — Python 撤去・配布切替 — **一部完了**
 
-- proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前節参照。HTTP/WS プロキシは
+- proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前々節参照。HTTP/WS プロキシは
   撤去済み、全 E2E スペックが Python 無しの Rust 単独で通過することを確認済み）
+- TLS 終端の Rust 側移設 — **完了**（前節参照）
 - `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — 未着手
 - requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — 未着手
 - README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — 未着手

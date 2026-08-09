@@ -159,8 +159,12 @@ fn should_scan_now(state: &PreviewState) -> bool {
 }
 
 // ─── TLS 証明書探索 ──────────────────────────────────────────────────────────
+//
+// `main.rs` の本体 bind（HTTPS 終端）と preview proxy（dev server への TLS
+// 終端）の両方から共有される。証明書探索規則は Python 版 `SSL_CERTFILE`/
+// `SSL_KEYFILE` env var → `certs/*.crt`+`.key` の優先順位と同一。
 
-fn find_cert_pair(project_root: &Path) -> Option<(PathBuf, PathBuf)> {
+pub fn find_cert_pair(project_root: &Path) -> Option<(PathBuf, PathBuf)> {
     if let (Ok(cert), Ok(key)) = (std::env::var("SSL_CERTFILE"), std::env::var("SSL_KEYFILE")) {
         let (cert, key) = (PathBuf::from(cert), PathBuf::from(key));
         if cert.is_file() && key.is_file() {
@@ -186,7 +190,7 @@ fn find_cert_pair(project_root: &Path) -> Option<(PathBuf, PathBuf)> {
     None
 }
 
-fn load_tls_server_config(
+pub fn load_tls_server_config(
     cert: &Path,
     key: &Path,
 ) -> Option<Arc<tokio_rustls::rustls::ServerConfig>> {
@@ -197,10 +201,7 @@ fn load_tls_server_config(
         .filter_map(|r| r.ok())
         .collect();
     if certs.is_empty() {
-        tracing::warn!(
-            "preview TLS disabled: no certificate found in {}",
-            cert.display()
-        );
+        tracing::warn!("TLS disabled: no certificate found in {}", cert.display());
         return None;
     }
     let private_key = rustls_pemfile::private_key(&mut key_pem.as_slice())
@@ -212,7 +213,7 @@ fn load_tls_server_config(
     {
         Ok(cfg) => {
             tracing::info!(
-                "preview TLS enabled cert={}",
+                "TLS certificate loaded cert={}",
                 cert.file_name()
                     .map(|n| n.to_string_lossy())
                     .unwrap_or_default()
@@ -220,7 +221,7 @@ fn load_tls_server_config(
             Some(Arc::new(cfg))
         }
         Err(e) => {
-            tracing::warn!("preview TLS disabled: cert load failed: {e}");
+            tracing::warn!("TLS disabled: cert load failed: {e}");
             None
         }
     }
@@ -1004,6 +1005,67 @@ mod tests {
     #[tokio::test]
     async fn read_cmdline_empty_for_unreadable_pid() {
         assert_eq!(read_cmdline(u32::MAX).await, "");
+    }
+
+    /// openssl が無い実行環境ではスキップする（CI/開発機には通常入っている）。
+    fn generate_self_signed_cert(cert: &Path, key: &Path) -> bool {
+        std::process::Command::new("openssl")
+            .args([
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-keyout",
+                key.to_str().unwrap(),
+                "-out",
+                cert.to_str().unwrap(),
+                "-days",
+                "1",
+                "-nodes",
+                "-subj",
+                "/CN=localhost",
+            ])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
+    #[test]
+    fn load_tls_server_config_accepts_valid_self_signed_cert() {
+        // rustls 0.23 は複数 crypto backend が同居しうるため、`ServerConfig::builder()`
+        // より前に一度だけ明示的にプロセス既定の provider を選ぶ必要がある
+        // （本番は main.rs の起動直後に一度だけ実行 — ここではテスト用に模する）。
+        static INIT: std::sync::Once = std::sync::Once::new();
+        INIT.call_once(|| {
+            let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let cert = dir.path().join("test.crt");
+        let key = dir.path().join("test.key");
+        if !generate_self_signed_cert(&cert, &key) {
+            eprintln!("openssl not available, skipping");
+            return;
+        }
+        assert!(load_tls_server_config(&cert, &key).is_some());
+    }
+
+    #[test]
+    fn load_tls_server_config_none_for_garbage_pem() {
+        let dir = tempfile::tempdir().unwrap();
+        let cert = dir.path().join("bad.crt");
+        let key = dir.path().join("bad.key");
+        std::fs::write(&cert, b"not a certificate").unwrap();
+        std::fs::write(&key, b"not a key").unwrap();
+        assert!(load_tls_server_config(&cert, &key).is_none());
+    }
+
+    #[test]
+    fn load_tls_server_config_none_for_missing_files() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(
+            load_tls_server_config(&dir.path().join("nope.crt"), &dir.path().join("nope.key"))
+                .is_none()
+        );
     }
 
     #[tokio::test]
