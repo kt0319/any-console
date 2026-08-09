@@ -2,6 +2,9 @@ import { WS_MSG_RESIZE } from "../utils/constants.js";
 import { copyText } from "../utils/clipboard.js";
 import { fitTerminal, sendResize } from "./useTerminalResize.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { keyDefToAnsi } from "../utils/key-ansi.js";
+
+const APP_PAGE_KEYS = new Set(["PageUp", "PageDown"]);
 
 export function bindTerminalInput(tab) {
   if (tab._inputBound) return;
@@ -20,6 +23,14 @@ export function bindTerminalInput(tab) {
   };
 
   tab.term?.attachCustomKeyEventHandler((e) => {
+    if (e.type === "keydown" && APP_PAGE_KEYS.has(e.key) && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const seq = keyDefToAnsi({ key: e.key });
+      if (seq) {
+        e.preventDefault();
+        sendInput(encoder.encode(seq));
+        return false;
+      }
+    }
     if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       sendInput(encoder.encode("\n"));
