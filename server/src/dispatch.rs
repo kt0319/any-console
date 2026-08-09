@@ -154,6 +154,18 @@ async fn record_recent(
     if let Value::Object(map) = &mut request {
         map.retain(|k, _| DISPATCH_REQUEST_FIELDS.contains(&k.as_str()));
     }
+    // Python `_record_recent` と同じく、正規化後に effective_workspace を再計算して
+    // 積む（Codex レビュー指摘: 上の retain で一旦落ちるため、呼び出し元が事前に
+    // 積んでいても消えてしまい、worktree dispatch の履歴フィルタ
+    // （DispatchWorkspacePane.vue）が誤判定・取りこぼしてしまっていた）。
+    if let Ok(body) = serde_json::from_value::<DispatchRequest>(request.clone()) {
+        if let Value::Object(map) = &mut request {
+            map.insert(
+                "effective_workspace".to_string(),
+                json!(body.effective_workspace()),
+            );
+        }
+    }
     let mut recent = state.dispatch.recent.lock().await;
     recent.insert(
         0,
@@ -1155,6 +1167,29 @@ mod tests {
             v
         };
         assert_eq!(filtered, json!({"workspace": "proj"}));
+    }
+
+    /// Python `_record_recent` と同じく、retain で一旦落ちる effective_workspace が
+    /// 正規化後に再計算されて積まれ直すこと（Codex レビュー指摘: worktree dispatch
+    /// の履歴フィルタ（DispatchWorkspacePane.vue）が依存しているフィールド）。
+    #[tokio::test]
+    async fn record_recent_recomputes_effective_workspace_for_worktree() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        // 却下時の生 payload 相当: branch_status 等の実行時メタ込み、
+        // effective_workspace は事前には積んでいない。
+        let payload = json!({
+            "workspace": "proj",
+            "worktree": "feat/x",
+            "branch_status": "exists",
+        });
+        record_recent(&state, "d1", payload, "rejected").await;
+        let recent = state.dispatch.recent.lock().await;
+        assert_eq!(recent[0]["request"]["effective_workspace"], "proj [feat/x]");
+        assert!(
+            recent[0]["request"].get("branch_status").is_none(),
+            "実行時メタは除去される"
+        );
     }
 
     #[tokio::test]
