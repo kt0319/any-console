@@ -9,17 +9,32 @@ import { buildInfoPillTooltips } from "./info-pill-tooltips.js";
 /**
  * エージェント状態（terminalStore.agentStates の値）ごとの表示メタ。
  * 色のみで状態を示さないため、アイコンとラベルを必ず併記する。
+ * idleは「何もしていない」通常状態でありノイズになるためバッジを出さない
+ * （resolveAgentBadgeState が idle を常に null に潰す）。
  */
 export const AGENT_STATE_META = Object.freeze({
   working: Object.freeze({ icon: "mdi-autorenew", label: "Working", className: "agent-state-working" }),
   blocked: Object.freeze({ icon: "mdi-alert-circle-outline", label: "Blocked", className: "agent-state-blocked" }),
   done: Object.freeze({ icon: "mdi-check-circle-outline", label: "Done", className: "agent-state-done" }),
-  idle: Object.freeze({ icon: "mdi-sleep", label: "Idle", className: "agent-state-idle" }),
 });
 
 /**
+ * 生のエージェント状態(working/blocked/idle)と doneSessions（working→idle
+ * 遷移をタブを見るまで保持するフラグ）から、バッジ表示に使う実効状態を
+ * 決める。idleはdoneでない限り常に非表示。
+ * @param {string} [rawState]
+ * @param {boolean} [isDone]
+ * @returns {string | null}
+ */
+export function resolveAgentBadgeState(rawState, isDone) {
+  if (isDone) return "done";
+  if (!rawState || rawState === "idle") return null;
+  return rawState;
+}
+
+/**
  * エージェント状態の表示メタを返す（未知・未設定の状態は null）。
- * @param {string} [state]
+ * @param {string | null} [state]
  * @returns {{ icon: string, label: string, className: string } | null}
  */
 export function agentStateDescriptor(state) {
@@ -108,6 +123,7 @@ function buildPillFields(wsName, ws, ctx) {
  * @param {{
  *   tabFlags?: Record<string|number, any>,
  *   agentStates?: Record<string, string>,
+ *   doneSessions?: Record<string, boolean>,
  *   phraseNotifySessions?: Record<string, boolean>,
  *   prsByWorkspace?: Record<string, any[]>,
  *   runsByWorkspace?: Record<string, any[]>,
@@ -117,7 +133,7 @@ function buildPillFields(wsName, ws, ctx) {
  * }} [ctx]
  */
 export function sessionSidebarItems(tabs, workspaces, ctx = {}) {
-  const { tabFlags = {}, agentStates = {}, phraseNotifySessions = {} } = ctx;
+  const { tabFlags = {}, agentStates = {}, doneSessions = {}, phraseNotifySessions = {} } = ctx;
   return (tabs || [])
     .filter((tab) => !tabFlags[tab.id]?.autoDiscovered)
     .map((tab) => {
@@ -136,7 +152,7 @@ export function sessionSidebarItems(tabs, workspaces, ctx = {}) {
         jobIcon: tab.icon || null,
         isWorktree: !!ws?.worktree,
         ...pill,
-        agent: agentStateDescriptor(agentStates[tab.sessionId]),
+        agent: agentStateDescriptor(resolveAgentBadgeState(agentStates[tab.sessionId], !!doneSessions[tab.sessionId])),
         phraseNotify: !!phraseNotifySessions[tab.sessionId],
       };
     });
