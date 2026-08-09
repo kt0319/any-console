@@ -24,7 +24,7 @@ use any_console_server::static_files::StaticCtx;
 fn upstream_router() -> Router {
     Router::new()
         .route(
-            "/terminal/sessions",
+            "/auth/check",
             get(|headers: HeaderMap| async move {
                 Json(json!({
                     "workspaces": [],
@@ -44,6 +44,10 @@ fn upstream_router() -> Router {
             post(|body: String| async move { format!("echo:{body}") }),
         )
         .route(
+            "/push/vapid-public-key",
+            get(|| async { Json(json!({"key": "fake-vapid-key"})) }),
+        )
+        .route(
             "/missing",
             get(|| async {
                 (
@@ -53,7 +57,7 @@ fn upstream_router() -> Router {
             }),
         )
         .route(
-            "/terminal/ws/{name}",
+            "/workspaces/statuses/ws",
             any(|ws: WebSocketUpgrade| async move {
                 ws.on_upgrade(|mut socket| async move {
                     while let Some(Ok(msg)) = socket.recv().await {
@@ -116,6 +120,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
+        dispatch: any_console_server::dispatch::DispatchState::new(),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),
@@ -135,7 +140,7 @@ async fn http_get_is_proxied_with_forwarded_for() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/terminal/sessions", front.addr))
+        .get(format!("http://{}/auth/check", front.addr))
         .header("authorization", "Bearer tkn")
         .send()
         .await
@@ -151,7 +156,7 @@ async fn spoofed_forwarded_for_is_appended_not_trusted() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/terminal/sessions", front.addr))
+        .get(format!("http://{}/auth/check", front.addr))
         .header("x-forwarded-for", "6.6.6.6")
         .send()
         .await
@@ -188,7 +193,7 @@ async fn security_headers_are_added() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let resp = client()
-        .get(format!("http://{}/terminal/sessions", front.addr))
+        .get(format!("http://{}/auth/check", front.addr))
         .send()
         .await
         .unwrap();
@@ -226,7 +231,7 @@ async fn static_files_served_by_rust_with_proxy_fallthrough() {
     );
     // dist に無いパスは upstream へ
     let resp = client()
-        .get(format!("http://{}/terminal/sessions", front.addr))
+        .get(format!("http://{}/auth/check", front.addr))
         .send()
         .await
         .unwrap();
@@ -237,7 +242,7 @@ async fn static_files_served_by_rust_with_proxy_fallthrough() {
 async fn rate_limit_returns_429_with_detail() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 2).await;
-    let url = format!("http://{}/terminal/sessions", front.addr);
+    let url = format!("http://{}/push/vapid-public-key", front.addr);
     assert_eq!(client().get(&url).send().await.unwrap().status(), 200);
     assert_eq!(client().get(&url).send().await.unwrap().status(), 200);
     let resp = client().get(&url).send().await.unwrap();
@@ -257,12 +262,10 @@ async fn rate_limit_returns_429_with_detail() {
 async fn websocket_is_bridged_both_directions() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
-    let (mut ws, _) = tokio_tungstenite::connect_async(format!(
-        "ws://{}/terminal/ws/sess1?cols=80&rows=24",
-        front.addr
-    ))
-    .await
-    .expect("ws connect through proxy");
+    let (mut ws, _) =
+        tokio_tungstenite::connect_async(format!("ws://{}/workspaces/statuses/ws", front.addr))
+            .await
+            .expect("ws connect through proxy");
 
     use tokio_tungstenite::tungstenite::Message as TgMsg;
     ws.send(TgMsg::Text("hello".into())).await.unwrap();

@@ -110,12 +110,18 @@ async fn main() {
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
+        dispatch: any_console_server::dispatch::DispatchState::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,
         rate_counter: FixedWindowCounter::new(),
         rate_limit: rate_limit_from_env(),
     });
+
+    // 永続化済み dispatch キュー/履歴を読み込み、Python 側 status stream へ
+    // 起動直後の初期スナップショットを送る（Python の
+    // `_load_persisted_pending`/`_load_persisted_recent` 相当）。
+    any_console_server::dispatch::load_persisted_and_seed_bridge(&state).await;
 
     let app = build_router(state);
 

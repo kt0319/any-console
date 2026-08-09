@@ -2,6 +2,7 @@
 
 use crate::auth::Auth;
 use crate::config::ConfigStore;
+use crate::dispatch::DispatchState;
 use crate::git_info::GitInfoCache;
 use crate::git_lock::WorkspaceLocks;
 use crate::github::GhCache;
@@ -20,6 +21,7 @@ pub struct AppState {
     pub git_info_cache: GitInfoCache,
     pub jobs_cache: JobsCache,
     pub terminal_registry: TerminalRegistry,
+    pub dispatch: DispatchState,
     pub proxy: Proxy,
     /// ui/dist が存在する場合のみ Some（無ければ全て proxy へ）。
     pub static_ctx: Option<StaticCtx>,

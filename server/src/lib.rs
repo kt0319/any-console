@@ -8,6 +8,7 @@ pub mod auth;
 pub mod config;
 pub mod config_migrations;
 pub mod config_schema;
+pub mod dispatch;
 pub mod errors;
 pub mod git_branches;
 pub mod git_diff;
@@ -21,6 +22,7 @@ pub mod git_worktree;
 pub mod github;
 pub mod groups;
 pub mod icons;
+pub mod job_runner;
 pub mod jobs;
 pub mod jobs_common;
 pub mod json_store;
@@ -291,6 +293,54 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/workspaces/{name}/config",
             put(workspaces::update_workspace_config),
+        )
+        // ─── Rust ネイティブ移行済みルート（Phase 5: ターミナル / dispatch / run）
+        // status stream WS（/workspaces/statuses/ws）は Python のまま。dispatch
+        // キューの配信・push 通知・dispatch scope API トークン検証は
+        // migration_bridge.py 経由で Python へ委譲する（docs/RUST_MIGRATION.md 参照）。
+        .route("/terminal/sessions", get(terminal::list_terminal_sessions))
+        .route(
+            "/terminal/sessions/{session_id}/history",
+            get(terminal::get_terminal_history),
+        )
+        .route(
+            "/terminal/sessions/{session_id}",
+            delete(terminal::delete_terminal_session),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/cwd",
+            get(terminal::get_terminal_session_cwd),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/files",
+            get(terminal::list_terminal_session_files),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/file-content",
+            get(terminal::get_terminal_session_file_content),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/workspace",
+            put(terminal::set_terminal_session_workspace),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/detached",
+            put(terminal::set_terminal_detached),
+        )
+        .route(
+            "/terminal/order",
+            get(terminal::get_tab_order).put(terminal::put_tab_order),
+        )
+        .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
+        .route("/run", post(job_runner::execute_job))
+        .route("/dispatch", post(dispatch::dispatch))
+        .route(
+            "/dispatch/{dispatch_id}/decision",
+            post(dispatch::dispatch_decision),
+        )
+        .route(
+            "/dispatch/{dispatch_id}/rerun",
+            post(dispatch::dispatch_rerun),
         )
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)

@@ -280,15 +280,19 @@ status_stream / git_watch / session_watch）は producer の大半
 - foreground.py の Linux(/proc) / macOS(ps) 二系統分岐はそのまま移植（クロスプラットフォーム一級サポートの方針）
 - 状態判定の優先順位（hooks > manifest > 画面差分）はロジック単体テストを先に移植してから配線する
 
-### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **PTY/tmux/セッションレジストリ/terminal router 移行済み・配線は dispatch.rs 待ち**
+### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **配線完了（terminal/run/dispatch）**
 
 **目的**: 製品の心臓部。pty × tmux × WebSocket の三つ巴で、pytest カバレッジ除外領域＝自動テストが最も薄い。
 
 **状況**: 最もリスクの高い OS プリミティブ（PTY fork/exec と tmux セッション制御）、
-その上に乗るセッションレジストリ、`routers/terminal.py` 相当の HTTP + WS ルート一式を
-先行して移行・実 tmux での統合テストまで確認済み。**まだどのルートにも配線していない**
-（`build_router` 未登録・全リクエストは引き続き Python へ proxy — 挙動への影響ゼロ）。
-下記「重要な設計判断」の通り `/run`・`/dispatch` が揃うまで配線を保留する。
+その上に乗るセッションレジストリ、`routers/terminal.py`・`job_runner.py`・
+`dispatch.py` 相当の HTTP + WS ルート一式を実装し、`build_router` へ一括配線した
+（下記「重要な設計判断」の通り、この3つはプロセス間の pending_text 不整合を
+避けるため同時配線が必須だった）。実 tmux での統合テスト（cargo test）に加え、
+本番相当の Rust front + Python upstream 二重構成での実機スモーク（dispatch →
+セッション作成 → WS 接続 → pending text flush の一連が実際に動作すること、
+Python 側ブリッジへの到達を python.log で確認）、および `ANY_CONSOLE_URL` を
+Rust front に向けた Playwright 全 E2E スペックで検証済み。
 
 - `pty.rs`: `nix::pty::forkpty`（glibc `forkpty(3)` = openpty+fork+login_tty を1ステップ
   で行う。CPython の `os.forkpty()` と同じ土台）で PTY 上に子プロセスを fork+exec する。
@@ -328,6 +332,19 @@ status_stream / git_watch / session_watch）は producer の大半
   更新・tab order）とネイティブ WS ハンドラ（axum の `WebSocketUpgrade` を直接処理 —
   初めて proxy を経由しない WS エンドポイント）を移行。WS 接続後に
   `TMUX_PENDING_TEXT`/`_ENTER`（後述）を flush する処理も含む
+- `job_runner.rs`: `POST /run`（`[[var]]` プレースホルダ置換 — `shlex.quote` 互換の
+  シェルクォート含む・コメント行除去・NUL 拒否・自動実行コマンドの send-keys）を移行
+- `dispatch.rs`: `POST /dispatch`・`/dispatch/{id}/decision`・`/dispatch/{id}/rerun`
+  を移行。承認待ちキュー（`_PENDING`/`_RECENT` 相当）は `DispatchState`（`AppState`
+  に保持）で管理し、`dispatch_queue.json`/`dispatch_recent.json`（Python と同一の
+  legacy パス規則 — `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下）へ永続化。
+  起動時に読み込んで Python 側 status stream へ初期スナップショットを送る
+  （`load_persisted_and_seed_bridge`、`main.rs` から起動時に一度だけ呼ぶ）。
+  `dispatch()`（HTTP ハンドラ）は認証確定後の本体を `dispatch_core` へ切り出し、
+  `dispatch_rerun` の「承認キューを経由せず実行」以外の分岐から関数呼び出しで
+  再利用する（Python 版が `dispatch(req, (auth_label, False))` と直接呼んでいたのと
+  同じ構造）。dispatch scope の API トークン認証はメイン/Tailscale/デバイス認証が
+  Rust 側で失敗した場合のみ Python へブリッジする
 
 **重要な設計判断（後続作業のために記録）**: `/dispatch`（`routers/dispatch.py`）は
 `create_registered_session` で作成した `TerminalSession` に `pending_text`
@@ -364,16 +381,22 @@ push 通知（VAPID/pywebpush）と dispatch キューのステータススト�
 |------|---------|------|
 | `tmux.py` | 259 | **移行済み**（`server/src/tmux.rs`） |
 | `terminal_pty.py`（forkpty / read / resize / close） | 77 | **移行済み**（`server/src/pty.rs`） |
-| `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 | **移行済み**（`server/src/terminal_session.rs`。配線は未実施） |
-| `routers/terminal.py` | 416 | **移行済み**（`server/src/terminal.rs`。配線は未実施） |
-| `routers/job_runner.py`（`/run`） | 131 | ターミナル配線と同時に移行 |
-| `routers/dispatch.py` | 651 | ターミナル配線と同時に移行（上記設計判断） |
+| `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 | **移行済み**（`server/src/terminal_session.rs`） |
+| `routers/terminal.py` | 416 | **移行済み**（`server/src/terminal.rs`。配線済み） |
+| `routers/job_runner.py`（`/run`） | 131 | **移行済み**（`server/src/job_runner.rs`。配線済み） |
+| `routers/dispatch.py` | 651 | **移行済み**（`server/src/dispatch.rs`。配線済み） |
 | `push.py`（VAPID / Web Push） | 180 | 当面 Python 側にブリッジ経由で残す |
+
+Python 側の `routers/terminal.py`・`routers/job_runner.py`・`routers/dispatch.py`・
+`terminal_session.py`・`tmux.py`（create/attach 系）・`terminal_pty.py` は
+**削除していない**（このリポジトリの既存方針 — Rust 側が同じパスを `build_router`
+で先取りするため実トラフィックはもう到達しないが、ロールバック時の安全網として
+Phase 6（Python 撤去）まで残す）。`main.py` の `app.include_router(...)` も変更していない。
 
 **注意**:
 - tmux の `window-size latest` ポリシー・複数クライアント同時アタッチ・detached セッション（adopt/close）の E2E（`terminal.spec.js` / `detached-sessions.spec.js` / `mobile-terminal.spec.js`）を macOS / Linux 両方で回す
-- 配線（`build_router` への登録）は `terminal.rs`（WS 含む）+ `/run`/`/dispatch` が揃った時点で一括して行う（片方だけ配線すると上記の pending_text 不整合が実際に発生するため）
-- 切替前に**手動スモーク期間**を設ける（iOS Safari / Android Chrome の実機確認を含む）
+- 配線（`build_router` への登録）は `terminal.rs`（WS 含む）+ `/run`/`/dispatch` を一括して行った（上記の pending_text 不整合を避けるため）
+- 実機スモーク（iOS Safari / Android Chrome）は継続してウォッチする（このセッションでは Linux コンテナ内の自動テスト + curl/websockets での手動検証まで実施）
 
 ### Phase 6 — Python 撤去・配布切替
 
