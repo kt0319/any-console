@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
 use crate::config::ConfigStore;
-use crate::errors::{bad_request, not_found, too_large, ApiError};
+use crate::errors::{bad_request, not_found, server_error, too_large, ApiError};
 use crate::git_utils::split_worktree_name;
 use crate::state::AppState;
 
@@ -57,7 +57,9 @@ pub async fn validate_icon(state: &AppState, icon: &str) -> Result<String, ApiEr
     if icon.chars().count() > MAX_ICON_VALUE_LENGTH {
         return Err(too_large("Icon value too long"));
     }
-    let normalized = crate::icons::normalize_icon(&state.paths.icons_dir, icon).await;
+    let normalized = crate::icons::normalize_icon(&state.paths.icons_dir, icon)
+        .await
+        .map_err(|e| server_error(e.to_string()))?;
     if !icon_pattern_matches(&normalized) {
         return Err(bad_request(format!("Invalid icon format: {normalized}")));
     }

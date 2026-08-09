@@ -21,18 +21,21 @@ fn mime_to_ext(mime: &str) -> Option<&'static str> {
     }
 }
 
-fn save_icon_bytes(icons_dir: &Path, raw: &[u8], ext: &str) -> String {
+/// アイコンを保存する（Python `_save_icon_bytes` 相当）。書き込み失敗時は
+/// エラーを返す（Codex レビュー指摘: 以前は失敗を握りつぶし、実際には書かれて
+/// いないファイルへの参照 `icon:<filename>` を返してしまっていた — 呼び出し元が
+/// その参照を config へ保存すると、以後そのアイコンは永久に壊れたまま残る）。
+fn save_icon_bytes(icons_dir: &Path, raw: &[u8], ext: &str) -> std::io::Result<String> {
     let digest = Sha256::digest(raw);
     let hex: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
     let filename = format!("{hex}.{ext}");
     let dest = icons_dir.join(&filename);
     if !dest.exists() {
-        let _ = std::fs::create_dir_all(icons_dir);
-        if std::fs::write(&dest, raw).is_ok() {
-            tracing::info!("icon saved file={filename} size={}", raw.len());
-        }
+        std::fs::create_dir_all(icons_dir)?;
+        std::fs::write(&dest, raw)?;
+        tracing::info!("icon saved file={filename} size={}", raw.len());
     }
-    format!("icon:{filename}")
+    Ok(format!("icon:{filename}"))
 }
 
 fn base64_decode(data: &str) -> Option<Vec<u8>> {
@@ -135,22 +138,29 @@ async fn download_favicon(icons_dir: &Path, domain: &str, fallback: &str) -> Str
     };
     let ext = mime_to_ext(&content_type).unwrap_or("png");
     tracing::info!("favicon downloaded domain={domain} size={}", raw.len());
-    save_icon_bytes(icons_dir, &raw, ext)
+    // Python `_download_favicon` は保存も含めて try/except で囲んでおり、書き込み
+    // 失敗（OSError）時も fallback（元の "favicon:domain" 文字列）を返す。
+    save_icon_bytes(icons_dir, &raw, ext).unwrap_or_else(|e| {
+        tracing::warn!("favicon save failed domain={domain}: {e}");
+        fallback.to_string()
+    })
 }
 
-/// アイコン値を正規化する（Python `normalize_icon` 相当）。
-pub async fn normalize_icon(icons_dir: &Path, icon: &str) -> String {
+/// アイコン値を正規化する（Python `normalize_icon` 相当）。data URI の保存に
+/// 失敗した場合はエラーを返す（Python は素通しの例外で呼び出し元に伝播する —
+/// favicon と異なりここでは fallback せず、呼び出し元が 500 を返す）。
+pub async fn normalize_icon(icons_dir: &Path, icon: &str) -> std::io::Result<String> {
     if let Some(domain) = icon.strip_prefix(FAVICON_PREFIX) {
-        return download_favicon(icons_dir, domain, icon).await;
+        return Ok(download_favicon(icons_dir, domain, icon).await);
     }
     let Some((mime, b64_data)) = parse_data_uri(icon) else {
-        return icon.to_string();
+        return Ok(icon.to_string());
     };
     let Some(ext) = mime_to_ext(&mime) else {
-        return icon.to_string();
+        return Ok(icon.to_string());
     };
     let Some(raw) = base64_decode(b64_data) else {
-        return icon.to_string();
+        return Ok(icon.to_string());
     };
     save_icon_bytes(icons_dir, &raw, ext)
 }
@@ -171,7 +181,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // 1x1 GIF
         let uri = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-        let out = normalize_icon(dir.path(), uri).await;
+        let out = normalize_icon(dir.path(), uri).await.unwrap();
         assert!(out.starts_with("icon:"), "{out}");
         assert!(out.ends_with(".gif"));
         let filename = out.strip_prefix("icon:").unwrap();
@@ -179,10 +189,41 @@ mod tests {
         // ハッシュ 16 桁 + 拡張子
         assert_eq!(filename.split('.').next().unwrap().len(), 16);
         // 非対応 MIME・非 data URI はそのまま
-        assert_eq!(normalize_icon(dir.path(), "mdi-rocket").await, "mdi-rocket");
         assert_eq!(
-            normalize_icon(dir.path(), "data:image/tiff;base64,AAAA").await,
+            normalize_icon(dir.path(), "mdi-rocket").await.unwrap(),
+            "mdi-rocket"
+        );
+        assert_eq!(
+            normalize_icon(dir.path(), "data:image/tiff;base64,AAAA")
+                .await
+                .unwrap(),
             "data:image/tiff;base64,AAAA"
         );
+    }
+
+    /// data URI の保存に失敗したらエラーが伝播すること（Codex レビュー指摘:
+    /// 以前は失敗を握りつぶし、実際には書かれていないファイルへの参照
+    /// `icon:<filename>` を返してしまっていた）。icons_dir に同名の通常ファイルを
+    /// 置いて `create_dir_all` を失敗させることで書き込みエラーを発生させる。
+    #[tokio::test]
+    async fn data_uri_save_failure_propagates_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let icons_dir = dir.path().join("icons");
+        std::fs::write(&icons_dir, b"not a directory").unwrap();
+        let uri = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+        assert!(normalize_icon(&icons_dir, uri).await.is_err());
+    }
+
+    /// save_icon_bytes 自体の書き込み失敗が Err として伝わること（icons_dir と
+    /// 同名の通常ファイルを置いて create_dir_all を失敗させる）。favicon 側
+    /// （download_favicon）はこの Err を fallback 文字列へ変換する — Python
+    /// `_download_favicon` の try/except と同じ挙動（実ネットワークに依存しない
+    /// ようこの層だけを単体で検証する）。
+    #[test]
+    fn save_icon_bytes_propagates_write_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let icons_dir = dir.path().join("icons");
+        std::fs::write(&icons_dir, b"not a directory").unwrap();
+        assert!(save_icon_bytes(&icons_dir, b"fake-image-bytes", "png").is_err());
     }
 }

@@ -284,7 +284,9 @@ pub async fn update_workspace_config(
     // 早期の 404 判定用（実際の読み込み・書き込みは下のロック内で再度行う —
     // ここでの結果は非同期のアイコン正規化の後に古くなりうるため使わない）。
     ensure_workspace_exists(&state.config, &name)?;
-    let icon = normalize_icon(&state.paths.icons_dir, body.icon.trim()).await;
+    let icon = normalize_icon(&state.paths.icons_dir, body.icon.trim())
+        .await
+        .map_err(|e| server_error(e.to_string()))?;
     let icon_color = body.icon_color.trim().to_string();
     let group_id = body
         .group_id
