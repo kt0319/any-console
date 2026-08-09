@@ -13,7 +13,7 @@ serde = { version = "1", features = ["derive"] }
 # preserve_order: Python の dict は挿入順を保持するため、config.json 等の
 # ラウンドトリップでキー順が入れ替わらないよう serde_json も挿入順を維持する。
 serde_json = { version = "1", features = ["preserve_order"] }
-reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "multipart"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "multipart", "rustls-tls"] }
 tokio-tungstenite = "0.26"
 futures-util = "0.3"
 hmac = "0.12"
