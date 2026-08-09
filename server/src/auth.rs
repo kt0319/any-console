@@ -37,6 +37,38 @@ pub struct AuthResult {
     pub label: String,
 }
 
+/// Python の `str(token) if token else ""` と同じ真偽判定で文字列化する。
+///
+/// JSON の `token` フィールドは本来文字列だが、手編集等で数値・真偽値になって
+/// いても Python は truthy な値を `str()` で文字列化してそのまま有効なトークンと
+/// して扱う（falsy な値だけが `""` になる）。ここを素朴に `as_str().unwrap_or("")`
+/// にすると、truthy な非文字列値（例: `123`）が誤って `""` に落ち、
+/// `Auth::authenticate` の `token.is_empty()` 分岐で認証そのものが無効化されて
+/// しまう（全ルートが無認証で通ってしまう重大なリグレッション）。
+fn coerce_truthy_str(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => {
+            if n.as_f64() == Some(0.0) {
+                String::new()
+            } else {
+                n.to_string()
+            }
+        }
+        Value::Bool(b) => {
+            if *b {
+                "True".to_string()
+            } else {
+                String::new()
+            }
+        }
+        Value::Null => String::new(),
+        Value::Array(a) if a.is_empty() => String::new(),
+        Value::Object(o) if o.is_empty() => String::new(),
+        other => other.to_string(),
+    }
+}
+
 /// タイミング攻撃耐性のある文字列比較（Python `hmac.compare_digest` 相当）。
 pub(crate) fn constant_time_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
@@ -110,11 +142,7 @@ impl Auth {
         let mut cache = self.cache.lock().expect("auth cache lock poisoned");
         if !cache.loaded || cache.mtime != mtime {
             let auth = load_json_file(&path, json!({}), None);
-            cache.token = auth
-                .get("token")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
+            cache.token = auth.get("token").map(coerce_truthy_str).unwrap_or_default();
             cache.mtime = mtime;
             cache.loaded = true;
         }
@@ -287,6 +315,32 @@ mod tests {
         assert_eq!(r.kind, AuthKind::Main);
         assert!(auth.authenticate("wrong", "1.2.3.4", None, None).is_none());
         assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
+    }
+
+    #[test]
+    fn numeric_token_is_coerced_not_treated_as_disabled() {
+        // auth.json の token が数値（手編集・旧バージョン等）でも、Python の
+        // `str(token) if token else ""` と同じく truthy な値は有効なトークンとして
+        // 扱わなければならない。素朴な as_str().unwrap_or("") だと "" に落ちて
+        // 認証全体が無効化されてしまう回帰があった。
+        let dir = tempfile::tempdir().unwrap();
+        save_json_file(&dir.path().join("auth.json"), &json!({"token": 123})).unwrap();
+        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let r = auth.authenticate("123", "1.2.3.4", None, None).unwrap();
+        assert_eq!(r.kind, AuthKind::Main);
+        // 無関係な bearer や空文字では通らない（無認証化していないことの確認）。
+        assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
+        assert!(auth.authenticate("wrong", "1.2.3.4", None, None).is_none());
+    }
+
+    #[test]
+    fn zero_token_is_falsy_and_disables_auth() {
+        // Python 側は 0 のような falsy な数値は "" 扱いになる（token 未設定と同じ）。
+        let dir = tempfile::tempdir().unwrap();
+        save_json_file(&dir.path().join("auth.json"), &json!({"token": 0})).unwrap();
+        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
+        assert_eq!(r.kind, AuthKind::Disabled);
     }
 
     #[test]
