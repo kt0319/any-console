@@ -371,6 +371,68 @@ pub async fn detect_workspace_from_tmux(config: &ConfigStore, tmux_name: &str) -
     }
 }
 
+/// 登録済みプレフィックスの tmux セッション名から ID 一覧を返す
+/// （`agent_watch` の `_list_session_ids` 相当）。
+///
+/// `None` はコマンド実行自体の失敗（tmux 不在・タイムアウト等）、
+/// `Some(vec![])` は「セッション0件」という正当な結果 —
+/// 呼び出し側はこれを区別する必要がある（前者を空扱いすると、一時的な
+/// 取得失敗を「セッション消滅」と誤認しうるため）。
+pub async fn list_session_ids(tmux_prefix: &str) -> Option<Vec<String>> {
+    let r = run_tmux_cmd(&["list-sessions", "-F", "#{session_name}"]).await?;
+    if !r.success() {
+        return Some(Vec::new());
+    }
+    let mut ids = Vec::new();
+    for line in r.stdout.trim().lines() {
+        if let Some(id) = line.trim().strip_prefix(tmux_prefix) {
+            if !id.is_empty() {
+                ids.push(id.to_string());
+            }
+        }
+    }
+    Some(ids)
+}
+
+/// 全 tmux セッションの (pane_current_command, pane_title, pane_pid,
+/// pane_current_path) を一括で返す（`agent_watch` の `list_pane_meta` 相当）。
+///
+/// キーはセッション名。ポーリング1周期につき1回だけ呼び、セッション数に
+/// 比例した tmux 呼び出しを避ける。本アプリはセッションごとに単一ペインで
+/// 運用するため、複数ペインあれば最初のペインを採用する。タイトルはタブを
+/// 含みうるため最終列以降をタブ区切りのまま連結する。失敗時は空 dict。
+pub async fn list_pane_meta() -> HashMap<String, (String, String, i64, String)> {
+    let Some(r) = run_tmux_cmd(&[
+        "list-panes",
+        "-a",
+        "-F",
+        "#{session_name}\t#{pane_current_command}\t#{pane_pid}\t#{pane_current_path}\t#{pane_title}",
+    ])
+    .await
+    else {
+        return HashMap::new();
+    };
+    if !r.success() {
+        return HashMap::new();
+    }
+    let mut meta = HashMap::new();
+    for line in r.stdout.lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 5 {
+            continue;
+        }
+        let pane_pid: i64 = parts[2].parse().unwrap_or(0);
+        let title = parts[4..].join("\t");
+        meta.entry(parts[0].to_string()).or_insert((
+            parts[1].to_string(),
+            title,
+            pane_pid,
+            parts[3].to_string(),
+        ));
+    }
+    meta
+}
+
 pub async fn get_window_width(tmux_name: &str) -> Option<i64> {
     display_message_int(tmux_name, "#{window_width}").await
 }
@@ -479,5 +541,48 @@ mod tests {
         crate::pty::close(pty.into_inner(), child.pid);
         crate::subprocess::kill_tmux_by_name(&name).await;
         assert!(!crate::subprocess::tmux_session_exists(&name).await);
+    }
+
+    #[tokio::test]
+    async fn list_session_ids_and_pane_meta_on_real_session() {
+        if skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let config = ConfigStore::new(dir.path().join("config.json"));
+        let prefix = format!("ac-listtest-{}-", crate::util::token_hex(4));
+        let session_id = "s1";
+        let name = format!("{prefix}{session_id}");
+
+        create_tmux_session(dir.path(), &config, None, &name)
+            .await
+            .expect("session should be created");
+        assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);
+
+        let ids = list_session_ids(&prefix)
+            .await
+            .expect("tmux should respond");
+        assert_eq!(ids, vec![session_id.to_string()]);
+
+        let meta = list_pane_meta().await;
+        let entry = meta
+            .get(&name)
+            .expect("pane meta should include our session");
+        assert!(entry.2 > 0, "pane_pid should be positive: {entry:?}");
+
+        crate::subprocess::kill_tmux_by_name(&name).await;
+        let ids_after = list_session_ids(&prefix)
+            .await
+            .expect("tmux should respond");
+        assert!(ids_after.is_empty());
+    }
+
+    #[tokio::test]
+    async fn list_session_ids_returns_empty_not_none_when_no_sessions_match() {
+        if skip_if_no_tmux() {
+            return;
+        }
+        let ids = list_session_ids("ac-definitely-nonexistent-prefix-").await;
+        assert_eq!(ids, Some(Vec::new()));
     }
 }
