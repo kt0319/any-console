@@ -26,6 +26,7 @@ import functools
 import logging
 import secrets
 import subprocess
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.responses import JSONResponse
@@ -107,17 +108,28 @@ def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
 # 設定されていればこちらを優先する（Rust 移行後は _PENDING/_RECENT は更新されず
 # 空のままになるため）。
 _bridged_payload: dict | None = None
+_bridged_payload_at: float = 0.0
+
+# Rust 側の `run_bridge_reconciliation_loop`（server/src/dispatch.rs）は
+# 30秒間隔でこのスナップショットを再送し続ける。その3倍の猶予を過ぎても
+# 更新が来なければ、Rust front が停止した/ロールバックされたとみなし、
+# Python 側の生きた _PENDING/_RECENT へ自動的に戻す（Codex レビュー指摘:
+# 以前は一度でも受け取ると恒久的にブリッジ側を優先し続け、ロールバック後に
+# Python が新しい dispatch を受け付けても購読者には古いスナップショットが
+# 表示され続けていた）。
+_BRIDGE_EXPIRY_SEC = 90
 
 
 def set_bridged_payload(payload: dict) -> None:
     """Rust 側からの dispatch キュー全量スナップショットを受け取り、配信予約する。"""
-    global _bridged_payload
+    global _bridged_payload, _bridged_payload_at
     _bridged_payload = payload
+    _bridged_payload_at = time.time()
     _schedule_queue_broadcast()
 
 
 def _queue_payload() -> dict:
-    if _bridged_payload is not None:
+    if _bridged_payload is not None and time.time() - _bridged_payload_at < _BRIDGE_EXPIRY_SEC:
         return _bridged_payload
     return {
         "type": "dispatch_queue",
