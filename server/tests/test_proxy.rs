@@ -36,6 +36,10 @@ fn upstream_router() -> Router {
                         .get("authorization")
                         .and_then(|v| v.to_str().ok())
                         .unwrap_or(""),
+                    "host": headers
+                        .get("host")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or(""),
                 }))
             }),
         )
@@ -58,8 +62,20 @@ fn upstream_router() -> Router {
         )
         .route(
             "/workspaces/statuses/ws",
-            any(|ws: WebSocketUpgrade| async move {
-                ws.on_upgrade(|mut socket| async move {
+            any(|headers: HeaderMap, ws: WebSocketUpgrade| async move {
+                let host = headers
+                    .get("host")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("")
+                    .to_string();
+                ws.on_upgrade(move |mut socket| async move {
+                    if socket
+                        .send(Message::Text(format!("host:{host}").into()))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
                     while let Some(Ok(msg)) = socket.recv().await {
                         let reply = match msg {
                             Message::Text(t) => Message::Text(format!("pong:{t}").into()),
@@ -155,6 +171,24 @@ async fn http_get_is_proxied_with_forwarded_for() {
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["xff"], "127.0.0.1");
     assert_eq!(body["auth"], "Bearer tkn");
+}
+
+/// クライアントが実際にアクセスした Host が upstream にそのまま引き継がれること
+/// （Codex レビュー指摘: Python 側の pairing URL 生成が Request.url = Host ヘッダ
+/// に依存するため、常に upstream の 127.0.0.1:port に化けると壊れる）。
+#[tokio::test]
+async fn original_host_header_is_forwarded_not_upstream_addr() {
+    let upstream = spawn(upstream_router()).await;
+    let front = spawn_front(upstream, 1000).await;
+    let resp = client()
+        .get(format!("http://{}/auth/check", front.addr))
+        .header("host", "example.ts.net:8888")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["host"], "example.ts.net:8888");
 }
 
 #[tokio::test]
@@ -274,6 +308,11 @@ async fn websocket_is_bridged_both_directions() {
             .expect("ws connect through proxy");
 
     use tokio_tungstenite::tungstenite::Message as TgMsg;
+    // 元クライアントの Host（front.addr 宛て）が upstream にそのまま引き継がれる
+    // こと（upstream 自身のアドレスに化けないこと）。
+    let host_msg = ws.next().await.unwrap().unwrap();
+    assert_eq!(host_msg, TgMsg::Text(format!("host:{}", front.addr).into()));
+
     ws.send(TgMsg::Text("hello".into())).await.unwrap();
     let reply = ws.next().await.unwrap().unwrap();
     assert_eq!(reply, TgMsg::Text("pong:hello".into()));

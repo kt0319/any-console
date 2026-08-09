@@ -275,11 +275,13 @@ async fn proxy_http(state: Arc<AppState>, client_ip: IpAddr, req: Request) -> Re
 
     let mut headers = reqwest::header::HeaderMap::new();
     for (name, value) in req.headers() {
-        if is_hop_by_hop(name)
-            || name == "host"
-            || name == "content-length"
-            || name == "x-forwarded-for"
-        {
+        // Host はここでは除外しない: reqwest は明示的な Host ヘッダがあれば
+        // それをそのまま送信する（接続先はあくまで upstream_url で決まる）。
+        // Python 側は Starlette の Request.url をこのヘッダから組み立てて
+        // ペアリング URL 生成等に使うため、クライアントが実際にアクセスした
+        // Host をそのまま引き継がないと、常に upstream の 127.0.0.1:8889 が
+        // 見えてしまう（Codex レビュー指摘）。
+        if is_hop_by_hop(name) || name == "content-length" || name == "x-forwarded-for" {
             continue;
         }
         headers.append(name.clone(), value.clone());
@@ -348,9 +350,16 @@ async fn proxy_ws(
 ) -> Response {
     let url = state.proxy.upstream_ws_url(&path_and_query(req.uri()));
     let xff = forwarded_for(req.headers(), client_ip);
+    // クライアントが実際にアクセスした Host（Python 側の Request.url 組み立てに
+    // 使われる — HTTP proxy 側と同じ理由で引き継ぐ。Codex レビュー指摘）。
+    let client_host = req
+        .headers()
+        .get("host")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
 
-    // upstream ハンドシェイクへ引き継ぐヘッダ。WS ネゴシエーション用ヘッダは
-    // tungstenite が自前で生成するため除外する。
+    // upstream ハンドシェイクへ引き継ぐヘッダ。WS ネゴシエーション用ヘッダと Host は
+    // tungstenite が自前で生成する（Host は下で client_host に差し替える）ため除外する。
     let mut carry = HeaderMap::new();
     for (name, value) in req.headers() {
         let n = name.as_str();
@@ -381,6 +390,14 @@ async fn proxy_ws(
     };
     for (name, value) in &carry {
         request.headers_mut().append(name.clone(), value.clone());
+    }
+    // into_client_request() が upstream の authority（127.0.0.1:8889 等）で Host を
+    // 設定済みのため、append ではなく insert で元のクライアント Host に差し替える
+    // （重複 Host ヘッダを作らないため）。
+    if let Some(host) = client_host {
+        if let Ok(v) = host.parse() {
+            request.headers_mut().insert("host", v);
+        }
     }
     let upstream = match tokio_tungstenite::connect_async(request).await {
         Ok((ws, _resp)) => ws,
