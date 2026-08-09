@@ -77,15 +77,7 @@ async fn main() {
     let paths = Paths::from_env(root);
     let config = ConfigStore::new(paths.config_file.clone());
 
-    let (cfg_host, cfg_port) = config.resolve_bind();
-    let host = std::env::var("ANY_CONSOLE_RS_HOST")
-        .ok()
-        .filter(|v| !v.is_empty())
-        .unwrap_or(cfg_host);
-    let port = std::env::var("ANY_CONSOLE_RS_PORT")
-        .ok()
-        .and_then(|v| v.parse::<u16>().ok())
-        .unwrap_or(cfg_port);
+    let (host, port) = any_console_server::tmux::resolve_effective_bind(&config);
     let upstream = std::env::var("ANY_CONSOLE_UPSTREAM")
         .ok()
         .filter(|v| !v.is_empty())

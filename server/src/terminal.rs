@@ -201,6 +201,14 @@ pub async fn delete_terminal_session(
     Path(session_id): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
+    // tmux には実在するがレジストリ未登録（Rust 再起動直後等）なセッションも
+    // 先にハイドレートしてから削除する。そうしないと `remove` が None を返して
+    // 404 になり、tmux セッションは実際にはキルされないまま残り続ける
+    // （Codex レビュー指摘）。
+    state
+        .terminal_registry
+        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
+        .await?;
     let Some(session_arc) = state.terminal_registry.remove(&session_id).await else {
         return Err(not_found("Terminal session not found"));
     };
@@ -644,13 +652,16 @@ async fn handle_resize(
 async fn flush_pending_text(full_tmux_name: &str, session_id: &str) {
     tokio::time::sleep(Duration::from_secs_f64(PENDING_TEXT_DELAY_SEC)).await;
     let meta = tmux::load_tmux_metadata(full_tmux_name).await;
-    let Some(text) = meta.get("TMUX_PENDING_TEXT").filter(|s| !s.is_empty()) else {
+    let Some(encoded) = meta.get("TMUX_PENDING_TEXT").filter(|s| !s.is_empty()) else {
         return;
     };
+    // dispatch.rs 側の set_pending_text が hex エンコードして保存している
+    // （複数行 text が1行の tmux 環境変数値として壊れずに運べるようにするため）。
+    let text = tmux::decode_pending_text(encoded);
     let enter = meta.get("TMUX_PENDING_ENTER").map(String::as_str) != Some("0");
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_TEXT").await;
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_ENTER").await;
-    if !tmux::send_keys_to_tmux(full_tmux_name, text, enter).await {
+    if !text.is_empty() && !tmux::send_keys_to_tmux(full_tmux_name, &text, enter).await {
         tracing::warn!("pending text send-keys failed session={session_id}");
     }
 }
@@ -707,12 +718,10 @@ mod tests {
             None,
         )
         .await;
+        let encoded = tmux::encode_pending_text("echo pending-flush");
         tmux::set_environment(
             &name,
-            &[
-                ("TMUX_PENDING_TEXT", "echo pending-flush"),
-                ("TMUX_PENDING_ENTER", "1"),
-            ],
+            &[("TMUX_PENDING_TEXT", &encoded), ("TMUX_PENDING_ENTER", "1")],
         )
         .await;
         assert!(tmux::wait_pane_ready(&name, 2.0).await);

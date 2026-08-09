@@ -55,6 +55,28 @@ fn connect_bind_host(host: &str) -> String {
     }
 }
 
+/// 実際に Rust サーバが listen しているホスト/ポート（`config.json` の
+/// `__global__.host`/`port` に加え、`main.rs` が優先する
+/// `ANY_CONSOLE_RS_HOST`/`ANY_CONSOLE_RS_PORT` 環境変数オーバーライドも反映する）。
+///
+/// hook 用 URL（`ANY_CONSOLE_HOOK_URL`）はこの実効アドレス宛てでなければならない
+/// （Codex レビュー指摘: `config.resolve_bind()` だけを見ていると、
+/// `ANY_CONSOLE_RS_PORT` で起動ポートを上書きした環境で hook が古い設定ポートへ
+/// post してしまい、hooks 由来の状態更新が届かなくなる）。`main.rs` の
+/// 起動時アドレス決定ロジックと同じ優先順位をここでも再現する。
+pub fn resolve_effective_bind(config: &ConfigStore) -> (String, u16) {
+    let (cfg_host, cfg_port) = config.resolve_bind();
+    let host = std::env::var("ANY_CONSOLE_RS_HOST")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or(cfg_host);
+    let port = std::env::var("ANY_CONSOLE_RS_PORT")
+        .ok()
+        .and_then(|v| v.parse::<u16>().ok())
+        .unwrap_or(cfg_port);
+    (host, port)
+}
+
 /// hook 専用トークンを返す（無ければ生成して `data/hook_token` に保存する。
 /// Python の `agent_hooks.get_hook_token` と同一ファイル・同一 best-effort 挙動 —
 /// 初回作成時のプロセス間競合はガードしない。0600 で保存する）。
@@ -87,7 +109,7 @@ fn hook_session_env(
     config: &ConfigStore,
     tmux_session_name: &str,
 ) -> Vec<(String, String)> {
-    let (host, port) = config.resolve_bind();
+    let (host, port) = resolve_effective_bind(config);
     let host = connect_bind_host(&host);
     vec![
         (
@@ -324,6 +346,33 @@ pub async fn load_tmux_metadata(tmux_name: &str) -> HashMap<String, String> {
     parse_show_environment(&r.stdout, TMUX_META_ENV_NAMES)
 }
 
+/// `TMUX_PENDING_TEXT` 専用のエンコード（hex）。`load_tmux_metadata` は
+/// `tmux show-environment` の出力を1行1エントリとして `KEY=value` にパースする
+/// ため、複数行プロンプト/スクリプトのような改行を含む値をそのまま入れると、
+/// 2行目以降が `KEY=` を持たない別行として無視されるか別エントリと誤認され、
+/// 承認された text の後半が silently 失われる（Codex レビュー指摘）。改行を
+/// 含む任意のテキストを1行の値として安全に運べるよう hex エンコードする。
+pub fn encode_pending_text(text: &str) -> String {
+    text.bytes().map(|b| format!("{b:02x}")).collect()
+}
+
+/// `encode_pending_text` の逆変換。デコードに失敗した場合は空文字列を返す
+/// （新規作成された tmux セッションにのみ書き込まれる値のため、通常は必ず
+/// 対になった `encode_pending_text` の出力しか読まないが、手動で環境変数を
+/// 触られていた場合等の防御として奇形入力を無害化する）。
+pub fn decode_pending_text(encoded: &str) -> String {
+    if encoded.is_empty() || !encoded.len().is_multiple_of(2) {
+        return String::new();
+    }
+    let bytes: Option<Vec<u8>> = (0..encoded.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&encoded[i..i + 2], 16).ok())
+        .collect();
+    bytes
+        .and_then(|b| String::from_utf8(b).ok())
+        .unwrap_or_default()
+}
+
 fn parse_show_environment(stdout: &str, allowed: &[&str]) -> HashMap<String, String> {
     let mut meta = HashMap::new();
     for line in stdout.trim().lines() {
@@ -471,6 +520,50 @@ mod tests {
         assert_eq!(meta.get("TMUX_WORKSPACE"), Some(&"proj".to_string()));
         assert_eq!(meta.get("TMUX_DETACHED"), Some(&"1".to_string()));
         assert!(!meta.contains_key("OTHER"));
+    }
+
+    #[test]
+    fn pending_text_encode_roundtrips_multiline_text() {
+        let text = "line one\nline two\r\nline three\ttabbed";
+        let encoded = encode_pending_text(text);
+        // hex エンコード済みの値は1行に収まる（show-environment のパースを壊さない）。
+        assert!(!encoded.contains('\n'));
+        assert_eq!(decode_pending_text(&encoded), text);
+    }
+
+    #[test]
+    fn pending_text_decode_ignores_malformed_input() {
+        assert_eq!(decode_pending_text(""), "");
+        assert_eq!(decode_pending_text("not-hex-zz"), "");
+        assert_eq!(decode_pending_text("abc"), ""); // 奇数長
+    }
+
+    /// `ANY_CONSOLE_RS_HOST`/`ANY_CONSOLE_RS_PORT` を書き換えるため、この crate の
+    /// テストの中でこれらの環境変数を触るのはこのテストだけ（他は grep 済み）—
+    /// 単体テストは同一プロセス内で並行実行されるため、他のテストと競合しうる
+    /// 環境変数はテスト全体でユニークに保つ必要がある。
+    #[test]
+    fn resolve_effective_bind_prefers_env_override_over_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = ConfigStore::new(dir.path().join("config.json"));
+        // config.json 未作成 = デフォルト (0.0.0.0, 8888)。
+        assert_eq!(
+            resolve_effective_bind(&config),
+            ("0.0.0.0".to_string(), 8888)
+        );
+
+        unsafe {
+            std::env::set_var("ANY_CONSOLE_RS_HOST", "127.0.0.1");
+            std::env::set_var("ANY_CONSOLE_RS_PORT", "9999");
+        }
+        assert_eq!(
+            resolve_effective_bind(&config),
+            ("127.0.0.1".to_string(), 9999)
+        );
+        unsafe {
+            std::env::remove_var("ANY_CONSOLE_RS_HOST");
+            std::env::remove_var("ANY_CONSOLE_RS_PORT");
+        }
     }
 
     #[test]

@@ -173,8 +173,16 @@ impl ConfigStore {
         // .bak からの復旧・バージョンマイグレーションの書き戻しは config.bak/config.tmp
         // を触るため、共有ロックのままでは他の読み手の書き戻しと競合しうる。
         // 排他ロックへ昇格し、その下で読み直してから書く（他プロセスが既に
-        // 書き戻し済みなら再度の書き戻しは不要）。
-        let _lock = self.file_lock(true);
+        // 書き戻し済みなら再度の書き戻しは不要）。ロック自体が取得できない
+        // 場合（lock ファイルの権限問題・ENOLCK 等）は書き戻しを諦めて読み込み
+        // 結果のみ返す（Read パスなので致命的にはしない — 書き込み系は
+        // `with_exclusive`/`save_all` 側でロック失敗を伝播させる）。
+        let Some(_lock) = self.file_lock(true) else {
+            tracing::warn!(
+                "config.lock の排他ロックが取得できず、復旧/マイグレーションの書き戻しを見送ります"
+            );
+            return config;
+        };
         let (config, needs_writeback) = self.read_core();
         if needs_writeback {
             if let Err(e) = self.write_unlocked(&config) {
@@ -185,18 +193,27 @@ impl ConfigStore {
     }
 
     pub fn save_all(&self, config: &Map<String, Value>) -> Result<(), String> {
-        let _lock = self.file_lock(true);
+        let _lock = self
+            .file_lock(true)
+            .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         self.write_unlocked(config)
     }
 
     /// 排他ロックを1回だけ取得し、その中で読み込み→変更→書き込みを行う
     /// （read-modify-write を1トランザクションにまとめ、concurrent writer 間の
     /// lost update を防ぐ）。`mutate` が `Err` を返した場合は書き込みを行わない。
+    ///
+    /// ロック自体が取得できない場合（lock ファイルの権限問題・ENOLCK な
+    /// ファイルシステム等）は、ロック無しで read-modify-write を進めてしまうと
+    /// 同時書き込みが素通しになり得るため、書き込まずにエラーを返す
+    /// （Codex レビュー指摘）。
     pub fn with_exclusive<T>(
         &self,
         mutate: impl FnOnce(&mut Map<String, Value>) -> Result<T, ApiError>,
     ) -> Result<T, ApiError> {
-        let _lock = self.file_lock(true);
+        let _lock = self
+            .file_lock(true)
+            .ok_or_else(|| server_error("Failed to acquire config lock"))?;
         let mut config = self.read_unlocked();
         let result = mutate(&mut config)?;
         self.write_unlocked(&config).map_err(server_error)?;
@@ -259,7 +276,9 @@ impl ConfigStore {
         workspace_name: &str,
         config: Map<String, Value>,
     ) -> Result<(), String> {
-        let _lock = self.file_lock(true);
+        let _lock = self
+            .file_lock(true)
+            .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         let mut all = self.read_unlocked();
         let key = Self::find_workspace_key(&all, workspace_name)
             .unwrap_or_else(|| workspace_name.to_string());
@@ -283,7 +302,9 @@ impl ConfigStore {
     /// Python `delete_workspace_config` と同一: エントリを削除し、
     /// `__global__.workspace_order` からも取り除く。存在しなければ何もしない。
     pub fn delete_workspace_config(&self, workspace_name: &str) -> Result<(), String> {
-        let _lock = self.file_lock(true);
+        let _lock = self
+            .file_lock(true)
+            .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         let mut all = self.read_unlocked();
         let Some(key) = Self::find_workspace_key(&all, workspace_name) else {
             return Ok(());
@@ -364,7 +385,9 @@ impl ConfigStore {
 
     /// Python `save_global_config_section` と同一（EX ロック下で read-modify-write）。
     pub fn save_global_section(&self, key: &str, data: Value) -> Result<(), String> {
-        let _lock = self.file_lock(true);
+        let _lock = self
+            .file_lock(true)
+            .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         let mut all = self.read_unlocked();
         let mut global = all
             .get(GLOBAL_CONFIG_KEY)
@@ -388,7 +411,9 @@ impl ConfigStore {
         expected_current: &Value,
         new_value: Value,
     ) -> Result<Value, String> {
-        let _lock = self.file_lock(true);
+        let _lock = self
+            .file_lock(true)
+            .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         let mut all = self.read_unlocked();
         let mut global = all
             .get(GLOBAL_CONFIG_KEY)
@@ -609,6 +634,35 @@ mod tests {
             loaded[GLOBAL_CONFIG_KEY]["snippets"],
             json!([{"command": "ls"}])
         );
+    }
+
+    /// lock ファイルが開けない（ここでは同名のディレクトリにして `open()` を
+    /// 失敗させる）場合、ロック無しで read-modify-write を進めてしまわず、
+    /// 書き込みをせずにエラーを返すこと（Codex レビュー指摘）。
+    #[test]
+    fn with_exclusive_fails_when_lock_cannot_be_acquired() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = store(&dir);
+        std::fs::create_dir(dir.path().join("config.lock")).unwrap();
+
+        let result: Result<(), ApiError> = s.with_exclusive(|cfg| {
+            cfg.insert("ws_should_not_persist".to_string(), json!({"name": "x"}));
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert!(!dir.path().join("config.json").exists());
+    }
+
+    #[test]
+    fn save_all_fails_when_lock_cannot_be_acquired() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = store(&dir);
+        std::fs::create_dir(dir.path().join("config.lock")).unwrap();
+
+        let mut cfg = Map::new();
+        cfg.insert("ws_a".to_string(), json!({"name": "proj"}));
+        assert!(s.save_all(&cfg).is_err());
+        assert!(!dir.path().join("config.json").exists());
     }
 
     #[test]

@@ -604,6 +604,76 @@ async fn approved_new_session_flushes_pending_text_over_ws() {
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }
 
+/// 承認された text が複数行（改行を含む）の場合でも、全行が欠落せずに
+/// flush されること（Codex レビュー指摘: pending text は1行の tmux 環境変数
+/// 値として永続化するため、素朴に生テキストを入れると改行以降が
+/// `show-environment` のパース時に失われていた）。
+#[tokio::test]
+async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
+    if skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let resp = client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({
+            "workspace": "proj",
+            "text": "echo multiline-marker-one\necho multiline-marker-two",
+            "enter": true,
+        }))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+
+    let resp = client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"approved": true}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let session_id = body["session_id"].as_str().unwrap().to_string();
+
+    let url = format!(
+        "ws://{}/terminal/ws/{session_id}?token={TOKEN}&cols=80&rows=24",
+        front.addr
+    );
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("ws connect");
+
+    let mut collected = String::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while tokio::time::Instant::now() < deadline
+        && !(collected.contains("multiline-marker-one")
+            && collected.contains("multiline-marker-two"))
+    {
+        match tokio::time::timeout(Duration::from_millis(500), ws.next()).await {
+            Ok(Some(Ok(TgMsg::Binary(b)))) => collected.push_str(&String::from_utf8_lossy(&b)),
+            _ => continue,
+        }
+    }
+    assert!(
+        collected.contains("multiline-marker-one"),
+        "first line missing, collected: {collected:?}"
+    );
+    assert!(
+        collected.contains("multiline-marker-two"),
+        "second line missing (this is the exact failure mode the fix addresses), collected: {collected:?}"
+    );
+
+    ws.close(None).await.unwrap();
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
 #[tokio::test]
 async fn dispatch_rerun_run_true_executes_immediately() {
     if skip_if_no_tmux() {
@@ -712,6 +782,69 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
     })
     .await;
     assert!(found, "text should be sent directly to the reused session");
+
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
+/// Rust 再起動直後を模した状況（レジストリには無いが tmux には実在するセッション）
+/// を明示的な `session_id` で dispatch すると、指定したそのセッションが解決される
+/// こと（Codex レビュー指摘: 以前は registry-only の `get` が None を返し、
+/// 明示的な選択が無視されて別セッションの再利用や新規セッション作成に
+/// フォールバックしていた）。
+#[tokio::test]
+async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
+    if skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let resp = client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "proj", "direct": true}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let session_id = body["session_id"].as_str().unwrap().to_string();
+
+    // レジストリから外して「Rust 再起動直後、tmux だけは生きている」状態を再現する。
+    front.state.terminal_registry.remove(&session_id).await;
+    assert!(front
+        .state
+        .terminal_registry
+        .get(&session_id)
+        .await
+        .is_none());
+
+    let resp = client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({
+            "workspace": "proj",
+            "direct": true,
+            "session_id": session_id,
+            "text": "echo cold-session-reuse",
+        }))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["created"], false);
+    assert_eq!(
+        body["session_id"], session_id,
+        "指定した既存セッションがそのまま再利用されるはず（別セッション作成は不可）"
+    );
+
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    let found = wait_for(|| {
+        let out = std::process::Command::new("tmux")
+            .args(["capture-pane", "-t", &full_name, "-p"])
+            .output();
+        out.map(|o| String::from_utf8_lossy(&o.stdout).contains("cold-session-reuse"))
+            .unwrap_or(false)
+    })
+    .await;
+    assert!(found, "text should reach the explicitly selected session");
 
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }

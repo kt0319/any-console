@@ -157,6 +157,40 @@ async fn list_and_delete_require_auth() {
     assert_eq!(body["detail"], "Invalid token");
 }
 
+/// Rust 再起動直後を模した状況（レジストリが空だが tmux には実在する
+/// セッション）を DELETE すると、404 にならずレジストリへハイドレートしてから
+/// 実際に tmux セッションが kill されること（Codex レビュー指摘: 以前は
+/// registry-only の `remove` が None を返して 404 になり、tmux プロセスは
+/// キルされずに残り続けていた）。
+#[tokio::test]
+async fn delete_hydrates_unregistered_but_live_tmux_session() {
+    if skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let session_id = "cold-delete";
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::run_subprocess_safe(
+        &["tmux", "new-session", "-d", "-s", &full_name],
+        5.0,
+        None,
+    )
+    .await;
+    assert_eq!(front.state.terminal_registry.len().await, 0);
+
+    let resp = client()
+        .delete(format!(
+            "http://{}/terminal/sessions/{session_id}",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(!any_console_server::subprocess::tmux_session_exists(&full_name).await);
+}
+
 #[tokio::test]
 async fn terminal_order_roundtrip() {
     let front = spawn_front().await;

@@ -368,14 +368,22 @@ impl TerminalRegistry {
     /// tmux 名プレフィックスを外した ID からセッションを解決する（レジストリに
     /// 無ければ tmux の実在確認 → メタデータ復元で on-demand 登録する。Python
     /// `get_terminal_session` 相当）。
+    ///
+    /// 存在確認・復元・登録までを `sessions` の同じロック区間で行う
+    /// （Codex レビュー指摘: 以前は `get` → `insert` が別ロックに分かれており、
+    /// Rust 再起動直後に同じ未登録セッションへ2クライアントが同時に attach すると
+    /// 両方とも「未登録」を観測して別々の `TerminalSession` を作ってしまい、
+    /// 一方だけがレジストリに残る一方で pending_text_claimed 等の per-session
+    /// 状態が2つのインスタンスに分裂し、pending text の二重送信につながる）。
     pub async fn get_or_register(
         &self,
         config: &ConfigStore,
         tmux_prefix: &str,
         session_id: &str,
     ) -> Result<Arc<Mutex<TerminalSession>>, ApiError> {
-        if let Some(existing) = self.get(session_id).await {
-            return Ok(existing);
+        let mut sessions = self.sessions.lock().await;
+        if let Some(existing) = sessions.get(session_id) {
+            return Ok(existing.clone());
         }
         let tmux_name = format!("{tmux_prefix}{session_id}");
         if !crate::subprocess::tmux_session_exists(&tmux_name).await {
@@ -386,7 +394,9 @@ impl TerminalRegistry {
             "on-demand registered tmux session={session_id} workspace={}",
             session.workspace.as_deref().unwrap_or("(none)")
         );
-        Ok(self.insert(session_id.to_string(), session).await)
+        let arc = Arc::new(Mutex::new(session));
+        sessions.insert(session_id.to_string(), arc.clone());
+        Ok(arc)
     }
 
     /// セッションを完全に削除する（全ブリッジ切断 + tmux kill-session。Python
@@ -516,6 +526,58 @@ mod tests {
             Err(e) => assert_eq!(e.status, axum::http::StatusCode::TOO_MANY_REQUESTS),
             Ok(_) => panic!("expected too_many_requests error"),
         }
+    }
+
+    /// Rust 再起動直後（レジストリが空）に、tmux には実在するが未登録の
+    /// セッションへ複数クライアントがほぼ同時に attach しても、`get_or_register`
+    /// が返す `Arc` は全呼び出しで同一インスタンスであること（Codex レビュー
+    /// 指摘: 検証前は get→insert が別ロックで、両方が「未登録」を観測して
+    /// 別々の `TerminalSession` を作ってしまい、pending_text_claimed 等の
+    /// per-session 状態が分裂していた）。
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn get_or_register_cold_hydration_is_atomic_under_concurrency() {
+        if skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let config = ConfigStore::new(dir.path().join("config.json"));
+        let prefix = format!("ac-test-{}-", crate::util::token_hex(3));
+        let session_id = "cold-race";
+        let tmux_name = format!("{prefix}{session_id}");
+        crate::subprocess::run_subprocess_safe(
+            &["tmux", "new-session", "-d", "-s", &tmux_name],
+            5.0,
+            None,
+        )
+        .await;
+
+        // 空のレジストリ（= 再起動直後に相当）に対し、同じ未登録セッションへ
+        // 並行に get_or_register する。
+        let registry = Arc::new(TerminalRegistry::new());
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let registry = registry.clone();
+            let config = config.clone();
+            let prefix = prefix.clone();
+            handles.push(tokio::spawn(async move {
+                registry
+                    .get_or_register(&config, &prefix, "cold-race")
+                    .await
+                    .unwrap()
+            }));
+        }
+        let mut arcs = Vec::new();
+        for h in handles {
+            arcs.push(h.await.unwrap());
+        }
+        let first_ptr = Arc::as_ptr(&arcs[0]);
+        assert!(
+            arcs.iter().all(|a| Arc::as_ptr(a) == first_ptr),
+            "全呼び出しが同一の TerminalSession インスタンスを返すはず"
+        );
+        assert_eq!(registry.len().await, 1);
+
+        crate::subprocess::kill_tmux_by_name(&tmux_name).await;
     }
 
     #[tokio::test]

@@ -572,11 +572,17 @@ async fn resolve_session(
     effective_ws: &str,
 ) -> Option<(String, Arc<Mutex<TerminalSession>>)> {
     if let Some(sid) = body.session_id.as_deref().filter(|s| !s.is_empty()) {
-        if let Some(sess) = state.terminal_registry.get(sid).await {
-            let tmux_name = { sess.lock().await.tmux_session_name.clone() };
-            if crate::subprocess::tmux_session_exists(&tmux_name).await {
-                return Some((sid.to_string(), sess));
-            }
+        // レジストリ未登録でも tmux 上には実在しうる（Rust 再起動直後・別プロセスが
+        // 作成した等）ため、registry-only の `get` ではなく `get_or_register` で
+        // on-demand ハイドレートしてから解決する（Codex レビュー指摘: `get` だけだと
+        // 明示的に選択されたセッションが無視され、別のセッションへ誤って送信/新規
+        // セッションを二重作成してしまう）。
+        if let Ok(sess) = state
+            .terminal_registry
+            .get_or_register(&state.config, &state.paths.tmux_prefix, sid)
+            .await
+        {
+            return Some((sid.to_string(), sess));
         }
     }
     find_existing_session(state, effective_ws, &body.job, &body.match_mode).await
@@ -585,10 +591,13 @@ async fn resolve_session(
 /// 新規作成セッションへ pending text を予約する（tmux 環境変数経由 — モジュール
 /// 冒頭の設計判断コメント参照）。
 async fn set_pending_text(tmux_name: &str, text: &str, enter: bool) {
+    // 改行を含む複数行 text も1行の tmux 環境変数値として安全に運べるよう
+    // hex エンコードする（`tmux::encode_pending_text` のドキュメント参照）。
+    let encoded = tmux::encode_pending_text(text);
     tmux::set_environment(
         tmux_name,
         &[
-            ("TMUX_PENDING_TEXT", text),
+            ("TMUX_PENDING_TEXT", &encoded),
             ("TMUX_PENDING_ENTER", if enter { "1" } else { "0" }),
         ],
     )
