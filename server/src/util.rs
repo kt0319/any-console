@@ -103,6 +103,22 @@ pub fn token_hex(n_bytes: usize) -> String {
     buf.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// base64url（パディング無し）エンコード（VAPID 鍵・JWT 等、`push.rs` が使う）。
+/// `Python `base64.urlsafe_b64encode(...).rstrip(b"=")` と同一の出力形式。
+pub fn base64url_encode(data: &[u8]) -> String {
+    use base64::Engine;
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(data)
+}
+
+/// base64url デコード。パディング有り無しどちらの入力も受け付ける（ブラウザの
+/// `PushSubscription` は実装によりパディングを付けて送ってくることがあるため）。
+pub fn base64url_decode(s: &str) -> Option<Vec<u8>> {
+    use base64::Engine;
+    base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(s.trim_end_matches('='))
+        .ok()
+}
+
 /// JSON ボディ抽出子。パース失敗を 422 `{"detail": ...}` へ変換する
 /// （axum 既定の plain text 応答だと `detail` エラー形式の契約から外れるため）。
 pub struct JsonBody<T>(pub T);

@@ -2,16 +2,20 @@
 //!
 //! これらのルートはまだ `build_router` に配線されていない（Phase 5 の設計判断 —
 //! ターミナル WS・`/run` と同時に配線する）ため、テスト専用の Router を直接
-//! 組み立てる。Python 側の migration_bridge（push 通知・dispatch キュー中継）は
-//! フェイクの upstream サーバで代替する。dispatch scope API トークン検証は
+//! 組み立てる。Python 側の migration_bridge（dispatch キュー中継等）はフェイクの
+//! upstream サーバで代替する。dispatch scope API トークン検証は
 //! `Auth::verify_api_token` へネイティブに移行済みのため、フェイクではなく
-//! `Auth::create_api_token` で実際に発行したトークンを使う。
+//! `Auth::create_api_token` で実際に発行したトークンを使う。push 通知は
+//! `crate::push` へネイティブに移行済みのため、フェイクの Web Push サービスへ
+//! 実際に暗号化された HTTP リクエストが飛ぶことを検証する（暗号の正しさ自体は
+//! `push.rs` の RFC 8291 ユニットテストで別途検証済み — ここでは配線のみ確認）。
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
 use axum::extract::State as AxumState;
+use axum::http::HeaderMap;
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use futures_util::StreamExt;
@@ -29,22 +33,59 @@ use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 use any_console_server::terminal;
 use any_console_server::terminal_session::TerminalRegistry;
+use any_console_server::util::base64url_encode;
 
 const TOKEN: &str = "dispatch-test-token";
 
 #[derive(Default, Clone)]
 struct FakeUpstreamCalls {
-    push: Arc<StdMutex<Vec<Value>>>,
     queue: Arc<StdMutex<Vec<Value>>>,
     session_events: Arc<StdMutex<Vec<Value>>>,
 }
 
-async fn send_push_handler(
-    AxumState(calls): AxumState<FakeUpstreamCalls>,
-    Json(body): Json<Value>,
+/// フェイクの Web Push サービス（fcm.googleapis.com 相当）が受け取ったリクエスト。
+#[derive(Clone)]
+struct ReceivedPush {
+    content_encoding: String,
+    authorization: String,
+    body_len: usize,
+}
+
+async fn push_service_handler(
+    AxumState(calls): AxumState<Arc<StdMutex<Vec<ReceivedPush>>>>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
 ) -> Json<Value> {
-    calls.push.lock().unwrap().push(body);
+    calls.lock().unwrap().push(ReceivedPush {
+        content_encoding: headers
+            .get("content-encoding")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string(),
+        authorization: headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string(),
+        body_len: body.len(),
+    });
     Json(json!({"status": "ok"}))
+}
+
+/// テスト用の P-256 購読者（UA）キーペアを生成し、push.rs が期待する
+/// `p256dh`（65 byte 非圧縮点）/`auth`（16 byte）を base64url で返す。
+fn generate_test_push_subscriber_keys() -> (String, String) {
+    let mut raw = [0u8; 32];
+    getrandom::fill(&mut raw).unwrap();
+    let secret = p256::SecretKey::from_slice(&raw).unwrap();
+    use p256::elliptic_curve::sec1::ToSec1Point;
+    let public_bytes = secret.public_key().to_sec1_point(false).as_bytes().to_vec();
+    let mut auth_secret = [0u8; 16];
+    getrandom::fill(&mut auth_secret).unwrap();
+    (
+        base64url_encode(&public_bytes),
+        base64url_encode(&auth_secret),
+    )
 }
 
 async fn dispatch_queue_handler(
@@ -65,9 +106,14 @@ async fn session_event_handler(
 
 fn upstream_router(calls: FakeUpstreamCalls) -> Router {
     Router::new()
-        .route("/internal/send-push", post(send_push_handler))
         .route("/internal/dispatch-queue", post(dispatch_queue_handler))
         .route("/internal/session-event", post(session_event_handler))
+        .with_state(calls)
+}
+
+fn push_service_router(calls: Arc<StdMutex<Vec<ReceivedPush>>>) -> Router {
+    Router::new()
+        .route("/push-endpoint", post(push_service_handler))
         .with_state(calls)
 }
 
@@ -90,6 +136,7 @@ struct TestFront {
     state: Arc<AppState>,
     calls: FakeUpstreamCalls,
     scoped_token: String,
+    push_calls: Arc<StdMutex<Vec<ReceivedPush>>>,
     _dir: tempfile::TempDir,
 }
 
@@ -154,6 +201,18 @@ async fn spawn_front() -> TestFront {
     let calls = FakeUpstreamCalls::default();
     let upstream_addr = spawn(upstream_router(calls.clone())).await;
 
+    let push_calls: Arc<StdMutex<Vec<ReceivedPush>>> = Arc::new(StdMutex::new(Vec::new()));
+    let push_service_addr = spawn(push_service_router(push_calls.clone())).await;
+    let (p256dh, auth_key) = generate_test_push_subscriber_keys();
+    save_json_file(
+        &data_dir.join("push_subscriptions.json"),
+        &json!([{
+            "endpoint": format!("http://{push_service_addr}/push-endpoint"),
+            "keys": {"p256dh": p256dh, "auth": auth_key},
+        }]),
+    )
+    .unwrap();
+
     let state = Arc::new(AppState {
         paths: Paths {
             project_root: dir.path().to_path_buf(),
@@ -180,6 +239,7 @@ async fn spawn_front() -> TestFront {
         ),
         preview: any_console_server::preview::PreviewState::new(),
         pairing: any_console_server::pairing::PairingState::new(),
+        push: any_console_server::push::PushState::new(),
         proxy: Proxy::new(format!("http://{upstream_addr}")),
         static_ctx: None,
         auth: Auth::load(data_dir, false),
@@ -205,6 +265,7 @@ async fn spawn_front() -> TestFront {
         state,
         calls,
         scoped_token,
+        push_calls,
         _dir: dir,
     }
 }
@@ -288,7 +349,15 @@ async fn direct_dispatch_creates_session_and_sends_push() {
     assert_eq!(body["created"], true);
     let session_id = body["session_id"].as_str().unwrap().to_string();
 
-    assert!(wait_for(|| !front.calls.push.lock().unwrap().is_empty()).await);
+    assert!(wait_for(|| !front.push_calls.lock().unwrap().is_empty()).await);
+    let received = front.push_calls.lock().unwrap()[0].clone();
+    assert_eq!(received.content_encoding, "aes128gcm");
+    assert!(received.authorization.starts_with("vapid t="));
+    assert!(
+        received.body_len > 16 + 4 + 1 + 65,
+        "should include ECE header + ciphertext"
+    );
+
     assert!(wait_for(|| !front.calls.session_events.lock().unwrap().is_empty()).await);
 
     let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);

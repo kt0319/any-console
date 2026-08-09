@@ -13,8 +13,9 @@
 //! `AgentWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `initial_snapshot` /
 //! `poll_loop` がポーリングループ本体（Python `_poll_loop`/`subscribe`/
 //! `unsubscribe`/`ensure_phrase_task` 相当）と push 通知連携
-//! （`state.proxy.send_push` ブリッジ経由）を担う。status stream WS ハンドラの
-//! 接続/切断（`status_stream.rs`）から呼ぶ。
+//! （`crate::push::send_push_notification` へネイティブに委譲、`tokio::spawn`
+//! で fire-and-forget）を担う。status stream WS ハンドラの接続/切断
+//! （`status_stream.rs`）から呼ぶ。
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -519,12 +520,9 @@ impl Default for AgentWatchState {
 }
 
 /// push subscription が1件以上登録されているか（Python `push.has_subscriptions`
-/// 相当）。push subscription の管理自体は当面 Python 側に残る（`push.py` は
-/// 移行対象外）ため、Rust はそのデータファイルを直接読む。
+/// 相当）。
 fn has_push_subscriptions(state: &AppState) -> bool {
-    let path = state.paths.data_dir.join("push_subscriptions.json");
-    let data = crate::json_store::load_json_file(&path, json!([]), None);
-    data.as_array().is_some_and(|a| !a.is_empty())
+    crate::push::has_subscriptions(&state.paths.data_dir)
 }
 
 fn task_running(task: &Option<JoinHandle<()>>) -> bool {
@@ -636,12 +634,18 @@ async fn poll_loop(state: Arc<AppState>) {
                 Some(w) => format!("{w}: {phrase}"),
                 None => phrase.clone(),
             };
-            state.proxy.send_push(
-                "Phrase detected".to_string(),
-                body,
-                format!("/?session={session_id}"),
-                "phrase".to_string(),
-            );
+            let url_path = format!("/?session={session_id}");
+            let push_state = state.clone();
+            tokio::spawn(async move {
+                crate::push::send_push_notification(
+                    &push_state,
+                    "Phrase detected",
+                    &body,
+                    &url_path,
+                    "phrase",
+                )
+                .await;
+            });
         }
     }
 }
@@ -921,6 +925,7 @@ mod collect_agent_states_tests {
             manifest_store: ManifestStore::new(dir.path().join("agent_manifests"), dir.path()),
             preview: crate::preview::PreviewState::new(),
             pairing: crate::pairing::PairingState::new(),
+            push: crate::push::PushState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: crate::auth::Auth::load(dir.path().join("data"), false),

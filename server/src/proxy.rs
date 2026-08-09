@@ -142,27 +142,6 @@ impl Proxy {
         });
     }
 
-    /// Web Push 通知の送信を Python 側（VAPID/pywebpush）へ委譲する
-    /// （migration_bridge — fire-and-forget。呼び出し元の応答は遅らせない）。
-    pub fn send_push(&self, title: String, body: String, url_path: String, notif_type: String) {
-        let client = self.client.clone();
-        let url = self.upstream_url("/internal/send-push");
-        tokio::spawn(async move {
-            let payload = serde_json::json!({
-                "title": title, "body": body, "url": url_path, "notif_type": notif_type,
-            });
-            let result = client
-                .post(&url)
-                .json(&payload)
-                .timeout(std::time::Duration::from_secs(10))
-                .send()
-                .await;
-            if let Err(e) = result {
-                tracing::debug!("send-push to upstream failed: {e}");
-            }
-        });
-    }
-
     /// dispatch キューの全量スナップショットを Python 側 status stream（WS 購読者）
     /// へ中継する（migration_bridge — fire-and-forget。WS 自体は Python に残る）。
     pub fn broadcast_dispatch_queue(&self, payload: serde_json::Value) {

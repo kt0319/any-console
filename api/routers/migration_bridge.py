@@ -3,8 +3,6 @@
 Rust front が git 操作・ワークスペース登録変更・ターミナルセッション作成/削除・
 dispatch キュー変更を処理した際、Python 側に残る status stream（git_watch /
 session_watch / dispatch キュー配信）へ即時反映を伝えるための内部エンドポイント。
-push 通知（VAPID/pywebpush）は当面 Python 側の実装をそのまま使い、Rust からは
-このブリッジ経由で呼び出す。
 
 SECURITY: 全エンドポイントが loopback からの呼び出しのみ受け付ける。
 ターミナルサブシステムの移行（status stream ごと Rust へ移動）が完了した時点で
@@ -21,7 +19,6 @@ from ..common import is_loopback_host
 from ..errors import forbidden
 from ..git_info import invalidate_git_info
 from ..git_watch import notify_workspaces_changed
-from ..push import send_push_notification
 from ..session_watch import notify_session_created, notify_session_removed
 
 logger = logging.getLogger(__name__)
@@ -65,21 +62,6 @@ def session_event(request: Request, body: SessionEventRequest):
         notify_session_removed(body.session_id)
     else:
         raise forbidden(f"Unknown event: {body.event}")
-    return {"status": "ok"}
-
-
-class SendPushRequest(BaseModel):
-    title: str
-    body: str
-    url: str = "/"
-    notif_type: str = ""
-
-
-@router.post("/internal/send-push")
-def send_push(request: Request, body: SendPushRequest):
-    """Rust 側からの Web Push 送信要求を実行する（VAPID/pywebpush は Python 側のみ）。"""
-    _require_loopback(request)
-    send_push_notification(body.title, body.body, url=body.url, notif_type=body.notif_type)
     return {"status": "ok"}
 
 

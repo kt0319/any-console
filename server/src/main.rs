@@ -113,6 +113,7 @@ async fn main() {
         ),
         preview: any_console_server::preview::PreviewState::new(),
         pairing: any_console_server::pairing::PairingState::new(),
+        push: any_console_server::push::PushState::new(),
         proxy: Proxy::new(upstream.clone()),
         static_ctx,
         auth,

@@ -39,6 +39,7 @@ pub mod paths;
 pub mod preview;
 pub mod proxy;
 pub mod pty;
+pub mod push;
 pub mod rate_limit;
 pub mod screen_manifest;
 pub mod session_watch;
@@ -396,6 +397,12 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/auth/pairing/{pairing_id}/claim",
             post(pairing::claim_pairing),
+        )
+        // ─── Rust ネイティブ移行済みルート（Web Push） ─────────────────────
+        .route("/push/vapid-public-key", get(push::vapid_public_key_route))
+        .route(
+            "/push/subscribe",
+            post(push::subscribe_route).delete(push::unsubscribe_route),
         )
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)

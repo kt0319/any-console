@@ -433,8 +433,9 @@ Rust front に向けた Playwright 全 E2E スペックで検証済み。
 へ変更した（`dispatch.rs` 実装時に同様に設定する）。tmux 自体が永続化層になるため、
 どちらの言語がセッションを作った/WS が誰に繋がったかに依存せず安全に受け渡せる。
 
-push 通知（VAPID/pywebpush）・dispatch scope の API トークン検証は、Python 側への
-loopback ブリッジで当面つなぐ（`migration_bridge.py` に追加済み）。dispatch キューの
+push 通知（VAPID/RFC 8291）・dispatch scope の API トークン検証は、当初 Python 側への
+loopback ブリッジで当面つないでいたが、いずれもその後ネイティブ移行済み（下記
+「push.py」節・「認証ドメイン」節を参照）。dispatch キューの
 ステータスストリーム配信（`type="dispatch_queue"`）は Phase 4 完了により
 `state.status_stream.broadcast()` でネイティブ配信されるようになったが、下記の
 ブリッジ呼び出しは Phase 6（Python 撤去）まで無害な二重配信として残す
@@ -444,8 +445,6 @@ loopback ブリッジで当面つなぐ（`migration_bridge.py` に追加済み�
 - `POST /internal/session-event`（Rust→Python）: ターミナルセッションの作成/削除を
   session_watch へ即時反映（削除時は `agent_hooks.clear_session` も呼ぶ）。
   Rust 側は `session_watch.rs` 経由のネイティブ配信で同等の通知を行うため実質冗長
-- `POST /internal/send-push`（Rust→Python）: `push.send_push_notification` を実行
-  （push.py は未移行のため、これは引き続き実効を持つ）
 - `POST /internal/dispatch-queue`（Rust→Python）: dispatch キューの全量スナップ
   ショットを Python 側 status stream WS 購読者へ中継しようとするが、実接続者が
   いないため到達しても無意味。`routers/dispatch.py` 側の `set_bridged_payload`
@@ -467,7 +466,7 @@ loopback ブリッジで当面つなぐ（`migration_bridge.py` に追加済み�
 | `routers/terminal.py` | 416 | **移行済み**（`server/src/terminal.rs`。配線済み） |
 | `routers/job_runner.py`（`/run`） | 131 | **移行済み**（`server/src/job_runner.rs`。配線済み） |
 | `routers/dispatch.py` | 651 | **移行済み**（`server/src/dispatch.rs`。配線済み） |
-| `push.py`（VAPID / Web Push） | 180 | 当面 Python 側にブリッジ経由で残す |
+| `push.py`（VAPID / Web Push） | 180 | **移行済み**（`server/src/push.rs`。下記「push.py」節参照） |
 
 Python 側の `routers/terminal.py`・`routers/job_runner.py`・`routers/dispatch.py`・
 `terminal_session.py`・`tmux.py`（create/attach 系）・`terminal_pty.py` は
@@ -566,6 +565,63 @@ Python 側の対応コードパスを配線と同時に永久に到達不能に�
   `/devices/*`・`/api-tokens/*`・`/settings/auth`・`/auth/pairing/start`
   を curl で疎通確認した上で、api-contract.spec.js の 10 ケース全てが
   Rust front 経由で成功することを確認済み
+
+### push.py（VAPID / Web Push）— **移行済み**
+
+**状況**: `push.py`（VAPID 鍵管理・購読 CRUD・RFC 8291 `aes128gcm` 暗号化・
+プッシュ送信）を `server/src/push.rs` へ移植し、`GET /push/vapid-public-key`・
+`POST /push/subscribe`・`DELETE /push/subscribe` を `build_router` へ配線した。
+`migration_bridge.py` の `POST /internal/send-push`（Rust→Python ブリッジ）は
+不要になったため削除した。
+
+**設計判断（`web-push` crate を採用しなかった理由）**: `cargo add web-push`
+で入る v0.11 は内部で `isahc`（`reqwest` とは別の HTTP クライアントスタック）
+と `ece` crate に依存し、`ece` は RustCrypto 実装を持たず `openssl-sys` 必須の
+`backend-openssl` feature しか無い（`cargo tree`/`cargo add --dry-run` で確認）。
+本プロジェクトは Phase 6 で Linux x86_64/aarch64・macOS arm64/x86_64 向けに
+クロスコンパイルする方針（OpenSSL 依存はクロスビルドの障害になりやすい）のため、
+`web-push` は不採用にし、RFC 8291（メッセージ暗号化）・RFC 8292（VAPID JWT）を
+RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
+直接実装した。
+
+**実装のポイント**:
+
+- 鍵導出チェイン（ECDH → HKDF-Extract → HKDF-Expand → HKDF-Extract →
+  HKDF-Expand → CEK/NONCE）は IETF 草稿
+  （`webpush-wg/webpush-encryption`）Appendix A の中間値と完全一致することを
+  ユニットテストで確認済み（`rfc8291_key_derivation_matches_appendix_a_intermediate_values`）。
+  RFC 本文（rfc-editor.org / datatracker.ietf.org）はこの環境の egress proxy
+  でブロックされていたため、GitHub 上の同一原文（raw.githubusercontent.com）
+  を参照した
+- VAPID 鍵ファイル形式は Python（`cryptography` ライブラリ）が書き出す
+  ものと完全互換にした（秘密鍵 = 32byte 生の big-endian スカラー、公開鍵 =
+  65byte 非圧縮 SEC1 point、いずれも base64url no-pad）。これにより移行時に
+  ブラウザ側の再購読（re-subscribe）を強制せずに済む（既存
+  `vapid_private.txt`/`vapid_public.txt` をそのまま Rust が読む）
+- Origin ヘッダから vapid sub（`mailto:` の代わりに使う識別 URL）を検出する
+  正規表現 `re.match(r"(https?://[^/:]+)", origin)`（ポート番号を意図的に
+  除外）は正規表現クレートを追加せず手書きの文字列パースで再現した
+- push 送信はダイレクトなプロセス内呼び出しに変更し、呼び出し元
+  （`dispatch.rs`・`agent_watch.rs`）では `tokio::spawn` で fire-and-forget
+  にすることで、旧 `Proxy::send_push`（これも内部で spawn して即返す実装
+  だった）と同じノンブロッキング特性を維持した
+- **`api/main.py` の `lifespan()` から `init_vapid()` / `ensure_phrase_task()`
+  の呼び出しを削除した**（このセッションで唯一 Python 側コードへ直接手を
+  入れた変更）。この2つはルート配線ではなくプロセス起動時に無条件で走る
+  処理のため、atomic cutover（ルートの配線でコードパスを到達不能にする
+  パターン）では防げなかった。特に `ensure_phrase_task()` は
+  `has_subscriptions()` が true なら Python 側でも独立した agent_watch
+  ポーリングループを起動してしまい、Rust が購読を書くようになった後は
+  常に true になる → push 通知の二重送信と `push_subscriptions.json` への
+  同時書き込みという実害が出るバグだったため、コード読み込みで発見し
+  そのまま削除した
+- CI の `e2e-rust-front` ジョブ相当（Python upstream + Rust front の
+  2プロセス構成）を手元で再現し、`/push/vapid-public-key`・
+  `/push/subscribe` の疎通と `api-contract.spec.js` 10 ケース全成功を確認。
+  実際のプッシュサービスへの配信確認はこのサンドボックスでは検証できない
+  ため、モック push サービスへの実送信（暗号化ペイロードが `aes128gcm`
+  content-coding・VAPID JWT 付き Authorization ヘッダで届くこと）を
+  `server/tests/test_dispatch.rs` の統合テストで代替検証した
 
 ### Phase 6 — Python 撤去・配布切替
 

@@ -709,7 +709,7 @@ pub async fn auth_logout(
 mod tests {
     use super::*;
     use crate::json_store::save_json_file;
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use serde_json::json;
     use sha2::Sha256;
 

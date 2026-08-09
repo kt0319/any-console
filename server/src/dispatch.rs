@@ -16,7 +16,8 @@
 //! 安全に受け渡せる（`create_registered_session` を呼ぶプロセスと WS が繋がる
 //! プロセスが一致している保証が要らなくなる）。
 //!
-//! push 通知（`state.proxy.send_push`）・dispatch キューの status stream 配信
+//! push 通知は `crate::push::send_push_notification` へネイティブに委譲する
+//! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信
 //! （`state.proxy.broadcast_dispatch_queue`）は Python 側への loopback ブリッジ
 //! （`api/routers/migration_bridge.py`）を経由する。dispatch scope API トークン
 //! 検証は `Auth::verify_api_token`（`auth.rs`）へネイティブに委譲する。
@@ -888,12 +889,19 @@ async fn dispatch_core(
 
     let dispatch_id = crate::util::token_urlsafe(8);
     let notify_push = |state: &Arc<AppState>| {
-        state.proxy.send_push(
-            "Dispatch".to_string(),
-            dispatch_notification_body(&effective_ws, &body, &job_def),
-            format!("/?openDispatchQueue=1&dispatchId={dispatch_id}"),
-            "dispatch".to_string(),
-        );
+        let body_text = dispatch_notification_body(&effective_ws, &body, &job_def);
+        let url_path = format!("/?openDispatchQueue=1&dispatchId={dispatch_id}");
+        let push_state = state.clone();
+        tokio::spawn(async move {
+            crate::push::send_push_notification(
+                &push_state,
+                "Dispatch",
+                &body_text,
+                &url_path,
+                "dispatch",
+            )
+            .await;
+        });
     };
 
     if body.direct {
@@ -1374,6 +1382,7 @@ mod tests {
             ),
             preview: crate::preview::PreviewState::new(),
             pairing: crate::pairing::PairingState::new(),
+            push: crate::push::PushState::new(),
             proxy: Proxy::new("http://127.0.0.1:1".to_string()),
             static_ctx: None,
             auth: Auth::load(data_dir, false),

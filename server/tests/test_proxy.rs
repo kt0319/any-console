@@ -155,6 +155,7 @@ async fn spawn_front(upstream: SocketAddr, rate_limit: u32) -> TestFront {
         ),
         preview: any_console_server::preview::PreviewState::new(),
         pairing: any_console_server::pairing::PairingState::new(),
+        push: any_console_server::push::PushState::new(),
         proxy: Proxy::new(format!("http://{upstream}")),
         static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
         auth: Auth::load(dir.path().join("data"), false),

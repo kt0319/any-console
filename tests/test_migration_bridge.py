@@ -69,21 +69,6 @@ def test_session_event_rejects_non_loopback():
     assert res.status_code == 403
 
 
-def test_send_push_invokes_notification():
-    with patch("api.routers.migration_bridge.send_push_notification") as send:
-        res = loopback_client.post(
-            "/internal/send-push",
-            json={"title": "T", "body": "B", "url": "/x", "notif_type": "dispatch"},
-        )
-    assert res.status_code == 200
-    send.assert_called_once_with("T", "B", url="/x", notif_type="dispatch")
-
-
-def test_send_push_rejects_non_loopback():
-    res = non_loopback_client.post("/internal/send-push", json={"title": "T", "body": "B"})
-    assert res.status_code == 403
-
-
 def test_dispatch_queue_relay_sets_bridged_payload():
     payload = {"type": "dispatch_queue", "items": [{"id": "d1"}], "recent": []}
     with patch("api.routers.dispatch.set_bridged_payload") as setter:
