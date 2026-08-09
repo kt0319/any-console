@@ -5,6 +5,7 @@
 
 pub mod activity;
 pub mod agent_hooks;
+pub mod agent_watch;
 pub mod auth;
 pub mod config;
 pub mod config_migrations;
