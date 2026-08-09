@@ -205,6 +205,7 @@ pub async fn delete_terminal_session(
         return Err(not_found("Terminal session not found"));
     };
     state.terminal_registry.kill(&session_arc).await;
+    crate::agent_hooks::clear_session(&state, &session_id);
     crate::session_watch::notify_session_removed(&state, &session_id);
     state
         .proxy

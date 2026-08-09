@@ -297,6 +297,13 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     ws.close(None).await.unwrap();
     drop(ws);
 
+    // agent hook 由来の状態も削除時に一緒に消えること
+    any_console_server::agent_hooks::record_event(&front.state, &session_id, "Notification");
+    assert_eq!(
+        any_console_server::agent_hooks::hook_state(&front.state, &session_id).as_deref(),
+        Some("blocked")
+    );
+
     // セッション削除（tmux も消える）
     let resp = client()
         .delete(format!(
@@ -311,6 +318,10 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
 
     let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
     assert!(!any_console_server::subprocess::tmux_session_exists(&full_name).await);
+    assert!(
+        any_console_server::agent_hooks::hook_state(&front.state, &session_id).is_none(),
+        "agent hook state should be cleared on session delete"
+    );
 
     // 削除済みの再削除は 404
     let resp = client()

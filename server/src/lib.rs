@@ -306,7 +306,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/workspaces/{name}/config",
             put(workspaces::update_workspace_config),
         )
-        // ─── Rust ネイティブ移行済みルート（Phase 5: ターミナル / dispatch / run）
+        // ─── Rust ネイティブ移行済みルート（Phase 5: ターミナル / dispatch / run + agent-hooks）
         // push 通知・dispatch scope API トークン検証は当面
         // migration_bridge.py 経由で Python へ委譲する（docs/RUST_MIGRATION.md 参照）。
         .route("/terminal/sessions", get(terminal::list_terminal_sessions))
@@ -352,6 +352,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/dispatch/{dispatch_id}/rerun",
             post(dispatch::dispatch_rerun),
+        )
+        .route(
+            "/agent-hooks/events",
+            post(agent_hooks::post_agent_hook_event),
         )
         // ────────────────────────────────────────────────────────────────
         .fallback(proxy::fallback)

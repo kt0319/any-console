@@ -277,7 +277,7 @@ Python 側の bridge 呼び出し（`nudge_git` / `notify_session_event` /
 | `agent_watch.py`（3値状態判定・自動紐付け） | 584 | **移行済み**（`server/src/agent_watch.rs` — ポーリングループ本体・push 連携とも本番稼働） |
 | `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。`agent_watch.rs` から利用中） |
 | `manifest_update.py`（リモートマニフェスト更新） | 272 | **一部移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側の `start_updater` が稼働中のため配線しない。下記注意参照） |
-| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **一部移行済み**（`server/src/agent_hooks.rs` 実装済みだが `POST /agent-hooks/events` は `build_router` に**未配線**。理由は下記注意参照） |
+| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。`POST /agent-hooks/events` を `build_router` に配線済み。Python 側 agent_watch ポーリングが status stream 切替により恒久休眠したため配線可能になった） |
 | `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。`agent_watch.rs` から利用中） |
 | `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | Phase 5 |
 
@@ -286,15 +286,18 @@ Python 側の bridge 呼び出し（`nudge_git` / `notify_session_event` /
 - foreground.py の Linux(/proc) / macOS(ps) 二系統分岐はそのまま移植（クロスプラットフォーム一級サポートの方針）
 - 状態判定の優先順位（hooks > manifest > 画面差分）はロジック単体テストを先に移植してから配線する
 - `foreground.rs` / `job_match.rs` / `agent_hooks.rs` / `screen_manifest.rs` は
-  agent_watch より先に単体（ロジック・TOML パース・TTL キャッシュ）で完成させ、
-  実装・テストは完了済み。ただし `agent_hooks.rs` の `POST /agent-hooks/events`
-  ハンドラは実装済みでも `build_router` には**まだ配線していない**: Python の
-  `agent_watch.py` ポーリングループは同一プロセス内メモリの `_hook_states` dict を
-  直接参照しているため、Rust がこのエンドポイントを先取りすると hook イベントが
+  agent_watch より先に単体（ロジック・TOML パース・TTL キャッシュ）で完成させた。
+  `agent_hooks.rs` の `POST /agent-hooks/events` ハンドラは当初、Python の
+  `agent_watch.py` ポーリングループが同一プロセス内メモリの `_hook_states` dict を
+  直接参照している間は `build_router` に配線しない方針だった（Rust が先取りすると
   Rust 側の状態に記録される一方で Python 側の `_hook_states` は永久に空のままとなり、
-  hooks 優先度のフォールバック（hooks > manifest > 画面差分）が機能しなくなる
-  （ターミナルの pending_text で踏んだのと同型のクロスプロセス不整合）。
-  agent_watch.py 自体を Rust に移すタイミングで一括配線する
+  hooks 優先度のフォールバック（hooks > manifest > 画面差分）が機能しなくなる —
+  ターミナルの pending_text で踏んだのと同型のクロスプロセス不整合）。
+  Phase 4 完了で `/workspaces/statuses/ws` が Rust ネイティブに切り替わり、
+  Python の `agent_watch.py` は WS 購読者を得られず `_poll_task` が永久に起動
+  しなくなった（`ensure_phrase_task` は `subscribe()` からしか呼ばれず、
+  その `subscribe()` 自体が Python 側の同エンドポイントの中でしか呼ばれないため）
+  ことを確認した上で配線した
 - `screen_manifest.rs` の `\x{...}` 波括弧 hex エスケープ・`\p{Alphabetic}`
   Unicode プロパティは Rust `regex` クレートがネイティブ対応するため、Python 版の
   `translate_rust_regex()`（Rust regex 記法 → Python `re` 変換）に相当する処理は

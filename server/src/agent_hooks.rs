@@ -13,10 +13,10 @@
 //! トークンをセッション内の全プロセスへ晒さないための分離（漏れても状態
 //! イベントの偽装しかできない）。
 //!
-//! まだ `build_router` には配線していない（agent_watch 側の Rust 移植が
-//! 揃うまで、Python 側の `_hook_states`（別プロセス内メモリ）が読み手である
-//! ため、先にこのエンドポイントを Rust が奪うと Python 側が永久に空のまま
-//! フォールバックし続けてしまう）。
+//! `agent_watch.rs` の `collect_agent_states` が読み手（`hook_state`）であり、
+//! `/workspaces/statuses/ws` の Rust ネイティブ切替（Phase 4）により Python 側の
+//! agent_watch ポーリングループは実接続者ゼロで恒久的に休眠するため、
+//! `build_router` へ配線済み。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
