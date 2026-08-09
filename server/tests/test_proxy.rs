@@ -61,7 +61,9 @@ fn upstream_router() -> Router {
             }),
         )
         .route(
-            "/workspaces/statuses/ws",
+            // Rust に無いパスなら何でもよい（generic な WS proxy 経路の検証用。
+            // /workspaces/statuses/ws は Rust ネイティブルートになったため使えない）。
+            "/still-python-only/ws",
             any(|headers: HeaderMap, ws: WebSocketUpgrade| async move {
                 let host = headers
                     .get("host")
@@ -305,7 +307,7 @@ async fn websocket_is_bridged_both_directions() {
     let upstream = spawn(upstream_router()).await;
     let front = spawn_front(upstream, 1000).await;
     let (mut ws, _) =
-        tokio_tungstenite::connect_async(format!("ws://{}/workspaces/statuses/ws", front.addr))
+        tokio_tungstenite::connect_async(format!("ws://{}/still-python-only/ws", front.addr))
             .await
             .expect("ws connect through proxy");
 

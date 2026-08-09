@@ -284,8 +284,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/recent-jobs",
             get(settings::get_recent_jobs).put(settings::put_recent_jobs),
         )
-        // ─── Rust ネイティブ移行済みルート（Phase 4: ワークスペース一覧/登録/設定）
-        // /workspaces/statuses/ws（status stream）は Python のまま（Phase 5）
+        // ─── Rust ネイティブ移行済みルート（Phase 4: ワークスペース一覧/登録/設定 + status stream）
         .route(
             "/workspaces",
             get(workspaces::list_workspaces).post(workspaces::add_workspace),
@@ -293,6 +292,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/workspaces/statuses",
             get(workspaces::list_workspace_statuses),
+        )
+        .route(
+            "/workspaces/statuses/ws",
+            get(status_stream::status_stream_ws),
         )
         .route(
             "/workspaces/suggest",
@@ -304,8 +307,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             put(workspaces::update_workspace_config),
         )
         // ─── Rust ネイティブ移行済みルート（Phase 5: ターミナル / dispatch / run）
-        // status stream WS（/workspaces/statuses/ws）は Python のまま。dispatch
-        // キューの配信・push 通知・dispatch scope API トークン検証は
+        // push 通知・dispatch scope API トークン検証は当面
         // migration_bridge.py 経由で Python へ委譲する（docs/RUST_MIGRATION.md 参照）。
         .route("/terminal/sessions", get(terminal::list_terminal_sessions))
         .route(
