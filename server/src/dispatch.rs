@@ -57,6 +57,13 @@ pub struct DispatchState {
     pub pending: Mutex<Map<String, Value>>,
     /// 承認/却下が決定された直近の項目（新しい順、最大 `RECENT_LIMIT` 件）。
     pub recent: Mutex<Vec<Value>>,
+    /// Python 側ブリッジ（migration_bridge.py `/internal/dispatch-queue`）へ
+    /// 送るスナップショットごとに単調増加させる採番。各送信は独立した
+    /// fire-and-forget HTTP タスクのため、ネットワーク経路によっては古い方が
+    /// 後に届くことがある。Python 側はこの revision が既知の最新値以下なら
+    /// 破棄するため、配信順の入れ替わりで古いスナップショットが最終状態として
+    /// 残ってしまうのを防げる（Codex レビュー指摘）。
+    pub bridge_revision: std::sync::atomic::AtomicU64,
 }
 
 impl DispatchState {
@@ -170,7 +177,20 @@ async fn broadcast_queue(state: &Arc<AppState>) {
     // （`_bridged_payload` 経由 — 一括配線・ブリッジ撤去まではこちらが実際に
     // 使われる）。
     state.status_stream.broadcast(payload.clone());
-    state.proxy.broadcast_dispatch_queue(payload);
+    // ブリッジ送信は独立した fire-and-forget HTTP タスクのため、ネットワーク
+    // 経路によっては新しい方が先に、古い方が後に届くことがある。単調増加する
+    // revision を付けて送り、Python 側で古い revision を破棄させることで、
+    // 配信順の入れ替わりが最終状態に残らないようにする。
+    let revision = state
+        .dispatch
+        .bridge_revision
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        + 1;
+    let mut bridged = payload;
+    if let Value::Object(ref mut map) = bridged {
+        map.insert("_bridge_revision".to_string(), json!(revision));
+    }
+    state.proxy.broadcast_dispatch_queue(bridged);
 }
 
 /// status stream WS への新規接続時に呼ぶ（Python `dispatch.subscribe` が

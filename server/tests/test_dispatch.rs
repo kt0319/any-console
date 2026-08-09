@@ -884,3 +884,45 @@ async fn bridge_reconciliation_loop_rebroadcasts_queue_periodically() {
     let last = queued.last().unwrap();
     assert_eq!(last["items"][0]["id"], "d1");
 }
+
+/// ブリッジへ送るスナップショットには単調増加する revision が付くこと
+/// （Codex レビュー指摘: 各送信が独立した fire-and-forget HTTP タスクのため、
+/// ネットワーク経路次第では古いスナップショットが後に届くことがある。
+/// revision を見て Python 側が古いものを破棄できるようにする）。
+#[tokio::test]
+async fn bridge_snapshots_carry_monotonically_increasing_revision() {
+    let front = spawn_front().await;
+    let resp = client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 202);
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+
+    let resp = client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"approved": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+
+    assert!(wait_for(|| front.calls.queue.lock().unwrap().len() >= 2).await);
+    let queued = front.calls.queue.lock().unwrap();
+    let revisions: Vec<u64> = queued
+        .iter()
+        .map(|p| p["_bridge_revision"].as_u64().unwrap())
+        .collect();
+    let mut sorted = revisions.clone();
+    sorted.sort_unstable();
+    assert_eq!(revisions, sorted, "revision は送信順に単調増加するはず");
+    assert!(revisions.windows(2).all(|w| w[0] < w[1]), "{revisions:?}");
+}

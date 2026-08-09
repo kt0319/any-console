@@ -17,6 +17,7 @@ def _clear_pending():
     dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
     dispatch_mod._bridged_payload = None
+    dispatch_mod._bridged_payload_revision = -1
     # テストごとにイベントループが変わるため、前のループのワーカータスク参照を破棄する
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
@@ -25,6 +26,7 @@ def _clear_pending():
     dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
     dispatch_mod._bridged_payload = None
+    dispatch_mod._bridged_payload_revision = -1
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
 
@@ -180,6 +182,36 @@ class TestQueueBroadcast:
 
         asyncio.run(run())
         assert ws.sent[-1] == bridged
+
+    def test_set_bridged_payload_discards_out_of_order_stale_revision(self):
+        """Rust 側の各送信は独立した fire-and-forget HTTP タスクのため、
+        ネットワーク経路次第では新しいスナップショットより古いものが後に
+        届くことがある（Codex レビュー指摘）。revision が既知の最新値以下なら
+        破棄し、最終状態が古いスナップショットに巻き戻らないこと。"""
+        newer = {
+            "type": "dispatch_queue",
+            "items": [{"id": "newer", "request": {}}],
+            "recent": [],
+            "_bridge_revision": 2,
+        }
+        older = {
+            "type": "dispatch_queue",
+            "items": [{"id": "older", "request": {}}],
+            "recent": [],
+            "_bridge_revision": 1,
+        }
+
+        async def run():
+            dispatch_mod.set_bridged_payload(newer)
+            dispatch_mod.set_bridged_payload(older)  # 遅れて届いた古いスナップショット
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+
+        payload = dispatch_mod._queue_payload()
+        assert payload["items"][0]["id"] == "newer"
+        # ブリッジ専用フィールドはワイヤ契約上の実 payload には残らない。
+        assert "_bridge_revision" not in payload
 
     def test_bridged_payload_expires_and_falls_back_to_local_state(self, monkeypatch):
         """Rust front が停止/ロールバックされ、スナップショットの再送
