@@ -236,12 +236,12 @@ test.describe("workspace detail panes", () => {
     const jobCommand = "echo job-e2e-$((40+2))";
 
     // ツールバーのAdd job（Editモード中のみ表示）からJobConfigを開き、
-    // Workspaceスコープのまま対象ワークスペースをプルダウンで選ぶ
+    // Scopeのプルダウンで対象ワークスペースを選ぶ（先頭はCommon job）
     await openWorkspaces(page);
     await page.locator('[aria-label="Edit workspaces"]').click();
     await page.locator('[aria-label="Add job"]').click();
     await expect(page.locator(".modal-title")).toHaveText("Add Job", { timeout: 5000 });
-    await page.locator(".ws-settings-row", { hasText: "Workspace" }).locator("select").selectOption(wsName);
+    await page.locator(".ws-settings-row", { hasText: "Scope" }).locator("select").selectOption(wsName);
     await page.locator('input[placeholder="Display name"]').fill(jobLabel);
     await page.locator(".job-command-input").fill(jobCommand);
     // 新規ジョブは確認なしが既定のため、確認ダイアログ経路を通すためにオンにする

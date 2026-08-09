@@ -338,8 +338,6 @@ class RecentJobItem(BaseModel):
     jobIcon: str = Field("", max_length=MAX_LABEL_LENGTH)
     jobIconColor: str = Field("", max_length=MAX_LABEL_LENGTH)
     jobCommand: str = Field("", max_length=MAX_COMMAND_LENGTH)
-    jobUrl: str = Field("", max_length=MAX_COMMAND_LENGTH)
-    jobType: str = Field("command", max_length=MAX_LABEL_LENGTH)
     jobConfirm: bool | None = None
     jobDetachedTab: bool = False
     pinned: bool = False

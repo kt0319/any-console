@@ -375,18 +375,6 @@ class TestNotifyPhraseApi:
         })
         assert res.status_code == 422
 
-    def test_browser_job_ignores_notify_phrase(self, client):
-        res = client.post("/common/jobs", headers=AUTH, json={
-            "label": "docs",
-            "type": "browser",
-            "url": "https://example.com",
-            "notify_phrase": "never",
-        })
-        assert res.status_code == 200
-        job_name = res.json()["name"]
-        jobs = client.get("/common/jobs", headers=AUTH).json()
-        assert jobs[job_name].get("notify_phrase", "") == ""
-
 
 class TestManifestStateDetection:
     """screen manifest による状態判定（blocked / working / idle）の統合。"""

@@ -16,7 +16,6 @@
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
-          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
         <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
@@ -35,7 +34,6 @@
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
-          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
         <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
@@ -55,7 +53,6 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
-import { openExternalUrl } from "../utils/open-external.js";
 import { jobCommandPreview } from "../utils/format.js";
 
 const props = defineProps({
@@ -134,12 +131,6 @@ function openTerminal() {
 async function runJob(job) {
   const wsName = workspace.value;
   if (!wsName) return;
-  if (job.type === "browser") {
-    if (ws.value) recordJob(ws.value, job);
-    openExternalUrl(job.url);
-    emit("modal:close");
-    return;
-  }
   if (job.confirm !== false) {
     const preview = jobCommandPreview(job.command, job.name);
     if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
@@ -234,13 +225,6 @@ defineExpose({ load });
 }
 
 .job-item-label {
-  flex-shrink: 0;
-}
-
-.job-item-link-icon {
-  margin-left: 4px;
-  font-size: 14px;
-  color: var(--accent);
   flex-shrink: 0;
 }
 
