@@ -11,7 +11,7 @@
     "test:watch": "NODE_OPTIONS=--localstorage-file=.vitest-localstorage vitest",
     "test:coverage": "NODE_OPTIONS=--localstorage-file=.vitest-localstorage vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:smoke": "playwright test e2e/smoke.spec.js e2e/terminal.spec.js e2e/mobile.spec.js"
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.js e2e/terminal.spec.js e2e/mobile.spec.js e2e/api-contract.spec.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

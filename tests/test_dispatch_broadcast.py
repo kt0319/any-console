@@ -16,6 +16,8 @@ def _clear_pending():
     dispatch_mod._PENDING.clear()
     dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
+    dispatch_mod._bridged_payload = None
+    dispatch_mod._bridged_payload_revision = -1
     # テストごとにイベントループが変わるため、前のループのワーカータスク参照を破棄する
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
@@ -23,6 +25,8 @@ def _clear_pending():
     dispatch_mod._PENDING.clear()
     dispatch_mod._RECENT.clear()
     dispatch_mod._subscribers.clear()
+    dispatch_mod._bridged_payload = None
+    dispatch_mod._bridged_payload_revision = -1
     dispatch_mod._broadcast_task = None
     dispatch_mod._broadcast_pending = False
 
@@ -162,6 +166,82 @@ class TestQueueBroadcast:
         assert ws.sent == [
             {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}], "recent": []},
         ]
+
+    def test_bridged_payload_overrides_local_state(self):
+        """Rust 側（server/src/dispatch.rs）からのブリッジ受信後は、ローカルの
+        _PENDING/_RECENT ではなくブリッジされたスナップショットを配信する
+        （Rust 移行後は _PENDING が更新されなくなるため）。"""
+        ws = _FakeWS()
+        bridged = {"type": "dispatch_queue", "items": [{"id": "rust-1", "request": {}}], "recent": []}
+
+        async def run():
+            dispatch_mod._PENDING["local-only"] = {"workspace": "test-ws"}
+            dispatch_mod.set_bridged_payload(bridged)
+            await dispatch_mod.subscribe(ws)
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+        assert ws.sent[-1] == bridged
+
+    def test_set_bridged_payload_discards_out_of_order_stale_revision(self):
+        """Rust 側の各送信は独立した fire-and-forget HTTP タスクのため、
+        ネットワーク経路次第では新しいスナップショットより古いものが後に
+        届くことがある（Codex レビュー指摘）。revision が既知の最新値以下なら
+        破棄し、最終状態が古いスナップショットに巻き戻らないこと。"""
+        newer = {
+            "type": "dispatch_queue",
+            "items": [{"id": "newer", "request": {}}],
+            "recent": [],
+            "_bridge_revision": 2,
+        }
+        older = {
+            "type": "dispatch_queue",
+            "items": [{"id": "older", "request": {}}],
+            "recent": [],
+            "_bridge_revision": 1,
+        }
+
+        async def run():
+            dispatch_mod.set_bridged_payload(newer)
+            dispatch_mod.set_bridged_payload(older)  # 遅れて届いた古いスナップショット
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+
+        payload = dispatch_mod._queue_payload()
+        assert payload["items"][0]["id"] == "newer"
+        # ブリッジ専用フィールドはワイヤ契約上の実 payload には残らない。
+        assert "_bridge_revision" not in payload
+
+    def test_bridged_payload_expires_and_falls_back_to_local_state(self, monkeypatch):
+        """Rust front が停止/ロールバックされ、スナップショットの再送
+        （server/src/dispatch.rs の run_bridge_reconciliation_loop、30秒間隔）が
+        止まった場合、猶予時間を過ぎたら Python 側の生きた _PENDING/_RECENT に
+        自動的に戻ること（Codex レビュー指摘: 以前は恒久的にブリッジ優先のままで、
+        ロールバック後も購読者が古いスナップショットを見続けていた）。"""
+        ws = _FakeWS()
+        bridged = {"type": "dispatch_queue", "items": [{"id": "rust-1", "request": {}}], "recent": []}
+
+        async def run():
+            dispatch_mod._PENDING["local-only"] = {"workspace": "test-ws"}
+            dispatch_mod.set_bridged_payload(bridged)
+            # 猶予期間内はまだブリッジ優先。
+            await dispatch_mod.subscribe(ws)
+            await dispatch_mod._broadcast_task
+            assert ws.sent[-1] == bridged
+
+            # 猶予期間が過ぎたことにする（Rust からの再送が止まった状態を模す）。
+            monkeypatch.setattr(
+                dispatch_mod,
+                "_bridged_payload_at",
+                dispatch_mod._bridged_payload_at - dispatch_mod._BRIDGE_EXPIRY_SEC - 1,
+            )
+            dispatch_mod._schedule_queue_broadcast()
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+        local_ids = {item["id"] for item in ws.sent[-1]["items"]}
+        assert local_ids == {"local-only"}, ws.sent[-1]
 
     def test_schedule_during_send_rebroadcasts_latest(self):
         """送信中（await 中）に状態が変わって再スケジュールされた場合、ワーカーは

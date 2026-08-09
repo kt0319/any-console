@@ -1,0 +1,58 @@
+[package]
+name = "any-console-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+axum = { version = "0.8", features = ["ws", "multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: Python の dict は挿入順を保持するため、config.json 等の
+# ラウンドトリップでキー順が入れ替わらないよう serde_json も挿入順を維持する。
+serde_json = { version = "1", features = ["preserve_order"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "multipart", "rustls-tls"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+hmac = "0.13"
+sha2 = "0.11"
+libc = "0.2"
+getrandom = "0.3"
+subtle = "2"
+tempfile = "3"
+mime_guess = "2"
+unicode-normalization = "0.1"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes = "1"
+http = "1"
+nix = { version = "0.31.3", features = ["term", "process", "fs", "signal"] }
+regex = "1.13.1"
+toml = "1.1.4"
+# git_watch の FS 監視（Python 側 watchfiles の実体もこの crate）。
+notify = "8.2.0"
+notify-debouncer-full = "0.7.0"
+# preview.rs の dev server proxy（TLS 終端は任意 — SSL_CERTFILE/certs/ が
+# 無ければ平文 TCP のまま。reqwest の rustls-tls 経由で rustls 自体は既に
+# 依存グラフに入っているため、バージョンを合わせて直接依存に加える）。
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+p256 = { version = "0.14.0", features = ["ecdsa", "ecdh"] }
+aes-gcm = "0.11.0"
+hkdf = "0.13.0"
+base64 = "0.23.1"
+url = "2.5.8"
+axum-server = { version = "0.8.0", default-features = false, features = ["tls-rustls"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+# start_paused / advance で仮想時間を進める統合テスト用（本番バイナリには含まれない）。
+tokio = { version = "1", features = ["test-util"] }
+
+[profile.release]
+lto = "thin"
+strip = true

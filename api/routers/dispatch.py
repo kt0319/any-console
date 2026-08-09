@@ -26,6 +26,7 @@ import functools
 import logging
 import secrets
 import subprocess
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.responses import JSONResponse
@@ -102,7 +103,52 @@ def _record_recent(dispatch_id: str, payload: dict, decision: str) -> None:
     _persist_recent()
 
 
+# Rust 実装（server/src/dispatch.rs）が /dispatch* を処理するようになった後の
+# 全量スナップショット（migration_bridge.py `/internal/dispatch-queue` 経由）。
+# 設定されていればこちらを優先する（Rust 移行後は _PENDING/_RECENT は更新されず
+# 空のままになるため）。
+_bridged_payload: dict | None = None
+_bridged_payload_at: float = 0.0
+_bridged_payload_revision: int = -1
+
+# Rust 側の `run_bridge_reconciliation_loop`（server/src/dispatch.rs）は
+# 30秒間隔でこのスナップショットを再送し続ける。その3倍の猶予を過ぎても
+# 更新が来なければ、Rust front が停止した/ロールバックされたとみなし、
+# Python 側の生きた _PENDING/_RECENT へ自動的に戻す（Codex レビュー指摘:
+# 以前は一度でも受け取ると恒久的にブリッジ側を優先し続け、ロールバック後に
+# Python が新しい dispatch を受け付けても購読者には古いスナップショットが
+# 表示され続けていた）。
+_BRIDGE_EXPIRY_SEC = 90
+
+
+def set_bridged_payload(payload: dict) -> None:
+    """Rust 側からの dispatch キュー全量スナップショットを受け取り、配信予約する。
+
+    各送信は Rust 側で独立した fire-and-forget HTTP タスクのため、ネットワーク
+    経路次第では古いスナップショットが後から届くことがある（Codex レビュー
+    指摘）。`_bridge_revision`（単調増加）が既知の最新値以下なら古着信として
+    破棄する。revision が付いていない（後方互換）呼び出しは常に受け入れる。
+    """
+    global _bridged_payload, _bridged_payload_at, _bridged_payload_revision
+    revision = payload.get("_bridge_revision")
+    if isinstance(revision, int):
+        if revision <= _bridged_payload_revision:
+            logger.debug(
+                "discarding stale dispatch-queue bridge snapshot revision=%s (latest=%s)",
+                revision,
+                _bridged_payload_revision,
+            )
+            return
+        _bridged_payload_revision = revision
+        payload = {k: v for k, v in payload.items() if k != "_bridge_revision"}
+    _bridged_payload = payload
+    _bridged_payload_at = time.time()
+    _schedule_queue_broadcast()
+
+
 def _queue_payload() -> dict:
+    if _bridged_payload is not None and time.time() - _bridged_payload_at < _BRIDGE_EXPIRY_SEC:
+        return _bridged_payload
     return {
         "type": "dispatch_queue",
         "items": [{"id": did, "request": req} for did, req in _PENDING.items()],
