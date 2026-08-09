@@ -17,7 +17,13 @@
     >
       <span :class="['mdi', isSidebarOpen && isPanelBottom ? 'mdi-close' : 'mdi-menu']"></span>
     </button>
-    <div class="tab-bar">
+    <div
+      ref="tabListEl"
+      class="tab-bar"
+      role="tablist"
+      aria-label="Open terminal tabs"
+      @keydown="onTabListKeydown"
+    >
       <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
@@ -34,7 +40,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, nextTick, ref } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -49,6 +55,7 @@ const props = defineProps({
   tabs: { type: Array, default: () => [] },
 });
 
+const tabListEl = ref(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
@@ -65,6 +72,32 @@ const sortedItems = computed(() => {
 
 function onSelect(tab, { skipFocus = false } = {}) {
   emit("tab:select", { tab, skipFocus });
+}
+
+function focusTab(tab) {
+  nextTick(() => {
+    tabListEl.value?.querySelector(`[data-tab-id="${tab.id}"]`)?.focus?.();
+  });
+}
+
+function onTabListKeydown(e) {
+  const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+  if (!keys.includes(e.key)) return;
+  const tabs = sortedItems.value.map((item) => item.tab);
+  if (tabs.length === 0) return;
+  const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId.value);
+  if (currentIndex < 0) return;
+
+  e.preventDefault();
+  let nextIndex = currentIndex;
+  if (e.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+  if (e.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+  if (e.key === "Home") nextIndex = 0;
+  if (e.key === "End") nextIndex = tabs.length - 1;
+
+  const nextTab = tabs[nextIndex];
+  onSelect(nextTab, { skipFocus: true });
+  focusTab(nextTab);
 }
 
 function onClose(tab) {
