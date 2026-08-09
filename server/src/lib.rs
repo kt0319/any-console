@@ -34,6 +34,7 @@ pub mod paths;
 pub mod proxy;
 pub mod pty;
 pub mod rate_limit;
+pub mod screen_manifest;
 pub mod settings;
 pub mod state;
 pub mod static_files;
