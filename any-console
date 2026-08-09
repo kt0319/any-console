@@ -560,22 +560,42 @@ p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf
 
   if is_service_installed; then
     info "  Updating service with SSL env vars..."
-    if is_macos; then
-      # plist を作り直すと SSL env が反映され、bootstrap で再起動もされる。
-      install_launchd
-    else
-      local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
-      generate_service_unit | sudo tee "$service_dest" > /dev/null
-      sudo systemctl daemon-reload
-      if is_service_active; then
-        sudo systemctl restart "$SERVICE_NAME"
-        info "  Service restarted"
-      fi
-    fi
+    reinstall_service_and_restart_if_active
   fi
 
   echo ""
   warn "  Note: cert expires in ~90 days. Re-run './any-console https-setup' to renew."
+}
+
+# 登録済みサービスのユニット定義（ExecStart 等）を作り直す。ExecStart の
+# バイナリパスや env が変わった（例: Rust バイナリの再ビルド、SSL 証明書の
+# 更新）だけでは既存のユニット定義は自動更新されないため、update/https-setup
+# から明示的に呼ぶ。呼び出し前に稼働中だった場合のみ再起動する
+# （明示的に stop されているサービスを勝手に起動し直さない）。
+reinstall_service_and_restart_if_active() {
+  local was_active=0
+  is_service_active && was_active=1
+  if is_macos; then
+    mkdir -p "$SCRIPT_DIR/logs"
+    mkdir -p "$(dirname "$LAUNCHD_PLIST")"
+    generate_plist > "$LAUNCHD_PLIST"
+    chmod 644 "$LAUNCHD_PLIST"
+    if [ "$was_active" -eq 1 ]; then
+      # 既存ロードを外してから再読み込みする（install_launchd と同じ手順）。
+      launchctl bootout "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null || true
+      launchctl enable "$(_launchd_domain)/$LAUNCHD_LABEL"
+      launchctl bootstrap "$(_launchd_domain)" "$LAUNCHD_PLIST"
+      info "  Service restarted"
+    fi
+  else
+    local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
+    generate_service_unit | sudo tee "$service_dest" > /dev/null
+    sudo systemctl daemon-reload
+    if [ "$was_active" -eq 1 ]; then
+      sudo systemctl restart "$SERVICE_NAME"
+      info "  Service restarted"
+    fi
+  fi
 }
 
 prompt_https_setup() {
@@ -1011,10 +1031,12 @@ cmd_update() {
   info "Building frontend..."
   npm run build
 
-  if is_service_installed && is_service_active; then
-    info "Restarting service..."
-    restart_service
-    info "Service restarted"
+  if is_service_installed; then
+    # ExecStart のバイナリパスが変わりうる（例: 今回のように Python から
+    # Rust バイナリへ切り替わる）ため、restart だけでなくユニット定義自体を
+    # 作り直す。既存の稼働状態は内部で判定し、稼働中だった場合のみ再起動する。
+    info "Updating service definition..."
+    reinstall_service_and_restart_if_active
   fi
 
   info "=== Update complete ($(get_version)) ==="
