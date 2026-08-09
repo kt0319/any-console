@@ -154,17 +154,43 @@ pub async fn resolve_workspace_file(
     Ok((ws_path, target, rel))
 }
 
+/// Python `Path.resolve()`（strict=False）相当: 対象を丸ごと `canonicalize`
+/// できればそれを使い（既存ファイル — シンボリックリンクも解決済み）、できなければ
+/// （新規作成対象など末尾が存在しない）存在する最長の先頭部分だけ `canonicalize`
+/// して、存在しない残りをそのまま連結する。
+///
+/// レキシカルな `..`/`.` 正規化だけでは、途中の構成要素が外部を指す
+/// シンボリックリンクの場合の脱出を見逃す（例: `ws_root/external` が
+/// `/home/user` を指すシンボリックリンクのとき、`external/.ssh/config` は
+/// レキシカルには `ws_root` 配下に見えるが、実体は `ws_root` の外にある —
+/// Codex レビュー指摘）。実体解決してから配下検証する必要がある。
+fn resolve_path_following_symlinks(path: &Path) -> PathBuf {
+    if let Ok(full) = path.canonicalize() {
+        return full;
+    }
+    let components: Vec<std::path::Component> = path.components().collect();
+    let mut split_at = components.len();
+    while split_at > 0 {
+        split_at -= 1;
+        let prefix: PathBuf = components[..=split_at].iter().collect();
+        if let Ok(canon_prefix) = prefix.canonicalize() {
+            let remainder: PathBuf = components[split_at + 1..].iter().collect();
+            return canon_prefix.join(remainder);
+        }
+    }
+    path.to_path_buf()
+}
+
 pub fn resolve_and_validate_workspace_path(
     ws_path: &Path,
     path: &str,
 ) -> Result<(PathBuf, PathBuf), ApiError> {
     // Python は (ws_path / path).resolve() 後に relative_to で配下検証する。
-    // Rust の canonicalize は存在しないパスで失敗するため、レキシカルに正規化する
-    // （シンボリックリンク経由の脱出は ws_root の canonicalize 側で吸収）。
     let ws_root = ws_path
         .canonicalize()
         .unwrap_or_else(|_| ws_path.to_path_buf());
     let joined = ws_root.join(path);
+    // まず素朴な `..`/`.` のレキシカル正規化（相対指定の解決）。
     let mut normalized = PathBuf::new();
     for comp in joined.components() {
         match comp {
@@ -177,14 +203,18 @@ pub fn resolve_and_validate_workspace_path(
             other => normalized.push(other),
         }
     }
-    let rel = normalized
+    // シンボリックリンクを解決した実体パスで封じ込め検証する（既存ファイルの
+    // 読み書き・リネーム・削除・ダウンロードいずれも対象— 新規作成のみ末尾が
+    // 実在しないため resolve_path_following_symlinks がその手前まで解決する）。
+    let resolved = resolve_path_following_symlinks(&normalized);
+    let rel = resolved
         .strip_prefix(&ws_root)
         .map_err(|_| bad_request("Invalid path"))?
         .to_path_buf();
     if rel.components().any(|c| c.as_os_str() == ".git") {
         return Err(bad_request("Invalid path"));
     }
-    Ok((normalized, rel))
+    Ok((resolved, rel))
 }
 
 #[cfg(test)]
@@ -223,5 +253,32 @@ mod tests {
         assert!(resolve_and_validate_workspace_path(ws, "src/../../outside").is_err());
         assert!(resolve_and_validate_workspace_path(ws, ".git/config").is_err());
         assert!(resolve_and_validate_workspace_path(ws, "src/.git/config").is_err());
+    }
+
+    /// シンボリックリンク経由の脱出は、レキシカルには配下に見えても実体解決後に
+    /// 拒否されること（Codex レビュー指摘: `ws/external` が外部ディレクトリを指す
+    /// シンボリックリンクのとき `external/secret.txt` は実体としては ws の外）。
+    #[cfg(unix)]
+    #[test]
+    fn workspace_symlink_escape_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = dir.path().join("ws");
+        std::fs::create_dir(&ws).unwrap();
+        let outside = dir.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("secret.txt"), b"top secret").unwrap();
+
+        std::os::unix::fs::symlink(&outside, ws.join("external")).unwrap();
+
+        // 既存ファイル（symlink 自体は resolve 済みで実体解決される）
+        assert!(resolve_and_validate_workspace_path(&ws, "external/secret.txt").is_err());
+        // symlink 配下の新規作成対象（末尾が存在しない）も拒否される
+        assert!(resolve_and_validate_workspace_path(&ws, "external/new-file.txt").is_err());
+
+        // symlink を挟まない通常パスは引き続き成功する
+        std::fs::create_dir(ws.join("src")).unwrap();
+        let (target, rel) = resolve_and_validate_workspace_path(&ws, "src/main.rs").unwrap();
+        assert_eq!(rel, PathBuf::from("src/main.rs"));
+        assert!(target.starts_with(ws.canonicalize().unwrap()));
     }
 }
