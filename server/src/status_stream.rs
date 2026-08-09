@@ -101,6 +101,11 @@ pub async fn status_stream_ws(
 async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket) {
     let mut rx = state.status_stream.tx.subscribe();
     tracing::info!("status stream connected");
+    // Python 版は git_watch/agent_watch/dispatch/session_watch それぞれの
+    // subscribe() を個別に呼ぶが、Rust 版は購読者集合が `StatusStreamState`
+    // 一本化されているため、producer 側の常駐タスク起動はここでの
+    // `ensure_tasks` 呼び出しだけで済む（`crate::git_watch::ensure_tasks` 相当）。
+    crate::git_watch::ensure_tasks(&state);
 
     let mut ping_interval = tokio::time::interval(Duration::from_secs(WS_PING_INTERVAL_SEC));
     ping_interval.tick().await; // 初回 tick は即座に完了するため消費しておく
@@ -142,6 +147,10 @@ async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket) {
             }
         }
     }
+    // 購読者数の判定（`StatusStreamState::subscriber_count`）に反映されるよう、
+    // タスク停止判定の前に受信側を明示的に破棄する。
+    drop(rx);
+    crate::git_watch::maybe_stop_tasks(&state);
     let _ = socket.close().await;
     tracing::info!("status stream disconnected");
 }

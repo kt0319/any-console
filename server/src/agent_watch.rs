@@ -746,6 +746,7 @@ mod collect_agent_states_tests {
             git_locks: WorkspaceLocks::new(),
             gh_cache: GhCache::new(),
             git_info_cache: GitInfoCache::new(),
+            git_watch: crate::git_watch::GitWatchState::new(),
             jobs_cache: JobsCache::new(),
             terminal_registry: TerminalRegistry::new(),
             dispatch: DispatchState::new(),

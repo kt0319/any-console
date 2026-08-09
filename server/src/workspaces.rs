@@ -334,6 +334,7 @@ pub async fn update_workspace_config(
         all.insert(key, Value::Object(config));
         Ok(())
     })?;
+    crate::git_watch::notify_workspaces_changed(&state);
     state.proxy.nudge_git(None);
     tracing::info!("workspace config updated workspace={name}");
     Ok(Json(json!({"status": "ok"})))
@@ -390,6 +391,7 @@ pub async fn add_workspace(
         .config
         .save_workspace_config(&new_id, config)
         .map_err(server_error)?;
+    crate::git_watch::notify_workspaces_changed(&state);
     state.proxy.nudge_git(None);
     tracing::info!(
         "workspace registered id={} name={} path={}",
@@ -414,6 +416,7 @@ pub async fn delete_workspace(
         .config
         .delete_workspace_config(&name)
         .map_err(server_error)?;
+    crate::git_watch::notify_workspaces_changed(&state);
     state.proxy.nudge_git(None);
     tracing::info!("workspace deleted name={name}");
     Ok(Json(json!({"status": "ok"})))

@@ -61,6 +61,7 @@ async fn spawn_front() -> TestFront {
         git_locks: WorkspaceLocks::new(),
         gh_cache: any_console_server::github::GhCache::new(),
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
+        git_watch: any_console_server::git_watch::GitWatchState::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         terminal_registry: TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),
@@ -173,4 +174,81 @@ async fn multiple_subscribers_all_receive_the_same_broadcast() {
             json!({"type": "session_created", "session_id": "s1"})
         );
     }
+}
+
+fn sh_git(repo: &std::path::Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(repo)
+        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
+        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// 接続 → git_watch のタスク起動（`ensure_tasks`）→ 実ファイル変更の検知 →
+/// `statuses` 配信、という一連が実際に end-to-end で動くことを検証する
+/// （`notify`/`notify-debouncer-full` による実 FS イベントに依存する）。
+#[tokio::test]
+async fn connecting_starts_git_watch_and_detects_real_fs_changes() {
+    let front = spawn_front().await;
+
+    let ws_path = front._dir.path().join("repo");
+    std::fs::create_dir_all(&ws_path).unwrap();
+    sh_git(&ws_path, &["init", "-q", "-b", "main"]);
+    sh_git(&ws_path, &["config", "user.email", "t@example.com"]);
+    sh_git(&ws_path, &["config", "user.name", "tester"]);
+    std::fs::write(ws_path.join("a.txt"), "hello\n").unwrap();
+    sh_git(&ws_path, &["add", "-A"]);
+    sh_git(&ws_path, &["commit", "-q", "-m", "first"]);
+
+    let mut cfg = front.state.config.load_all();
+    cfg.insert(
+        "ws_repo".to_string(),
+        json!({"name": "repo", "path": ws_path.to_string_lossy()}),
+    );
+    front.state.config.save_all(&cfg).unwrap();
+
+    let url = format!("ws://{}/workspaces/statuses/ws?token={TOKEN}", front.addr);
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("ws connect");
+    assert!(wait_for(|| front.state.status_stream.subscriber_count() == 1).await);
+
+    // 実ファイルを変更して FS イベントを発生させる（未追跡ファイルの追加 →
+    // clean=false, changed_files>=1 になるはず）。
+    std::fs::write(ws_path.join("new.txt"), "x\n").unwrap();
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let mut found = false;
+    while tokio::time::Instant::now() < deadline {
+        let Ok(Some(Ok(msg))) = tokio::time::timeout(Duration::from_secs(1), ws.next()).await
+        else {
+            continue;
+        };
+        let TgMsg::Text(text) = msg else { continue };
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        if parsed["type"] == "statuses" {
+            let statuses = parsed["statuses"].as_array().unwrap();
+            if statuses
+                .iter()
+                .any(|s| s["name"] == "repo" && s["clean"] == false)
+            {
+                found = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        found,
+        "should have received a statuses push reflecting the new untracked file"
+    );
+
+    ws.close(None).await.unwrap();
+    assert!(wait_for(|| front.state.status_stream.subscriber_count() == 0).await);
 }

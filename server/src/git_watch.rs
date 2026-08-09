@@ -1,5 +1,4 @@
-//! git ステータス監視の対象決定ロジック（Python 側 `api/git_watch.py` の移植のうち、
-//! 監視対象の収集・変更パス→ワークスペース対応付けの純粋ロジック部分）。
+//! git ステータス監視（Python 側 `api/git_watch.py` の移植）。
 //!
 //! - `WatchTarget` / `collect_watch_targets`: 登録済み git ワークスペース + 動的
 //!   worktree を集める（`/workspaces/statuses` が返す集合と一致させる）
@@ -7,27 +6,48 @@
 //!   ステータスに影響しうるか・ブランチ切替相当かを判定する純関数
 //! - `match_workspaces` / `watch_roots`: 変更パス集合を再計算すべきワークスペース名
 //!   へ対応付け、監視すべきルートパス集合を組み立てる
+//! - `GitWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `nudge_workspace` /
+//!   `notify_workspaces_changed`: 購読者数に連動したタスクの起動・停止（`_ensure_tasks`
+//!   / `_stop_tasks` 相当）。Python 版は各 producer が専用の購読者 set を持つが、
+//!   Rust 版は `StatusStreamState::subscriber_count()`（全 producer 共有）を使う
+//!   ため、専用の購読者管理は不要になった
+//! - `watch_loop` / `auto_fetch_loop`: FS 監視（Python 側 watchfiles の実体である
+//!   `notify` crate + `notify-debouncer-full` を使用）・定期 fetch の常駐タスク
 //!
-//! FS 監視ループ（Python 側は watchfiles、Rust 移植では `notify` crate を想定）・
-//! WebSocket 購読者管理・自動 fetch ループ（`_watch_loop` / `_auto_fetch_loop` /
-//! `subscribe` / `unsubscribe` / `nudge_workspace` 相当）はまだ実装していない —
-//! status stream の実体（`ws_broadcast.py` / `routers/status_stream.py`）と
-//! `agent_watch.py` を合わせて配線するタイミングで一括して実装する（producer の
-//! 大半がターミナル状態や agent_watch に依存するため。
-//! `docs/RUST_MIGRATION.md` の Phase 4/5 再スコープ参照）。
+//! まだ実際の呼び出し元（`git_helpers::invalidate_git_info` からの
+//! `nudge_workspace`・ワークスペース変更時の `notify_workspaces_changed`・
+//! status stream WS ハンドラからの `ensure_tasks`/`maybe_stop_tasks`）へは
+//! 部分的にしか配線していない — status stream の実エンドポイントへの一括配線
+//! （`docs/RUST_MIGRATION.md` Phase 4 再スコープ参照）で完了する。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
+use futures_util::StreamExt;
+use notify::RecursiveMode;
+use notify_debouncer_full::{new_debouncer, DebounceEventResult};
 use regex::Regex;
-use serde_json::Value;
+use serde_json::{json, Value};
+use tokio::sync::Notify;
+use tokio::task::JoinHandle;
 
 use crate::config::ConfigStore;
 use crate::git_utils::{
-    dynamic_worktree_entries, list_git_workspace_paths, run_git_raw, GIT_QUICK_TIMEOUT_SEC,
+    background_fetch, dynamic_worktree_entries, list_git_workspace_paths, run_git_raw,
+    GIT_QUICK_TIMEOUT_SEC,
 };
 use crate::paths::safe_resolve_str;
+use crate::state::AppState;
+
+/// Python `common.py` の同名定数と同じ値。
+const GIT_WATCH_DEBOUNCE_MS: u64 = 300;
+const GIT_WATCH_RETRY_SEC: u64 = 5;
+const GIT_AUTO_FETCH_INTERVAL_SEC: u64 = 180;
+/// Python `BACKGROUND_FETCH_EXECUTOR`（max_workers=4）に対応する並列度
+/// （`workspaces.rs` の `BACKGROUND_FETCH_CONCURRENCY` と同じ値）。
+const AUTO_FETCH_CONCURRENCY: usize = 4;
 
 /// watchfiles DefaultFilter 相当の無視リスト（.git は要所のみ通すため除外して個別処理）。
 const IGNORE_DIRS: &[&str] = &[
@@ -352,6 +372,293 @@ pub fn match_workspaces(
         }
     }
     names
+}
+
+// ─── 購読者連動タスク管理・push（Python 版 `_ensure_tasks`/`_stop_tasks`/
+// `subscribe`/`unsubscribe`/`nudge_workspace`/`notify_workspaces_changed` 相当）
+// ──────────────────────────────────────────────────────────────────────────
+
+/// git_watch の常駐タスク（監視・自動 fetch）とその実行状態を保持する。
+pub struct GitWatchState {
+    watch_task: Mutex<Option<JoinHandle<()>>>,
+    fetch_task: Mutex<Option<JoinHandle<()>>>,
+    /// ワークスペース追加・削除時に監視ループを再起動させる（Python の
+    /// `_restart_event` 相当）。
+    restart: Notify,
+    /// 前回配信した状態（変化が無ければ再配信しない — Python `_last_sent` 相当）。
+    last_sent: Mutex<HashMap<String, Value>>,
+}
+
+impl GitWatchState {
+    pub fn new() -> Self {
+        Self {
+            watch_task: Mutex::new(None),
+            fetch_task: Mutex::new(None),
+            restart: Notify::new(),
+            last_sent: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl Default for GitWatchState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn task_running(task: &Option<JoinHandle<()>>) -> bool {
+    task.as_ref().is_some_and(|h| !h.is_finished())
+}
+
+/// 購読開始時に呼ぶ（status stream WS ハンドラから）。タスクが動いていなければ
+/// 起動する（Python `_ensure_tasks` 相当）。
+pub fn ensure_tasks(state: &Arc<AppState>) {
+    {
+        let mut watch = state
+            .git_watch
+            .watch_task
+            .lock()
+            .expect("git_watch state poisoned");
+        if !task_running(&watch) {
+            *watch = Some(tokio::spawn(watch_loop(state.clone())));
+        }
+    }
+    let mut fetch = state
+        .git_watch
+        .fetch_task
+        .lock()
+        .expect("git_watch state poisoned");
+    if !task_running(&fetch) {
+        *fetch = Some(tokio::spawn(auto_fetch_loop(state.clone())));
+    }
+}
+
+/// 購読解除時に呼ぶ。全体の購読者（`StatusStreamState`）がゼロになったら
+/// タスクを停止する（Python `unsubscribe`/`_stop_tasks` 相当）。
+pub fn maybe_stop_tasks(state: &Arc<AppState>) {
+    if state.status_stream.subscriber_count() > 0 {
+        return;
+    }
+    if let Some(h) = state
+        .git_watch
+        .watch_task
+        .lock()
+        .expect("git_watch state poisoned")
+        .take()
+    {
+        h.abort();
+    }
+    if let Some(h) = state
+        .git_watch
+        .fetch_task
+        .lock()
+        .expect("git_watch state poisoned")
+        .take()
+    {
+        h.abort();
+    }
+    state
+        .git_watch
+        .last_sent
+        .lock()
+        .expect("git_watch state poisoned")
+        .clear();
+}
+
+/// ワークスペースの追加・削除・パス変更時に監視対象を再収集させる
+/// （Python `notify_workspaces_changed` 相当）。
+pub fn notify_workspaces_changed(state: &AppState) {
+    state.git_watch.restart.notify_one();
+}
+
+/// API 経由の git 操作直後に該当ワークスペースの再計算・push を予約する
+/// （Python `nudge_workspace` 相当。`git_helpers::invalidate_git_info` から呼ぶ）。
+/// 購読者がいなければ何もしない。
+pub fn nudge_workspace(state: &Arc<AppState>, workspace_name: String) {
+    if state.status_stream.subscriber_count() == 0 {
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        let targets = collect_watch_targets(&state.config).await;
+        if let Some(target) = targets.iter().find(|t| t.name == workspace_name) {
+            push_status(&state, target).await;
+        }
+    });
+}
+
+/// git_info を再計算し、前回送信時から変化があれば購読者へ配信する
+/// （Python `_push_status` 相当）。
+///
+/// Python 版はキャッシュ命中時に branch/upstream/ahead-behind を使い回す
+/// `refresh_git_info`（部分更新）で高速化しているが、Rust 版は毎回
+/// `git_info_cache` を invalidate してから `git_info_to_status_dict`
+/// （`/workspaces/statuses` と共通のフル再計算パイプライン）を呼ぶ単純な実装
+/// にした。TTL キャッシュ命中時に diff/status が古いまま配信される事故を防ぐ
+/// 確実さを優先し、watch イベントごとに数回分余計な git サブプロセスが増える
+/// 程度のコストは許容する。
+async fn push_status(state: &Arc<AppState>, target: &WatchTarget) {
+    state.git_info_cache.invalidate(&target.path);
+    let status =
+        crate::git_info::git_info_to_status_dict(&state.git_info_cache, &target.path, &target.name)
+            .await;
+    {
+        let mut last_sent = state
+            .git_watch
+            .last_sent
+            .lock()
+            .expect("git_watch state poisoned");
+        if last_sent.get(&target.name) == Some(&status) {
+            return;
+        }
+        last_sent.insert(target.name.clone(), status.clone());
+    }
+    state
+        .status_stream
+        .broadcast(json!({"type": "statuses", "statuses": [status]}));
+}
+
+/// 変更パスの中に `.git/worktrees/` セグメントが含まれるか（worktree の作成・
+/// 削除で監視対象集合が変わりうるか）を判定する。
+fn touches_worktrees_segment(paths: &HashSet<String>) -> bool {
+    let seg = format!(
+        "{sep}.git{sep}worktrees{sep}",
+        sep = std::path::MAIN_SEPARATOR
+    );
+    paths.iter().any(|p| p.contains(&seg))
+}
+
+/// 1回分のデバウンス済みイベントバッチを処理する（Python `_handle_changes` 相当）。
+/// 戻り値: 監視対象集合が実際に変わったため監視ループを再起動すべきか。
+async fn handle_changes(
+    state: &Arc<AppState>,
+    events: &[notify_debouncer_full::DebouncedEvent],
+    targets: &[WatchTarget],
+) -> bool {
+    let paths: HashSet<String> = events
+        .iter()
+        .flat_map(|e| e.event.paths.iter())
+        .map(|p| p.to_string_lossy().into_owned())
+        .filter(|p| is_relevant_change(p))
+        .collect();
+    if paths.is_empty() {
+        return false;
+    }
+    let names = match_workspaces(&paths, targets);
+    for target in targets {
+        if names.contains(&target.name) {
+            push_status(state, target).await;
+        }
+    }
+    // worktree の作成・削除は監視対象集合を変えるので、実際に変わったときだけ
+    // 再起動する（無条件の再起動は awatch 再構築中の直後イベントの取りこぼしに
+    // つながるため — Python 版と同じ判断）。
+    if touches_worktrees_segment(&paths) {
+        let new_targets = collect_watch_targets(&state.config).await;
+        if new_targets != targets {
+            return true;
+        }
+    }
+    false
+}
+
+/// FS を監視し、変更のあったワークスペースを push し続ける常駐タスク
+/// （Python `_watch_loop` 相当。`notify`/`notify-debouncer-full` crate を使う —
+/// Python 側 `watchfiles` の実体もこの `notify` crate）。
+async fn watch_loop(state: Arc<AppState>) {
+    loop {
+        let targets = collect_watch_targets(&state.config).await;
+        if targets.is_empty() {
+            // ワークスペースが1つも無い間は再収集のトリガー（追加通知）を待つ。
+            state.git_watch.restart.notified().await;
+            continue;
+        }
+        let roots = watch_roots(&targets);
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DebounceEventResult>();
+        let mut debouncer = match new_debouncer(
+            Duration::from_millis(GIT_WATCH_DEBOUNCE_MS),
+            None,
+            move |result: DebounceEventResult| {
+                let _ = tx.send(result);
+            },
+        ) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::warn!("git watch debouncer init failed (retrying): {e}");
+                tokio::time::sleep(Duration::from_secs(GIT_WATCH_RETRY_SEC)).await;
+                continue;
+            }
+        };
+        let mut watch_failed = false;
+        for root in &roots {
+            if let Err(e) = debouncer.watch(root.as_path(), RecursiveMode::Recursive) {
+                tracing::warn!("git watch failed to watch dir={}: {e}", root.display());
+                watch_failed = true;
+            }
+        }
+        if watch_failed {
+            drop(debouncer);
+            tokio::time::sleep(Duration::from_secs(GIT_WATCH_RETRY_SEC)).await;
+            continue;
+        }
+
+        loop {
+            tokio::select! {
+                _ = state.git_watch.restart.notified() => break,
+                maybe_result = rx.recv() => {
+                    match maybe_result {
+                        Some(Ok(events)) => {
+                            if handle_changes(&state, &events, &targets).await {
+                                break;
+                            }
+                        }
+                        Some(Err(errors)) => {
+                            // inotify 上限やディレクトリ消失など。少し待って対象を
+                            // 再収集・再試行する。失敗中も API 操作起点・自動 fetch
+                            // 起点の push は動き続ける。
+                            tracing::warn!("git watch error (retrying): {errors:?}");
+                            drop(debouncer);
+                            tokio::time::sleep(Duration::from_secs(GIT_WATCH_RETRY_SEC)).await;
+                            break;
+                        }
+                        None => break,
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 購読者がいる間、定期的に git fetch して behind 判定を最新化する常駐タスク
+/// （Python `_auto_fetch_loop` 相当）。最初の起動時に1回目の fetch を実行してから
+/// 待機に入る（先に sleep すると、アプリを開いてから最大
+/// `GIT_AUTO_FETCH_INTERVAL_SEC` 秒 behind 判定が古いまま残るため）。
+async fn auto_fetch_loop(state: Arc<AppState>) {
+    loop {
+        let targets = collect_watch_targets(&state.config).await;
+        // worktree は本体と remote/refs を共有するので本体のみ fetch する。
+        let fetch_futures: Vec<_> = targets
+            .iter()
+            .filter(|t| t.base.is_none())
+            .map(|t| {
+                let path = t.path.clone();
+                let name = t.name.clone();
+                async move {
+                    if !background_fetch(&path).await {
+                        tracing::debug!("auto fetch failed dir={name}");
+                    }
+                }
+            })
+            .collect();
+        futures_util::stream::iter(fetch_futures)
+            .buffered(AUTO_FETCH_CONCURRENCY)
+            .collect::<Vec<()>>()
+            .await;
+        for target in &targets {
+            push_status(&state, target).await;
+        }
+        tokio::time::sleep(Duration::from_secs(GIT_AUTO_FETCH_INTERVAL_SEC)).await;
+    }
 }
 
 #[cfg(test)]

@@ -105,9 +105,13 @@ pub async fn execute_git_action(
 }
 
 /// Python `invalidate_git_info` の Rust 対応: ローカルキャッシュの無効化 +
-/// Python 側 status stream への即時 nudge（fire-and-forget）。
+/// status stream への即時 nudge。Rust ネイティブの購読者（`git_watch::nudge_workspace`）
+/// と、まだ Python 側に残る status stream の購読者（`state.proxy.nudge_git` 経由の
+/// fire-and-forget ブリッジ）の両方へ通知する — 実エンドポイントの一括配線までは
+/// Rust 側の購読者は常にゼロなので、ネイティブ側の呼び出しは無害な no-op。
 pub fn invalidate_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
     state.git_info_cache.invalidate(ws_path);
+    crate::git_watch::nudge_workspace(state, name.to_string());
     state.proxy.nudge_git(Some(name.to_string()));
 }
 

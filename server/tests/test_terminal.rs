@@ -83,6 +83,7 @@ async fn spawn_front() -> TestFront {
         git_locks: WorkspaceLocks::new(),
         gh_cache: any_console_server::github::GhCache::new(),
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
+        git_watch: any_console_server::git_watch::GitWatchState::new(),
         jobs_cache: any_console_server::jobs_common::JobsCache::new(),
         terminal_registry: TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),

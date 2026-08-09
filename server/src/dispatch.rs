@@ -1317,6 +1317,7 @@ mod tests {
             git_locks: WorkspaceLocks::new(),
             gh_cache: crate::github::GhCache::new(),
             git_info_cache: crate::git_info::GitInfoCache::new(),
+            git_watch: crate::git_watch::GitWatchState::new(),
             jobs_cache: crate::jobs_common::JobsCache::new(),
             terminal_registry: TerminalRegistry::new(),
             dispatch: DispatchState::new(),

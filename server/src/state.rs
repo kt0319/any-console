@@ -6,6 +6,7 @@ use crate::config::ConfigStore;
 use crate::dispatch::DispatchState;
 use crate::git_info::GitInfoCache;
 use crate::git_lock::WorkspaceLocks;
+use crate::git_watch::GitWatchState;
 use crate::github::GhCache;
 use crate::jobs_common::JobsCache;
 use crate::paths::Paths;
@@ -22,6 +23,7 @@ pub struct AppState {
     pub git_locks: WorkspaceLocks,
     pub gh_cache: GhCache,
     pub git_info_cache: GitInfoCache,
+    pub git_watch: GitWatchState,
     pub jobs_cache: JobsCache,
     pub terminal_registry: TerminalRegistry,
     pub dispatch: DispatchState,
