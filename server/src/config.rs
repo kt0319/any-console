@@ -259,6 +259,42 @@ impl ConfigStore {
         self.write_unlocked(&all)
     }
 
+    /// パスを登録済みワークスペースのパスと前方一致させ、最長一致の表示名を返す
+    /// （Python `match_workspace_by_path` 相当）。`path` は展開済みの絶対パス
+    /// （tmux/lsof 等の出力）を渡すこと — config 側の `~/...` は expand してから比較する。
+    pub fn match_workspace_by_path(&self, path: &str) -> Option<String> {
+        if path.is_empty() {
+            return None;
+        }
+        let mut best_name: Option<String> = None;
+        let mut best_len: i64 = -1;
+        for (key, entry) in self.list_workspace_entries() {
+            let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
+            if raw_path.is_empty() {
+                continue;
+            }
+            let ws_path = crate::paths::expand_user_path(raw_path);
+            let ws_path_str = ws_path.to_string_lossy();
+            let ws_path_str = ws_path_str.trim_end_matches('/');
+            if ws_path_str.is_empty() {
+                continue;
+            }
+            let matches = path == ws_path_str || path.starts_with(&format!("{ws_path_str}/"));
+            if matches && ws_path_str.len() as i64 > best_len {
+                best_len = ws_path_str.len() as i64;
+                best_name = Some(
+                    entry
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                        .map(String::from)
+                        .unwrap_or(key),
+                );
+            }
+        }
+        best_name
+    }
+
     pub fn resolve_workspace_id(&self, identifier: &str) -> Option<String> {
         if identifier.is_empty() {
             return None;

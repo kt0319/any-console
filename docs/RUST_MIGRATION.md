@@ -280,21 +280,59 @@ status_stream / git_watch / session_watch）は producer の大半
 - foreground.py の Linux(/proc) / macOS(ps) 二系統分岐はそのまま移植（クロスプラットフォーム一級サポートの方針）
 - 状態判定の優先順位（hooks > manifest > 画面差分）はロジック単体テストを先に移植してから配線する
 
-### Phase 5 — ターミナル（最難関・最後に最大の注意で）
+### Phase 5 — ターミナル（最難関・最後に最大の注意で）— **PTY/tmux 基盤 移行済み・配線は継続中**
 
 **目的**: 製品の心臓部。pty × tmux × WebSocket の三つ巴で、pytest カバレッジ除外領域＝自動テストが最も薄い。
 
-| 対象 | 行数目安 |
-|------|---------|
-| `tmux.py` | 259 |
-| `terminal_pty.py`（forkpty / read / resize / close） | 77 |
-| `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 |
-| `routers/terminal.py` | 416 |
-| `push.py`（VAPID / Web Push。通知トリガが agent_watch と絡むためここで） | 180 |
+**状況**: 最もリスクの高い OS プリミティブ（PTY fork/exec と tmux セッション制御）を
+先行して移行・実 tmux での統合テストまで確認済み。**まだどのルートにも配線していない**
+（`build_router` 未登録・全リクエストは引き続き Python へ proxy — 挙動への影響ゼロ）。
+`terminal_session.rs`（レジストリ・ClientBridge・WS 配線）と `routers/terminal.py` の
+移行、および `/run`・`/dispatch` の同時移行（下記「重要な設計判断」参照）は後続の
+作業として継続する。
+
+- `pty.rs`: `nix::pty::forkpty`（glibc `forkpty(3)` = openpty+fork+login_tty を1ステップ
+  で行う。CPython の `os.forkpty()` と同じ土台）で PTY 上に子プロセスを fork+exec する。
+  fork 後の子プロセス分岐は execve 呼び出しまで一切のメモリ確保を行わない
+  （argv/envp の `CString` 化・`PATH` 探索は fork **前**に完了させる — マルチスレッド
+  プロセスの fork 直後にアロケータのロックを取ろうとして永久ブロックする既知の踏み穴を
+  避けるため）。読み取りは `tokio::io::unix::AsyncFd` で non-blocking fd を async 化
+  （Python の `PTY_EXECUTOR` スレッドプールに対する epoll ベースの代替。外部から見た
+  挙動は同一）。EIO（tmux セッション終了時に PTY マスタから返る）は EOF として扱う
+- `tmux.rs`: セッション作成（`systemd-run --user --scope --quiet` 優先 → プレーン
+  `tmux` へフォールバック）、PTY 経由のアタッチ（`attach_tmux_session`）、
+  メタデータの読み書き（tmux 環境変数 = `set-environment`/`show-environment`）、
+  ペイン状態問い合わせ（capture-pane・display-message 各種）を移行。hook 用環境変数
+  （`ANY_CONSOLE_HOOK_URL`/`_TOKEN`）の組み立ても含む（`data/hook_token` は
+  Python の `agent_hooks.get_hook_token` と同一ファイル・同一 best-effort 挙動）
+- `config.rs` に `match_workspace_by_path`（最長前方一致でのワークスペース自動判定。
+  tmux アタッチ時の workspace 検出に使う）を追加
+- 実 tmux でのセッション作成→メタデータ書き込み→アタッチ→コマンド送信→出力読み取り
+  →終了の一連を統合テストで確認済み（`tmux::tests::create_attach_and_kill_real_session`）
+
+**重要な設計判断（後続作業のために記録）**: `/dispatch`（`routers/dispatch.py`）は
+`create_registered_session` で作成した `TerminalSession` に `pending_text`
+（承認された text をクライアント接続後に送る仕組み）をインメモリで持たせている。
+ターミナル WS がプロセス分離されると、この状態は生成元プロセスにしか見えないため
+**`/run`・`/dispatch` はターミナル WS 移行と同時に移行しなければならない**
+（`_find_existing_session` の再利用判定も同様に、セッションレジストリを持つプロセスと
+揃っていないと機能しない）。push 通知（VAPID/pywebpush）と dispatch キューの
+ステータスストリーム配信（`type="dispatch_queue"`、WS 自体は当面 Python 側に残る）は
+Python 側への loopback ブリッジ（`migration_bridge.py` 拡張）で当面つなぐ方針。
+
+| 対象 | 行数目安 | 状況 |
+|------|---------|------|
+| `tmux.py` | 259 | **移行済み**（`server/src/tmux.rs`） |
+| `terminal_pty.py`（forkpty / read / resize / close） | 77 | **移行済み**（`server/src/pty.rs`） |
+| `terminal_session.py`（ClientBridge・マルチクライアントアタッチ） | 375 | 配線継続中 |
+| `routers/terminal.py` | 416 | 配線継続中 |
+| `routers/job_runner.py`（`/run`） | 131 | ターミナル配線と同時に移行 |
+| `routers/dispatch.py` | 651 | ターミナル配線と同時に移行（上記設計判断） |
+| `push.py`（VAPID / Web Push） | 180 | 当面 Python 側にブリッジ経由で残す |
 
 **注意**:
-- `pty.fork` → `nix::pty::forkpty`。EOF / EAGAIN / SIGCHLD 処理のセマンティクス差異を重点確認
 - tmux の `window-size latest` ポリシー・複数クライアント同時アタッチ・detached セッション（adopt/close）の E2E（`terminal.spec.js` / `detached-sessions.spec.js` / `mobile-terminal.spec.js`）を macOS / Linux 両方で回す
+- 配線（`build_router` への登録）は `terminal_session.rs` + WS ハンドラ + `/run`/`/dispatch` が揃った時点で一括して行う（片方だけ配線すると上記の pending_text 不整合が実際に発生するため）
 - 切替前に**手動スモーク期間**を設ける（iOS Safari / Android Chrome の実機確認を含む）
 
 ### Phase 6 — Python 撤去・配布切替

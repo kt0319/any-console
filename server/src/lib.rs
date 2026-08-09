@@ -27,12 +27,14 @@ pub mod json_store;
 pub mod middleware;
 pub mod paths;
 pub mod proxy;
+pub mod pty;
 pub mod rate_limit;
 pub mod settings;
 pub mod state;
 pub mod static_files;
 pub mod subprocess;
 pub mod system;
+pub mod tmux;
 pub mod util;
 pub mod workspaces;
 
