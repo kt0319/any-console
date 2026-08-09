@@ -22,13 +22,30 @@ fn coerce_str(v: &Value) -> Result<String, String> {
     }
 }
 
+/// Pydantic v2 の bool lax coercion（大文字小文字を区別しない）が受け付ける文字列。
+/// https://docs.pydantic.dev/latest/concepts/conversion_table/ の bool 列を参照。
+const BOOL_TRUE_STRS: &[&str] = &["true", "yes", "on", "y", "t", "1"];
+const BOOL_FALSE_STRS: &[&str] = &["false", "no", "off", "n", "f", "0"];
+
 fn coerce_bool(v: &Value) -> Result<bool, String> {
     match v {
         Value::Bool(b) => Ok(*b),
-        Value::Number(n) if n.as_i64() == Some(0) => Ok(false),
-        Value::Number(n) if n.as_i64() == Some(1) => Ok(true),
-        Value::String(s) if s.eq_ignore_ascii_case("true") => Ok(true),
-        Value::String(s) if s.eq_ignore_ascii_case("false") => Ok(false),
+        // int/float の 0/1 のみ有効（pydantic は 2 や 0.5 等は拒否する）。
+        Value::Number(n) => match n.as_f64() {
+            Some(0.0) => Ok(false),
+            Some(1.0) => Ok(true),
+            _ => Err("expected bool".to_string()),
+        },
+        Value::String(s) => {
+            let lower = s.to_ascii_lowercase();
+            if BOOL_TRUE_STRS.contains(&lower.as_str()) {
+                Ok(true)
+            } else if BOOL_FALSE_STRS.contains(&lower.as_str()) {
+                Ok(false)
+            } else {
+                Err("expected bool".to_string())
+            }
+        }
         _ => Err("expected bool".to_string()),
     }
 }
@@ -40,10 +57,18 @@ fn coerce_int(v: &Value) -> Result<i64, String> {
             .as_i64()
             .or_else(|| n.as_f64().filter(|f| f.fract() == 0.0).map(|f| f as i64))
             .ok_or_else(|| "expected int".to_string()),
-        Value::String(s) => s
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| "expected int".to_string()),
+        Value::String(s) => {
+            let t = s.trim();
+            // pydantic は "9000" だけでなく小数部が 0 の "9000.0" のような文字列も
+            // 整数として受け付ける（例: __global__.port を文字列で設定した場合）。
+            t.parse::<i64>().or_else(|_| {
+                t.parse::<f64>()
+                    .ok()
+                    .filter(|f| f.fract() == 0.0)
+                    .map(|f| f as i64)
+                    .ok_or_else(|| "expected int".to_string())
+            })
+        }
         _ => Err("expected int".to_string()),
     }
 }
@@ -469,6 +494,45 @@ mod tests {
         let data = json!({"name": "p", "group_id": null});
         let out = validate_workspace_config(&data).unwrap();
         assert!(!out.contains_key("group_id"));
+    }
+
+    /// Pydantic v2 lax bool coercion のスペリング一致（Codex レビュー指摘: "yes"/
+    /// "on"/"y"/"t" 等を拒否すると workspace フィールドが丸ごと落ちる／global 設定が
+    /// リセットされてしまう）。
+    #[test]
+    fn coerce_bool_matches_pydantic_lax_spellings() {
+        for s in [
+            "true", "True", "TRUE", "yes", "Yes", "YES", "on", "On", "ON", "y", "Y", "t", "T", "1",
+        ] {
+            assert_eq!(coerce_bool(&json!(s)), Ok(true), "{s}");
+        }
+        for s in [
+            "false", "False", "FALSE", "no", "No", "NO", "off", "Off", "OFF", "n", "N", "f", "F",
+            "0",
+        ] {
+            assert_eq!(coerce_bool(&json!(s)), Ok(false), "{s}");
+        }
+        assert!(coerce_bool(&json!("2")).is_err());
+        assert!(coerce_bool(&json!(" true ")).is_err());
+        assert!(coerce_bool(&json!("")).is_err());
+        assert_eq!(coerce_bool(&json!(0)), Ok(false));
+        assert_eq!(coerce_bool(&json!(1)), Ok(true));
+        assert_eq!(coerce_bool(&json!(0.0)), Ok(false));
+        assert_eq!(coerce_bool(&json!(1.0)), Ok(true));
+        assert!(coerce_bool(&json!(2)).is_err());
+        assert!(coerce_bool(&json!(0.5)).is_err());
+    }
+
+    /// "9000.0" のような小数部ゼロの文字列も int として受け付ける（Codex レビュー
+    /// 指摘: 拒否すると __global__.port がキーごと落ちてデフォルトポートに化ける）。
+    #[test]
+    fn coerce_int_accepts_pydantic_lax_numeric_strings() {
+        assert_eq!(coerce_int(&json!("9000")), Ok(9000));
+        assert_eq!(coerce_int(&json!("9000.0")), Ok(9000));
+        assert_eq!(coerce_int(&json!(" 9000 ")), Ok(9000));
+        assert_eq!(coerce_int(&json!("-1")), Ok(-1));
+        assert!(coerce_int(&json!("9000.5")).is_err());
+        assert!(coerce_int(&json!("not-a-number")).is_err());
     }
 
     #[test]
