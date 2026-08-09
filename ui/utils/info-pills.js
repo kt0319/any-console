@@ -4,8 +4,8 @@
 // （InfoPillConfig.vue）、ピル本体（InfoPillRow.vue）と peekピル
 // （TerminalPane.vue）のアイコンはすべて
 // ここから導出する。新しいピルを追加する時はまずこのテーブルへ1エントリ足す
-// （バックエンド api/routers/settings.py の INFO_PILL_FIELDS にも同じキーを
-// 追加する。tests/test_api_settings.py が両者の整合を検証している）。
+// （バックエンド server/src/settings.rs の INFO_PILL_FIELDS にも同じキーを
+// 追加する。settings.rs 内のユニットテストが両者の整合を検証している）。
 //
 // label / note はピル本体のツールチップ文言（TerminalPane.vue）に揃える。
 // 並び順は設定画面・保存値が無い時のデフォルト表示順として使われる。

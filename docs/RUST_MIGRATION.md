@@ -825,15 +825,40 @@ unit/plist ファイル自体は書き換えないため、古い定義のまま
   `./any-console setup` を再実行するか、サービスを一旦 `uninstall` して
   作り直す必要がある
 
-### Phase 6 — Python 撤去・配布切替 — **一部完了**
+### Phase 6 — Python 撤去・配布切替 — **完了**
 
 - proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前々々節参照。HTTP/WS プロキシは
   撤去済み、全 E2E スペックが Python 無しの Rust 単独で通過することを確認済み）
 - TLS 終端の Rust 側移設 — **完了**（前々節参照）
 - `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — **完了**（前節参照）
-- requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — 未着手
-- README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — 一部着手（README の `run` コマンド説明のみ修正。Requirements 節等の本格更新は未着手）
-- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — 未着手
+- requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — **完了**
+- README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — **完了**
+- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — 未着手（別途取り組む）
+
+**Python 撤去の実施内容**: `api/`（Python FastAPI バックエンド一式、61 ファイル）・
+`requirements.txt`・`requirements-optional.txt`・`pyproject.toml`（ruff/pytest/
+mypy/coverage 設定）・`tests/test_*.py` + `tests/conftest.py`（pytest 一式、52
+ファイル）を削除した。`api/agent_manifests/`（Rust の `screen_manifest.rs` が
+実行時に読む TOML マニフェスト data。Python コードではない）はトップレベル
+`agent_manifests/` へ `git mv` で移設し、`main.rs`/`screen_manifest.rs`/
+`agent_watch.rs` のパス参照を追従させた。`main.rs` から Python 前提の概念
+（`ANY_CONSOLE_UPSTREAM` env var・`DEFAULT_UPSTREAM`・upstream 自己ポート除外
+ロジック）を削除し、`preview.rs` の `loopback_port_from_url`（同ロジック専用の
+ヘルパー）とそのテストも削除した。CI（`.github/workflows/ci.yml`）は `test`
+ジョブを Python ステップ無しの `frontend` ジョブへ改名し、`e2e` ジョブは
+disposable server の起動を `python3 -m api.main` から Rust リリースビルド
+バイナリへ切替え、Python upstream + Rust front の2プロセス構成でしか意味を
+持たなくなった `e2e-rust-front` ジョブ自体を削除した（`e2e` ジョブが Rust
+単独で同じワイヤ契約を検証するため冗長化）。`macos-setup.yml` はパストリガーを
+`api/*.py` から `server/**` へ広げ rust-toolchain ステップを追加したが、
+`actions/setup-python` は**維持**した（`./any-console` ランチャー自身の JSON
+操作ヘルパーが `python3` を使い続けるため）。`codecov.yml` から `backend` flag
+を削除。`playwright.config.js` の disposable server は Rust バイナリを直接
+起動する（`ANY_CONSOLE_E2E_BIN` で上書き可能、旧 `ANY_CONSOLE_E2E_PYTHON` と
+同じパターン）。README はバッジ・Requirements・Repository layout・Dispatch API
+セクションから FastAPI/Python 実装への言及を除去し、Rust/cargo を必須要件として
+明記した（Python 3.11+ はランチャー自身のスクリプトのためだけに引き続き必要と
+明示）。
 
 ---
 

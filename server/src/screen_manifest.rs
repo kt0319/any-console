@@ -1,7 +1,7 @@
 //! herdr の screen manifest によるエージェント状態判定（Python 側
 //! `api/screen_manifest.py` の移植）。
 //!
-//! ベンダリングした TOML マニフェスト（`api/agent_manifests/` —
+//! ベンダリングした TOML マニフェスト（`agent_manifests/` —
 //! ogulcancelik/herdr 由来、Apache-2.0）を可視ペイン内容と照合し、既知
 //! エージェント（Claude Code / Codex 等）の blocked（承認・入力待ち）等の
 //! 状態を判定する。評価の意味論は herdr の `src/detect/manifest.rs` に
@@ -18,7 +18,7 @@
 //!
 //! 1. ローカル override: `data/agent-detection/<id>.toml`
 //! 2. リモートキャッシュ: `data/agent-detection/remote/<id>.toml`
-//! 3. 同梱: `api/agent_manifests/*.toml`（読み取り専用のパッケージデータ）
+//! 3. 同梱: `agent_manifests/*.toml`（読み取り専用のパッケージデータ）
 //!
 //! Python 版は `\x{...}` 等の Rust regex 記法を Python `re` 用に変換する
 //! `translate_rust_regex()` を持つが、マニフェストはそもそも Rust regex
@@ -277,7 +277,7 @@ pub fn parse_manifest_text(
 
 /// マニフェストの解決（同梱 + override + リモートキャッシュ）と TTL キャッシュを持つ。
 ///
-/// `manifest_dir` は同梱データ（`api/agent_manifests/`）、`data_dir` から
+/// `manifest_dir` は同梱データ（`agent_manifests/`）、`data_dir` から
 /// override / remote の保存先を導出する（`DATA_DIR` 配下 = E2E 隔離対象）。
 pub struct ManifestStore {
     manifest_dir: PathBuf,
@@ -1061,7 +1061,7 @@ mod tests {
     // ─── 同梱マニフェスト（実ファイル）───────────────────────────────────
 
     fn bundled_manifest_dir() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../api/agent_manifests")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../agent_manifests")
     }
 
     fn bundled_store() -> (ManifestStore, tempfile::TempDir) {

@@ -20,11 +20,11 @@ export function buildStatusStreamUrl(proto, host) {
  * - phrase_notify: `{ type: "phrase_notify", session_id, phrase, workspace }`
  * - phrase_notify_clear: `{ type: "phrase_notify_clear", session_id }`
  * - session_created / session_removed: `{ type, session_id }`（ターミナルセッションの
- *   作成・削除。他クライアントでの変更をタブ一覧へ即時反映するためのnudge、api/session_watch.py）
+ *   作成・削除。他クライアントでの変更をタブ一覧へ即時反映するためのnudge、server/src/session_watch.rs）
  * - session_workspace_bound: `{ type, session_id, workspace }`（素のターミナルが
- *   cwd照合で自動ワークスペース紐付けされた通知、api/agent_watch.py _apply_workspace_tag）
+ *   cwd照合で自動ワークスペース紐付けされた通知、server/src/agent_watch.rs apply_workspace_tag）
  * - session_job_bound: `{ type, session_id, job_name, job_label }`（素のターミナルが
- *   前面ジョブのargv照合で自動ジョブタグ付けされた通知、api/agent_watch.py _apply_job_tag）
+ *   前面ジョブのargv照合で自動ジョブタグ付けされた通知、server/src/agent_watch.rs apply_job_tag）
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  * @param {unknown} raw
  * @returns {{ type: "statuses", statuses: Record<string, any>[] }

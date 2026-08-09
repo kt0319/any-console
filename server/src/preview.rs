@@ -135,18 +135,6 @@ pub fn set_self_ports(state: &PreviewState, ports: &[u16]) {
     self_ports.extend(ports.iter().copied());
 }
 
-/// upstream URL（`http://127.0.0.1:8889` 等）の host が loopback ならポートを
-/// 返す（`main.rs` が Rust front 自身のポートに加えて Python upstream のポートも
-/// self_ports へ含めるために使う — 移行期間中は upstream も同じマシンで
-/// listen しているため、preview 対象から除外しないと自分自身が dev server の
-/// ように一覧に出てしまう）。
-pub fn loopback_port_from_url(url: &str) -> Option<u16> {
-    let authority = url.split("://").nth(1)?.split('/').next()?;
-    let (host, port) = authority.rsplit_once(':')?;
-    let port: u16 = port.parse().ok()?;
-    matches!(host, "127.0.0.1" | "localhost" | "::1" | "[::1]").then_some(port)
-}
-
 pub fn touch_access(state: &PreviewState) {
     *state.last_access.lock().expect("last_access lock poisoned") = Some(Instant::now());
 }
@@ -929,25 +917,6 @@ mod tests {
         set_self_ports(&state, &[1]);
         set_self_ports(&state, &[2]);
         assert_eq!(*state.self_ports.lock().unwrap(), HashSet::from([2u16]));
-    }
-
-    #[test]
-    fn loopback_port_from_url_extracts_port_for_loopback_hosts() {
-        assert_eq!(loopback_port_from_url("http://127.0.0.1:8889"), Some(8889));
-        assert_eq!(loopback_port_from_url("https://localhost:9000"), Some(9000));
-        assert_eq!(loopback_port_from_url("http://[::1]:8889"), Some(8889));
-    }
-
-    #[test]
-    fn loopback_port_from_url_none_for_non_loopback_host() {
-        assert_eq!(loopback_port_from_url("http://192.168.1.5:8889"), None);
-        assert_eq!(loopback_port_from_url("http://example.com:8889"), None);
-    }
-
-    #[test]
-    fn loopback_port_from_url_none_for_malformed_url() {
-        assert_eq!(loopback_port_from_url("not-a-url"), None);
-        assert_eq!(loopback_port_from_url("http://127.0.0.1"), None);
     }
 
     #[test]

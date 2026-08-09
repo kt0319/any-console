@@ -36,8 +36,8 @@ describe("INFO_PILLS", () => {
   });
 
   it("フィールド一覧＝デフォルト表示順（並び替え保存が無い時の表示順を規定する）", () => {
-    // バックエンド api/routers/settings.py の INFO_PILL_FIELDS と同じキー集合を
-    // 保つこと（あちらは tests/test_api_settings.py で検証）。
+    // バックエンド server/src/settings.rs の INFO_PILL_FIELDS と同じキー集合を
+    // 保つこと（あちらは settings.rs 内のユニットテストで検証）。
     expect(INFO_PILL_FIELDS).toEqual([
       "files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch",
     ]);

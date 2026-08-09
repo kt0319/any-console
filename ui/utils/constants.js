@@ -84,7 +84,7 @@ export const LS_KEY_SESSION_SIDEBAR_OPEN = "any_console_session_sidebar_open";
 export const LS_KEY_NOTIF_PREFS = "notifPrefs";
 
 // フレーズ検出→プッシュ通知の猶予秒数のサーバ契約値
-// （api/routers/settings.py の PHRASE_NOTIFY_GRACE_SEC_MAX / api/common.py の
+// （server/src/settings.rs の PHRASE_NOTIFY_GRACE_SEC_MAX /
 // PHRASE_NOTIFY_IDLE_GRACE_SEC と一致させる）
 export const PHRASE_NOTIFY_GRACE_SEC_MAX = 600;
 export const PHRASE_NOTIFY_GRACE_SEC_DEFAULT = 20;

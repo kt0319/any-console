@@ -14,8 +14,9 @@ import { defineConfig } from "@playwright/test";
 // - 未指定時（既定）: 一時ディレクトリを data 領域にした使い捨てサーバを
 //   ランごとに割り当てた空きポートで自動起動する（ANY_CONSOLE_DATA_DIR 隔離モード）。
 //   実運用の data/・config.json には一切触れないため、後始末漏れがサーバ状態を
-//   汚す心配がない。サーバ実行には python3（バックエンド依存インストール済み）と
-//   tmux が必要。python コマンドは ANY_CONSOLE_E2E_PYTHON で上書き可能。
+//   汚す心配がない。サーバ実行には `server/target/release/any-console-server`
+//   （事前に `cargo build --release` が必要）と tmux が必要。バイナリパスは
+//   ANY_CONSOLE_E2E_BIN で上書き可能。
 
 const E2E_TOKEN = "e2e-ephemeral-token";
 const E2E_DATA_DIR_PREFIX = "any-console-e2e-";
@@ -58,8 +59,11 @@ if (!process.env.ANY_CONSOLE_URL && !LIST_ONLY) {
   process.env.ANY_CONSOLE_TOKEN = E2E_TOKEN;
   process.env.ANY_CONSOLE_E2E_DATA_DIR = dataDir; // global-teardown.js が削除する
   process.env.ANY_CONSOLE_E2E_TMUX_PREFIX = tmuxPrefix; // global-teardown.js が残セッションを掃除する
+  const rustBin =
+    process.env.ANY_CONSOLE_E2E_BIN ||
+    path.join(process.cwd(), "server", "target", "release", "any-console-server");
   webServer = {
-    command: `${process.env.ANY_CONSOLE_E2E_PYTHON || "python3"} -m api.main`,
+    command: rustBin,
     url: `http://127.0.0.1:${port}/`,
     reuseExistingServer: false,
     timeout: 60_000,

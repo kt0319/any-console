@@ -12,9 +12,6 @@ flag_management:
   default_rules:
     carryforward: true
   individual_flags:
-    - name: backend
-      paths:
-        - api/
     - name: frontend
       paths:
         - ui/

@@ -11,7 +11,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
-// PROXY_MIN_TARGET(1024) 〜 PROXY_MAX_TARGET(9999) の範囲に収める（api/preview.py）。
+// PROXY_MIN_TARGET(1024) 〜 PROXY_MAX_TARGET(9999) の範囲に収める（server/src/preview.rs）。
 // 8888(any-console本体) と衝突しない値を選ぶ。proxy は +PROXY_OFFSET(20000) に立つ。
 const DUMMY_PORT = 8765;
 const PROXY_PORT = DUMMY_PORT + 20000;
@@ -28,7 +28,7 @@ test.describe("port preview", () => {
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
 
     // ポート → ワークスペースの紐付けはサーバ側がプロセスの cwd で行う
-    // （api/preview.py の _match_workspace）ため、一時ディレクトリを
+    // （server/src/preview.rs の match_workspace）ため、一時ディレクトリを
     // ワークスペース登録し、その cwd を起点にダミーサーバを起動する。
     wsDir = fs.mkdtempSync(path.join(os.tmpdir(), "any-console-e2e-preview-"));
     wsName = path.basename(wsDir);
@@ -98,14 +98,14 @@ test.describe("port preview", () => {
     await page.locator(".modal-close-btn").click();
     await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
 
-    // GET /preview/ports はアクセス時に同期でスキャンを起こす（api/routers/preview.py）。
+    // GET /preview/ports はアクセス時に同期でスキャンを起こす（server/src/preview.rs）。
     // TerminalPane のポーリング間隔（DEV_SERVER_POLL_INTERVAL_MS=10s）を最大
     // 2周ぶん待てば、起動直後のスキャン空振りがあっても反映される。
     const pill = page.locator(".pill-server-btn").first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
 
     // 一覧反映は同期だが、実際の TCP proxy listener は HTTP プローブ完了後に
-    // 非同期タスクとして起動される（api/preview.py の _reconcile_proxies）ため、
+    // 非同期タスクとして起動される（server/src/preview.rs の reconcile_proxies）ため、
     // ピルが見えた直後はまだ bind されていないことがある。起動を少し待つ。
     await page.waitForTimeout(2000);
 

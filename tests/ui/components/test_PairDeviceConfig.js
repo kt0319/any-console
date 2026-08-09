@@ -96,7 +96,7 @@ describe("PairDeviceConfig", () => {
 
   it("shows the server's specific error detail when start fails with a reason", async () => {
     // 例: viewing via localhost without a resolvable Tailscale hostname
-    // (api/routers/pairing.py _build_pairing_url参照)。汎用メッセージで
+    // (server/src/pairing.rs build_pairing_url参照)。汎用メッセージで
     // 握りつぶさず、ユーザーが対処できる具体的な理由を表示する。
     apiPostMock.mockResolvedValue({
       ok: false,
@@ -224,7 +224,7 @@ describe("PairDeviceConfig", () => {
 
   it("keeps polling after the local countdown reaches zero until the server confirms an outcome", async () => {
     // サーバはclaim進行中(claiming)のエントリをexpires_atを過ぎてもpendingの
-    // まま保持し、後からclaimedへ倒すことがある(pairing.py claim_pairing参照)。
+    // まま保持し、後からclaimedへ倒すことがある(server/src/pairing.rs claim_pairing参照)。
     // クライアント側のカウントダウンが0になっただけでpollを止めてしまうと、
     // この遅れて成立したclaimedを永久に観測できなくなる。
     apiPostMock.mockResolvedValue({
