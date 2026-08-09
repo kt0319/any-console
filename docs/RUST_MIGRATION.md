@@ -237,9 +237,21 @@ pairing は devices.json への書き込み（認証ドメイン）依存のた�
 
 **注意**: dispatch はキュー JSON の互換とステータスストリームへのスナップショット配信（Phase 4 と接続）が要。dispatch トークンの権限境界（direct: true 拒否）はセキュリティ要件なのでテストを厚く移植する。
 
-### Phase 4 — リアルタイム系（WebSocket / FS 監視 / ポーリング）— **workspaces + git_info 移行済み・WS 系は再スコープ**
+### Phase 4 — リアルタイム系（WebSocket / FS 監視 / ポーリング）— **移行済み（status stream WS 本番切替完了）**
 
 **目的**: status stream ソケットに相乗りする監視系一式。ここから難度が上がる。
+
+**完了**: `/workspaces/statuses/ws` を Python proxy から Rust ネイティブ実装
+（`status_stream::status_stream_ws`）へ本番切替済み。git_watch の FS 監視
+ループ（`notify` + debounce 300ms）・agent_watch のポーリングループ（2秒間隔）・
+dispatch のネイティブ配信（`broadcast_current_queue`）をすべて実装し、
+単一の `tokio::sync::broadcast` channel（`StatusStreamState`）へ統合した
+（Python 版の 4 モジュール個別購読者 set + `call_soon_threadsafe` 方式より
+簡素化）。Rust front + Python upstream の二重構成で E2E スイート全体を実行し、
+環境依存の既知失敗（`preview.spec.js`）以外は全通過を確認済み。
+Python 側の bridge 呼び出し（`nudge_git` / `notify_session_event` /
+`broadcast_dispatch_queue`）は Phase 6（Python 撤去）まで並行稼働のまま残す
+（無害な二重配信）。
 
 **状況**: ポーリング系のスライス（workspaces ルーター本体 + git_info パイプライン +
 プロセス間 nudge ブリッジ）を移行済み:
@@ -256,23 +268,17 @@ pairing は devices.json への書き込み（認証ドメイン）依存のた�
 - `config.rs` に save/delete_workspace_config（flock 下 read-modify-write、
   workspace_order の掃除含む）を追加
 
-**実装時に確定した再スコープ**: status stream WS 本体（ws_broadcast /
-status_stream / git_watch / session_watch）は producer の大半
-（session_watch・agent_watch・dispatch スナップショット）がターミナル状態に
-依存するため、**Phase 5（ターミナル）と同時に移行**する。agent 状態系・preview も
-同様に後続へ:
-
 | 対象 | 行数目安 | 状況 |
 |------|---------|------|
 | `routers/workspaces.py` 本体 + `git_info.py` + background_fetch | 660 | **移行済み** |
-| `ws_broadcast.py` / `routers/status_stream.py` | 141 | **一部移行済み**（`server/src/status_stream.rs` — 購読者管理の共有基盤のみ。実エンドポイントは producer 一式が揃うまで未配線。下記注意参照） |
-| `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | **一部移行済み**（`server/src/git_watch.rs` — 監視対象決定ロジックのみ。FS 監視ループ・購読者管理・自動 fetch は status stream と同時。下記注意参照） |
-| `session_watch.py` | 74 | **移行済み**（`server/src/session_watch.rs`。呼び出し元への配線は status stream 一括配線時） |
-| `agent_watch.py`（3値状態判定・自動紐付け） | 584 | **一部移行済み**（`server/src/agent_watch.rs` — `collect_agent_states` まで実装済み（状態判定・ワークスペース/ジョブ自動紐付け・通知猶予判定）。ポーリングループ本体・push 連携は status stream 配線時に一括実装。下記注意参照） |
-| `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。配線は未実施 — agent_watch 移行まで待つ） |
-| `manifest_update.py`（リモートマニフェスト更新） | 272 | **移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側が稼働中のため配線しない。下記注意参照） |
-| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **移行済み**（`server/src/agent_hooks.rs`。配線は未実施 — agent_watch 移行まで待つ。理由は下記注意参照） |
-| `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。配線は未実施） |
+| `ws_broadcast.py` / `routers/status_stream.py` | 141 | **移行済み**（`server/src/status_stream.rs` — WS エンドポイント本番配線済み） |
+| `git_watch.py`（watchfiles → notify、自動 fetch） | 433 | **移行済み**（`server/src/git_watch.rs` — FS 監視ループ・自動 fetch ループとも本番稼働） |
+| `session_watch.py` | 74 | **移行済み**（`server/src/session_watch.rs`。`terminal_session.rs`/`terminal.rs`/`dispatch.rs`/`job_runner.rs` から配線済み） |
+| `agent_watch.py`（3値状態判定・自動紐付け） | 584 | **移行済み**（`server/src/agent_watch.rs` — ポーリングループ本体・push 連携とも本番稼働） |
+| `screen_manifest.py` + `agent_manifests/`（herdr ルール） | 562 | **移行済み**（`server/src/screen_manifest.rs`。`agent_watch.rs` から利用中） |
+| `manifest_update.py`（リモートマニフェスト更新） | 272 | **一部移行済み**（`server/src/manifest_update.rs` — 検証ロジックのみ。定期実行ループは未移植・Python 側の `start_updater` が稼働中のため配線しない。下記注意参照） |
+| `agent_hooks.py` + `routers/agent_hooks.py` | 180 | **一部移行済み**（`server/src/agent_hooks.rs` 実装済みだが `POST /agent-hooks/events` は `build_router` に**未配線**。理由は下記注意参照） |
+| `foreground.py`（/proc・ps の前面 argv 検査） | 176 | **移行済み**（`server/src/foreground.rs`。`agent_watch.rs` から利用中） |
 | `routers/preview.py` + `preview.py`（dev server 検出 + proxy） | 563 | Phase 5 |
 
 **注意**:
@@ -294,26 +300,24 @@ status_stream / git_watch / session_watch）は producer の大半
   `translate_rust_regex()`（Rust regex 記法 → Python `re` 変換）に相当する処理は
   不要（同梱 21 マニフェスト全件のコンパイル成功をテストで確認済み）
 - `git_watch.rs` は監視対象の収集（`collect_watch_targets` — 登録済みワークスペース
-  + 動的 worktree、実 git リポジトリでの統合テスト込み）と、変更パスの関連性判定・
-  ワークスペース対応付け・監視ルート組み立て（`is_relevant_change` /
-  `touches_branch_change` / `match_workspaces` / `watch_roots`）のみ移植した。
-  FS 監視ループ本体（`_watch_loop` — Python は watchfiles、Rust 移植では `notify`
-  crate を想定）・WebSocket 購読者管理（`subscribe`/`unsubscribe`）・自動 fetch
-  ループ（`_auto_fetch_loop`）・`nudge_workspace` は status stream の実体
-  （`ws_broadcast.py`/`routers/status_stream.py`）と `agent_watch.py` を合わせて
-  配線するタイミングで一括実装する
+  + 動的 worktree、実 git リポジトリでの統合テスト込み）に加え、FS 監視ループ本体
+  （`watch_loop` — `notify` + `notify-debouncer-full`、デバウンス 300ms）・
+  タスクライフサイクル管理（`ensure_tasks`/`maybe_stop_tasks` — 購読者ゼロで
+  `JoinHandle::abort()`）・自動 fetch ループ（`auto_fetch_loop` — 180秒間隔、
+  並列度 4）・`nudge_workspace`（git 操作直後の即時 push）まで実装済み。
+  実 git リポジトリへのファイル書き込みで FS イベントが検知されることを
+  統合テスト（`test_status_stream.rs`）で確認済み
 - `agent_watch.rs`: `tmux.rs` に `list_session_ids`/`list_pane_meta` を追加した
-  上で、ポーリング1周期分の判定を丸ごと行う `collect_agent_states` を実装した
-  （tmux 一括問い合わせ → hooks 優先の状態判定 → 未紐付けセッションの cwd 照合
-  によるワークスペース自動紐付け・前面ジョブ argv 照合によるジョブ自動タグ付け
-  （いずれも `TerminalSession` への書き戻し + `session_watch.rs` 経由の
-  `StatusStreamState` 配信込み）→ notify_phrase の猶予判定）。実 tmux セッション
-  （linked worktree・前面 `sleep` プロセスでのジョブ照合含む）での統合テスト済み。
-  `AppState` に `screen_manifest::ManifestStore` を追加し、manifest 階層解決の
-  TTL キャッシュをアプリ全体で共有するようにした。未実装なのはこれを定期実行
-  するポーリングループ本体（`_poll_loop` 相当 —
-  `StatusStreamState::subscriber_count()` を起動/停止条件にする設計を想定）と
-  push 通知連携（`push.py` 経由、`state.proxy.send_push` ブリッジ自体は既存）のみ
+  上で、ポーリング1周期分の判定を丸ごと行う `collect_agent_states` を実装し、
+  これを 2 秒間隔で回す `poll_loop`（`ensure_tasks`/`maybe_stop_tasks` による
+  ライフサイクル管理・push 通知連携込み）まで実装済み（tmux 一括問い合わせ →
+  hooks 優先の状態判定 → 未紐付けセッションの cwd 照合によるワークスペース
+  自動紐付け・前面ジョブ argv 照合によるジョブ自動タグ付け（いずれも
+  `TerminalSession` への書き戻し + `session_watch.rs` 経由の `StatusStreamState`
+  配信込み）→ notify_phrase の猶予判定・`state.proxy.send_push` 経由の push 配信）。
+  実 tmux セッション（linked worktree・前面 `sleep` プロセスでのジョブ照合含む）
+  での統合テスト済み。`AppState` に `screen_manifest::ManifestStore` を追加し、
+  manifest 階層解決の TTL キャッシュをアプリ全体で共有する
 - `status_stream.rs` / `session_watch.rs`: Python 版は git_watch/agent_watch/
   session_watch/dispatch がそれぞれモジュールローカルな購読者 set を持ち、
   `call_soon_threadsafe` 経由でイベントループへスケジュールしてから fan-out する
@@ -323,11 +327,12 @@ status_stream / git_watch / session_watch）は producer の大半
   購読者数管理（`receiver_count()`）も broadcast channel が元々備えているため、
   モジュールごとの購読者 set 管理は不要にした（Python 版からの単純化）。
   `session_watch.rs` はこの基盤の上にセッション作成・削除・自動紐付けの通知
-  ペイロードを実装し、`agent_watch.rs` の自動紐付けからは既に呼ばれている。
-  まだ `terminal_session.rs` のセッション作成・`terminal.rs` の削除ハンドラからは
-  呼んでいない — 実エンドポイントが無い間は送信しても購読者が存在しないため、
-  `git_watch.rs` の FS 監視ループ・`agent_watch.rs` のポーリングループ本体・
-  `dispatch.rs` の直接配信化と合わせて一括配線する
+  ペイロードを実装し、`terminal_session.rs` のセッション作成・`terminal.rs` の
+  削除ハンドラ・`job_runner.rs` のジョブセッション作成・`dispatch.rs` の
+  セッション作成ヘルパーから配線済み。`/workspaces/statuses/ws` を
+  `status_stream::status_stream_ws` へ配線し（`lib.rs`）、接続時に
+  `git_watch::ensure_tasks` / `agent_watch::ensure_tasks` を起動・切断時に
+  `maybe_stop_tasks` で停止する構成で本番稼働している
 - `manifest_update.rs` はカタログ・マニフェストの取得検証とコミット判定
   （純粋ロジック + reqwest 経由の fetch）のみ移植した。Python 側の
   `start_updater`/`stop_updater`（`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に
@@ -396,7 +401,8 @@ Rust front に向けた Playwright 全 E2E スペックで検証済み。
   を移行。承認待ちキュー（`_PENDING`/`_RECENT` 相当）は `DispatchState`（`AppState`
   に保持）で管理し、`dispatch_queue.json`/`dispatch_recent.json`（Python と同一の
   legacy パス規則 — `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下）へ永続化。
-  起動時に読み込んで Python 側 status stream へ初期スナップショットを送る
+  起動時に読み込んで Python 側 status stream（ブリッジ経由・Phase 4 完了後は
+  実際には到達しない）へ初期スナップショットを送る
   （`load_persisted_and_seed_bridge`、`main.rs` から起動時に一度だけ呼ぶ）。
   `dispatch()`（HTTP ハンドラ）は認証確定後の本体を `dispatch_core` へ切り出し、
   `dispatch_rerun` の「承認キューを経由せず実行」以外の分岐から関数呼び出しで
@@ -415,17 +421,23 @@ Rust front に向けた Playwright 全 E2E スペックで検証済み。
 へ変更した（`dispatch.rs` 実装時に同様に設定する）。tmux 自体が永続化層になるため、
 どちらの言語がセッションを作った/WS が誰に繋がったかに依存せず安全に受け渡せる。
 
-push 通知（VAPID/pywebpush）と dispatch キューのステータスストリーム配信
-（`type="dispatch_queue"`、WS 自体は当面 Python 側に残る）・dispatch scope の API
-トークン検証は、Python 側への loopback ブリッジで当面つなぐ（`migration_bridge.py`
-に追加済み）:
+push 通知（VAPID/pywebpush）・dispatch scope の API トークン検証は、Python 側への
+loopback ブリッジで当面つなぐ（`migration_bridge.py` に追加済み）。dispatch キューの
+ステータスストリーム配信（`type="dispatch_queue"`）は Phase 4 完了により
+`state.status_stream.broadcast()` でネイティブ配信されるようになったが、下記の
+ブリッジ呼び出しは Phase 6（Python 撤去）まで無害な二重配信として残す
+（`/workspaces/statuses/ws` が Rust ネイティブに切り替わったため、Python 側の
+`ws_broadcast`/`status_stream`/`git_watch`/`agent_watch` には実接続者がおらず、
+以下のブリッジ先エンドポイントの一部は実質到達しても効果を持たない）:
 - `POST /internal/session-event`（Rust→Python）: ターミナルセッションの作成/削除を
-  session_watch へ即時反映（削除時は `agent_hooks.clear_session` も呼ぶ）
+  session_watch へ即時反映（削除時は `agent_hooks.clear_session` も呼ぶ）。
+  Rust 側は `session_watch.rs` 経由のネイティブ配信で同等の通知を行うため実質冗長
 - `POST /internal/send-push`（Rust→Python）: `push.send_push_notification` を実行
+  （push.py は未移行のため、これは引き続き実効を持つ）
 - `POST /internal/dispatch-queue`（Rust→Python）: dispatch キューの全量スナップ
-  ショットを status stream WS 購読者へ中継。`routers/dispatch.py` 側は
-  `set_bridged_payload` で受け取った値を優先する（Rust 移行後は `_PENDING`/`_RECENT`
-  が更新されなくなるため）よう最小限の追加のみ行った（ルート本体は未変更）
+  ショットを Python 側 status stream WS 購読者へ中継しようとするが、実接続者が
+  いないため到達しても無意味。`routers/dispatch.py` 側の `set_bridged_payload`
+  受け入れコード自体は削除していない
 - `POST /internal/verify-dispatch-api-token`（Rust→Python）: 既存の
   `auth._verify_api_token`（auth.json の api_tokens 配列照合）を再利用する。
   メイン/Tailscale/デバイス認証は Rust の `Auth.authenticate()` で完結するため、
