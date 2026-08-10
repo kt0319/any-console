@@ -80,9 +80,11 @@ pub(crate) async fn get_app_commit_date(root: &Path) -> String {
     .unwrap_or_default()
 }
 
-/// Python の `str.split(None, maxsplit)` 相当: 空白で最大 n 個に分割し、
-/// 最後の要素には残り全体（先頭空白を除去）を入れる。
-fn split_whitespace_n(line: &str, n: usize) -> Vec<&str> {
+/// 空白区切りで**合計 n 要素**に分割し、最後の要素には残り全体
+/// （先頭空白を除去）を入れる（Python の `str.split(None, n-1)` 相当）。
+/// `foreground.rs` の `split_whitespace_n`（maxsplit=n で最大 n+1 要素）とは
+/// n の解釈が異なるので注意。
+fn split_into_fields(line: &str, n: usize) -> Vec<&str> {
     let mut parts = Vec::new();
     let mut rest = line.trim_start();
     while parts.len() + 1 < n && !rest.is_empty() {
@@ -119,7 +121,7 @@ pub async fn processes(_auth: RequireAuth) -> Result<Json<Value>, ApiError> {
 fn parse_ps_output(stdout: &str) -> Vec<Value> {
     let mut processes = Vec::new();
     for line in stdout.trim().lines().skip(1).take(PROCESS_LIST_LIMIT) {
-        let parts = split_whitespace_n(line, PS_FIELD_COUNT);
+        let parts = split_into_fields(line, PS_FIELD_COUNT);
         if parts.len() < PS_FIELD_COUNT {
             continue;
         }
@@ -764,9 +766,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn split_whitespace_n_keeps_command_tail() {
+    fn split_into_fields_keeps_command_tail() {
         let line = "root       123  1.5  2.0 100 200 ?  S  10:00  0:01 /usr/bin/python3 -m uvicorn api.main:app";
-        let parts = split_whitespace_n(line, 11);
+        let parts = split_into_fields(line, 11);
         assert_eq!(parts.len(), 11);
         assert_eq!(parts[1], "123");
         assert_eq!(parts[10], "/usr/bin/python3 -m uvicorn api.main:app");

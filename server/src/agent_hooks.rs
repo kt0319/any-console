@@ -9,7 +9,7 @@
 //! 未設定時は manifest → 画面差分へフォールバックする（ADR 33）。
 //!
 //! 認証はメインの Bearer トークンではなく hook 専用トークン（X-Hook-Token
-//! ヘッダ、`tmux::get_hook_token` で発行・永続化）で行う。メインの Bearer
+//! ヘッダ、`tmux::get_or_create_hook_token` で発行・永続化）で行う。メインの Bearer
 //! トークンをセッション内の全プロセスへ晒さないための分離（漏れても状態
 //! イベントの偽装しかできない）。
 //!
@@ -126,7 +126,7 @@ pub fn verify_hook_token(state: &AppState, provided: &str) -> bool {
     }
     constant_time_eq(
         provided,
-        &crate::tmux::get_hook_token(&state.paths.data_dir),
+        &crate::tmux::get_or_create_hook_token(&state.paths.data_dir),
     )
 }
 
@@ -219,9 +219,12 @@ mod tests {
     #[test]
     fn token_is_created_and_persisted() {
         let (state, _dir) = test_state();
-        let token = crate::tmux::get_hook_token(&state.paths.data_dir);
+        let token = crate::tmux::get_or_create_hook_token(&state.paths.data_dir);
         assert!(token.len() >= 32);
-        assert_eq!(crate::tmux::get_hook_token(&state.paths.data_dir), token);
+        assert_eq!(
+            crate::tmux::get_or_create_hook_token(&state.paths.data_dir),
+            token
+        );
         let saved = std::fs::read_to_string(state.paths.data_dir.join("hook_token")).unwrap();
         assert_eq!(saved.trim(), token);
     }
@@ -229,7 +232,7 @@ mod tests {
     #[test]
     fn verify_accepts_correct_token_only() {
         let (state, _dir) = test_state();
-        let token = crate::tmux::get_hook_token(&state.paths.data_dir);
+        let token = crate::tmux::get_or_create_hook_token(&state.paths.data_dir);
         assert!(verify_hook_token(&state, &token));
         assert!(!verify_hook_token(&state, "wrong"));
         assert!(!verify_hook_token(&state, ""));

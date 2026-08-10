@@ -38,7 +38,8 @@ pub fn parse_stat_pgrp_tpgid(stat_text: &str) -> Option<(i32, i32)> {
 }
 
 /// Python の `str.split(None, n)`（連続空白を1区切りとして扱い、先頭 n 個までを
-/// 分割し残りは1要素にまとめる）と同じ意味で分割する。
+/// 分割し残りは1要素にまとめる = 最大 n+1 要素）と同じ意味で分割する。
+/// `system.rs` の `split_into_fields`（合計 n 要素）とは n の解釈が異なる。
 fn split_whitespace_n(line: &str, n: usize) -> Vec<&str> {
     let mut result = Vec::new();
     let mut rest = line;

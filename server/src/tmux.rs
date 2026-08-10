@@ -78,9 +78,9 @@ pub fn resolve_effective_bind(config: &ConfigStore) -> (String, u16) {
 }
 
 /// hook 専用トークンを返す（無ければ生成して `data/hook_token` に保存する。
-/// Python の `agent_hooks.get_hook_token` と同一ファイル・同一 best-effort 挙動 —
+/// Python の `agent_hooks.get_or_create_hook_token` と同一ファイル・同一 best-effort 挙動 —
 /// 初回作成時のプロセス間競合はガードしない。0600 で保存する）。
-pub(crate) fn get_hook_token(data_dir: &Path) -> String {
+pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
     let path = data_dir.join("hook_token");
     if let Ok(existing) = std::fs::read_to_string(&path) {
         let trimmed = existing.trim();
@@ -132,7 +132,7 @@ fn hook_session_env(
         ),
         (
             "ANY_CONSOLE_HOOK_TOKEN".to_string(),
-            get_hook_token(data_dir),
+            get_or_create_hook_token(data_dir),
         ),
     ]
 }
@@ -604,8 +604,8 @@ mod tests {
     #[test]
     fn hook_token_persists_across_calls() {
         let dir = tempfile::tempdir().unwrap();
-        let t1 = get_hook_token(dir.path());
-        let t2 = get_hook_token(dir.path());
+        let t1 = get_or_create_hook_token(dir.path());
+        let t2 = get_or_create_hook_token(dir.path());
         assert_eq!(t1, t2);
         assert!(!t1.is_empty());
     }
