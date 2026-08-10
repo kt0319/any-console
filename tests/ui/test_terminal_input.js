@@ -26,6 +26,7 @@ function makeTab() {
     sent,
     tab: {
       id: 1,
+      sessionId: "s1",
       ws: {
         readyState: WebSocket.OPEN,
         send: vi.fn((bytes) => sent.push(bytes)),
@@ -106,5 +107,27 @@ describe("bindTerminalInput", () => {
     expect(pageUp.defaultPrevented).toBe(false);
     expect(pageDown.defaultPrevented).toBe(false);
     expect(sent).toEqual([]);
+  });
+
+  it("PageUp/PageDown送信でそのタブのdoneSessionsをクリアする", () => {
+    const { tab } = makeTab();
+    bindTerminalInput(tab);
+    useTerminalStore().doneSessions.s1 = true;
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageUp", bubbles: true, cancelable: true }));
+
+    expect(useTerminalStore().doneSessions.s1).toBeUndefined();
+    tab._releaseInput();
+  });
+
+  it("ターミナルへの入力(onData)でそのタブのdoneSessionsをクリアする", () => {
+    const { tab, term } = makeTab();
+    bindTerminalInput(tab);
+    useTerminalStore().doneSessions.s1 = true;
+
+    const onDataHandler = term.onData.mock.calls[0][0];
+    onDataHandler("a");
+
+    expect(useTerminalStore().doneSessions.s1).toBeUndefined();
   });
 });

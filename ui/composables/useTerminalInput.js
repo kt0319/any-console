@@ -40,6 +40,7 @@ export function bindTerminalInput(tab) {
     if (!seq) return false;
     e.preventDefault();
     sendInput(encoder.encode(seq));
+    terminalStore.clearDoneState(tab.sessionId);
     return true;
   }
 
@@ -64,6 +65,7 @@ export function bindTerminalInput(tab) {
     if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       sendInput(encoder.encode("\n"));
+      terminalStore.clearDoneState(tab.sessionId);
       return false;
     }
     // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）。
@@ -105,6 +107,7 @@ export function bindTerminalInput(tab) {
 
   tab.term?.onData((data) => {
     sendInput(encoder.encode(data));
+    terminalStore.clearDoneState(tab.sessionId);
   });
 
   tab.term?.onResize(({ cols, rows }) => {
@@ -126,6 +129,8 @@ export function bindTerminalElement(tab) {
   if (!termEl || tab._elementBound) return;
   tab._elementBound = true;
 
+  const terminalStore = useTerminalStore();
+
   termEl.addEventListener("wheel", (e) => {
     e.preventDefault();
   }, { passive: false });
@@ -141,6 +146,7 @@ export function bindTerminalElement(tab) {
     if (tab.ws?.readyState === WebSocket.OPEN) {
       tab.ws.send(encoder.encode(text));
       tab._lastSendAt = performance.now();
+      terminalStore.clearDoneState(tab.sessionId);
     }
   }, true);
 }

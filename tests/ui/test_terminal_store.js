@@ -32,6 +32,15 @@ describe("terminal store: active 再選出", () => {
       expect(store.activeTabId).toBe(2);
     });
 
+    it("アクティブタブを detach して次のタブへ active が移ると、そのタブの doneSessions がクリアされる", () => {
+      seedTabs(store, [{ id: 1, sessionId: "s1" }, { id: 2, sessionId: "s2" }]);
+      store.doneSessions.s2 = true;
+      store.activeTabId = 1;
+      store.detachTab(1);
+      expect(store.activeTabId).toBe(2);
+      expect(store.doneSessions.s2).toBeUndefined();
+    });
+
     it("後続タブが無ければ手前のタブが選ばれる", () => {
       seedTabs(store, [{ id: 1 }, { id: 2 }, { id: 3 }]);
       store.activeTabId = 3;

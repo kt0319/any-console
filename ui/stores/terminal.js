@@ -252,6 +252,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const tabs = openTabs.value;
     const next = tabs.find((_, i) => i >= idx) || tabs[tabs.length - 1];
     activeTabId.value = next ? next.id : null;
+    if (next) clearDoneState(next.sessionId);
   }
 
   function switchTab(tabId, { focus = true } = {}) {
