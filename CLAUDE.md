@@ -110,14 +110,14 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `mobile-terminal.spec.js`: モバイルでのターミナル + KeyboardBar 表示
   - 共通ヘルパー（ログイン・セッション後始末・設定モーダル操作・Bearer ヘッダ）は `helpers.js`
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
-- **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が、一時ディレクトリを data 領域にしたサーバをランごとの空きポートで自動起動する（`ANY_CONSOLE_DATA_DIR` による隔離。実運用の `data/`・`config.json` には一切触れない。ポート自動割り当てなので並行実行や既存プロセスと衝突しない）。レート制限引き上げ（`ANY_CONSOLE_RATE_LIMIT=2000`）とテスト用トークンも自動設定される。サーバ実行に python3（バックエンド依存インストール済み）と tmux が必要。CI（`.github/workflows/ci.yml`）も同じ仕組みで動く
+- **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が、一時ディレクトリを data 領域にしたサーバをランごとの空きポートで自動起動する（`ANY_CONSOLE_DATA_DIR` による隔離。実運用の `data/`・`config.json` には一切触れない。ポート自動割り当てなので並行実行や既存プロセスと衝突しない）。レート制限引き上げ（`ANY_CONSOLE_RATE_LIMIT=2000`）とテスト用トークンも自動設定される。サーバ実行にビルド済み Rust バイナリ（`server/target/release/any-console-server`。`cargo build --release`）と tmux が必要。CI（`.github/workflows/ci.yml`）も同じ仕組みで動く
 - 起動済みの外部サーバに対して実行する場合のみ `ANY_CONSOLE_URL` を指定する。このときは対象サーバをレート制限を引き上げて起動しておく（既定 200req/60s のままだと連続実行で 429 になる）
 - テストがサーバ状態を汚さないこと (**MUST**): セッション等を作るテストは自分が作った分だけを必ず後始末する（`helpers.js` の `cleanupNewSessions` を使う。既存セッションには触れない）。使い捨てサーバモードでは tmux セッション名もランごとのユニークプレフィックス（`ANY_CONSOLE_TMUX_PREFIX`）で分離され、中断時の残りは global-teardown が自ラン分のみ一掃するが、この後始末は保険であり各テストの後始末は省略しない
 - ローカル初回セットアップ:
   ```bash
   npm install
   npx playwright install chromium
-  pip install -r requirements.txt   # 使い捨てサーバモードでサーバを起動するため
+  (cd server && cargo build --release)   # 使い捨てサーバモードでサーバを起動するため
   ```
 - 実行前に `npm run build` で `ui/dist` を最新化する（サーバは `ui/dist` を配信する。未ビルド・古いままだと E2E が現行フロントを検証できない。CI は毎回ビルドしてから実行する）
 - ローカル実行:

@@ -1153,13 +1153,13 @@ cmd_uninstall() {
   fi
 
   echo ""
-  echo "Remove build artifacts (.venv/, node_modules/, server/target/)? (can be reinstalled with setup)"
+  echo "Remove build artifacts (node_modules/, server/target/)? (can be reinstalled with setup)"
   read -rp "[y/N] " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
-    rm -rf "$SCRIPT_DIR/.venv" "$SCRIPT_DIR/node_modules" "$SCRIPT_DIR/server/target"
-    info "  .venv/, node_modules/ and server/target/ removed"
+    rm -rf "$SCRIPT_DIR/node_modules" "$SCRIPT_DIR/server/target"
+    info "  node_modules/ and server/target/ removed"
   else
-    info "  .venv/, node_modules/ and server/target/ kept"
+    info "  node_modules/ and server/target/ kept"
   fi
 
   echo ""
