@@ -460,18 +460,23 @@ pub async fn list_session_ids(tmux_prefix: &str) -> Option<Vec<String>> {
 }
 
 /// 全 tmux セッションの (pane_current_command, pane_title, pane_pid,
-/// pane_current_path) を一括で返す（`agent_watch` の `list_pane_meta` 相当）。
+/// pane_current_path, (pane_width, pane_height)) を一括で返す（`agent_watch` の
+/// `list_pane_meta` 相当）。
 ///
 /// キーはセッション名。ポーリング1周期につき1回だけ呼び、セッション数に
 /// 比例した tmux 呼び出しを避ける。本アプリはセッションごとに単一ペインで
 /// 運用するため、複数ペインあれば最初のペインを採用する。タイトルはタブを
 /// 含みうるため最終列以降をタブ区切りのまま連結する。失敗時は空 dict。
-pub async fn list_pane_meta() -> HashMap<String, (String, String, i64, String)> {
+///
+/// pane_width/height は agent_watch のリサイズ検知用（アタッチ中クライアントの
+/// 端末幅に合わせて tmux がペイン内容を再フローするため、出力に変化が無くても
+/// capture-pane の全文がリサイズだけで変わってしまう問題への対策）。
+pub async fn list_pane_meta() -> HashMap<String, (String, String, i64, String, (i64, i64))> {
     let Some(r) = run_tmux_cmd(&[
         "list-panes",
         "-a",
         "-F",
-        "#{session_name}\t#{pane_current_command}\t#{pane_pid}\t#{pane_current_path}\t#{pane_title}",
+        "#{session_name}\t#{pane_current_command}\t#{pane_pid}\t#{pane_current_path}\t#{pane_width}\t#{pane_height}\t#{pane_title}",
     ])
     .await
     else {
@@ -483,16 +488,19 @@ pub async fn list_pane_meta() -> HashMap<String, (String, String, i64, String)> 
     let mut meta = HashMap::new();
     for line in r.stdout.lines() {
         let parts: Vec<&str> = line.split('\t').collect();
-        if parts.len() < 5 {
+        if parts.len() < 7 {
             continue;
         }
         let pane_pid: i64 = parts[2].parse().unwrap_or(0);
-        let title = parts[4..].join("\t");
+        let pane_width: i64 = parts[4].parse().unwrap_or(0);
+        let pane_height: i64 = parts[5].parse().unwrap_or(0);
+        let title = parts[6..].join("\t");
         meta.entry(parts[0].to_string()).or_insert((
             parts[1].to_string(),
             title,
             pane_pid,
             parts[3].to_string(),
+            (pane_width, pane_height),
         ));
     }
     meta

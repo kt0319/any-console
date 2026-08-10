@@ -399,6 +399,7 @@ pub async fn collect_agent_states(
     state: &AppState,
     manifest_store: &ManifestStore,
     last_capture: &mut HashMap<String, String>,
+    last_pane_size: &mut HashMap<String, (i64, i64)>,
     tracker: &mut PhraseNotifyTracker,
     prev_states: &HashMap<String, String>,
     now: f64,
@@ -431,13 +432,28 @@ pub async fn collect_agent_states(
             continue;
         };
         let (workspace, job_name) = session_meta(state, session_id).await;
-        let (pane_command, pane_title, pane_pid, pane_path) = pane_meta
+        let (pane_command, pane_title, pane_pid, pane_path, pane_size) = pane_meta
             .get(&tmux_name)
             .cloned()
-            .unwrap_or_else(|| (String::new(), String::new(), 0, String::new()));
+            .unwrap_or_else(|| (String::new(), String::new(), 0, String::new(), (0, 0)));
         let workspace = resolve_workspace(state, session_id, workspace, &pane_path).await;
         let notify_phrase = job_notify_phrase(state, workspace.as_deref(), job_name.as_deref());
         let prev_capture = last_capture.get(session_id).cloned();
+
+        // tmux はアタッチ中クライアントの端末幅に合わせてペイン内容を再フロー
+        // （折り返し直し）するため、実際の出力に変化が無くてもリサイズだけで
+        // capture-pane の全文が変わってしまう（phone/PC間の行き来やブラウザの
+        // ウィンドウ幅変更で頻発）。リサイズを検知した周期は画面差分による
+        // working判定を1周期分だけ抑制する（比較対象なし＝idle扱いにする。
+        // 次周期はリサイズ後の内容同士を比較するので通常通り機能する）。
+        let resized = last_pane_size
+            .get(session_id)
+            .is_some_and(|prev| *prev != pane_size);
+        let diff_prev_capture = if resized {
+            None
+        } else {
+            prev_capture.as_deref()
+        };
 
         // hooks 由来の状態が新鮮ならそれを最優先し、manifest 評価は省略する
         // （エージェント特定・argv 取得はジョブ照合が必要になれば遅延実行される）。
@@ -450,7 +466,7 @@ pub async fn collect_agent_states(
                 argvs = a;
                 resolve_session_state(
                     &capture,
-                    prev_capture.as_deref(),
+                    diff_prev_capture,
                     manifest.as_deref(),
                     &pane_title,
                 )
@@ -491,10 +507,12 @@ pub async fn collect_agent_states(
             ws_notifications.push((session_id.clone(), notify_phrase, workspace));
         }
         last_capture.insert(session_id.clone(), capture);
+        last_pane_size.insert(session_id.clone(), pane_size);
     }
 
     let live: HashSet<String> = states.keys().cloned().collect();
     last_capture.retain(|k, _| live.contains(k));
+    last_pane_size.retain(|k, _| live.contains(k));
     tracker.prune(&live);
 
     CollectedStates {
@@ -513,6 +531,8 @@ pub async fn collect_agent_states(
 pub struct AgentWatchState {
     poll_task: std::sync::Mutex<Option<JoinHandle<()>>>,
     last_capture: AsyncMutex<HashMap<String, String>>,
+    /// リサイズ検知用の前回ペインサイズ（`collect_agent_states` 参照）。
+    last_pane_size: AsyncMutex<HashMap<String, (i64, i64)>>,
     tracker: AsyncMutex<PhraseNotifyTracker>,
     /// 前回配信した状態一式（`states_payload` の差分計算・新規接続への
     /// 即時スナップショット送信に使う — Python `_last_states` 相当）。
@@ -524,6 +544,7 @@ impl AgentWatchState {
         Self {
             poll_task: std::sync::Mutex::new(None),
             last_capture: AsyncMutex::new(HashMap::new()),
+            last_pane_size: AsyncMutex::new(HashMap::new()),
             tracker: AsyncMutex::new(PhraseNotifyTracker::new()),
             last_states: AsyncMutex::new(HashMap::new()),
         }
@@ -575,6 +596,7 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     let state = state.clone();
     tokio::spawn(async move {
         *state.agent_watch.last_capture.lock().await = HashMap::new();
+        *state.agent_watch.last_pane_size.lock().await = HashMap::new();
         *state.agent_watch.tracker.lock().await = PhraseNotifyTracker::new();
         *state.agent_watch.last_states.lock().await = HashMap::new();
     });
@@ -605,11 +627,13 @@ async fn poll_loop(state: Arc<AppState>) {
         let mut last_states = state.agent_watch.last_states.lock().await;
         let collected = {
             let mut last_capture = state.agent_watch.last_capture.lock().await;
+            let mut last_pane_size = state.agent_watch.last_pane_size.lock().await;
             let mut tracker = state.agent_watch.tracker.lock().await;
             collect_agent_states(
                 &state,
                 &state.manifest_store,
                 &mut last_capture,
+                &mut last_pane_size,
                 &mut tracker,
                 &last_states,
                 now,
@@ -1048,11 +1072,13 @@ mod collect_agent_states_tests {
         let (state, dir) = test_state();
         let store = ManifestStore::new(dir.path().join("agent_manifests"), dir.path());
         let mut last_capture = HashMap::new();
+        let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
         let result = collect_agent_states(
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             0.0,
@@ -1074,6 +1100,7 @@ mod collect_agent_states_tests {
         let _guard = TmuxSessionGuard(tmux_name.clone());
 
         let mut last_capture = HashMap::new();
+        let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
 
         // 初回ポーリング: 比較対象が無いので idle。
@@ -1081,6 +1108,7 @@ mod collect_agent_states_tests {
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             0.0,
@@ -1102,6 +1130,7 @@ mod collect_agent_states_tests {
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             1.0,
@@ -1122,6 +1151,7 @@ mod collect_agent_states_tests {
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             2.0,
@@ -1134,6 +1164,80 @@ mod collect_agent_states_tests {
                 .get(&session_id)
                 .map(String::as_str),
             Some(STATE_IDLE)
+        );
+    }
+
+    /// resize（capture-pane の再フローで全文が変わるが、実際の出力は何も
+    /// 変わっていない）だけでは working に化けないことを確認する
+    /// （リサイズ検知して1周期だけ画面差分を抑制する仕組みの回帰ガード）。
+    #[tokio::test]
+    async fn resize_between_polls_does_not_flip_to_working() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let (state, dir) = test_state();
+        let store = ManifestStore::new(dir.path().join("agent_manifests"), dir.path());
+        let session_id = create_session(&state, None, None, None).await;
+        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let _guard = TmuxSessionGuard(tmux_name.clone());
+
+        let mut last_capture = HashMap::new();
+        let mut last_pane_size = HashMap::new();
+        let mut tracker = PhraseNotifyTracker::new();
+
+        // 初回ポーリング: 比較対象が無いので idle。
+        let r1 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut last_pane_size,
+            &mut tracker,
+            &HashMap::new(),
+            0.0,
+        )
+        .await;
+        assert_eq!(
+            r1.states
+                .as_ref()
+                .unwrap()
+                .get(&session_id)
+                .map(String::as_str),
+            Some(STATE_IDLE)
+        );
+
+        // 実際の出力は変えず、ペイン幅だけ変える（80 → 40。tmux が内容を
+        // 再フローするため capture-pane -p の全文は変わる）。
+        assert!(crate::subprocess::run_tmux_cmd(&[
+            "resize-window",
+            "-t",
+            &tmux_name,
+            "-x",
+            "40",
+            "-y",
+            "24",
+        ])
+        .await
+        .is_some_and(|r| r.success()));
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+        let r2 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut last_pane_size,
+            &mut tracker,
+            &HashMap::new(),
+            1.0,
+        )
+        .await;
+        assert_eq!(
+            r2.states
+                .as_ref()
+                .unwrap()
+                .get(&session_id)
+                .map(String::as_str),
+            Some(STATE_IDLE),
+            "resize alone must not be reported as working"
         );
     }
 
@@ -1163,6 +1267,7 @@ mod collect_agent_states_tests {
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
         let mut last_capture = HashMap::new();
+        let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
 
         // 初検出のポーリングでは通知しない。
@@ -1170,6 +1275,7 @@ mod collect_agent_states_tests {
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             100.0,
@@ -1186,6 +1292,7 @@ mod collect_agent_states_tests {
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             100.5,
@@ -1230,11 +1337,13 @@ mod collect_agent_states_tests {
 
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
+        let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
         let result = collect_agent_states(
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             0.0,
@@ -1275,11 +1384,13 @@ mod collect_agent_states_tests {
 
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
+        let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
         collect_agent_states(
             &state,
             &store,
             &mut last_capture,
+            &mut last_pane_size,
             &mut tracker,
             &HashMap::new(),
             0.0,
