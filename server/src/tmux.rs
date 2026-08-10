@@ -199,7 +199,12 @@ pub async fn create_tmux_session(
     if let Some(ws) = workspace_path {
         env.push(("WORKSPACE".to_string(), ws.to_string()));
     }
-    env.extend(hook_session_env(data_dir, config, project_root, session_name));
+    env.extend(hook_session_env(
+        data_dir,
+        config,
+        project_root,
+        session_name,
+    ));
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();

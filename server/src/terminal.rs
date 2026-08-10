@@ -430,7 +430,9 @@ pub async fn terminal_ws(
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    if crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers).is_none() {
+    if crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers)
+        .is_none()
+    {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
     }
     ws.on_upgrade(move |socket| async move {

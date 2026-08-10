@@ -873,6 +873,10 @@ mod tests {
         // 別セッションや別デバイスへは通常通り送る。
         assert!(!should_skip_for_viewing(&sub, Some("s2"), &status_stream));
         let other_device_sub = json!({"endpoint": "https://push.example/b", "device_id": "dev_2"});
-        assert!(!should_skip_for_viewing(&other_device_sub, Some("s1"), &status_stream));
+        assert!(!should_skip_for_viewing(
+            &other_device_sub,
+            Some("s1"),
+            &status_stream
+        ));
     }
 }
