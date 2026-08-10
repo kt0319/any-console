@@ -47,6 +47,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { emit } from "../app-bridge.js";
+import { nextTabIndex } from "../utils/tab-nav.js";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -81,20 +82,12 @@ function focusTab(tab) {
 }
 
 function onTabListKeydown(e) {
-  const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
-  if (!keys.includes(e.key)) return;
   const tabs = sortedItems.value.map((item) => item.tab);
-  if (tabs.length === 0) return;
   const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId.value);
-  if (currentIndex < 0) return;
+  const nextIndex = nextTabIndex(e.key, currentIndex, tabs.length);
+  if (nextIndex === null) return;
 
   e.preventDefault();
-  let nextIndex = currentIndex;
-  if (e.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-  if (e.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
-  if (e.key === "Home") nextIndex = 0;
-  if (e.key === "End") nextIndex = tabs.length - 1;
-
   const nextTab = tabs[nextIndex];
   onSelect(nextTab, { skipFocus: true });
   focusTab(nextTab);
