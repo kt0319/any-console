@@ -41,6 +41,11 @@ pub fn task_running(task: &Option<tokio::task::JoinHandle<()>>) -> bool {
     task.as_ref().is_some_and(|h| !h.is_finished())
 }
 
+/// アップロード共通の上限サイズ（/upload-image・ワークスペースのファイル
+/// アップロードで同値。文言 `MSG_UPLOAD_TOO_LARGE` とセットで使う）。
+pub const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
+pub const MSG_UPLOAD_TOO_LARGE: &str = "File too large (max 10MB)";
+
 /// 現在時刻の UNIX epoch 秒（Python `time.time()` の整数部相当）。
 pub fn now_epoch() -> i64 {
     std::time::SystemTime::now()

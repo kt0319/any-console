@@ -146,7 +146,8 @@ async fn upload_image_missing_file_field_is_bad_request() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 400);
+    // Python 版（FastAPI の必須 UploadFile）と同じく 422（git_files 側とも一致）。
+    assert_eq!(resp.status(), 422);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["detail"], "file field required");
 }

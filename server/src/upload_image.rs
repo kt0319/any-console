@@ -17,9 +17,8 @@ use tokio::process::Command;
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, too_large, ApiError};
-use crate::util::IS_MACOS;
+use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
-const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
 
@@ -172,18 +171,20 @@ pub async fn upload_image(
                 field
                     .bytes()
                     .await
-                    .map_err(|_| too_large("File too large (max 10MB)"))?,
+                    .map_err(|_| too_large(MSG_UPLOAD_TOO_LARGE))?,
             );
         }
     }
     let Some(data) = data else {
-        return Err(bad_request("file field required"));
+        // Python 版（FastAPI の必須 UploadFile）はフィールド欠落を 422 で返して
+        // いた。git_files.rs のアップロードと同じく 422 に揃える。
+        return Err(crate::errors::unprocessable("file field required"));
     };
     if !ALLOWED_IMAGE_TYPES.contains(&content_type.as_str()) {
         return Err(bad_request(format!("Unsupported type: {content_type}")));
     }
     if data.len() > MAX_UPLOAD_SIZE {
-        return Err(too_large("File too large (max 10MB)"));
+        return Err(too_large(MSG_UPLOAD_TOO_LARGE));
     }
 
     let dir = upload_dir();

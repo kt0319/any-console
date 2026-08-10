@@ -22,9 +22,8 @@ use crate::git_helpers::{
 };
 use crate::git_utils::{run_git_raw, GitError, GIT_SHORT_TIMEOUT_SEC};
 use crate::state::AppState;
-use crate::util::{base64_standard, JsonBody, QueryParams};
+use crate::util::{base64_standard, JsonBody, QueryParams, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
-const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
 const MAX_ZIP_DOWNLOAD_SIZE: u64 = 200 * 1024 * 1024;
 const MAX_FILE_SIZE: u64 = 512 * 1024;
 const MAX_IMAGE_PREVIEW_SIZE: u64 = 5 * 1024 * 1024;
@@ -444,17 +443,14 @@ pub async fn upload(
                     field
                         .bytes()
                         .await
-                        .map_err(|_| too_large("File too large (max 10MB)"))?,
+                        .map_err(|_| too_large(MSG_UPLOAD_TOO_LARGE))?,
                 );
             }
             _ => {}
         }
     }
     let Some(data) = data else {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "file field required",
-        ));
+        return Err(crate::errors::unprocessable("file field required"));
     };
 
     let (ws_path, target_dir, rel_dir) = resolve_workspace_file(&state, &name, &path).await?;
@@ -490,7 +486,7 @@ pub async fn upload(
     }
 
     if data.len() > MAX_UPLOAD_SIZE {
-        return Err(too_large("File too large (max 10MB)"));
+        return Err(too_large(MSG_UPLOAD_TOO_LARGE));
     }
     std::fs::write(&target_file, &data).map_err(|e| map_io_error("Cannot write file", e))?;
 

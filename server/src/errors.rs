@@ -42,6 +42,7 @@ error_ctor!(forbidden, StatusCode::FORBIDDEN);
 error_ctor!(not_found, StatusCode::NOT_FOUND);
 error_ctor!(conflict, StatusCode::CONFLICT);
 error_ctor!(gone, StatusCode::GONE);
+error_ctor!(unprocessable, StatusCode::UNPROCESSABLE_ENTITY);
 error_ctor!(too_large, StatusCode::PAYLOAD_TOO_LARGE);
 error_ctor!(too_many_requests, StatusCode::TOO_MANY_REQUESTS);
 error_ctor!(server_error, StatusCode::INTERNAL_SERVER_ERROR);
