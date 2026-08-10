@@ -170,17 +170,6 @@ impl TerminalSession {
         }
     }
 
-    pub fn metadata_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "workspace": self.workspace,
-            "icon": self.icon,
-            "icon_color": self.icon_color,
-            "job_name": self.job_name,
-            "job_label": self.job_label,
-            "interactive": self.interactive,
-        })
-    }
-
     /// この接続専用の PTY でベースセッションへ独立アタッチし、読み取りループを
     /// 起動する（Python `attach_client_bridge` + `register_bridge` +
     /// `start_bridge_reader` 相当）。ブリッジ ID を返す。

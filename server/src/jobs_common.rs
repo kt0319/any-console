@@ -180,21 +180,6 @@ pub fn load_workspace_jobs_data(state: &AppState, workspace_name: &str) -> Map<S
     data
 }
 
-pub fn save_workspace_jobs_data(
-    state: &AppState,
-    workspace_name: &str,
-    data: Map<String, Value>,
-) -> Result<(), ApiError> {
-    commit_workspace_jobs(
-        state,
-        workspace_name,
-        Box::new(move |jobs| {
-            *jobs = data;
-            Ok(())
-        }),
-    )
-}
-
 /// ワークスペースジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う
 /// （Python `save_workspace_config_section` は同じくロック下で read-modify-write
 /// する。`mutate` は commit 時点の最新データに対して適用される — 詳細は
