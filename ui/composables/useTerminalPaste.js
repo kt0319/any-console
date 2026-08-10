@@ -3,8 +3,10 @@ import { useAuthStore } from "../stores/auth.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { isEditableTarget } from "../utils/dom.js";
 import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 
 export function useTerminalPaste({ tab, isActive }) {
+  const toast = useToast();
   const auth = useAuthStore();
 
   async function onPaste(e) {
@@ -28,7 +30,7 @@ export function useTerminalPaste({ tab, isActive }) {
         file: imageFile,
         apiFetch: auth.apiFetch.bind(auth),
         ws: tab.value.ws,
-        notify: (message, type) => emit("toast:show", { message, type }),
+        notify: (message, type) => toast.show(message, type),
       });
       return;
     }

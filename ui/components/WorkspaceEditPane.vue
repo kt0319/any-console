@@ -49,13 +49,13 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { useToast } from "../composables/useToast.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_WORKSPACES } from "../utils/endpoints.js";
-import { emit } from "../app-bridge.js";
 
 
 const DEFAULT_WS_ICON = "mdi-console";
@@ -82,6 +82,7 @@ const isDetailsDirty = computed(() =>
 );
 
 const { apiPut, apiDelete, wsEndpoint } = useApi();
+const toast = useToast();
 const { confirm } = useConfirm();
 
 async function onDelete() {
@@ -94,7 +95,7 @@ async function onDelete() {
     if (ok) {
       await workspaceStore.fetchWorkspaces();
       popView();
-      emit("toast:show", { message: `Deleted "${name}"` });
+      toast.info(`Deleted "${name}"`);
     } else if (data?.detail) {
       saveError.value = data.detail;
     }

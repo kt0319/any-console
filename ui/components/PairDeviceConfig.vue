@@ -51,6 +51,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useCopyFeedback } from "../composables/useCopyFeedback.js";
 import { generateQrSvg } from "../utils/qrcode.js";
@@ -62,12 +63,12 @@ import {
   PAIRING_SUCCESS_CLOSE_DELAY_MS,
   extractApiError,
 } from "../utils/constants.js";
-import { emit } from "../app-bridge.js";
 
 const { modalTitle, popView } = useModalView();
 modalTitle.value = "Add Device";
 
 const { apiPost, apiGet } = useApi();
+const toast = useToast();
 
 const loading = ref(true);
 const error = ref("");
@@ -123,7 +124,7 @@ async function poll() {
   if (data.status === "claimed") {
     status.value = "claimed";
     clearTimers();
-    emit("toast:show", { message: "Device paired successfully", type: "success" });
+    toast.success("Device paired successfully");
     closeTimer = setTimeout(() => popView(), PAIRING_SUCCESS_CLOSE_DELAY_MS);
   } else if (data.status === "expired" || data.status === "not_found") {
     status.value = "expired";

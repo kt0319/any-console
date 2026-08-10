@@ -5,9 +5,10 @@ import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 import { isTouchInput } from "../utils/device.js";
 import { openExternal } from "../utils/open-external.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 
 export function useEditorIntegration() {
+  const toast = useToast();
   const workspaceStore = useWorkspaceStore();
   const { apiGet } = useApi();
 
@@ -49,7 +50,7 @@ export function useEditorIntegration() {
     // 前提のため、モバイルでは対応するアプリが無くwindow.open()が黙って失敗する
     // （何も起きたように見えない）。理由が分かるようトーストで明示する。
     if (isTouchInput()) {
-      emit("toast:show", { message: "Editor integration isn't available on mobile", type: "info" });
+      toast.info("Editor integration isn't available on mobile");
       return;
     }
     const url = buildEditorUrl(path);

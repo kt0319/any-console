@@ -30,11 +30,12 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { getFullBufferText } from "../utils/terminal-buffer-text.js";
 import { copyText } from "../utils/clipboard.js";
 import { applyFormat } from "../utils/auto-format.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "../composables/useToast.js";
 
 const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"];
 
 const terminalStore = useTerminalStore();
+const toast = useToast();
 const textareaEl = ref(null);
 const original = ref("");
 
@@ -58,9 +59,8 @@ async function copySelection() {
     ? el.value.slice(el.selectionStart, el.selectionEnd)
     : displayText.value;
   const ok = await copyText(target);
-  emit("toast:show", ok
-    ? { message: "Copied", type: "success" }
-    : { message: "Failed to copy", type: "error" });
+  if (ok) toast.success("Copied");
+  else toast.error("Failed to copy");
 }
 </script>
 
