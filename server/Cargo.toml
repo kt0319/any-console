@@ -47,6 +47,14 @@ hkdf = "0.13.0"
 base64 = "0.23.1"
 url = "2.5.8"
 axum-server = { version = "0.8.0", default-features = false, features = ["tls-rustls"] }
+# バイナリ配布ビルド専用（`--features embed-assets`）。dist/・agent_manifests/
+# をコンパイル時にバイナリへ焼き込む。デフォルトのgit clone開発フローには
+# 一切影響しない（依存として取得されるがコード上は#[cfg(feature=...)]の
+# 中でしか使われない）。
+include_dir = { version = "0.7", optional = true }
+
+[features]
+embed-assets = ["dep:include_dir"]
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

@@ -275,6 +275,13 @@ pub fn parse_manifest_text(
 
 // ─── 階層解決・キャッシュ付きロード ─────────────────────────────────────────
 
+/// `embed-assets` feature（バイナリ配布ビルド専用）有効時、`agent_manifests/`
+/// をコンパイル時にバイナリへ焼き込む。ディスク上に`manifest_dir`が無い/空の
+/// 場合のみ使われるフォールバック。
+#[cfg(feature = "embed-assets")]
+static EMBEDDED_MANIFESTS: include_dir::Dir<'_> =
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/../agent_manifests");
+
 /// マニフェストの解決（同梱 + override + リモートキャッシュ）と TTL キャッシュを持つ。
 ///
 /// `manifest_dir` は同梱データ（`agent_manifests/`）、`data_dir` から
@@ -343,13 +350,14 @@ impl ManifestStore {
         }
     }
 
-    /// 同梱 1 ファイルを起点に override > remote > bundled の順で解決する。
-    fn load_layered_manifest(&self, path: &Path) -> Option<Manifest> {
-        let content = std::fs::read_to_string(path).ok()?;
-        let bundled = match parse_manifest_text(&content, "bundled", false) {
+    /// 同梱 1 ファイル分の生テキストを起点に override > remote > bundled の
+    /// 順で解決する（生テキストの取得元はディスク・バイナリ埋め込みのどちらでも
+    /// 同じ処理にかけられるよう、パスではなくテキストを受け取る）。
+    fn load_layered_manifest(&self, source_label: &str, content: &str) -> Option<Manifest> {
+        let bundled = match parse_manifest_text(content, "bundled", false) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!("screen manifest load failed file={}: {e}", path.display());
+                tracing::warn!("screen manifest load failed source={source_label}: {e}");
                 return None;
             }
         };
@@ -389,6 +397,23 @@ impl ManifestStore {
                 }
             }
         }
+        let sources = self.bundled_manifest_sources();
+        let manifests: Vec<Arc<Manifest>> = sources
+            .iter()
+            .filter_map(|(label, content)| self.load_layered_manifest(label, content))
+            .map(Arc::new)
+            .collect();
+        *self.cache.lock().expect("manifest cache lock poisoned") =
+            Some((Instant::now(), manifests.clone()));
+        manifests
+    }
+
+    /// 同梱マニフェストの (表示用ラベル, TOML生テキスト) 一覧をファイル名昇順で
+    /// 返す。ディスク（`manifest_dir`）を優先し、1件も見つからなければ
+    /// （`embed-assets` 有効時のみ）バイナリに埋め込まれたコピーへ
+    /// フォールバックする（git clone開発フローはディスクが常に非空なので
+    /// この分岐を通らない）。
+    fn bundled_manifest_sources(&self) -> Vec<(String, String)> {
         let mut paths: Vec<PathBuf> = std::fs::read_dir(&self.manifest_dir)
             .into_iter()
             .flatten()
@@ -396,15 +421,33 @@ impl ManifestStore {
             .map(|entry| entry.path())
             .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("toml"))
             .collect();
-        paths.sort();
-        let manifests: Vec<Arc<Manifest>> = paths
-            .iter()
-            .filter_map(|p| self.load_layered_manifest(p))
-            .map(Arc::new)
-            .collect();
-        *self.cache.lock().expect("manifest cache lock poisoned") =
-            Some((Instant::now(), manifests.clone()));
-        manifests
+        if !paths.is_empty() {
+            paths.sort();
+            return paths
+                .iter()
+                .filter_map(|p| {
+                    let label = p.display().to_string();
+                    let content = std::fs::read_to_string(p).ok()?;
+                    Some((label, content))
+                })
+                .collect();
+        }
+        #[cfg(feature = "embed-assets")]
+        {
+            let mut entries: Vec<(String, String)> = EMBEDDED_MANIFESTS
+                .files()
+                .filter(|f| f.path().extension().and_then(|s| s.to_str()) == Some("toml"))
+                .filter_map(|f| {
+                    let label = format!("embedded:{}", f.path().display());
+                    let content = String::from_utf8(f.contents().to_vec()).ok()?;
+                    Some((label, content))
+                })
+                .collect();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            entries
+        }
+        #[cfg(not(feature = "embed-assets"))]
+        Vec::new()
     }
 
     /// リモート更新のコミット後などに階層解決キャッシュを破棄する。

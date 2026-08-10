@@ -8,6 +8,12 @@
 //! - index.html / sw.js: no-cache
 //! - /assets/*: Vite のハッシュ付きファイル名のため 1 年間 immutable
 //! - /icons/*: ICONS_DIR（data/icons）から配信
+//!
+//! `embed-assets` feature（バイナリ配布ビルド専用、デフォルトOFF）を有効に
+//! すると、コンパイル時に `dist/` をバイナリへ焼き込み、ディスク上に
+//! `frontend_dir/index.html` が無い場合のフォールバックとして配信する。
+//! git clone開発フロー（`npm run build`でdist/を都度生成する運用）は
+//! ディスクを優先するため一切影響を受けない。
 
 use std::path::{Component, Path, PathBuf};
 
@@ -15,27 +21,59 @@ use axum::body::Body;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 
+#[cfg(feature = "embed-assets")]
+static EMBEDDED_DIST: include_dir::Dir<'_> =
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/../dist");
+
 #[derive(Debug, Clone)]
 pub struct StaticCtx {
     pub frontend_dir: PathBuf,
     pub icons_dir: PathBuf,
+    /// ディスクに dist/ が無く、埋め込みアセットへフォールバックしている場合 true。
+    #[cfg(feature = "embed-assets")]
+    embedded: bool,
 }
 
 impl StaticCtx {
-    /// dist ディレクトリが存在する場合のみ有効化する。
+    /// dist ディレクトリが存在する場合はそちらを使う。無ければ（`embed-assets`
+    /// 有効時のみ）バイナリに埋め込まれたアセットへフォールバックする。
     pub fn detect(frontend_dir: PathBuf, icons_dir: PathBuf) -> Option<Self> {
         if frontend_dir.join("index.html").is_file() {
-            Some(Self {
+            return Some(Self {
                 frontend_dir,
                 icons_dir,
-            })
-        } else {
-            None
+                #[cfg(feature = "embed-assets")]
+                embedded: false,
+            });
         }
+        #[cfg(feature = "embed-assets")]
+        {
+            if EMBEDDED_DIST.get_file("index.html").is_some() {
+                return Some(Self {
+                    frontend_dir,
+                    icons_dir,
+                    embedded: true,
+                });
+            }
+        }
+        None
+    }
+
+    #[cfg(feature = "embed-assets")]
+    fn is_embedded(&self) -> bool {
+        self.embedded
+    }
+
+    #[cfg(not(feature = "embed-assets"))]
+    fn is_embedded(&self) -> bool {
+        false
     }
 
     /// SPA シェル（"/" と "/pair/{id}" が共用）。
     pub fn serve_index(&self) -> Response {
+        if self.is_embedded() {
+            return self.serve_embedded("index.html", "text/html; charset=utf-8", Some("no-cache"));
+        }
         match std::fs::read(self.frontend_dir.join("index.html")) {
             Ok(bytes) => response_with(bytes, "text/html; charset=utf-8", Some("no-cache")),
             Err(_) => StatusCode::NOT_FOUND.into_response(),
@@ -43,6 +81,9 @@ impl StaticCtx {
     }
 
     pub fn serve_sw(&self) -> Response {
+        if self.is_embedded() {
+            return self.serve_embedded("sw.js", "application/javascript", Some("no-cache"));
+        }
         match std::fs::read(self.frontend_dir.join("sw.js")) {
             Ok(bytes) => response_with(bytes, "application/javascript", Some("no-cache")),
             Err(_) => StatusCode::NOT_FOUND.into_response(),
@@ -52,11 +93,22 @@ impl StaticCtx {
     /// URL パスに対応する静的ファイルがあれば配信する。無ければ None（proxy へ）。
     pub fn try_serve(&self, url_path: &str) -> Option<Response> {
         let rel = sanitize_url_path(url_path)?;
-        let (base, rel, is_icons) = match rel.strip_prefix("icons/") {
-            Ok(icon_rel) => (&self.icons_dir, icon_rel.to_path_buf(), true),
-            Err(_) => (&self.frontend_dir, rel, false),
-        };
-        let full = base.join(&rel);
+        // icons（data/icons、ユーザーアップロード分）は埋め込み対象外・常にディスクのみ。
+        if let Ok(icon_rel) = rel.strip_prefix("icons/") {
+            let full = self.icons_dir.join(icon_rel);
+            if !full.is_file() {
+                return None;
+            }
+            let bytes = std::fs::read(&full).ok()?;
+            let mime = mime_guess::from_path(&full)
+                .first_or_octet_stream()
+                .to_string();
+            return Some(response_with(bytes, &mime, None));
+        }
+        if self.is_embedded() {
+            return self.try_serve_embedded(&rel);
+        }
+        let full = self.frontend_dir.join(&rel);
         if !full.is_file() {
             return None;
         }
@@ -65,13 +117,56 @@ impl StaticCtx {
             .first_or_octet_stream()
             .to_string();
         // Vite の /assets/* はファイル名にハッシュが入っており内容が変わらないので
-        // 1 年間 immutable キャッシュさせる（icons は対象外）。
-        let cache = if !is_icons && rel.starts_with("assets") {
+        // 1 年間 immutable キャッシュさせる。
+        let cache = if rel.starts_with("assets") {
             Some("public, max-age=31536000, immutable")
         } else {
             None
         };
         Some(response_with(bytes, &mime, cache))
+    }
+
+    #[cfg(feature = "embed-assets")]
+    fn serve_embedded(
+        &self,
+        path: &str,
+        content_type: &str,
+        cache_control: Option<&str>,
+    ) -> Response {
+        match EMBEDDED_DIST.get_file(path) {
+            Some(f) => response_with(f.contents().to_vec(), content_type, cache_control),
+            None => StatusCode::NOT_FOUND.into_response(),
+        }
+    }
+
+    #[cfg(not(feature = "embed-assets"))]
+    fn serve_embedded(
+        &self,
+        _path: &str,
+        _content_type: &str,
+        _cache_control: Option<&str>,
+    ) -> Response {
+        StatusCode::NOT_FOUND.into_response()
+    }
+
+    #[cfg(feature = "embed-assets")]
+    fn try_serve_embedded(&self, rel: &Path) -> Option<Response> {
+        let rel_str = rel.to_string_lossy();
+        let f = EMBEDDED_DIST.get_file(rel_str.as_ref())?;
+        let mime = mime_guess::from_path(rel)
+            .first_or_octet_stream()
+            .to_string();
+        let cache = if rel_str.starts_with("assets") {
+            Some("public, max-age=31536000, immutable")
+        } else {
+            None
+        };
+        Some(response_with(f.contents().to_vec(), &mime, cache))
+    }
+
+    #[cfg(not(feature = "embed-assets"))]
+    fn try_serve_embedded(&self, _rel: &Path) -> Option<Response> {
+        None
     }
 }
 
@@ -131,7 +226,14 @@ mod tests {
     #[test]
     fn detect_requires_index_html() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(StaticCtx::detect(dir.path().join("missing"), dir.path().join("icons")).is_none());
+        let result = StaticCtx::detect(dir.path().join("missing"), dir.path().join("icons"));
+        // embed-assets有効ビルドでは、ディスクにdist/が無くてもバイナリに
+        // 焼き込まれたアセットへフォールバックするため Some になる（この
+        // テストバイナリ自体がビルド時に実際の dist/ を埋め込んでいるため）。
+        #[cfg(feature = "embed-assets")]
+        assert!(result.is_some());
+        #[cfg(not(feature = "embed-assets"))]
+        assert!(result.is_none());
     }
 
     #[test]
