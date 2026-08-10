@@ -7,6 +7,8 @@
 //! 組み立てる。サンドボックスに `tailscale` バイナリは無い前提のため、MagicDNS
 //! による URL 組み立て分岐は必ずスキップされ、netloc フォールバックへ落ちる。
 
+mod common;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -14,12 +16,9 @@ use axum::routing::{get, post};
 use axum::Router;
 use serde_json::{json, Value};
 
-use any_console_server::auth::{Auth, COOKIE_DEVICE_ID, COOKIE_DEVICE_SECRET};
-use any_console_server::config::ConfigStore;
+use any_console_server::auth::{COOKIE_DEVICE_ID, COOKIE_DEVICE_SECRET};
 use any_console_server::json_store::save_json_file;
 use any_console_server::pairing;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 
 const TOKEN: &str = "pairing-test-token";
@@ -51,38 +50,7 @@ async fn spawn_front_with_token(token: &str) -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": token})).unwrap();
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-".to_string(),
-        },
-        config: ConfigStore::new(dir.path().join("config.json")),
-        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: None,
-        auth: Auth::load(data_dir, false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    let state = common::test_app_state(dir.path(), common::StateOptions::default());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -100,12 +68,8 @@ async fn spawn_front() -> TestFront {
     spawn_front_with_token(TOKEN).await
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
 async fn start_pairing(front: &TestFront) -> Value {
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/auth/pairing/start", front.addr))
         .bearer_auth(TOKEN)
         .header("host", FAKE_ORIGIN_HOST)
@@ -119,7 +83,7 @@ async fn start_pairing(front: &TestFront) -> Value {
 #[tokio::test]
 async fn start_requires_auth() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/auth/pairing/start", front.addr))
         .send()
         .await
@@ -130,7 +94,7 @@ async fn start_requires_auth() {
 #[tokio::test]
 async fn start_rejects_when_auth_disabled() {
     let front = spawn_front_with_token("").await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/auth/pairing/start", front.addr))
         .send()
         .await
@@ -146,7 +110,7 @@ async fn start_rejects_when_only_reachable_via_localhost() {
     // Host ヘッダを明示しない素のリクエストは、テストサーバの実アドレス
     // （127.0.0.1）を Host として受け取る。tailscale バイナリも無いため
     // MagicDNS URL は組み立てられず、loopback フォールバック拒否に落ちる。
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/auth/pairing/start", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -174,7 +138,7 @@ async fn start_returns_id_url_and_expiry() {
 #[tokio::test]
 async fn status_not_found_for_unknown_id() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/auth/pairing/pr_doesnotexist/status",
             front.addr
@@ -193,7 +157,7 @@ async fn status_pending_after_start_no_auth_required() {
     let started = start_pairing(&front).await;
     let pairing_id = started["id"].as_str().unwrap();
     // status ポーリングは未認証（新デバイス自身がまだ cookie を持たない）。
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/auth/pairing/{pairing_id}/status",
             front.addr
@@ -216,7 +180,7 @@ async fn claim_with_wrong_token_is_rejected() {
     let front = spawn_front().await;
     let started = start_pairing(&front).await;
     let pairing_id = started["id"].as_str().unwrap();
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/auth/pairing/{pairing_id}/claim",
             front.addr
@@ -233,7 +197,7 @@ async fn claim_with_wrong_token_is_rejected() {
 #[tokio::test]
 async fn claim_unknown_id_is_gone() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/auth/pairing/pr_doesnotexist/claim",
             front.addr
@@ -252,7 +216,7 @@ async fn claim_succeeds_registers_device_sets_cookies_and_reports_claimed() {
     let pairing_id = started["id"].as_str().unwrap();
     let pairing_token = extract_pairing_token(started["url"].as_str().unwrap());
 
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/auth/pairing/{pairing_id}/claim",
             front.addr
@@ -287,7 +251,7 @@ async fn claim_succeeds_registers_device_sets_cookies_and_reports_claimed() {
     assert!(body["device_id"].as_str().unwrap().starts_with("dev_"));
 
     // claim 後は status が claimed を返す。
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/auth/pairing/{pairing_id}/status",
             front.addr
@@ -299,7 +263,7 @@ async fn claim_succeeds_registers_device_sets_cookies_and_reports_claimed() {
     assert_eq!(body["status"], "claimed");
 
     // 使い切ったトークンでの再 claim は拒否される。
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/auth/pairing/{pairing_id}/claim",
             front.addr
@@ -314,7 +278,7 @@ async fn claim_succeeds_registers_device_sets_cookies_and_reports_claimed() {
 #[tokio::test]
 async fn rate_limit_blocks_after_threshold() {
     let front = spawn_front().await;
-    let c = client();
+    let c = common::client();
     let mut last_status = reqwest::StatusCode::OK;
     for _ in 0..121 {
         let resp = c

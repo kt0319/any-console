@@ -3,19 +3,15 @@
 //! 実 git リポジトリを一時領域に作成してワークスペース登録し、API 応答形が
 //! Python 実装（run_git_command の定型 dict）と一致することを検証する。
 
+mod common;
+
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::config::ConfigStore;
-use any_console_server::git_lock::WorkspaceLocks;
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
-use any_console_server::state::AppState;
 
 struct TestFront {
     addr: SocketAddr,
@@ -65,38 +61,13 @@ async fn spawn_front() -> TestFront {
     );
     store.save_all(&cfg).unwrap();
 
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-".to_string(),
+    let state = common::test_app_state(
+        dir.path(),
+        common::StateOptions {
+            config: Some(store),
+            ..Default::default()
         },
-        config: store,
-        git_locks: WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: None,
-        auth: Auth::load(data_dir.clone(), false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -115,12 +86,8 @@ async fn spawn_front() -> TestFront {
     }
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
 async fn get_json(front: &TestFront, path: &str) -> Value {
-    client()
+    common::client()
         .get(format!("http://{}{path}", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -132,7 +99,7 @@ async fn get_json(front: &TestFront, path: &str) -> Value {
 }
 
 async fn post_json(front: &TestFront, path: &str, body: &Value) -> reqwest::Response {
-    client()
+    common::client()
         .post(format!("http://{}{path}", front.addr))
         .bearer_auth(TOKEN)
         .json(body)
@@ -249,7 +216,7 @@ async fn commit_diff_and_file_diff() {
     assert!(body["diff"].as_str().unwrap().contains("+changed"));
 
     // 不正 ref は 400 detail
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/workspaces/repo/diff/not-a-ref",
             front.addr
@@ -274,7 +241,7 @@ async fn stash_cycle() {
     // 不正な JSON ボディは 422 で拒否し、git stash を実行しない（Codex レビュー
     // 指摘: 以前は parse エラーを黙って include_untracked=false 扱いにして
     // ミューテーションを実行してしまっていた）。
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/workspaces/repo/stash", front.addr))
         .bearer_auth(TOKEN)
         .header("content-type", "application/json")
@@ -357,7 +324,7 @@ async fn reset_validates_mode_and_unknown_workspace() {
     assert_eq!(body["detail"], "Invalid reset mode: extreme");
 
     // 未登録ワークスペースは 400（"Workspace not configured"）
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/workspaces/nope/git-log", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -366,7 +333,7 @@ async fn reset_validates_mode_and_unknown_workspace() {
     assert_eq!(resp.status(), 400);
 
     // 未認証は 401
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/workspaces/repo/git-log", front.addr))
         .send()
         .await
@@ -381,7 +348,7 @@ async fn file_history_follows_renames_within_workspace() {
     assert_eq!(body["status"], "ok");
     assert!(body["stdout"].as_str().unwrap().contains("first commit"));
     // クエリ欠落（path 必須）は 422
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/workspaces/repo/file-history",
             front.addr
@@ -521,7 +488,7 @@ async fn upload_rename_delete_download_cycle() {
             "file",
             reqwest::multipart::Part::bytes(b"uploaded".to_vec()).file_name("up.txt"),
         );
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/workspaces/repo/upload", front.addr))
         .bearer_auth(TOKEN)
         .multipart(form)
@@ -538,7 +505,7 @@ async fn upload_rename_delete_download_cycle() {
         "file",
         reqwest::multipart::Part::bytes(b"x".to_vec()).file_name("up.txt"),
     );
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/workspaces/repo/upload", front.addr))
         .bearer_auth(TOKEN)
         .multipart(form)
@@ -558,7 +525,7 @@ async fn upload_rename_delete_download_cycle() {
     assert!(front.ws_path.join("renamed.txt").is_file());
 
     // download（単一ファイル）
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/workspaces/repo/download?path=renamed.txt",
             front.addr
@@ -575,7 +542,7 @@ async fn upload_rename_delete_download_cycle() {
     assert_eq!(resp.bytes().await.unwrap().as_ref(), b"uploaded");
 
     // download（ディレクトリ → zip、.git は除外される）
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/workspaces/repo/download?path=",
             front.addr
@@ -618,7 +585,7 @@ async fn download_with_non_ascii_filename_succeeds_with_rfc5987_header() {
     let front = spawn_front().await;
     std::fs::write(front.ws_path.join("日本語.txt"), b"content").unwrap();
 
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/workspaces/repo/download?path=%E6%97%A5%E6%9C%AC%E8%AA%9E.txt",
             front.addr
@@ -666,7 +633,7 @@ async fn worktree_create_list_delete() {
 
     // メイン worktree の削除は 400
     let main_path = items[0]["path"].as_str().unwrap();
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/workspaces/repo/worktrees", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"path": main_path}))
@@ -676,7 +643,7 @@ async fn worktree_create_list_delete() {
     assert_eq!(resp.status(), 400);
 
     // worktree 削除
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/workspaces/repo/worktrees", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"path": wt_path}))
@@ -685,7 +652,7 @@ async fn worktree_create_list_delete() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     // 無関係パスの削除は 404
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/workspaces/repo/worktrees", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"path": "/tmp"}))

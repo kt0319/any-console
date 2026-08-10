@@ -5,15 +5,13 @@
 //! （静的ファイル配信・未知パスのネイティブ 404・セキュリティヘッダ・
 //! レート制限がいずれも upstream 無しで正しく動くことの確認）。
 
+mod common;
+
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use serde_json::Value;
 
-use any_console_server::auth::Auth;
 use any_console_server::build_router;
-use any_console_server::rate_limit::FixedWindowCounter;
-use any_console_server::state::AppState;
 use any_console_server::static_files::StaticCtx;
 
 async fn spawn(router: axum::Router) -> SocketAddr {
@@ -44,50 +42,24 @@ async fn spawn_front(rate_limit: u32) -> TestFront {
     std::fs::write(dist.join("index.html"), "<html>rust-served</html>").unwrap();
     std::fs::write(dist.join("sw.js"), "// rust sw").unwrap();
     std::fs::write(dist.join("assets/app-hash.js"), "js!").unwrap();
-    let state = Arc::new(AppState {
-        paths: any_console_server::paths::Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: dir.path().join("data"),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dist.clone(),
-            icons_dir: dir.path().join("icons"),
-            tmux_prefix: "ac-".to_string(),
+    let state = common::test_app_state(
+        dir.path(),
+        common::StateOptions {
+            rate_limit,
+            static_ctx: StaticCtx::detect(dist.clone(), dir.path().join("icons")),
+            frontend_dir: Some(dist),
+            icons_dir: Some(dir.path().join("icons")),
+            ..Default::default()
         },
-        config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
-        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: StaticCtx::detect(dist, dir.path().join("icons")),
-        auth: Auth::load(dir.path().join("data"), false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit,
-    });
+    );
     let addr = spawn(build_router(state)).await;
     TestFront { addr, _dir: dir }
-}
-
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
 }
 
 #[tokio::test]
 async fn unknown_path_returns_native_404_with_detail() {
     let front = spawn_front(1000).await;
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/no-such-route", front.addr))
         .send()
         .await
@@ -103,7 +75,7 @@ async fn unknown_path_returns_native_404_with_detail() {
 #[tokio::test]
 async fn internal_prefixed_paths_are_not_special_cased_and_404() {
     let front = spawn_front(1000).await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/internal/send-push", front.addr))
         .json(&serde_json::json!({"title": "t", "body": "b"}))
         .send()
@@ -125,7 +97,7 @@ async fn websocket_upgrade_to_unknown_path_fails_cleanly() {
 #[tokio::test]
 async fn security_headers_are_added() {
     let front = spawn_front(1000).await;
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/", front.addr))
         .send()
         .await
@@ -139,7 +111,7 @@ async fn security_headers_are_added() {
 async fn static_files_served_natively_without_any_upstream() {
     let front = spawn_front(1000).await;
     // index / sw.js / assets は Rust ネイティブに配信する
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/", front.addr))
         .send()
         .await
@@ -147,13 +119,13 @@ async fn static_files_served_natively_without_any_upstream() {
     assert_eq!(resp.headers()["cache-control"], "no-cache");
     assert_eq!(resp.text().await.unwrap(), "<html>rust-served</html>");
     // SPA シェル: dist に無いパスも index にフォールバックする
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/pair/abc123", front.addr))
         .send()
         .await
         .unwrap();
     assert_eq!(resp.text().await.unwrap(), "<html>rust-served</html>");
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/assets/app-hash.js", front.addr))
         .send()
         .await
@@ -168,14 +140,20 @@ async fn static_files_served_natively_without_any_upstream() {
 async fn rate_limit_returns_429_with_detail() {
     let front = spawn_front(2).await;
     let url = format!("http://{}/push/vapid-public-key", front.addr);
-    assert_eq!(client().get(&url).send().await.unwrap().status(), 200);
-    assert_eq!(client().get(&url).send().await.unwrap().status(), 200);
-    let resp = client().get(&url).send().await.unwrap();
+    assert_eq!(
+        common::client().get(&url).send().await.unwrap().status(),
+        200
+    );
+    assert_eq!(
+        common::client().get(&url).send().await.unwrap().status(),
+        200
+    );
+    let resp = common::client().get(&url).send().await.unwrap();
     assert_eq!(resp.status(), 429);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["detail"], "Too many requests");
     // 除外パス（静的 suffix）は上限超過後も通る
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/assets/app-hash.js", front.addr))
         .send()
         .await

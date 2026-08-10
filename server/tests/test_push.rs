@@ -4,17 +4,14 @@
 //! ユニットテストで検証済み（RFC 8291 Appendix A の中間値との一致を含む）。
 //! ここでは配線・認証・購読の CRUD・Origin からの vapid sub 自動検出を検証する。
 
+mod common;
+
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
-use any_console_server::state::AppState;
 
 struct TestFront {
     addr: SocketAddr,
@@ -28,39 +25,7 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-".to_string(),
-        },
-        config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
-        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        // 未移行ルートへ触れたら失敗するよう、繋がらない upstream を指す
-        static_ctx: None,
-        auth: Auth::load(data_dir.clone(), false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    let state = common::test_app_state(dir.path(), common::StateOptions::default());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -78,21 +43,17 @@ async fn spawn_front() -> TestFront {
     }
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
 #[tokio::test]
 async fn vapid_public_key_requires_auth_and_returns_stable_key() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/push/vapid-public-key", front.addr))
         .send()
         .await
         .unwrap();
     assert_eq!(resp.status(), 401);
 
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/push/vapid-public-key", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -104,7 +65,7 @@ async fn vapid_public_key_requires_auth_and_returns_stable_key() {
     assert!(!key1.is_empty());
 
     // 2回目の呼び出しでも同じ鍵（プロセス内キャッシュ + ファイル永続化）。
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/push/vapid-public-key", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -122,7 +83,7 @@ async fn subscribe_requires_auth_persists_and_detects_vapid_sub() {
         "keys": {"p256dh": "fake-key", "auth": "fake-auth"},
     });
 
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/push/subscribe", front.addr))
         .json(&sub_body)
         .send()
@@ -130,7 +91,7 @@ async fn subscribe_requires_auth_persists_and_detects_vapid_sub() {
         .unwrap();
     assert_eq!(resp.status(), 401);
 
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/push/subscribe", front.addr))
         .bearer_auth(TOKEN)
         .header("origin", "https://my-any-console.example:8888")
@@ -167,7 +128,7 @@ async fn subscribe_same_endpoint_twice_does_not_duplicate() {
         "keys": {"p256dh": "k1", "auth": "a1"},
     });
     for _ in 0..2 {
-        let resp = client()
+        let resp = common::client()
             .post(format!("http://{}/push/subscribe", front.addr))
             .bearer_auth(TOKEN)
             .json(&sub_body)
@@ -190,7 +151,7 @@ async fn unsubscribe_requires_auth_and_removes_subscription() {
         "endpoint": "https://push.example/xyz",
         "keys": {"p256dh": "k", "auth": "a"},
     });
-    client()
+    common::client()
         .post(format!("http://{}/push/subscribe", front.addr))
         .bearer_auth(TOKEN)
         .json(&sub_body)
@@ -198,7 +159,7 @@ async fn unsubscribe_requires_auth_and_removes_subscription() {
         .await
         .unwrap();
 
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/push/subscribe", front.addr))
         .json(&json!({"endpoint": "https://push.example/xyz"}))
         .send()
@@ -206,7 +167,7 @@ async fn unsubscribe_requires_auth_and_removes_subscription() {
         .unwrap();
     assert_eq!(resp.status(), 401);
 
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/push/subscribe", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"endpoint": "https://push.example/xyz"}))

@@ -4,16 +4,15 @@
 //! アクセス時スキャン起動・レスポンス形を検証する。ポートスキャンのパース
 //! ロジック自体は `server/src/preview.rs` の単体テストで検証済み。
 
+mod common;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 
 struct TestFront {
@@ -28,39 +27,7 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-".to_string(),
-        },
-        config: any_console_server::config::ConfigStore::new(dir.path().join("config.json")),
-        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        // 未移行ルートへ触れたら失敗するよう、繋がらない upstream を指す
-        static_ctx: None,
-        auth: Auth::load(data_dir, false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    let state = common::test_app_state(dir.path(), common::StateOptions::default());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let router_state = state.clone();
@@ -79,14 +46,10 @@ async fn spawn_front() -> TestFront {
     }
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
 #[tokio::test]
 async fn preview_ports_requires_auth() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/preview/ports", front.addr))
         .send()
         .await
@@ -103,7 +66,7 @@ async fn preview_ports_served_natively_and_triggers_scan() {
     // 検証しないが、配線・認証・アクセス時スキャン起動・レスポンス形（配列）を
     // 検証する。スキャン自体のパース・フィルタロジックは preview.rs の単体
     // テストで実際の出力フィクスチャを使って検証済み。
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/preview/ports", front.addr))
         .bearer_auth(TOKEN)
         .send()
