@@ -37,14 +37,13 @@ use crate::git_helpers::{invalidate_git_info, validate_branch_name};
 use crate::git_utils::{
     git_branch, git_branches, resolve_workspace_path, run_git_raw, GitError, GIT_QUICK_TIMEOUT_SEC,
 };
-use crate::jobs_common::serialize_workspace_jobs;
+use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
 use crate::state::AppState;
 use crate::terminal_session::TerminalSession;
 use crate::tmux;
 use crate::util::JsonBody;
 
-const TERMINAL_JOB_KEY: &str = "terminal";
 const RECENT_LIMIT: usize = 10;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
 const API_TOKEN_SCOPE_LABEL_PREFIX: &str = "token:";
