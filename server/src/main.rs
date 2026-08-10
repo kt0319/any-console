@@ -21,6 +21,14 @@ use any_console_server::rate_limit::{rate_limit_from_env, FixedWindowCounter};
 use any_console_server::state::AppState;
 use any_console_server::static_files::StaticCtx;
 
+fn print_version() {
+    println!(
+        "any-console-server {} ({})",
+        env!("CARGO_PKG_VERSION"),
+        env!("ANY_CONSOLE_GIT_SHA")
+    );
+}
+
 fn project_root() -> PathBuf {
     match std::env::var("ANY_CONSOLE_PROJECT_ROOT") {
         Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
@@ -58,6 +66,11 @@ fn acquire_singleton_lock(port: u16) -> Option<std::fs::File> {
 
 #[tokio::main]
 async fn main() {
+    if std::env::args().any(|a| a == "--version" || a == "-V") {
+        print_version();
+        return;
+    }
+
     // rustls 0.23 は複数の crypto backend（ring/aws-lc-rs）がビルドに含まれうる
     // ため、プロセス起動時に明示的に選ばないと初回 TLS 利用時（preview proxy
     // または本サーバの HTTPS bind）で panic する。

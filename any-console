@@ -1038,12 +1038,13 @@ cmd_update() {
   info "=== any-console update ==="
 
   if is_binary_release; then
+    command -v curl >/dev/null 2>&1 || error "curl is required to update (not found)"
+    info "Fetching the latest release via install.sh..."
     echo ""
-    echo "Binary installs are updated by re-running the install script"
-    echo "(idempotent — re-downloads the latest release and re-registers the service):"
-    echo ""
-    echo "  curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash"
-    echo ""
+    # install.shはバージョン据え置きなら早期return、差分があれば
+    # checksum検証付きでダウンロード・原子的に反映し、サービス登録済み
+    # （=更新シナリオ）なら反映のため自動でrestartまで行う。
+    curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash
     return
   fi
 
@@ -1241,8 +1242,17 @@ cmd_https_setup() {
   do_https_setup
 }
 
+# install.sh がリスタート要否（=更新か新規インストールか）を判定するための
+# 内部コマンド。出力は無く終了コードのみで答える（登録済みなら0）。
+cmd_is_registered() {
+  is_service_installed
+}
+
 cmd_version() {
   echo "any-console $(get_version)"
+  # VERSIONファイル（タグ名のみ）はgit SHAを含まないため、バイナリが
+  # ビルド済みならビルド時埋め込みのgit SHA付きバージョンも併記する。
+  [ -x "$RUST_BIN" ] && "$RUST_BIN" --version
 }
 
 usage() {
@@ -1251,7 +1261,7 @@ usage() {
   echo "Commands:"
   echo "  setup        Initial setup (install deps + build + optional service register)"
   echo "               --non-interactive: skip prompts, use defaults (also auto-detected via CI=true)"
-  echo "  update       Update to latest (git pull + deps + build + service restart)"
+  echo "  update       Update to latest (checksum-verified download + restart, or git pull + build in dev checkouts)"
   echo "  start        Start service (systemd / launchd)"
   echo "  stop         Stop service (systemd / launchd)"
   echo "  restart      Restart service (systemd / launchd)"
@@ -1304,6 +1314,7 @@ case "$command" in
   run)         cmd_run ;;
   https-setup) cmd_https_setup ;;
   uninstall)   cmd_uninstall ;;
-  version)     cmd_version ;;
+  version|--version|-V) cmd_version ;;
+  is-registered) cmd_is_registered ;;
   *)       usage ;;
 esac
