@@ -27,9 +27,9 @@
           @keydown.enter.prevent="submitAddModal"
           @keydown.esc.prevent="closeAddModal"
         />
-        <div class="branch-add-dialog-buttons">
-          <button class="prompt-btn prompt-btn-cancel" @click="closeAddModal">Cancel</button>
-          <button class="prompt-btn prompt-btn-ok" :disabled="!addName.trim()" @click="submitAddModal">Create</button>
+        <div class="dialog-buttons">
+          <button class="dialog-btn dialog-btn-cancel" @click="closeAddModal">Cancel</button>
+          <button class="dialog-btn dialog-btn-ok" :disabled="!addName.trim()" @click="submitAddModal">Create</button>
         </div>
       </div>
     </div>
@@ -295,12 +295,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 
 .branch-add-radio-label input[type="radio"] {
   accent-color: var(--accent);
-}
-
-.branch-add-dialog-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
 }
 
 .branch-item {
