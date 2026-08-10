@@ -3,7 +3,7 @@ import { ref, reactive, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
+import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION, WORKING_MIN_DURATION_MS } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
@@ -88,12 +88,18 @@ export const useTerminalStore = defineStore("terminal", () => {
   // セッション。idle自体はバッジ非表示にするため、タブを見る（switchTab）
   // までは「done」として表示し続けるための別レイヤー。
   const doneSessions = reactive(/** @type {Record<string, boolean>} */ ({}));
+  // sessionId → working状態に入った時刻(ms)。working→idle遷移時にここからの
+  // 経過が WORKING_MIN_DURATION_MS 未満なら done化しない（backendのagent_watchが
+  // 実際には何も作業していないセッションを、画面のちらつき等で一瞬working扱いに
+  // してしまうことがあり、それを「作業完了」と誤認するのを防ぐため）。
+  const workingStartedAt = /** @type {Record<string, number>} */ ({});
 
   /**
    * status stream WS から届いたエージェント状態をマージする。
-   * working→idle の遷移を「done」として doneSessions に記録し、
-   * idle以外（working/blocked）が届いたら doneSessions はクリアする
-   * （新しい作業の開始、またはblockedでの入力待ちがdoneより優先されるため）。
+   * working が WORKING_MIN_DURATION_MS 以上継続してから idle に遷移した場合のみ
+   * 「done」として doneSessions に記録する。idle以外（working/blocked）が届いたら
+   * doneSessions はクリアする（新しい作業の開始、またはblockedでの入力待ちが
+   * doneより優先されるため）。
    * @param {{ session_id: string, state: string }[]} states
    */
   function applyAgentStates(states) {
@@ -101,9 +107,17 @@ export const useTerminalStore = defineStore("terminal", () => {
     for (const entry of states) {
       if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
         const sessionId = entry.session_id;
-        if (entry.state === "idle") {
-          if (agentStates[sessionId] === "working") doneSessions[sessionId] = true;
+        const prevState = agentStates[sessionId];
+        if (entry.state === "working") {
+          if (prevState !== "working") workingStartedAt[sessionId] = Date.now();
+        } else if (entry.state === "idle") {
+          const startedAt = workingStartedAt[sessionId];
+          if (prevState === "working" && startedAt !== undefined && Date.now() - startedAt >= WORKING_MIN_DURATION_MS) {
+            doneSessions[sessionId] = true;
+          }
+          delete workingStartedAt[sessionId];
         } else {
+          delete workingStartedAt[sessionId];
           delete doneSessions[sessionId];
         }
         agentStates[sessionId] = entry.state;
@@ -118,6 +132,7 @@ export const useTerminalStore = defineStore("terminal", () => {
 
   function clearAgentState(sessionId) {
     if (!sessionId) return;
+    delete workingStartedAt[sessionId];
     delete agentStates[sessionId];
     delete doneSessions[sessionId];
   }

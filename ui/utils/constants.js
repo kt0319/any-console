@@ -73,6 +73,11 @@ export const CONNECTIVITY_OFFLINE_THRESHOLD = 3;
 // サーバの idle keepalive 間隔（WS_PING_INTERVAL_SEC=15s）の約1.3倍＋余裕。
 // 検知を早めるため35sから短縮（体感の「反応しない」時間を減らす）。
 export const WS_STALE_THRESHOLD_MS = 20000;
+// working→idle 遷移を「作業完了(done)」とみなすために必要な、直前のworking
+// 継続時間の下限。backendのagent_watchが実際には何も作業していないセッションを
+// 画面のちらつき等で一瞬working扱いにしてしまうことがあり、それを誤ってdone
+// （＝作業完了の通知）として扱わないためのしきい値。
+export const WORKING_MIN_DURATION_MS = 5000;
 
 export const LS_KEY_RECENT_JOBS = "any_console_recent_jobs";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";

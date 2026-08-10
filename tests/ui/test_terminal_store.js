@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 // @ts-nocheck
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
+import { WORKING_MIN_DURATION_MS } from "../../ui/utils/constants.js";
 
 // addTerminalTab は xterm 依存で重いので使わず、active 再選出ロジックの検証に
 // 必要な最小プロパティ（id / term / sessionId）だけのタブを直接挿入する。
@@ -187,11 +188,42 @@ describe("terminal store: agentStates", () => {
     expect(Object.keys(store.agentStates)).toEqual([]);
   });
 
-  it("working→idle の遷移で doneSessions が立つ", () => {
-    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
-    expect(store.doneSessions.s1).toBeUndefined();
-    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
-    expect(store.doneSessions.s1).toBe(true);
+  it("working が WORKING_MIN_DURATION_MS 以上続いてから idle に遷移すると doneSessions が立つ", () => {
+    vi.useFakeTimers();
+    try {
+      store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+      vi.advanceTimersByTime(WORKING_MIN_DURATION_MS);
+      store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+      expect(store.doneSessions.s1).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("working が WORKING_MIN_DURATION_MS 未満で idle に戻ると doneSessions は立たない（一瞬のworking誤検出対策）", () => {
+    vi.useFakeTimers();
+    try {
+      store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+      vi.advanceTimersByTime(WORKING_MIN_DURATION_MS - 1000);
+      store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+      expect(store.doneSessions.s1).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("working継続中に届く重複working通知はworking開始時刻をリセットしない", () => {
+    vi.useFakeTimers();
+    try {
+      store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+      vi.advanceTimersByTime(3000);
+      store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+      vi.advanceTimersByTime(3000);
+      store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+      expect(store.doneSessions.s1).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("working を経由しない idle は doneSessions を立てない", () => {
@@ -200,25 +232,37 @@ describe("terminal store: agentStates", () => {
   });
 
   it("done中にworking/blockedが届くとdoneSessionsはクリアされる", () => {
-    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
-    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
-    expect(store.doneSessions.s1).toBe(true);
-    store.applyAgentStates([{ session_id: "s1", state: "blocked" }]);
-    expect(store.doneSessions.s1).toBeUndefined();
+    vi.useFakeTimers();
+    try {
+      store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+      vi.advanceTimersByTime(WORKING_MIN_DURATION_MS);
+      store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+      expect(store.doneSessions.s1).toBe(true);
+      store.applyAgentStates([{ session_id: "s1", state: "blocked" }]);
+      expect(store.doneSessions.s1).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("switchTab でタブを見ると doneSessions がクリアされる", () => {
     seedTabs(store, [{ id: 1, sessionId: "s1" }]);
+    vi.useFakeTimers();
     store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    vi.advanceTimersByTime(WORKING_MIN_DURATION_MS);
     store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    vi.useRealTimers();
     expect(store.doneSessions.s1).toBe(true);
     store.switchTab(1);
     expect(store.doneSessions.s1).toBeUndefined();
   });
 
   it("clearAgentState で agentStates と doneSessions を両方消す", () => {
+    vi.useFakeTimers();
     store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    vi.advanceTimersByTime(WORKING_MIN_DURATION_MS);
     store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    vi.useRealTimers();
     store.clearAgentState("s1");
     expect(store.agentStates.s1).toBeUndefined();
     expect(store.doneSessions.s1).toBeUndefined();
