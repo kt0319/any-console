@@ -90,8 +90,6 @@
 .pill-peek-purple .pill-peek-text { color: var(--purple); }
 .pill-peek-success .pill-peek-icon,
 .pill-peek-success .pill-peek-text { color: var(--success); }
-.pill-peek-error .pill-peek-icon,
-.pill-peek-error .pill-peek-text { color: var(--error); }
 /* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
    使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
 .pill-peek-accent .pill-peek-icon { color: var(--accent); }
@@ -104,8 +102,7 @@
    上の .pill-peek-xxx .pill-peek-text ルールより詳細度を上げて上書きする。 */
 .pill-peek-icon-only.pill-peek-pink .pill-peek-text,
 .pill-peek-icon-only.pill-peek-success .pill-peek-text,
-.pill-peek-icon-only.pill-peek-warning .pill-peek-text,
-.pill-peek-icon-only.pill-peek-error .pill-peek-text {
+.pill-peek-icon-only.pill-peek-warning .pill-peek-text {
   color: var(--text-secondary);
 }
 
