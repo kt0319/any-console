@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildStatusStreamUrl,
+  buildViewingMessage,
   parseStatusStreamMessage,
   statusStreamReconnectDelay,
 } from "../../ui/utils/status-stream.js";
@@ -18,6 +19,15 @@ describe("buildStatusStreamUrl", () => {
     expect(buildStatusStreamUrl("wss:", "console.example.ts.net")).toBe(
       "wss://console.example.ts.net/workspaces/statuses/ws",
     );
+  });
+});
+
+describe("buildViewingMessage", () => {
+  it("session_id 付きの viewing メッセージを組み立てる", () => {
+    expect(JSON.parse(buildViewingMessage("s1"))).toEqual({ type: "viewing", session_id: "s1" });
+  });
+  it("非閲覧時は session_id: null を送る", () => {
+    expect(JSON.parse(buildViewingMessage(null))).toEqual({ type: "viewing", session_id: null });
   });
 });
 

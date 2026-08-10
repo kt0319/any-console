@@ -77,6 +77,16 @@ export function parseStatusStreamMessage(raw) {
 }
 
 /**
+ * サーバへ現在の閲覧セッションを伝える送信メッセージを組み立てる
+ * （server/src/status_stream.rs の ClientMessage::Viewing と対応するワイヤ契約）。
+ * @param {string | null} sessionId
+ * @returns {string}
+ */
+export function buildViewingMessage(sessionId) {
+  return JSON.stringify({ type: "viewing", session_id: sessionId });
+}
+
+/**
  * 再接続バックオフ遅延（attempt は 0 始まり）。ターミナル WS と同じ計算を共有する。
  * @param {number} attempt
  * @returns {number}
