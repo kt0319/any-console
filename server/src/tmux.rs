@@ -525,6 +525,17 @@ pub async fn unset_environment(tmux_name: &str, key: &str) -> Option<CmdResult> 
     run_tmux_cmd(&["set-environment", "-u", "-t", tmux_name, key]).await
 }
 
+/// tmux が使えない環境（CI コンテナ等）でスキップするテスト共用ガード
+/// （terminal / agent_watch / terminal_session のテストからも使う）。
+#[cfg(test)]
+pub fn skip_if_no_tmux() -> bool {
+    std::process::Command::new("tmux")
+        .arg("-V")
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -651,17 +662,9 @@ mod tests {
         }
     }
 
-    fn skip_if_no_tmux() -> bool {
-        std::process::Command::new("tmux")
-            .arg("-V")
-            .output()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
-    }
-
     #[tokio::test]
     async fn create_attach_and_kill_real_session() {
-        if skip_if_no_tmux() {
+        if super::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
@@ -706,7 +709,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_session_ids_and_pane_meta_on_real_session() {
-        if skip_if_no_tmux() {
+        if super::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
@@ -740,7 +743,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_session_ids_returns_empty_not_none_when_no_sessions_match() {
-        if skip_if_no_tmux() {
+        if super::skip_if_no_tmux() {
             return;
         }
         let ids = list_session_ids("ac-definitely-nonexistent-prefix-").await;

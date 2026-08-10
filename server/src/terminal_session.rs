@@ -405,17 +405,9 @@ impl TerminalRegistry {
 mod tests {
     use super::*;
 
-    fn skip_if_no_tmux() -> bool {
-        std::process::Command::new("tmux")
-            .arg("-V")
-            .output()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
-    }
-
     #[tokio::test]
     async fn create_attach_write_and_kill_roundtrip() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
@@ -528,7 +520,7 @@ mod tests {
     /// per-session 状態が分裂していた）。
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn get_or_register_cold_hydration_is_atomic_under_concurrency() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();

@@ -31,6 +31,7 @@ use crate::screen_manifest::{
     Manifest, ManifestStore, ADOPTED_STATES, STATE_BLOCKED, STATE_IDLE, STATE_WORKING,
 };
 use crate::state::AppState;
+use crate::util::task_running;
 
 /// Python `common.py` の同名定数と同じ値。
 const AGENT_WATCH_POLL_INTERVAL_SEC: u64 = 2;
@@ -541,10 +542,6 @@ fn has_push_subscriptions(state: &AppState) -> bool {
     crate::push::has_subscriptions(&state.paths.data_dir)
 }
 
-fn task_running(task: &Option<JoinHandle<()>>) -> bool {
-    task.as_ref().is_some_and(|h| !h.is_finished())
-}
-
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。ポーリングタスクが
 /// 動いていなければ起動する（Python `ensure_phrase_task` 相当）。
 pub fn ensure_tasks(state: &Arc<AppState>) {
@@ -957,14 +954,6 @@ mod collect_agent_states_tests {
     use crate::terminal_session::TerminalRegistry;
     use serde_json::json;
 
-    fn skip_if_no_tmux() -> bool {
-        std::process::Command::new("tmux")
-            .arg("-V")
-            .output()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
-    }
-
     /// テストが作った実tmuxセッションを、途中の `assert!` がpanicして
     /// アーリーリターンした場合でも確実にkillするためのRAIIガード
     /// （Codexレビュー指摘: 従来は末尾に `kill_tmux_by_name(...).await` を
@@ -1053,7 +1042,7 @@ mod collect_agent_states_tests {
 
     #[tokio::test]
     async fn zero_sessions_returns_empty_states() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let (state, dir) = test_state();
@@ -1075,7 +1064,7 @@ mod collect_agent_states_tests {
 
     #[tokio::test]
     async fn activity_between_polls_toggles_working_and_idle() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let (state, dir) = test_state();
@@ -1150,7 +1139,7 @@ mod collect_agent_states_tests {
 
     #[tokio::test]
     async fn notify_phrase_via_cached_session_waits_for_grace_period() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let (state, dir) = test_state();
@@ -1210,7 +1199,7 @@ mod collect_agent_states_tests {
 
     #[tokio::test]
     async fn workspace_auto_bind_via_cwd() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let (state, dir) = test_state();
@@ -1264,7 +1253,7 @@ mod collect_agent_states_tests {
 
     #[tokio::test]
     async fn job_auto_tag_via_foreground_argv() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let (state, dir) = test_state();

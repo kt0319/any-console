@@ -93,29 +93,21 @@ pub async fn list_terminal_sessions(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    let result = crate::subprocess::run_tmux_cmd(&["list-sessions", "-F", "#{session_name}"]).await;
-    let Some(r) = result else {
+    let Some(ids) = crate::tmux::list_session_ids(&state.paths.tmux_prefix).await else {
         return Err(server_error("Failed to list tmux sessions"));
     };
-    if !r.success() {
-        return Ok(Json(json!([])));
-    }
     // セッションごとの tmux 問い合わせ（レジストリ未登録なら show-environment、
     // 加えて毎回 display-message）を逐次 await すると、セッション数に比例して
     // 応答が遅くなる（特にサーバ再起動直後は全セッションが未登録経路を通り
     // 2倍になる）。tmux サーバ自体は複数クライアントからの同時問い合わせを
     // 捌けるため、並行に投げて join_all でまとめて待つ。
-    let mut entries: Vec<(String, String)> = Vec::new();
-    for line in r.stdout.trim().lines() {
-        let name = line.trim();
-        let Some(session_id) = name.strip_prefix(&state.paths.tmux_prefix) else {
-            continue;
-        };
-        if session_id.is_empty() {
-            continue;
-        }
-        entries.push((session_id.to_string(), name.to_string()));
-    }
+    let entries: Vec<(String, String)> = ids
+        .into_iter()
+        .map(|id| {
+            let name = format!("{}{}", state.paths.tmux_prefix, id);
+            (id, name)
+        })
+        .collect();
     let mut sessions: Vec<Value> = join_all(
         entries
             .iter()
@@ -710,17 +702,9 @@ mod tests {
         assert_eq!(update_cmd_buffer(&mut buf, b"\r"), None);
     }
 
-    fn skip_if_no_tmux() -> bool {
-        std::process::Command::new("tmux")
-            .arg("-V")
-            .output()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
-    }
-
     #[tokio::test]
     async fn flush_pending_text_sends_and_clears_env() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let name = format!("ac-test-pending-{}", crate::util::token_hex(4));
