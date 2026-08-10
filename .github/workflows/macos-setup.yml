@@ -9,10 +9,7 @@ on:
     branches: ["**"]
     paths:
       - "any-console"
-      - "api/preview.py"
-      - "api/main.py"
-      - "requirements.txt"
-      - "requirements-optional.txt"
+      - "server/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/macos-setup.yml"
@@ -20,10 +17,7 @@ on:
     branches: [main]
     paths:
       - "any-console"
-      - "api/preview.py"
-      - "api/main.py"
-      - "requirements.txt"
-      - "requirements-optional.txt"
+      - "server/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/macos-setup.yml"
@@ -37,6 +31,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
 
       - uses: actions/setup-node@v5
         with:

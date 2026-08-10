@@ -739,7 +739,7 @@ mod tests {
 
     fn bundled_store() -> (ManifestStore, tempfile::TempDir) {
         let manifest_dir =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../api/agent_manifests");
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../agent_manifests");
         let dir = tempfile::tempdir().unwrap();
         (ManifestStore::new(manifest_dir, dir.path()), dir)
     }

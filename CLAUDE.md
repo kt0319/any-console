@@ -35,7 +35,7 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 | `docs/ARCHITECTURE.md` | モジュール一覧と設計判断の概要 |
 | `docs/DECISIONS.md` | 主要な設計判断（ADRスタイル）の背景と代替案 |
 | `docs/A11Y_AUDIT.md` | アクセシビリティ監査結果と TODO |
-| `package.json` / `pyproject.toml` | 依存関係（ランタイム・開発） |
+| `package.json` / `server/Cargo.toml` | 依存関係（ランタイム・開発） |
 
 ---
 
@@ -45,10 +45,10 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 
 新しいモジュール・エンドポイント・関数を追加したら、**コミット前に以下を必ず通す**:
 
-1. **テストを書く**: `api/` に新コードを追加したら同じ範囲をカバーする `tests/test_*.py` を追加・拡張する。UI のロジック（`ui/utils/*.js` / `ui/composables/*.js`）も同じく `tests/ui/test_*.js` に追加する。
-2. **カバレッジ閾値（85%）を維持**: `pytest --cov --cov-fail-under=85` でローカル確認する。落ちたら必ずテストを足してから push する。
-3. **`ruff check api/`** が clean。
-4. **`mypy api/`** が clean（型注釈に `Any` 漏れがないか確認）。
+1. **テストを書く**: `server/src/` に新コードを追加したら同じ範囲をカバーする unit test（該当ファイル内の `#[cfg(test)] mod tests`）または `server/tests/test_*.rs` の統合テストを追加・拡張する。UI のロジック（`ui/utils/*.js` / `ui/composables/*.js`）も同じく `tests/ui/test_*.js` に追加する。
+2. **`cargo test`**（`server/` ディレクトリ）が green。
+3. **`cargo clippy --all-targets -- -D warnings`**（`server/` ディレクトリ）が clean。
+4. **`cargo fmt --check`**（`server/` ディレクトリ）が clean。
 5. **`npm run typecheck`** が clean（JSDoc 型注釈漏れに注意）。
 
 CI が落ちてからの修正コミットを増やさないために、push 前に上記をひと通り実行すること。
@@ -58,19 +58,19 @@ CI が落ちてからの修正コミットを増やさないために、push 前
 - **`ui/app-bridge.js` の `BUS_EVENTS` は ABC ソート順を維持する**。新規イベントを追記したら必ず辞書順で挿入する（テストで sort 検証あり）。
 - **`ui/utils/constants.js` の値変更**は frontend test を必ず実行する（タイミング系の数値はテスト前提）。
 - 新規 BUS_EVENT を足したら呼び出し側（`emit` / `on`）と両方で使われているか確認する。
-- **サーバが読み書きする永続ファイル（`data/` 配下・`config.json`・キュー等の状態ファイル）のパスは `api/common.py` の `DATA_DIR` / `CONFIG_FILE` / `PROJECT_ROOT` 定数経由で組み立てる**。`Path(__file__)` からの直接組み立ては禁止 — `ANY_CONSOLE_DATA_DIR` による隔離（E2E 使い捨てサーバ）が効かなくなり、テストが実運用の状態を読み書きしてしまう（`tests/test_data_dir.py` が隔離を検証している）。
+- **サーバが読み書きする永続ファイル（`data/` 配下・`config.json`・キュー等の状態ファイル）のパスは `server/src/paths.rs` が解決する `data_dir` / `config_file` / `project_root` 経由で組み立てる**。パスの直接組み立ては禁止 — `ANY_CONSOLE_DATA_DIR` による隔離（E2E 使い捨てサーバ）が効かなくなり、テストが実運用の状態を読み書きしてしまう（`paths.rs` 内のユニットテストが隔離を検証している）。
 
 ## コマンド
 
 ```bash
-pytest                 # Backend
-pytest --cov           # Backend coverage
+cd server && cargo test              # Backend
+cd server && cargo clippy --all-targets -- -D warnings  # Backend lint
+cd server && cargo fmt --check       # Backend フォーマット確認
 npm test               # Frontend
 npm run test:coverage  # Frontend coverage
 npm run test:e2e       # E2E 全スペック（CI では PR・main への push・手動実行で実行）
 npm run test:e2e:smoke # E2E スモークサブセット（ローカルでの素早い確認用）
-ruff check api/        # Lint
-mypy                   # 型チェック
+npm run typecheck      # 型チェック（フロントエンド）
 ```
 
 CI: `.github/workflows/ci.yml`（codecov 連携）
@@ -110,14 +110,14 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `mobile-terminal.spec.js`: モバイルでのターミナル + KeyboardBar 表示
   - 共通ヘルパー（ログイン・セッション後始末・設定モーダル操作・Bearer ヘッダ）は `helpers.js`
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
-- **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が、一時ディレクトリを data 領域にしたサーバをランごとの空きポートで自動起動する（`ANY_CONSOLE_DATA_DIR` による隔離。実運用の `data/`・`config.json` には一切触れない。ポート自動割り当てなので並行実行や既存プロセスと衝突しない）。レート制限引き上げ（`ANY_CONSOLE_RATE_LIMIT=2000`）とテスト用トークンも自動設定される。サーバ実行に python3（バックエンド依存インストール済み）と tmux が必要。CI（`.github/workflows/ci.yml`）も同じ仕組みで動く
+- **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が、一時ディレクトリを data 領域にしたサーバをランごとの空きポートで自動起動する（`ANY_CONSOLE_DATA_DIR` による隔離。実運用の `data/`・`config.json` には一切触れない。ポート自動割り当てなので並行実行や既存プロセスと衝突しない）。レート制限引き上げ（`ANY_CONSOLE_RATE_LIMIT=2000`）とテスト用トークンも自動設定される。サーバ実行にビルド済み Rust バイナリ（`server/target/release/any-console-server`。`cargo build --release`）と tmux が必要。CI（`.github/workflows/ci.yml`）も同じ仕組みで動く
 - 起動済みの外部サーバに対して実行する場合のみ `ANY_CONSOLE_URL` を指定する。このときは対象サーバをレート制限を引き上げて起動しておく（既定 200req/60s のままだと連続実行で 429 になる）
 - テストがサーバ状態を汚さないこと (**MUST**): セッション等を作るテストは自分が作った分だけを必ず後始末する（`helpers.js` の `cleanupNewSessions` を使う。既存セッションには触れない）。使い捨てサーバモードでは tmux セッション名もランごとのユニークプレフィックス（`ANY_CONSOLE_TMUX_PREFIX`）で分離され、中断時の残りは global-teardown が自ラン分のみ一掃するが、この後始末は保険であり各テストの後始末は省略しない
 - ローカル初回セットアップ:
   ```bash
   npm install
   npx playwright install chromium
-  pip install -r requirements.txt   # 使い捨てサーバモードでサーバを起動するため
+  (cd server && cargo build --release)   # 使い捨てサーバモードでサーバを起動するため
   ```
 - 実行前に `npm run build` で `ui/dist` を最新化する（サーバは `ui/dist` を配信する。未ビルド・古いままだと E2E が現行フロントを検証できない。CI は毎回ビルドしてから実行する）
 - ローカル実行:

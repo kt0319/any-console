@@ -2,7 +2,7 @@
 
 ## Design decisions
 
-- **Single-process enforced** — `_acquire_singleton_lock` rejects `uvicorn --workers > 1`. Terminal sessions, rate limiter, and TTL caches are held in process memory.
+- **Single-process enforced** — `acquire_singleton_lock` rejects a second instance binding the same port. Terminal sessions, rate limiter, and TTL caches are held in process memory.
 - **Git via subprocess only** — no Git libraries.
 - **tmux** as the session persistence layer. Sessions survive browser closes.
 - **Single shared token** — no per-user distinction. Auto-generated on first run, stored in `data/auth.json`.
@@ -12,31 +12,36 @@ For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
 ## Module layout
 
 ```
-api/                          Backend (FastAPI)
-  main.py                     App init, static file serving, /auth/check, image upload
-  auth.py                     Bearer token auth (optional), trusted-proxy detection
-  terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
-  git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
-  git_watch.py                Filesystem watching (watchfiles) × WebSocket push for realtime git status
-  screen_manifest.py          Agent state detection from pane content (herdr manifests: bundled + remote + local override)
-  manifest_update.py          Periodic remote manifest updates from herdr.dev (validated, cached under data/)
-  agent_hooks.py              Event-driven session state from agent hooks (authoritative over manifests)
-  foreground.py               Foreground process group argv inspection (/proc on Linux, ps on macOS)
-  job_match.py                Match foreground argv against job definitions (auto-tag manual runs)
-  config.py / config_schema.py  config.json read/write, Pydantic validation
-  config_migrations.py        config.json schema versioning + auto-migration
-  rate_limiter.py             In-process rate limiter
-  routers/                    workspaces, jobs, terminal, system, settings, git, github,
-                               pairing (QR code device pairing; short-lived, single-use tokens — see DECISIONS.md #28)
-ui/                           Frontend (Vue 3 + Pinia, built with Vite)
-  components/                 Vue components
-  stores/                     Pinia stores
-  composables/                Reusable logic (useApi, useTerminal, useModal, etc.)
-  utils/                      Pure functions, constants, endpoints
-  styles/                     Global CSS
-docs/                         ARCHITECTURE.md, DECISIONS.md, A11Y_AUDIT.md
-config.json                   Config file (auto-generated, .gitignore'd)
-data/auth.json                Token storage (.gitignore'd)
+server/                       Backend (Rust, axum)
+  src/main.rs                 App init, static file serving, TLS termination, /auth/check, image upload
+  src/auth.rs                 Bearer token auth (optional), trusted-proxy detection, API tokens
+  src/devices.rs               Device cookie auth (registration, listing, revocation, auto-enroll)
+  src/terminal_session.rs / tmux.rs / pty.rs  tmux × PTY fork/exec × WebSocket bridge
+  src/git_utils.rs / git_lock.rs  Git subprocess invocation, workspace lock
+  src/git_watch.rs             Filesystem watching (notify) × WebSocket push for realtime git status
+  src/screen_manifest.rs       Agent state detection from pane content (herdr manifests: bundled + remote + local override)
+  src/manifest_update.rs       Periodic remote manifest updates from herdr.dev (validated, cached under data/)
+  src/agent_hooks.rs           Event-driven session state from agent hooks (authoritative over manifests)
+  src/foreground.rs            Foreground process group argv inspection (/proc on Linux, ps on macOS)
+  src/job_match.rs             Match foreground argv against job definitions (auto-tag manual runs)
+  src/config.rs / config_schema.rs  config.json read/write, schema validation
+  src/config_migrations.rs     config.json schema versioning + auto-migration
+  src/rate_limit.rs            In-process rate limiter
+  src/preview.rs               Dev server port detection + TCP/TLS proxy
+  src/push.rs                  VAPID / Web Push (RFC 8291/8292), native
+  src/{workspaces,jobs,terminal,system,settings,git_*,github,dispatch,job_runner,pairing}.rs
+                               Route handlers (pairing = QR code device pairing; short-lived,
+                               single-use tokens — see DECISIONS.md #28)
+agent_manifests/               Vendored agent-detection manifests (TOML), read by screen_manifest.rs at runtime
+ui/                            Frontend (Vue 3 + Pinia, built with Vite)
+  components/                  Vue components
+  stores/                      Pinia stores
+  composables/                 Reusable logic (useApi, useTerminal, useModal, etc.)
+  utils/                       Pure functions, constants, endpoints
+  styles/                      Global CSS
+docs/                          ARCHITECTURE.md, DECISIONS.md, A11Y_AUDIT.md, RUST_MIGRATION.md
+config.json                    Config file (auto-generated, .gitignore'd)
+data/auth.json                 Token storage (.gitignore'd)
 ```
 
 `data/` and `config.json` live at the project root by default. Setting the

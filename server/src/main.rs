@@ -1,14 +1,11 @@
-//! any-console Rust フロントサーバのエントリポイント。
+//! any-console サーバのエントリポイント。
 //!
-//! 公開ポートで待ち受け、静的ファイル（ui/dist）とミドルウェア
-//! （security headers / rate limit / client log）を Rust 側で処理し、
-//! それ以外の全ルートを Python バックエンド（ANY_CONSOLE_UPSTREAM）へ
-//! HTTP / WebSocket 透過 proxy する。
+//! 公開ポートで待ち受け、静的ファイル（ui/dist）・ミドルウェア
+//! （security headers / rate limit / client log）・全 API ルートを処理する。
 //!
 //! 環境変数:
 //! - ANY_CONSOLE_PROJECT_ROOT : リポジトリルート（既定: カレントディレクトリ）
 //! - ANY_CONSOLE_DATA_DIR     : data/・config.json の隔離ディレクトリ（E2E 用）
-//! - ANY_CONSOLE_UPSTREAM     : Python バックエンド URL（既定 http://127.0.0.1:8889)
 //! - ANY_CONSOLE_RS_HOST/PORT : bind 先の上書き（既定: config.json の __global__）
 //! - ANY_CONSOLE_RATE_LIMIT   : レートリミット上限の上書き
 
@@ -24,8 +21,6 @@ use any_console_server::rate_limit::{rate_limit_from_env, FixedWindowCounter};
 use any_console_server::state::AppState;
 use any_console_server::static_files::StaticCtx;
 
-const DEFAULT_UPSTREAM: &str = "http://127.0.0.1:8889";
-
 fn project_root() -> PathBuf {
     match std::env::var("ANY_CONSOLE_PROJECT_ROOT") {
         Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
@@ -33,9 +28,7 @@ fn project_root() -> PathBuf {
     }
 }
 
-/// 同一ポートでの多重起動を拒否する（Python `_acquire_singleton_lock` と同趣旨。
-/// ロックファイル名は Python 側と分けており、移行期間中の Python プロセス
-/// （別ポートで稼働）とは競合しない）。
+/// 同一ポートでの多重起動を拒否する。
 fn acquire_singleton_lock(port: u16) -> Option<std::fs::File> {
     let lock_path = std::env::temp_dir().join(format!("any-console-rs-{port}.lock"));
     let file = match std::fs::OpenOptions::new()
@@ -84,17 +77,13 @@ async fn main() {
     let config = ConfigStore::new(paths.config_file.clone());
 
     let (host, port) = any_console_server::tmux::resolve_effective_bind(&config);
-    let upstream = std::env::var("ANY_CONSOLE_UPSTREAM")
-        .ok()
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| DEFAULT_UPSTREAM.to_string());
 
     let _lock = acquire_singleton_lock(port);
 
     let static_ctx = StaticCtx::detect(paths.frontend_dir.clone(), paths.icons_dir.clone());
     if static_ctx.is_none() {
         tracing::warn!(
-            "ui/dist not found under {} — serving all static files via proxy",
+            "ui/dist not found under {} — run `npm run build` first",
             paths.frontend_dir.display()
         );
     }
@@ -114,7 +103,7 @@ async fn main() {
         agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
         status_stream: any_console_server::status_stream::StatusStreamState::new(),
         manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            paths.project_root.join("api/agent_manifests"),
+            paths.project_root.join("agent_manifests"),
             &paths.data_dir,
         ),
         preview: any_console_server::preview::PreviewState::new(),
@@ -130,14 +119,9 @@ async fn main() {
     // 起動直後の初期スナップショットを送る。
     any_console_server::dispatch::load_persisted_and_seed_bridge(&state).await;
 
-    // dev server ポートプレビュー: 自分自身（Rust front）と、移行期間中に同じ
-    // マシンで listen している Python upstream のポートは preview 対象から
-    // 除外する（除外しないと自分自身が dev server のように一覧へ出てしまう）。
-    let mut self_ports = vec![port];
-    if let Some(upstream_port) = any_console_server::preview::loopback_port_from_url(&upstream) {
-        self_ports.push(upstream_port);
-    }
-    any_console_server::preview::set_self_ports(&state.preview, &self_ports);
+    // dev server ポートプレビュー: 自分自身の listen ポートは対象から除外する
+    // （除外しないと自分自身が dev server のように一覧へ出てしまう）。
+    any_console_server::preview::set_self_ports(&state.preview, &[port]);
     any_console_server::preview::start_scanner(&state);
 
     // リモート screen manifest（herdr カタログ）の定期確認ループ。
@@ -156,7 +140,7 @@ async fn main() {
             let socket_addr: SocketAddr = addr
                 .parse()
                 .unwrap_or_else(|e| panic!("bind address {addr} invalid: {e}"));
-            tracing::info!("any-console-server listening on {addr} (TLS, upstream: {upstream})");
+            tracing::info!("any-console-server listening on {addr} (TLS)");
             let handle = axum_server::Handle::new();
             let shutdown_handle = handle.clone();
             tokio::spawn(async move {
@@ -176,7 +160,7 @@ async fn main() {
             let listener = tokio::net::TcpListener::bind(&addr)
                 .await
                 .unwrap_or_else(|e| panic!("bind {addr} failed: {e}"));
-            tracing::info!("any-console-server listening on {addr} (upstream: {upstream})");
+            tracing::info!("any-console-server listening on {addr}");
             axum::serve(
                 listener,
                 app.into_make_service_with_connect_info::<SocketAddr>(),

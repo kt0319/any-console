@@ -23,51 +23,10 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  test:
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Lint
-        run: ruff check api/
-
-      - name: Type check
-        run: mypy api/
-
-      - name: Test
-        run: pytest tests/ -v --cov --cov-report=term-missing --cov-report=xml
-        env:
-          ANY_CONSOLE_TOKEN: test-token
-          PYTHONPATH: .
-
-      - name: Backend coverage summary
-        if: always()
-        run: |
-          {
-            echo "## Backend coverage"
-            echo ""
-            echo '```'
-            python -m coverage report || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload backend coverage to Codecov
-        if: always()
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          flags: backend
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
 
       - uses: actions/setup-node@v5
         with:
@@ -148,13 +107,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install backend dependencies
-        run: pip install -r requirements.txt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+
+      - name: Build server (release)
+        working-directory: server
+        run: cargo build --release
 
       - uses: actions/setup-node@v5
         with:
@@ -184,116 +145,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-results
-          path: test-results/
-          if-no-files-found: ignore
-
-  # バックエンド Rust 移行（docs/RUST_MIGRATION.md）の互換性回帰網。
-  # `e2e` ジョブは Python 直結（webServer = `python3 -m api.main`）のままなので、
-  # Rust ネイティブ実装の HTTP/WS ワイヤ互換性はここでしか検証されない
-  # （Codex レビュー指摘: Rust job は cargo test で止まり、e2e job も Rust front を
-  # 経由しないため、ワイヤ非互換な実装差し替えが CI を通ってしまいうる）。
-  # Python upstream + Rust front の二重プロセス構成を手動で組み立て、
-  # api-contract.spec.js（detail エラー形式・セキュリティヘッダ・静的配信
-  # キャッシュ規則・WS 認証拒否等のワイヤ契約）を Rust front 経由で実行する。
-  e2e-rust-front:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install backend dependencies
-        run: pip install -r requirements.txt
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: server
-
-      - name: Build Rust server (release)
-        working-directory: server
-        run: cargo build --release
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Install tmux
-        run: sudo apt-get install -y tmux
-
-      - name: Start Python upstream + Rust front, run api-contract E2E against Rust
-        run: |
-          set -euo pipefail
-
-          data_dir="$(mktemp -d)"
-          token="e2e-rust-front-token"
-          python_port=18889
-          rust_port=18888
-
-          # docs/RUST_MIGRATION.md の手動検証手順（Phase 0）と同じ隔離データ
-          # ディレクトリ構成。実運用の data/・config.json には一切触れない。
-          printf '{"token": "%s"}' "$token" > "$data_dir/auth.json"
-          printf '{"__global__": {"config_version": 1, "host": "127.0.0.1", "port": %d}}' \
-            "$rust_port" > "$data_dir/config.json"
-
-          cleanup() {
-            kill "$python_pid" "$rust_pid" 2>/dev/null || true
-            wait "$python_pid" "$rust_pid" 2>/dev/null || true
-          }
-          trap cleanup EXIT
-
-          ANY_CONSOLE_DATA_DIR="$data_dir" ANY_CONSOLE_RATE_LIMIT=2000 \
-            python3 -m uvicorn api.main:app --host 127.0.0.1 --port "$python_port" \
-            --proxy-headers --forwarded-allow-ips 127.0.0.1 &
-          python_pid=$!
-
-          ANY_CONSOLE_PROJECT_ROOT="$PWD" \
-            ANY_CONSOLE_DATA_DIR="$data_dir" \
-            ANY_CONSOLE_RS_PORT="$rust_port" \
-            ANY_CONSOLE_UPSTREAM="http://127.0.0.1:$python_port" \
-            ANY_CONSOLE_RATE_LIMIT=2000 \
-            ./server/target/release/any-console-server &
-          rust_pid=$!
-
-          for port in "$python_port" "$rust_port"; do
-            for _ in $(seq 1 30); do
-              if curl -sf "http://127.0.0.1:$port/" -o /dev/null; then
-                break
-              fi
-              sleep 1
-            done
-          done
-          curl -sf "http://127.0.0.1:$python_port/" -o /dev/null || {
-            echo "Python upstream failed to start" >&2
-            exit 1
-          }
-          curl -sf "http://127.0.0.1:$rust_port/" -o /dev/null || {
-            echo "Rust front failed to start" >&2
-            exit 1
-          }
-
-          ANY_CONSOLE_URL="http://127.0.0.1:$rust_port" \
-            ANY_CONSOLE_TOKEN="$token" \
-            npx playwright test tests/e2e/api-contract.spec.js
-
-      - name: Upload Playwright artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results-rust-front
           path: test-results/
           if-no-files-found: ignore

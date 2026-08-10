@@ -5,9 +5,8 @@
 [![CI](https://github.com/kt0319/any-console/actions/workflows/ci.yml/badge.svg)](https://github.com/kt0319/any-console/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/kt0319/any-console/branch/main/graph/badge.svg)](https://codecov.io/gh/kt0319/any-console)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776ab.svg)](https://www.python.org/)
+[![Rust](https://img.shields.io/badge/Rust-000000.svg?logo=rust)](https://www.rust-lang.org/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-4fc08d.svg)](https://vuejs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 
 <p align="center">
   <img src="docs/hero.webp" alt="Same tmux session, seamless across phone and PC" width="100%">
@@ -31,7 +30,7 @@ Website: <https://any-console.highedge.net/>
 - **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase
 - **Job runner** — One-tap shell script execution; define and edit jobs from the UI
 - **PWA** — Installable on phone and desktop
-- **Lightweight stack** — Vue 3 + Pinia + FastAPI, built with Vite
+- **Lightweight stack** — Vue 3 + Pinia frontend (Vite), Rust (axum) backend
 
 ## Platform support
 
@@ -80,13 +79,14 @@ cd ~/any-console
 
 Same one-step flow as Linux. On macOS, `setup` registers a `launchd` user `LaunchAgent` (no sudo needed) that starts at login. For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
 
-Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install python node git tmux gh`.
+Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install rust node git tmux gh` (plus Python — see below).
 
 ### Requirements
 
 Required:
 
-- Python 3.11+
+- Rust toolchain (`cargo`) — install via [rustup](https://rustup.rs/); the server binary is built from source on `setup`/`update`
+- Python 3.11+ — not used to run the app itself, but `./any-console`'s own setup/config scripting is written in Python
 - Node.js 18+
 - `git` — used by the Git UI
 - `tmux` — required for terminal session management
@@ -99,10 +99,12 @@ Installation examples:
 
 ```bash
 # Debian/Ubuntu
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 sudo apt install python3 nodejs git tmux
 # optional: follow the official gh install guide
 
 # macOS
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 brew install python node git tmux gh
 ```
 
@@ -194,7 +196,7 @@ curl -X POST https://<your-device>.ts.net/dispatch \
 
 By default (`direct: false`), the request waits in an approval queue — open it from Settings > Dispatches, or via a push notification if enabled. Only after a human approves does the text actually get sent. Set `"direct": true` to skip the queue and run immediately (not allowed for scoped dispatch tokens, see below).
 
-Key fields on the request body (`api/routers/dispatch.py`):
+Key fields on the request body (`server/src/dispatch.rs`):
 
 | Field | Description |
 |---|---|
@@ -258,9 +260,10 @@ Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 
 ## Repository layout
 
 ```
-api/      Backend (FastAPI)
-ui/       Frontend (Vue 3 + Pinia, built with Vite)
-docs/     Architecture & design docs
+server/           Backend (Rust, axum)
+ui/                Frontend (Vue 3 + Pinia, built with Vite)
+agent_manifests/   Vendored agent-detection manifests (read by the backend at runtime)
+docs/              Architecture & design docs
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-level breakdown.
