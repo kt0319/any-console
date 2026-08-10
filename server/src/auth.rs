@@ -53,6 +53,18 @@ pub struct AuthResult {
     pub label: String,
 }
 
+impl AuthResult {
+    /// `AuthKind::Device` で認証された場合のみ device_id を返す（`label` は
+    /// `"device:{id}"` 形式）。push通知の「その端末で今そのセッションを
+    /// 見ているか」判定など、デバイス単位の状態と紐付けたい箇所で使う。
+    pub fn device_id(&self) -> Option<&str> {
+        if self.kind != AuthKind::Device {
+            return None;
+        }
+        self.label.strip_prefix("device:")
+    }
+}
+
 /// Python の `str(token) if token else ""` と同じ真偽判定で文字列化する。
 ///
 /// JSON の `token` フィールドは本来文字列だが、手編集等で数値・真偽値になって
@@ -561,18 +573,19 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
 
 /// WebSocket 接続用の認証チェック（Python `verify_ws_token` 相当）。
 /// クエリパラメータの token・Tailscale ヘッダ・デバイス cookie のいずれかで
-/// 認証できれば true（`terminal.rs`/`status_stream.rs` の WS ハンドシェイクで使う）。
+/// 認証できれば `Some(AuthResult)`（`terminal.rs`/`status_stream.rs` の
+/// WS ハンドシェイクで使う）。`status_stream.rs` は `AuthResult::device_id()`
+/// で「どの端末からの接続か」を push 通知の抑制判定に使う。
 pub fn verify_ws_token(
     state: &crate::state::AppState,
     token: &str,
     client_ip: &str,
     headers: &http::HeaderMap,
-) -> bool {
+) -> Option<AuthResult> {
     let cookies = parse_cookies(headers);
     state
         .auth
         .authenticate(token, client_ip, Some(headers), Some(&cookies))
-        .is_some()
 }
 
 /// Cookie ヘッダ文字列を key→value にパースする（値の `=` を許容）。
@@ -667,7 +680,7 @@ pub async fn auth_check(
             ("tailscale", Some(user), device)
         }
         AuthKind::Device => {
-            let device_id = result.label.strip_prefix("device:").unwrap_or("");
+            let device_id = result.device_id().unwrap_or("");
             let device = crate::devices::get_device(&state.paths.data_dir, device_id);
             ("device", None, device)
         }

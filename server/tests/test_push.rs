@@ -149,6 +149,10 @@ async fn subscribe_requires_auth_persists_and_detects_vapid_sub() {
     let subs = subs.as_array().unwrap();
     assert_eq!(subs.len(), 1);
     assert_eq!(subs[0]["endpoint"], "https://push.example/abc");
+    // メイントークン認証（デバイスペアリング未経由）にはdevice_idが無いため、
+    // 「その端末で見ているセッションには送らない」抑制の対象にはならない
+    // （購読・push送信自体は従来通り成立する）。
+    assert_eq!(subs[0]["device_id"], Value::Null);
 
     // Origin ヘッダからポート抜きで vapid sub が検出・永続化される。
     let vapid_sub = std::fs::read_to_string(front.data_dir.join("vapid_sub.txt")).unwrap();

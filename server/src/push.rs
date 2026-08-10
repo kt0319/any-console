@@ -391,13 +391,35 @@ async fn deliver(
     }
 }
 
+/// このsubscriptionへの送信を、閲覧中を理由にスキップすべきか。
+/// `session_id`が無い（閲覧と無関係な通知）か、subscriptionにdevice_idが
+/// 無い（デバイス認証を経ていない購読）場合は常にfalse（送信する）。
+fn should_skip_for_viewing(
+    sub: &Value,
+    session_id: Option<&str>,
+    status_stream: &crate::status_stream::StatusStreamState,
+) -> bool {
+    let Some(session_id) = session_id else {
+        return false;
+    };
+    sub.get("device_id")
+        .and_then(Value::as_str)
+        .is_some_and(|device_id| status_stream.is_device_viewing(device_id, session_id))
+}
+
 /// 全サブスクリプションへ Push 通知を送信する（`api/push.py` `send_push_notification`）。
+///
+/// `session_id` を渡すと、そのセッションを今まさに見ている端末（購読時に
+/// 記録した `device_id` と `StatusStreamState::is_device_viewing` で判定）
+/// への送信だけをスキップする。dispatch通知等セッション閲覧と無関係な
+/// 通知は `session_id: None` で呼び、全購読へ通常通り送る。
 pub async fn send_push_notification(
     state: &std::sync::Arc<AppState>,
     title: &str,
     body: &str,
     url_path: &str,
     notif_type: &str,
+    session_id: Option<&str>,
 ) {
     let Some(keys) = vapid_keys(&state.push, &state.paths.data_dir) else {
         return;
@@ -412,6 +434,9 @@ pub async fn send_push_notification(
 
     let mut failed_endpoints = Vec::new();
     for sub in &subs {
+        if should_skip_for_viewing(sub, session_id, &state.status_stream) {
+            continue;
+        }
         let outcome = deliver(
             &state.push.client,
             sub,
@@ -477,7 +502,7 @@ pub struct PushSubscriptionBody {
 
 pub async fn subscribe_route(
     State(state): State<std::sync::Arc<AppState>>,
-    _auth: RequireAuth,
+    auth: RequireAuth,
     headers: HeaderMap,
     JsonBody(body): JsonBody<PushSubscriptionBody>,
 ) -> Json<Value> {
@@ -485,9 +510,16 @@ pub async fn subscribe_route(
         set_vapid_sub(&state.paths.data_dir, &detected);
         tracing::info!("push sub auto-detected: {detected}");
     }
+    // device_id はデバイス認証（ペアリング）でのみ取れる。無ければ
+    // 「その端末で見ているセッションには送らない」抑制の対象にならないだけで、
+    // 購読・push送信自体は従来通り成立する。
     add_subscription(
         &state,
-        json!({"endpoint": body.endpoint, "keys": body.keys}),
+        json!({
+            "endpoint": body.endpoint,
+            "keys": body.keys,
+            "device_id": auth.0.device_id(),
+        }),
     );
     Json(json!({"status": "ok"}))
 }
@@ -810,5 +842,37 @@ mod tests {
         assert_eq!(load_vapid_sub(dir.path()), DEFAULT_VAPID_SUB);
         set_vapid_sub(dir.path(), "https://example.com");
         assert_eq!(load_vapid_sub(dir.path()), "https://example.com");
+    }
+
+    // ─── should_skip_for_viewing（push抑制判定） ────────────────────────
+
+    #[test]
+    fn skips_when_session_id_absent() {
+        let status_stream = crate::status_stream::StatusStreamState::new();
+        let sub = json!({"endpoint": "https://push.example/a", "device_id": "dev_1"});
+        assert!(!should_skip_for_viewing(&sub, None, &status_stream));
+    }
+
+    #[test]
+    fn skips_when_subscription_has_no_device_id() {
+        let status_stream = crate::status_stream::StatusStreamState::new();
+        let sub = json!({"endpoint": "https://push.example/a"});
+        assert!(!should_skip_for_viewing(&sub, Some("s1"), &status_stream));
+    }
+
+    #[test]
+    fn skips_delivery_when_owning_device_is_viewing_the_session() {
+        let status_stream = crate::status_stream::StatusStreamState::new();
+        let conn_id = status_stream
+            .register_viewer(Some("dev_1".to_string()))
+            .unwrap();
+        status_stream.update_viewing(conn_id, Some("s1".to_string()));
+
+        let sub = json!({"endpoint": "https://push.example/a", "device_id": "dev_1"});
+        assert!(should_skip_for_viewing(&sub, Some("s1"), &status_stream));
+        // 別セッションや別デバイスへは通常通り送る。
+        assert!(!should_skip_for_viewing(&sub, Some("s2"), &status_stream));
+        let other_device_sub = json!({"endpoint": "https://push.example/b", "device_id": "dev_2"});
+        assert!(!should_skip_for_viewing(&other_device_sub, Some("s1"), &status_stream));
     }
 }

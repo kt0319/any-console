@@ -652,6 +652,7 @@ async fn poll_loop(state: Arc<AppState>) {
                 None => phrase.clone(),
             };
             let url_path = format!("/?session={session_id}");
+            let session_id = session_id.clone();
             let push_state = state.clone();
             tokio::spawn(async move {
                 crate::push::send_push_notification(
@@ -660,6 +661,7 @@ async fn poll_loop(state: Arc<AppState>) {
                     &body,
                     &url_path,
                     "phrase",
+                    Some(&session_id),
                 )
                 .await;
             });
@@ -672,6 +674,7 @@ async fn poll_loop(state: Arc<AppState>) {
                 None => "waiting for your input".to_string(),
             };
             let url_path = format!("/?session={session_id}");
+            let session_id = session_id.clone();
             let push_state = state.clone();
             tokio::spawn(async move {
                 crate::push::send_push_notification(
@@ -680,6 +683,7 @@ async fn poll_loop(state: Arc<AppState>) {
                     &body,
                     &url_path,
                     "blocked",
+                    Some(&session_id),
                 )
                 .await;
             });
@@ -963,6 +967,26 @@ mod collect_agent_states_tests {
             .unwrap_or(true)
     }
 
+    /// テストが作った実tmuxセッションを、途中の `assert!` がpanicして
+    /// アーリーリターンした場合でも確実にkillするためのRAIIガード
+    /// （Codexレビュー指摘: 従来は末尾に `kill_tmux_by_name(...).await` を
+    /// 書くだけだったため、その手前のassertが失敗するとkillされずに
+    /// セッションが残り続けていた。tempdir（ワークスペースのcwd）は
+    /// TempDirのDropで削除されるため、残ったtmuxセッションのシェルだけが
+    /// 存在しないディレクトリを指す不整合な状態になる）。
+    /// `kill_tmux_by_name` は非同期だが `Drop` は同期しか呼べないため、
+    /// ここでは同じ `tmux kill-session` をブロッキングで直接叩く
+    /// （テスト専用・ベストエフォート、失敗しても無視する）。
+    struct TmuxSessionGuard(String);
+
+    impl Drop for TmuxSessionGuard {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("tmux")
+                .args(["kill-session", "-t", &self.0])
+                .output();
+        }
+    }
+
     fn test_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         let prefix = format!("ac-awtest-{}-", crate::util::token_hex(4));
@@ -1009,6 +1033,7 @@ mod collect_agent_states_tests {
             .create_registered_session(
                 &state.paths.data_dir,
                 &state.config,
+                &state.paths.project_root,
                 &state.paths.tmux_prefix,
                 workspace_path,
                 workspace.map(str::to_string),
@@ -1052,6 +1077,7 @@ mod collect_agent_states_tests {
         let store = ManifestStore::new(dir.path().join("agent_manifests"), dir.path());
         let session_id = create_session(&state, None, None, None).await;
         let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let _guard = TmuxSessionGuard(tmux_name.clone());
 
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
@@ -1091,8 +1117,6 @@ mod collect_agent_states_tests {
                 .map(String::as_str),
             Some(STATE_IDLE)
         );
-
-        crate::subprocess::kill_tmux_by_name(&tmux_name).await;
     }
 
     #[tokio::test]
@@ -1116,6 +1140,7 @@ mod collect_agent_states_tests {
 
         let session_id = create_session(&state, None, None, Some("agent")).await;
         let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let _guard = TmuxSessionGuard(tmux_name.clone());
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo FINISHED", true).await);
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
@@ -1136,8 +1161,6 @@ mod collect_agent_states_tests {
             .notifications
             .iter()
             .any(|(id, phrase, _)| id == &session_id && phrase == "FINISHED"));
-
-        crate::subprocess::kill_tmux_by_name(&tmux_name).await;
     }
 
     #[tokio::test]
@@ -1150,15 +1173,26 @@ mod collect_agent_states_tests {
 
         let ws_dir = dir.path().join("proj");
         std::fs::create_dir_all(&ws_dir).unwrap();
+        // macOSでは /tmp・/var がシンボリックリンク（実体は /private/tmp・
+        // /private/var）で、tmuxが報告する pane_current_path はOSレベルで
+        // realpath解決済みの値になる。tempfile::tempdir() が返す非正規化パス
+        // （/var/folders/...）をそのまま設定してしまうと、実際のcwd
+        // （/private/var/folders/...）と文字列として一致せず
+        // match_workspace_by_path が常に不一致になる（タイミングの問題では
+        // なく恒久的な不一致 — 以前はこれを「まれに失敗するflaky」と誤認して
+        // いた）。実環境のtmuxと同じ土俵で比較するため、テスト側でも
+        // canonicalize してから設定する。
+        let ws_dir_canonical = std::fs::canonicalize(&ws_dir).unwrap();
         let mut cfg = state.config.load_all();
         cfg.insert(
             "proj".to_string(),
-            json!({"name": "proj", "path": ws_dir.to_string_lossy()}),
+            json!({"name": "proj", "path": ws_dir_canonical.to_string_lossy()}),
         );
         state.config.save_all(&cfg).unwrap();
 
         let session_id = create_session(&state, Some(ws_dir.to_str().unwrap()), None, None).await;
         let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let _guard = TmuxSessionGuard(tmux_name.clone());
 
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
@@ -1174,8 +1208,6 @@ mod collect_agent_states_tests {
         assert_eq!(broadcast["type"], "session_workspace_bound");
         assert_eq!(broadcast["session_id"], session_id);
         assert_eq!(broadcast["workspace"], "proj");
-
-        crate::subprocess::kill_tmux_by_name(&tmux_name).await;
     }
 
     #[tokio::test]
@@ -1195,6 +1227,8 @@ mod collect_agent_states_tests {
 
         let session_id = create_session(&state, None, None, None).await;
         let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        // sleepプロセスはセッションと一緒にこのガードのkillで後始末される。
+        let _guard = TmuxSessionGuard(tmux_name.clone());
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "sleep 987654321", true).await);
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
@@ -1209,8 +1243,5 @@ mod collect_agent_states_tests {
         let broadcast = rx.recv().await.unwrap();
         assert_eq!(broadcast["type"], "session_job_bound");
         assert_eq!(broadcast["job_name"], "long-sleep");
-
-        // 後始末: sleep はセッションと一緒に kill される。
-        crate::subprocess::kill_tmux_by_name(&tmux_name).await;
     }
 }

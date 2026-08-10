@@ -1,3 +1,4 @@
+import { watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { applyDispatchQueue } from "./useDispatchConfirm.js";
@@ -38,6 +39,23 @@ export function useStatusStream() {
     return !socket || socket.readyState === WebSocket.CLOSED;
   }
 
+  // 今アクティブなタブのsessionId（無ければnull）。タブが非表示（バック
+  // グラウンド化）中はnull扱いにする — push通知の「その端末で今そのセッションを
+  // 見ているなら送らない」抑制はユーザーが実際に画面を見ている時だけ効かせたい
+  // ため（バックグラウンドのタブは「見ている」とみなさない）。
+  function currentViewingSessionId() {
+    if (document.hidden) return null;
+    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    return tab?.sessionId || null;
+  }
+
+  // サーバ（StatusStreamState）へ現在の閲覧セッションを伝える。接続が無ければ
+  // 何もしない（次回接続時のonopenで最新値を送り直す）。
+  function sendViewing() {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: "viewing", session_id: currentViewingSessionId() }));
+  }
+
   function connect() {
     if (!isClosed() || document.hidden) return;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -47,6 +65,9 @@ export function useStatusStream() {
     ws.onopen = () => {
       debugLog("[StatusStream] connected");
       reconnectAttempts = 0;
+      // サーバ側の閲覧レジストリは接続（socket）単位で持つため、再接続の
+      // たびに現在値を送り直す必要がある。
+      sendViewing();
       // 切断中の変更を取りこぼしている可能性があるため、接続のたびに全量を同期する
       workspaceStore.fetchStatuses();
     };
@@ -116,11 +137,15 @@ export function useStatusStream() {
     if (started) return;
     started = true;
     connect();
-    // バックグラウンド復帰・オンライン復帰は待たずに即再接続する
+    // バックグラウンド復帰・オンライン復帰は待たずに即再接続し、フォアグラウンド/
+    // バックグラウンドの切替え自体も閲覧状態としてサーバへ伝える。
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) reconnectNow();
+      sendViewing();
     });
     on("connectivity:back", () => reconnectNow());
+    // タブ切替え・タブ作成/削除でアクティブセッションが変わるたびに送る。
+    watch(() => terminalStore.activeTabId, () => sendViewing());
   }
 
   return { start };
