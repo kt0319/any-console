@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isEditableTarget, restartTapBounce } from "../../ui/utils/dom.js";
+import { isEditableTarget, isEditableOrDialogTarget, restartTapBounce } from "../../ui/utils/dom.js";
 
 describe("isEditableTarget", () => {
   it("true for INPUT/TEXTAREA elements", () => {
@@ -15,6 +15,24 @@ describe("isEditableTarget", () => {
     expect(isEditableTarget({ tagName: "BUTTON" })).toBe(false);
     expect(isEditableTarget(null)).toBe(false);
     expect(isEditableTarget(undefined)).toBe(false);
+  });
+});
+
+describe("isEditableOrDialogTarget", () => {
+  it("編集可能要素はtrue", () => {
+    expect(isEditableOrDialogTarget({ tagName: "INPUT" })).toBe(true);
+    expect(isEditableOrDialogTarget({ tagName: "DIV", isContentEditable: true })).toBe(true);
+  });
+  it("ダイアログ内の要素はtrue", () => {
+    const el = { tagName: "BUTTON", closest: (sel) => (sel === "[role='dialog']" ? {} : null) };
+    expect(isEditableOrDialogTarget(el)).toBe(true);
+  });
+  it("編集不可・ダイアログ外はfalse", () => {
+    expect(isEditableOrDialogTarget({ tagName: "BUTTON", closest: () => null })).toBe(false);
+    expect(isEditableOrDialogTarget(null)).toBe(false);
+  });
+  it("closestを持たない要素（SVG等の疑似ターゲット）でも落ちない", () => {
+    expect(isEditableOrDialogTarget({ tagName: "DIV" })).toBe(false);
   });
 });
 

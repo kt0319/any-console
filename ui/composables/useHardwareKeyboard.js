@@ -3,7 +3,7 @@ import { useKeyboard } from "./useKeyboard.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { keyDefToAnsi } from "../utils/key-ansi.js";
-import { isEditableTarget } from "../utils/dom.js";
+import { isEditableOrDialogTarget, isEditableTarget } from "../utils/dom.js";
 import { isTouchOnly } from "../utils/keyboard.js";
 import {
   MODIFIER_KEYS,
@@ -66,8 +66,7 @@ export function useHardwareKeyboard({ inputEl, composing }) {
     const target = /** @type {HTMLElement | null} */ (e.target);
     if (!target) return;
     // 編集可能要素・ダイアログ内のクリックは xterm に戻さない
-    if (isEditableTarget(target)) return;
-    if (target.closest("[role='dialog']")) return;
+    if (isEditableOrDialogTarget(target)) return;
     const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     try { tab?.term?.focus(); } catch {}
   }

@@ -4,7 +4,7 @@ import { fitTerminal, sendResize } from "./useTerminalResize.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { keyDefToAnsi } from "../utils/key-ansi.js";
-import { isEditableTarget } from "../utils/dom.js";
+import { isEditableOrDialogTarget } from "../utils/dom.js";
 
 const APP_PAGE_KEYS = new Set(["PageUp", "PageDown"]);
 
@@ -17,6 +17,15 @@ function isPlainAppPageKey(e) {
     && !e.altKey;
 }
 
+// WS へ入力を送る唯一の経路（bindTerminalInput / bindTerminalElement 共用）。
+// 送信時刻を記録し、生存監視が「送信も activity」として扱えるようにする
+// （エコー無しプログラムへの連続入力で誤切断しないため）。
+function sendTabInput(tab, bytes) {
+  if (tab.ws?.readyState !== WebSocket.OPEN) return;
+  tab.ws.send(bytes);
+  tab._lastSendAt = performance.now();
+}
+
 export function bindTerminalInput(tab) {
   if (tab._inputBound) return;
   tab._inputBound = true;
@@ -26,12 +35,12 @@ export function bindTerminalInput(tab) {
 
   const encoder = new TextEncoder();
 
-  // WS へ入力を送る唯一の経路。送信時刻を記録し、生存監視が「送信も activity」
-  // として扱えるようにする（エコー無しプログラムへの連続入力で誤切断しないため）。
-  const sendInput = (bytes) => {
-    if (tab.ws?.readyState !== WebSocket.OPEN) return;
-    tab.ws.send(bytes);
-    tab._lastSendAt = performance.now();
+  const sendInput = (bytes) => sendTabInput(tab, bytes);
+  // ユーザー操作由来の入力は、送信に加えてdoneバッジも解除する
+  // （onResizeの機械的な送信では解除しない）。
+  const sendUserInput = (bytes) => {
+    sendInput(bytes);
+    terminalStore.clearDoneState(tab.sessionId);
   };
 
   function sendAppPageKey(e) {
@@ -39,8 +48,7 @@ export function bindTerminalInput(tab) {
     const seq = keyDefToAnsi({ key: e.key });
     if (!seq) return false;
     e.preventDefault();
-    sendInput(encoder.encode(seq));
-    terminalStore.clearDoneState(tab.sessionId);
+    sendUserInput(encoder.encode(seq));
     return true;
   }
 
@@ -48,8 +56,7 @@ export function bindTerminalInput(tab) {
     if (terminalStore.activeTabId !== tab.id) return;
     if (layoutStore.isSessionSidebarOpen || layoutStore.isSettingsOpen) return;
     const target = /** @type {HTMLElement | null} */ (e.target);
-    if (target && isEditableTarget(target)) return;
-    if (target?.closest?.("[role='dialog']")) return;
+    if (isEditableOrDialogTarget(target)) return;
     if (sendAppPageKey(e)) e.stopPropagation();
   }
 
@@ -64,8 +71,7 @@ export function bindTerminalInput(tab) {
     }
     if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
-      sendInput(encoder.encode("\n"));
-      terminalStore.clearDoneState(tab.sessionId);
+      sendUserInput(encoder.encode("\n"));
       return false;
     }
     // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）。
@@ -106,8 +112,7 @@ export function bindTerminalInput(tab) {
   });
 
   tab.term?.onData((data) => {
-    sendInput(encoder.encode(data));
-    terminalStore.clearDoneState(tab.sessionId);
+    sendUserInput(encoder.encode(data));
   });
 
   tab.term?.onResize(({ cols, rows }) => {
@@ -144,8 +149,7 @@ export function bindTerminalElement(tab) {
     e.preventDefault();
     e.stopPropagation();
     if (tab.ws?.readyState === WebSocket.OPEN) {
-      tab.ws.send(encoder.encode(text));
-      tab._lastSendAt = performance.now();
+      sendTabInput(tab, encoder.encode(text));
       terminalStore.clearDoneState(tab.sessionId);
     }
   }, true);

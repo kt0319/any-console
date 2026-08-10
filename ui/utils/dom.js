@@ -9,6 +9,18 @@ export function isEditableTarget(el) {
 }
 
 /**
+ * グローバルなkeydown/clickリスナーが無視すべき対象（編集可能要素または
+ * ダイアログ内）かを判定する。判定条件を1箇所に揃えるためのガード
+ * （useTerminalInput / useHardwareKeyboard で共用）。
+ * @param {HTMLElement | null} el
+ */
+export function isEditableOrDialogTarget(el) {
+  if (!el) return false;
+  if (isEditableTarget(el)) return true;
+  return !!el.closest?.("[role='dialog']");
+}
+
+/**
  * タップ演出（.tap-bounce）のCSSアニメーションを先頭から再生し直す。
  * クラスを外した後に reflow（offsetWidth 読み）を挟んでから付け直す
  * （挟まないと再生済みアニメーションが再始動しないため）。
