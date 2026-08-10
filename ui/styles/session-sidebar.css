@@ -172,10 +172,10 @@
 }
 
 /* タブのworking-pulse（200%↔-200%、background-size 200%）と移動量/背景サイズの
-   比率を揃え、体感速度を一致させる。上→下の向き自体はこれまで通り維持する。 */
+   比率を揃え、体感速度を一致させる。向きは下→上。 */
 @keyframes session-sidebar-working-sweep {
-  0% { background-position: 0% -200%; }
-  100% { background-position: 0% 200%; }
+  0% { background-position: 0% 200%; }
+  100% { background-position: 0% -200%; }
 }
 
 .session-sidebar-li.session-phrase-notify:not(.active)::before,
