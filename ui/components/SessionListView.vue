@@ -134,10 +134,15 @@ function onOpenPendingDispatch(p) {
 function onPendingPillOpen(p, key) {
   if (key === "dispatch") { onOpenPendingDispatch(p); return; }
   workspaceStore.selectedWorkspace = p.workspace;
+  openPaneFor({ workspace: p.workspace }, p, key);
+}
+
+// useInfoPillActions を都度組み立てて対応ペインを開く（通常行 / pending行 共通）。
+function openPaneFor(tab, source, key) {
   const { openPane } = useInfoPillActions({
-    tab: ref({ workspace: p.workspace }),
-    isGitRepo: ref(p.isGitRepo),
-    devServerEntry: ref(p.devServerEntry),
+    tab: ref(tab),
+    isGitRepo: ref(source.isGitRepo),
+    devServerEntry: ref(source.devServerEntry),
   });
   openPane(key);
 }
@@ -176,15 +181,10 @@ function onPillOpen(item, key) {
   if (item.id !== terminalStore.activeTabId) {
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
   }
-  const { openPane } = useInfoPillActions({
-    tab: ref(item.tab),
-    isGitRepo: ref(item.isGitRepo),
-    devServerEntry: ref(item.devServerEntry),
-  });
   // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして
   // 表示されるため、ここでサイドバー自体を閉じない（閉じると開いた直後の
   // ビューごと隠れてしまう）。
-  openPane(key);
+  openPaneFor(item.tab, item, key);
 }
 
 // タブを閉じる（破壊的操作のため、TerminalPaneと同じ確認ダイアログを通す）。
