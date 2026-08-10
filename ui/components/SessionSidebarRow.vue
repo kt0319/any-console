@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
@@ -117,6 +117,12 @@ watch(pillsRowEl, (el) => {
     for (const e of entries) pillsRowWidth.value = e.contentRect.width;
   });
   roPillsRow.observe(el);
+});
+// template refのwatchはアンマウント時には再発火しない（scope停止が先）ため、
+// TerminalPane.vueのroPaneと同様に明示的に解放する。
+onBeforeUnmount(() => {
+  roPillsRow?.disconnect();
+  roPillsRow = null;
 });
 
 const peekFields = computed(() => ({
