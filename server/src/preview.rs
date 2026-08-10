@@ -46,7 +46,9 @@ const SESSION_ID: &str = "local";
 
 const PROXY_OFFSET: u16 = 20000;
 const PROXY_MIN_TARGET: u16 = 1024;
-/// 10000 以上は +20000 が u16 の範囲を超え衝突しうるので proxy を立てない。
+/// 検出対象帯（1024..=9999）とプロキシ待受帯（+20000 → 21024..=29999）が
+/// 重ならないための上限。これを超える対象を許すと、自前のプロキシポートを
+/// dev server として再検出したり対象ポートと待受ポートが衝突しうる。
 const PROXY_MAX_TARGET: u16 = 9999;
 const PROXY_BIND_HOST: &str = "0.0.0.0";
 

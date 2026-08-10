@@ -1,7 +1,8 @@
 //! GitHub CLI 連携 API（Python 側 `api/routers/github.py` + `api/gh_utils.py` の移植）。
 //!
 //! `gh` CLI を subprocess で叩き、ワークスペース単位で 30 秒 TTL キャッシュする
-//! （Actions/PR ピルの 10 秒ポーリングとプール圧迫のバランス — gh_utils.py 参照）。
+//! （Actions/PR ピルの 30 秒ポーリング `GITHUB_POLL_INTERVAL_MS` と同周期にし、
+//! 外部 API の呼び出し頻度をポーリング1周あたり最大1回に抑える）。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

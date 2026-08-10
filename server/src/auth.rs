@@ -136,9 +136,9 @@ struct TokenCache {
 pub struct Auth {
     data_dir: PathBuf,
     /// メイントークンのキャッシュ。auth.json の mtime が変わったら読み直す —
-    /// 移行期間中はトークンのローテーション（Settings API = Python 側の書き込み）が
-    /// 別プロセスで起きるため、起動時ロードのままだと Rust 側ルートが古いトークンで
-    /// 固まる。空文字は認証無効化（auth.json 不在 or token 未設定）。
+    /// トークンのローテーションや CLI 等の別プロセスによる書き換えがあっても
+    /// 古いトークンで固まらないようにする。空文字は認証無効化
+    /// （auth.json 不在 or token 未設定）。
     cache: std::sync::Mutex<TokenCache>,
     trust_tailscale: bool,
     /// devices.json の排他制御（`devices.rs` の関数群と共有する）。

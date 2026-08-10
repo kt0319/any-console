@@ -2,10 +2,6 @@
 //!
 //! `TERMINAL_JOB`（tmux セッション生成）を扱う。ジョブのコマンドはセッション
 //! 作成後に tmux へ送り込まれて実行される（自動実行）。
-//!
-//! **注意**: このモジュールはまだ `build_router` に配線されていない
-//! （`/dispatch`・ターミナル WS と同時に配線する設計判断のため。
-//! `docs/RUST_MIGRATION.md` Phase 5 参照）。
 
 use std::collections::HashMap;
 use std::sync::Arc;

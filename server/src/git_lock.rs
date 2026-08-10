@@ -1,9 +1,8 @@
 //! ワークスペース単位の git 書き込みロック（Python 側 `api/git_lock.py` の移植）。
 //!
-//! Rust プロセス内の API 起点 git 操作同士を直列化する。Python 側の
-//! `workspace_write_lock` と同じくプロセス内ロックのみ — Python に残る
-//! dispatch の checkout（`_ensure_branch`）は元々このロックを取らないため、
-//! プロセス間の保護レベルは移行前と同等。
+//! プロセス内の API 起点 git 操作同士を直列化する（旧 Python 実装の
+//! `workspace_write_lock` と同じくプロセス内ロックのみ。dispatch の checkout
+//! （`ensure_branch`）は元々このロックを取らない）。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

@@ -1,8 +1,8 @@
 //! 操作ログを data/activity/{workspace}/{YYYY-MM-DD}.jsonl に追記する
 //! （Python 側 `api/activity.py` の移植）。
 //!
-//! 移行期間中は Python プロセスも同じファイルへ追記するが、O_APPEND の
-//! 行単位追記のため相互に安全（フォーマットも同一: ensure_ascii=False 相当）。
+//! O_APPEND の行単位追記のため、複数プロセスが同じファイルへ追記しても安全
+//! （フォーマットは旧 Python 実装と同一: ensure_ascii=False 相当）。
 
 use std::io::Write;
 use std::path::Path;

@@ -5,10 +5,6 @@
 //! 行う。既定（direct: false）では承認キューへ積んで即座に 202 を返し、実行は
 //! `/dispatch/{id}/decision` からの承認だけが担う。
 //!
-//! **注意**: このモジュールはまだ `build_router` に配線されていない（`terminal.rs`
-//! の WS・`job_runner.rs` の `/run` と同時に配線する設計判断のため。
-//! `docs/RUST_MIGRATION.md` Phase 5 参照）。
-//!
 //! **設計判断**: 新規作成セッションに予約するテキスト（`pending_text`）は Python
 //! 版がインメモリで保持していたが、Rust 版は tmux 環境変数
 //! （`TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER`）へ永続化する。ターミナル WS の
@@ -17,10 +13,10 @@
 //! プロセスが一致している保証が要らなくなる）。
 //!
 //! push 通知は `crate::push::send_push_notification` へネイティブに委譲する
-//! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信
-//! （`state.proxy.broadcast_dispatch_queue`）は Python 側への loopback ブリッジ
-//! （`api/routers/migration_bridge.py`）を経由する。dispatch scope API トークン
-//! 検証は `Auth::verify_api_token`（`auth.rs`）へネイティブに委譲する。
+//! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信は
+//! `state.status_stream.broadcast`（`broadcast_queue()`）でネイティブに行う。
+//! dispatch scope API トークン検証は `Auth::verify_api_token`（`auth.rs`）へ
+//! ネイティブに委譲する。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;

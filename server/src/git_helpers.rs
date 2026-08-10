@@ -43,7 +43,7 @@ pub fn validate_branch_name(branch: &str) -> Result<String, ApiError> {
     Ok(branch.to_string())
 }
 
-/// commit を指す ref（4〜40桁の16進ハッシュ、または stash エントリ）を検証する。
+/// commit を指す ref（4〜40桁の小文字16進ハッシュ、または stash エントリ）を検証する。
 pub fn validate_commit_ref(commit_ref: &str) -> Result<String, ApiError> {
     let is_hash = (4..=40).contains(&commit_ref.len())
         && commit_ref
@@ -75,8 +75,8 @@ pub fn validate_stash_ref(stash_ref: &str) -> Result<String, ApiError> {
 /// ワークスペースロック下で git コマンドを実行する（Python `execute_git_action`）。
 ///
 /// Python 側の `invalidate_git_info`（= status stream への即時 nudge）に対応して、
-/// Rust ローカルの git_info キャッシュを無効化し、Python 側へ /internal/git-nudge を
-/// 送る（migration_bridge — status stream が Python に残る移行期間の即時反映）。
+/// ローカルの git_info キャッシュを無効化し、`git_watch::nudge_workspace` で
+/// status stream へ即時反映を促す（`invalidate_git_info` 参照）。
 pub async fn execute_git_action(
     state: &Arc<AppState>,
     name: &str,
