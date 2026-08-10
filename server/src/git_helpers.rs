@@ -111,6 +111,15 @@ pub fn invalidate_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
     crate::git_watch::nudge_workspace(state, name.to_string());
 }
 
+/// activity ログ用の (key, value) ペア配列を `Map` へ変換する定型
+/// （git_history / git_branches の各エンドポイントが使う）。
+pub fn activity_fields(pairs: &[(&str, Value)]) -> Map<String, Value> {
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
+}
+
 /// execute_git_action の成功時に activity を記録する定型（Python
 /// `execute_git_action_with_activity`）。resolve_head=true なら成功後の HEAD を
 /// commit フィールドに載せる。

@@ -16,7 +16,8 @@ use crate::activity::log_activity;
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, ApiError};
 use crate::git_helpers::{
-    execute_git_action, execute_git_action_with_activity, validate_branch_name, validate_commit_ref,
+    activity_fields, execute_git_action, execute_git_action_with_activity, validate_branch_name,
+    validate_commit_ref,
 };
 use crate::git_utils::{
     git_branch, git_branches, git_default_branch, git_remote_branches, resolve_workspace_path,
@@ -26,13 +27,6 @@ use crate::state::AppState;
 use crate::util::JsonBody;
 
 const COMMIT_PREVIEW_LIMIT: usize = 3;
-
-fn fields(pairs: &[(&str, Value)]) -> Map<String, Value> {
-    pairs
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.clone()))
-        .collect()
-}
 
 fn env_refs(env: &[(String, String)]) -> Vec<(&str, &str)> {
     env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect()
@@ -297,7 +291,7 @@ pub async fn delete_branch(
             &env_refs(&env),
             &format!("branch={branch}"),
             false,
-            fields(&[
+            activity_fields(&[
                 ("branch", json!(branch)),
                 ("remote", json!(true)),
                 ("commit", json!(before_hash)),
@@ -320,7 +314,7 @@ pub async fn delete_branch(
         &[],
         &format!("branch={branch}"),
         false,
-        fields(&[
+        activity_fields(&[
             ("branch", json!(branch)),
             ("remote", json!(false)),
             ("commit", json!(before_hash)),
@@ -355,7 +349,7 @@ pub async fn create_branch(
         &[],
         &format!("branch={branch}"),
         true,
-        fields(&[("branch", json!(branch))]),
+        activity_fields(&[("branch", json!(branch))]),
     )
     .await
     .map(Json)
@@ -386,7 +380,7 @@ pub async fn checkout_branch(
         &[],
         &format!("branch={branch}"),
         true,
-        fields(&[("branch", json!(branch))]),
+        activity_fields(&[("branch", json!(branch))]),
     )
     .await
     .map(Json)
@@ -479,7 +473,7 @@ pub async fn pull(
             &state.paths.data_dir,
             Some(&name),
             "git_pull",
-            fields(&[
+            activity_fields(&[
                 ("from_commit", json!(before_hash)),
                 ("commit", json!(after_hash)),
             ]),
@@ -506,7 +500,7 @@ pub async fn push(
             &state.paths.data_dir,
             Some(&name),
             "git_push",
-            fields(&[
+            activity_fields(&[
                 ("from_commit", json!(before_hash)),
                 ("commit", json!(commit)),
             ]),
@@ -548,7 +542,7 @@ pub async fn push_branch(
             &state.paths.data_dir,
             Some(&name),
             "git_push",
-            fields(&[
+            activity_fields(&[
                 ("branch", json!(branch)),
                 ("from_commit", json!(before_hash)),
                 ("commit", json!(commit)),
@@ -577,7 +571,7 @@ pub async fn set_upstream(
         &env_refs(&env_owned),
         &format!("branch={branch}"),
         false,
-        fields(&[("branch", json!(branch))]),
+        activity_fields(&[("branch", json!(branch))]),
     )
     .await
     .map(Json)
