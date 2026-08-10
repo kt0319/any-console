@@ -284,11 +284,11 @@ impl Auth {
     /// `api_tokens` 等の他フィールドを保持したままトークンだけ更新するために、
     /// 呼び出し側は必ずこれをベースにマージして保存する。
     fn load_auth_file_raw(&self) -> Value {
-        std::fs::read_to_string(self.auth_file_path())
-            .ok()
-            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-            .filter(Value::is_object)
-            .unwrap_or_else(|| json!({}))
+        crate::json_store::load_json_file(
+            &self.auth_file_path(),
+            json!({}),
+            Some(&|v: &Value| v.is_object()),
+        )
     }
 
     fn save_auth_file_raw(&self, data: &Value) {

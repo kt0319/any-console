@@ -111,6 +111,19 @@ pub fn invalidate_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
     crate::git_watch::nudge_workspace(state, name.to_string());
 }
 
+/// `run_git_command` の結果が失敗なら stderr（空なら fallback 文言）を 400 で返す。
+pub fn ensure_git_result_ok(result: &Value, fallback: &str) -> Result<(), ApiError> {
+    if result["exit_code"] != 0 {
+        let stderr = result["stderr"].as_str().unwrap_or("").trim();
+        return Err(bad_request(if stderr.is_empty() {
+            fallback.to_string()
+        } else {
+            stderr.to_string()
+        }));
+    }
+    Ok(())
+}
+
 /// activity ログ用の (key, value) ペア配列を `Map` へ変換する定型
 /// （git_history / git_branches の各エンドポイントが使う）。
 pub fn activity_fields(pairs: &[(&str, Value)]) -> Map<String, Value> {

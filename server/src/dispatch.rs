@@ -789,6 +789,23 @@ pub async fn dispatch(
 /// ケース）からも、メイントークン相当（`is_scoped_token=false`）で直接呼ばれる
 /// （Python 版が `dispatch(req, (auth_label, False))` と関数呼び出しで再利用
 /// していたのと同じ構造）。
+/// dispatch 実行成功時の activity 記録（direct 実行と承認後実行で共用する定型）。
+fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
+    crate::activity::log_activity(
+        &state.paths.data_dir,
+        result["workspace"].as_str(),
+        "dispatch_executed",
+        [
+            ("job".to_string(), result["job"].clone()),
+            ("session_id".to_string(), result["session_id"].clone()),
+            ("created".to_string(), result["created"].clone()),
+            ("auth".to_string(), json!(auth_label)),
+        ]
+        .into_iter()
+        .collect(),
+    );
+}
+
 async fn dispatch_core(
     state: &Arc<AppState>,
     mut body: DispatchRequest,
@@ -854,19 +871,7 @@ async fn dispatch_core(
     if body.direct {
         notify_push(state);
         let result = launch(state, &body).await?;
-        crate::activity::log_activity(
-            &state.paths.data_dir,
-            result["workspace"].as_str(),
-            "dispatch_executed",
-            [
-                ("job".to_string(), result["job"].clone()),
-                ("session_id".to_string(), result["session_id"].clone()),
-                ("created".to_string(), result["created"].clone()),
-                ("auth".to_string(), json!(auth_label)),
-            ]
-            .into_iter()
-            .collect(),
-        );
+        log_dispatch_executed(state, &result, auth_label);
         return Ok(Json(result).into_response());
     }
 
@@ -1046,19 +1051,7 @@ pub async fn dispatch_rerun(
                 return Err(e);
             }
         };
-        crate::activity::log_activity(
-            &state.paths.data_dir,
-            result["workspace"].as_str(),
-            "dispatch_executed",
-            [
-                ("job".to_string(), result["job"].clone()),
-                ("session_id".to_string(), result["session_id"].clone()),
-                ("created".to_string(), result["created"].clone()),
-                ("auth".to_string(), json!(auth_label)),
-            ]
-            .into_iter()
-            .collect(),
-        );
+        log_dispatch_executed(&state, &result, auth_label);
         let new_id = crate::util::token_urlsafe(8);
         let request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
         record_recent(&state, &new_id, request_value, "approved").await;
