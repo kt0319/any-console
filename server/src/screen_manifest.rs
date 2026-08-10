@@ -1113,6 +1113,31 @@ mod tests {
         (store, dir)
     }
 
+    /// bash/legacy blocked ルールは `after_last_horizontal_rule` スコープなので、
+    /// ユーザーが答えた後に新しい区切り線の下へ出力が続けば、答える前のプロンプト
+    /// 文言（区切り線より上、スコープ外）が可視ペインに残っていても blocked
+    /// のまま張り付かないことを確認する（旧: `whole_recent` スコープだと、
+    /// 答えた後の出力がペイン高さより短い間ずっと blocked に居座っていた）。
+    #[test]
+    fn bash_permission_prompt_clears_once_new_output_follows_a_rule() {
+        let (store, _dir) = bundled_store();
+        let manifests = store.load_manifests();
+        let claude = manifests.iter().find(|m| m.id == "claude").unwrap();
+
+        let awaiting_answer = "Bash command\ndo you want to proceed?\n❯ 1. Yes\n  2. No\n";
+        assert_eq!(
+            evaluate_state(claude, awaiting_answer, "", ""),
+            Some("blocked".to_string())
+        );
+
+        let answered = "Bash command\ndo you want to proceed?\n❯ 1. Yes\n  2. No\n\
+             ────\nrunning...\ndone\n";
+        assert_ne!(
+            evaluate_state(claude, answered, "", ""),
+            Some("blocked".to_string())
+        );
+    }
+
     #[test]
     fn claude_and_codex_load() {
         let (store, _dir) = bundled_store();
