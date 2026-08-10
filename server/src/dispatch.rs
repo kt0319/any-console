@@ -518,6 +518,7 @@ async fn create_session(
         .create_registered_session(
             &state.paths.data_dir,
             &state.config,
+            &state.paths.project_root,
             &state.paths.tmux_prefix,
             ws_path.map(|p| p.to_string_lossy()).as_deref(),
             Some(workspace.to_string()),
@@ -845,6 +846,7 @@ async fn dispatch_core(
                 &body_text,
                 &url_path,
                 "dispatch",
+                None,
             )
             .await;
         });

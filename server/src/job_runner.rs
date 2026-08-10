@@ -142,6 +142,7 @@ pub async fn execute_job(
         .create_registered_session(
             &state.paths.data_dir,
             &state.config,
+            &state.paths.project_root,
             &state.paths.tmux_prefix,
             ws_path.as_ref().map(|p| p.to_string_lossy()).as_deref(),
             body.workspace.clone(),

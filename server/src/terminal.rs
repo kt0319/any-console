@@ -430,7 +430,7 @@ pub async fn terminal_ws(
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    if !crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers) {
+    if crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers).is_none() {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
     }
     ws.on_upgrade(move |socket| async move {
@@ -469,6 +469,7 @@ async fn ensure_tmux_session(
     match tmux::create_tmux_session(
         &state.paths.data_dir,
         &state.config,
+        &state.paths.project_root,
         workspace_path.as_deref(),
         &full_name,
     )
