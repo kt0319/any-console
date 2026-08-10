@@ -59,7 +59,23 @@ A first-class host needs Linux or macOS. Browser access from any OS (macOS / Win
 
 On a Linux or macOS host, `./any-console setup` registers a systemd (Linux) or launchd (macOS) service. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
 
-### systemd (Linux) — first-class
+### Quick install (prebuilt binary — no Rust/Node/Python toolchain needed)
+
+Downloads a prebuilt release from [GitHub Releases](https://github.com/kt0319/any-console/releases) into `~/.any-console` and runs a non-interactive setup. Only `git`, `tmux`, and `python3` are needed at runtime (nothing to build):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash
+```
+
+Then finish service registration interactively (systemd/launchd):
+
+```bash
+cd ~/.any-console && ./any-console setup
+```
+
+To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. (The `./any-console update` command itself is git-based and only applies to the source-checkout flow below.)
+
+### systemd (Linux) — build from source
 
 ```bash
 git clone https://github.com/kt0319/any-console.git ~/any-console
@@ -69,7 +85,7 @@ cd ~/any-console
 
 Installs dependencies, builds the frontend, and registers a systemd service in one step. After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
 
-### launchd (macOS) — first-class
+### launchd (macOS) — build from source
 
 ```bash
 git clone https://github.com/kt0319/any-console.git ~/any-console
