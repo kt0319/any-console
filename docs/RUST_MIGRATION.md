@@ -505,7 +505,7 @@ HTTP プローブ（非 HTTP upstream の除外）・idle 連動のバックグ�
 - Python の `_scan_listening_ports_linux`/`_macos` の出力パース部分は純粋関数
   （`parse_ss_listen_lines`/`parse_lsof_listeners`）に切り出し、Python 側テスト
   と同じ固定出力フィクスチャで検証した
-- OS 分岐は `system.rs` の `IS_DARWIN` と同じ規約（`const IS_MACOS: bool =
+- OS 分岐は `util.rs` の `IS_MACOS`（`const IS_MACOS: bool =
   cfg!(target_os = "macos")` による実行時 if 分岐）を踏襲し、両ブランチが
   どちらの OS でもコンパイル・テストできるようにした（`#[cfg(target_os)]`
   による条件コンパイルは使わない）
