@@ -6,7 +6,7 @@
  *
  * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
  */
-import { test, expect, listSessionIds, openWorkspaces, useLoginWithSessionCleanup } from "./helpers.js";
+import { test, expect, listSessionIds, openWorkspaces, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.describe("detached sessions", () => {
   const session = useLoginWithSessionCleanup(test);
@@ -14,10 +14,7 @@ test.describe("detached sessions", () => {
   test("タブをDetachすると Sessions一覧に続けて現れ、再アタッチできる", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
-
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
 
     const newSessionId = (await listSessionIds(page)).find((id) => !session.idsBefore.includes(id));
     expect(newSessionId).toBeTruthy();

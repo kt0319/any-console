@@ -3,7 +3,7 @@
  * ⌘⇧T（New Terminal）と ⌘⇧.（Settings）は terminal / settings スペックで
  * 使用済みのため、ここでは ⌘⇧N（Open Session）と ⌘⇧W（Close Tab）を確認する。
  */
-import { test, expect, useLoginWithSessionCleanup } from "./helpers.js";
+import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.describe("global shortcuts", () => {
   useLoginWithSessionCleanup(test);
@@ -20,10 +20,7 @@ test.describe("global shortcuts", () => {
   test("⌘⇧W でアクティブタブを確認ダイアログ付きで閉じられる", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
-
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
 
     // Cancel でタブが残る
     await page.keyboard.press("Meta+Shift+KeyW");

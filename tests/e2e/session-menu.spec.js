@@ -4,14 +4,12 @@
  * Sessionsページを離れるとメニューごと消える
  * （SessionListView.vueがアンマウントされるため）。
  */
-import { test, expect, openSettingsModal, openSettingsView, useLoginWithSessionCleanup } from "./helpers.js";
+import { test, expect, openSettingsModal, openSettingsView, popToNavRoot, useLoginWithSessionCleanup } from "./helpers.js";
 
 /** 設定モーダルを開き、ルートビュー（Sessions）まで遡る。 */
 async function openSessionsRoot(page) {
   await openSettingsModal(page);
-  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
-    await page.locator(".modal-title-wrap").click();
-  }
+  await popToNavRoot(page);
 }
 
 test.describe("session list menu", () => {

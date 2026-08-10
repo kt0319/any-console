@@ -7,7 +7,7 @@
  * 自動で決まるようになった。分割の入口はタブ（TabItem.vue、ネイティブHTML5
  * DnD）のみ。split mode 中もタブバー（TabBar.vue）は表示され続ける。
  */
-import { test, expect, useLoginWithSessionCleanup } from "./helpers.js";
+import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 /**
  * タブをドラッグして指定のドロップゾーンへドロップする。
@@ -41,15 +41,10 @@ test.describe("terminal split", () => {
 
   test("タブドラッグで horizontal split に入る", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
-    const countBefore = await tabs.count();
 
     // 分割先に選べるタブが要るため2つ開く
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 2, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
+    await openNewTerminal(page);
 
     const tab = tabs.last();
     await expect(tab).toBeVisible({ timeout: 5000 });

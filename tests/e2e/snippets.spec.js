@@ -9,7 +9,7 @@
  * スナップショットの全書き戻しは、テスト実行中に行われた無関係な編集まで
  * 巻き戻してしまうため行わない（既存スニペットを汚さない）。
  */
-import { test, expect, BASE_URL, loadToken, bearerHeaders, useLoginWithSessionCleanup } from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, bearerHeaders, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
 
@@ -58,17 +58,8 @@ test.describe("snippets", () => {
    * @param {import("@playwright/test").Page} page
    */
   async function openSnippetPanel(page) {
-    // KeyboardBar はターミナル表示中のモバイルで出る。空画面メニューがあれば
-    // タップ、なければショートカットでターミナルを開く（mobile-terminal.spec.js と同じ）。
-    const tabs = page.locator(".tab-btn");
-    const countBefore = await tabs.count();
-    const menuItem = page.locator(".screen-empty-menu-item", { hasText: "New Terminal" });
-    if (await menuItem.count()) {
-      await menuItem.tap();
-    } else {
-      await page.keyboard.press("Meta+Shift+KeyT");
-    }
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+    // KeyboardBar はターミナル表示中のモバイルで出る（開き方は mobile-terminal.spec.js と同じ）。
+    await openNewTerminal(page, { tap: true });
     await expect(page.locator(".keyboard-bar")).toBeVisible({ timeout: 10_000 });
 
     // 隅の鍵盤トグルキー（tap = ソフトキーボード開閉）で QWERTY パネルを開くと

@@ -102,6 +102,39 @@ export async function cleanupNewSessions(page, beforeIds) {
 }
 
 /**
+ * 新規ターミナルタブを開き、タブ数が1増えて xterm が表示されるまで待つ。
+ * tap: true はモバイル用 — 空画面メニューがあればタップ、なければ
+ * ショートカット（⌘⇧T）で開く。
+ * @param {import("@playwright/test").Page} page
+ * @param {{ tap?: boolean }} [opts]
+ * @returns {Promise<import("@playwright/test").Locator>} 表示中の xterm
+ */
+export async function openNewTerminal(page, { tap = false } = {}) {
+  const tabs = page.locator(".tab-btn");
+  const countBefore = await tabs.count();
+  const menuItem = page.locator(".screen-empty-menu-item", { hasText: "New Terminal" });
+  if (tap && (await menuItem.count())) {
+    await menuItem.tap();
+  } else {
+    await page.keyboard.press("Meta+Shift+KeyT");
+  }
+  await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+  const term = page.locator(".xterm >> visible=true").first();
+  await expect(term).toBeVisible({ timeout: 10_000 });
+  return term;
+}
+
+/**
+ * モーダルのタイトルクリックでルートビュー（Sessions）まで遡る。
+ * @param {import("@playwright/test").Page} page
+ */
+export async function popToNavRoot(page) {
+  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
+    await page.locator(".modal-title-wrap").click();
+  }
+}
+
+/**
  * 「ログインして、テスト中に増えたセッションだけを afterEach で消す」共通フック。
  * describe 内で1回呼ぶ（各 spec で同じ beforeEach/afterEach を繰り返さないため）。
  * セッションは tmux でサーバ側に残るため、テストが開いたまま終わると次の
@@ -202,9 +235,7 @@ export async function openWorkspaces(page) {
   if (!(await page.locator(".settings-panel").isVisible())) {
     await page.locator(".tab-menu-btn").click();
   }
-  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
-    await page.locator(".modal-title-wrap").click();
-  }
+  await popToNavRoot(page);
   await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open Session" }).click();
 }
 
