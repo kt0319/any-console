@@ -1062,8 +1062,15 @@ mod collect_agent_states_tests {
         let store = ManifestStore::new(dir.path().join("agent_manifests"), dir.path());
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
-        let result =
-            collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
+        let result = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            0.0,
+        )
+        .await;
         assert_eq!(result.states, Some(HashMap::new()));
         assert!(result.notifications.is_empty());
     }
@@ -1083,7 +1090,15 @@ mod collect_agent_states_tests {
         let mut tracker = PhraseNotifyTracker::new();
 
         // 初回ポーリング: 比較対象が無いので idle。
-        let r1 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
+        let r1 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            0.0,
+        )
+        .await;
         assert_eq!(
             r1.states
                 .as_ref()
@@ -1096,7 +1111,15 @@ mod collect_agent_states_tests {
         // 画面を変化させる。
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo activity-marker", true).await);
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let r2 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 1.0).await;
+        let r2 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            1.0,
+        )
+        .await;
         assert_eq!(
             r2.states
                 .as_ref()
@@ -1108,7 +1131,15 @@ mod collect_agent_states_tests {
 
         // 画面が静止すれば idle に戻る。
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let r3 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 2.0).await;
+        let r3 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            2.0,
+        )
+        .await;
         assert_eq!(
             r3.states
                 .as_ref()
@@ -1148,7 +1179,15 @@ mod collect_agent_states_tests {
         let mut tracker = PhraseNotifyTracker::new();
 
         // 初検出のポーリングでは通知しない。
-        let r1 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 100.0).await;
+        let r1 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            100.0,
+        )
+        .await;
         assert!(r1.notifications.is_empty());
         assert!(r1
             .ws_notifications
@@ -1156,7 +1195,15 @@ mod collect_agent_states_tests {
             .any(|(id, phrase, _)| id == &session_id && phrase == "FINISHED"));
 
         // 画面が変わらないまま次のポーリング → 猶予(0)経過で通知される。
-        let r2 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 100.5).await;
+        let r2 = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            100.5,
+        )
+        .await;
         assert!(r2
             .notifications
             .iter()
@@ -1197,8 +1244,15 @@ mod collect_agent_states_tests {
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
-        let result =
-            collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
+        let result = collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            0.0,
+        )
+        .await;
         assert!(result.states.unwrap().contains_key(&session_id));
 
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
@@ -1235,7 +1289,15 @@ mod collect_agent_states_tests {
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
-        collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
+        collect_agent_states(
+            &state,
+            &store,
+            &mut last_capture,
+            &mut tracker,
+            &HashMap::new(),
+            0.0,
+        )
+        .await;
 
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
         assert_eq!(cached.lock().await.job_name.as_deref(), Some("long-sleep"));

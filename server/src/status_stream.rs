@@ -145,7 +145,9 @@ pub async fn status_stream_ws(
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let Some(auth) = crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers) else {
+    let Some(auth) =
+        crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers)
+    else {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
     };
     let device_id = auth.device_id().map(str::to_string);
@@ -164,7 +166,11 @@ enum ClientMessage {
     Viewing { session_id: Option<String> },
 }
 
-async fn handle_status_stream_ws(state: Arc<AppState>, mut socket: WebSocket, device_id: Option<String>) {
+async fn handle_status_stream_ws(
+    state: Arc<AppState>,
+    mut socket: WebSocket,
+    device_id: Option<String>,
+) {
     let mut rx = state.status_stream.tx.subscribe();
     let conn_id = state.status_stream.register_viewer(device_id);
     tracing::info!("status stream connected");
