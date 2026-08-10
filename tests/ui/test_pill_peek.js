@@ -27,6 +27,11 @@ describe("trailingItemsSignature / findChangedTrailingItems", () => {
     expect(sig.get("b")).toBe("2");
   });
 
+  it("空配列/未指定でも空のMapを返す", () => {
+    expect(trailingItemsSignature([]).size).toBe(0);
+    expect(trailingItemsSignature(undefined).size).toBe(0);
+  });
+
   it("text が変わった項目・新規追加された項目を返す", () => {
     const prev = trailingItemsSignature([{ key: "a", text: "1" }]);
     const changed = findChangedTrailingItems(
@@ -39,6 +44,27 @@ describe("trailingItemsSignature / findChangedTrailingItems", () => {
   it("変化が無ければ空配列", () => {
     const prev = trailingItemsSignature([{ key: "a", text: "1" }]);
     expect(findChangedTrailingItems([{ key: "a", text: "1" }], prev)).toEqual([]);
+  });
+
+  it("複数変化していれば items の並び順で全て返す", () => {
+    const prev = trailingItemsSignature([
+      { key: "branch", text: "main" },
+      { key: "push", text: "1" },
+    ]);
+    const items = [
+      { key: "branch", text: "feature/x" },
+      { key: "push", text: "2" },
+    ];
+    expect(findChangedTrailingItems(items, prev)).toEqual(items);
+  });
+
+  it("項目が消えた場合は残っている項目に変化が無ければ空配列", () => {
+    const prev = trailingItemsSignature([
+      { key: "branch", text: "main" },
+      { key: "push", text: "1" },
+    ]);
+    const items = [{ key: "branch", text: "main" }];
+    expect(findChangedTrailingItems(items, prev)).toEqual([]);
   });
 });
 
