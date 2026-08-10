@@ -14,7 +14,7 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import hljs from "highlight.js/lib/core";
 import json from "highlight.js/lib/languages/json";
 hljs.registerLanguage("json", json);
@@ -23,8 +23,9 @@ import { getWithRetry } from "../utils/api-retry.js";
 import { useToast } from "../composables/useToast.js";
 import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
 import { triggerBlobDownload } from "../utils/download.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "Config File";
 
 const { apiGet, apiPost } = useApi();

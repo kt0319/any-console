@@ -158,7 +158,7 @@ const _collapsedGroups = new Set();
 </script>
 
 <script setup>
-import { computed, inject, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
+import { computed, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
@@ -181,10 +181,9 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.js";
 import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/workspace-groups.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
-const pushView = inject("pushView");
-const popView = inject("popView");
+const { modalTitle, pushView, popView } = useModalView();
 modalTitle.value = "Open Session";
 
 const terminalStore = useTerminalStore();

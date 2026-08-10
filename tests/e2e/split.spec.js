@@ -7,7 +7,7 @@
  * 自動で決まるようになった。分割の入口はタブ（TabItem.vue、ネイティブHTML5
  * DnD）のみ。split mode 中もタブバー（TabBar.vue）は表示され続ける。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 /**
  * タブをドラッグして指定のドロップゾーンへドロップする。
@@ -37,32 +37,14 @@ async function dragTabToZone(page, tabBtn, zoneSelector) {
 }
 
 test.describe("terminal split", () => {
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   test("タブドラッグで horizontal split に入る", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
-    const countBefore = await tabs.count();
 
     // 分割先に選べるタブが要るため2つ開く
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 2, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
+    await openNewTerminal(page);
 
     const tab = tabs.last();
     await expect(tab).toBeVisible({ timeout: 5000 });

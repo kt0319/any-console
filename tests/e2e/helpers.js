@@ -50,6 +50,9 @@ export const test = base.extend({
 });
 export { expect };
 
+/** トークン未設定時の test.skip 共通メッセージ。 */
+export const TOKEN_REQUIRED_MSG = "ANY_CONSOLE_TOKEN または data/auth.json が必要";
+
 export function loadToken() {
   if (process.env.ANY_CONSOLE_TOKEN) return process.env.ANY_CONSOLE_TOKEN;
   try {
@@ -96,6 +99,66 @@ export async function cleanupNewSessions(page, beforeIds) {
   for (const id of afterIds.filter((id) => !beforeIds.includes(id))) {
     await page.request.delete(`/terminal/sessions/${id}`).catch(() => {});
   }
+}
+
+/**
+ * 新規ターミナルタブを開き、タブ数が1増えて xterm が表示されるまで待つ。
+ * tap: true はモバイル用 — 空画面メニューがあればタップ、なければ
+ * ショートカット（⌘⇧T）で開く。
+ * @param {import("@playwright/test").Page} page
+ * @param {{ tap?: boolean }} [opts]
+ * @returns {Promise<import("@playwright/test").Locator>} 表示中の xterm
+ */
+export async function openNewTerminal(page, { tap = false } = {}) {
+  const tabs = page.locator(".tab-btn");
+  const countBefore = await tabs.count();
+  const menuItem = page.locator(".screen-empty-menu-item", { hasText: "New Terminal" });
+  if (tap && (await menuItem.count())) {
+    await menuItem.tap();
+  } else {
+    await page.keyboard.press("Meta+Shift+KeyT");
+  }
+  await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+  const term = page.locator(".xterm >> visible=true").first();
+  await expect(term).toBeVisible({ timeout: 10_000 });
+  return term;
+}
+
+/**
+ * モーダルのタイトルクリックでルートビュー（Sessions）まで遡る。
+ * @param {import("@playwright/test").Page} page
+ */
+export async function popToNavRoot(page) {
+  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
+    await page.locator(".modal-title-wrap").click();
+  }
+}
+
+/**
+ * 「ログインして、テスト中に増えたセッションだけを afterEach で消す」共通フック。
+ * describe 内で1回呼ぶ（各 spec で同じ beforeEach/afterEach を繰り返さないため）。
+ * セッションは tmux でサーバ側に残るため、テストが開いたまま終わると次の
+ * テスト・次の実行でも resume され続ける。増えた分を必ず消す（既存には触れない）。
+ * @param {typeof test} testRef この spec の test オブジェクト
+ * @param {{ onBeforeEach?: () => void | Promise<void> }} [opts]
+ *   onBeforeEach: login 前に呼ぶ spec 固有の前処理（snippets のコマンド生成等）
+ * @returns {{ idsBefore: string[] | null }} テスト開始時点のセッション ID
+ *   （beforeEach 完了まで null。新規セッションの特定などに使える）
+ */
+export function useLoginWithSessionCleanup(testRef, opts = {}) {
+  const state = { /** @type {string[] | null} */ idsBefore: null };
+  testRef.beforeEach(async ({ page, context }) => {
+    state.idsBefore = null;
+    const token = loadToken();
+    testRef.skip(!token, TOKEN_REQUIRED_MSG);
+    if (opts.onBeforeEach) await opts.onBeforeEach();
+    await login(page, context, token);
+    state.idsBefore = await listSessionIds(page);
+  });
+  testRef.afterEach(async ({ page }) => {
+    await cleanupNewSessions(page, state.idsBefore);
+  });
+  return state;
 }
 
 // 使い捨てサーバモードでは playwright.config.js が env を設定済み。
@@ -172,9 +235,7 @@ export async function openWorkspaces(page) {
   if (!(await page.locator(".settings-panel").isVisible())) {
     await page.locator(".tab-menu-btn").click();
   }
-  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
-    await page.locator(".modal-title-wrap").click();
-  }
+  await popToNavRoot(page);
   await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open Session" }).click();
 }
 

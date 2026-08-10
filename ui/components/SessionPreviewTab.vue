@@ -36,13 +36,14 @@
 </template>
 
 <script setup>
-import { inject, onMounted, onBeforeUnmount, ref } from "vue";
+import { onMounted, onBeforeUnmount, ref } from "vue";
 import { copyText } from "../utils/clipboard.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { devServerUrl } from "../utils/preview-url.js";
 import { openExternal } from "../utils/open-external.js";
+import { useModalView } from "../composables/useModalView.js";
 
 // Settings（ModalMenu）の「Dev Server」項目から開くcurrentView
 // （'SessionPreview'）。旧PreviewPorts.vue（ModalMenu配下の独立画面）から
@@ -50,7 +51,7 @@ import { openExternal } from "../utils/open-external.js";
 // 紐付ける（usePreviewPortsはref-counted共有composableのため、TerminalPaneの
 // 他の利用と重複起動にはならない）。
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "Dev Server";
 
 const { ports, start: startPolling, stop: stopPolling } = usePreviewPorts();

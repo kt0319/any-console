@@ -9,7 +9,7 @@
  * スナップショットの全書き戻しは、テスト実行中に行われた無関係な編集まで
  * 巻き戻してしまうため行わない（既存スニペットを汚さない）。
  */
-import { test, expect, BASE_URL, loadToken, login, bearerHeaders, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, bearerHeaders, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
 
@@ -21,20 +21,13 @@ test.describe("snippets", () => {
    */
   let snippetCmd = "";
 
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    snippetCmd = `echo e2e-snippet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
+  useLoginWithSessionCleanup(test, {
+    onBeforeEach: () => {
+      snippetCmd = `echo e2e-snippet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    },
   });
 
-  test.afterEach(async ({ page, request }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
+  test.afterEach(async ({ request }) => {
     const token = loadToken();
     if (!token) return;
     // このテストのスニペットだけを差分で取り除く。後始末の失敗を握りつぶすと
@@ -65,17 +58,8 @@ test.describe("snippets", () => {
    * @param {import("@playwright/test").Page} page
    */
   async function openSnippetPanel(page) {
-    // KeyboardBar はターミナル表示中のモバイルで出る。空画面メニューがあれば
-    // タップ、なければショートカットでターミナルを開く（mobile-terminal.spec.js と同じ）。
-    const tabs = page.locator(".tab-btn");
-    const countBefore = await tabs.count();
-    const menuItem = page.locator(".screen-empty-menu-item", { hasText: "New Terminal" });
-    if (await menuItem.count()) {
-      await menuItem.tap();
-    } else {
-      await page.keyboard.press("Meta+Shift+KeyT");
-    }
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+    // KeyboardBar はターミナル表示中のモバイルで出る（開き方は mobile-terminal.spec.js と同じ）。
+    await openNewTerminal(page, { tap: true });
     await expect(page.locator(".keyboard-bar")).toBeVisible({ timeout: 10_000 });
 
     // 隅の鍵盤トグルキー（tap = ソフトキーボード開閉）で QWERTY パネルを開くと

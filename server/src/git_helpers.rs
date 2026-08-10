@@ -43,7 +43,7 @@ pub fn validate_branch_name(branch: &str) -> Result<String, ApiError> {
     Ok(branch.to_string())
 }
 
-/// commit を指す ref（4〜40桁の16進ハッシュ、または stash エントリ）を検証する。
+/// commit を指す ref（4〜40桁の小文字16進ハッシュ、または stash エントリ）を検証する。
 pub fn validate_commit_ref(commit_ref: &str) -> Result<String, ApiError> {
     let is_hash = (4..=40).contains(&commit_ref.len())
         && commit_ref
@@ -75,8 +75,8 @@ pub fn validate_stash_ref(stash_ref: &str) -> Result<String, ApiError> {
 /// ワークスペースロック下で git コマンドを実行する（Python `execute_git_action`）。
 ///
 /// Python 側の `invalidate_git_info`（= status stream への即時 nudge）に対応して、
-/// Rust ローカルの git_info キャッシュを無効化し、Python 側へ /internal/git-nudge を
-/// 送る（migration_bridge — status stream が Python に残る移行期間の即時反映）。
+/// ローカルの git_info キャッシュを無効化し、`git_watch::nudge_workspace` で
+/// status stream へ即時反映を促す（`invalidate_git_info` 参照）。
 pub async fn execute_git_action(
     state: &Arc<AppState>,
     name: &str,
@@ -109,6 +109,28 @@ pub async fn execute_git_action(
 pub fn invalidate_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
     state.git_info_cache.invalidate(ws_path);
     crate::git_watch::nudge_workspace(state, name.to_string());
+}
+
+/// `run_git_command` の結果が失敗なら stderr（空なら fallback 文言）を 400 で返す。
+pub fn ensure_git_result_ok(result: &Value, fallback: &str) -> Result<(), ApiError> {
+    if result["exit_code"] != 0 {
+        let stderr = result["stderr"].as_str().unwrap_or("").trim();
+        return Err(bad_request(if stderr.is_empty() {
+            fallback.to_string()
+        } else {
+            stderr.to_string()
+        }));
+    }
+    Ok(())
+}
+
+/// activity ログ用の (key, value) ペア配列を `Map` へ変換する定型
+/// （git_history / git_branches の各エンドポイントが使う）。
+pub fn activity_fields(pairs: &[(&str, Value)]) -> Map<String, Value> {
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 
 /// execute_git_action の成功時に activity を記録する定型（Python

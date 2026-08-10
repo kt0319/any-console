@@ -3,18 +3,15 @@
 //! config.json への書き込みが Python 互換フォーマット（正規化・末尾改行・
 //! .bak ローテーション）で行われることも確認する。
 
+mod common;
+
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::config::ConfigStore;
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
-use any_console_server::state::AppState;
 
 struct TestFront {
     addr: SocketAddr,
@@ -27,38 +24,7 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-".to_string(),
-        },
-        config: ConfigStore::new(dir.path().join("config.json")),
-        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: None,
-        auth: Auth::load(data_dir, false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    let state = common::test_app_state(dir.path(), common::StateOptions::default());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -72,12 +38,8 @@ async fn spawn_front() -> TestFront {
     TestFront { addr, dir }
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
 async fn get_json(front: &TestFront, path: &str) -> Value {
-    client()
+    common::client()
         .get(format!("http://{}{path}", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -89,7 +51,7 @@ async fn get_json(front: &TestFront, path: &str) -> Value {
 }
 
 async fn put_json(front: &TestFront, path: &str, body: &Value) -> reqwest::Response {
-    client()
+    common::client()
         .put(format!("http://{}{path}", front.addr))
         .bearer_auth(TOKEN)
         .json(body)
@@ -194,7 +156,7 @@ async fn editor_notifications_and_layout_roundtrip() {
     assert_eq!(split["session_ids"], json!(["a", null]));
     let resp = put_json(&front, "/settings/layout", &json!({"layout": "diagonal"})).await;
     assert_eq!(resp.status(), 400);
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/settings/layout", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -265,7 +227,7 @@ async fn groups_crud_and_workspace_unassign() {
     store.save_all(&cfg).unwrap();
 
     assert_eq!(get_json(&front, "/groups").await, json!([]));
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/groups", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"name": " Dev "}))
@@ -289,7 +251,7 @@ async fn groups_crud_and_workspace_unassign() {
     let mut cfg = store.load_all();
     cfg.get_mut("ws_x").unwrap()["group_id"] = json!(gid.clone());
     store.save_all(&cfg).unwrap();
-    let resp = client()
+    let resp = common::client()
         .delete(format!("http://{}/groups/{gid}", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -309,7 +271,7 @@ async fn group_order_sorts_and_returns_ids() {
     let front = spawn_front().await;
     let mut ids = Vec::new();
     for name in ["A", "B", "C"] {
-        let resp = client()
+        let resp = common::client()
             .post(format!("http://{}/groups", front.addr))
             .bearer_auth(TOKEN)
             .json(&json!({"name": name}))
@@ -336,7 +298,7 @@ async fn concurrent_group_creation_does_not_lose_updates() {
     let mut handles = Vec::new();
     for i in 0..8 {
         handles.push(tokio::spawn(async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/groups"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"name": format!("group-{i}")}))
@@ -382,7 +344,7 @@ async fn export_health_and_import() {
     assert_eq!(health["config_version"], 3);
 
     // import: global は丸ごと置換
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/settings/import", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"__global__": {"editor": {"url_template": "imported://y"}}}))
@@ -395,7 +357,7 @@ async fn export_health_and_import() {
         "imported://y"
     );
     // 不正 JSON は 400
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/settings/import", front.addr))
         .bearer_auth(TOKEN)
         .header("content-type", "application/json")
@@ -418,7 +380,7 @@ async fn concurrent_import_and_group_creation_does_not_lose_updates() {
 
     let mut handles = Vec::new();
     handles.push(tokio::spawn(async move {
-        client()
+        common::client()
             .post(format!("http://{addr}/settings/import"))
             .bearer_auth(TOKEN)
             .json(&json!({"__global__": {"editor": {"url_template": "imported://race"}}}))
@@ -429,7 +391,7 @@ async fn concurrent_import_and_group_creation_does_not_lose_updates() {
     }));
     for i in 0..6 {
         handles.push(tokio::spawn(async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/groups"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"name": format!("race-group-{i}")}))
@@ -496,7 +458,7 @@ async fn recent_jobs_rejects_oversized_fields() {
 async fn settings_routes_require_auth() {
     let front = spawn_front().await;
     for path in ["/snippets", "/groups", "/settings/export"] {
-        let resp = client()
+        let resp = common::client()
             .get(format!("http://{}{path}", front.addr))
             .send()
             .await

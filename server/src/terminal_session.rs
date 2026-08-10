@@ -170,17 +170,6 @@ impl TerminalSession {
         }
     }
 
-    pub fn metadata_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "workspace": self.workspace,
-            "icon": self.icon,
-            "icon_color": self.icon_color,
-            "job_name": self.job_name,
-            "job_label": self.job_label,
-            "interactive": self.interactive,
-        })
-    }
-
     /// この接続専用の PTY でベースセッションへ独立アタッチし、読み取りループを
     /// 起動する（Python `attach_client_bridge` + `register_bridge` +
     /// `start_bridge_reader` 相当）。ブリッジ ID を返す。
@@ -416,17 +405,9 @@ impl TerminalRegistry {
 mod tests {
     use super::*;
 
-    fn skip_if_no_tmux() -> bool {
-        std::process::Command::new("tmux")
-            .arg("-V")
-            .output()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
-    }
-
     #[tokio::test]
     async fn create_attach_write_and_kill_roundtrip() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
@@ -539,7 +520,7 @@ mod tests {
     /// per-session 状態が分裂していた）。
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn get_or_register_cold_hydration_is_atomic_under_concurrency() {
-        if skip_if_no_tmux() {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();

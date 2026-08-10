@@ -5,7 +5,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useConfirm } from "./useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { emit } from "../app-bridge.js";
-import { copyText } from "../utils/clipboard.js";
+import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.js";
 import { isEditableTarget } from "../utils/dom.js";
 
 export function useGlobalShortcuts({ closeTab }) {
@@ -17,13 +17,11 @@ export function useGlobalShortcuts({ closeTab }) {
   async function onGlobalKeydown(e) {
     // 選択中のターミナルがあれば Ctrl/Cmd+C をコピーに割り当てる（フォーカスが
     // 入力フォーム等にあるとき、設定画面が開いているときは標準のコピー動作を優先するため対象外）。
-    if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "c" || e.key === "C")) {
+    if (isCopyShortcut(e)) {
       const isFormField = isEditableTarget(/** @type {HTMLElement} */ (e.target));
       if (!isFormField && !layoutStore.isSettingsOpen) {
         const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
-        if (tab?.term?.hasSelection?.()) {
-          const text = tab.term.getSelection();
-          if (text) copyText(text);
+        if (copyTerminalSelection(tab?.term)) {
           e.preventDefault();
           return;
         }

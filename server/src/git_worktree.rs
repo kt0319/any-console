@@ -141,14 +141,7 @@ pub async fn create_worktree(
     let result =
         run_git_command(&args, &ws_path, GIT_LONG_TIMEOUT_SEC, "worktree add", &[]).await?;
     crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
-    if result["exit_code"] != 0 {
-        let stderr = result["stderr"].as_str().unwrap_or("").trim().to_string();
-        return Err(bad_request(if stderr.is_empty() {
-            "Failed to create worktree".to_string()
-        } else {
-            stderr
-        }));
-    }
+    crate::git_helpers::ensure_git_result_ok(&result, "Failed to create worktree")?;
 
     let base_config = state.config.load_workspace_config(&name);
     let base_display = base_config
@@ -225,14 +218,7 @@ pub async fn delete_worktree(
     )
     .await?;
     crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
-    if result["exit_code"] != 0 {
-        let stderr = result["stderr"].as_str().unwrap_or("").trim().to_string();
-        return Err(bad_request(if stderr.is_empty() {
-            "Failed to remove worktree".to_string()
-        } else {
-            stderr
-        }));
-    }
+    crate::git_helpers::ensure_git_result_ok(&result, "Failed to remove worktree")?;
     tracing::info!("worktree removed repo={} path={}", name, body.path);
     Ok(Json(json!({"status": "ok"})))
 }

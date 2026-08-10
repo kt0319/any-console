@@ -78,9 +78,9 @@ pub fn resolve_effective_bind(config: &ConfigStore) -> (String, u16) {
 }
 
 /// hook 専用トークンを返す（無ければ生成して `data/hook_token` に保存する。
-/// Python の `agent_hooks.get_hook_token` と同一ファイル・同一 best-effort 挙動 —
+/// Python の `agent_hooks.get_or_create_hook_token` と同一ファイル・同一 best-effort 挙動 —
 /// 初回作成時のプロセス間競合はガードしない。0600 で保存する）。
-pub(crate) fn get_hook_token(data_dir: &Path) -> String {
+pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
     let path = data_dir.join("hook_token");
     if let Ok(existing) = std::fs::read_to_string(&path) {
         let trimmed = existing.trim();
@@ -132,7 +132,7 @@ fn hook_session_env(
         ),
         (
             "ANY_CONSOLE_HOOK_TOKEN".to_string(),
-            get_hook_token(data_dir),
+            get_or_create_hook_token(data_dir),
         ),
     ]
 }
@@ -525,6 +525,17 @@ pub async fn unset_environment(tmux_name: &str, key: &str) -> Option<CmdResult> 
     run_tmux_cmd(&["set-environment", "-u", "-t", tmux_name, key]).await
 }
 
+/// tmux が使えない環境（CI コンテナ等）でスキップするテスト共用ガード
+/// （terminal / agent_watch / terminal_session のテストからも使う）。
+#[cfg(test)]
+pub fn skip_if_no_tmux() -> bool {
+    std::process::Command::new("tmux")
+        .arg("-V")
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -593,8 +604,8 @@ mod tests {
     #[test]
     fn hook_token_persists_across_calls() {
         let dir = tempfile::tempdir().unwrap();
-        let t1 = get_hook_token(dir.path());
-        let t2 = get_hook_token(dir.path());
+        let t1 = get_or_create_hook_token(dir.path());
+        let t2 = get_or_create_hook_token(dir.path());
         assert_eq!(t1, t2);
         assert!(!t1.is_empty());
     }
@@ -651,17 +662,9 @@ mod tests {
         }
     }
 
-    fn skip_if_no_tmux() -> bool {
-        std::process::Command::new("tmux")
-            .arg("-V")
-            .output()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
-    }
-
     #[tokio::test]
     async fn create_attach_and_kill_real_session() {
-        if skip_if_no_tmux() {
+        if super::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
@@ -706,7 +709,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_session_ids_and_pane_meta_on_real_session() {
-        if skip_if_no_tmux() {
+        if super::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
@@ -740,7 +743,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_session_ids_returns_empty_not_none_when_no_sessions_match() {
-        if skip_if_no_tmux() {
+        if super::skip_if_no_tmux() {
             return;
         }
         let ids = list_session_ids("ac-definitely-nonexistent-prefix-").await;

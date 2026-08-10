@@ -39,7 +39,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import { renderIconStr } from "../utils/render-icon.js";
-import { PILL_MORE_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.js";
+import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.js";
 
 // ピルの値が変化した時に一時表示する1本の長いピル（.pill-peek-wide）。
 // 何をどの色・テキストで出すか（colorClass/iconClass/text/signature）は
@@ -64,8 +64,8 @@ const props = defineProps({
   pushCount: { type: Number, default: 0 },
   pullCount: { type: Number, default: 0 },
   // このpeekが実際に表示される時間（usePillPeek.js参照。キューで分割
-  // された場合はPILL_MORE_PEEK_DURATION_MSより短い）。
-  peekDurationMs: { type: Number, default: PILL_MORE_PEEK_DURATION_MS },
+  // された場合はPILL_PEEK_DURATION_MSより短い）。
+  peekDurationMs: { type: Number, default: PILL_PEEK_DURATION_MS },
 });
 
 // マーキーの再生時間を表示時間ぴったりにすると、流れ終わった瞬間に

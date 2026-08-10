@@ -8,6 +8,7 @@ import { on } from "../app-bridge.js";
 import { debugLog } from "./useClientLogs.js";
 import {
   buildStatusStreamUrl,
+  buildViewingMessage,
   parseStatusStreamMessage,
   statusStreamReconnectDelay,
 } from "../utils/status-stream.js";
@@ -53,7 +54,7 @@ export function useStatusStream() {
   // 何もしない（次回接続時のonopenで最新値を送り直す）。
   function sendViewing() {
     if (socket?.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({ type: "viewing", session_id: currentViewingSessionId() }));
+    socket.send(buildViewingMessage(currentViewingSessionId()));
   }
 
   function connect() {

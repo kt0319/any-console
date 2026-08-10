@@ -6,33 +6,17 @@
  *
  * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions, openWorkspaces } from "./helpers.js";
+import { test, expect, listSessionIds, openWorkspaces, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.describe("detached sessions", () => {
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  const session = useLoginWithSessionCleanup(test);
 
   test("タブをDetachすると Sessions一覧に続けて現れ、再アタッチできる", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
+    await openNewTerminal(page);
 
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
-
-    const newSessionId = (await listSessionIds(page)).find((id) => !sessionIdsBefore.includes(id));
+    const newSessionId = (await listSessionIds(page)).find((id) => !session.idsBefore.includes(id));
     expect(newSessionId).toBeTruthy();
 
     // 閉じるボタン→確認ダイアログのDetachを選ぶ

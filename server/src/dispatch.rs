@@ -5,10 +5,6 @@
 //! 行う。既定（direct: false）では承認キューへ積んで即座に 202 を返し、実行は
 //! `/dispatch/{id}/decision` からの承認だけが担う。
 //!
-//! **注意**: このモジュールはまだ `build_router` に配線されていない（`terminal.rs`
-//! の WS・`job_runner.rs` の `/run` と同時に配線する設計判断のため。
-//! `docs/RUST_MIGRATION.md` Phase 5 参照）。
-//!
 //! **設計判断**: 新規作成セッションに予約するテキスト（`pending_text`）は Python
 //! 版がインメモリで保持していたが、Rust 版は tmux 環境変数
 //! （`TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER`）へ永続化する。ターミナル WS の
@@ -17,10 +13,10 @@
 //! プロセスが一致している保証が要らなくなる）。
 //!
 //! push 通知は `crate::push::send_push_notification` へネイティブに委譲する
-//! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信
-//! （`state.proxy.broadcast_dispatch_queue`）は Python 側への loopback ブリッジ
-//! （`api/routers/migration_bridge.py`）を経由する。dispatch scope API トークン
-//! 検証は `Auth::verify_api_token`（`auth.rs`）へネイティブに委譲する。
+//! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信は
+//! `state.status_stream.broadcast`（`broadcast_queue()`）でネイティブに行う。
+//! dispatch scope API トークン検証は `Auth::verify_api_token`（`auth.rs`）へ
+//! ネイティブに委譲する。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -37,14 +33,13 @@ use crate::git_helpers::{invalidate_git_info, validate_branch_name};
 use crate::git_utils::{
     git_branch, git_branches, resolve_workspace_path, run_git_raw, GitError, GIT_QUICK_TIMEOUT_SEC,
 };
-use crate::jobs_common::serialize_workspace_jobs;
+use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
 use crate::state::AppState;
 use crate::terminal_session::TerminalSession;
 use crate::tmux;
 use crate::util::JsonBody;
 
-const TERMINAL_JOB_KEY: &str = "terminal";
 const RECENT_LIMIT: usize = 10;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
 const API_TOKEN_SCOPE_LABEL_PREFIX: &str = "token:";
@@ -274,90 +269,42 @@ impl DispatchRequest {
     }
 }
 
-/// `DispatchDecision`/`DispatchRerun` に共通の上書きフィールド集合。
-#[derive(Default)]
+/// `DispatchDecision`/`DispatchRerun` に共通の上書きフィールド集合
+/// （両構造体は `#[serde(flatten)]` でこれをそのまま埋め込む — 同じ8フィールドを
+/// 二重定義して `From` で詰め替えていた重複の解消。ワイヤ形式は不変）。
+#[derive(Default, Deserialize)]
 struct DecisionOverrides {
+    #[serde(default)]
     workspace: Option<String>,
+    #[serde(default)]
     branch: Option<String>,
+    #[serde(default)]
     base_branch: Option<String>,
+    #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
     job: Option<String>,
+    #[serde(default, rename = "match")]
     match_mode: Option<String>,
+    #[serde(default)]
     create_branch: Option<bool>,
+    #[serde(default)]
     session_id: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct DispatchDecision {
     approved: bool,
-    #[serde(default)]
-    workspace: Option<String>,
-    #[serde(default)]
-    branch: Option<String>,
-    #[serde(default)]
-    base_branch: Option<String>,
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    job: Option<String>,
-    #[serde(default, rename = "match")]
-    match_mode: Option<String>,
-    #[serde(default)]
-    create_branch: Option<bool>,
-    #[serde(default)]
-    session_id: Option<String>,
-}
-
-impl From<&DispatchDecision> for DecisionOverrides {
-    fn from(d: &DispatchDecision) -> Self {
-        Self {
-            workspace: d.workspace.clone(),
-            branch: d.branch.clone(),
-            base_branch: d.base_branch.clone(),
-            text: d.text.clone(),
-            job: d.job.clone(),
-            match_mode: d.match_mode.clone(),
-            create_branch: d.create_branch,
-            session_id: d.session_id.clone(),
-        }
-    }
+    #[serde(flatten)]
+    overrides: DecisionOverrides,
 }
 
 #[derive(Deserialize, Default)]
 pub struct DispatchRerun {
     #[serde(default)]
     run: bool,
-    #[serde(default)]
-    workspace: Option<String>,
-    #[serde(default)]
-    branch: Option<String>,
-    #[serde(default)]
-    base_branch: Option<String>,
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    job: Option<String>,
-    #[serde(default, rename = "match")]
-    match_mode: Option<String>,
-    #[serde(default)]
-    create_branch: Option<bool>,
-    #[serde(default)]
-    session_id: Option<String>,
-}
-
-impl From<&DispatchRerun> for DecisionOverrides {
-    fn from(d: &DispatchRerun) -> Self {
-        Self {
-            workspace: d.workspace.clone(),
-            branch: d.branch.clone(),
-            base_branch: d.base_branch.clone(),
-            text: d.text.clone(),
-            job: d.job.clone(),
-            match_mode: d.match_mode.clone(),
-            create_branch: d.create_branch,
-            session_id: d.session_id.clone(),
-        }
-    }
+    #[serde(flatten)]
+    overrides: DecisionOverrides,
 }
 
 // ─── ジョブ定義解決 ──────────────────────────────────────────────────────────
@@ -790,6 +737,23 @@ pub async fn dispatch(
 /// ケース）からも、メイントークン相当（`is_scoped_token=false`）で直接呼ばれる
 /// （Python 版が `dispatch(req, (auth_label, False))` と関数呼び出しで再利用
 /// していたのと同じ構造）。
+/// dispatch 実行成功時の activity 記録（direct 実行と承認後実行で共用する定型）。
+fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
+    crate::activity::log_activity(
+        &state.paths.data_dir,
+        result["workspace"].as_str(),
+        "dispatch_executed",
+        [
+            ("job".to_string(), result["job"].clone()),
+            ("session_id".to_string(), result["session_id"].clone()),
+            ("created".to_string(), result["created"].clone()),
+            ("auth".to_string(), json!(auth_label)),
+        ]
+        .into_iter()
+        .collect(),
+    );
+}
+
 async fn dispatch_core(
     state: &Arc<AppState>,
     mut body: DispatchRequest,
@@ -855,19 +819,7 @@ async fn dispatch_core(
     if body.direct {
         notify_push(state);
         let result = launch(state, &body).await?;
-        crate::activity::log_activity(
-            &state.paths.data_dir,
-            result["workspace"].as_str(),
-            "dispatch_executed",
-            [
-                ("job".to_string(), result["job"].clone()),
-                ("session_id".to_string(), result["session_id"].clone()),
-                ("created".to_string(), result["created"].clone()),
-                ("auth".to_string(), json!(auth_label)),
-            ]
-            .into_iter()
-            .collect(),
-        );
+        log_dispatch_executed(state, &result, auth_label);
         return Ok(Json(result).into_response());
     }
 
@@ -942,7 +894,7 @@ pub async fn dispatch_decision(
 
     let mut dispatch_body: DispatchRequest =
         serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
-    dispatch_body.apply_overrides(&DecisionOverrides::from(&body));
+    dispatch_body.apply_overrides(&body.overrides);
 
     let result = match launch(&state, &dispatch_body).await {
         Ok(r) => r,
@@ -1030,7 +982,7 @@ pub async fn dispatch_rerun(
     req.direct = false;
     req.dedup_key = None;
     req.session_id = None;
-    req.apply_overrides(&DecisionOverrides::from(&body));
+    req.apply_overrides(&body.overrides);
 
     if body.run {
         let result = match launch(&state, &req).await {
@@ -1047,19 +999,7 @@ pub async fn dispatch_rerun(
                 return Err(e);
             }
         };
-        crate::activity::log_activity(
-            &state.paths.data_dir,
-            result["workspace"].as_str(),
-            "dispatch_executed",
-            [
-                ("job".to_string(), result["job"].clone()),
-                ("session_id".to_string(), result["session_id"].clone()),
-                ("created".to_string(), result["created"].clone()),
-                ("auth".to_string(), json!(auth_label)),
-            ]
-            .into_iter()
-            .collect(),
-        );
+        log_dispatch_executed(&state, &result, auth_label);
         let new_id = crate::util::token_urlsafe(8);
         let request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
         record_recent(&state, &new_id, request_value, "approved").await;

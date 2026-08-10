@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, useLoginWithSessionCleanup, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 // PROXY_MIN_TARGET(1024) 〜 PROXY_MAX_TARGET(9999) の範囲に収める（server/src/preview.rs）。
 // 8888(any-console本体) と衝突しない値を選ぶ。proxy は +PROXY_OFFSET(20000) に立つ。
@@ -25,7 +25,7 @@ test.describe("port preview", () => {
 
   test.beforeAll(async ({ request }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
 
     // ポート → ワークスペースの紐付けはサーバ側がプロセスの cwd で行う
     // （server/src/preview.rs の match_workspace）ため、一時ディレクトリを
@@ -67,20 +67,7 @@ test.describe("port preview", () => {
     if (wsDir) fs.rmSync(wsDir, { recursive: true, force: true });
   });
 
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   test("Server ピルに検出され、確認ダイアログの Open で proxy 経由に到達できる", async ({ page, context }) => {
     // Server ピルはワークスペース紐付きタブにのみ出るため、登録した

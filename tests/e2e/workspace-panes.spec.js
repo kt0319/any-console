@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, useLoginWithSessionCleanup, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 const COMMIT_MSG_INITIAL = "feat: e2e 初期コミット";
 const COMMIT_MSG_UI = "test: e2e からのコミット";
@@ -31,7 +31,7 @@ test.describe("workspace detail panes", () => {
 
   test.beforeAll(async ({ request }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
 
     wsDir = fs.mkdtempSync(path.join(os.tmpdir(), "any-console-e2e-git-"));
     wsName = path.basename(wsDir);
@@ -64,20 +64,7 @@ test.describe("workspace detail panes", () => {
     if (wsDir) fs.rmSync(wsDir, { recursive: true, force: true });
   });
 
-  /** @type {string[] | null} テスト開始時点のセッション ID（ジョブ実行テストの後始末用。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   /** テスト用ワークスペースの詳細を開く。
    * ワークスペース一覧のワークスペース名クリックはJobsのインライン展開に
@@ -205,7 +192,7 @@ test.describe("workspace detail panes", () => {
     await expect(addDialog).toBeVisible({ timeout: 5000 });
     await expect(addDialog).toContainText("Branch");
     await expect(addDialog).toContainText("Worktree");
-    await addDialog.locator(".prompt-btn-cancel").click();
+    await addDialog.locator(".dialog-btn-cancel").click();
     await expect(addDialog).toBeHidden();
   });
 
@@ -220,7 +207,7 @@ test.describe("workspace detail panes", () => {
     await expect(addDialog).toBeVisible({ timeout: 5000 });
     await addDialog.locator('input[type="radio"][value="branch"]').check();
     await addDialog.locator(".form-input").fill(newBranch);
-    await addDialog.locator(".prompt-btn-ok").click();
+    await addDialog.locator(".dialog-btn-ok").click();
 
     // 作成したブランチに切り替わった状態で一覧に現れる
     const current = page.locator(".branch-item.current");

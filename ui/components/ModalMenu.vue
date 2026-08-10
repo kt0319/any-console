@@ -54,15 +54,15 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
-const pushView = inject("pushView");
+const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Settings";
 
 const { apiGet } = useApi();

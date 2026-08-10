@@ -180,21 +180,6 @@ pub fn load_workspace_jobs_data(state: &AppState, workspace_name: &str) -> Map<S
     data
 }
 
-pub fn save_workspace_jobs_data(
-    state: &AppState,
-    workspace_name: &str,
-    data: Map<String, Value>,
-) -> Result<(), ApiError> {
-    commit_workspace_jobs(
-        state,
-        workspace_name,
-        Box::new(move |jobs| {
-            *jobs = data;
-            Ok(())
-        }),
-    )
-}
-
 /// ワークスペースジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う
 /// （Python `save_workspace_config_section` は同じくロック下で read-modify-write
 /// する。`mutate` は commit 時点の最新データに対して適用される — 詳細は
@@ -335,6 +320,18 @@ pub struct ReorderJobsRequest {
     pub order: Vec<String>,
 }
 
+/// Pydantic の Field(max_length=...) 相当（超過は 422）。settings 側の
+/// スニペット/ジョブ検証とエラー文言・ステータスを共有する。
+pub fn check_max_len(field: &str, value: &str, max: usize) -> Result<(), ApiError> {
+    if value.chars().count() > max {
+        return Err(ApiError::new(
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+            format!("{field} exceeds max length {max}"),
+        ));
+    }
+    Ok(())
+}
+
 pub fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
     for (v, max, field) in [
         (&body.label, MAX_LABEL_LENGTH, "label"),
@@ -343,12 +340,7 @@ pub fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
         (&body.icon_color, 20, "icon_color"),
         (&body.notify_phrase, 200, "notify_phrase"),
     ] {
-        if v.chars().count() > max {
-            return Err(ApiError::new(
-                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-                format!("{field} exceeds max length {max}"),
-            ));
-        }
+        check_max_len(field, v, max)?;
     }
     Ok(())
 }
@@ -360,11 +352,7 @@ pub fn generate_job_key(existing: &Map<String, Value>) -> String {
             return candidate;
         }
     }
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    format!("job_{secs}")
+    format!("job_{}", crate::util::now_epoch())
 }
 
 struct ValidatedJob {

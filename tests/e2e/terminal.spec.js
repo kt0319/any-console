@@ -7,36 +7,14 @@
  * タブが開いている状態でも動くようタブ数の増減で検証する。
  * テストが作ったセッションは afterEach で API から削除する（既存セッションには触れない）。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.describe("terminal", () => {
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  // セッションは tmux でサーバ側に残るため、テストが開いたまま終わると
-  // 次のテスト・次の実行でも resume され続ける。増えた分をここで必ず消す。
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   test("New Terminal でタブが開きコマンドを実行できる", async ({ page }) => {
-    const tabs = page.locator(".tab-btn");
-    const countBefore = await tabs.count();
-
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-
     // 新しいタブがアクティブになり、そのターミナルが表示される
-    const term = page.locator(".xterm >> visible=true").first();
-    await expect(term).toBeVisible({ timeout: 10_000 });
+    const term = await openNewTerminal(page);
 
     // シェルのプロンプトが出るまで少し待ってからコマンド実行。
     // 出力(e2e-42)が入力文字列($((41+1)))に含まれない形にして「実行された」ことを検証する。
@@ -53,9 +31,7 @@ test.describe("terminal", () => {
     const term = page.locator(".xterm >> visible=true").first();
 
     // 1つ目: e2e-first-11 を出力
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(term).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
     await term.click();
     await page.waitForTimeout(1000);
     await page.keyboard.type("echo e2e-first-$((10+1))");
@@ -63,9 +39,7 @@ test.describe("terminal", () => {
     await expect(term).toContainText("e2e-first-11", { timeout: 10_000 });
 
     // 2つ目: e2e-second-22 を出力
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 2, { timeout: 10_000 });
-    await expect(term).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
     await term.click();
     await page.waitForTimeout(1000);
     await page.keyboard.type("echo e2e-second-$((20+2))");
@@ -84,9 +58,7 @@ test.describe("terminal", () => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
 
-    await page.keyboard.press("Meta+Shift+KeyT");
-    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
-    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
+    await openNewTerminal(page);
 
     // Cancel でタブが残る(tab-closeボタンでクローズ確認)
     const activeTabClose = page.locator(".tab-btn.active .tab-close");

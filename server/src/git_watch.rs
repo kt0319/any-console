@@ -13,12 +13,6 @@
 //!   ため、専用の購読者管理は不要になった
 //! - `watch_loop` / `auto_fetch_loop`: FS 監視（Python 側 watchfiles の実体である
 //!   `notify` crate + `notify-debouncer-full` を使用）・定期 fetch の常駐タスク
-//!
-//! まだ実際の呼び出し元（`git_helpers::invalidate_git_info` からの
-//! `nudge_workspace`・ワークスペース変更時の `notify_workspaces_changed`・
-//! status stream WS ハンドラからの `ensure_tasks`/`maybe_stop_tasks`）へは
-//! 部分的にしか配線していない — status stream の実エンドポイントへの一括配線
-//! （`docs/RUST_MIGRATION.md` Phase 4 再スコープ参照）で完了する。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -40,6 +34,7 @@ use crate::git_utils::{
 };
 use crate::paths::safe_resolve_str;
 use crate::state::AppState;
+use crate::util::task_running;
 
 /// Python `common.py` の同名定数と同じ値。
 const GIT_WATCH_DEBOUNCE_MS: u64 = 300;
@@ -404,10 +399,6 @@ impl Default for GitWatchState {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn task_running(task: &Option<JoinHandle<()>>) -> bool {
-    task.as_ref().is_some_and(|h| !h.is_finished())
 }
 
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。タスクが動いていなければ

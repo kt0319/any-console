@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import ScreenPair from "../../../ui/components/ScreenPair.vue";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
@@ -10,12 +10,6 @@ const claimPairingMock = vi.fn();
 vi.mock("../../../ui/stores/auth.js", () => ({
   useAuthStore: () => ({ claimPairing: (...args) => claimPairingMock(...args) }),
 }));
-
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-}
 
 describe("ScreenPair", () => {
   let originalHref;

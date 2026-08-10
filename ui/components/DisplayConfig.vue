@@ -20,11 +20,12 @@
 </template>
 
 <script setup>
-import { inject, onMounted } from "vue";
+import { onMounted } from "vue";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
 import { DEBUG_LEVELS } from "../utils/constants.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 const debugMode = useDebugMode();
 const debugLevels = useDebugLevels();
 

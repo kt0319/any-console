@@ -5,12 +5,12 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, ApiError};
 use crate::git_helpers::{
-    execute_git_action, execute_git_action_with_activity, resolve_workspace_file,
+    activity_fields, execute_git_action, execute_git_action_with_activity, resolve_workspace_file,
     validate_branch_name, validate_commit_ref, validate_stash_ref,
 };
 use crate::git_utils::{
@@ -44,13 +44,6 @@ pub struct GitActionRequest {
 
 fn default_mode() -> String {
     "soft".to_string()
-}
-
-fn fields(pairs: &[(&str, Value)]) -> Map<String, Value> {
-    pairs
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.clone()))
-        .collect()
 }
 
 // ─── GET /workspaces/{name}/git-log ─────────────────────────────────────────
@@ -195,7 +188,7 @@ async fn execute_commit_action(
         &[],
         &format!("commit={short}"),
         true,
-        fields(&[("source_commit", json!(h))]),
+        activity_fields(&[("source_commit", json!(h))]),
     )
     .await
     .map(Json)
@@ -257,7 +250,7 @@ async fn branch_action(
         &[],
         &format!("branch={branch}"),
         true,
-        fields(&[
+        activity_fields(&[
             ("branch", json!(branch)),
             ("from_commit", json!(before_hash)),
         ]),
@@ -308,7 +301,7 @@ pub async fn reset(
         &[],
         &format!("mode={} commit={short}", body.mode),
         false,
-        fields(&[
+        activity_fields(&[
             ("mode", json!(body.mode)),
             ("from_commit", json!(before_hash)),
             ("commit", json!(commit_hash)),
@@ -352,7 +345,7 @@ pub async fn commit(
         &[],
         "",
         true,
-        fields(&[("message", json!(message))]),
+        activity_fields(&[("message", json!(message))]),
     )
     .await
     .map(Json)
@@ -407,7 +400,7 @@ pub async fn stash_drop(
         &[],
         &format!("ref={r}"),
         false,
-        fields(&[("ref", json!(r))]),
+        activity_fields(&[("ref", json!(r))]),
     )
     .await
     .map(Json)

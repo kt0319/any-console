@@ -4,6 +4,8 @@
 //! `/run`・`/dispatch` と同時に配線する）ため、ここではテスト専用の Router を
 //! 直接組み立てて `terminal::` ハンドラを検証する。
 
+mod common;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,15 +16,9 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use tokio_tungstenite::tungstenite::Message as TgMsg;
 
-use any_console_server::auth::Auth;
-use any_console_server::config::ConfigStore;
-use any_console_server::git_lock::WorkspaceLocks;
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 use any_console_server::terminal;
-use any_console_server::terminal_session::TerminalRegistry;
 
 const TOKEN: &str = "term-test-token";
 
@@ -67,40 +63,15 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let tmux_prefix = format!("ac-test-{}-", any_console_server::util::token_hex(3));
+    let tmux_prefix = common::unique_tmux_prefix();
 
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
+    let state = common::test_app_state(
+        dir.path(),
+        common::StateOptions {
             tmux_prefix,
+            ..Default::default()
         },
-        config: ConfigStore::new(dir.path().join("config.json")),
-        git_locks: WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: None,
-        auth: Auth::load(data_dir, false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let router_state = state.clone();
@@ -119,22 +90,10 @@ async fn spawn_front() -> TestFront {
     }
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
-fn skip_if_no_tmux() -> bool {
-    std::process::Command::new("tmux")
-        .arg("-V")
-        .output()
-        .map(|o| !o.status.success())
-        .unwrap_or(true)
-}
-
 #[tokio::test]
 async fn list_sessions_empty_when_none_created() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/terminal/sessions", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -151,7 +110,7 @@ async fn list_sessions_empty_when_none_created() {
 /// リグレッションガード）。
 #[tokio::test]
 async fn list_sessions_with_multiple_unregistered_returns_all_sorted() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
@@ -168,7 +127,7 @@ async fn list_sessions_with_multiple_unregistered_returns_all_sorted() {
     }
     assert_eq!(front.state.terminal_registry.len().await, 0);
 
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/terminal/sessions", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -198,7 +157,7 @@ async fn list_sessions_with_multiple_unregistered_returns_all_sorted() {
 #[tokio::test]
 async fn list_and_delete_require_auth() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/terminal/sessions", front.addr))
         .send()
         .await
@@ -215,7 +174,7 @@ async fn list_and_delete_require_auth() {
 /// キルされずに残り続けていた）。
 #[tokio::test]
 async fn delete_hydrates_unregistered_but_live_tmux_session() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
@@ -229,7 +188,7 @@ async fn delete_hydrates_unregistered_but_live_tmux_session() {
     .await;
     assert_eq!(front.state.terminal_registry.len().await, 0);
 
-    let resp = client()
+    let resp = common::client()
         .delete(format!(
             "http://{}/terminal/sessions/{session_id}",
             front.addr
@@ -248,7 +207,7 @@ async fn terminal_order_roundtrip() {
     let get_order = |front: &TestFront| {
         let addr = front.addr;
         async move {
-            client()
+            common::client()
                 .get(format!("http://{addr}/terminal/order"))
                 .bearer_auth(TOKEN)
                 .send()
@@ -260,7 +219,7 @@ async fn terminal_order_roundtrip() {
     assert_eq!(resp.status(), 200);
     assert_eq!(resp.json::<Value>().await.unwrap(), json!({"order": []}));
 
-    let resp = client()
+    let resp = common::client()
         .put(format!("http://{}/terminal/order", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"order": ["b", "a"]}))
@@ -278,7 +237,7 @@ async fn terminal_order_roundtrip() {
 
 #[tokio::test]
 async fn ws_connect_attach_write_read_and_lifecycle() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
@@ -337,7 +296,7 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     );
 
     // 一覧に反映されている
-    let resp = client()
+    let resp = common::client()
         .get(format!("http://{}/terminal/sessions", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -348,7 +307,7 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     assert!(arr.iter().any(|s| s["session_id"] == session_id));
 
     // detached フラグの更新
-    let resp = client()
+    let resp = common::client()
         .put(format!(
             "http://{}/terminal/sessions/{session_id}/detached",
             front.addr
@@ -365,7 +324,7 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     );
 
     // history capture が過去の出力を含む
-    let resp = client()
+    let resp = common::client()
         .get(format!(
             "http://{}/terminal/sessions/{session_id}/history",
             front.addr
@@ -391,7 +350,7 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     );
 
     // セッション削除（tmux も消える）
-    let resp = client()
+    let resp = common::client()
         .delete(format!(
             "http://{}/terminal/sessions/{session_id}",
             front.addr
@@ -410,7 +369,7 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     );
 
     // 削除済みの再削除は 404
-    let resp = client()
+    let resp = common::client()
         .delete(format!(
             "http://{}/terminal/sessions/{session_id}",
             front.addr
@@ -424,7 +383,7 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
 
 #[tokio::test]
 async fn ws_missing_session_closes_with_1008() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;

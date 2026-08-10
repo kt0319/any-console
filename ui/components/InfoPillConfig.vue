@@ -26,12 +26,13 @@
 </template>
 
 <script setup>
-import { inject, computed } from "vue";
+import { computed } from "vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { INFO_PILLS } from "../utils/info-pills.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "Info Pills";
 
 const infoPillConfig = useInfoPillConfigStore();

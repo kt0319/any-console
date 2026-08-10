@@ -17,6 +17,8 @@ use axum::Json;
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
+use crate::util::now_epoch;
+
 pub const COOKIE_DEVICE_ID: &str = "any_console_device";
 pub const COOKIE_DEVICE_SECRET: &str = "any_console_secret";
 pub const TAILSCALE_HEADER_USER: &str = "tailscale-user-login";
@@ -29,13 +31,6 @@ pub const API_TOKEN_MAX_NAME_LEN: usize = 80;
 /// last_used 更新はリクエストのたびに auth.json を read-modify-write するため、
 /// 高頻度呼び出し（CI連携等）でのディスク I/O・ロック保持時間を抑える目的で間引く。
 const API_TOKEN_LAST_USED_THROTTLE_SEC: i64 = 60;
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
 
 /// どの経路で認証されたか（`api/auth.py` の `AuthResult.kind` に対応）。
 /// 文字列プレフィックスの推測に頼らないための構造化。
@@ -141,9 +136,9 @@ struct TokenCache {
 pub struct Auth {
     data_dir: PathBuf,
     /// メイントークンのキャッシュ。auth.json の mtime が変わったら読み直す —
-    /// 移行期間中はトークンのローテーション（Settings API = Python 側の書き込み）が
-    /// 別プロセスで起きるため、起動時ロードのままだと Rust 側ルートが古いトークンで
-    /// 固まる。空文字は認証無効化（auth.json 不在 or token 未設定）。
+    /// トークンのローテーションや CLI 等の別プロセスによる書き換えがあっても
+    /// 古いトークンで固まらないようにする。空文字は認証無効化
+    /// （auth.json 不在 or token 未設定）。
     cache: std::sync::Mutex<TokenCache>,
     trust_tailscale: bool,
     /// devices.json の排他制御（`devices.rs` の関数群と共有する）。
@@ -289,11 +284,11 @@ impl Auth {
     /// `api_tokens` 等の他フィールドを保持したままトークンだけ更新するために、
     /// 呼び出し側は必ずこれをベースにマージして保存する。
     fn load_auth_file_raw(&self) -> Value {
-        std::fs::read_to_string(self.auth_file_path())
-            .ok()
-            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-            .filter(Value::is_object)
-            .unwrap_or_else(|| json!({}))
+        crate::json_store::load_json_file(
+            &self.auth_file_path(),
+            json!({}),
+            Some(&|v: &Value| v.is_object()),
+        )
     }
 
     fn save_auth_file_raw(&self, data: &Value) {

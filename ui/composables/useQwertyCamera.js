@@ -1,11 +1,12 @@
 import { ref } from "vue";
-import { emit } from "../app-bridge.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import { useToast } from "./useToast.js";
 
 /**
  * カメラ起動と撮影画像のターミナルへのアップロードをまとめる。
  */
 export function useQwertyCamera({ apiFetch, getActiveTerminalTab, onBeforeUpload }) {
+  const toast = useToast();
   const cameraInputEl = ref(/** @type {HTMLInputElement|null} */ (null));
 
   function openCamera() {
@@ -22,7 +23,7 @@ export function useQwertyCamera({ apiFetch, getActiveTerminalTab, onBeforeUpload
       file,
       apiFetch,
       ws: tab?.ws,
-      notify: (message, type) => emit("toast:show", { message, type }),
+      notify: (message, type) => toast.show(message, type),
     });
   }
 

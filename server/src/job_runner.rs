@@ -2,10 +2,6 @@
 //!
 //! `TERMINAL_JOB`（tmux セッション生成）を扱う。ジョブのコマンドはセッション
 //! 作成後に tmux へ送り込まれて実行される（自動実行）。
-//!
-//! **注意**: このモジュールはまだ `build_router` に配線されていない
-//! （`/dispatch`・ターミナル WS と同時に配線する設計判断のため。
-//! `docs/RUST_MIGRATION.md` Phase 5 参照）。
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,11 +14,9 @@ use serde_json::{json, Value};
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, ApiError};
 use crate::git_utils::resolve_workspace_path;
-use crate::jobs_common::MAX_COMMAND_LENGTH;
+use crate::jobs_common::{MAX_COMMAND_LENGTH, TERMINAL_JOB_KEY};
 use crate::state::AppState;
 use crate::util::{sanitize_log_value, JsonBody};
-
-const TERMINAL_JOB_KEY: &str = "terminal";
 
 #[derive(Deserialize)]
 pub struct RunRequest {

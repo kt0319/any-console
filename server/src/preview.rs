@@ -29,6 +29,7 @@ use crate::auth::RequireAuth;
 use crate::config::ConfigStore;
 use crate::state::AppState;
 use crate::subprocess::run_subprocess_safe;
+use crate::util::{now_epoch, IS_MACOS};
 
 const SCAN_INTERVAL_SEC: u64 = 3;
 const PORT_SCAN_TIMEOUT_SEC: f64 = 2.0;
@@ -45,7 +46,9 @@ const SESSION_ID: &str = "local";
 
 const PROXY_OFFSET: u16 = 20000;
 const PROXY_MIN_TARGET: u16 = 1024;
-/// 10000 以上は +20000 が u16 の範囲を超え衝突しうるので proxy を立てない。
+/// 検出対象帯（1024..=9999）とプロキシ待受帯（+20000 → 21024..=29999）が
+/// 重ならないための上限。これを超える対象を許すと、自前のプロキシポートを
+/// dev server として再検出したり対象ポートと待受ポートが衝突しうる。
 const PROXY_MAX_TARGET: u16 = 9999;
 const PROXY_BIND_HOST: &str = "0.0.0.0";
 
@@ -55,15 +58,6 @@ const HTTP_PROBE_RETRY_SEC: i64 = 30;
 /// dev server はポートを先に開けてからアプリ初期化するものが多く、検出直後に
 /// プローブすると空振りしやすい。初回プローブは検出からこの秒数だけ待つ。
 const INITIAL_PROBE_DELAY_SEC: i64 = 10;
-
-const IS_MACOS: bool = cfg!(target_os = "macos");
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
 
 pub fn proxy_port_for(target: u16) -> Option<u16> {
     if (PROXY_MIN_TARGET..=PROXY_MAX_TARGET).contains(&target) {
@@ -773,7 +767,7 @@ pub fn start_scanner(state: &Arc<AppState>) {
         .scan_task
         .lock()
         .expect("scan_task lock poisoned");
-    let running = task.as_ref().is_some_and(|h| !h.is_finished());
+    let running = crate::util::task_running(&task);
     if !running {
         *task = Some(tokio::spawn(scan_loop(state.clone())));
     }

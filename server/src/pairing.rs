@@ -47,7 +47,7 @@ use crate::auth::{constant_time_eq, AuthKind, RequireAuth};
 use crate::errors::{bad_request, gone, too_many_requests, unauthorized, ApiError};
 use crate::rate_limit::FixedWindowCounter;
 use crate::state::AppState;
-use crate::util::JsonBody;
+use crate::util::{now_epoch, JsonBody};
 
 pub const PAIRING_TTL_SEC: i64 = 90;
 /// claim 成功の観測猶予。claim 成功時に `expires_at` をこの秒数だけ先に延長する。
@@ -56,13 +56,6 @@ const CLAIMED_OBSERVATION_SEC: i64 = 30;
 /// 連打・スクリプトによる荒らしを抑える二次防御）。
 const PAIRING_RATE_LIMIT: u32 = 120;
 const RATE_WINDOW: Duration = Duration::from_secs(60);
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
 
 struct PairingEntry {
     /// claim 成功後は None にして tombstone 化する（トークンは破棄済み）。

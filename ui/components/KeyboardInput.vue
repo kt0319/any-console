@@ -36,6 +36,7 @@ import { useKeyboard } from "../composables/useKeyboard.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
+import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { KEYBOARD_INPUT_MIN_HEIGHT_PX, KEYBOARD_INPUT_MAX_HEIGHT_PX } from "../utils/constants.js";
 
@@ -71,12 +72,13 @@ const placeholder = computed(() => {
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
 
+// 境界判定本体は純粋関数としてkeyboard.jsに置く（テスト対象）。
 function isFirstLine(el) {
-  return !el.value.slice(0, el.selectionStart ?? 0).includes("\n");
+  return isCaretOnFirstLine(el.value, el.selectionStart);
 }
 
 function isLastLine(el) {
-  return !el.value.slice(el.selectionEnd ?? el.value.length).includes("\n");
+  return isCaretOnLastLine(el.value, el.selectionEnd);
 }
 
 // 複数行入力中はまずカーソル移動をブラウザ標準に任せ、最初/最後の行にいる

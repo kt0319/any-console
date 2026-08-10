@@ -4,31 +4,16 @@
  * Sessionsページを離れるとメニューごと消える
  * （SessionListView.vueがアンマウントされるため）。
  */
-import { test, expect, loadToken, login, openSettingsModal, openSettingsView, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, openSettingsModal, openSettingsView, popToNavRoot, useLoginWithSessionCleanup } from "./helpers.js";
 
 /** 設定モーダルを開き、ルートビュー（Sessions）まで遡る。 */
 async function openSessionsRoot(page) {
   await openSettingsModal(page);
-  while (await page.locator(".modal-title-wrap.is-clickable").count()) {
-    await page.locator(".modal-title-wrap").click();
-  }
+  await popToNavRoot(page);
 }
 
 test.describe("session list menu", () => {
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   test("Open Session / Settings 項目に遷移でき、Sessionsページを離れるとメニューが消える", async ({ page }) => {
     await openSessionsRoot(page);

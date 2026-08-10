@@ -53,10 +53,11 @@
 </template>
 
 <script setup>
-import { reactive, inject } from "vue";
+import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "Terminal";
 
 const terminalStore = useTerminalStore();

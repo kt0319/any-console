@@ -10,6 +10,8 @@
 //! 実際に暗号化された HTTP リクエストが飛ぶことを検証する（暗号の正しさ自体は
 //! `push.rs` の RFC 8291 ユニットテストで別途検証済み — ここでは配線のみ確認）。
 
+mod common;
+
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
@@ -22,16 +24,11 @@ use futures_util::StreamExt;
 use serde_json::{json, Value};
 use tokio_tungstenite::tungstenite::Message as TgMsg;
 
-use any_console_server::auth::Auth;
 use any_console_server::config::ConfigStore;
-use any_console_server::dispatch::{self, DispatchState};
-use any_console_server::git_lock::WorkspaceLocks;
+use any_console_server::dispatch::{self};
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
 use any_console_server::state::AppState;
 use any_console_server::terminal;
-use any_console_server::terminal_session::TerminalRegistry;
 use any_console_server::util::base64url_encode;
 
 const TOKEN: &str = "dispatch-test-token";
@@ -154,7 +151,7 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let tmux_prefix = format!("ac-test-{}-", any_console_server::util::token_hex(3));
+    let tmux_prefix = common::unique_tmux_prefix();
 
     let ws_path = dir.path().join("proj");
     make_repo(&ws_path);
@@ -179,38 +176,14 @@ async fn spawn_front() -> TestFront {
     )
     .unwrap();
 
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: config_file.clone(),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
+    let state = common::test_app_state(
+        dir.path(),
+        common::StateOptions {
             tmux_prefix,
+            config: Some(store),
+            ..Default::default()
         },
-        config: store,
-        git_locks: WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: TerminalRegistry::new(),
-        dispatch: DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: None,
-        auth: Auth::load(data_dir, false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    );
     let (_meta, scoped_token) = state
         .auth
         .create_api_token("scoped", any_console_server::auth::API_TOKEN_SCOPE_DISPATCH);
@@ -232,18 +205,6 @@ async fn spawn_front() -> TestFront {
         push_calls,
         _dir: dir,
     }
-}
-
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
-fn skip_if_no_tmux() -> bool {
-    std::process::Command::new("tmux")
-        .arg("-V")
-        .output()
-        .map(|o| !o.status.success())
-        .unwrap_or(true)
 }
 
 /// workspace の（当日1ファイルしかないはずの）activity.jsonl から末尾（最新）の
@@ -309,7 +270,7 @@ async fn recv_broadcast_matching(
 #[tokio::test]
 async fn dispatch_requires_auth() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .json(&json!({"workspace": "proj"}))
         .send()
@@ -320,12 +281,12 @@ async fn dispatch_requires_auth() {
 
 #[tokio::test]
 async fn direct_dispatch_creates_session_and_sends_push() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
     let mut rx = front.state.status_stream.tx.subscribe();
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj", "direct": true}))
@@ -360,7 +321,7 @@ async fn direct_dispatch_creates_session_and_sends_push() {
 #[tokio::test]
 async fn scoped_token_direct_dispatch_rejected() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(&front.scoped_token)
         .json(&json!({"workspace": "proj", "direct": true}))
@@ -378,7 +339,7 @@ async fn scoped_token_direct_dispatch_rejected() {
 #[tokio::test]
 async fn scoped_token_queued_dispatch_ignores_session_id() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(&front.scoped_token)
         .json(&json!({"workspace": "proj", "session_id": "someone-elses-session"}))
@@ -392,12 +353,12 @@ async fn scoped_token_queued_dispatch_ignores_session_id() {
 
 #[tokio::test]
 async fn queued_dispatch_then_decision_approve_launches_session() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
     let mut rx = front.state.status_stream.tx.subscribe();
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj"}))
@@ -412,7 +373,7 @@ async fn queued_dispatch_then_decision_approve_launches_session() {
     let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "dispatch_queue").await;
     assert_eq!(broadcast["items"][0]["id"], dispatch_id);
 
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
@@ -435,7 +396,7 @@ async fn queued_dispatch_then_decision_approve_launches_session() {
 #[tokio::test]
 async fn decision_reject_removes_from_pending() {
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj"}))
@@ -445,7 +406,7 @@ async fn decision_reject_removes_from_pending() {
     let body: Value = resp.json().await.unwrap();
     let dispatch_id = body["id"].as_str().unwrap().to_string();
 
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
@@ -458,7 +419,7 @@ async fn decision_reject_removes_from_pending() {
     assert_eq!(resp.status(), 200);
 
     // 二度目の decision は 404（既に消えている）
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
@@ -479,7 +440,7 @@ async fn dedup_key_supersedes_previous_pending_item() {
         let addr = front.addr;
         let text = text.to_string();
         async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/dispatch"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"workspace": "proj", "dedup_key": "ci-failure", "text": text}))
@@ -518,7 +479,7 @@ async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
     let mut handles = Vec::new();
     for i in 0..8 {
         handles.push(tokio::spawn(async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/dispatch"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"workspace": "proj", "dedup_key": "ci-failure", "text": format!("run-{i}")}))
@@ -545,11 +506,11 @@ async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
 /// Some を引き当てて二重にセッションが起動してしまう）。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent_decision_approvals_launch_session_only_once() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj"}))
@@ -565,7 +526,7 @@ async fn concurrent_decision_approvals_launch_session_only_once() {
     for _ in 0..5 {
         let dispatch_id = dispatch_id.clone();
         handles.push(tokio::spawn(async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/dispatch/{dispatch_id}/decision"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"approved": true}))
@@ -601,11 +562,11 @@ async fn concurrent_decision_approvals_launch_session_only_once() {
 /// （dispatch.rs 冒頭の設計判断コメントで説明している中核の修正点）。
 #[tokio::test]
 async fn approved_new_session_flushes_pending_text_over_ws() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj", "text": "echo pending-text-arrived", "enter": true}))
@@ -615,7 +576,7 @@ async fn approved_new_session_flushes_pending_text_over_ws() {
     let body: Value = resp.json().await.unwrap();
     let dispatch_id = body["id"].as_str().unwrap().to_string();
 
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
@@ -662,11 +623,11 @@ async fn approved_new_session_flushes_pending_text_over_ws() {
 /// `show-environment` のパース時に失われていた）。
 #[tokio::test]
 async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({
@@ -680,7 +641,7 @@ async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
     let body: Value = resp.json().await.unwrap();
     let dispatch_id = body["id"].as_str().unwrap().to_string();
 
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
@@ -728,12 +689,12 @@ async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
 
 #[tokio::test]
 async fn dispatch_rerun_run_true_executes_immediately() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
     // まず承認済みの履歴を作る
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj"}))
@@ -742,7 +703,7 @@ async fn dispatch_rerun_run_true_executes_immediately() {
         .unwrap();
     let body: Value = resp.json().await.unwrap();
     let dispatch_id = body["id"].as_str().unwrap().to_string();
-    let resp = client()
+    let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
@@ -766,7 +727,7 @@ async fn dispatch_rerun_run_true_executes_immediately() {
         let recent = front.state.dispatch.recent.lock().await;
         recent[0]["id"].as_str().unwrap().to_string()
     };
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch/{recent_id}/rerun", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"run": true, "match": "none"}))
@@ -797,12 +758,12 @@ async fn dispatch_rerun_run_true_executes_immediately() {
 
 #[tokio::test]
 async fn existing_session_reuse_sends_text_directly_without_pending_env() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
     // 1回目の dispatch でセッションを作る
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj", "direct": true}))
@@ -813,7 +774,7 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
     let session_id = body["session_id"].as_str().unwrap().to_string();
 
     // 2回目は同じセッションを再利用（match=any）してテキストを直接送る
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj", "direct": true, "text": "echo direct-reuse-text"}))
@@ -845,11 +806,11 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
 /// フォールバックしていた）。
 #[tokio::test]
 async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
-    if skip_if_no_tmux() {
+    if common::skip_if_no_tmux() {
         return;
     }
     let front = spawn_front().await;
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({"workspace": "proj", "direct": true}))
@@ -868,7 +829,7 @@ async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
         .await
         .is_none());
 
-    let resp = client()
+    let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
         .json(&json!({

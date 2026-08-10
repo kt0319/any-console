@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-nocheck
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { copyText } from "../../ui/utils/clipboard.js";
+import { copyText, isCopyShortcut, copyTerminalSelection } from "../../ui/utils/clipboard.js";
 
 describe("copyText", () => {
   const origClipboard = navigator.clipboard;
@@ -65,5 +65,33 @@ describe("copyText", () => {
     mockExec(true);
     await copyText("cleanup");
     expect(document.querySelector("textarea")).toBe(null);
+  });
+});
+
+describe("isCopyShortcut", () => {
+  const ev = (over = {}) => ({
+    type: "keydown", key: "c", ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, ...over,
+  });
+  it("Ctrl+C / Cmd+C / 大文字C を検出する", () => {
+    expect(isCopyShortcut(ev())).toBe(true);
+    expect(isCopyShortcut(ev({ ctrlKey: false, metaKey: true }))).toBe(true);
+    expect(isCopyShortcut(ev({ key: "C" }))).toBe(true);
+  });
+  it("Shift/Alt併用・修飾なし・keyup は対象外", () => {
+    expect(isCopyShortcut(ev({ shiftKey: true }))).toBe(false);
+    expect(isCopyShortcut(ev({ altKey: true }))).toBe(false);
+    expect(isCopyShortcut(ev({ ctrlKey: false }))).toBe(false);
+    expect(isCopyShortcut(ev({ type: "keyup" }))).toBe(false);
+  });
+});
+
+describe("copyTerminalSelection", () => {
+  it("選択があればコピーして true", () => {
+    const term = { hasSelection: () => true, getSelection: () => "hello" };
+    expect(copyTerminalSelection(term)).toBe(true);
+  });
+  it("選択なし・term なしは false", () => {
+    expect(copyTerminalSelection({ hasSelection: () => false })).toBe(false);
+    expect(copyTerminalSelection(undefined)).toBe(false);
   });
 });

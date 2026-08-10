@@ -171,16 +171,16 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
 import { useCopyFeedback } from "../composables/useCopyFeedback.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
-const pushView = inject("pushView");
+const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Auth";
 
 const { apiGet, apiPost, apiPut, apiDelete } = useApi();

@@ -29,7 +29,7 @@
             <InfoPillRow
               class="session-sidebar-pills"
               :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
-              :max-width="9999"
+              :max-width="PILL_MAX_WIDTH_UNLIMITED_PX"
               :is-git-repo="p.isGitRepo"
               :is-dirty="p.dirty"
               :ahead="p.ahead"
@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount, inject } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -76,6 +76,8 @@ import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.js";
+import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
+import { useModalView } from "../composables/useModalView.js";
 
 // 統合ナビゲーション（useSettingsNav.js）の一番手前（ルート）のビュー。
 // 開いているタブごとにワークスペース名・ブランチ・変更サマリ・エージェント
@@ -87,8 +89,7 @@ import { emit } from "../app-bridge.js";
 // ページを離れたらメニューごと消えてよいという方針になったため、埋め込み式の
 // メニューに戻した（メニュー自体はこのビューがマウントされている間だけ存在する）。
 
-const modalTitle = inject("modalTitle");
-const pushView = inject("pushView");
+const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Sessions";
 
 const terminalStore = useTerminalStore();
@@ -133,10 +134,15 @@ function onOpenPendingDispatch(p) {
 function onPendingPillOpen(p, key) {
   if (key === "dispatch") { onOpenPendingDispatch(p); return; }
   workspaceStore.selectedWorkspace = p.workspace;
+  openPaneFor({ workspace: p.workspace }, p, key);
+}
+
+// useInfoPillActions を都度組み立てて対応ペインを開く（通常行 / pending行 共通）。
+function openPaneFor(tab, source, key) {
   const { openPane } = useInfoPillActions({
-    tab: ref({ workspace: p.workspace }),
-    isGitRepo: ref(p.isGitRepo),
-    devServerEntry: ref(p.devServerEntry),
+    tab: ref(tab),
+    isGitRepo: ref(source.isGitRepo),
+    devServerEntry: ref(source.devServerEntry),
   });
   openPane(key);
 }
@@ -175,15 +181,10 @@ function onPillOpen(item, key) {
   if (item.id !== terminalStore.activeTabId) {
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
   }
-  const { openPane } = useInfoPillActions({
-    tab: ref(item.tab),
-    isGitRepo: ref(item.isGitRepo),
-    devServerEntry: ref(item.devServerEntry),
-  });
   // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして
   // 表示されるため、ここでサイドバー自体を閉じない（閉じると開いた直後の
   // ビューごと隠れてしまう）。
-  openPane(key);
+  openPaneFor(item.tab, item, key);
 }
 
 // タブを閉じる（破壊的操作のため、TerminalPaneと同じ確認ダイアログを通す）。

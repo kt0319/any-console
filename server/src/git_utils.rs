@@ -47,6 +47,19 @@ pub enum GitError {
     Os(String),
 }
 
+/// git コマンドの共通実行設定（C ロケール強制・kill_on_drop・cwd・追加 env）。
+/// C ロケール強制を経路ごとに書き忘れると、ロケール依存の出力差で
+/// サニタイズが壊れる回帰を生むため必ずここを通す（subprocess.rs 参照）。
+fn git_command(args: &[&str], cwd: &Path, env: &[(&str, &str)]) -> tokio::process::Command {
+    let mut command = tokio::process::Command::new("git");
+    command.args(args).kill_on_drop(true).current_dir(cwd);
+    coerce_c_locale(&mut command);
+    for (k, v) in env {
+        command.env(k, v);
+    }
+    command
+}
+
 /// `git <args>` を実行する（Python `run_git_raw` 相当）。
 pub async fn run_git_raw(
     args: &[&str],
@@ -54,13 +67,7 @@ pub async fn run_git_raw(
     timeout_sec: f64,
     env: &[(&str, &str)],
 ) -> Result<GitOutput, GitError> {
-    let mut command = tokio::process::Command::new("git");
-    command.args(args).kill_on_drop(true).current_dir(cwd);
-    coerce_c_locale(&mut command);
-    for (k, v) in env {
-        command.env(k, v);
-    }
-    let fut = command.output();
+    let fut = git_command(args, cwd, env).output();
     match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await {
         Ok(Ok(out)) => Ok(GitOutput {
             // シグナル死は Python では負の returncode になる。-1 で代替する。
@@ -68,6 +75,21 @@ pub async fn run_git_raw(
             stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         }),
+        Ok(Err(e)) => Err(GitError::Os(e.to_string())),
+        Err(_) => Err(GitError::Timeout),
+    }
+}
+
+/// バイナリ安全な raw 実行（stdout をバイト列のまま返す。`run_git_raw` は
+/// from_utf8_lossy で潰すためファイル内容の取得には使えない）。
+pub async fn run_git_raw_bytes(
+    args: &[&str],
+    cwd: &Path,
+    timeout_sec: f64,
+) -> Result<(i32, Vec<u8>), GitError> {
+    let fut = git_command(args, cwd, &[]).output();
+    match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await {
+        Ok(Ok(out)) => Ok((out.status.code().unwrap_or(-1), out.stdout)),
         Ok(Err(e)) => Err(GitError::Os(e.to_string())),
         Err(_) => Err(GitError::Timeout),
     }

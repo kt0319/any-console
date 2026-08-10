@@ -6,8 +6,8 @@
 //!   ワークスペースは is_git_repo=false / exists=false になる）。
 //! - GET /workspaces/statuses は expanduser 済みパス（`list_git_workspace_paths`）
 //!   で git_info を並列取得する。
-//! - 登録・変更・削除は Python の `notify_workspaces_changed()` に対応して
-//!   Python 側 status stream へ nudge を送る（migration_bridge）。
+//! - 登録・変更・削除は `git_watch::notify_workspaces_changed()` で監視タスクへ
+//!   再収集を促し、status stream へ即時反映する。
 
 use std::collections::HashMap;
 use std::path::PathBuf;

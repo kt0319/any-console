@@ -42,8 +42,8 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
+import { useModalView } from "../composables/useModalView.js";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,
   CIRCLE_KEYPAD_BASE_KEYS,
@@ -57,7 +57,7 @@ import {
   circleKeypadKeyLabel,
 } from "../utils/circle-keypad-presets.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "Circle Keypad";
 
 const circleKeypad = useCircleKeyPadConfigStore();

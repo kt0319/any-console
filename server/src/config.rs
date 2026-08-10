@@ -1,10 +1,8 @@
 //! config.json の読み書きエンジン（Python 側 `api/config.py` の移植）。
 //!
-//! 移行期間中は Python プロセスと同じ config.json を両プロセスが読み書きする。
-//! Python は `config.lock` への fcntl flock（読み取り SH / 書き込み EX）で
-//! read-modify-write を直列化しており、Rust 側も**同じロックファイルの flock に
-//! 参加する**ことでプロセス間の lost update を防ぐ（auth.json / devices.json には
-//! このファイルロックが無いため、そちらのライター移管は後続フェーズ）。
+//! `config.lock` への fcntl flock（読み取り SH / 書き込み EX）で read-modify-write
+//! を直列化する（旧 Python 実装と同じロックファイルに参加する方式を維持 —
+//! CLI 等の別プロセスが同じ規約で参加すれば lost update を防げる）。
 //!
 //! 読み書きの挙動は Python と同一:
 //! - 読み込み: 壊れていれば .bak から復旧、正規化、バージョンマイグレーション。

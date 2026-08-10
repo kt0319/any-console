@@ -1,17 +1,14 @@
 //! Rust ネイティブ移行済み jobs / recent-jobs ルートの統合テスト。
 
+mod common;
+
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::config::ConfigStore;
 use any_console_server::json_store::save_json_file;
-use any_console_server::paths::Paths;
-use any_console_server::rate_limit::FixedWindowCounter;
-use any_console_server::state::AppState;
 
 struct TestFront {
     addr: SocketAddr,
@@ -35,38 +32,13 @@ async fn spawn_front() -> TestFront {
     );
     store.save_all(&cfg).unwrap();
 
-    let state = Arc::new(AppState {
-        paths: Paths {
-            project_root: dir.path().to_path_buf(),
-            data_dir: data_dir.clone(),
-            config_file: dir.path().join("config.json"),
-            frontend_dir: dir.path().join("dist"),
-            icons_dir: data_dir.join("icons"),
-            tmux_prefix: "ac-".to_string(),
+    let state = common::test_app_state(
+        dir.path(),
+        common::StateOptions {
+            config: Some(store),
+            ..Default::default()
         },
-        config: store,
-        git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
-        git_info_cache: any_console_server::git_info::GitInfoCache::new(),
-        git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
-        terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
-        dispatch: any_console_server::dispatch::DispatchState::new(),
-        agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
-        agent_watch: any_console_server::agent_watch::AgentWatchState::new(),
-        status_stream: any_console_server::status_stream::StatusStreamState::new(),
-        manifest_store: any_console_server::screen_manifest::ManifestStore::new(
-            dir.path().join("agent_manifests"),
-            dir.path(),
-        ),
-        preview: any_console_server::preview::PreviewState::new(),
-        pairing: any_console_server::pairing::PairingState::new(),
-        push: any_console_server::push::PushState::new(),
-        static_ctx: None,
-        auth: Auth::load(data_dir, false),
-        rate_counter: FixedWindowCounter::new(),
-        rate_limit: 10_000,
-    });
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -80,12 +52,8 @@ async fn spawn_front() -> TestFront {
     TestFront { addr, _dir: dir }
 }
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder().no_proxy().build().unwrap()
-}
-
 async fn get_json(front: &TestFront, path: &str) -> Value {
-    client()
+    common::client()
         .get(format!("http://{}{path}", front.addr))
         .bearer_auth(TOKEN)
         .send()
@@ -102,7 +70,7 @@ async fn send_json(
     path: &str,
     body: &Value,
 ) -> reqwest::Response {
-    client()
+    common::client()
         .request(method, format!("http://{}{path}", front.addr))
         .bearer_auth(TOKEN)
         .json(body)
@@ -171,7 +139,7 @@ async fn workspace_job_crud_cycle() {
     }
 
     // 削除
-    let resp = client()
+    let resp = common::client()
         .delete(format!(
             "http://{}/workspaces/proj/jobs/{job_name}",
             front.addr
@@ -255,7 +223,7 @@ async fn concurrent_job_creation_does_not_lose_updates() {
     let mut handles = Vec::new();
     for i in 0..8 {
         handles.push(tokio::spawn(async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/common/jobs"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"label": format!("common-{i}"), "command": "echo hi"}))
@@ -278,7 +246,7 @@ async fn concurrent_job_creation_does_not_lose_updates() {
     let mut handles = Vec::new();
     for i in 0..8 {
         handles.push(tokio::spawn(async move {
-            client()
+            common::client()
                 .post(format!("http://{addr}/workspaces/proj/jobs"))
                 .bearer_auth(TOKEN)
                 .json(&json!({"label": format!("ws-{i}"), "command": "echo hi"}))

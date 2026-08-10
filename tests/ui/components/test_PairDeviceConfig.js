@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { ref } from "vue";
 import PairDeviceConfig from "../../../ui/components/PairDeviceConfig.vue";
 import {
@@ -20,12 +20,6 @@ vi.mock("../../../ui/composables/useApi.js", () => ({
     apiGet: (...args) => apiGetMock(...args),
   }),
 }));
-
-async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-}
 
 function mountView() {
   const modalTitle = ref("");

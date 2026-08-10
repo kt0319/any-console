@@ -17,39 +17,18 @@ use tokio::process::Command;
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, too_large, ApiError};
+use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
-const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
-const IS_MACOS: bool = cfg!(target_os = "macos");
 
 fn upload_dir() -> PathBuf {
     PathBuf::from("/tmp/any-console-uploads")
 }
 
-/// Howard Hinnant の days->civil アルゴリズム（`activity.rs` と同じ、UTC 前提）。
-fn civil_from_days(z: i64) -> (i64, u32, u32) {
-    let z = z + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    (if m <= 2 { y + 1 } else { y }, m, d)
-}
-
 /// ファイル名用のコンパクトなタイムスタンプ（`%Y%m%d-%H%M%S`、UTC）。
 fn timestamp_compact() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let days = secs / 86400;
-    let (h, m, s) = ((secs % 86400) / 3600, (secs % 3600) / 60, secs % 60);
-    let (y, mo, d) = civil_from_days(days as i64);
+    let (y, mo, d, h, m, s) = crate::util::utc_now_parts();
     format!("{y:04}{mo:02}{d:02}-{h:02}{m:02}{s:02}")
 }
 
@@ -192,18 +171,20 @@ pub async fn upload_image(
                 field
                     .bytes()
                     .await
-                    .map_err(|_| too_large("File too large (max 10MB)"))?,
+                    .map_err(|_| too_large(MSG_UPLOAD_TOO_LARGE))?,
             );
         }
     }
     let Some(data) = data else {
-        return Err(bad_request("file field required"));
+        // Python 版（FastAPI の必須 UploadFile）はフィールド欠落を 422 で返して
+        // いた。git_files.rs のアップロードと同じく 422 に揃える。
+        return Err(crate::errors::unprocessable("file field required"));
     };
     if !ALLOWED_IMAGE_TYPES.contains(&content_type.as_str()) {
         return Err(bad_request(format!("Unsupported type: {content_type}")));
     }
     if data.len() > MAX_UPLOAD_SIZE {
-        return Err(too_large("File too large (max 10MB)"));
+        return Err(too_large(MSG_UPLOAD_TOO_LARGE));
     }
 
     let dir = upload_dir();

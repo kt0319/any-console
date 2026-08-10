@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { listenForEscape } from "../../ui/utils/keyboard.js";
+import { listenForEscape, isCaretOnFirstLine, isCaretOnLastLine } from "../../ui/utils/keyboard.js";
 
 function dispatchKeydown(key) {
   const event = new KeyboardEvent("keydown", { key, cancelable: true });
@@ -47,5 +47,41 @@ describe("listenForEscape", () => {
     release();
     dispatchKeydown("Escape");
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("isCaretOnFirstLine / isCaretOnLastLine", () => {
+  it("単一行では常に最初かつ最後の行", () => {
+    expect(isCaretOnFirstLine("hello", 3)).toBe(true);
+    expect(isCaretOnLastLine("hello", 3)).toBe(true);
+  });
+
+  it("複数行の先頭行にいる時だけ first line", () => {
+    const value = "line1\nline2";
+    expect(isCaretOnFirstLine(value, 0)).toBe(true);
+    expect(isCaretOnFirstLine(value, 5)).toBe(true); // line1 の末尾
+    expect(isCaretOnFirstLine(value, 6)).toBe(false); // line2 の先頭
+    expect(isCaretOnFirstLine(value, 11)).toBe(false);
+  });
+
+  it("複数行の最終行にいる時だけ last line", () => {
+    const value = "line1\nline2";
+    expect(isCaretOnLastLine(value, 11)).toBe(true);
+    expect(isCaretOnLastLine(value, 6)).toBe(true); // line2 の先頭
+    expect(isCaretOnLastLine(value, 5)).toBe(false); // 改行より前
+    expect(isCaretOnLastLine(value, 0)).toBe(false);
+  });
+
+  it("selection が null/undefined の時は先頭/末尾として扱う", () => {
+    const value = "line1\nline2";
+    expect(isCaretOnFirstLine(value, null)).toBe(true);
+    expect(isCaretOnLastLine(value, null)).toBe(true);
+    expect(isCaretOnFirstLine(value, undefined)).toBe(true);
+    expect(isCaretOnLastLine(value, undefined)).toBe(true);
+  });
+
+  it("空文字列ではどちらも true", () => {
+    expect(isCaretOnFirstLine("", 0)).toBe(true);
+    expect(isCaretOnLastLine("", 0)).toBe(true);
   });
 });

@@ -315,9 +315,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/workspaces/{name}/config",
             put(workspaces::update_workspace_config),
         )
-        // ─── Rust ネイティブ移行済みルート（Phase 5: ターミナル / dispatch / run + agent-hooks）
-        // push 通知・dispatch scope API トークン検証は当面
-        // migration_bridge.py 経由で Python へ委譲する（docs/RUST_MIGRATION.md 参照）。
+        // ─── ターミナル / dispatch / run + agent-hooks ───
         .route("/terminal/sessions", get(terminal::list_terminal_sessions))
         .route(
             "/terminal/sessions/{session_id}/history",

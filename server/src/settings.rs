@@ -16,26 +16,14 @@ use serde_json::{json, Map, Value};
 use crate::auth::RequireAuth;
 use crate::config::{ConfigStore, GLOBAL_CONFIG_KEY};
 use crate::errors::{bad_request, too_large, ApiError};
+use crate::jobs_common::{check_max_len, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH};
 use crate::state::AppState;
-use crate::util::JsonBody;
+use crate::util::{truncate_chars, JsonBody};
 
-pub const MAX_LABEL_LENGTH: usize = 200;
-pub const MAX_COMMAND_LENGTH: usize = 10000;
 const LABEL_PREVIEW_LEN: usize = 20;
 const MAX_IMPORT_SIZE: usize = 1024 * 1024;
 const PHRASE_NOTIFY_IDLE_GRACE_SEC: i64 = 20;
 const PHRASE_NOTIFY_GRACE_SEC_MAX: i64 = 600;
-
-/// Pydantic の Field(max_length=...) 相当（超過は 422）。
-fn check_max_len(field: &str, value: &str, max: usize) -> Result<(), ApiError> {
-    if value.chars().count() > max {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            format!("{field} exceeds max length {max}"),
-        ));
-    }
-    Ok(())
-}
 
 fn save_global(store: &ConfigStore, key: &str, value: Value) -> Result<(), ApiError> {
     store
@@ -531,10 +519,6 @@ fn default_label(command: &str) -> String {
     } else {
         command.to_string()
     }
-}
-
-fn truncate_chars(s: &str, max: usize) -> String {
-    s.chars().take(max).collect()
 }
 
 #[derive(Deserialize)]
