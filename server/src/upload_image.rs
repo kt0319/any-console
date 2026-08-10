@@ -17,11 +17,11 @@ use tokio::process::Command;
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, too_large, ApiError};
+use crate::util::IS_MACOS;
 
 const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
-const IS_MACOS: bool = cfg!(target_os = "macos");
 
 fn upload_dir() -> PathBuf {
     PathBuf::from("/tmp/any-console-uploads")

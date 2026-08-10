@@ -40,6 +40,7 @@ use crate::git_utils::{
 };
 use crate::paths::safe_resolve_str;
 use crate::state::AppState;
+use crate::util::task_running;
 
 /// Python `common.py` の同名定数と同じ値。
 const GIT_WATCH_DEBOUNCE_MS: u64 = 300;
@@ -404,10 +405,6 @@ impl Default for GitWatchState {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn task_running(task: &Option<JoinHandle<()>>) -> bool {
-    task.as_ref().is_some_and(|h| !h.is_finished())
 }
 
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。タスクが動いていなければ

@@ -32,6 +32,15 @@ pub fn sanitize_session_segment(name: &str) -> String {
         .collect()
 }
 
+/// macOS 上で動作しているか（launchd / pbcopy 等の OS 分岐に使う）。
+pub const IS_MACOS: bool = cfg!(target_os = "macos");
+
+/// バックグラウンドタスクが起動済みかつ未終了かを判定する
+/// （git_watch / agent_watch / preview のタスク管理で共用）。
+pub fn task_running(task: &Option<tokio::task::JoinHandle<()>>) -> bool {
+    task.as_ref().is_some_and(|h| !h.is_finished())
+}
+
 /// 現在時刻の UNIX epoch 秒（Python `time.time()` の整数部相当）。
 pub fn now_epoch() -> i64 {
     std::time::SystemTime::now()

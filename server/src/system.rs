@@ -19,9 +19,9 @@ use crate::subprocess::{
     kill_tmux_by_name, run_cmd_safe, run_subprocess_safe, run_tailscale_json, run_tmux_cmd,
     tmux_session_exists, SYSTEM_CMD_TIMEOUT_SEC,
 };
+use crate::util::IS_MACOS;
 use crate::util::{sanitize_log_value, sanitize_session_segment, token_urlsafe, JsonBody};
 
-const IS_DARWIN: bool = cfg!(target_os = "macos");
 const PROCESS_LIST_LIMIT: usize = 10;
 const PS_FIELD_COUNT: usize = 11;
 const GIT_FETCH_TIMEOUT_SEC: f64 = 30.0;
@@ -34,9 +34,27 @@ async fn git(root: &Path, args: &[&str], timeout: f64) -> Option<crate::subproce
     run_subprocess_safe(&cmd, timeout, Some(root)).await
 }
 
+/// 成功時のみ trim 済み stdout を返す（実体は `git_utils::run_git_query`。
+/// こちらの呼び出し側は行末改行を除いた値を期待するため trim を挟む）。
 async fn git_out(root: &Path, args: &[&str], timeout: f64) -> Option<String> {
-    let r = git(root, args, timeout).await?;
-    r.success().then(|| r.stdout.trim().to_string())
+    crate::git_utils::run_git_query(args, root, timeout)
+        .await
+        .map(|s| s.trim().to_string())
+}
+
+/// update 系エンドポイント共通の「project_root が git リポジトリか」ガード。
+async fn ensure_git_repo(root: &Path, error_msg: &str) -> Result<(), ApiError> {
+    if git_out(
+        root,
+        &["rev-parse", "--is-inside-work-tree"],
+        SYSTEM_CMD_TIMEOUT_SEC,
+    )
+    .await
+    .is_none()
+    {
+        return Err(server_error(error_msg));
+    }
+    Ok(())
 }
 
 /// 人間が読めるバージョン文字列。リリースタグ基準（例: v0.5.0-38-g844f239）。
@@ -85,7 +103,7 @@ fn split_whitespace_n(line: &str, n: usize) -> Vec<&str> {
 // ─── GET /system/processes ──────────────────────────────────────────────────
 
 pub async fn processes(_auth: RequireAuth) -> Result<Json<Value>, ApiError> {
-    let cmd: &[&str] = if IS_DARWIN {
+    let cmd: &[&str] = if IS_MACOS {
         &["ps", "aux", "-r"]
     } else {
         &["ps", "aux", "--sort=-%cpu"]
@@ -363,7 +381,7 @@ pub(crate) fn current_user() -> String {
 }
 
 async fn get_ip() -> Option<String> {
-    if !IS_DARWIN {
+    if !IS_MACOS {
         if let Some(out) = run_cmd_safe(&["hostname", "-I"], SYSTEM_CMD_TIMEOUT_SEC, None).await {
             if let Some(first) = out.split_whitespace().next() {
                 return Some(first.to_string());
@@ -384,7 +402,7 @@ async fn get_ip() -> Option<String> {
 }
 
 async fn get_os_name() -> Option<String> {
-    if IS_DARWIN {
+    if IS_MACOS {
         let ver = run_cmd_safe(
             &["sw_vers", "-productVersion"],
             SYSTEM_CMD_TIMEOUT_SEC,
@@ -431,7 +449,7 @@ fn format_uptime_seconds(elapsed: i64) -> String {
 }
 
 async fn get_uptime() -> Option<String> {
-    if IS_DARWIN {
+    if IS_MACOS {
         let out = run_cmd_safe(
             &["sysctl", "-n", "kern.boottime"],
             SYSTEM_CMD_TIMEOUT_SEC,
@@ -461,7 +479,7 @@ fn regex_capture_int(text: &str, key: &str) -> Option<i64> {
 }
 
 fn get_cpu_temp() -> Option<String> {
-    if IS_DARWIN {
+    if IS_MACOS {
         return None;
     }
     let raw = std::fs::read_to_string("/sys/class/thermal/thermal_zone0/temp").ok()?;
@@ -489,7 +507,7 @@ fn parse_meminfo(meminfo: &str) -> Option<String> {
 }
 
 async fn get_memory() -> Option<String> {
-    if IS_DARWIN {
+    if IS_MACOS {
         let memsize = run_cmd_safe(
             &["sysctl", "-n", "hw.memsize"],
             SYSTEM_CMD_TIMEOUT_SEC,
@@ -635,18 +653,7 @@ pub async fn update_check(
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
     let root = &state.paths.project_root;
-    if git_out(
-        root,
-        &["rev-parse", "--is-inside-work-tree"],
-        SYSTEM_CMD_TIMEOUT_SEC,
-    )
-    .await
-    .is_none()
-    {
-        return Err(server_error(
-            "Not a git repository; cannot check for updates",
-        ));
-    }
+    ensure_git_repo(root, "Not a git repository; cannot check for updates").await?;
     let remote = git_remote(root).await;
     let fetched = git(
         root,
@@ -702,16 +709,7 @@ pub async fn update_apply(
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
     let root = &state.paths.project_root;
-    if git_out(
-        root,
-        &["rev-parse", "--is-inside-work-tree"],
-        SYSTEM_CMD_TIMEOUT_SEC,
-    )
-    .await
-    .is_none()
-    {
-        return Err(server_error("Not a git repository; cannot update"));
-    }
+    ensure_git_repo(root, "Not a git repository; cannot update").await?;
     if git_out(root, &["status", "--porcelain"], SYSTEM_CMD_TIMEOUT_SEC)
         .await
         .is_some_and(|o| !o.is_empty())
