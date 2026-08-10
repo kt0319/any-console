@@ -4,7 +4,7 @@
  * 前提・実行方法は helpers.js / CLAUDE.md 参照:
  *   ANY_CONSOLE_URL=http://localhost:8888 npm run test:e2e
  */
-import { test, expect, loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 test.describe("any-console smoke", () => {
   test("ログイン画面が表示される（トークン未認証時）", async ({ page, context }) => {
@@ -27,7 +27,7 @@ test.describe("any-console smoke", () => {
 
   test("トークン認証でメイン画面に遷移できる", async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
     // ログイン後はメイン画面のタブバー（ハンバーガー）が出る
     await expect(page.locator(".tab-menu-btn")).toBeVisible();
@@ -35,7 +35,7 @@ test.describe("any-console smoke", () => {
 
   test("認証はリロード後も維持される", async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
     await page.reload();
     // デバイス cookie で再認証されるため、ログイン画面には戻らない

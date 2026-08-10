@@ -2,14 +2,14 @@
  * モバイルビューポートの E2E スモーク。
  * モバイルファースト UI が小画面でも主要フロー（ログイン → メニュー → 設定モーダル）を提供できることを確認する。
  */
-import { test, expect, loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
 
 test.describe("mobile viewport", () => {
   test("ログイン後に Get Started メニューが表示され設定モーダルが全画面で開く", async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
 
     // 既存セッションが resume されている場合は空画面が出ないためスキップ（CI では常に空）

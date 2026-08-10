@@ -7,25 +7,10 @@
  * タブが開いている状態でも動くようタブ数の増減で検証する。
  * テストが作ったセッションは afterEach で API から削除する（既存セッションには触れない）。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, useLoginWithSessionCleanup } from "./helpers.js";
 
 test.describe("terminal", () => {
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  // セッションは tmux でサーバ側に残るため、テストが開いたまま終わると
-  // 次のテスト・次の実行でも resume され続ける。増えた分をここで必ず消す。
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   test("New Terminal でタブが開きコマンドを実行できる", async ({ page }) => {
     const tabs = page.locator(".tab-btn");

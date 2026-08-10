@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, expect, loadToken, login, deleteWorkspaceViaApi, openWorkspaces, openAddWorkspace } from "./helpers.js";
+import { test, expect, loadToken, login, deleteWorkspaceViaApi, openWorkspaces, openAddWorkspace, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 test.describe.configure({ mode: "serial" });
 
@@ -38,7 +38,7 @@ test.describe("workspace lifecycle", () => {
 
   test.beforeEach(async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
   });
 

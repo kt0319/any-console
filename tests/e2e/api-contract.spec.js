@@ -14,7 +14,7 @@
  * ANY_CONSOLE_URL を Rust フロントに向ければ、同じ契約を移行後の実装にも
  * そのまま適用できる。全テストは読み取りのみ or 自己完結（状態を汚さない）。
  */
-import { test, expect, loadToken, login, bearerHeaders, BASE_URL } from "./helpers.js";
+import { test, expect, loadToken, login, bearerHeaders, BASE_URL, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 const SECURITY_HEADERS = {
   "x-frame-options": "DENY",
@@ -36,7 +36,7 @@ test.describe("API contract", () => {
 
   test("認証済み /auth/check は auth_method を返す", async ({ request }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     const res = await request.get(`${BASE_URL}/auth/check`, {
       headers: bearerHeaders(token),
     });
@@ -85,7 +85,7 @@ test.describe("API contract", () => {
 
   test("存在しないパスは detail 付き 404 で返る", async ({ request }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     const res = await request.get(`${BASE_URL}/no-such-route-for-contract`, {
       headers: bearerHeaders(token),
     });
@@ -96,7 +96,7 @@ test.describe("API contract", () => {
 
   test("upload-image は未対応 MIME を detail 付き 400 で拒否する", async ({ request }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     // 未認証は 401
     const unauthorized = await request.post(`${BASE_URL}/upload-image`, {
       multipart: {
@@ -118,7 +118,7 @@ test.describe("API contract", () => {
 
   test("/system/info と /system/tmux-info の応答形", async ({ request }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     const info = await request.get(`${BASE_URL}/system/info`, { headers: bearerHeaders(token) });
     expect(info.status()).toBe(200);
     const infoBody = await info.json();
@@ -140,7 +140,7 @@ test.describe("API contract", () => {
 
   test("ステータスストリーム WS はトークン必須（不正は接続拒否）", async ({ page }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     // ブラウザから同一オリジンで WS を張るため、ログイン画面（未認証で可）を開く
     await page.goto("/");
     const result = await page.evaluate(
@@ -179,7 +179,7 @@ test.describe("API contract", () => {
 
   test("ログアウトでデバイス cookie が失効しログイン画面へ戻る", async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
     const res = await page.request.post("/auth/logout");
     expect(res.ok()).toBeTruthy();

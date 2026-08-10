@@ -4,16 +4,14 @@
  * （メニュー → System Info → 戻る）を確認する。
  * モバイルでのハンバーガー開閉は mobile.spec.js が別途カバーする。
  */
-import { test, expect, loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login, openSettingsModal, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 test.describe("settings modal", () => {
   test.beforeEach(async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
-    // 既存セッションの有無に依らず開けるグローバルショートカット（⌘⇧.）で開く
-    await page.keyboard.press("Meta+Shift+Period");
-    await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
+    await openSettingsModal(page);
   });
 
   test("設定メニューが表示される", async ({ page }) => {

@@ -50,6 +50,9 @@ export const test = base.extend({
 });
 export { expect };
 
+/** トークン未設定時の test.skip 共通メッセージ。 */
+export const TOKEN_REQUIRED_MSG = "ANY_CONSOLE_TOKEN または data/auth.json が必要";
+
 export function loadToken() {
   if (process.env.ANY_CONSOLE_TOKEN) return process.env.ANY_CONSOLE_TOKEN;
   try {
@@ -96,6 +99,33 @@ export async function cleanupNewSessions(page, beforeIds) {
   for (const id of afterIds.filter((id) => !beforeIds.includes(id))) {
     await page.request.delete(`/terminal/sessions/${id}`).catch(() => {});
   }
+}
+
+/**
+ * 「ログインして、テスト中に増えたセッションだけを afterEach で消す」共通フック。
+ * describe 内で1回呼ぶ（各 spec で同じ beforeEach/afterEach を繰り返さないため）。
+ * セッションは tmux でサーバ側に残るため、テストが開いたまま終わると次の
+ * テスト・次の実行でも resume され続ける。増えた分を必ず消す（既存には触れない）。
+ * @param {typeof test} testRef この spec の test オブジェクト
+ * @param {{ onBeforeEach?: () => void | Promise<void> }} [opts]
+ *   onBeforeEach: login 前に呼ぶ spec 固有の前処理（snippets のコマンド生成等）
+ * @returns {{ idsBefore: string[] | null }} テスト開始時点のセッション ID
+ *   （beforeEach 完了まで null。新規セッションの特定などに使える）
+ */
+export function useLoginWithSessionCleanup(testRef, opts = {}) {
+  const state = { /** @type {string[] | null} */ idsBefore: null };
+  testRef.beforeEach(async ({ page, context }) => {
+    state.idsBefore = null;
+    const token = loadToken();
+    testRef.skip(!token, TOKEN_REQUIRED_MSG);
+    if (opts.onBeforeEach) await opts.onBeforeEach();
+    await login(page, context, token);
+    state.idsBefore = await listSessionIds(page);
+  });
+  testRef.afterEach(async ({ page }) => {
+    await cleanupNewSessions(page, state.idsBefore);
+  });
+  return state;
 }
 
 // 使い捨てサーバモードでは playwright.config.js が env を設定済み。

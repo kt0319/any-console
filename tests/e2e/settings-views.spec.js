@@ -4,7 +4,7 @@
  * タイトル（戻るボタン）でメニューへ戻れることを確認する。
  * Auth / Config File / System Info は代表的な表示内容も検証する（読み取りのみ・状態変更なし）。
  */
-import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
+import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 // メニューラベル → 遷移後のモーダルタイトル
 // Workspacesは設定メニュー配下ではなくセッション一覧の「Open Session」/
@@ -30,7 +30,7 @@ const SETTINGS_VIEWS = [
 test.describe("settings views", () => {
   test.beforeEach(async ({ page, context }) => {
     const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
     await openSettingsModal(page);
   });

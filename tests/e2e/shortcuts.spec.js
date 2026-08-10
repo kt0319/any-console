@@ -3,23 +3,10 @@
  * ⌘⇧T（New Terminal）と ⌘⇧.（Settings）は terminal / settings スペックで
  * 使用済みのため、ここでは ⌘⇧N（Open Session）と ⌘⇧W（Close Tab）を確認する。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, useLoginWithSessionCleanup } from "./helpers.js";
 
 test.describe("global shortcuts", () => {
-  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
-  let sessionIdsBefore = null;
-
-  test.beforeEach(async ({ page, context }) => {
-    sessionIdsBefore = null;
-    const token = loadToken();
-    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    await login(page, context, token);
-    sessionIdsBefore = await listSessionIds(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await cleanupNewSessions(page, sessionIdsBefore);
-  });
+  useLoginWithSessionCleanup(test);
 
   test("⌘⇧N で Open Session モーダルが開き、Esc で閉じる", async ({ page }) => {
     await page.keyboard.press("Meta+Shift+KeyN");
