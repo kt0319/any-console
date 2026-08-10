@@ -77,6 +77,45 @@ async fn system_info_served_natively() {
         body["version"].as_str().unwrap(),
         format!("v{}", env!("CARGO_PKG_VERSION"))
     );
+    // 同じ理由（project_rootがgitリポジトリでない）で updatable は false。
+    // UI（ServerInfo.vue）はこれを見てUpdateカードを隠す。
+    assert_eq!(body["updatable"], false);
+}
+
+/// project_root が実際に git リポジトリならupdatable: trueになること
+/// （バイナリ配布ではなくdev checkoutと同じ状況）。
+#[tokio::test]
+async fn system_info_updatable_true_for_git_repo() {
+    let dir = tempfile::tempdir().unwrap();
+    let data_dir = dir.path().join("data");
+    save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
+    assert!(std::process::Command::new("git")
+        .args(["init", "--quiet"])
+        .current_dir(dir.path())
+        .status()
+        .unwrap()
+        .success());
+    let state = common::test_app_state(dir.path(), common::StateOptions::default());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            build_router(state).into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
+
+    let resp = common::client()
+        .get(format!("http://{addr}/system/info"))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["updatable"], true);
 }
 
 #[tokio::test]

@@ -42,16 +42,22 @@ async fn git_out(root: &Path, args: &[&str], timeout: f64) -> Option<String> {
         .map(|s| s.trim().to_string())
 }
 
-/// update 系エンドポイント共通の「project_root が git リポジトリか」ガード。
-async fn ensure_git_repo(root: &Path, error_msg: &str) -> Result<(), ApiError> {
-    if git_out(
+/// `project_root` が git リポジトリ（work tree内）かどうか。バイナリ配布
+/// （`.git`が存在しないインストール）では常にfalseになる — `info()`の
+/// `updatable`フィールド、`ensure_git_repo`の両方から使う共通判定。
+async fn is_git_repo(root: &Path) -> bool {
+    git_out(
         root,
         &["rev-parse", "--is-inside-work-tree"],
         SYSTEM_CMD_TIMEOUT_SEC,
     )
     .await
-    .is_none()
-    {
+    .is_some()
+}
+
+/// update 系エンドポイント共通の「project_root が git リポジトリか」ガード。
+async fn ensure_git_repo(root: &Path, error_msg: &str) -> Result<(), ApiError> {
+    if !is_git_repo(root).await {
         return Err(server_error(error_msg));
     }
     Ok(())
@@ -617,6 +623,9 @@ pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Jso
     if !release.is_empty() {
         info.insert("version".into(), Value::String(release));
     }
+    // .gitが無い（バイナリ配布インストール）場合はupdate系エンドポイントが
+    // 使えないため、UI（ServerInfo.vue）がUpdateカード自体を出し分ける判定に使う。
+    info.insert("updatable".into(), Value::Bool(is_git_repo(root).await));
     if let Some(v) = get_ip().await {
         info.insert("ip".into(), Value::String(v));
     }

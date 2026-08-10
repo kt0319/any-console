@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <div v-if="!isLoading" class="si-card">
+    <div v-if="!isLoading && serverInfo?.updatable" class="si-card">
       <div class="si-card-head">
         <span class="si-card-title">Update</span>
         <button type="button" class="si-refresh" :disabled="upd.checking || upd.applying" @click="updCheck">
@@ -120,6 +120,9 @@ async function updApply() {
 const isLoading = ref(true);
 const isRefreshing = ref(false);
 const sections = ref([]);
+// /system/info のレスポンス（updatableフラグをテンプレート側のUpdateカード
+// 表示条件に使うため、load()内のローカル値をrefとして保持する）。
+const serverInfo = ref(null);
 
 function parseBrowser(ua) {
   for (const [re, name] of [
@@ -169,6 +172,7 @@ async function load() {
   const [srv, prc, auth] = await Promise.all([
     get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_AUTH_CHECK),
   ]);
+  serverInfo.value = srv;
 
   sections.value = [
     {
