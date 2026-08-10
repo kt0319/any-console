@@ -23,7 +23,6 @@ export const RECONNECT_BACKOFF_MULTIPLIER = 2;
 export const RECONNECT_BACKOFF_BASE_MS = 1000;
 export const RECONNECT_BACKOFF_MAX = 5000;
 export const RECONNECTING_OVERLAY_MIN_ATTEMPTS = 2;
-export const CWD_POLL_INTERVAL_MS = 1000;
 export const DEV_SERVER_POLL_INTERVAL_MS = 10000;
 // GitHub（gh CLI経由のPR/Actions一覧）の再取得間隔。ローカルのポートスキャン
 // （DEV_SERVER_POLL_INTERVAL_MS）と違い外部APIを叩くため、控えめな間隔にする。
@@ -38,7 +37,7 @@ export const KEYBOARD_INPUT_MAX_HEIGHT_PX = 120;
 export const TOAST_DEFAULT_DURATION_MS = 3000;
 // 複数行の詳細（pull したコミット一覧等）を含むトーストは読む時間を長めに取る
 export const TOAST_DETAIL_DURATION_MS = 5000;
-export const PILL_MORE_PEEK_DURATION_MS = 4000;
+export const PILL_PEEK_DURATION_MS = 4000;
 // ピル行の実測幅からピル群の上限幅を出す時に差し引く固定分。
 // サイドバー行: 閉じるボタン＋余白（SessionSidebarRow.vue）。
 export const SIDEBAR_PILL_ROW_RESERVED_PX = 40;

@@ -1,10 +1,16 @@
-import { ref, watch, onBeforeUnmount } from "vue";
-import { PILL_MORE_PEEK_DURATION_MS } from "../utils/constants.js";
-import { trailingItemsSignature, findChangedTrailingItems } from "../utils/pill-peek.js";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
+import { PILL_PEEK_DURATION_MS } from "../utils/constants.js";
+import {
+  trailingItemsSignature,
+  findChangedTrailingItems,
+  buildPeekText,
+  buildPeekSignature,
+} from "../utils/pill-peek.js";
+import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
-// 数秒だけ表示するための状態機械（PC・モバイル共通、PILL_MORE_PEEK_DURATION_MS）。
+// 数秒だけ表示するための状態機械（PC・モバイル共通、PILL_PEEK_DURATION_MS）。
 // 変化検出・キュー・タイマーをここに集約し、TerminalPane はpeekingKeyを
 // 表示に使うだけにする。
 //
@@ -17,6 +23,7 @@ import { trailingItemsSignature, findChangedTrailingItems } from "../utils/pill-
 //   devServerEntry: import("vue").ComputedRef<Record<string, any> | null>,
 //   ahead: import("vue").Ref<number>,
 //   behind: import("vue").Ref<number>,
+//   peekFields: import("vue").ComputedRef<Record<string, any>>,
 // }} options
 export function usePillPeek({
   trailingPeekItems,
@@ -27,13 +34,14 @@ export function usePillPeek({
   devServerEntry,
   ahead,
   behind,
+  peekFields,
 }) {
   const peekingKey = ref(null);
-  // このpeekが実際に表示される時間（キューで分割された場合はPILL_MORE_PEEK_DURATION_MS
+  // このpeekが実際に表示される時間（キューで分割された場合はPILL_PEEK_DURATION_MS
   // より短くなる）。PillPeek.vueがマーキーの再生時間をこれに合わせるため。
-  const peekDurationMs = ref(PILL_MORE_PEEK_DURATION_MS);
+  const peekDurationMs = ref(PILL_PEEK_DURATION_MS);
   let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
-  let pillMorePeekTimer = null;
+  let peekTimer = null;
   // branchのpeekで矢印（ahead/behind）が消えた瞬間、ブランチ名の横に
   // 「Pushed (N)」「Pulled (N)」を出す（下記 watch(trailingPeekItems, ...) 内で設定）。
   // 0は非表示、直前のahead/behind値＝実際に押し出された/取り込まれた件数。
@@ -68,8 +76,8 @@ export function usePillPeek({
   // ほぼ同時に複数のピルが変化した場合、後の変化が前の変化のpeek表示を
   // 即座に上書きしてしまわないよう、表示中でなければ即座に、表示中なら
   // キューに積んで前のpeekが閉じてから順番に表示する。表示時間は1件ずつ
-  // PILL_MORE_PEEK_DURATION_MSではなく、キュー全体（このセッション開始から）
-  // の合計がPILL_MORE_PEEK_DURATION_MSに収まるよう残り時間を残件数で割る。
+  // PILL_PEEK_DURATION_MSではなく、キュー全体（このセッション開始から）
+  // の合計がPILL_PEEK_DURATION_MSに収まるよう残り時間を残件数で割る。
   const peekQueue = [];
   let queueSessionEndsAt = 0;
 
@@ -77,7 +85,7 @@ export function usePillPeek({
     const next = peekQueue.shift();
     if (!next) {
       peekingKey.value = null;
-      pillMorePeekTimer = null;
+      peekTimer = null;
       return;
     }
     peekingKey.value = next.key;
@@ -86,13 +94,13 @@ export function usePillPeek({
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
     peekDurationMs.value = itemMs;
-    pillMorePeekTimer = setTimeout(advancePeekQueue, itemMs);
+    peekTimer = setTimeout(advancePeekQueue, itemMs);
   }
 
   function triggerPeek(key, pushCount = 0, pullCount = 0) {
     peekQueue.push({ key, pushCount, pullCount });
-    if (!pillMorePeekTimer) {
-      queueSessionEndsAt = Date.now() + PILL_MORE_PEEK_DURATION_MS;
+    if (!peekTimer) {
+      queueSessionEndsAt = Date.now() + PILL_PEEK_DURATION_MS;
       advancePeekQueue();
     }
   }
@@ -147,7 +155,7 @@ export function usePillPeek({
 
   // Dev Serverが検出されなくなった（実際に停止した）瞬間だけ知らせる。
   // trailingPeekItemsはdevServerEntryが無い間キー自体を積まないため、
-  // 上のfindChangedTrailingItemでは「消えたこと」を検知できない
+  // 上のfindChangedTrailingItemsでは「消えたこと」を検知できない
   // （新規出現/値変化しか拾えない）。devServerEntry自体を直接見て、
   // 真→偽への遷移だけを拾う（初回のnullや既に偽のままの変化は無視）。
   watch(devServerEntry, (entry, prevEntry) => {
@@ -155,12 +163,29 @@ export function usePillPeek({
   });
 
   onBeforeUnmount(() => {
-    if (pillMorePeekTimer) {
-      clearTimeout(pillMorePeekTimer);
-      pillMorePeekTimer = null;
+    if (peekTimer) {
+      clearTimeout(peekTimer);
+      peekTimer = null;
     }
     peekQueue.length = 0;
   });
 
-  return { peekingKey, peekDurationMs, branchPushCount, branchPullCount };
+  // peekピルの表示に使う派生値もここで返す（TerminalPane / SessionSidebarRow で
+  // 同じ組み立てを繰り返さないため）。アイコン・色はキーごとの静的テーブル
+  // （info-pills.js）、テキスト・シグネチャはpill-peek.jsの純粋関数。
+  const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
+  const peekColorClass = computed(() => peekColorForKey(peekingKey.value));
+  const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
+  const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
+
+  return {
+    peekingKey,
+    peekDurationMs,
+    branchPushCount,
+    branchPullCount,
+    peekIconClass,
+    peekColorClass,
+    peekText,
+    peekSignature,
+  };
 }

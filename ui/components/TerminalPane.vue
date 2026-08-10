@@ -112,10 +112,9 @@ import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, runStatusIcon } from "../utils/github-runs.js";
-import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
 import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.js";
-import { buildTrailingPeekItems, buildPeekText, buildPeekSignature } from "../utils/pill-peek.js";
+import { buildTrailingPeekItems } from "../utils/pill-peek.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -275,16 +274,15 @@ const actionStatusClass = computed(() => runStatusClass(branchAction.value));
 const actionStatusIcon = computed(() => runStatusIcon());
 
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
-// PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
-// 値が更新された時だけそのボタン自身（ルックアライクではなく実ボタン）を
-// 数秒だけラベル込みで表示する（peekingKey、下記参照）。
+// PC・モバイル問わず常にアイコンのみ表示する。値が更新された時だけピル行を
+// 丸ごと隠し、変化したキーの情報を載せた1本の長いピル（PillPeek.vue）に
+// 数秒だけ差し替える（peekingKey、下記参照）。
 
-// 畳んだアイコン群の裏にあるラベル（ワークスペース名/Branches/Changes/Pull/
-// Push/Dev Server/Files/Add workspace）の内容。値だけ見て良く、v-if の
+// peek の変化検出対象（ワークスペース名/Branches/Changes/Pull/Push/
+// Dev Server/Files/Add workspace）の内容。値だけ見て良く、v-if の
 // 表示条件（isGitRepo 等）と揃えておく（peekingKey による一時表示の判定にも
-// 同じ key を使う）。ルックアライクは作らず「そのボタン自体」のラベル部分を
-// 一時的に表示するだけなので、ここでは変化検出用の最小限の値（key + 見た目に
-// 影響する text）だけ持てば良い。組み立て自体はセッションサイドバー行と
+// 同じ key を使う）。ここでは変化検出用の最小限の値（key + 見た目に影響する
+// text）だけ持てば良い。組み立て自体はセッションサイドバー行と
 // 共用するpill-peek.jsの純粋関数に集約する（branchをhistoryより前に置く
 // 理由等の詳細コメントもそちら参照）。
 // 省略表示形式（画面回転で変わりうる）をbranchのtextに使うと、回転しただけで
@@ -320,7 +318,18 @@ const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
 // 数秒だけ表示する。変化検出・キュー・タイマーはusePillPeekに集約。
-const { peekingKey, peekDurationMs, branchPushCount, branchPullCount } = usePillPeek({
+// peekピル表示用の派生値（アイコン・色・テキスト・シグネチャ）も
+// usePillPeekが返す（SessionSidebarRowと共用）。
+const {
+  peekingKey,
+  peekDurationMs,
+  branchPushCount,
+  branchPullCount,
+  peekIconClass,
+  peekColorClass,
+  peekText,
+  peekSignature,
+} = usePillPeek({
   trailingPeekItems,
   paneWorkspace,
   workspaceKey: () => props.tab.workspace,
@@ -329,26 +338,8 @@ const { peekingKey, peekDurationMs, branchPushCount, branchPullCount } = usePill
   devServerEntry,
   ahead,
   behind,
+  peekFields,
 });
-
-// .pill-peek-wide に表示するアイコン(mdiクラス)。ワークスペース名の変化は
-// テンプレート側で tab.wsIcon/tab.icon の実アイコン（renderIconStr）を
-// 直接使うため、ここでは対象外。
-// キーごとのアイコンはinfo-pills.jsのディスクリプタテーブルで管理する。
-const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
-
-// キーごとの静的な色はinfo-pills.jsのテーブルで管理する（actionsも常に
-// ブラウンで固定、状態では変えない）。
-const peekColorClass = computed(() => peekColorForKey(peekingKey.value));
-
-// History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。
-// changes/branch は複数トーンの色分け表示のためテンプレート側で直接組み立てる
-// ので、ここでは対象外（他のキーのみ扱う）。組み立て自体はセッションサイドバー
-// 行と共用するpill-peek.jsの純粋関数に集約する。
-const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
-
-// peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。
-const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {

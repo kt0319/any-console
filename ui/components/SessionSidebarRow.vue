@@ -76,8 +76,7 @@ import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { usePillPeek } from "../composables/usePillPeek.js";
-import { buildTrailingPeekItems, buildPeekText, buildPeekSignature } from "../utils/pill-peek.js";
-import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
+import { buildTrailingPeekItems } from "../utils/pill-peek.js";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.js";
 
 // SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態
@@ -147,7 +146,18 @@ const peekFields = computed(() => ({
 
 const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig));
 
-const { peekingKey, peekDurationMs, branchPushCount, branchPullCount } = usePillPeek({
+// peekピル表示用の派生値（アイコン・色・テキスト・シグネチャ）も
+// usePillPeekが返す（TerminalPaneと共用）。
+const {
+  peekingKey,
+  peekDurationMs,
+  branchPushCount,
+  branchPullCount,
+  peekIconClass,
+  peekColorClass,
+  peekText,
+  peekSignature,
+} = usePillPeek({
   trailingPeekItems,
   // TerminalPane.vueのpaneWorkspace（tab.workspaceがあっても
   // workspaceStore側で未解決ならundefined）と同じ形にする。usePillPeekは
@@ -163,12 +173,8 @@ const { peekingKey, peekDurationMs, branchPushCount, branchPullCount } = usePill
   devServerEntry: computed(() => props.item.devServerEntry),
   ahead: computed(() => props.item.ahead),
   behind: computed(() => props.item.behind),
+  peekFields,
 });
-
-const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
-const peekColorClass = computed(() => peekColorForKey(peekingKey.value));
-const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
-const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
 
 function onPeekClick() {
   emits("pillOpen", peekingKey.value);
