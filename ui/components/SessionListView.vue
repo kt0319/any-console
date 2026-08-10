@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount, inject } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -77,6 +77,7 @@ import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.js";
 import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
+import { useModalView } from "../composables/useModalView.js";
 
 // 統合ナビゲーション（useSettingsNav.js）の一番手前（ルート）のビュー。
 // 開いているタブごとにワークスペース名・ブランチ・変更サマリ・エージェント
@@ -88,8 +89,7 @@ import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
 // ページを離れたらメニューごと消えてよいという方針になったため、埋め込み式の
 // メニューに戻した（メニュー自体はこのビューがマウントされている間だけ存在する）。
 
-const modalTitle = inject("modalTitle");
-const pushView = inject("pushView");
+const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Sessions";
 
 const terminalStore = useTerminalStore();

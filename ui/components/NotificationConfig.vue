@@ -59,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, watch } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { useApi } from "../composables/useApi.js";
 import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.js";
@@ -70,8 +70,9 @@ import {
   PHRASE_NOTIFY_GRACE_SEC_MAX,
 } from "../utils/constants.js";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "Notifications";
 
 const { isSupported, isSubscribed, permission, subscribe, unsubscribe, init } = usePushNotification();

@@ -65,14 +65,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.js";
+import { useModalView } from "../composables/useModalView.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle } = useModalView();
 modalTitle.value = "System Info";
 
 const { apiGet, apiPost } = useApi();
