@@ -19,7 +19,10 @@
   ],
   "packages": {
     ".": {
-      "package-name": "any-console"
+      "package-name": "any-console",
+      "extra-files": [
+        { "type": "toml", "path": "server/Cargo.toml", "jsonpath": "$.package.version" }
+      ]
     }
   }
 }

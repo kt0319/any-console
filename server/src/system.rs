@@ -58,14 +58,22 @@ async fn ensure_git_repo(root: &Path, error_msg: &str) -> Result<(), ApiError> {
 }
 
 /// 人間が読めるバージョン文字列。リリースタグ基準（例: v0.5.0-38-g844f239）。
+/// git clone構成では`git describe`を使うが、バイナリ配布（`.git`が存在しない
+/// インストール）では常に失敗するため、ビルド時に埋め込まれた
+/// `CARGO_PKG_VERSION`（release-pleaseがタグと同期させる、
+/// `release-please-config.json`のextra-files参照）へフォールバックする。
 async fn get_app_release(root: &Path) -> String {
-    git_out(
+    let release = git_out(
         root,
         &["describe", "--tags", "--always"],
         SYSTEM_CMD_TIMEOUT_SEC,
     )
     .await
-    .unwrap_or_default()
+    .unwrap_or_default();
+    if !release.is_empty() {
+        return release;
+    }
+    format!("v{}", env!("CARGO_PKG_VERSION"))
 }
 
 /// 最終コミットの日時文字列（例: `2026-07-15 12:34`）。`/auth/check` が使う

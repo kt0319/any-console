@@ -70,6 +70,13 @@ async fn system_info_served_natively() {
     // Linux では disk / memory も取れるはず
     assert!(body["disk"].as_str().unwrap_or("").contains("GB"));
     assert!(body["memory"].as_str().unwrap_or("").contains("GB"));
+    // project_rootはgitリポジトリではない一時ディレクトリ（バイナリ配布時と
+    // 同じ状況）なので、`git describe`が失敗し CARGO_PKG_VERSION ベースの
+    // フォールバックが使われる（回帰ガード: get_app_release の空文字化を防ぐ）。
+    assert_eq!(
+        body["version"].as_str().unwrap(),
+        format!("v{}", env!("CARGO_PKG_VERSION"))
+    );
 }
 
 #[tokio::test]
