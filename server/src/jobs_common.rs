@@ -320,6 +320,18 @@ pub struct ReorderJobsRequest {
     pub order: Vec<String>,
 }
 
+/// Pydantic の Field(max_length=...) 相当（超過は 422）。settings 側の
+/// スニペット/ジョブ検証とエラー文言・ステータスを共有する。
+pub fn check_max_len(field: &str, value: &str, max: usize) -> Result<(), ApiError> {
+    if value.chars().count() > max {
+        return Err(ApiError::new(
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+            format!("{field} exceeds max length {max}"),
+        ));
+    }
+    Ok(())
+}
+
 pub fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
     for (v, max, field) in [
         (&body.label, MAX_LABEL_LENGTH, "label"),
@@ -328,12 +340,7 @@ pub fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
         (&body.icon_color, 20, "icon_color"),
         (&body.notify_phrase, 200, "notify_phrase"),
     ] {
-        if v.chars().count() > max {
-            return Err(ApiError::new(
-                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-                format!("{field} exceeds max length {max}"),
-            ));
-        }
+        check_max_len(field, v, max)?;
     }
     Ok(())
 }
@@ -345,11 +352,7 @@ pub fn generate_job_key(existing: &Map<String, Value>) -> String {
             return candidate;
         }
     }
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    format!("job_{secs}")
+    format!("job_{}", crate::util::now_epoch())
 }
 
 struct ValidatedJob {
