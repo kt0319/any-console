@@ -145,6 +145,56 @@ async fn list_sessions_empty_when_none_created() {
     assert_eq!(body, json!([]));
 }
 
+/// 複数セッションが未登録（レジストリ空、Rust再起動直後を模した状況）の
+/// まま並行問い合わせされても、全件返り created_at 昇順でソートされること
+/// （list_terminal_sessionsをper-session逐次awaitからjoin_allへ並列化した
+/// リグレッションガード）。
+#[tokio::test]
+async fn list_sessions_with_multiple_unregistered_returns_all_sorted() {
+    if skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let session_ids = ["multi-a", "multi-b", "multi-c"];
+    for session_id in session_ids {
+        let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+        any_console_server::subprocess::run_subprocess_safe(
+            &["tmux", "new-session", "-d", "-s", &full_name],
+            5.0,
+            None,
+        )
+        .await;
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+    }
+    assert_eq!(front.state.terminal_registry.len().await, 0);
+
+    let resp = client()
+        .get(format!("http://{}/terminal/sessions", front.addr))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    let sessions = body.as_array().unwrap();
+    assert_eq!(sessions.len(), 3);
+    let returned_ids: Vec<&str> = sessions
+        .iter()
+        .map(|s| s["session_id"].as_str().unwrap())
+        .collect();
+    assert_eq!(returned_ids, session_ids);
+    let created_ats: Vec<i64> = sessions
+        .iter()
+        .map(|s| s["created_at"].as_i64().unwrap())
+        .collect();
+    assert!(created_ats.windows(2).all(|w| w[0] <= w[1]));
+
+    for session_id in session_ids {
+        let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+        any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+    }
+}
+
 #[tokio::test]
 async fn list_and_delete_require_auth() {
     let front = spawn_front().await;

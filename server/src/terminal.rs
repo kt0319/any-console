@@ -14,6 +14,7 @@ use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, Path, State};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use futures_util::future::join_all;
 use futures_util::SinkExt;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -99,7 +100,12 @@ pub async fn list_terminal_sessions(
     if !r.success() {
         return Ok(Json(json!([])));
     }
-    let mut sessions = Vec::new();
+    // セッションごとの tmux 問い合わせ（レジストリ未登録なら show-environment、
+    // 加えて毎回 display-message）を逐次 await すると、セッション数に比例して
+    // 応答が遅くなる（特にサーバ再起動直後は全セッションが未登録経路を通り
+    // 2倍になる）。tmux サーバ自体は複数クライアントからの同時問い合わせを
+    // 捌けるため、並行に投げて join_all でまとめて待つ。
+    let mut entries: Vec<(String, String)> = Vec::new();
     for line in r.stdout.trim().lines() {
         let name = line.trim();
         let Some(session_id) = name.strip_prefix(&state.paths.tmux_prefix) else {
@@ -108,8 +114,14 @@ pub async fn list_terminal_sessions(
         if session_id.is_empty() {
             continue;
         }
-        sessions.push(session_list_entry(&state, session_id, name).await);
+        entries.push((session_id.to_string(), name.to_string()));
     }
+    let mut sessions: Vec<Value> = join_all(
+        entries
+            .iter()
+            .map(|(session_id, name)| session_list_entry(&state, session_id, name)),
+    )
+    .await;
     sessions.sort_by_key(|s| s["created_at"].as_i64().unwrap_or(0));
     Ok(Json(Value::Array(sessions)))
 }
