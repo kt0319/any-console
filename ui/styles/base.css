@@ -65,18 +65,6 @@ body {
   margin: auto;
 }
 
-.stat-files {
-  color: var(--warning);
-}
-
-.stat-add {
-  color: var(--success);
-}
-
-.stat-del {
-  color: var(--error);
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -372,27 +360,6 @@ button:disabled {
 .git-ref-tag {
   background: var(--warning);
   color: var(--bg-primary);
-}
-
-.commit-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.commit-action-menu button,
-.file-browser-action-menu button {
-  padding: 5px 10px;
-  font-size: 11px;
-  min-height: 0;
-}
-
-.file-browser-action-delete {
-  color: var(--error);
-  border-color: var(--error);
 }
 
 .commit-action-item {

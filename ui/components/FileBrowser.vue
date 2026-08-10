@@ -423,25 +423,6 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   font-size: 13px;
 }
 
-.file-browser-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.file-browser-action-menu button {
-  padding: 5px 10px;
-  font-size: 11px;
-  min-height: 0;
-}
-
-.file-browser-action-delete {
-  color: var(--error);
-  border-color: var(--error);
-}
-
 .diff-viewer-pane {
   display: flex;
   flex-direction: column;

@@ -315,23 +315,4 @@ defineExpose({
   background: rgba(130, 170, 255, 0.08);
 }
 
-.file-browser-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.file-browser-action-menu button {
-  padding: 5px 10px;
-  font-size: 11px;
-  min-height: 0;
-}
-
-.file-browser-action-delete {
-  color: var(--error);
-  border-color: var(--error);
-}
-
 </style>
