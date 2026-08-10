@@ -81,6 +81,11 @@ function buildPillFields(wsName, ws, ctx) {
     ? dispatchQueue.filter((item) => dispatchWorkspaceLabel(item.request) === wsName)
     : [];
   return {
+    // ws（workspaceStore.allWorkspacesの該当エントリ）が見つかっているか。
+    // TerminalPane.vueのpaneWorkspace（tab.workspaceが有っても未解決なら
+    // undefined）と同じ「解決済みかどうか」をpeek側の初回誤検知ガードに
+    // 渡すために必要（usePillPeek参照）。
+    wsResolved: !!ws,
     isGitRepo,
     branch,
     dirty: ws?.clean === false,
@@ -90,13 +95,16 @@ function buildPillFields(wsName, ws, ctx) {
     insertions,
     deletions,
     hasPr: !!branchPR,
+    branchPR,
     hasAction: !!visibleBranchAction,
+    branchAction,
     actionStatusClass: runStatusClass(branchAction),
     actionStatusIcon: runStatusIcon(),
     hasDevServer: !!devServerEntry,
     devServerEntry,
     dispatchCount: dispatchItems.length,
     dispatchItems,
+    lastCommitMessage: ws?.last_commit_message,
     tooltips: buildInfoPillTooltips({
       name: wsName || "", isGitRepo,
       branch, ahead, behind, hasUpstream: ws?.has_upstream !== false,

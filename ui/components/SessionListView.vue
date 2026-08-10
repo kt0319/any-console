@@ -2,47 +2,17 @@
   <div class="modal-scroll-body session-list-view">
     <div class="session-list-scroll">
       <ul v-if="items.length > 0" class="session-sidebar-list">
-        <li v-for="item in items" :key="item.id" class="session-sidebar-li" :class="sessionRowStateClasses(item)">
-          <button
-            type="button"
-            class="session-sidebar-item hover-bg"
-            :class="sessionRowStateClasses(item)"
-            :aria-current="item.id === activeTabId ? 'true' : undefined"
-            @click="onSelect(item)"
-          >
-            <SessionRowContent :item="item" />
-          </button>
-          <span
-            class="session-sidebar-pills-row"
-            :class="sessionRowStateClasses(item)"
-            @click="onSelect(item)"
-          >
-            <InfoPillRow
-              class="session-sidebar-pills"
-              :tab="item.tab"
-              :max-width="9999"
-              :is-git-repo="item.isGitRepo"
-              :is-dirty="item.dirty"
-              :ahead="item.ahead"
-              :behind="item.behind"
-              :has-pr="item.hasPr"
-              :has-action="item.hasAction"
-              :has-dev-server="item.hasDevServer"
-              :dispatch-count="item.dispatchCount"
-              :action-status-class="item.actionStatusClass"
-              :action-status-icon="item.actionStatusIcon"
-              :tooltips="item.tooltips"
-              @open="onPillOpen(item, $event)"
-            />
-            <button
-              type="button"
-              class="pill-close-btn pill-tab-close-btn"
-              aria-label="Close tab"
-              data-tooltip="Close tab"
-              @click.stop="onCloseTab(item)"
-            ><span class="mdi mdi-close"></span></button>
-          </span>
-        </li>
+        <SessionSidebarRow
+          v-for="item in items"
+          :key="item.id"
+          :item="item"
+          :active="item.id === activeTabId"
+          :prs-by-workspace="prsByWorkspace"
+          :runs-by-workspace="runsByWorkspace"
+          @select="onSelect(item)"
+          @pill-open="onPillOpen(item, $event)"
+          @close-tab="onCloseTab(item)"
+        />
       </ul>
       <div v-else class="session-sidebar-empty">No sessions</div>
 
@@ -104,6 +74,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
+import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.js";
 
 // 統合ナビゲーション（useSettingsNav.js）の一番手前（ルート）のビュー。
@@ -147,21 +118,6 @@ const pendingDispatchWorkspaces = computed(() => {
     hostname: location.hostname,
   });
 });
-
-// 行（li）・本体ボタン・ピル行の3要素で、active/working/blocked/phrase通知の
-// クラスを揃えて付与するための共通関数。以前は3箇所に同じオブジェクトを
-// 書いていたため、アニメーション対象が要素ごとにズレて統一感なく見える
-// 原因になっていた（左インジケーターの演出はliの::beforeに1本化したが、
-// クラス自体はli/button/pills-row全てに要る — CSSの`:not(.active)`等の
-// セレクタが各要素のクラスを直接見るため）。
-function sessionRowStateClasses(item) {
-  return {
-    active: item.id === activeTabId.value,
-    "session-working": item.agent?.className === "agent-state-working",
-    "session-blocked": item.agent?.className === "agent-state-blocked",
-    "session-phrase-notify": !!item.phraseNotify,
-  };
-}
 
 function onOpenPendingDispatch(p) {
   workspaceStore.selectedWorkspace = p.workspace;
@@ -300,185 +256,12 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--border);
 }
 
-/* セッション（タブ）ごとに罫線で区切る。 */
-.session-sidebar-li {
-  border-bottom: 1px solid var(--border);
-}
+/* .session-sidebar-li/.session-sidebar-item/.session-sidebar-pills-row の
+   共通見た目（罫線・ホバー・active色・working/blocked/phrase-notify演出）は
+   このビュー自身のpending dispatch行とSessionSidebarRow.vueの両方が同じ
+   クラス名を使うため、scopedを跨いで共有できるグローバルCSS
+   （ui/styles/session-sidebar.css）に集約する。 */
 
-.session-sidebar-li:last-child {
-  border-bottom: none;
-}
-
-/* ピル行 + 閉じるボタンのコンテナ。activeタブの背景・左ボーダーは
-   .session-sidebar-item.active と揃え、行全体が一体に見えるようにする
-   （ボタン部分だけがアクティブ色になっていると分断して見えるため）。
-   非activeの時は.session-sidebar-item側の既定（transparent、hover/active時のみ
-   var(--bg-tertiary)）と揃え透明にする（常時色を敷くと、上の本体行との間に
-   境目が見えてしまうため）。ピル自体（.pill-chip）は個別に地色を持つ。 */
-.session-sidebar-pills-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 12px 8px 12px;
-  border-left: 3px solid transparent;
-  background: transparent;
-}
-
-.session-sidebar-pills-row.active {
-  background: var(--accent-bg-12);
-  border-left-color: var(--accent);
-}
-
-/* TerminalPaneのピル行と同じ見た目（ui/styles/info-pills.css）を土台に、
-   サイドバー内では行の右端に寄せる。ピル自体の背景（.pill-chip既定は
-   ターミナル背景越しに見える前提の半透明ダーク）はサイドバーの地色
-   （--bg-secondary）に対して浮いて見えるため、サイドバー用に上書きする。 */
-.session-sidebar-pills {
-  display: flex;
-  flex: 1;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-/* .pill-trailingは既定でflex:1 1 0%（親の残り幅いっぱいに広がる）ため、
-   このコンテナのjustify-content:flex-endが効くよう中身サイズに縮める。 */
-.session-sidebar-pills :deep(.pill-trailing) {
-  flex: 0 1 auto;
-}
-
-.session-sidebar-pills :deep(.pill-chip) {
-  background: var(--bg-tertiary);
-  border-color: var(--border);
-}
-
-/* working/blocked時、個々のピル（.pill-chip.pill-working/.pill-blocked、
-   ui/styles/info-pills.css）が持つ独自アニメーションはサイドバーでは止める。
-   行（li）側に統一済みの左インジケーターが既にworking/blockedを示している
-   ため、ピルごとにも動くと同じ情報が別々のタイミングで何重にも動いて見えて
-   しまう。TerminalPane側の浮遊ピル（.terminal-pane .pill-chip）は対象外。 */
-.session-sidebar-pills :deep(.pill-chip.pill-working),
-.session-sidebar-pills :deep(.pill-chip.pill-blocked) {
-  animation: none;
-  background-image: none;
-}
-
-.session-sidebar-item {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  width: 100%;
-  min-height: 44px;
-  margin: 0;
-  padding: 8px 12px;
-  border: none;
-  border-left: 3px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.session-sidebar-item:active {
-  background: var(--bg-tertiary);
-}
-
-/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブ行は
-   ホバーでもアクティブ強調色を維持する。 */
-@media (hover: hover) and (pointer: fine) {
-  .session-sidebar-item.active:hover {
-    background: var(--accent-bg-12);
-  }
-
-  /* ピル行（.session-sidebar-pills-row）はボタンではなく独立した兄弟要素の
-     ため、その上をホバーしても本体行（.session-sidebar-item）のhover-bgは
-     効かない。行全体（li）を1つのホバー対象として扱い、ピル行の上にいる時も
-     本体行と同じ背景で連動させる（分断して見えないようにするため）。 */
-  .session-sidebar-li:hover .session-sidebar-item:not(.active) {
-    background: var(--bg-tertiary);
-  }
-
-  .session-sidebar-li:hover .session-sidebar-pills-row:not(.active) {
-    background: var(--bg-tertiary);
-  }
-}
-
-.session-sidebar-item.active {
-  color: var(--text-primary);
-  background: var(--accent-bg-12);
-  border-left-color: var(--accent);
-}
-
-/* working（出力中）・blocked/phrase通知は、行全体ではなく左3pxのアクティブ
-   インジケーター（border-left。アクティブ行が常時 var(--accent) で点灯する
-   のと同じ場所）の中だけで動かす。以前はタブと同じ「行全体が流れる/点滅する」
-   演出（ui/styles/base.css）を共用していたが、セッション一覧はタブより行数が
-   多く常時視界に入るため、行全体が動くとうるさく感じやすい。アクティブな行は
-   既に強調色がついているため対象外にする。
-
-   インジケーターは行（li）に1本だけ持たせる。以前は本体ボタンとピル行の
-   両方に別々の演出（別々のアニメーションインスタンス）を付けていたため、
-   2つの要素の間でアニメーションのタイミングがズレて統一感なく見えていた。
-   li側は元々border-bottomのみでレイアウト用のボーダーを持たないため、
-   ::beforeで独立した3px幅のオーバーレイを敷く（blocked/phrase通知の点滅も
-   border-left-colorではなくこの::beforeで揃え、演出方式を1本化する）。
-
-   working: タブ（ui/styles/base.css working-pulse）と同じ「一方向に流れ
-   続ける」イメージを縦方向にしたもの（上→下へループ、ease-in-outの往復では
-   なくlinearの一方通行）。
-   blocked/phrase通知: より緊急度が高いため点滅で目立たせる（working と
-   同時に付いている場合は点滅を優先し、上下スイープは止める）。 */
-.session-sidebar-li {
-  position: relative;
-}
-
-.session-sidebar-li.session-working:not(.active)::before,
-.session-sidebar-li.session-phrase-notify:not(.active)::before,
-.session-sidebar-li.session-blocked:not(.active)::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 3px;
-  height: 100%;
-}
-
-.session-sidebar-li.session-working:not(.active)::before {
-  /* アクティブ行の左インジケーター（var(--accent)そのまま）と見分けが付くよう
-     working中はそれより少し暗い色にする。 */
-  background-image: linear-gradient(
-    180deg,
-    transparent 0%,
-    transparent 10%,
-    color-mix(in srgb, var(--accent) 70%, black) 50%,
-    transparent 90%,
-    transparent 100%
-  );
-  background-size: 100% 200%;
-  animation: session-sidebar-working-sweep 2s linear infinite;
-}
-
-/* タブのworking-pulse（200%↔-200%、background-size 200%）と移動量/背景サイズの
-   比率を揃え、体感速度を一致させる。上→下の向き自体はこれまで通り維持する。 */
-@keyframes session-sidebar-working-sweep {
-  0% { background-position: 0% -200%; }
-  100% { background-position: 0% 200%; }
-}
-
-.session-sidebar-li.session-phrase-notify:not(.active)::before,
-.session-sidebar-li.session-blocked:not(.active)::before {
-  background-image: none;
-  background-color: var(--accent);
-  animation: session-sidebar-notify-blink 1.2s ease-in-out infinite;
-}
-
-@keyframes session-sidebar-notify-blink {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
 
 .session-sidebar-empty {
   padding: 16px 12px;

@@ -112,10 +112,10 @@ import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, runStatusIcon } from "../utils/github-runs.js";
-import { firstCommitLine } from "../utils/git.js";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
 import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.js";
+import { buildTrailingPeekItems, buildPeekText, buildPeekSignature } from "../utils/pill-peek.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -284,56 +284,32 @@ const actionStatusIcon = computed(() => runStatusIcon());
 // 表示条件（isGitRepo 等）と揃えておく（peekingKey による一時表示の判定にも
 // 同じ key を使う）。ルックアライクは作らず「そのボタン自体」のラベル部分を
 // 一時的に表示するだけなので、ここでは変化検出用の最小限の値（key + 見た目に
-// 影響する text）だけ持てば良い。
-const trailingPeekItems = computed(() => {
-  const items = [];
-  items.push({ key: "workspace", text: props.tab.workspace || props.tab.label || "" });
-  // 各キーは対応するボタンの v-if 条件（infoPillConfig.xxx含む）と揃える。
-  // 揃えないと、設定で非表示にしたピルの変化が findChangedTrailingItem に
-  // 拾われてしまい、実際に表示されている別のピルの変化が同じ枠を奪われて
-  // peekされない（見えないボタンがpeekの権利を横取りする）。
-  if ((isGitRepo.value || props.tab.sessionId) && infoPillConfig.files) {
-    items.push({ key: "files", text: "Files" });
-  }
-  if (isGitRepo.value && isDirty.value && infoPillConfig.changes) {
-    items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
-  }
-  if (isGitRepo.value && infoPillConfig.branch) {
-    // 省略表示形式（画面回転で変わりうる）を text に使うと、回転しただけで
-    // 「ブランチが変わった」と誤検知して peek が発火してしまう。
-    // 表示形式に依存しない生のブランチ名を使う。
-    // ahead/behind（Push/Pullバッジ）もこのボタン自身に描画されるため、
-    // 同じ"branch"キーのシグネチャに含める（別キーにすると対応するボタンが
-    // 無いため、findChangedTrailingItemに拾われてもpeekが表示されない）。
-    // history より前に置く: ブランチ切替え時は最終コミットメッセージも同時に
-    // 変わり、両方とも変化扱いになる。findChangedTrailingItemは並び順で最初の
-    // 変化を返すため、historyが先だとブランチ変更がhistoryのpeekに奪われて
-    // しまう。ブランチ切替えの通知としてはbranch側を優先したい。
-    items.push({ key: "branch", text: `${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}` });
-  }
-  if (isGitRepo.value && infoPillConfig.history) {
-    items.push({ key: "history", text: paneWorkspace.value?.last_commit_message || "" });
-  }
-  if (branchPR.value && infoPillConfig.prs) {
-    items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
-  }
-  if (branchAction.value && infoPillConfig.actions) {
-    // 成功で完了した瞬間もpeekで一度知らせたいため、通常時は非表示になる
-    // successも含め branchAction（visibleBranchActionでフィルタする前の値）
-    // を変化検出に使う。
-    items.push({ key: "actions", text: `${branchAction.value.id}:${branchAction.value.status}:${branchAction.value.conclusion}` });
-  }
-  if (devServerEntry.value && infoPillConfig.devserver) {
-    items.push({ key: "devserver", text: `Server:${devServerEntry.value.proxy_port}` });
-  }
-  if (!props.tab.workspace && props.tab.sessionId && infoPillConfig.add) {
-    items.push({ key: "add", text: "Add" });
-  }
-  if (tabDispatchItems.value.length > 0 && infoPillConfig.dispatch) {
-    items.push({ key: "dispatch", text: tabDispatchItems.value.map((i) => i.id).join(",") });
-  }
-  return items;
-});
+// 影響する text）だけ持てば良い。組み立て自体はセッションサイドバー行と
+// 共用するpill-peek.jsの純粋関数に集約する（branchをhistoryより前に置く
+// 理由等の詳細コメントもそちら参照）。
+// 省略表示形式（画面回転で変わりうる）をbranchのtextに使うと、回転しただけで
+// 「ブランチが変わった」と誤検知してpeekが発火してしまうため、表示形式に
+// 依存しない生のブランチ名を使う。actionsは成功で完了した瞬間もpeekで一度
+// 知らせたいため、通常時は非表示になるsuccessも含めbranchAction
+// （visibleBranchActionでフィルタする前の値）を変化検出に使う。
+const trailingPeekItems = computed(() => buildTrailingPeekItems({
+  workspaceLabel: props.tab.workspace || props.tab.label || "",
+  isGitRepo: isGitRepo.value,
+  hasSession: !!props.tab.sessionId,
+  hasWorkspace: !!props.tab.workspace,
+  isDirty: isDirty.value,
+  changedFiles: changedFiles.value,
+  insertions: insertions.value,
+  deletions: deletions.value,
+  branch: paneWorkspace.value?.branch || "",
+  ahead: ahead.value,
+  behind: behind.value,
+  lastCommitMessage: paneWorkspace.value?.last_commit_message,
+  branchPR: branchPR.value,
+  branchAction: branchAction.value,
+  devServerEntry: devServerEntry.value,
+  dispatchItems: tabDispatchItems.value,
+}, infoPillConfig));
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
@@ -363,37 +339,26 @@ const peekColorClass = computed(() => {
 
 // History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。
 // changes/branch は複数トーンの色分け表示のためテンプレート側で直接組み立てる
-// ので、ここでは対象外（他のキーのみ扱う）。
-const peekText = computed(() => {
-  switch (peekingKey.value) {
-    case "files": return "Files";
-    case "history": return firstCommitLine(paneWorkspace.value?.last_commit_message) || "History";
-    case "prs": return branchPR.value ? `#${branchPR.value.number} ${branchPR.value.title}` : "";
-    case "actions": return branchAction.value
-      ? `[${branchAction.value.name}] ${branchAction.value.conclusion || branchAction.value.status}`
-      : "";
-    case "devserver": return devServerEntry.value ? `Dev Server :${devServerEntry.value.proxy_port}` : "Server";
-    case "devserver-stop": return "Dev Server Stop";
-    case "add": return "Add";
-    case "dispatch": return tooltips.value.dispatch;
-    case "workspace": return props.tab.workspace || props.tab.label || "";
-    default: return "";
-  }
-});
+// ので、ここでは対象外（他のキーのみ扱う）。組み立て自体はセッションサイドバー
+// 行と共用するpill-peek.jsの純粋関数に集約する。
+const peekFields = computed(() => ({
+  workspaceLabel: props.tab.workspace || props.tab.label || "",
+  lastCommitMessage: paneWorkspace.value?.last_commit_message,
+  branchPR: branchPR.value,
+  branchAction: branchAction.value,
+  devServerEntry: devServerEntry.value,
+  dispatchTooltip: tooltips.value.dispatch,
+  changedFiles: changedFiles.value,
+  insertions: insertions.value,
+  deletions: deletions.value,
+  branch: paneWorkspace.value?.branch || "",
+  ahead: ahead.value,
+  behind: behind.value,
+}));
+const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
 
 // peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。
-// changes/branchはpeekTextを経由しない独自の色分け表示のため、それぞれの
-// 元データから組み立てる。
-const peekSignature = computed(() => {
-  if (!peekingKey.value) return null;
-  if (peekingKey.value === "changes") {
-    return `changes:${changedFiles.value}:${insertions.value}:${deletions.value}`;
-  }
-  if (peekingKey.value === "branch") {
-    return `branch:${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}`;
-  }
-  return `${peekingKey.value}:${peekText.value}`;
-});
+const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {

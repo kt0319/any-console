@@ -2,6 +2,9 @@
 // そのボタン自身を一時的に「...」の左に表示する（数秒後に隠す）ための純粋ロジック。
 // 表示はルックアライクではなく実ボタンそのものを一時的に v-if するだけなので、
 // ここでは変化検出に必要な最小限の値（key + 見た目に影響する text）だけを扱う。
+// TerminalPane（浮遊ピル）とセッションサイドバー行の両方から共用する。
+
+import { firstCommitLine } from "./git.js";
 
 /**
  * @param {{key: string, text: string}[]} items
@@ -21,4 +24,139 @@ export function trailingItemsSignature(items) {
  */
 export function findChangedTrailingItems(items, prevSignature) {
   return (items || []).filter((it) => prevSignature.get(it.key) !== it.text);
+}
+
+/**
+ * ピル群（TerminalPaneの浮遊ピル・セッションサイドバー行の両方）で共通の
+ * trailingPeekItems（usePillPeekの変化検出対象）を組み立てる純粋関数。
+ * 各キーはInfoPillRowの対応ボタンのv-if条件（infoPillConfig含む）と揃える
+ * 必要がある（揃えないと、非表示ピルの変化がfindChangedTrailingItemsに
+ * 拾われ、実際に表示されている別ピルの変化が枠を奪われてpeekされない）。
+ * historyをbranchより後ろに置く理由: ブランチ切替え時は最終コミット
+ * メッセージも同時に変わるため、branch側の変化を優先してpeekしたい。
+ * @param {{
+ *   workspaceLabel?: string,
+ *   isGitRepo?: boolean,
+ *   hasSession?: boolean,
+ *   hasWorkspace?: boolean,
+ *   isDirty?: boolean,
+ *   changedFiles?: number,
+ *   insertions?: number,
+ *   deletions?: number,
+ *   branch?: string,
+ *   ahead?: number,
+ *   behind?: number,
+ *   lastCommitMessage?: string | null,
+ *   branchPR?: { number: number, title: string } | null,
+ *   branchAction?: { id: string | number, status: string, conclusion: string } | null,
+ *   devServerEntry?: { proxy_port: number } | null,
+ *   dispatchItems?: { id: string }[],
+ * }} fields
+ * @param {Record<string, boolean>} infoPillConfig
+ * @returns {{key: string, text: string}[]}
+ */
+export function buildTrailingPeekItems(fields, infoPillConfig) {
+  const {
+    workspaceLabel = "",
+    isGitRepo = false,
+    hasSession = false,
+    hasWorkspace = false,
+    isDirty = false,
+    changedFiles = 0,
+    insertions = 0,
+    deletions = 0,
+    branch = "",
+    ahead = 0,
+    behind = 0,
+    lastCommitMessage = "",
+    branchPR = null,
+    branchAction = null,
+    devServerEntry = null,
+    dispatchItems = [],
+  } = fields || {};
+  const items = [];
+  items.push({ key: "workspace", text: workspaceLabel });
+  if ((isGitRepo || hasSession) && infoPillConfig.files) {
+    items.push({ key: "files", text: "Files" });
+  }
+  if (isGitRepo && isDirty && infoPillConfig.changes) {
+    items.push({ key: "changes", text: `${changedFiles}F +${insertions} -${deletions}` });
+  }
+  if (isGitRepo && infoPillConfig.branch) {
+    items.push({ key: "branch", text: `${branch}:${ahead}:${behind}` });
+  }
+  if (isGitRepo && infoPillConfig.history) {
+    items.push({ key: "history", text: lastCommitMessage || "" });
+  }
+  if (branchPR && infoPillConfig.prs) {
+    items.push({ key: "prs", text: `${branchPR.number}:${branchPR.title}` });
+  }
+  if (branchAction && infoPillConfig.actions) {
+    items.push({ key: "actions", text: `${branchAction.id}:${branchAction.status}:${branchAction.conclusion}` });
+  }
+  if (devServerEntry && infoPillConfig.devserver) {
+    items.push({ key: "devserver", text: `Server:${devServerEntry.proxy_port}` });
+  }
+  if (!hasWorkspace && hasSession && infoPillConfig.add) {
+    items.push({ key: "add", text: "Add" });
+  }
+  if (dispatchItems.length > 0 && infoPillConfig.dispatch) {
+    items.push({ key: "dispatch", text: dispatchItems.map((i) => i.id).join(",") });
+  }
+  return items;
+}
+
+/**
+ * peekingKeyごとの表示テキストを組み立てる。changes/branchは複数トーンの
+ * 色分け表示のため呼び出し側（テンプレート）で直接組み立てるので対象外。
+ * @param {string | null} peekingKey
+ * @param {{
+ *   workspaceLabel?: string,
+ *   lastCommitMessage?: string | null,
+ *   branchPR?: { number: number, title: string } | null,
+ *   branchAction?: { name?: string, status: string, conclusion: string } | null,
+ *   devServerEntry?: { proxy_port: number } | null,
+ *   dispatchTooltip?: string,
+ * }} fields
+ * @returns {string}
+ */
+export function buildPeekText(peekingKey, fields) {
+  const {
+    workspaceLabel = "",
+    lastCommitMessage = "",
+    branchPR = null,
+    branchAction = null,
+    devServerEntry = null,
+    dispatchTooltip = "",
+  } = fields || {};
+  switch (peekingKey) {
+    case "files": return "Files";
+    case "history": return firstCommitLine(lastCommitMessage) || "History";
+    case "prs": return branchPR ? `#${branchPR.number} ${branchPR.title}` : "";
+    case "actions": return branchAction
+      ? `[${branchAction.name}] ${branchAction.conclusion || branchAction.status}`
+      : "";
+    case "devserver": return devServerEntry ? `Dev Server :${devServerEntry.proxy_port}` : "Server";
+    case "devserver-stop": return "Dev Server Stop";
+    case "add": return "Add";
+    case "dispatch": return dispatchTooltip;
+    case "workspace": return workspaceLabel;
+    default: return "";
+  }
+}
+
+/**
+ * peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。
+ * changes/branchはbuildPeekTextを経由しない独自の色分け表示のため、それぞれの
+ * 元データから組み立てる。
+ * @param {string | null} peekingKey
+ * @param {Parameters<typeof buildPeekText>[1] & { changedFiles?: number, insertions?: number, deletions?: number, branch?: string, ahead?: number, behind?: number }} fields
+ * @returns {string | null}
+ */
+export function buildPeekSignature(peekingKey, fields) {
+  if (!peekingKey) return null;
+  const { changedFiles = 0, insertions = 0, deletions = 0, branch = "", ahead = 0, behind = 0 } = fields || {};
+  if (peekingKey === "changes") return `changes:${changedFiles}:${insertions}:${deletions}`;
+  if (peekingKey === "branch") return `branch:${branch}:${ahead}:${behind}`;
+  return `${peekingKey}:${buildPeekText(peekingKey, fields)}`;
 }

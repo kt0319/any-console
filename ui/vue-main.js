@@ -11,6 +11,7 @@ import "./styles/modal-shell.css";
 import "./styles/command-list.css";
 import "./styles/settings-form.css";
 import "./styles/info-pills.css";
+import "./styles/session-sidebar.css";
 import { watch } from "vue";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
