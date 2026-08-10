@@ -6,7 +6,7 @@
         <div class="settings-section-label">Pending dispatches</div>
         <ul class="dispatch-queue-list">
           <li v-for="item in pending" :key="item.id" class="dispatch-queue-row">
-            <button type="button" class="dispatch-queue-row-main" @click="emits('select', item.id)">
+            <button type="button" class="dispatch-queue-row-main dispatch-queue-pending-row" @click="emits('select', item.id)">
               <DispatchQueueRowBody :request="item.request" />
             </button>
           </li>
@@ -101,6 +101,7 @@ const recent = computed(() =>
   gap: 2px;
   padding: 10px 12px;
   border: 1px solid var(--border);
+  border-left: 3px solid transparent;
   border-radius: var(--radius, 6px);
   background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
   color: var(--text-primary);
@@ -113,16 +114,23 @@ const recent = computed(() =>
   }
 }
 
+/* Pendingは対応が必要な行なので、アクティブ行（session-sidebar.css）と
+   同じ語彙（accent地色 + 左ボーダー）で目立たせる。 */
+.dispatch-queue-pending-row {
+  background: var(--accent-bg-12);
+  border-left-color: var(--accent);
+}
+
 .dispatch-queue-recent-label {
   margin-top: 16px;
 }
 
-/* 承認/却下が一目で分かるようアイコン+枠線色で示す。 */
-.dispatch-queue-recent-approved {
-  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
-}
-
-.dispatch-queue-recent-rejected {
-  opacity: 0.7;
+/* 実行済みは対応不要な履歴なので、承認/却下の別をアイコン色だけに留め、
+   行自体はpendingより沈んだ見た目にする（枠線をpendingと同じ濃さで
+   出すと「まだ対応が要る」ように見えて紛らわしいため）。 */
+.dispatch-queue-recent-row {
+  background: transparent;
+  border-color: var(--border);
+  opacity: 0.65;
 }
 </style>
