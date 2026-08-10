@@ -39,6 +39,13 @@ export const TOAST_DEFAULT_DURATION_MS = 3000;
 // 複数行の詳細（pull したコミット一覧等）を含むトーストは読む時間を長めに取る
 export const TOAST_DETAIL_DURATION_MS = 5000;
 export const PILL_MORE_PEEK_DURATION_MS = 4000;
+// ピル行の実測幅からピル群の上限幅を出す時に差し引く固定分。
+// サイドバー行: 閉じるボタン＋余白（SessionSidebarRow.vue）。
+export const SIDEBAR_PILL_ROW_RESERVED_PX = 40;
+// ターミナルペイン: 閉じるボタン・ワークスペースピル本体・余白（TerminalPane.vue）。
+export const PANE_PILL_TRAILING_RESERVED_PX = 80;
+// 幅制限を実質かけない場合に渡す上限値（Pendingワークスペース行など）。
+export const PILL_MAX_WIDTH_UNLIMITED_PX = 9999;
 // マーキーが末尾まで流れ終えてから、peekピル自体が消えるまでの静止時間。
 // マーキーの再生時間を実際の表示時間ぴったりにすると、流れ終わった瞬間に
 // 消えてしまい最後まで読めないため、この分だけ短く設定して余裕を持たせる。

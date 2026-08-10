@@ -78,6 +78,7 @@ import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { usePillPeek } from "../composables/usePillPeek.js";
 import { buildTrailingPeekItems, buildPeekText, buildPeekSignature } from "../utils/pill-peek.js";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
+import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.js";
 
 // SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態
 // （usePillPeek）を持たせるため、TerminalPaneの浮遊ピルと同じ「値が変化したら
@@ -106,7 +107,7 @@ const rowStateClasses = computed(() => ({
 // 差し引いた残りをpeekピル/InfoPillRowの上限幅にする。
 const pillsRowEl = ref(null);
 const pillsRowWidth = ref(0);
-const pillsMaxWidth = computed(() => Math.max(0, pillsRowWidth.value - 40));
+const pillsMaxWidth = computed(() => Math.max(0, pillsRowWidth.value - SIDEBAR_PILL_ROW_RESERVED_PX));
 let roPillsRow = null;
 watch(pillsRowEl, (el) => {
   roPillsRow?.disconnect();

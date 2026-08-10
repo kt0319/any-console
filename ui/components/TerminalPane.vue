@@ -92,7 +92,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -236,7 +236,7 @@ let activeFitTimer = null;
 const paneWidthRef = ref(0);
 // 閉じるボタン・ワークスペースピル本体・余白ぶんを差し引いた残りをスクロール
 // 領域の上限にする。マイナスにはしない。
-const trailingMaxWidth = computed(() => Math.max(0, paneWidthRef.value - 80));
+const trailingMaxWidth = computed(() => Math.max(0, paneWidthRef.value - PANE_PILL_TRAILING_RESERVED_PX));
 let roPane = null;
 
 watch(paneEl, (paneNode) => {
@@ -292,7 +292,10 @@ const actionStatusIcon = computed(() => runStatusIcon());
 // 依存しない生のブランチ名を使う。actionsは成功で完了した瞬間もpeekで一度
 // 知らせたいため、通常時は非表示になるsuccessも含めbranchAction
 // （visibleBranchActionでフィルタする前の値）を変化検出に使う。
-const trailingPeekItems = computed(() => buildTrailingPeekItems({
+// peek関連（buildTrailingPeekItems / buildPeekText / buildPeekSignature）で使う
+// フィールドはこの1つのcomputedに集約する（SessionSidebarRow.vueと同形。
+// 2箇所に分けて組み立てると、フィールド追加時に片方だけ足すズレが起きるため）。
+const peekFields = computed(() => ({
   workspaceLabel: props.tab.workspace || props.tab.label || "",
   isGitRepo: isGitRepo.value,
   hasSession: !!props.tab.sessionId,
@@ -309,7 +312,10 @@ const trailingPeekItems = computed(() => buildTrailingPeekItems({
   branchAction: branchAction.value,
   devServerEntry: devServerEntry.value,
   dispatchItems: tabDispatchItems.value,
-}, infoPillConfig));
+  dispatchTooltip: tooltips.value.dispatch,
+}));
+
+const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig));
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
@@ -333,28 +339,12 @@ const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
 
 // キーごとの静的な色はinfo-pills.jsのテーブルで管理する（actionsも常に
 // ブラウンで固定、状態では変えない）。
-const peekColorClass = computed(() => {
-  return peekColorForKey(peekingKey.value);
-});
+const peekColorClass = computed(() => peekColorForKey(peekingKey.value));
 
 // History はもう10文字に切り詰めない（ピル自体が内容に合わせて伸びるため）。
 // changes/branch は複数トーンの色分け表示のためテンプレート側で直接組み立てる
 // ので、ここでは対象外（他のキーのみ扱う）。組み立て自体はセッションサイドバー
 // 行と共用するpill-peek.jsの純粋関数に集約する。
-const peekFields = computed(() => ({
-  workspaceLabel: props.tab.workspace || props.tab.label || "",
-  lastCommitMessage: paneWorkspace.value?.last_commit_message,
-  branchPR: branchPR.value,
-  branchAction: branchAction.value,
-  devServerEntry: devServerEntry.value,
-  dispatchTooltip: tooltips.value.dispatch,
-  changedFiles: changedFiles.value,
-  insertions: insertions.value,
-  deletions: deletions.value,
-  branch: paneWorkspace.value?.branch || "",
-  ahead: ahead.value,
-  behind: behind.value,
-}));
 const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
 
 // peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。

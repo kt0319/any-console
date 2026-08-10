@@ -29,7 +29,7 @@
             <InfoPillRow
               class="session-sidebar-pills"
               :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
-              :max-width="9999"
+              :max-width="PILL_MAX_WIDTH_UNLIMITED_PX"
               :is-git-repo="p.isGitRepo"
               :is-dirty="p.dirty"
               :ahead="p.ahead"
@@ -76,6 +76,7 @@ import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.js";
+import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
 
 // 統合ナビゲーション（useSettingsNav.js）の一番手前（ルート）のビュー。
 // 開いているタブごとにワークスペース名・ブランチ・変更サマリ・エージェント
