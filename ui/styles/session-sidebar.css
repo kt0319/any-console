@@ -67,6 +67,14 @@
   background-image: none;
 }
 
+/* peekピル（PillPeek.vue、.pill-peek-wide）はInfoPillRowと違いflex:1を
+   持たないため、margin-left:autoで左側の余りスペースを自分が吸収し、
+   閉じるボタンと同じ右端に寄せる（peek中は閉じるボタンが隠れるので単独でも
+   右端に付く）。ピル自体は内容に合わせた幅のまま伸ばさない。 */
+.session-sidebar-pills-row .pill-peek-wide {
+  margin-left: auto;
+}
+
 .session-sidebar-item {
   display: flex;
   flex-direction: column;

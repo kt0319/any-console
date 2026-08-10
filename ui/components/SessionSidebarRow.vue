@@ -58,6 +58,7 @@
         />
       </Transition>
       <button
+        v-if="!peekingKey"
         type="button"
         class="pill-close-btn pill-tab-close-btn"
         aria-label="Close tab"
