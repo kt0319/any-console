@@ -269,90 +269,42 @@ impl DispatchRequest {
     }
 }
 
-/// `DispatchDecision`/`DispatchRerun` に共通の上書きフィールド集合。
-#[derive(Default)]
+/// `DispatchDecision`/`DispatchRerun` に共通の上書きフィールド集合
+/// （両構造体は `#[serde(flatten)]` でこれをそのまま埋め込む — 同じ8フィールドを
+/// 二重定義して `From` で詰め替えていた重複の解消。ワイヤ形式は不変）。
+#[derive(Default, Deserialize)]
 struct DecisionOverrides {
+    #[serde(default)]
     workspace: Option<String>,
+    #[serde(default)]
     branch: Option<String>,
+    #[serde(default)]
     base_branch: Option<String>,
+    #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
     job: Option<String>,
+    #[serde(default, rename = "match")]
     match_mode: Option<String>,
+    #[serde(default)]
     create_branch: Option<bool>,
+    #[serde(default)]
     session_id: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct DispatchDecision {
     approved: bool,
-    #[serde(default)]
-    workspace: Option<String>,
-    #[serde(default)]
-    branch: Option<String>,
-    #[serde(default)]
-    base_branch: Option<String>,
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    job: Option<String>,
-    #[serde(default, rename = "match")]
-    match_mode: Option<String>,
-    #[serde(default)]
-    create_branch: Option<bool>,
-    #[serde(default)]
-    session_id: Option<String>,
-}
-
-impl From<&DispatchDecision> for DecisionOverrides {
-    fn from(d: &DispatchDecision) -> Self {
-        Self {
-            workspace: d.workspace.clone(),
-            branch: d.branch.clone(),
-            base_branch: d.base_branch.clone(),
-            text: d.text.clone(),
-            job: d.job.clone(),
-            match_mode: d.match_mode.clone(),
-            create_branch: d.create_branch,
-            session_id: d.session_id.clone(),
-        }
-    }
+    #[serde(flatten)]
+    overrides: DecisionOverrides,
 }
 
 #[derive(Deserialize, Default)]
 pub struct DispatchRerun {
     #[serde(default)]
     run: bool,
-    #[serde(default)]
-    workspace: Option<String>,
-    #[serde(default)]
-    branch: Option<String>,
-    #[serde(default)]
-    base_branch: Option<String>,
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    job: Option<String>,
-    #[serde(default, rename = "match")]
-    match_mode: Option<String>,
-    #[serde(default)]
-    create_branch: Option<bool>,
-    #[serde(default)]
-    session_id: Option<String>,
-}
-
-impl From<&DispatchRerun> for DecisionOverrides {
-    fn from(d: &DispatchRerun) -> Self {
-        Self {
-            workspace: d.workspace.clone(),
-            branch: d.branch.clone(),
-            base_branch: d.base_branch.clone(),
-            text: d.text.clone(),
-            job: d.job.clone(),
-            match_mode: d.match_mode.clone(),
-            create_branch: d.create_branch,
-            session_id: d.session_id.clone(),
-        }
-    }
+    #[serde(flatten)]
+    overrides: DecisionOverrides,
 }
 
 // ─── ジョブ定義解決 ──────────────────────────────────────────────────────────
@@ -942,7 +894,7 @@ pub async fn dispatch_decision(
 
     let mut dispatch_body: DispatchRequest =
         serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
-    dispatch_body.apply_overrides(&DecisionOverrides::from(&body));
+    dispatch_body.apply_overrides(&body.overrides);
 
     let result = match launch(&state, &dispatch_body).await {
         Ok(r) => r,
@@ -1030,7 +982,7 @@ pub async fn dispatch_rerun(
     req.direct = false;
     req.dedup_key = None;
     req.session_id = None;
-    req.apply_overrides(&DecisionOverrides::from(&body));
+    req.apply_overrides(&body.overrides);
 
     if body.run {
         let result = match launch(&state, &req).await {
