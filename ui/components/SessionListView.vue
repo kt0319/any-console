@@ -2,16 +2,11 @@
   <div class="modal-scroll-body session-list-view">
     <div class="session-list-scroll">
       <ul v-if="items.length > 0" class="session-sidebar-list">
-        <li v-for="item in items" :key="item.id" class="session-sidebar-li">
+        <li v-for="item in items" :key="item.id" class="session-sidebar-li" :class="sessionRowStateClasses(item)">
           <button
             type="button"
             class="session-sidebar-item hover-bg"
-            :class="{
-              active: item.id === activeTabId,
-              'session-working': item.agent?.className === 'agent-state-working',
-              'session-blocked': item.agent?.className === 'agent-state-blocked',
-              'session-phrase-notify': item.phraseNotify,
-            }"
+            :class="sessionRowStateClasses(item)"
             :aria-current="item.id === activeTabId ? 'true' : undefined"
             @click="onSelect(item)"
           >
@@ -19,12 +14,8 @@
           </button>
           <span
             class="session-sidebar-pills-row"
-            :class="{
-              active: item.id === activeTabId,
-              'session-working': item.agent?.className === 'agent-state-working',
-              'session-blocked': item.agent?.className === 'agent-state-blocked',
-              'session-phrase-notify': item.phraseNotify,
-            }"
+            :class="sessionRowStateClasses(item)"
+            @click="onSelect(item)"
           >
             <InfoPillRow
               class="session-sidebar-pills"
@@ -156,6 +147,21 @@ const pendingDispatchWorkspaces = computed(() => {
     hostname: location.hostname,
   });
 });
+
+// 行（li）・本体ボタン・ピル行の3要素で、active/working/blocked/phrase通知の
+// クラスを揃えて付与するための共通関数。以前は3箇所に同じオブジェクトを
+// 書いていたため、アニメーション対象が要素ごとにズレて統一感なく見える
+// 原因になっていた（左インジケーターの演出はliの::beforeに1本化したが、
+// クラス自体はli/button/pills-row全てに要る — CSSの`:not(.active)`等の
+// セレクタが各要素のクラスを直接見るため）。
+function sessionRowStateClasses(item) {
+  return {
+    active: item.id === activeTabId.value,
+    "session-working": item.agent?.className === "agent-state-working",
+    "session-blocked": item.agent?.className === "agent-state-blocked",
+    "session-phrase-notify": !!item.phraseNotify,
+  };
+}
 
 function onOpenPendingDispatch(p) {
   workspaceStore.selectedWorkspace = p.workspace;
@@ -345,6 +351,17 @@ onBeforeUnmount(() => {
   border-color: var(--border);
 }
 
+/* working/blocked時、個々のピル（.pill-chip.pill-working/.pill-blocked、
+   ui/styles/info-pills.css）が持つ独自アニメーションはサイドバーでは止める。
+   行（li）側に統一済みの左インジケーターが既にworking/blockedを示している
+   ため、ピルごとにも動くと同じ情報が別々のタイミングで何重にも動いて見えて
+   しまう。TerminalPane側の浮遊ピル（.terminal-pane .pill-chip）は対象外。 */
+.session-sidebar-pills :deep(.pill-chip.pill-working),
+.session-sidebar-pills :deep(.pill-chip.pill-blocked) {
+  animation: none;
+  background-image: none;
+}
+
 .session-sidebar-item {
   display: flex;
   flex-direction: column;
@@ -395,9 +412,73 @@ onBeforeUnmount(() => {
   border-left-color: var(--accent);
 }
 
-/* タブと同じ working グラデーション・通知点滅の演出は ui/styles/base.css
-   （グローバル）でTabItem.vueと共用する。ピル行（.session-sidebar-pills-row）も
-   同じ行の一部として同期して演出させる。 */
+/* working（出力中）・blocked/phrase通知は、行全体ではなく左3pxのアクティブ
+   インジケーター（border-left。アクティブ行が常時 var(--accent) で点灯する
+   のと同じ場所）の中だけで動かす。以前はタブと同じ「行全体が流れる/点滅する」
+   演出（ui/styles/base.css）を共用していたが、セッション一覧はタブより行数が
+   多く常時視界に入るため、行全体が動くとうるさく感じやすい。アクティブな行は
+   既に強調色がついているため対象外にする。
+
+   インジケーターは行（li）に1本だけ持たせる。以前は本体ボタンとピル行の
+   両方に別々の演出（別々のアニメーションインスタンス）を付けていたため、
+   2つの要素の間でアニメーションのタイミングがズレて統一感なく見えていた。
+   li側は元々border-bottomのみでレイアウト用のボーダーを持たないため、
+   ::beforeで独立した3px幅のオーバーレイを敷く（blocked/phrase通知の点滅も
+   border-left-colorではなくこの::beforeで揃え、演出方式を1本化する）。
+
+   working: タブ（ui/styles/base.css working-pulse）と同じ「一方向に流れ
+   続ける」イメージを縦方向にしたもの（上→下へループ、ease-in-outの往復では
+   なくlinearの一方通行）。
+   blocked/phrase通知: より緊急度が高いため点滅で目立たせる（working と
+   同時に付いている場合は点滅を優先し、上下スイープは止める）。 */
+.session-sidebar-li {
+  position: relative;
+}
+
+.session-sidebar-li.session-working:not(.active)::before,
+.session-sidebar-li.session-phrase-notify:not(.active)::before,
+.session-sidebar-li.session-blocked:not(.active)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+}
+
+.session-sidebar-li.session-working:not(.active)::before {
+  /* アクティブ行の左インジケーター（var(--accent)そのまま）と見分けが付くよう
+     working中はそれより少し暗い色にする。 */
+  background-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 10%,
+    color-mix(in srgb, var(--accent) 70%, black) 50%,
+    transparent 90%,
+    transparent 100%
+  );
+  background-size: 100% 200%;
+  animation: session-sidebar-working-sweep 2s linear infinite;
+}
+
+/* タブのworking-pulse（200%↔-200%、background-size 200%）と移動量/背景サイズの
+   比率を揃え、体感速度を一致させる。上→下の向き自体はこれまで通り維持する。 */
+@keyframes session-sidebar-working-sweep {
+  0% { background-position: 0% -200%; }
+  100% { background-position: 0% 200%; }
+}
+
+.session-sidebar-li.session-phrase-notify:not(.active)::before,
+.session-sidebar-li.session-blocked:not(.active)::before {
+  background-image: none;
+  background-color: var(--accent);
+  animation: session-sidebar-notify-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes session-sidebar-notify-blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
 
 .session-sidebar-empty {
   padding: 16px 12px;

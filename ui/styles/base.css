@@ -94,15 +94,13 @@ body {
   50% { background-color: rgba(130, 170, 255, 0.35); }
 }
 
-/* working（出力中）の流れるグラデーションと通知点滅の共通見た目。
-   タブ（TabItem.vue）とセッションサイドバー行（SessionListView.vue）は
-   同じ演出を使うため、宣言はここに集約する。アクティブなタブ・行は
-   既に強調色がついているため対象外にする。通知点滅は working と同時に
-   付く場合にグラデーションが残って混ざって見えるため background-image を
-   打ち消す。 */
-.tab-btn.tab-working:not(.active),
-.session-sidebar-item.session-working:not(.active),
-.session-sidebar-pills-row.session-working:not(.active) {
+/* working（出力中）の流れるグラデーションと通知点滅の共通見た目（タブのみ。
+   セッションサイドバー行は SessionListView.vue 側で左ボーダーの点滅に
+   置き換えている — 行全体が動くとリストの目立ちすぎ・うるささにつながる
+   ため）。アクティブなタブは既に強調色がついているため対象外にする。
+   通知点滅は working と同時に付く場合にグラデーションが残って混ざって
+   見えるため background-image を打ち消す。 */
+.tab-btn.tab-working:not(.active) {
   background-image: linear-gradient(
     90deg,
     transparent 0%,
@@ -116,11 +114,7 @@ body {
 }
 
 .tab-btn.tab-phrase-notify:not(.active),
-.tab-btn.tab-blocked:not(.active),
-.session-sidebar-item.session-phrase-notify:not(.active),
-.session-sidebar-item.session-blocked:not(.active),
-.session-sidebar-pills-row.session-phrase-notify:not(.active),
-.session-sidebar-pills-row.session-blocked:not(.active) {
+.tab-btn.tab-blocked:not(.active) {
   background-image: none;
   animation: notify-blink 1.2s ease-in-out infinite;
 }
