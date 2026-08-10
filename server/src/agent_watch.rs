@@ -27,11 +27,10 @@ use tokio::task::JoinHandle;
 
 use crate::foreground::ForegroundInspector;
 use crate::job_match::JobPattern;
-use crate::screen_manifest::{Manifest, ManifestStore, ADOPTED_STATES};
+use crate::screen_manifest::{
+    Manifest, ManifestStore, ADOPTED_STATES, STATE_BLOCKED, STATE_IDLE, STATE_WORKING,
+};
 use crate::state::AppState;
-
-pub const STATE_WORKING: &str = "working";
-pub const STATE_IDLE: &str = "idle";
 
 /// Python `common.py` の同名定数と同じ値。
 const AGENT_WATCH_POLL_INTERVAL_SEC: u64 = 2;
@@ -75,8 +74,7 @@ pub fn resolve_session_state(
 /// だった場合は false（画面差分等で同じ blocked が続けて評価されても、
 /// 実際に許可待ちへ入った瞬間の1回だけ通知したいため）。
 pub fn entered_blocked(new_state: &str, prev_state: Option<&str>) -> bool {
-    new_state == crate::screen_manifest::STATE_BLOCKED
-        && prev_state != Some(crate::screen_manifest::STATE_BLOCKED)
+    new_state == STATE_BLOCKED && prev_state != Some(STATE_BLOCKED)
 }
 
 /// 前回配信から状態が変わったセッションだけを取り出す純関数。
