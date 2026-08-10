@@ -43,13 +43,27 @@
         />
       </div>
       <div v-if="activePane === 'changes'" class="file-modal-pane">
+        <button
+          v-if="stashCount"
+          type="button"
+          class="stash-summary-toggle"
+          :class="{ 'stash-summary-toggle-expanded': stashSectionExpanded }"
+          :aria-expanded="stashSectionExpanded"
+          aria-controls="stash-summary-body"
+          data-tooltip="Stash"
+          @click="toggleStashSection"
+        >
+          <span class="mdi mdi-package-variant" aria-hidden="true"></span>
+          <span class="stash-summary-toggle-label">Stash ({{ stashCount }})</span>
+          <span class="mdi" :class="stashSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+        </button>
+        <div v-if="stashSectionExpanded" id="stash-summary-body" class="stash-summary-body">
+          <GitStash ref="gitStash" @count="onStashCount" />
+        </div>
         <GitChanges ref="gitChanges" />
       </div>
       <div v-if="activePane === 'jobs'" class="file-modal-pane">
         <WorkspaceJobsPane ref="jobsPane" />
-      </div>
-      <div v-if="activePane === 'stash'" class="file-modal-pane">
-        <GitStash ref="gitStash" @count="onStashCount" />
       </div>
       <div v-if="activePane === 'issues'" class="file-modal-pane">
         <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
@@ -144,6 +158,10 @@ const activePane = ref("jobs");
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
 // （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
 const branchSectionExpanded = ref(false);
+// Changesタブに統合したStash一覧も同じパターンで既定は畳んだ状態にする
+// （旧: 独立した「Stashes」タブ。ChangesとStashは両方「今のワークツリーの
+// 未確定の変更」という同じ関心事なので1タブへ統合した）。
+const stashSectionExpanded = ref(false);
 // コミットのファイル一覧を見ている間はBranchヘッダーを隠し、履歴の
 // 表示領域を圧迫しないようにする（GitHistoryのcommit:expanded/collapsed）。
 const isViewingCommitFiles = ref(false);
@@ -190,7 +208,6 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--accent)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
-    { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
     { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#8c6c50", hidden: !isGit || !hasGithub.value },
@@ -232,6 +249,25 @@ function expandBranchSection() {
   }
 }
 
+function loadStashSection() {
+  nextTick(() => gitStash.value?.load());
+}
+
+function toggleStashSection() {
+  if (stashSectionExpanded.value) {
+    stashSectionExpanded.value = false;
+  } else {
+    expandStashSection();
+  }
+}
+
+function expandStashSection() {
+  if (!stashSectionExpanded.value) {
+    stashSectionExpanded.value = true;
+    loadStashSection();
+  }
+}
+
 function clearDiffSelection() {
   selectedDiffFile.value = "";
   diffMessage.value = "";
@@ -262,8 +298,11 @@ function open(options) {
   const paneKey = options.pane || "jobs";
   // branchピル経由（paneKey === "branch"）だけはHistoryタブを開くと同時に
   // Branch一覧セクションも展開する。History タブ自体を直接開いた場合は
-  // 従来通り畳んだ状態で開始する。
+  // 従来通り畳んだ状態で開始する。stashも同様（旧Stashesタブへの外部リンク・
+  // 通知経由の遷移との互換のため、paneKey === "stash" はChangesタブを開いて
+  // Stashセクションを展開する）。
   const wantBranchExpanded = paneKey === "branch";
+  const wantStashExpanded = paneKey === "stash";
   let resolvedPane = paneKey === "browser" ? "history" : paneKey;
   // 非 git ワークスペースで git 専用ペインが指定された場合は files にフォールバック
   const gitOnlyPanes = new Set(["jobs", "history", "changes", "branch", "stash", "issues", "actions", "prs"]);
@@ -285,11 +324,12 @@ function open(options) {
     paneLoader.invalidate("files");
     paneLoader.invalidate("branch");
     branchSectionExpanded.value = false;
+    stashSectionExpanded.value = false;
     isViewingCommitFiles.value = false;
     selectedDispatchId.value = null;
   });
 
-  switchPane(resolvedPane, { expandBranch: wantBranchExpanded });
+  switchPane(resolvedPane, { expandBranch: wantBranchExpanded, expandStash: wantStashExpanded });
   // dispatch通知タップ等、特定の1件を直接開きたい場合（vue-main.js参照）。
   if (resolvedPane === "dispatch" && options.dispatchItemId) {
     selectedDispatchId.value = options.dispatchItemId;
@@ -297,11 +337,13 @@ function open(options) {
 }
 
 async function switchPane(key, opts = {}) {
-  // 後方互換: "github" → "issues"、"browser"/"branch" → "history"
-  // （BranchはHistoryタブへ統合。Branch一覧は通常畳んだ状態で開始するが、
-  // branchピル経由（opts.expandBranch）の場合だけ展開する）
+  // 後方互換: "github" → "issues"、"browser"/"branch" → "history"、"stash" → "changes"
+  // （Branch/StashはそれぞれHistory/Changesタブへ統合。一覧は通常畳んだ状態で
+  // 開始するが、branch/stashピル経由（opts.expandBranch/opts.expandStash）の
+  // 場合だけ展開する）
   if (key === "github") key = "issues";
   if (key === "browser" || key === "branch") key = "history";
+  if (key === "stash") key = "changes";
 
   activePane.value = key;
   updateViewState?.({ detail: { ...(viewState.value?.detail || {}), pane: key } });
@@ -321,8 +363,7 @@ async function switchPane(key, opts = {}) {
     });
   } else if (key === "changes") {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
-  } else if (key === "stash") {
-    nextTick(() => gitStash.value?.load());
+    if (opts.expandStash) expandStashSection();
   } else if (key === "jobs") {
     nextTick(() => jobsPane.value?.load());
   } else if (key === "files") {
@@ -464,6 +505,56 @@ onMounted(() => {
 
 .branch-summary-body-expanded {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* Changesタブに統合したStash一覧の開閉トグル行。Branchの現在ブランチ行と
+   同じ「畳んだ状態が既定・シェブロンで開閉」という語彙に揃える。 */
+.stash-summary-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.stash-summary-toggle .mdi {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.stash-summary-toggle-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stash-summary-toggle-expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  color: var(--text-primary);
+}
+
+.stash-summary-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40vh;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin: 0 12px;
+  flex-shrink: 0;
 }
 
 /* タブバー */
