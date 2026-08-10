@@ -90,7 +90,7 @@ import GitHubPRsPane from "./GitHubPRsPane.vue";
 import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import DispatchRunView from "./DispatchRunView.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
-import { on, emit as bridgeEmit } from "../app-bridge.js";
+import { on } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useToast } from "../composables/useToast.js";
@@ -391,7 +391,7 @@ const _offHandlers = [
     const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
     if (!ok) return;
     workspaceStore.fetchStatuses();
-    bridgeEmit("modal:close");
+    closeWorkspaceDetail?.();
     toast.success(`Switched branch to "${branch}"`);
   }),
 
