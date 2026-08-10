@@ -3,7 +3,7 @@
 #
 # GitHub Releases から自分の OS/arch 向けの tarball を取得し、
 # ~/.any-console へ展開する（Rust/cargo/Node/npm/Python venv の事前準備は不要。
-# 実行時に python3・git・tmux のみが必要）。
+# 実行時に git・tmux のみが必要）。
 #
 # 使い方:
 #   curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash

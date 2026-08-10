@@ -61,7 +61,7 @@ On a Linux or macOS host, `./any-console setup` registers a systemd (Linux) or l
 
 ### Quick install (prebuilt binary — no Rust/Node/Python toolchain needed)
 
-Downloads a prebuilt release from [GitHub Releases](https://github.com/kt0319/any-console/releases) into `~/.any-console` and runs a non-interactive setup. Only `git`, `tmux`, and `python3` are needed at runtime (nothing to build):
+Downloads a prebuilt release from [GitHub Releases](https://github.com/kt0319/any-console/releases) into `~/.any-console` and runs a non-interactive setup. Only `git` and `tmux` are needed at runtime (nothing to build):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash
@@ -95,14 +95,13 @@ cd ~/any-console
 
 Same one-step flow as Linux. On macOS, `setup` registers a `launchd` user `LaunchAgent` (no sudo needed) that starts at login. For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
 
-Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install rust node git tmux gh` (plus Python — see below).
+Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install rust node git tmux gh`.
 
 ### Requirements
 
 Required:
 
 - Rust toolchain (`cargo`) — install via [rustup](https://rustup.rs/); the server binary is built from source on `setup`/`update`
-- Python 3.11+ — not used to run the app itself, but `./any-console`'s own setup/config scripting is written in Python
 - Node.js 18+
 - `git` — used by the Git UI
 - `tmux` — required for terminal session management
@@ -116,12 +115,12 @@ Installation examples:
 ```bash
 # Debian/Ubuntu
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-sudo apt install python3 nodejs git tmux
+sudo apt install nodejs git tmux
 # optional: follow the official gh install guide
 
 # macOS
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-brew install python node git tmux gh
+brew install node git tmux gh
 ```
 
 ## Authentication
