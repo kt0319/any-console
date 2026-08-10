@@ -73,20 +73,13 @@ async fn run_raw_git_checked(
     }
 }
 
-/// バイナリ安全な raw 実行（stdout をバイト列で返す）。
+/// バイナリ安全な raw 実行（stdout をバイト列で返す）。実体は
+/// `git_utils::run_git_raw_bytes`（C ロケール強制などの実行設定を共有）。
 async fn run_raw_git_bytes(args: &[&str], cwd: &FsPath) -> Result<(i32, Vec<u8>), ApiError> {
-    let mut command = tokio::process::Command::new("git");
-    command.args(args).kill_on_drop(true).current_dir(cwd);
-    let fut = command.output();
-    match tokio::time::timeout(
-        std::time::Duration::from_secs_f64(GIT_SHORT_TIMEOUT_SEC),
-        fut,
-    )
-    .await
-    {
-        Ok(Ok(out)) => Ok((out.status.code().unwrap_or(-1), out.stdout)),
-        Ok(Err(e)) => Err(server_error(format!("Git operation failed: {e}"))),
-        Err(_) => Err(crate::errors::timeout_error("Git operation timed out")),
+    match crate::git_utils::run_git_raw_bytes(args, cwd, GIT_SHORT_TIMEOUT_SEC).await {
+        Ok(out) => Ok(out),
+        Err(GitError::Timeout) => Err(crate::errors::timeout_error("Git operation timed out")),
+        Err(GitError::Os(e)) => Err(server_error(format!("Git operation failed: {e}"))),
     }
 }
 
