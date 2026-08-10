@@ -71,6 +71,14 @@ pub fn resolve_session_state(
     diff_state
 }
 
+/// blocked（許可待ち）への遷移かどうかを判定する純関数。直前が既に blocked
+/// だった場合は false（画面差分等で同じ blocked が続けて評価されても、
+/// 実際に許可待ちへ入った瞬間の1回だけ通知したいため）。
+pub fn entered_blocked(new_state: &str, prev_state: Option<&str>) -> bool {
+    new_state == crate::screen_manifest::STATE_BLOCKED
+        && prev_state != Some(crate::screen_manifest::STATE_BLOCKED)
+}
+
 /// 前回配信から状態が変わったセッションだけを取り出す純関数。
 pub fn diff_states(
     previous: &HashMap<String, String>,
@@ -204,6 +212,9 @@ pub struct CollectedStates {
     /// push を『見ていた』とみなして見送った session_id のリスト
     /// （タブ通知マークを出していれば同じ理由で取り消す）。
     pub ws_clear_session_ids: Vec<String>,
+    /// 今回のポーリングで blocked に遷移した (session_id, workspace) のリスト。
+    /// phrase 通知と異なり猶予は設けない（許可待ちは検知即時に知らせたいため）。
+    pub blocked_notifications: Vec<(String, Option<String>)>,
 }
 
 /// セッションの (workspace, job_name) を返す。キャッシュ優先・tmux env で補完。
@@ -390,6 +401,7 @@ pub async fn collect_agent_states(
     manifest_store: &ManifestStore,
     last_capture: &mut HashMap<String, String>,
     tracker: &mut PhraseNotifyTracker,
+    prev_states: &HashMap<String, String>,
     now: f64,
 ) -> CollectedStates {
     let Some(session_ids) = crate::tmux::list_session_ids(&state.paths.tmux_prefix).await else {
@@ -398,6 +410,7 @@ pub async fn collect_agent_states(
             notifications: Vec::new(),
             ws_notifications: Vec::new(),
             ws_clear_session_ids: Vec::new(),
+            blocked_notifications: Vec::new(),
         };
     };
 
@@ -405,6 +418,7 @@ pub async fn collect_agent_states(
     let mut notifications = Vec::new();
     let mut ws_notifications = Vec::new();
     let mut ws_clear_session_ids = Vec::new();
+    let mut blocked_notifications = Vec::new();
     let grace_sec = crate::settings::notification_grace_sec(&state.config) as f64;
     // manifest 判定・ジョブ照合用の (前面プロセス名, タイトル, シェル PID, cwd)。
     // 周期あたり tmux 1 回で全取得。前面ジョブの argv は必要になったときだけ
@@ -443,6 +457,9 @@ pub async fn collect_agent_states(
                 )
             }
         };
+        if entered_blocked(&new_state, prev_states.get(session_id).map(String::as_str)) {
+            blocked_notifications.push((session_id.clone(), workspace.clone()));
+        }
         states.insert(session_id.clone(), new_state);
 
         maybe_autotag_job(
@@ -486,6 +503,7 @@ pub async fn collect_agent_states(
         notifications,
         ws_notifications,
         ws_clear_session_ids,
+        blocked_notifications,
     }
 }
 
@@ -589,6 +607,7 @@ async fn poll_loop(state: Arc<AppState>) {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs_f64();
+        let mut last_states = state.agent_watch.last_states.lock().await;
         let collected = {
             let mut last_capture = state.agent_watch.last_capture.lock().await;
             let mut tracker = state.agent_watch.tracker.lock().await;
@@ -597,6 +616,7 @@ async fn poll_loop(state: Arc<AppState>) {
                 &state.manifest_store,
                 &mut last_capture,
                 &mut tracker,
+                &last_states,
                 now,
             )
             .await
@@ -606,12 +626,9 @@ async fn poll_loop(state: Arc<AppState>) {
             // 次の周期に委ね、状態を空で上書きしない。
             continue;
         };
-        let changed = {
-            let mut last_states = state.agent_watch.last_states.lock().await;
-            let changed = diff_states(&last_states, &states);
-            *last_states = states;
-            changed
-        };
+        let changed = diff_states(&last_states, &states);
+        *last_states = states;
+        drop(last_states);
         if !changed.is_empty() {
             state.status_stream.broadcast(states_payload(&changed));
         }
@@ -643,6 +660,26 @@ async fn poll_loop(state: Arc<AppState>) {
                     &body,
                     &url_path,
                     "phrase",
+                )
+                .await;
+            });
+        }
+        // blocked（許可待ち）遷移は phrase と異なり猶予を設けず即時 push する
+        // （入力待ちは早く気づけるほど良いため）。
+        for (session_id, workspace) in &collected.blocked_notifications {
+            let body = match workspace {
+                Some(w) => format!("{w}: waiting for your input"),
+                None => "waiting for your input".to_string(),
+            };
+            let url_path = format!("/?session={session_id}");
+            let push_state = state.clone();
+            tokio::spawn(async move {
+                crate::push::send_push_notification(
+                    &push_state,
+                    "Agent blocked",
+                    &body,
+                    &url_path,
+                    "blocked",
                 )
                 .await;
             });
@@ -699,6 +736,34 @@ mod tests {
         let prev = map(&[("a", "working")]);
         let cur = HashMap::new();
         assert!(diff_states(&prev, &cur).is_empty());
+    }
+
+    // ─── entered_blocked ─────────────────────────────────────────────────
+
+    #[test]
+    fn working_to_blocked_is_entered_blocked() {
+        assert!(entered_blocked("blocked", Some("working")));
+    }
+
+    #[test]
+    fn idle_to_blocked_is_entered_blocked() {
+        assert!(entered_blocked("blocked", Some("idle")));
+    }
+
+    #[test]
+    fn first_seen_blocked_is_entered_blocked() {
+        assert!(entered_blocked("blocked", None));
+    }
+
+    #[test]
+    fn staying_blocked_is_not_entered_blocked() {
+        assert!(!entered_blocked("blocked", Some("blocked")));
+    }
+
+    #[test]
+    fn non_blocked_state_is_not_entered_blocked() {
+        assert!(!entered_blocked("working", Some("idle")));
+        assert!(!entered_blocked("idle", Some("blocked")));
     }
 
     // ─── payload shapes ──────────────────────────────────────────────────
@@ -973,7 +1038,7 @@ mod collect_agent_states_tests {
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
         let result =
-            collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 0.0).await;
+            collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
         assert_eq!(result.states, Some(HashMap::new()));
         assert!(result.notifications.is_empty());
     }
@@ -992,7 +1057,7 @@ mod collect_agent_states_tests {
         let mut tracker = PhraseNotifyTracker::new();
 
         // 初回ポーリング: 比較対象が無いので idle。
-        let r1 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 0.0).await;
+        let r1 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
         assert_eq!(
             r1.states
                 .as_ref()
@@ -1005,7 +1070,7 @@ mod collect_agent_states_tests {
         // 画面を変化させる。
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo activity-marker", true).await);
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let r2 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 1.0).await;
+        let r2 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 1.0).await;
         assert_eq!(
             r2.states
                 .as_ref()
@@ -1017,7 +1082,7 @@ mod collect_agent_states_tests {
 
         // 画面が静止すれば idle に戻る。
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let r3 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 2.0).await;
+        let r3 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 2.0).await;
         assert_eq!(
             r3.states
                 .as_ref()
@@ -1058,7 +1123,7 @@ mod collect_agent_states_tests {
         let mut tracker = PhraseNotifyTracker::new();
 
         // 初検出のポーリングでは通知しない。
-        let r1 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 100.0).await;
+        let r1 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 100.0).await;
         assert!(r1.notifications.is_empty());
         assert!(r1
             .ws_notifications
@@ -1066,7 +1131,7 @@ mod collect_agent_states_tests {
             .any(|(id, phrase, _)| id == &session_id && phrase == "FINISHED"));
 
         // 画面が変わらないまま次のポーリング → 猶予(0)経過で通知される。
-        let r2 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 100.5).await;
+        let r2 = collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 100.5).await;
         assert!(r2
             .notifications
             .iter()
@@ -1099,7 +1164,7 @@ mod collect_agent_states_tests {
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
         let result =
-            collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 0.0).await;
+            collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
         assert!(result.states.unwrap().contains_key(&session_id));
 
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
@@ -1136,7 +1201,7 @@ mod collect_agent_states_tests {
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
-        collect_agent_states(&state, &store, &mut last_capture, &mut tracker, 0.0).await;
+        collect_agent_states(&state, &store, &mut last_capture, &mut tracker, &HashMap::new(), 0.0).await;
 
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
         assert_eq!(cached.lock().await.job_name.as_deref(), Some("long-sleep"));

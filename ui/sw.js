@@ -64,7 +64,7 @@ function isCacheableAsset(request, url) {
 }
 
 // 通知タイプごとの表示設定。ページから sync-notif-prefs メッセージで同期する。
-let _notifPrefs = { dispatch: true, phrase: true };
+let _notifPrefs = { dispatch: true, phrase: true, blocked: true };
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'sync-notif-prefs') {

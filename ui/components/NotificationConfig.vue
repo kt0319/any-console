@@ -33,6 +33,13 @@
           <span class="settings-note">When a "Notify phrase" appears in job output.</span>
         </div>
       </label>
+      <label class="settings-item settings-toggle">
+        <input type="checkbox" v-model="prefs.blocked" @change="savePrefs" />
+        <div class="settings-toggle-copy">
+          <span class="settings-item-label">Agent blocked</span>
+          <span class="settings-note">When an agent needs your input to continue.</span>
+        </div>
+      </label>
       <label v-if="prefs.phrase" class="settings-item">
         <span class="settings-item-label">Phrase notify delay</span>
         <input
@@ -92,7 +99,7 @@ watch(graceSec, (val) => {
   }, NOTIFY_GRACE_DEBOUNCE_MS);
 });
 
-const DEFAULT_PREFS = { dispatch: true, phrase: true };
+const DEFAULT_PREFS = { dispatch: true, phrase: true, blocked: true };
 
 const prefs = ref({ ...DEFAULT_PREFS });
 
