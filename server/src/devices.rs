@@ -34,7 +34,7 @@ use crate::auth::{constant_time_eq, RequireAuth, COOKIE_DEVICE_ID, COOKIE_DEVICE
 use crate::errors::{bad_request, not_found, ApiError};
 use crate::json_store::{load_json_file, save_json_file};
 use crate::state::AppState;
-use crate::util::JsonBody;
+use crate::util::{now_epoch, truncate_chars, JsonBody};
 
 pub const MAX_NAME_LEN: usize = 80;
 pub const MAX_UA_LEN: usize = 200;
@@ -43,17 +43,6 @@ pub const MAX_UA_LEN: usize = 200;
 /// 時間を抑える目的で間引く。
 pub const LAST_SEEN_THROTTLE_SEC: i64 = 60;
 const COOKIE_MAX_AGE_SEC: i64 = 365 * 24 * 60 * 60;
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
-fn truncate_chars(s: &str, max: usize) -> String {
-    s.chars().take(max).collect()
-}
 
 pub struct DevicesState {
     /// devices.json の read-modify-write 全体を直列化する。

@@ -29,6 +29,7 @@ use crate::auth::RequireAuth;
 use crate::config::ConfigStore;
 use crate::state::AppState;
 use crate::subprocess::run_subprocess_safe;
+use crate::util::now_epoch;
 
 const SCAN_INTERVAL_SEC: u64 = 3;
 const PORT_SCAN_TIMEOUT_SEC: f64 = 2.0;
@@ -57,13 +58,6 @@ const HTTP_PROBE_RETRY_SEC: i64 = 30;
 const INITIAL_PROBE_DELAY_SEC: i64 = 10;
 
 const IS_MACOS: bool = cfg!(target_os = "macos");
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
 
 pub fn proxy_port_for(target: u16) -> Option<u16> {
     if (PROXY_MIN_TARGET..=PROXY_MAX_TARGET).contains(&target) {

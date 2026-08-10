@@ -17,6 +17,8 @@ use axum::Json;
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
+use crate::util::now_epoch;
+
 pub const COOKIE_DEVICE_ID: &str = "any_console_device";
 pub const COOKIE_DEVICE_SECRET: &str = "any_console_secret";
 pub const TAILSCALE_HEADER_USER: &str = "tailscale-user-login";
@@ -29,13 +31,6 @@ pub const API_TOKEN_MAX_NAME_LEN: usize = 80;
 /// last_used 更新はリクエストのたびに auth.json を read-modify-write するため、
 /// 高頻度呼び出し（CI連携等）でのディスク I/O・ロック保持時間を抑える目的で間引く。
 const API_TOKEN_LAST_USED_THROTTLE_SEC: i64 = 60;
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
 
 /// どの経路で認証されたか（`api/auth.py` の `AuthResult.kind` に対応）。
 /// 文字列プレフィックスの推測に頼らないための構造化。

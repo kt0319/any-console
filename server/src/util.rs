@@ -32,6 +32,47 @@ pub fn sanitize_session_segment(name: &str) -> String {
         .collect()
 }
 
+/// 現在時刻の UNIX epoch 秒（Python `time.time()` の整数部相当）。
+pub fn now_epoch() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// 文字数（バイトではなく char 単位）で切り詰める。
+pub fn truncate_chars(s: &str, max: usize) -> String {
+    s.chars().take(max).collect()
+}
+
+/// UTC の現在時刻を (年, 月, 日, 時, 分, 秒) で返す。フォーマットは呼び出し側
+/// （activity.rs のログ日付・upload_image.rs のファイル名等）が持つ。
+pub fn utc_now_parts() -> (i64, u32, u32, u64, u64, u64) {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let days = secs / 86400;
+    let (h, m, s) = ((secs % 86400) / 3600, (secs % 3600) / 60, secs % 60);
+    // 1970-01-01 起点の civil date 変換（proleptic Gregorian）
+    let (y, mo, d) = civil_from_days(days as i64);
+    (y, mo, d, h, m, s)
+}
+
+/// Howard Hinnant の days->civil アルゴリズム。
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
 const B64URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 /// `secrets.token_urlsafe(n)` 相当: n バイトの乱数を base64url（パディング無し）で返す。
@@ -180,6 +221,27 @@ mod tests {
     fn sanitize_session_segment_replaces_unsafe() {
         assert_eq!(sanitize_session_segment("my session/1"), "my_session_1");
         assert_eq!(sanitize_session_segment("ok_name-2"), "ok_name-2");
+    }
+
+    #[test]
+    fn now_epoch_is_recent() {
+        // 2020-01-01 より後であること（0 フォールバックや単位間違いの検出）。
+        assert!(now_epoch() > 1_577_836_800);
+    }
+
+    #[test]
+    fn truncate_chars_counts_chars_not_bytes() {
+        assert_eq!(truncate_chars("abcdef", 3), "abc");
+        assert_eq!(truncate_chars("日本語のラベル", 3), "日本語");
+        assert_eq!(truncate_chars("ab", 10), "ab");
+    }
+
+    #[test]
+    fn civil_from_days_known_dates() {
+        assert_eq!(civil_from_days(0), (1970, 1, 1));
+        assert_eq!(civil_from_days(19_723), (2024, 1, 1)); // うるう年
+        assert_eq!(civil_from_days(20_666), (2026, 8, 1)); // 2026-08-01
+        assert_eq!(civil_from_days(11_016), (2000, 2, 29)); // 400年例外のうるう日
     }
 
     #[test]

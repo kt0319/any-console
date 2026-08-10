@@ -40,7 +40,7 @@ use sha2::Sha256;
 use crate::auth::RequireAuth;
 use crate::errors::{service_unavailable, ApiError};
 use crate::state::AppState;
-use crate::util::{base64url_decode, base64url_encode, JsonBody};
+use crate::util::{base64url_decode, base64url_encode, now_epoch, JsonBody};
 
 /// VAPID JWT の有効期限（RFC 8292 は 24 時間以内を要求。pywebpush/py_vapid の
 /// 既定値と同じ 12 時間にする）。
@@ -63,13 +63,6 @@ fn vapid_sub_path(data_dir: &Path) -> PathBuf {
 }
 fn subscriptions_path(data_dir: &Path) -> PathBuf {
     data_dir.join("push_subscriptions.json")
-}
-
-fn now_epoch() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
 }
 
 struct VapidKeys {
