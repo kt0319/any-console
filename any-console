@@ -25,9 +25,25 @@ LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
 # journalctl が無いため stdout/stderr はログファイルへ出す。
 LOG_FILE="$SCRIPT_DIR/logs/$SERVICE_NAME.log"
 
-# サーバ本体は Rust バイナリ（cargo build --release の成果物）。python3 は
-# このスクリプト自身の JSON 操作ヘルパー（get_port 等）にのみ引き続き使う。
-RUST_BIN="$SCRIPT_DIR/server/target/release/any-console-server"
+# このスクリプトがバイナリ配布レイアウト（install.shが`~/.any-console`へ
+# 展開したもの。server/Cargo.tomlを含むソースツリーが無い）で動いているか、
+# 従来通りのgit clone開発チェックアウトで動いているかを判定する。
+# server/Cargo.toml の有無で判定する理由: リリースtarballにはserver/以下の
+# ソース一式を同梱しない設計（バイナリのみ）にしたため、これだけで確実に
+# 見分けがつく（マーカーファイル管理の手間を増やさない）。
+is_binary_release() {
+  [ ! -f "$SCRIPT_DIR/server/Cargo.toml" ]
+}
+
+# サーバ本体は Rust バイナリ。バイナリ配布レイアウトでは $SCRIPT_DIR 直下に
+# 展開されており、git clone開発チェックアウトでは従来通り
+# cargo build --release の成果物を見る。python3 はこのスクリプト自身の
+# JSON 操作ヘルパー（get_port 等）にのみ引き続き使う。
+if is_binary_release; then
+  RUST_BIN="$SCRIPT_DIR/any-console-server"
+else
+  RUST_BIN="$SCRIPT_DIR/server/target/release/any-console-server"
+fi
 
 error() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
 info()  { echo -e "${GREEN}$1${NC}"; }
@@ -36,7 +52,11 @@ warn()  { echo -e "${YELLOW}$1${NC}"; }
 # サーババイナリのパスを返す。無ければ setup/update を促して終了する。
 rust_binary() {
   if [ ! -x "$RUST_BIN" ]; then
-    error "Server binary not found at $RUST_BIN — run './any-console setup' or './any-console update' first (or manually: cd server && cargo build --release)"
+    if is_binary_release; then
+      error "Server binary not found at $RUST_BIN — re-run the install script to reinstall"
+    else
+      error "Server binary not found at $RUST_BIN — run './any-console setup' or './any-console update' first (or manually: cd server && cargo build --release)"
+    fi
   fi
   echo "$RUST_BIN"
 }
@@ -90,8 +110,13 @@ install_cmd_for() {
 }
 
 check_deps() {
+  # node/npmはフロントエンドのビルドにのみ使う。バイナリ配布レイアウトでは
+  # dist/がバイナリに埋め込み済み（embed-assetsビルド）でビルド自体を
+  # 行わないため不要。python3/git/tmuxは実行時にも使うため常に必須。
+  local required=(python3 git tmux)
+  is_binary_release || required+=(node)
   local missing=() cmd
-  for cmd in python3 node git tmux; do
+  for cmd in "${required[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       missing+=("$cmd")
     fi
@@ -149,7 +174,11 @@ check_cargo() {
 }
 
 get_version() {
-  git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown"
+  git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null && return
+  # バイナリ配布レイアウトには.gitが無くgit logは常に失敗するため、
+  # install.shが展開時に書き込むVERSIONファイルへフォールバックする。
+  [ -f "$SCRIPT_DIR/VERSION" ] && cat "$SCRIPT_DIR/VERSION" && return
+  echo "unknown"
 }
 
 # ANY_CONSOLE_DATA_DIR 設定時は config.json もそのディレクトリ配下に置かれる
@@ -717,20 +746,28 @@ cmd_setup() {
 
   info "[1/7] Checking dependencies"
   check_deps
-  check_cargo
-  info "  OK: node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2), cargo $(cargo --version | cut -d' ' -f2)"
+  if is_binary_release; then
+    info "  OK: git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
+  else
+    check_cargo
+    info "  OK: node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2), cargo $(cargo --version | cut -d' ' -f2)"
+  fi
 
   echo ""
-  info "[2/7] Building the server (cargo build --release)"
-  (cd "$SCRIPT_DIR/server" && cargo build --release)
+  if is_binary_release; then
+    info "[2-4/7] Skipping build (binary release layout — server binary and frontend assets are already bundled)"
+  else
+    info "[2/7] Building the server (cargo build --release)"
+    (cd "$SCRIPT_DIR/server" && cargo build --release)
 
-  echo ""
-  info "[3/7] Installing Node.js dependencies"
-  npm install
+    echo ""
+    info "[3/7] Installing Node.js dependencies"
+    npm install
 
-  echo ""
-  info "[4/7] Building frontend"
-  npm run build
+    echo ""
+    info "[4/7] Building frontend"
+    npm run build
+  fi
 
   echo ""
   info "[5/7] Network bind configuration"
@@ -999,6 +1036,16 @@ install_launchd() {
 
 cmd_update() {
   info "=== any-console update ==="
+
+  if is_binary_release; then
+    echo ""
+    echo "Binary installs are updated by re-running the install script"
+    echo "(idempotent — re-downloads the latest release and re-registers the service):"
+    echo ""
+    echo "  curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash"
+    echo ""
+    return
+  fi
 
   if [ -n "$(git status --porcelain)" ]; then
     error "Uncommitted changes present. Commit or stash first."
