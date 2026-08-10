@@ -10,31 +10,15 @@
 //! - ANY_CONSOLE_RATE_LIMIT   : レートリミット上限の上書き
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use any_console_server::auth::Auth;
 use any_console_server::build_router;
 use any_console_server::config::ConfigStore;
-use any_console_server::paths::Paths;
+use any_console_server::paths::{project_root_from_env, Paths};
 use any_console_server::rate_limit::{rate_limit_from_env, FixedWindowCounter};
 use any_console_server::state::AppState;
 use any_console_server::static_files::StaticCtx;
-
-fn print_version() {
-    println!(
-        "any-console-server {} ({})",
-        env!("CARGO_PKG_VERSION"),
-        env!("ANY_CONSOLE_GIT_SHA")
-    );
-}
-
-fn project_root() -> PathBuf {
-    match std::env::var("ANY_CONSOLE_PROJECT_ROOT") {
-        Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
-        _ => std::env::current_dir().expect("cwd unavailable"),
-    }
-}
 
 /// 同一ポートでの多重起動を拒否する。
 fn acquire_singleton_lock(port: u16) -> Option<std::fs::File> {
@@ -66,9 +50,12 @@ fn acquire_singleton_lock(port: u16) -> Option<std::fs::File> {
 
 #[tokio::main]
 async fn main() {
-    if std::env::args().any(|a| a == "--version" || a == "-V") {
-        print_version();
-        return;
+    // `--version`・`config`/`workspaces`/`jobs`/`tailscale`/`auth` サブコマンドは
+    // サーバを起動せずその場で処理して終了する（any-console スクリプトが
+    // python3 の代わりにこのバイナリを呼ぶための軽量CLI。cli.rs 参照）。
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(code) = any_console_server::cli::dispatch(&args[1..]).await {
+        std::process::exit(code);
     }
 
     // rustls 0.23 は複数の crypto backend（ring/aws-lc-rs）がビルドに含まれうる
@@ -85,7 +72,7 @@ async fn main() {
         )
         .init();
 
-    let root = project_root();
+    let root = project_root_from_env();
     let paths = Paths::from_env(root);
     let config = ConfigStore::new(paths.config_file.clone());
 

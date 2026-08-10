@@ -37,8 +37,9 @@ is_binary_release() {
 
 # サーバ本体は Rust バイナリ。バイナリ配布レイアウトでは $SCRIPT_DIR 直下に
 # 展開されており、git clone開発チェックアウトでは従来通り
-# cargo build --release の成果物を見る。python3 はこのスクリプト自身の
-# JSON 操作ヘルパー（get_port 等）にのみ引き続き使う。
+# cargo build --release の成果物を見る。config.json操作等のJSONヘルパーは
+# python3ではなく$RUST_BIN自身のCLIサブコマンド（config/workspaces/jobs/
+# auth/tailscale/paths）に委譲する（python3を実行時依存にしないため）。
 if is_binary_release; then
   RUST_BIN="$SCRIPT_DIR/any-console-server"
 else
@@ -83,11 +84,6 @@ _pkg_name() {
         apt-get) echo "nodejs" ;;
         *)       echo "node" ;;
       esac ;;
-    python3)
-      case "$1" in
-        brew) echo "python" ;;
-        *)    echo "python3" ;;
-      esac ;;
     *) echo "$2" ;;
   esac
 }
@@ -112,8 +108,9 @@ install_cmd_for() {
 check_deps() {
   # node/npmはフロントエンドのビルドにのみ使う。バイナリ配布レイアウトでは
   # dist/がバイナリに埋め込み済み（embed-assetsビルド）でビルド自体を
-  # 行わないため不要。python3/git/tmuxは実行時にも使うため常に必須。
-  local required=(python3 git tmux)
+  # 行わないため不要。git/tmuxは実行時にも使うため常に必須（config.json
+  # 操作等のJSONヘルパーはRustバイナリ自身に内蔵したためpython3は不要）。
+  local required=(git tmux)
   is_binary_release || required+=(node)
   local missing=() cmd
   for cmd in "${required[@]}"; do
@@ -181,51 +178,21 @@ get_version() {
   echo "unknown"
 }
 
-# ANY_CONSOLE_DATA_DIR 設定時は config.json もそのディレクトリ配下に置かれる
-# （api/common.py の resolve_data_paths と同じ規則）。以下の各 python スニペットも同様。
+# config.json の読み書きは any-console-server 自身のCLIサブコマンド
+# （config/workspaces/jobs/auth/tailscale）に委譲する（python3を実行時依存に
+# しないため。ANY_CONSOLE_DATA_DIR/ANY_CONSOLE_PROJECT_ROOTの解決規則は
+# サーバ本体（paths.rs）と完全に同一になる）。バイナリが未ビルドの間だけは
+# （setup実行前などrust_binaryが使えない段階）フォールバック値を返す。
 get_port() {
-  python3 -c "
-import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
-p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
-if not p.is_file():
-    print(8888); exit()
-try:
-    cfg = json.loads(p.read_text())
-    print(cfg.get('__global__', {}).get('port') or 8888)
-except Exception:
-    print(8888)
-" 2>/dev/null
+  if [ -x "$RUST_BIN" ]; then "$RUST_BIN" config get-port; else echo 8888; fi
 }
 
 get_host() {
-  python3 -c "
-import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
-p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
-if not p.is_file():
-    print('0.0.0.0'); exit()
-try:
-    cfg = json.loads(p.read_text())
-    print(cfg.get('__global__', {}).get('host') or '0.0.0.0')
-except Exception:
-    print('0.0.0.0')
-" 2>/dev/null
+  if [ -x "$RUST_BIN" ]; then "$RUST_BIN" config get-host; else echo "0.0.0.0"; fi
 }
 
 get_config_value() {
-  KEY="$1" python3 -c "
-import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
-p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
-if not p.is_file():
-    print(''); exit()
-try:
-    cfg = json.loads(p.read_text())
-    print(cfg.get('__global__', {}).get(os.environ['KEY'], '') or '')
-except Exception:
-    print('')
-" 2>/dev/null
+  [ -x "$RUST_BIN" ] && "$RUST_BIN" config get "$1"
 }
 
 get_ssl_certfile() { get_config_value 'ssl_certfile'; }
@@ -248,109 +215,24 @@ prompt_bind_config() {
   read -rp "Port [${current_port}]: " new_port
   new_port=${new_port:-$current_port}
 
-  HOST="$new_host" PORT="$new_port" python3 -c "
-import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
-p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
-cfg = json.loads(p.read_text()) if p.is_file() else {}
-g = cfg.get('__global__', {})
-if not isinstance(g, dict):
-    g = {}
-g['host'] = os.environ['HOST']
-g['port'] = int(os.environ['PORT'])
-cfg['__global__'] = g
-p.parent.mkdir(parents=True, exist_ok=True)
-p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-"
+  "$RUST_BIN" config set-bind "$new_host" "$new_port"
   info "Saved to config.json (host=${new_host}, port=${new_port})"
 }
 
 # よくある開発ディレクトリを走査して git リポジトリのパス一覧を返す（1行1パス）。
 discover_git_repos() {
-  python3 - <<'PY'
-import os, pathlib
-
-home = pathlib.Path.home()
-# (root, max_depth): dev 系は深め、HOME 直下は浅めに留めて高速化する。
-roots: list[tuple[pathlib.Path, int]] = []
-for name in ("ghq", "src", "code", "repos", "projects", "dev", "Developer",
-             "git", "work", "go/src"):
-    d = home / name
-    if d.is_dir():
-        roots.append((d, 4))
-roots.append((home, 2))
-
-SKIP = {"node_modules", "__pycache__", "venv", ".venv", "dist", "build",
-        "vendor", "target", ".cache", "Library", "go"}
-LIMIT = 40
-found: dict[pathlib.Path, bool] = {}
-
-
-def scan(root: pathlib.Path, max_depth: int) -> None:
-    root = root.resolve()
-    for dirpath, dirnames, filenames in os.walk(root, onerror=lambda e: None):
-        if len(found) >= LIMIT:
-            dirnames[:] = []
-            return
-        cur = pathlib.Path(dirpath)
-        depth = len(cur.relative_to(root).parts)
-        if ".git" in dirnames or ".git" in filenames:
-            found[cur.resolve()] = True
-            dirnames[:] = []  # リポジトリ内へは降りない
-            continue
-        if depth >= max_depth:
-            dirnames[:] = []
-            continue
-        dirnames[:] = [d for d in dirnames if d not in SKIP and not d.startswith(".")]
-
-
-for r, d in roots:
-    if len(found) >= LIMIT:
-        break
-    scan(r, d)
-
-for p in sorted(found, key=lambda p: str(p).lower()):
-    print(p)
-PY
+  "$RUST_BIN" workspaces discover
 }
 
 # 改行区切りのパス群をワークスペースとして登録する（パス重複・名前衝突を解決）。
 register_workspace_paths() {
-  WS_PATHS="$1" python3 - <<'PY'
-import json, os, pathlib
-
-raw = os.environ.get("WS_PATHS", "")
-paths = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-d = os.environ.get("ANY_CONSOLE_DATA_DIR", "")
-p = pathlib.Path(d).expanduser() / "config.json" if d.strip() else pathlib.Path("config.json")
-cfg = json.loads(p.read_text()) if p.is_file() else {}
-
-existing = {
-    pathlib.Path(v["path"]).resolve()
-    for k, v in cfg.items()
-    if k != "__global__" and isinstance(v, dict) and v.get("path")
-}
-added = []
-for raw_path in paths:
-    ap = pathlib.Path(os.path.expanduser(raw_path)).resolve()
-    if not ap.is_dir() or ap in existing:
-        continue
-    base = ap.name or "workspace"
-    name, i = base, 2
-    while name in cfg and name != "__global__":
-        name, i = f"{base}-{i}", i + 1
-    cfg[name] = {"path": str(ap)}
-    existing.add(ap)
-    added.append(name)
-
-if added:
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    for n in added:
-        print(f"Registered: {n}")
-else:
-    print("No new workspaces registered")
-PY
+  local -a paths=()
+  local line
+  while IFS= read -r line; do
+    [ -n "$line" ] && paths+=("$line")
+  done <<< "$1"
+  [ ${#paths[@]} -eq 0 ] && { echo "No new workspaces registered"; return 0; }
+  "$RUST_BIN" workspaces register "${paths[@]}"
 }
 
 prompt_manual_workspace() {
@@ -410,66 +292,7 @@ register_ai_agent_jobs() {
 
   [ ${#selected[@]} -eq 0 ] && { info "  Skipped (no AI agent jobs registered)"; return 0; }
 
-  AI_TOOLS="$(printf '%s\n' "${selected[@]}")" python3 - <<'PY'
-import json, os, pathlib
-
-# notify_phrase: エージェントの承認待ちプロンプトに現れる文字列。合致した約1分後にプッシュ通知する。
-# 確度の高いものだけ入れてある（不正確な文字列は「設定した気になって実は一生鳴らない」方が
-# 空欄より害があるため）。claude/codex 以外は実際のプロンプト文言が分かり次第補う想定。
-TOOL_META = {
-    "claude":   {"label": "Claude Code",     "icon": "mdi-robot-outline", "icon_color": "#d97757", "notify_phrase": "1. Yes"},
-    "codex":    {"label": "Codex",           "icon": "mdi-robot-outline", "icon_color": "#10a37f", "notify_phrase": "1. Yes"},
-    "gemini":   {"label": "Gemini CLI",      "icon": "mdi-robot-outline", "icon_color": "#4285f4", "notify_phrase": ""},
-    "copilot":  {"label": "GitHub Copilot",  "icon": "mdi-robot-outline", "icon_color": "#8957e5", "notify_phrase": "1. Yes"},
-    "opencode": {"label": "opencode",        "icon": "mdi-robot-outline", "icon_color": "#fab283", "notify_phrase": ""},
-}
-
-tools = [t.strip() for t in os.environ.get("AI_TOOLS", "").splitlines() if t.strip()]
-d = os.environ.get("ANY_CONSOLE_DATA_DIR", "")
-p = pathlib.Path(d).expanduser() / "config.json" if d.strip() else pathlib.Path("config.json")
-cfg = json.loads(p.read_text()) if p.is_file() else {}
-g = cfg.get("__global__", {})
-if not isinstance(g, dict):
-    g = {}
-jobs = g.get("jobs", {})
-if not isinstance(jobs, dict):
-    jobs = {}
-
-existing_commands = {v.get("command") for v in jobs.values() if isinstance(v, dict)}
-
-added = []
-for cmd in tools:
-    meta = TOOL_META.get(cmd)
-    if not meta or cmd in existing_commands:
-        continue
-    key_base = f"job_{cmd}"
-    key, i = key_base, 2
-    while key in jobs:
-        key, i = f"{key_base}_{i}", i + 1
-    jobs[key] = {
-        "command": cmd,
-        "label": meta["label"],
-        "icon": meta["icon"],
-        "icon_color": meta["icon_color"],
-        "confirm": False,
-        "detached_tab": True,
-    }
-    if meta.get("notify_phrase"):
-        jobs[key]["notify_phrase"] = meta["notify_phrase"]
-        jobs[key]["notify_delay_min"] = 1
-    existing_commands.add(cmd)
-    added.append(meta["label"])
-
-if added:
-    g["jobs"] = jobs
-    cfg["__global__"] = g
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    for name in added:
-        print(f"  Registered common job: {name}")
-else:
-    print("  No new common jobs (already registered)")
-PY
+  "$RUST_BIN" jobs register-ai-agents "${selected[@]}" | sed 's/^/  /'
 }
 
 prompt_initial_workspace() {
@@ -529,20 +352,7 @@ prompt_initial_workspace() {
 }
 
 tailscale_hostname() {
-  local ts_bin
-  ts_bin=$(command -v tailscale 2>/dev/null \
-    || { [ -x /usr/local/bin/tailscale ] && echo /usr/local/bin/tailscale; } \
-    || { [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ] && echo /Applications/Tailscale.app/Contents/MacOS/Tailscale; } \
-    || echo "")
-  [ -z "$ts_bin" ] && return
-  "$ts_bin" status --json 2>/dev/null | python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print(d.get('Self', {}).get('DNSName', '').rstrip('.'))
-except Exception:
-    print('')
-" 2>/dev/null
+  [ -x "$RUST_BIN" ] && "$RUST_BIN" tailscale hostname 2>/dev/null
 }
 
 do_https_setup() {
@@ -571,20 +381,7 @@ do_https_setup() {
   fi
   sudo chown "$USER" "$cert_path" "$key_path" 2>/dev/null || true
 
-  CERT="$cert_path" KEY="$key_path" python3 -c "
-import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
-p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
-cfg = json.loads(p.read_text()) if p.is_file() else {}
-g = cfg.get('__global__', {})
-if not isinstance(g, dict):
-    g = {}
-g['ssl_certfile'] = os.environ['CERT']
-g['ssl_keyfile'] = os.environ['KEY']
-cfg['__global__'] = g
-p.parent.mkdir(parents=True, exist_ok=True)
-p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-"
+  "$RUST_BIN" config set-ssl "$cert_path" "$key_path"
   info "  HTTPS configured: https://${hostname}:$(get_port)"
 
   if is_service_installed; then
@@ -868,17 +665,7 @@ cmd_setup() {
   fi
   echo ""
   local auth_token
-  auth_token=$(python3 -c "
-import secrets, json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
-base = pathlib.Path(d).expanduser() if d.strip() else pathlib.Path('data')
-p = base / 'auth.json'
-if not p.exists():
-    token = secrets.token_urlsafe(24)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({'token': token}) + '\n')
-    print(token)
-" 2>/dev/null)
+  auth_token=$("$RUST_BIN" auth ensure-token)
   if [ -n "$auth_token" ]; then
     info "Auth token (save this — shown only once):"
     echo ""
@@ -1182,15 +969,10 @@ cmd_uninstall() {
 
   echo ""
   # ANY_CONSOLE_DATA_DIR 設定時はそのディレクトリが実データ（誤って既定側を消さない）。
-  # シェルは変数展開後の ~ を展開しないため、バックエンド（resolve_data_paths）と
-  # 同じ expanduser + resolve 規則で正規化してから削除対象にする
-  # （symlink 経由の指定でも、バックエンドが実際に書いた先を消す）
+  # シェルは変数展開後の ~ を展開しないため、バックエンドと同じ解決規則
+  # （paths::resolve_data_paths）で正規化してから削除対象にする。
   local data_dir
-  if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
-    data_dir=$(D="$ANY_CONSOLE_DATA_DIR" python3 -c "import os, pathlib; print(pathlib.Path(os.environ['D']).expanduser().resolve())")
-  else
-    data_dir="$SCRIPT_DIR/data"
-  fi
+  data_dir="$("$RUST_BIN" paths data-dir)"
   echo "Remove ${data_dir}? (auth token, config, push subscriptions)"
   read -rp "[y/N] " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
@@ -1287,12 +1069,9 @@ adopt_installed_data_dir() {
     value=${value//'\"'/'"'}
     value=${value//$'\x01'/'\'}
   elif [ -f "$LAUNCHD_PLIST" ]; then
-    value=$(PLIST="$LAUNCHD_PLIST" python3 -c "
-import os, plistlib
-with open(os.environ['PLIST'], 'rb') as f:
-    d = plistlib.load(f)
-print(d.get('EnvironmentVariables', {}).get('ANY_CONSOLE_DATA_DIR', ''))
-" 2>/dev/null)
+    # plutilはmacOS標準搭載（Xcode Command Line Tools等は不要）。キーが
+    # 無ければ非ゼロ終了するので || true で吸収する（set -e 対策）。
+    value=$(plutil -extract EnvironmentVariables.ANY_CONSOLE_DATA_DIR raw -o - "$LAUNCHD_PLIST" 2>/dev/null || true)
   fi
   if [ -n "$value" ]; then
     export ANY_CONSOLE_DATA_DIR="$value"

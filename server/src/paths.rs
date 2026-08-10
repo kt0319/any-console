@@ -87,6 +87,15 @@ pub fn resolve_data_paths(project_root: &Path, env_value: Option<&str>) -> (Path
     (project_root.join("data"), project_root.join("config.json"))
 }
 
+/// `ANY_CONSOLE_PROJECT_ROOT`（未設定はカレントディレクトリ）。
+/// main.rs のサーバ起動・cli.rs のCLIサブコマンド双方で使う共通の解決規則。
+pub fn project_root_from_env() -> PathBuf {
+    match std::env::var("ANY_CONSOLE_PROJECT_ROOT") {
+        Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
+        _ => std::env::current_dir().expect("cwd unavailable"),
+    }
+}
+
 /// tmux セッション名のプレフィックス（未設定は "ac-"）。`resolve_tmux_prefix` と同一。
 pub fn resolve_tmux_prefix(env_value: Option<&str>) -> String {
     match env_value {

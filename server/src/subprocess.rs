@@ -85,10 +85,29 @@ pub async fn run_cmd_safe(cmd: &[&str], timeout_sec: f64, cwd: Option<&Path>) ->
     }
 }
 
+/// `tailscale` バイナリを解決する。PATH 上に無い場合でも、Homebrew の
+/// 既定インストール先・macOS の Tailscale.app（GUI版はPATHへ自動で
+/// 出てこないことがある）だけは追加でフォールバック探索する
+/// （旧: any-console スクリプトの `tailscale_hostname()` と同じ規則）。
+fn resolve_tailscale_bin() -> Option<&'static str> {
+    if let Some(path) = std::env::var_os("PATH") {
+        if std::env::split_paths(&path).any(|dir| dir.join("tailscale").is_file()) {
+            return Some("tailscale");
+        }
+    }
+    [
+        "/usr/local/bin/tailscale",
+        "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    ]
+    .into_iter()
+    .find(|candidate| Path::new(candidate).is_file())
+}
+
 /// `tailscale <args>` を実行し JSON オブジェクトとしてパースして返す。
 /// 未インストール・非0終了・JSON不正・非オブジェクトのいずれでも None。
 pub async fn run_tailscale_json(args: &[&str]) -> Option<Value> {
-    let mut cmd = vec!["tailscale"];
+    let bin = resolve_tailscale_bin()?;
+    let mut cmd = vec![bin];
     cmd.extend_from_slice(args);
     let result = run_subprocess_safe(&cmd, SYSTEM_CMD_TIMEOUT_SEC, None).await?;
     if !result.success() {
