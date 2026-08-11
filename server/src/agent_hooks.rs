@@ -37,10 +37,23 @@ pub const AGENT_HOOK_STATE_TTL_SEC: u64 = 300;
 
 /// hook イベント名 → セッション状態。未知のイベントは無視する（forward 互換）。
 /// SubagentStop はメインエージェント継続中に発火するため状態を変えない。
-fn event_state(event: &str) -> Option<&'static str> {
+///
+/// `Notification` は許可確認（"needs your permission"）だけでなく、Stop後
+/// 一定時間ユーザーが応答しないだけの汎用リマインダー（"waiting for your
+/// input"）でも発火する。後者を blocked（許可待ちの琥珀色点滅）にすると、
+/// 実際には何も起きていないのに許可待ち中に見えてしまうため、通知本文に
+/// "permission" が含まれる場合のみ blocked を採用し、それ以外は状態を
+/// 変えない（idle のまま）。
+fn event_state(event: &str, detail: &str) -> Option<&'static str> {
     match event {
         "PreToolUse" | "PostToolUse" | "UserPromptSubmit" | "PreCompact" => Some("working"),
-        "Notification" => Some("blocked"),
+        "Notification" => {
+            if detail.to_lowercase().contains("permission") {
+                Some("blocked")
+            } else {
+                None
+            }
+        }
         "Stop" => Some("idle"),
         _ => None,
     }
@@ -70,8 +83,9 @@ fn session_id_from(session: &str, tmux_prefix: &str) -> String {
         .to_string()
 }
 
-/// hook イベントを状態へ反映する。既知イベントなら true。
-pub fn record_event(state: &AppState, session: &str, event: &str) -> bool {
+/// hook イベントを状態へ反映する。状態を変えたら true（既知イベントでも
+/// Notificationがpermission系でなければ何もせず false を返す）。
+pub fn record_event(state: &AppState, session: &str, event: &str, detail: &str) -> bool {
     let session_id = session_id_from(session.trim(), &state.paths.tmux_prefix);
     if session_id.is_empty() {
         return false;
@@ -85,11 +99,9 @@ pub fn record_event(state: &AppState, session: &str, event: &str) -> bool {
         states.remove(&session_id);
         return true;
     }
-    let Some(new_state) = event_state(event) else {
-        tracing::debug!("[hook-debug] ignored event={event} session={session_id}");
+    let Some(new_state) = event_state(event, detail) else {
         return false;
     };
-    tracing::info!("[hook-debug] record event={event} session={session_id} -> {new_state}");
     states.insert(session_id, (new_state.to_string(), Instant::now()));
     true
 }
@@ -138,6 +150,8 @@ pub fn verify_hook_token(state: &AppState, provided: &str) -> bool {
 pub struct HookEventBody {
     pub session: String,
     pub event: String,
+    #[serde(default)]
+    pub detail: String,
 }
 
 fn check_len(field: &str, value: &str, min: usize, max: usize) -> Result<(), ApiError> {
@@ -165,7 +179,7 @@ pub async fn post_agent_hook_event(
     if !verify_hook_token(&state, token) {
         return Err(unauthorized("Invalid hook token"));
     }
-    let recognized = record_event(&state, &body.session, &body.event);
+    let recognized = record_event(&state, &body.session, &body.event, &body.detail);
     Ok(Json(json!({"status": "ok", "recognized": recognized})))
 }
 
@@ -243,55 +257,68 @@ mod tests {
     #[test]
     fn event_state_mapping() {
         let (state, _dir) = test_state();
-        assert!(record_event(&state, "s1", "PreToolUse"));
+        assert!(record_event(&state, "s1", "PreToolUse", ""));
         assert_eq!(hook_state(&state, "s1").as_deref(), Some("working"));
-        record_event(&state, "s1", "Notification");
+        record_event(&state, "s1", "Notification", "Claude needs your permission");
         assert_eq!(hook_state(&state, "s1").as_deref(), Some("blocked"));
-        record_event(&state, "s1", "Stop");
+        record_event(&state, "s1", "Stop", "");
+        assert_eq!(hook_state(&state, "s1").as_deref(), Some("idle"));
+    }
+
+    #[test]
+    fn notification_without_permission_wording_does_not_block() {
+        let (state, _dir) = test_state();
+        record_event(&state, "s1", "Stop", "");
+        assert!(!record_event(
+            &state,
+            "s1",
+            "Notification",
+            "Claude is waiting for your input"
+        ));
         assert_eq!(hook_state(&state, "s1").as_deref(), Some("idle"));
     }
 
     #[test]
     fn tmux_prefix_is_stripped() {
         let (state, _dir) = test_state();
-        record_event(&state, "ac-s2", "Notification");
+        record_event(&state, "ac-s2", "Notification", "needs your permission");
         assert_eq!(hook_state(&state, "s2").as_deref(), Some("blocked"));
     }
 
     #[test]
     fn unknown_event_is_ignored() {
         let (state, _dir) = test_state();
-        assert!(!record_event(&state, "s1", "SomeFutureEvent"));
+        assert!(!record_event(&state, "s1", "SomeFutureEvent", ""));
         assert!(hook_state(&state, "s1").is_none());
     }
 
     #[test]
     fn subagent_stop_does_not_change_state() {
         let (state, _dir) = test_state();
-        record_event(&state, "s1", "PreToolUse");
-        assert!(!record_event(&state, "s1", "SubagentStop"));
+        record_event(&state, "s1", "PreToolUse", "");
+        assert!(!record_event(&state, "s1", "SubagentStop", ""));
         assert_eq!(hook_state(&state, "s1").as_deref(), Some("working"));
     }
 
     #[test]
     fn session_end_clears_state() {
         let (state, _dir) = test_state();
-        record_event(&state, "s1", "Notification");
-        assert!(record_event(&state, "s1", "SessionEnd"));
+        record_event(&state, "s1", "Notification", "needs your permission");
+        assert!(record_event(&state, "s1", "SessionEnd", ""));
         assert!(hook_state(&state, "s1").is_none());
     }
 
     #[test]
     fn empty_session_is_rejected() {
         let (state, _dir) = test_state();
-        assert!(!record_event(&state, "", "Stop"));
-        assert!(!record_event(&state, "   ", "Stop"));
+        assert!(!record_event(&state, "", "Stop", ""));
+        assert!(!record_event(&state, "   ", "Stop", ""));
     }
 
     #[test]
     fn state_expires_after_ttl() {
         let (state, _dir) = test_state();
-        record_event(&state, "s1", "Notification");
+        record_event(&state, "s1", "Notification", "needs your permission");
         assert_eq!(hook_state(&state, "s1").as_deref(), Some("blocked"));
         // TTL 経過をシミュレートするため、記録済みタイムスタンプを直接巻き戻す。
         {
@@ -306,7 +333,7 @@ mod tests {
     #[test]
     fn clear_session_removes_state() {
         let (state, _dir) = test_state();
-        record_event(&state, "s1", "Notification");
+        record_event(&state, "s1", "Notification", "needs your permission");
         clear_session(&state, "s1");
         assert!(hook_state(&state, "s1").is_none());
     }

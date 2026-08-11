@@ -343,7 +343,12 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     drop(ws);
 
     // agent hook 由来の状態も削除時に一緒に消えること
-    any_console_server::agent_hooks::record_event(&front.state, &session_id, "Notification");
+    any_console_server::agent_hooks::record_event(
+        &front.state,
+        &session_id,
+        "Notification",
+        "needs your permission",
+    );
     assert_eq!(
         any_console_server::agent_hooks::hook_state(&front.state, &session_id).as_deref(),
         Some("blocked")
