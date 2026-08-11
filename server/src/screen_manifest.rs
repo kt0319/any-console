@@ -1138,6 +1138,29 @@ mod tests {
         );
     }
 
+    /// dynamic_workflow_prompt（優先度980）も同じ理由（region=whole_recent）で
+    /// 答えた後も居座っていた取りこぼし分（bash_permission_prompt等と同時に
+    /// 直すべきだったがされていなかった）。
+    #[test]
+    fn dynamic_workflow_prompt_clears_once_new_output_follows_a_rule() {
+        let (store, _dir) = bundled_store();
+        let manifests = store.load_manifests();
+        let claude = manifests.iter().find(|m| m.id == "claude").unwrap();
+
+        let awaiting_answer = "Run a dynamic workflow?\n❯ 1. Yes\nesc to cancel\n";
+        assert_eq!(
+            evaluate_state(claude, awaiting_answer, "", ""),
+            Some("blocked".to_string())
+        );
+
+        let answered = "Run a dynamic workflow?\n❯ 1. Yes\nesc to cancel\n\
+             ────\nrunning workflow...\ndone\n";
+        assert_ne!(
+            evaluate_state(claude, answered, "", ""),
+            Some("blocked".to_string())
+        );
+    }
+
     #[test]
     fn claude_and_codex_load() {
         let (store, _dir) = bundled_store();
