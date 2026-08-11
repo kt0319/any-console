@@ -1,7 +1,8 @@
 //! ローカル dev server のポート検出と検出結果ストア（Python 側 `api/preview.py` +
 //! `api/routers/preview.py` の移植）。
 //!
-//! Linux では `ss -ltnp`、macOS では `lsof -iTCP -sTCP:LISTEN` で 127.0.0.1 /
+//! Linux では `ss -ltnp`（無い・失敗する環境では `lsof` にフォールバック）、
+//! macOS では `lsof -iTCP -sTCP:LISTEN` で 127.0.0.1 /
 //! 0.0.0.0 を LISTEN しているポートを列挙する。セッションごとの紐付けは不要
 //! （個人ツール前提）で、検出した全ポートを共通 "local" セッションとして扱う。
 //! proxy URL は `/preview/local/<port>/...`（proxy 自体は listen ポートを
@@ -387,10 +388,14 @@ fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<String> {
 // ─── ポートスキャン: OS 呼び出し ────────────────────────────────────────────
 
 async fn scan_listening_ports_linux(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
-    let Some(result) = run_subprocess_safe(&["ss", "-ltnp"], PORT_SCAN_TIMEOUT_SEC, None).await
+    // ss が無い（最小コンテナ等）・実行に失敗する環境では lsof スキャンへ
+    // フォールバックする（read_cmdline は Linux では /proc を読むため lsof 側でも動く）
+    let Some(result) = run_subprocess_safe(&["ss", "-ltnp"], PORT_SCAN_TIMEOUT_SEC, None)
+        .await
+        .filter(crate::subprocess::CmdResult::success)
     else {
-        tracing::warn!("ss failed; skipping port scan");
-        return HashMap::new();
+        tracing::warn!("ss unavailable; falling back to lsof port scan");
+        return scan_listening_ports_lsof(proxy_ports).await;
     };
     let mut found = HashMap::new();
     for (port, proc_name, pid) in parse_ss_listen_lines(&result.stdout, proxy_ports) {
@@ -401,7 +406,9 @@ async fn scan_listening_ports_linux(proxy_ports: &HashSet<u16>) -> HashMap<u16, 
     found
 }
 
-async fn scan_listening_ports_macos(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
+/// lsof による LISTEN ポート列挙。macOS の既定スキャンかつ、Linux で ss が
+/// 使えない場合のフォールバック（lsof の呼び出し・出力形式は両 OS 共通）。
+async fn scan_listening_ports_lsof(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
     let Some(result) = run_subprocess_safe(
         &["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-F", "pcn"],
         PORT_SCAN_TIMEOUT_SEC,
@@ -426,7 +433,7 @@ async fn scan_listening_ports_macos(proxy_ports: &HashSet<u16>) -> HashMap<u16, 
 
 async fn scan_listening_ports(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
     if IS_MACOS {
-        scan_listening_ports_macos(proxy_ports).await
+        scan_listening_ports_lsof(proxy_ports).await
     } else {
         scan_listening_ports_linux(proxy_ports).await
     }
