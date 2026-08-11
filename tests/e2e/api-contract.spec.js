@@ -9,6 +9,7 @@
  * - セキュリティヘッダ（X-Frame-Options 等）が全応答に付くこと
  * - 静的配信のキャッシュ規則（index/sw.js は no-cache、/assets/* は immutable）
  * - /auth/check・/pair/{id} の応答形
+ * - /snippets・/auth/pairing/* の応答形（認証要否を含む）
  * - WS ハンドシェイクの認証拒否挙動
  *
  * ANY_CONSOLE_URL を Rust フロントに向ければ、同じ契約を移行後の実装にも
@@ -136,6 +137,50 @@ test.describe("API contract", () => {
     // 未認証は 401
     const unauthorized = await request.get(`${BASE_URL}/system/info`);
     expect(unauthorized.status()).toBe(401);
+  });
+
+  test("/snippets はトークン必須で snippets 配列を返す", async ({ request }) => {
+    const token = loadToken();
+    test.skip(!token, TOKEN_REQUIRED_MSG);
+    const res = await request.get(`${BASE_URL}/snippets`, { headers: bearerHeaders(token) });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.snippets)).toBeTruthy();
+    // 未認証は 401
+    const unauthorized = await request.get(`${BASE_URL}/snippets`);
+    expect(unauthorized.status()).toBe(401);
+  });
+
+  test("未知のペアリング ID の status は not_found を返す", async ({ request }) => {
+    // status は新デバイス側（未認証）からポーリングされる契約のため認証不要
+    const res = await request.get(`${BASE_URL}/auth/pairing/pr_contract_check/status`);
+    expect(res.status()).toBe(200);
+    expect((await res.json()).status).toBe("not_found");
+  });
+
+  test("ペアリング開始は認証必須で、応答形が契約どおり", async ({ request }) => {
+    const token = loadToken();
+    test.skip(!token, TOKEN_REQUIRED_MSG);
+    // 未認証は 401
+    const unauthorized = await request.post(`${BASE_URL}/auth/pairing/start`);
+    expect(unauthorized.status()).toBe(401);
+
+    const res = await request.post(`${BASE_URL}/auth/pairing/start`, {
+      headers: bearerHeaders(token),
+    });
+    if (res.status() === 400) {
+      // localhost 経由（使い捨てサーバモードの既定）では「他端末から到達できる
+      // URL を組み立てられない」ため明確なエラーで拒否される契約
+      expect((await res.json()).detail).toContain("localhost");
+    } else {
+      // LAN / Tailscale 経由の外部サーバでは id / url / expires_in_sec を返す。
+      // エントリは短命（90 秒）かつメモリ内のみのため後始末は不要
+      expect(res.status()).toBe(200);
+      const body = await res.json();
+      expect(body.id).toMatch(/^pr_/);
+      expect(body.url).toContain(`/pair/${body.id}?t=`);
+      expect(typeof body.expires_in_sec).toBe("number");
+    }
   });
 
   test("ステータスストリーム WS はトークン必須（不正は接続拒否）", async ({ page }) => {

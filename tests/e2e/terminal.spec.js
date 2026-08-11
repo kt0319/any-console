@@ -70,6 +70,13 @@ test.describe("terminal", () => {
     await expect(dialog).toBeHidden();
     await expect(tabs).toHaveCount(countBefore + 1);
 
+    // Esc でもキャンセルできる（モーダルは Esc で閉じられる MUST ルール）
+    await activeTabClose.click();
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(tabs).toHaveCount(countBefore + 1);
+
     // Close でタブが消える
     await activeTabClose.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });

@@ -97,11 +97,13 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `api-contract.spec.js`: API ワイヤ契約（`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・/auth/check /pair 応答形・WS 認証拒否・ログアウト）。UI を介さず request/WS で検証する。バックエンド Rust 移行（`docs/RUST_MIGRATION.md`・完了済み）の互換性回帰網として整備した経緯があり、実装を差し替える変更では必ずこのスペックを差し替え前後の両方に通すこと
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
+  - `auth-devices.spec.js`: Auth ビューでのデバイス Revoke・API トークンの作成 / 失効（確認ダイアログ経由。テスト作成分のみ操作し API で後始末）
   - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
   - `session-menu.spec.js`: Sessionsページ下部メニュー（Open / Settings）遷移とタイトル連動、ページを離れるとメニューが消えること
   - `detached-sessions.spec.js`: Detached sessions（タブに紐付かないtmuxセッション）のOpen/Adopt/Close
   - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
   - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）
+  - `keyboard-history.spec.js`: Send History（モバイルの KeyboardBar History タブ）— 入力バーからの送信 → 履歴への記録 → 挿入 → 削除（履歴は localStorage のみのためサーバ側の後始末は不要）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（テスト用 git リポジトリを一時領域に作成。Stash は独立タブではなく Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `split.spec.js`: タブドラッグによるターミナル分割と SplitModeSelector での軸切替え（ピル群の上下位置はドラッグ切替えを廃止し、デバイスに応じて自動決定される）
