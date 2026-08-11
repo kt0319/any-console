@@ -861,8 +861,8 @@ disposable server の起動を `python3 -m api.main` から Rust リリースビ
 `api/*.py` から `server/**` へ広げ rust-toolchain ステップを追加したが、
 `actions/setup-python` は**維持**した（`./any-console` ランチャー自身の JSON
 操作ヘルパーが `python3` を使い続けるため。追記 2026-08: その後ランチャーの
-python3 依存自体を撤廃した — 上記「ランチャーの Rust 単独起動への切替」節の
-追記参照）。`codecov.yml` から `backend` flag
+python3 依存自体を撤廃し、この `setup-python` ステップも削除した — 上記
+「ランチャーの Rust 単独起動への切替」節の追記参照）。`codecov.yml` から `backend` flag
 を削除。`playwright.config.js` の disposable server は Rust バイナリを直接
 起動する（`ANY_CONSOLE_E2E_BIN` で上書き可能、旧 `ANY_CONSOLE_E2E_PYTHON` と
 同じパターン）。README はバッジ・Requirements・Repository layout・Dispatch API
