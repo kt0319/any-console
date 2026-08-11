@@ -86,8 +86,10 @@ pub fn record_event(state: &AppState, session: &str, event: &str) -> bool {
         return true;
     }
     let Some(new_state) = event_state(event) else {
+        tracing::debug!("[hook-debug] ignored event={event} session={session_id}");
         return false;
     };
+    tracing::info!("[hook-debug] record event={event} session={session_id} -> {new_state}");
     states.insert(session_id, (new_state.to_string(), Instant::now()));
     true
 }
