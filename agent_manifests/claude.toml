@@ -60,7 +60,7 @@ any = [
 id = "dynamic_workflow_prompt"
 state = "blocked"
 priority = 980
-region = "after_last_horizontal_rule"
+region = "whole_recent"
 visible_blocker = true
 contains = ["run a dynamic workflow?", "esc to cancel"]
 
@@ -95,7 +95,7 @@ not = [
 id = "bash_permission_prompt"
 state = "blocked"
 priority = 850
-region = "after_last_horizontal_rule"
+region = "whole_recent"
 visible_blocker = true
 contains = ["do you want to proceed?"]
 any = [
@@ -129,7 +129,7 @@ all = [
 id = "legacy_no_prompt_blocker"
 state = "blocked"
 priority = 300
-region = "after_last_horizontal_rule"
+region = "whole_recent"
 any = [
   { contains = ["do you want to"], any = [{ contains = ["yes"] }, { contains = ["❯"] }] },
   { contains = ["would you like to"], any = [{ contains = ["yes"] }, { contains = ["❯"] }] },
