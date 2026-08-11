@@ -1124,47 +1124,72 @@ mod collect_agent_states_tests {
         );
 
         // 画面を変化させる。
+        // 固定sleep + 単発assertは、CI等の低速環境ではtmuxの実際の再描画
+        // タイミングに間に合わず稀に落ちていた（flaky）。実際に期待状態へ
+        // 収束するまでポーリングする（最大2秒、100msごと）。
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo activity-marker", true).await);
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let r2 = collect_agent_states(
+        let mut now = 1.0;
+        let got = poll_state(
             &state,
             &store,
             &mut last_capture,
             &mut last_pane_size,
             &mut tracker,
-            &HashMap::new(),
-            1.0,
+            &session_id,
+            STATE_WORKING,
+            &mut now,
         )
         .await;
-        assert_eq!(
-            r2.states
-                .as_ref()
-                .unwrap()
-                .get(&session_id)
-                .map(String::as_str),
-            Some(STATE_WORKING)
-        );
+        assert_eq!(got.as_deref(), Some(STATE_WORKING));
 
         // 画面が静止すれば idle に戻る。
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let r3 = collect_agent_states(
+        let got = poll_state(
             &state,
             &store,
             &mut last_capture,
             &mut last_pane_size,
             &mut tracker,
-            &HashMap::new(),
-            2.0,
+            &session_id,
+            STATE_IDLE,
+            &mut now,
         )
         .await;
-        assert_eq!(
-            r3.states
-                .as_ref()
-                .unwrap()
-                .get(&session_id)
-                .map(String::as_str),
-            Some(STATE_IDLE)
-        );
+        assert_eq!(got.as_deref(), Some(STATE_IDLE));
+    }
+
+    /// 最新の状態を返すまで最大2秒（100msごと）ポーリングする（実tmuxの
+    /// タイミング依存によるテストのflakinessを避けるためのテスト専用ヘルパー）。
+    #[allow(clippy::too_many_arguments)]
+    async fn poll_state(
+        state: &AppState,
+        store: &ManifestStore,
+        last_capture: &mut HashMap<String, String>,
+        last_pane_size: &mut HashMap<String, (i64, i64)>,
+        tracker: &mut PhraseNotifyTracker,
+        session_id: &str,
+        expected: &str,
+        now: &mut f64,
+    ) -> Option<String> {
+        let mut last = None;
+        for _ in 0..20 {
+            let result = collect_agent_states(
+                state,
+                store,
+                last_capture,
+                last_pane_size,
+                tracker,
+                &HashMap::new(),
+                *now,
+            )
+            .await;
+            *now += 1.0;
+            last = result.states.and_then(|s| s.get(session_id).cloned());
+            if last.as_deref() == Some(expected) {
+                return last;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        last
     }
 
     /// resize（capture-pane の再フローで全文が変わるが、実際の出力は何も
@@ -1380,25 +1405,34 @@ mod collect_agent_states_tests {
         // sleepプロセスはセッションと一緒にこのガードのkillで後始末される。
         let _guard = TmuxSessionGuard(tmux_name.clone());
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "sleep 987654321", true).await);
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
         let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
-        collect_agent_states(
-            &state,
-            &store,
-            &mut last_capture,
-            &mut last_pane_size,
-            &mut tracker,
-            &HashMap::new(),
-            0.0,
-        )
-        .await;
-
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
-        assert_eq!(cached.lock().await.job_name.as_deref(), Some("long-sleep"));
+        // 固定sleep + 単発pollは、CI等の低速環境ではtmuxのpane_current_command
+        // がまだ旧シェルのままのタイミングに引っかかり稀に落ちていた
+        // （flaky）。foregroundがsleepへ実際に切り替わるまでポーリングする。
+        let mut tagged = false;
+        for i in 0..20 {
+            collect_agent_states(
+                &state,
+                &store,
+                &mut last_capture,
+                &mut last_pane_size,
+                &mut tracker,
+                &HashMap::new(),
+                i as f64,
+            )
+            .await;
+            if cached.lock().await.job_name.as_deref() == Some("long-sleep") {
+                tagged = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        assert!(tagged, "job was not auto-tagged within the timeout");
 
         let broadcast = rx.recv().await.unwrap();
         assert_eq!(broadcast["type"], "session_job_bound");
