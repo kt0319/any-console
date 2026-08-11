@@ -73,7 +73,7 @@ Then finish service registration interactively (systemd/launchd):
 cd ~/.any-console && ./any-console setup
 ```
 
-To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. (The `./any-console update` command itself is git-based and only applies to the source-checkout flow below.)
+To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. `./any-console update` does the same thing in a binary install: it detects the layout and delegates to `install.sh`, which downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
 
 ### systemd (Linux) — build from source
 
@@ -236,11 +236,15 @@ tailscale serve --bg / proxy http://127.0.0.1:8888
 
 Access the app at `https://<your-device>.ts.net/`.
 
-**Direct TLS** is also supported via environment variables:
+**Direct TLS** (the server terminates HTTPS itself) is also supported:
 
 ```bash
-SSL_KEYFILE=/path/to/key.pem SSL_CERTFILE=/path/to/cert.pem ./any-console start
+./any-console https-setup
 ```
+
+This issues a certificate for your tailnet hostname via `tailscale cert`, saves it under `certs/`, records the paths in `config.json`, and refreshes the registered service. Tailscale certificates expire after ~90 days — re-run the command to renew.
+
+Without Tailscale, place a `<name>.crt` + `<name>.key` pair under `certs/` (auto-discovered at startup), or set the `SSL_CERTFILE` / `SSL_KEYFILE` environment variables. As with the auth variables above, environment variables only work where they reach the server process — foreground runs (`./any-console run`) or a service unit you edited yourself, not `./any-console start`.
 
 The default port is 8888. To change it, set `__global__.port` in `config.json`.
 
@@ -249,15 +253,18 @@ The default port is 8888. To change it, set `__global__.port` in `config.json`.
 For the systemd (Linux) and launchd (macOS) setups, all operations go through the `./any-console` command, which detects the OS and drives the right service manager.
 
 ```
-./any-console setup      First-time setup (install deps + build + register service)
-./any-console update     Update to latest (git pull + update deps + build + restart)
-./any-console start      Start the service          (systemctl / launchctl)
-./any-console stop       Stop the service           (systemctl / launchctl)
-./any-console restart    Restart the service        (systemctl / launchctl)
-./any-console status     Show status (service state, URL, version)
-./any-console logs       Show service logs          (journalctl / log file)
-./any-console run        Run in foreground (no service; any OS)
-./any-console version    Show version
+./any-console setup        First-time setup (install deps + build + register service)
+./any-console update       Update to the latest release (checksum-verified download,
+                           or release-tag checkout + build in source checkouts)
+./any-console start        Start the service          (systemctl / launchctl)
+./any-console stop         Stop the service           (systemctl / launchctl)
+./any-console restart      Restart the service        (systemctl / launchctl)
+./any-console status       Show status (service state, URL, version)
+./any-console logs         Show service logs          (journalctl / log file)
+./any-console run          Run in foreground (no service; any OS)
+./any-console https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)
+./any-console uninstall    Remove the service registration, optionally clean up files
+./any-console version      Show version
 ```
 
 `run` skips the service manager entirely and starts the server binary directly in the foreground. Useful for WSL or for quick test runs without registering a service.
@@ -268,7 +275,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console update
 ```
 
-Runs `git pull` → update deps → build → restart in one shot. Skips steps where nothing has changed.
+In a binary install (from the quick-install flow), this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered. In a source checkout, it checks out the latest release tag, rebuilds the server (`cargo build --release`) and frontend, refreshes the service definition, and restarts. Either way it's a no-op when you're already on the latest release.
 
 Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed — `config.json` files keyed by workspace display name are no longer rewritten to ID keys (they still load, but new installs always use ID keys), and leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) from the pre-2026-06 terminal architecture are no longer cleaned up at startup. When upgrading from such an old version, kill those stale tmux sessions manually (`tmux kill-session -t <name>`) if any remain.
 

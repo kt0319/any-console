@@ -1,5 +1,9 @@
 # バックエンド Rust 移行計画（優先順位付き）
 
+> **Note (2026-08)**: 本移行は Phase 6（Python 撤去・バイナリリリース）まで**完了済み**。
+> このドキュメントは移行の計画・実施記録として保存している。現在の構成は
+> README / `docs/ARCHITECTURE.md` を参照。
+
 Python (FastAPI) バックエンド全体を Rust へ移行するためのロードマップ。
 「何から手を付けるか」を依存関係・リスク・検証のしやすさから優先順位付けする。
 
@@ -786,6 +790,10 @@ TLS 越しでも壊れていないことの実地検証）。証明書なしの�
   ランチャー自身の JSON 操作ヘルパー（`get_port`/`register_workspace_paths`
   等）に引き続き必要なため `check_deps()` の対象からは外していない
   （バージョン不問 — これらのヘルパーは 3.11 固有機能に依存しない）
+  （追記 2026-08: その後 JSON 操作ヘルパーを `any-console-server` 自身の
+  CLI サブコマンド（`server/src/cli.rs` — config / workspaces / jobs /
+  auth / tailscale / paths）へ統合し、ランチャーの python3 依存は完全に
+  撤廃した — DECISIONS.md ADR 8 の Update 参照）
 
 **設計判断**: 当初検討した「Rust front + Python upstream の2プロセスを
 どう常駐管理するか」（子プロセス化 / systemd unit 2本 / ラッパースクリプト、
@@ -833,7 +841,7 @@ unit/plist ファイル自体は書き換えないため、古い定義のまま
 - `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — **完了**（前節参照）
 - requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — **完了**
 - README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — **完了**
-- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — 未着手（別途取り組む）
+- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — **完了**（`.github/workflows/release-please.yml` がリリース時に 4 ターゲットを `--features embed-assets`（ui/dist・agent_manifests をバイナリへ同梱）でビルドし、tar.gz + sha256 checksum をリリースへ添付する。`install.sh` が checksum 検証付きダウンロード・原子的更新を行い、`./any-console update` もバイナリ配布レイアウトでは install.sh へ委譲する。バージョンは release-please と同期した `CARGO_PKG_VERSION` のビルド時埋め込みで、`--version` フラグも追加）
 
 **Python 撤去の実施内容**: `api/`（Python FastAPI バックエンド一式、61 ファイル）・
 `requirements.txt`・`requirements-optional.txt`・`pyproject.toml`（ruff/pytest/
@@ -852,13 +860,15 @@ disposable server の起動を `python3 -m api.main` から Rust リリースビ
 単独で同じワイヤ契約を検証するため冗長化）。`macos-setup.yml` はパストリガーを
 `api/*.py` から `server/**` へ広げ rust-toolchain ステップを追加したが、
 `actions/setup-python` は**維持**した（`./any-console` ランチャー自身の JSON
-操作ヘルパーが `python3` を使い続けるため）。`codecov.yml` から `backend` flag
+操作ヘルパーが `python3` を使い続けるため。追記 2026-08: その後ランチャーの
+python3 依存自体を撤廃した — 上記「ランチャーの Rust 単独起動への切替」節の
+追記参照）。`codecov.yml` から `backend` flag
 を削除。`playwright.config.js` の disposable server は Rust バイナリを直接
 起動する（`ANY_CONSOLE_E2E_BIN` で上書き可能、旧 `ANY_CONSOLE_E2E_PYTHON` と
 同じパターン）。README はバッジ・Requirements・Repository layout・Dispatch API
 セクションから FastAPI/Python 実装への言及を除去し、Rust/cargo を必須要件として
 明記した（Python 3.11+ はランチャー自身のスクリプトのためだけに引き続き必要と
-明示）。
+明示 — 追記 2026-08: この python3 要件もその後撤廃し、README からも削除済み）。
 
 ---
 

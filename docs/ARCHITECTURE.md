@@ -13,7 +13,11 @@ For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
 
 ```
 server/                       Backend (Rust, axum)
-  src/main.rs                 App init, static file serving, TLS termination, /auth/check, image upload
+  src/main.rs                 App init (CLI dispatch → singleton lock → bind), TLS termination (rustls)
+  src/cli.rs                  Lightweight CLI subcommands (config / workspaces / jobs / auth / tailscale /
+                               paths) used by the ./any-console launcher instead of spawning a server
+  src/static_files.rs          ui/dist serving; the embed-assets build feature bakes dist/ and
+                               agent_manifests/ into the release binary
   src/auth.rs                 Bearer token auth (optional), trusted-proxy detection, API tokens
   src/devices.rs               Device cookie auth (registration, listing, revocation, auto-enroll)
   src/terminal_session.rs / tmux.rs / pty.rs  tmux × PTY fork/exec × WebSocket bridge
@@ -29,10 +33,11 @@ server/                       Backend (Rust, axum)
   src/rate_limit.rs            In-process rate limiter
   src/preview.rs               Dev server port detection + TCP/TLS proxy
   src/push.rs                  VAPID / Web Push (RFC 8291/8292), native
-  src/{workspaces,jobs,terminal,system,settings,git_*,github,dispatch,job_runner,pairing}.rs
+  src/{workspaces,jobs,terminal,system,settings,git_*,github,dispatch,job_runner,pairing,upload_image}.rs
                                Route handlers (pairing = QR code device pairing; short-lived,
                                single-use tokens — see DECISIONS.md #28)
 agent_manifests/               Vendored agent-detection manifests (TOML), read by screen_manifest.rs at runtime
+                               (embedded into release binaries via the embed-assets feature)
 ui/                            Frontend (Vue 3 + Pinia, built with Vite)
   components/                  Vue components
   stores/                      Pinia stores
