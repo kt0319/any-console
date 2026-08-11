@@ -703,16 +703,14 @@ describe("SendSnippet: 設定画面からのタップ挿入", () => {
     setActivePinia(createPinia());
   });
 
-  it("スニペット行をタップすると keyboard:setDraft / snippet:use / modal:close が発火する", async () => {
+  it("スニペット行をタップすると keyboard:setDraft / modal:close が発火する", async () => {
     const inputStore = useInputStore();
     inputStore.snippetsCache = [{ label: "ls", command: "ls -la" }];
 
     const setDraftHandler = vi.fn();
-    const useHandler = vi.fn();
     const closeHandler = vi.fn();
     const offs = [
       on("keyboard:setDraft", setDraftHandler),
-      on("snippet:use", useHandler),
       on("modal:close", closeHandler),
     ];
 
@@ -720,7 +718,6 @@ describe("SendSnippet: 設定画面からのタップ挿入", () => {
     await wrapper.find(".snippet-command").trigger("click");
 
     expect(setDraftHandler).toHaveBeenCalledWith({ command: "ls -la" });
-    expect(useHandler).toHaveBeenCalledWith({ command: "ls -la" });
     expect(closeHandler).toHaveBeenCalledOnce();
 
     wrapper.unmount();
@@ -733,16 +730,14 @@ describe("SendHistory: 設定画面からのタップ挿入・削除", () => {
     setActivePinia(createPinia());
   });
 
-  it("履歴行をタップすると keyboard:setDraft / modal:close が発火する（snippet:use は発火しない）", async () => {
+  it("履歴行をタップすると keyboard:setDraft / modal:close が発火する", async () => {
     const inputStore = useInputStore();
     inputStore.inputHistory = ["echo hi"];
 
     const setDraftHandler = vi.fn();
-    const useHandler = vi.fn();
     const closeHandler = vi.fn();
     const offs = [
       on("keyboard:setDraft", setDraftHandler),
-      on("snippet:use", useHandler),
       on("modal:close", closeHandler),
     ];
 
@@ -750,7 +745,6 @@ describe("SendHistory: 設定画面からのタップ挿入・削除", () => {
     await wrapper.find(".history-command").trigger("click");
 
     expect(setDraftHandler).toHaveBeenCalledWith({ command: "echo hi" });
-    expect(useHandler).not.toHaveBeenCalled();
     expect(closeHandler).toHaveBeenCalledOnce();
 
     wrapper.unmount();

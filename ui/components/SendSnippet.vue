@@ -5,7 +5,7 @@
         v-model="newCommand"
         class="snippet-input"
         type="text"
-        placeholder="Add command..."
+        placeholder="Add snippet..."
       />
       <button type="submit" class="snippet-add-btn" :disabled="!newCommand.trim()" aria-label="Add snippet">
         <span class="mdi mdi-plus"></span>
@@ -41,8 +41,8 @@ const emit = defineEmits(["close"]);
 const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send Snippet", emit });
 const inputStore = useInputStore();
 
-// snippetsCache は末尾が最終使用（addSnippet/moveSnippetToFront とも末尾へ push）。
-// 逆順にせずそのまま表示することで、最終使用が一番下に来る。
+// snippetsCache は追加順（先頭が一番最初に追加＝最初に使ったもの）。
+// 使用しても並び替えない（addSnippet が末尾へ push するだけ）。
 const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache] : []);
 
 const newCommand = ref("");
@@ -60,7 +60,6 @@ function onDelete(idx) {
 
 function onInsert(command) {
   bridgeEmit("keyboard:setDraft", { command });
-  bridgeEmit("snippet:use", { command });
   closePanel();
 }
 </script>

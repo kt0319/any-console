@@ -22,16 +22,6 @@ export function useSnippetPersist() {
     await apiPut(EP_SNIPPETS, { snippets: inputStore.snippetsCache }, { errorMessage: "Failed to save snippets" });
   }
 
-  function moveSnippetToFront(command) {
-    const idx = inputStore.snippetsCache.findIndex((s) => s.command === command);
-    if (idx === -1) return;
-    const next = [...inputStore.snippetsCache];
-    const [snippet] = next.splice(idx, 1);
-    next.push(snippet);
-    inputStore.snippetsCache = next;
-    persistSnippets();
-  }
-
   async function addSnippet(label, command) {
     const lbl = label || (command.length > 40 ? command.slice(0, 40) : command);
     inputStore.snippetsCache.push({ label: lbl, command });
@@ -45,5 +35,5 @@ export function useSnippetPersist() {
     }
   }
 
-  return { loadSnippetCache, persistSnippets, moveSnippetToFront, addSnippet, deleteSnippet };
+  return { loadSnippetCache, persistSnippets, addSnippet, deleteSnippet };
 }
