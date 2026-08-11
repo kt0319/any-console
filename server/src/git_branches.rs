@@ -38,19 +38,27 @@ async fn get_current_branch(ws_path: &FsPath) -> Result<String, ApiError> {
         .ok_or_else(|| bad_request("Cannot get current branch"))
 }
 
-/// range_expr（例: "abcd..HEAD"）のコミット件数と直近メッセージを返す。
-async fn commits_between(ws_path: &FsPath, range_expr: &str) -> Result<Value, ApiError> {
+/// リビジョン範囲を指定する引数列（例: `["abcd..HEAD"]`）のコミット件数と
+/// 直近メッセージを返す。`git log`/`git rev-list` の両方に同じリビジョン
+/// 指定を渡す（`--count` の有無以外は共通）。
+async fn commits_for(ws_path: &FsPath, revs: &[&str]) -> Result<Value, ApiError> {
     let limit = COMMIT_PREVIEW_LIMIT.to_string();
+    let mut log_args: Vec<&str> = vec!["log"];
+    log_args.extend_from_slice(revs);
+    log_args.extend_from_slice(&["--pretty=format:%s", "-n", &limit]);
     let log = run_git_command(
-        &["log", range_expr, "--pretty=format:%s", "-n", &limit],
+        &log_args,
         ws_path,
         GIT_STANDARD_TIMEOUT_SEC,
         "log range",
         &[],
     )
     .await?;
+
+    let mut count_args: Vec<&str> = vec!["rev-list", "--count"];
+    count_args.extend_from_slice(revs);
     let count_res = run_git_command(
-        &["rev-list", "--count", range_expr],
+        &count_args,
         ws_path,
         GIT_STANDARD_TIMEOUT_SEC,
         "rev-list count",
@@ -73,6 +81,18 @@ async fn commits_between(ws_path: &FsPath, range_expr: &str) -> Result<Value, Ap
         .filter(|l| !l.is_empty())
         .collect();
     Ok(json!({"count": count, "messages": messages}))
+}
+
+/// range_expr（例: "abcd..HEAD"）のコミット件数と直近メッセージを返す。
+async fn commits_between(ws_path: &FsPath, range_expr: &str) -> Result<Value, ApiError> {
+    commits_for(ws_path, &[range_expr]).await
+}
+
+/// upstream が未設定の初回pushで使う: HEAD から到達可能だが、どのリモート
+/// 追跡ブランチにも含まれないコミットを返す（比較対象となる単一refが
+/// push -u で初めて作られるため、`commits_between` の範囲式が使えない）。
+async fn commits_not_on_any_remote(ws_path: &FsPath) -> Result<Value, ApiError> {
+    commits_for(ws_path, &["HEAD", "--not", "--remotes"]).await
 }
 
 // ─── upstream 追跡情報のパース ──────────────────────────────────────────────
@@ -583,8 +603,9 @@ pub async fn push_upstream(
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
     let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    let pending = commits_not_on_any_remote(&ws_path).await?;
     let env_owned = ssh_env_additions();
-    execute_git_action_with_activity(
+    let mut result = execute_git_action_with_activity(
         &state,
         &name,
         Some(&ws_path),
@@ -596,8 +617,11 @@ pub async fn push_upstream(
         true,
         Map::new(),
     )
-    .await
-    .map(Json)
+    .await?;
+    if result["status"] == "ok" {
+        result["commits"] = pending;
+    }
+    Ok(Json(result))
 }
 
 pub async fn fetch(

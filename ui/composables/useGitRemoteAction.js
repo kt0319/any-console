@@ -16,7 +16,7 @@ const REMOTE_ACTIONS = {
 };
 
 // commit 件数トーストを出す push/pull 系アクション（runPushPull で処理する）
-const PUSH_PULL_ACTIONS = new Set(["pull", "push", "push-branch"]);
+const PUSH_PULL_ACTIONS = new Set(["pull", "push", "push-branch", "push-upstream"]);
 
 function actionLabel(action) {
   return REMOTE_ACTIONS[action]?.label || action;

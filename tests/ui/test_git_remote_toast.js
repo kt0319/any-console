@@ -46,4 +46,16 @@ describe("formatRemoteToast", () => {
     expect(msg).toContain("• feat: title");
     expect(msg).not.toContain("Body detail text");
   });
+
+  it("upstream未設定での初回pushもPushedと同じ文言・コミットメッセージ表示", () => {
+    const msg = formatRemoteToast("my-ws", "Push (set upstream)", {
+      commits: { count: 1, messages: ["feat: first push"] },
+    });
+    expect(msg).toBe("my-ws: Pushed (1 commit)\n• feat: first push");
+  });
+
+  it("upstream未設定push・コミットなしの場合も専用文言", () => {
+    const msg = formatRemoteToast("my-ws", "Push (set upstream)", {});
+    expect(msg).toBe("my-ws: Nothing to push");
+  });
 });
