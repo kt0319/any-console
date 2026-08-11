@@ -86,10 +86,8 @@ pub fn record_event(state: &AppState, session: &str, event: &str) -> bool {
         return true;
     }
     let Some(new_state) = event_state(event) else {
-        tracing::debug!("[hook-debug] ignored event={event} session={session_id}");
         return false;
     };
-    tracing::info!("[hook-debug] record event={event} session={session_id} -> {new_state}");
     states.insert(session_id, (new_state.to_string(), Instant::now()));
     true
 }
@@ -106,10 +104,6 @@ pub fn hook_state(state: &AppState, session_id: &str) -> Option<String> {
         .expect("agent hook state lock poisoned");
     let (value, recorded_at) = states.get(session_id).cloned()?;
     if recorded_at.elapsed() > Duration::from_secs(AGENT_HOOK_STATE_TTL_SEC) {
-        tracing::info!(
-            "[hook-debug] expired session={session_id} last_state={value} age={:?}",
-            recorded_at.elapsed()
-        );
         states.remove(session_id);
         return None;
     }

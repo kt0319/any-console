@@ -208,53 +208,62 @@ pub async fn create_tmux_session(
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();
-    let tmux_args: Vec<String> = [
-        "tmux",
-        "new-session",
-        "-d",
-        "-s",
-        session_name,
-        "-e",
-        &format!("DISPLAY={display}"),
-        "-x",
-        &cols,
-        "-y",
-        &rows,
-        &shell,
-        ";",
-        "set-option",
-        "-t",
-        session_name,
-        "status",
-        "off",
-        ";",
-        "set-option",
-        "-t",
-        session_name,
-        "mouse",
-        "off",
-        ";",
-        "set-option",
-        "-t",
-        session_name,
-        "history-limit",
-        "100000",
-        ";",
-        "set-option",
-        "-t",
-        session_name,
-        "set-clipboard",
-        "on",
-        ";",
-        "set-option",
-        "-t",
-        session_name,
-        "window-size",
-        "latest",
-    ]
-    .iter()
-    .map(|s| s.to_string())
-    .collect();
+    let mut tmux_args: Vec<String> = vec![
+        "tmux".to_string(),
+        "new-session".to_string(),
+        "-d".to_string(),
+        "-s".to_string(),
+        session_name.to_string(),
+    ];
+    // `env` の各変数を `-e` で明示的に渡す（プロセス起動時の `.env()` だけでは
+    // 既に起動済みの tmux サーバへの新規セッション作成に反映されない —
+    // サーバ起動時のクライアント環境がグローバル既定として残り続け、
+    // 2 セッション目以降が hook 変数等を引き継げない不具合があった）。
+    for (key, value) in &env {
+        tmux_args.push("-e".to_string());
+        tmux_args.push(format!("{key}={value}"));
+    }
+    tmux_args.extend(
+        [
+            "-x",
+            &cols,
+            "-y",
+            &rows,
+            &shell,
+            ";",
+            "set-option",
+            "-t",
+            session_name,
+            "status",
+            "off",
+            ";",
+            "set-option",
+            "-t",
+            session_name,
+            "mouse",
+            "off",
+            ";",
+            "set-option",
+            "-t",
+            session_name,
+            "history-limit",
+            "100000",
+            ";",
+            "set-option",
+            "-t",
+            session_name,
+            "set-clipboard",
+            "on",
+            ";",
+            "set-option",
+            "-t",
+            session_name,
+            "window-size",
+            "latest",
+        ]
+        .iter()
+        .map(|s| s.to_string()),
+    );
 
     let mut systemd_env = env.clone();
     systemd_env.extend(systemd_user_env_defaults());

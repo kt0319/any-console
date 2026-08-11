@@ -459,24 +459,17 @@ pub async fn collect_agent_states(
         // （エージェント特定・argv 取得はジョブ照合が必要になれば遅延実行される）。
         let mut argvs: Option<Vec<Vec<String>>> = None;
         let new_state = match crate::agent_hooks::hook_state(state, session_id) {
-            Some(hooked) => {
-                tracing::debug!("[hook-debug] session={session_id} state={hooked} source=hook");
-                hooked
-            }
+            Some(hooked) => hooked,
             None => {
                 let (manifest, a) =
                     detect_manifest(manifest_store, &pane_command, pane_pid, &mut inspector).await;
                 argvs = a;
-                let resolved = resolve_session_state(
+                resolve_session_state(
                     &capture,
                     diff_prev_capture,
                     manifest.as_deref(),
                     &pane_title,
-                );
-                tracing::info!(
-                    "[hook-debug] session={session_id} state={resolved} source=manifest_fallback pane_title={pane_title:?}"
-                );
-                resolved
+                )
             }
         };
         if entered_blocked(&new_state, prev_states.get(session_id).map(String::as_str)) {
