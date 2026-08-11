@@ -97,13 +97,14 @@
 
 ### 8. Python 3.11+ を最低要件とする
 
-- **Status**: Accepted
+- **Status**: Deprecated (2026-08)
 - **Date**: 2026-02
 - **Context**: Python のバージョン要件をどこに設定するかを決める必要があった。
 - **Decision**: Python 3.11 以上を要件とする。
 - **Consequences**: `tomllib` 標準化・`TaskGroup`・型ヒントの改善・パフォーマンス向上の恩恵を受けられる。古い環境への対応コストを払わなくて済む。個人ツールなので LTS 範囲であれば十分。
 - **Alternatives considered**: 3.9 / 3.10 — 対応バージョンは広がるが、型ヒントの表現力と標準ライブラリの充実度で 3.11 が明確に優れる。
 - **Update (2026-08, RUST_MIGRATION.md Phase 6)**: バックエンドは Rust へ完全移行し `api/` は削除済み。Python 3.11+ の要件自体は残るが、対象は `./any-console` ランチャー自身の JSON 操作ヘルパーのみ（バージョン非依存の処理のため実際には撤廃してもよいが、要件を変えるメリットが薄く現状維持）。バックエンドとしての Python 依存は無くなった。
+- **Update (2026-08)**: ランチャーの JSON 操作ヘルパーも `any-console-server` 自身の CLI サブコマンド（`server/src/cli.rs` — config / workspaces / jobs / auth / tailscale / paths）へ統合し、python3 のランタイム依存を完全に撤廃した。Python バージョン要件はもう存在しない。
 
 ---
 
@@ -203,6 +204,7 @@
 - **Decision**: `./any-console` が `uname -s` で OS を判定し、常駐サービスを Linux = systemd / macOS = launchd の二系統で扱う。macOS では **LaunchDaemon**（`/Library/LaunchDaemons/net.highedge.any-console.plist`）として登録する。LaunchAgent ではなく LaunchDaemon を選ぶのは、**GUI ログインセッション無し（ヘッドレス）で起動時から常駐**させるため。`UserName` に実ユーザーを指定して本人の SSH 鍵・git/gh 設定・tmux 環境をそのまま使い、daemon の最小 env を補うため `PATH`（Homebrew の `/opt/homebrew/bin`・`/usr/local/bin` を含む）と `HOME` を plist で明示する。`RunAtLoad` + `KeepAlive` で systemd の `Restart=always` 相当を得る。`journalctl` が無いので stdout/stderr を `logs/any-console.log` に出し、`logs` は `tail -f`。起動/停止/再起動は `launchctl bootstrap/bootout/kickstart`（system ドメイン）で行う。`status` の稼働判定は sudo を避けるため `pgrep -f api.main` を使う。systemd 経路は一切変更しない。
 - **Consequences**: Mac mini 等を常時起動サーバとして一級運用できる（ログイン不要・再起動後も自動復帰）。`setup`/`update`/`https-setup` も OS 分岐で一貫して動く。新たに launchd という OS 固有機能を抱える（plist 生成・`launchctl` 操作・ログファイル運用）が、これは systemd の対称物であり「クロスプラットフォーム志向（CLAUDE.md）」の範囲内 — プロダクトの思想（単一プロセス・単一トークン・モバイル一級）は変えていない。MacBook はスリープ・持ち歩きで「外出先から監視」に向かないため、README で Mac mini / Studio 常時起動を推奨と明記。`pgrep` 判定はフォアグラウンド `run` も検出するが、稼働中であることに変わりはなく実害なし。
 - **Alternatives considered**: **LaunchAgent**（`~/Library/LaunchAgents`、sudo 不要）— シンプルだが GUI ログインセッションが必要で、ヘッドレス Mac mini では自動ログイン設定が前提になり「ログイン不要で常駐」という要件を満たせない。**Docker for Mac** — 既存方針どおりホストの鍵・shell 環境を引き込めず実運用に不向き（デモ専用）。**macOS は `run` のみで非対応のまま** — 常駐・自動起動が無く、サーバ用途に耐えない。
+- **Update (2026-08)**: 登録先を LaunchDaemon から**ユーザー LaunchAgent**（`~/Library/LaunchAgents`、sudo 不要）へ変更した。LaunchDaemon（system 域）はユーザーホーム配下の SSL 証明書（`certs/`）の読み取りを macOS が制限し、HTTPS 構成で証明書を読めなかったため。LaunchAgent はログインセッション前提のため、ヘッドレス Mac では自動ログインを有効化して「ログイン時から常駐」とする（README の macOS note に明記）。旧 LaunchDaemon の plist（`/Library/LaunchDaemons/`）が残っている場合は setup / uninstall が移行撤去する。また Rust 移行（`docs/RUST_MIGRATION.md`）に伴い、稼働判定の `pgrep -f` 対象は `api.main` から `any-console-server` に変わった。
 
 ---
 

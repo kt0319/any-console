@@ -94,7 +94,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - **smoke サブセット**（`smoke` / `terminal` / `mobile` / `api-contract` — 認証・ターミナル・モバイル主要フロー・API ワイヤ契約の壊れたら即死する経路）はローカルでの素早い確認用（`npm run test:e2e:smoke`）
   - smoke サブセットに spec を足す・外す時は `package.json` の `test:e2e:smoke` を更新する（パターンは `e2e/<name>.spec.js` 形式で書く — 部分一致のため `terminal` だけだと `mobile-terminal` にも一致する）
   - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・認証維持）
-  - `api-contract.spec.js`: API ワイヤ契約（`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・/auth/check /pair 応答形・WS 認証拒否・ログアウト）。UI を介さず request/WS で検証する。バックエンド Rust 移行（`docs/RUST_MIGRATION.md`）の互換性回帰網を兼ねるため、実装差し替え時は必ずこのスペックを移行前後の両方に通すこと
+  - `api-contract.spec.js`: API ワイヤ契約（`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・/auth/check /pair 応答形・WS 認証拒否・ログアウト）。UI を介さず request/WS で検証する。バックエンド Rust 移行（`docs/RUST_MIGRATION.md`・完了済み）の互換性回帰網として整備した経緯があり、実装を差し替える変更では必ずこのスペックを差し替え前後の両方に通すこと
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
   - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
@@ -103,7 +103,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
   - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
-  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit / History / Branches / Jobs / Stash）とディープリンク（テスト用 git リポジトリを一時領域に作成）
+  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（テスト用 git リポジトリを一時領域に作成。Stash は独立タブではなく Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `split.spec.js`: タブドラッグによるターミナル分割と SplitModeSelector での軸切替え（ピル群の上下位置はドラッグ切替えを廃止し、デバイスに応じて自動決定される）
   - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログ（Open / Copy）からの proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
