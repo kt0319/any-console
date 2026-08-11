@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
@@ -29,9 +29,9 @@ const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send
 const inputStore = useInputStore();
 const scrollBodyEl = ref(null);
 
-// inputHistory は最新が先頭（unshift）。表示は古い→新しいの時系列順にし、
-// 最後に追加された項目が一番下・かつ開いた時点でその位置までスクロール済みにする。
-const history = computed(() => inputStore.inputHistory ? [...inputStore.inputHistory].reverse() : []);
+// inputHistory は最新が先頭（unshift）。表示もそのまま最新→古いの順にし、
+// 一番上（スクロール初期位置）に最新の項目が来るようにする。
+const history = computed(() => inputStore.inputHistory ?? []);
 
 function onDelete(text) {
   inputStore.removeInputHistory(text);
@@ -41,11 +41,6 @@ function onInsert(command) {
   bridgeEmit("keyboard:setDraft", { command });
   closePanel();
 }
-
-onMounted(async () => {
-  await nextTick();
-  if (scrollBodyEl.value) scrollBodyEl.value.scrollTop = scrollBodyEl.value.scrollHeight;
-});
 </script>
 
 <!-- 一覧の見た目は ui/styles/command-list.css（グローバル）で
