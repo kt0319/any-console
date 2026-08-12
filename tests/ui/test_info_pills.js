@@ -19,11 +19,11 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey(null)).toBe("");
   });
 
-  it("actionsはbranchActionの状態（実行中/失敗）でpush/pullと同様にテキストごと色付け+boldのクラスへ切り替わる", () => {
+  it("actionsはアイコンを常にブラウン固定にしつつ、branchActionの状態（実行中/失敗）でステータス部分だけ色付け+boldのクラスが追加される", () => {
     expect(peekColorForKey("actions", { branchAction: { status: "in_progress", conclusion: null } }))
-      .toBe("pill-peek-actions-running");
+      .toEqual(["pill-peek-brown", "pill-peek-actions-running"]);
     expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "failure" } }))
-      .toBe("pill-peek-actions-failure");
+      .toEqual(["pill-peek-brown", "pill-peek-actions-failure"]);
     // 完了かつ失敗以外（成功等）は通常のブラウン固定に戻る
     expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "success" } }))
       .toBe("pill-peek-brown");

@@ -30,6 +30,9 @@
         <template v-else-if="peekingKey === 'branch'">
           {{ branchName }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="pushCount > 0" class="pill-peek-branch-done pill-peek-branch-push-done"> {{ pushCount }} Pushed</span><span v-if="pullCount > 0" class="pill-peek-branch-done pill-peek-branch-pull-done"> {{ pullCount }} Pulled</span>
         </template>
+        <template v-else-if="peekingKey === 'actions'">
+          <span class="pill-peek-actions-name">[{{ actionName }}]</span> <span class="pill-peek-actions-status">{{ actionStatusText }}</span>
+        </template>
         <template v-else>{{ text }}</template>
       </span>
     </span>
@@ -63,6 +66,8 @@ const props = defineProps({
   behind: { type: Number, default: 0 },
   pushCount: { type: Number, default: 0 },
   pullCount: { type: Number, default: 0 },
+  actionName: { type: String, default: "" },
+  actionStatusText: { type: String, default: "" },
   // このpeekが実際に表示される時間（usePillPeek.js参照。キューで分割
   // された場合はPILL_PEEK_DURATION_MSより短い）。
   peekDurationMs: { type: Number, default: PILL_PEEK_DURATION_MS },

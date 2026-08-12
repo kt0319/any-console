@@ -38,6 +38,8 @@
           :behind="behind"
           :push-count="branchPushCount"
           :pull-count="branchPullCount"
+          :action-name="peekActionName"
+          :action-status-text="peekActionStatusText"
           :peek-duration-ms="peekDurationMs"
           @peek-click="onPeekClick"
         />
@@ -329,6 +331,8 @@ const {
   peekColorClass,
   peekText,
   peekSignature,
+  peekActionName,
+  peekActionStatusText,
 } = usePillPeek({
   trailingPeekItems,
   paneWorkspace,

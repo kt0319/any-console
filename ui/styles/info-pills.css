@@ -93,24 +93,27 @@
 /* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
    使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
 .pill-peek-accent .pill-peek-icon { color: var(--accent); }
-/* Actionsは通常時、通常ピル（.pill-actions-btn）と同じブラウンをアイコンだけに
-   使う（テキストは元々このクラスで色付けしないため icon-only 不要）。
-   失敗・実行中の状態は下のpill-peek-actions-*で上書きする（push/pullの
-   Pushed/Pulled表示と同様、テキストごと色付け+bold）。 */
+/* Actionsはアイコンを状態に関わらず常に通常ピル（.pill-actions-btn）と
+   同じブラウン固定にする。名前部分（[job名]、.pill-peek-actions-name）は
+   白固定、ステータス部分（.pill-peek-actions-status）だけをpush/pullの
+   Pushed/Pulled表示と同様に状態（失敗/実行中）に応じて色付け+boldにする
+   （PillPeek.vueが.pill-peek-actions-name/.pill-peek-actions-statusの
+   2spanに分けて描画する）。 */
 .pill-peek-brown .pill-peek-icon { color: #8c6c50; }
-.pill-peek-actions-failure .pill-peek-icon,
-.pill-peek-actions-failure .pill-peek-text {
-  color: var(--error);
-  font-weight: 600;
-}
-.pill-peek-actions-running .pill-peek-icon,
-.pill-peek-actions-running .pill-peek-text {
+.pill-peek-actions-name { color: var(--text-primary); }
+.pill-peek-actions-status { color: var(--text-secondary); }
+.pill-peek-actions-running .pill-peek-actions-status {
   color: var(--warning);
   font-weight: 600;
 }
+.pill-peek-actions-failure .pill-peek-actions-status {
+  color: var(--error);
+  font-weight: 600;
+}
 
-/* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
-   のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
+/* history/branchは状態をアイコンだけで示し、テキストは通常色（白）のまま
+   読みやすく保つ（changes/prsはテキストごと色付けするため対象外。actionsは
+   上で専用のname/statusスタイルを個別定義済みのため対象外）。
    上の .pill-peek-xxx .pill-peek-text ルールより詳細度を上げて上書きする。 */
 .pill-peek-icon-only.pill-peek-pink .pill-peek-text,
 .pill-peek-icon-only.pill-peek-success .pill-peek-text,

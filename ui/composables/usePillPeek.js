@@ -177,6 +177,14 @@ export function usePillPeek({
   const peekColorClass = computed(() => peekColorForKey(peekingKey.value, peekFields.value));
   const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
   const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
+  // actionsは名前部分（白固定）とステータス部分（実行中/失敗で色分け）を
+  // 別spanに分けて表示するため、PillPeek.vueへ個別に渡す（branchName/ahead/
+  // behind等と同じ扱い）。
+  const peekActionName = computed(() => peekFields.value?.branchAction?.name || "");
+  const peekActionStatusText = computed(() => {
+    const run = peekFields.value?.branchAction;
+    return run ? (run.conclusion || run.status) : "";
+  });
 
   return {
     peekingKey,
@@ -187,5 +195,7 @@ export function usePillPeek({
     peekColorClass,
     peekText,
     peekSignature,
+    peekActionName,
+    peekActionStatusText,
   };
 }

@@ -100,8 +100,10 @@ export function peekIconForKey(key) {
  * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
  * history/branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
  * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
- * actionsはpush/pull（branch）のPushed/Pulled表示と同様、状態（失敗/実行中）
- * に応じてテキストごと色付け+boldにする（branchAction.status/conclusion）。
+ * actionsはアイコンを常にブラウン固定にし（pill-peek-brownを常に含める）、
+ * 名前部分は白、ステータス部分（実行中/失敗）だけをpush/pullのPushed/Pulled
+ * 表示と同様に色付け+boldにする（branchAction.status/conclusion。PillPeek.vue
+ * 側で.pill-peek-actions-name/.pill-peek-actions-statusの2spanに分けて描画する）。
  * @param {string | null | undefined} key
  * @param {{ branchAction?: { status?: string, conclusion?: string } | null } | null} [fields]
  * @returns {string | string[]}
@@ -110,9 +112,10 @@ export function peekColorForKey(key, fields) {
   if (key === "actions") {
     const run = fields?.branchAction;
     if (run) {
-      if (run.status !== "completed") return "pill-peek-actions-running";
-      if (run.conclusion === "failure") return "pill-peek-actions-failure";
+      if (run.status !== "completed") return ["pill-peek-brown", "pill-peek-actions-running"];
+      if (run.conclusion === "failure") return ["pill-peek-brown", "pill-peek-actions-failure"];
     }
+    return "pill-peek-brown";
   }
   return INFO_PILLS.find((p) => p.key === key)?.peekColor || "";
 }
