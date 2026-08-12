@@ -55,7 +55,8 @@
       <template v-for="(row, idx) in graphRows" :key="idx">
         <div
           class="git-log-entry git-log-commit"
-          :class="{ 'git-log-graph-only': !row.entry }"
+          :class="{ 'git-log-graph-only': !row.entry, 'git-log-entry-pending': row.entry?.pending }"
+          :data-tooltip="row.entry?.pending ? 'Not pulled yet' : null"
           @click="row.entry && openCommitDiffFiles(row.entry)"
         >
           <svg class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
@@ -309,6 +310,12 @@ defineExpose({
   padding-top: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+/* upstreamにはあるがまだpullしていないコミット（unpulled-log由来）。
+   まだローカル履歴の一部ではないことを示す非アクティブ表示。 */
+.git-log-entry-pending {
+  opacity: 0.55;
 }
 
 .diff-file-row.action-open {

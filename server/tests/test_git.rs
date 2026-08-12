@@ -125,6 +125,15 @@ async fn git_log_returns_command_result_shape() {
 }
 
 #[tokio::test]
+async fn unpulled_log_returns_empty_when_no_upstream() {
+    let front = spawn_front().await;
+    // spawn_frontのリポジトリはremote/upstream未設定。
+    let body = get_json(&front, "/workspaces/repo/unpulled-log?limit=10").await;
+    assert_eq!(body["status"], "ok");
+    assert_eq!(body["stdout"], "");
+}
+
+#[tokio::test]
 async fn workspace_diff_lists_changed_and_untracked() {
     let front = spawn_front().await;
     std::fs::write(front.ws_path.join("a.txt"), "hello\nworld\n").unwrap();

@@ -18,12 +18,31 @@ export function useGitLogPagination() {
   const isLoadingMoreHistory = ref(false);
   const historyListEl = ref(/** @type {HTMLElement|null} */ (null));
   let historyPage = 0;
+  // loadHistory時にのみ取得し、loadMoreHistoryのページ追加では消えないよう
+  // 先頭に付け直す（pending行はページングと無関係な固定の小集合のため）。
+  let pendingGraphRows = /** @type {any[]} */ ([]);
 
   async function _fetchPage(workspace, limit) {
     const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${limit}&skip=0&graph=true`));
     if (!ok) return null;
     const parsed = parseGitGraphOutput(data.stdout);
     return { rows: buildGitGraphRows(parsed), count: parsed.filter((p) => p.entry).length };
+  }
+
+  // upstream にはあるがまだ pull していないコミット（HEAD..@{u}）を、
+  // Historyペインの先頭に非アクティブ表示するために取得する。upstream 未設定の
+  // ワークスペースでは空配列（サーバ側が空stdoutを返す）。取得失敗はHistory本体の
+  // 表示を妨げないよう握りつぶす（[]を返すだけ）。
+  async function _fetchPending(workspace) {
+    const { ok, data } = await apiGet(
+      wsEndpoint(workspace, `unpulled-log?limit=${gitStore.GIT_LOG_ENTRIES_PER_PAGE}&graph=true`),
+    );
+    if (!ok) return [];
+    const rows = buildGitGraphRows(parseGitGraphOutput(data.stdout));
+    for (const row of rows) {
+      if (row.entry) row.entry.pending = true;
+    }
+    return rows;
   }
 
   async function loadHistory() {
@@ -34,9 +53,13 @@ export function useGitLogPagination() {
       historyPage = 0;
       try {
         const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-        const result = await _fetchPage(workspace, perPage);
+        const [result, pendingRows] = await Promise.all([
+          _fetchPage(workspace, perPage),
+          _fetchPending(workspace),
+        ]);
         if (result) {
-          graphRows.value = result.rows;
+          pendingGraphRows = pendingRows;
+          graphRows.value = [...pendingGraphRows, ...result.rows];
           hasMoreHistory.value = result.count >= perPage;
         }
       } catch (e) {
@@ -60,7 +83,7 @@ export function useGitLogPagination() {
       try {
         const result = await _fetchPage(workspace, totalLimit);
         if (result) {
-          graphRows.value = result.rows;
+          graphRows.value = [...pendingGraphRows, ...result.rows];
           hasMoreHistory.value = result.count >= totalLimit;
         }
       } catch (e) {

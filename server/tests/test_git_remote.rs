@@ -124,6 +124,18 @@ async fn post_json(front: &TestFront, path: &str) -> Value {
         .unwrap()
 }
 
+async fn get_json(front: &TestFront, path: &str) -> Value {
+    common::client()
+        .get(format!("http://{}{path}", front.addr))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
 async fn pull_reports_zero_commits_when_already_up_to_date() {
     let front = spawn_front_with_remote().await;
@@ -186,4 +198,40 @@ async fn pull_reports_commits_even_when_upstream_was_already_fetched_in_backgrou
     );
     let messages = body["commits"]["messages"].as_array().unwrap();
     assert!(messages.contains(&json!("second commit")));
+}
+
+/// Historyペインで「pull前にこれから取り込まれるコミット」を非アクティブ
+/// 表示するためのGET /unpulled-log。pullを実行せずに、リモートにだけ
+/// 積まれた新規コミットがHEAD..@{u}として報告されることを検証する。
+#[tokio::test]
+async fn unpulled_log_lists_commits_not_yet_pulled_without_pulling() {
+    let front = spawn_front_with_remote().await;
+
+    let dir_root = front.ws_path.parent().unwrap();
+    let clone_a = dir_root.join("clone_a");
+    std::fs::write(clone_a.join("b.txt"), "b\n").unwrap();
+    sh_git(&clone_a, &["add", "-A"]);
+    sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
+    std::fs::write(clone_a.join("c.txt"), "c\n").unwrap();
+    sh_git(&clone_a, &["add", "-A"]);
+    sh_git(&clone_a, &["commit", "-q", "-m", "third commit"]);
+    sh_git(&clone_a, &["push", "-q", "origin", "main"]);
+
+    // ワークスペース側（clone_b）はfetchのみ行い、pullはしない。
+    sh_git(&front.ws_path, &["fetch", "--quiet"]);
+
+    let body = get_json(&front, "/workspaces/repo/unpulled-log?limit=10&graph=true").await;
+    assert_eq!(body["status"], "ok");
+    let stdout = body["stdout"].as_str().unwrap();
+    assert!(stdout.contains("second commit"));
+    assert!(stdout.contains("third commit"));
+    assert!(
+        !stdout.contains("initial"),
+        "既にpull済みの初期コミットはunpulled-logに含まれないこと"
+    );
+
+    // ローカルHEADはまだ動いていない（pullしていないため）。
+    let head_body = get_json(&front, "/workspaces/repo/git-log?limit=10").await;
+    let head_stdout = head_body["stdout"].as_str().unwrap();
+    assert!(!head_stdout.contains("second commit"));
 }

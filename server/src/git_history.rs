@@ -92,6 +92,53 @@ pub async fn git_log(
         .map(Json)
 }
 
+// ─── GET /workspaces/{name}/unpulled-log ────────────────────────────────────
+//
+// upstream参照（@{u}）にはあるがまだローカルにpullしていないコミット
+// （HEAD..@{u}）をgit_logと同じpretty-format（%H\t%ad\t%an\t%D\t%s）で返す。
+// Historyペインでpull前に「これから取り込まれるコミット」を非アクティブ表示
+// するために使う。upstream未設定なら空のstdoutを返す（エラーにしない）。
+
+#[derive(Deserialize)]
+pub struct UnpulledLogQuery {
+    #[serde(default = "default_limit")]
+    limit: i64,
+    #[serde(default)]
+    graph: bool,
+}
+
+pub async fn unpulled_log(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+    _auth: RequireAuth,
+    QueryParams(q): QueryParams<UnpulledLogQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    let upstream = crate::git_utils::rev_parse(&ws_path, "@{u}").await;
+    if upstream.is_empty() {
+        return Ok(Json(
+            json!({"status": "ok", "stdout": "", "stderr": "", "exit_code": 0}),
+        ));
+    }
+    let safe_limit = q.limit.clamp(1, GIT_LOG_MAX_ENTRIES);
+    let max_count = format!("--max-count={safe_limit}");
+    let mut args = vec![
+        "--no-pager",
+        "log",
+        "--date-order",
+        max_count.as_str(),
+        "--date=format-local:%Y-%m-%d %H:%M",
+        "--pretty=format:%H\t%ad\t%an\t%D\t%s",
+    ];
+    if q.graph {
+        args.insert(3, "--graph");
+    }
+    args.push("HEAD..@{u}");
+    run_git_command(&args, &ws_path, GIT_STANDARD_TIMEOUT_SEC, "log", &[])
+        .await
+        .map(Json)
+}
+
 // ─── GET /workspaces/{name}/file-history ────────────────────────────────────
 
 #[derive(Deserialize)]

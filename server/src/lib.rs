@@ -166,6 +166,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // ─── Rust ネイティブ移行済みルート（Phase 2: git 履歴/差分/コミット/スタッシュ）
         .route("/workspaces/{name}/git-log", get(git_history::git_log))
         .route(
+            "/workspaces/{name}/unpulled-log",
+            get(git_history::unpulled_log),
+        )
+        .route(
             "/workspaces/{name}/file-history",
             get(git_history::file_history),
         )
