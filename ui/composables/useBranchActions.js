@@ -67,6 +67,7 @@ export function useBranchActions(branchList) {
     await withWorkspace(async (workspace) => {
       await gitAction(workspace, "push-branch", { branch: branch.name });
       await loadBranchList();
+      emit("git:commitDone");
     });
   }
 
@@ -82,6 +83,7 @@ export function useBranchActions(branchList) {
     await withWorkspace(async (workspace) => {
       await gitAction(workspace, "pull");
       await loadBranchList();
+      emit("git:commitDone");
     });
   }
 
