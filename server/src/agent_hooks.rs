@@ -47,13 +47,10 @@ pub const AGENT_HOOK_STATE_TTL_SEC: u64 = 300;
 fn event_state(event: &str, detail: &str) -> Option<&'static str> {
     match event {
         "PreToolUse" | "PostToolUse" | "UserPromptSubmit" | "PreCompact" => Some("working"),
-        "Notification" => {
-            if detail.to_lowercase().contains("permission") {
-                Some("blocked")
-            } else {
-                None
-            }
-        }
+        "Notification" => detail
+            .to_lowercase()
+            .contains("permission")
+            .then_some("blocked"),
         "Stop" => Some("idle"),
         _ => None,
     }

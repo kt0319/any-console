@@ -194,7 +194,7 @@ pub async fn create_tmux_session(
     let display = std::env::var("DISPLAY").unwrap_or_else(|_| ":0".to_string());
     let mut env: Vec<(String, String)> = vec![
         ("TERM".to_string(), TERMINAL_TERM_TYPE.to_string()),
-        ("DISPLAY".to_string(), display.clone()),
+        ("DISPLAY".to_string(), display),
     ];
     if let Some(ws) = workspace_path {
         env.push(("WORKSPACE".to_string(), ws.to_string()));
