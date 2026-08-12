@@ -459,8 +459,6 @@ pub async fn pull(
     let env_owned = ssh_env_additions();
     let env = env_refs(&env_owned);
     let before_hash = rev_parse(&ws_path, "HEAD").await;
-    // --rebase はローカル未 push 分のハッシュを付け替えるため、実際に取得した分は
-    // upstream 参照（@{u}）の前後差分で数える
     let before_upstream = rev_parse(&ws_path, "@{u}").await;
     let stashed = stash_if_dirty(&ws_path, &env).await?;
     let mut result = run_git_command(
@@ -483,8 +481,16 @@ pub async fn pull(
         } else {
             rev_parse(&ws_path, "@{u}").await
         };
-        result["commits"] = if !before_upstream.is_empty() && !after_upstream.is_empty() {
-            commits_between(&ws_path, &format!("{before_upstream}..{after_upstream}")).await?
+        // pull前のHEAD（before_hash）を起点に数える。before_upstream..after_upstream
+        // だと、auto_fetch_loop（git_watch.rs）のバックグラウンドfetchで
+        // pullボタンを押す前に既にupstreamが最新化されているケースで差分が
+        // 0になり、実際には新しいコミットを取り込んだのに「Already up to
+        // date」と誤表示していた。before_hashを起点にすればfetchのタイミングに
+        // 依らず正しく数えられ、--rebaseでローカル未push分のハッシュが
+        // 書き換わっても（それらはafter_upstreamに含まれないため）誤カウント
+        // しない。
+        result["commits"] = if !after_upstream.is_empty() {
+            commits_between(&ws_path, &format!("{before_hash}..{after_upstream}")).await?
         } else {
             commits_between(&ws_path, &format!("{before_hash}..HEAD")).await?
         };
