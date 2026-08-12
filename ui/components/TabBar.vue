@@ -185,11 +185,16 @@ function onSettingsClick() {
 /* role="tablist"の直接の子はrole="tab"だけを許容する（aria-required-children）
    ため、タブ本体だけをこの内側の要素に分離する。「+」ボタンは.tab-barの
    スクロール領域には残しつつ、tablistの外に置いて最後のタブのすぐ右に
-   並べる。 */
+   並べる。
+   min-width:0にすると、タブ本体の合計幅が.tab-barの表示幅を超えた時に
+   このラッパー自身がflexアイテムとして縮められてしまい、中の各タブ
+   （縮まない固定幅）がラッパーの外へはみ出して「+」ボタンと重なる不具合が
+   あった。flex-shrink:0でラッパー自体は常に中身の実幅を保ち、はみ出し分は
+   親の.tab-bar（overflow-x:auto）側でスクロールさせる。 */
 .tab-bar-tabs {
   display: flex;
+  flex-shrink: 0;
   gap: 6px;
-  min-width: 0;
 }
 
 .tab-menu-btn {
