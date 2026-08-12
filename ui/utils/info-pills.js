@@ -100,9 +100,19 @@ export function peekIconForKey(key) {
  * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
  * history/branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
  * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
+ * actionsはpush/pull（branch）のPushed/Pulled表示と同様、状態（失敗/実行中）
+ * に応じてテキストごと色付け+boldにする（branchAction.status/conclusion）。
  * @param {string | null | undefined} key
+ * @param {{ branchAction?: { status?: string, conclusion?: string } | null } | null} [fields]
  * @returns {string | string[]}
  */
-export function peekColorForKey(key) {
+export function peekColorForKey(key, fields) {
+  if (key === "actions") {
+    const run = fields?.branchAction;
+    if (run) {
+      if (run.status !== "completed") return "pill-peek-actions-running";
+      if (run.conclusion === "failure") return "pill-peek-actions-failure";
+    }
+  }
   return INFO_PILLS.find((p) => p.key === key)?.peekColor || "";
 }

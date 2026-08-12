@@ -93,9 +93,21 @@
 /* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
    使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
 .pill-peek-accent .pill-peek-icon { color: var(--accent); }
-/* Actionsは通常ピル（.pill-actions-btn）と同じブラウンをアイコンだけに使う
-   （状態によらず固定。テキストは元々このクラスで色付けしないため icon-only 不要）。 */
+/* Actionsは通常時、通常ピル（.pill-actions-btn）と同じブラウンをアイコンだけに
+   使う（テキストは元々このクラスで色付けしないため icon-only 不要）。
+   失敗・実行中の状態は下のpill-peek-actions-*で上書きする（push/pullの
+   Pushed/Pulled表示と同様、テキストごと色付け+bold）。 */
 .pill-peek-brown .pill-peek-icon { color: #8c6c50; }
+.pill-peek-actions-failure .pill-peek-icon,
+.pill-peek-actions-failure .pill-peek-text {
+  color: var(--error);
+  font-weight: 600;
+}
+.pill-peek-actions-running .pill-peek-icon,
+.pill-peek-actions-running .pill-peek-text {
+  color: var(--warning);
+  font-weight: 600;
+}
 
 /* history/branch/actionsは状態をアイコンだけで示し、テキストは通常色（白）
    のまま読みやすく保つ（changes/prsはテキストごと色付けするため対象外）。
@@ -238,6 +250,11 @@
 .pill-actions-btn .mdi {
   color: #8c6c50;
 }
+
+/* github-runs.jsのrunStatusClassが返すクラス。push/pullの状態色付けと
+   揃え、失敗=error色・実行中=warning色にする。 */
+.pill-actions-btn.action-status-failure .mdi { color: var(--error); }
+.pill-actions-btn.action-status-running .mdi { color: var(--warning); }
 
 /* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが
    ある時」だけ存在する（v-if）ため、Changes（.pill-numstat-btn）と同じく

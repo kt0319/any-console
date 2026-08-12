@@ -18,6 +18,19 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey("workspace")).toBe("");
     expect(peekColorForKey(null)).toBe("");
   });
+
+  it("actionsはbranchActionの状態（実行中/失敗）でpush/pullと同様にテキストごと色付け+boldのクラスへ切り替わる", () => {
+    expect(peekColorForKey("actions", { branchAction: { status: "in_progress", conclusion: null } }))
+      .toBe("pill-peek-actions-running");
+    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "failure" } }))
+      .toBe("pill-peek-actions-failure");
+    // 完了かつ失敗以外（成功等）は通常のブラウン固定に戻る
+    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "success" } }))
+      .toBe("pill-peek-brown");
+    // branchActionが無い・fields省略時も従来どおりブラウン固定
+    expect(peekColorForKey("actions", { branchAction: null })).toBe("pill-peek-brown");
+    expect(peekColorForKey("actions")).toBe("pill-peek-brown");
+  });
 });
 
 describe("INFO_PILLS", () => {

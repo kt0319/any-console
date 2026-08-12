@@ -174,7 +174,7 @@ export function usePillPeek({
   // 同じ組み立てを繰り返さないため）。アイコン・色はキーごとの静的テーブル
   // （info-pills.js）、テキスト・シグネチャはpill-peek.jsの純粋関数。
   const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
-  const peekColorClass = computed(() => peekColorForKey(peekingKey.value));
+  const peekColorClass = computed(() => peekColorForKey(peekingKey.value, peekFields.value));
   const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
   const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
 
