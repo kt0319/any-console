@@ -96,19 +96,28 @@
 /* Actionsはアイコンを状態に関わらず常に通常ピル（.pill-actions-btn）と
    同じブラウン固定にする。名前部分（[job名]、.pill-peek-actions-name）は
    白固定、ステータス部分（.pill-peek-actions-status）だけをpush/pullの
-   Pushed/Pulled表示と同様に状態（失敗/実行中）に応じて色付け+boldにする
-   （PillPeek.vueが.pill-peek-actions-name/.pill-peek-actions-statusの
-   2spanに分けて描画する）。 */
+   Pushed/Pulled表示と同様に色付け+boldにする（PillPeek.vueが
+   .pill-peek-actions-name/.pill-peek-actions-statusの2spanに分けて描画
+   する）。info-pills.jsのACTIONS_STATUS_COLOR_BUCKETが実行中/成功/失敗/
+   neutral（cancelled/skipped等の実害の無い終了）の4段階に丸め、必ず
+   いずれかの色が付く。 */
 .pill-peek-brown .pill-peek-icon { color: #8c6c50; }
 .pill-peek-actions-name { color: var(--text-primary); }
-.pill-peek-actions-status { color: var(--text-secondary); }
+.pill-peek-actions-status {
+  color: var(--text-muted);
+  font-weight: 600;
+}
 .pill-peek-actions-running .pill-peek-actions-status {
   color: var(--warning);
-  font-weight: 600;
 }
 .pill-peek-actions-failure .pill-peek-actions-status {
   color: var(--error);
-  font-weight: 600;
+}
+.pill-peek-actions-success .pill-peek-actions-status {
+  color: var(--success);
+}
+.pill-peek-actions-neutral .pill-peek-actions-status {
+  color: var(--text-muted);
 }
 
 /* history/branchは状態をアイコンだけで示し、テキストは通常色（白）のまま

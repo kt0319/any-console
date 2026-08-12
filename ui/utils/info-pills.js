@@ -96,14 +96,30 @@ export function peekIconForKey(key) {
   return INFO_PILLS.find((p) => p.key === key)?.peekIcon || "";
 }
 
+// GitHub Actionsのstatus/conclusionを4段階の色バケットへ丸める
+// （peekColorForKey専用。conclusion値の一覧はGitHub API仕様参照:
+// success/failure/neutral/cancelled/skipped/timed_out/action_required/stale）。
+const ACTIONS_STATUS_COLOR_BUCKET = {
+  success: "success",
+  failure: "failure",
+  timed_out: "failure",
+  action_required: "running",
+  cancelled: "neutral",
+  skipped: "neutral",
+  neutral: "neutral",
+  stale: "neutral",
+};
+
 /**
  * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
  * history/branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
  * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
  * actionsはアイコンを常にブラウン固定にし（pill-peek-brownを常に含める）、
- * 名前部分は白、ステータス部分（実行中/失敗）だけをpush/pullのPushed/Pulled
- * 表示と同様に色付け+boldにする（branchAction.status/conclusion。PillPeek.vue
- * 側で.pill-peek-actions-name/.pill-peek-actions-statusの2spanに分けて描画する）。
+ * 名前部分は白、ステータス部分だけをpush/pullのPushed/Pulled表示と同様に
+ * 色付け+boldにする（branchAction.status/conclusion。PillPeek.vue側で
+ * .pill-peek-actions-name/.pill-peek-actions-statusの2spanに分けて描画
+ * する）。実行中系=warning、成功=success、失敗系=error、cancelled/skipped等
+ * の実害の無い終了=neutral（text-muted）と、全状態に必ず何らかの色が付く。
  * @param {string | null | undefined} key
  * @param {{ branchAction?: { status?: string, conclusion?: string } | null } | null} [fields]
  * @returns {string | string[]}
@@ -113,7 +129,8 @@ export function peekColorForKey(key, fields) {
     const run = fields?.branchAction;
     if (run) {
       if (run.status !== "completed") return ["pill-peek-brown", "pill-peek-actions-running"];
-      if (run.conclusion === "failure") return ["pill-peek-brown", "pill-peek-actions-failure"];
+      const bucket = ACTIONS_STATUS_COLOR_BUCKET[run.conclusion] || "neutral";
+      return ["pill-peek-brown", `pill-peek-actions-${bucket}`];
     }
     return "pill-peek-brown";
   }

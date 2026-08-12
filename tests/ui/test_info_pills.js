@@ -19,15 +19,29 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey(null)).toBe("");
   });
 
-  it("actionsはアイコンを常にブラウン固定にしつつ、branchActionの状態（実行中/失敗）でステータス部分だけ色付け+boldのクラスが追加される", () => {
+  it("actionsはアイコンを常にブラウン固定にしつつ、branchActionの状態に応じてステータス部分だけ4段階（実行中/成功/失敗/neutral）に色分けされる", () => {
+    // 実行中系（status !== completed）はconclusion問わずrunning
     expect(peekColorForKey("actions", { branchAction: { status: "in_progress", conclusion: null } }))
       .toEqual(["pill-peek-brown", "pill-peek-actions-running"]);
+    expect(peekColorForKey("actions", { branchAction: { status: "queued", conclusion: null } }))
+      .toEqual(["pill-peek-brown", "pill-peek-actions-running"]);
+    // 完了後はconclusionでバケット分け
+    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "success" } }))
+      .toEqual(["pill-peek-brown", "pill-peek-actions-success"]);
     expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "failure" } }))
       .toEqual(["pill-peek-brown", "pill-peek-actions-failure"]);
-    // 完了かつ失敗以外（成功等）は通常のブラウン固定に戻る
-    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "success" } }))
-      .toBe("pill-peek-brown");
-    // branchActionが無い・fields省略時も従来どおりブラウン固定
+    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "timed_out" } }))
+      .toEqual(["pill-peek-brown", "pill-peek-actions-failure"]);
+    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "action_required" } }))
+      .toEqual(["pill-peek-brown", "pill-peek-actions-running"]);
+    for (const conclusion of ["cancelled", "skipped", "neutral", "stale"]) {
+      expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion } }))
+        .toEqual(["pill-peek-brown", "pill-peek-actions-neutral"]);
+    }
+    // 未知のconclusionもneutralへフォールバックする
+    expect(peekColorForKey("actions", { branchAction: { status: "completed", conclusion: "something-new" } }))
+      .toEqual(["pill-peek-brown", "pill-peek-actions-neutral"]);
+    // branchActionが無い・fields省略時は従来どおりブラウン固定のみ
     expect(peekColorForKey("actions", { branchAction: null })).toBe("pill-peek-brown");
     expect(peekColorForKey("actions")).toBe("pill-peek-brown");
   });
