@@ -167,3 +167,127 @@ fn unknown_subcommands_exit_nonzero_with_message() {
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("Error:"));
 }
+
+// ─── hooks install-claude ───────────────────────────────────────────────
+//
+// `~/.claude/settings.json` を書き換えるため、`HOME` もプロジェクトルートと
+// 同様に一時ディレクトリへ隔離する（実ユーザーの設定に触れない）。
+
+fn run_hooks(project_root: &Path, home: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(bin())
+        .args(args)
+        .env("ANY_CONSOLE_PROJECT_ROOT", project_root)
+        .env("HOME", home)
+        .env_remove("ANY_CONSOLE_DATA_DIR")
+        .output()
+        .expect("binary should run")
+}
+
+/// `hooks install-claude` はプロジェクトルート配下の `scripts/claude-code-hook.sh`
+/// の実在を要求する（内容は問わない）。
+fn write_dummy_hook_script(project_root: &Path) {
+    let scripts_dir = project_root.join("scripts");
+    std::fs::create_dir_all(&scripts_dir).unwrap();
+    std::fs::write(
+        scripts_dir.join("claude-code-hook.sh"),
+        "#!/bin/sh\nexit 0\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn hooks_install_claude_creates_settings_and_is_idempotent() {
+    let project_root = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    write_dummy_hook_script(project_root.path());
+
+    let out = run_hooks(
+        project_root.path(),
+        home.path(),
+        &["hooks", "install-claude"],
+    );
+    assert!(out.status.success());
+    assert!(stdout(&out).starts_with("Installed hooks for: PreToolUse"));
+
+    let settings_path = home.path().join(".claude").join("settings.json");
+    let settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path).unwrap()).unwrap();
+    for event in [
+        "PreToolUse",
+        "PostToolUse",
+        "UserPromptSubmit",
+        "PreCompact",
+        "Notification",
+        "Stop",
+        "SessionEnd",
+    ] {
+        let command = settings["hooks"][event][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(command.ends_with(&format!("claude-code-hook.sh {event}")));
+    }
+
+    // 2回目は同じイベントを重複登録しない。
+    let out = run_hooks(
+        project_root.path(),
+        home.path(),
+        &["hooks", "install-claude"],
+    );
+    assert!(out.status.success());
+    assert!(stdout(&out).starts_with("Already installed for all events:"));
+    let settings_after: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path).unwrap()).unwrap();
+    assert_eq!(settings_after["hooks"]["Stop"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn hooks_install_claude_merges_without_clobbering_existing_settings() {
+    let project_root = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    write_dummy_hook_script(project_root.path());
+
+    let claude_dir = home.path().join(".claude");
+    std::fs::create_dir_all(&claude_dir).unwrap();
+    std::fs::write(
+        claude_dir.join("settings.json"),
+        r#"{
+  "otherSetting": true,
+  "hooks": { "Stop": [{"hooks": [{"type": "command", "command": "/some/other/existing-hook.sh Stop"}]}] }
+}"#,
+    )
+    .unwrap();
+
+    let out = run_hooks(
+        project_root.path(),
+        home.path(),
+        &["hooks", "install-claude"],
+    );
+    assert!(out.status.success());
+
+    let settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(claude_dir.join("settings.json")).unwrap())
+            .unwrap();
+    assert_eq!(settings["otherSetting"], true);
+    let stop_entries = settings["hooks"]["Stop"].as_array().unwrap();
+    assert_eq!(
+        stop_entries.len(),
+        2,
+        "既存のStopフックを残したまま追加されること"
+    );
+    assert!(claude_dir.join("settings.json.bak").is_file());
+}
+
+#[test]
+fn hooks_install_claude_errors_when_script_missing() {
+    let project_root = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    // write_dummy_hook_script を呼ばない = scripts/claude-code-hook.sh が無い状態。
+
+    let out = run_hooks(
+        project_root.path(),
+        home.path(),
+        &["hooks", "install-claude"],
+    );
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("hook script not found"));
+}
