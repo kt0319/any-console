@@ -129,19 +129,15 @@ working / idle / blocked state detection out of the box via screen analysis.
 For Claude Code you can optionally enable hook-based reporting, which is more
 accurate and instant (no polling delay, no dependency on screen rendering).
 
-Add the shipped script to `~/.claude/settings.json` hooks with the event name as
-the argument (see the comment header in `scripts/claude-code-hook.sh` for the
-full snippet):
-
-```jsonc
-{
-  "hooks": {
-    "Notification": [{"hooks": [{"type": "command", "command": "/path/to/any-console/scripts/claude-code-hook.sh Notification"}]}],
-    "Stop":         [{"hooks": [{"type": "command", "command": "/path/to/any-console/scripts/claude-code-hook.sh Stop"}]}]
-    // PreToolUse / PostToolUse / UserPromptSubmit / SessionEnd も同様に追加
-  }
-}
+```bash
+./any-console hooks-setup
 ```
+
+This registers the shipped `scripts/claude-code-hook.sh` in `~/.claude/settings.json`
+for all relevant events (PreToolUse / PostToolUse / UserPromptSubmit / PreCompact /
+Notification / Stop / SessionEnd). It merges into your existing hooks config —
+other hooks you already have are left untouched — and re-running it is a no-op
+if already installed. A `.bak` copy of the previous `settings.json` is kept.
 
 The script only acts inside sessions created by any-console (connection info is
 injected as environment variables) and always exits 0, so it never interferes

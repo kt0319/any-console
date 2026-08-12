@@ -29,6 +29,7 @@ pub async fn dispatch(args: &[String]) -> Option<i32> {
         Some("config") => Some(cmd_config(&args[1..])),
         Some("workspaces") => Some(cmd_workspaces(&args[1..])),
         Some("jobs") => Some(cmd_jobs(&args[1..])),
+        Some("hooks") => Some(cmd_hooks(&args[1..])),
         Some("tailscale") => Some(cmd_tailscale(&args[1..]).await),
         Some("auth") => Some(cmd_auth(&args[1..])),
         Some("paths") => Some(cmd_paths(&args[1..])),
@@ -400,6 +401,142 @@ fn cmd_jobs_register_ai_agents(tools: &[String]) -> i32 {
             println!("Registered: {label}");
         }
     }
+    0
+}
+
+// ─── hooks ──────────────────────────────────────────────────────────────
+
+const CLAUDE_HOOK_EVENTS: &[&str] = &[
+    "PreToolUse",
+    "PostToolUse",
+    "UserPromptSubmit",
+    "PreCompact",
+    "Notification",
+    "Stop",
+    "SessionEnd",
+];
+
+fn cmd_hooks(args: &[String]) -> i32 {
+    match args.first().map(String::as_str) {
+        Some("install-claude") => cmd_hooks_install_claude(),
+        _ => usage_error("unknown hooks subcommand"),
+    }
+}
+
+fn claude_settings_path() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(PathBuf::from(home).join(".claude").join("settings.json"))
+}
+
+/// `~/.claude/settings.json` へ `scripts/claude-code-hook.sh` の hooks 登録を
+/// マージする（`./any-console hooks-setup` から呼ばれる）。既存の hooks
+/// 設定（他のフック含む）は壊さず、同じコマンドが既に登録済みのイベントは
+/// 重複追加しない（再実行しても安全 — `jobs register-ai-agents` と同方針）。
+fn cmd_hooks_install_claude() -> i32 {
+    let Some(settings_path) = claude_settings_path() else {
+        return usage_error("HOME environment variable not set");
+    };
+    let hook_script = project_root_from_env()
+        .join("scripts")
+        .join("claude-code-hook.sh");
+    if !hook_script.is_file() {
+        return usage_error(&format!("hook script not found: {}", hook_script.display()));
+    }
+    let hook_script_str = hook_script.to_string_lossy().to_string();
+
+    let mut settings: Map<String, Value> = if settings_path.is_file() {
+        let text = match std::fs::read_to_string(&settings_path) {
+            Ok(t) => t,
+            Err(e) => return usage_error(&e.to_string()),
+        };
+        match serde_json::from_str::<Value>(&text) {
+            Ok(Value::Object(m)) => m,
+            _ => {
+                return usage_error(&format!(
+                    "{} is not valid JSON — fix or remove it first",
+                    settings_path.display()
+                ))
+            }
+        }
+    } else {
+        Map::new()
+    };
+
+    let hooks_value = settings
+        .entry("hooks".to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    let Value::Object(hooks_map) = hooks_value else {
+        return usage_error("'hooks' key in settings.json is not an object");
+    };
+
+    let mut added = Vec::new();
+    let mut already = Vec::new();
+    for event in CLAUDE_HOOK_EVENTS {
+        let command = format!("{hook_script_str} {event}");
+        let entries_value = hooks_map
+            .entry((*event).to_string())
+            .or_insert_with(|| Value::Array(Vec::new()));
+        let Value::Array(entries) = entries_value else {
+            continue;
+        };
+        let already_present = entries.iter().any(|group| {
+            group
+                .get("hooks")
+                .and_then(Value::as_array)
+                .is_some_and(|hs| {
+                    hs.iter()
+                        .any(|h| h.get("command").and_then(Value::as_str) == Some(command.as_str()))
+                })
+        });
+        if already_present {
+            already.push(*event);
+            continue;
+        }
+        let mut hook_entry = Map::new();
+        hook_entry.insert("type".to_string(), Value::String("command".to_string()));
+        hook_entry.insert("command".to_string(), Value::String(command));
+        let mut group = Map::new();
+        group.insert(
+            "hooks".to_string(),
+            Value::Array(vec![Value::Object(hook_entry)]),
+        );
+        entries.push(Value::Object(group));
+        added.push(*event);
+    }
+
+    if added.is_empty() {
+        println!("Already installed for all events: {}", already.join(", "));
+        return 0;
+    }
+
+    if let Some(parent) = settings_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            return usage_error(&e.to_string());
+        }
+    }
+    let bak = settings_path.with_extension("json.bak");
+    if settings_path.exists() {
+        if let Err(e) = std::fs::copy(&settings_path, &bak) {
+            return usage_error(&e.to_string());
+        }
+    }
+    let text = match serde_json::to_string_pretty(&Value::Object(settings)) {
+        Ok(t) => t,
+        Err(e) => return usage_error(&e.to_string()),
+    };
+    let tmp = settings_path.with_extension("json.tmp");
+    if let Err(e) = std::fs::write(&tmp, format!("{text}\n")) {
+        return usage_error(&e.to_string());
+    }
+    if let Err(e) = std::fs::rename(&tmp, &settings_path) {
+        return usage_error(&e.to_string());
+    }
+
+    println!("Installed hooks for: {}", added.join(", "));
+    if !already.is_empty() {
+        println!("Already installed: {}", already.join(", "));
+    }
+    println!("Settings file: {}", settings_path.display());
     0
 }
 

@@ -1024,6 +1024,18 @@ cmd_https_setup() {
   do_https_setup
 }
 
+# Claude Code hooks（scripts/claude-code-hook.sh）を ~/.claude/settings.json へ
+# 登録する。既存のhooks設定は壊さず、同じコマンドが既に登録済みのイベントは
+# 重複登録しない（再実行しても安全）。実体は any-console-server 自身の
+# CLIサブコマンド（config/workspaces/jobs等と同方針でpython3を使わない）。
+cmd_hooks_setup() {
+  info "=== Claude Code hooks setup ==="
+  if ! command -v claude >/dev/null 2>&1; then
+    error "claude command not found — install the Claude Code CLI first"
+  fi
+  "$RUST_BIN" hooks install-claude
+}
+
 # install.sh がリスタート要否（=更新か新規インストールか）を判定するための
 # 内部コマンド。出力は無く終了コードのみで答える（登録済みなら0）。
 cmd_is_registered() {
@@ -1041,9 +1053,9 @@ usage() {
   echo -e "${BOLD}Usage:${NC} ./any-console <command>"
   echo ""
   echo "Commands:"
-  echo "  setup        Initial setup (install deps + build + optional service register)"
+  echo "  setup        Initial setup (register service)"
   echo "               --non-interactive: skip prompts, use defaults (also auto-detected via CI=true)"
-  echo "  update       Update to latest (checksum-verified download + restart, or git pull + build in dev checkouts)"
+  echo "  update       Update to latest (checksum-verified download + restart)"
   echo "  start        Start service (systemd / launchd)"
   echo "  stop         Stop service (systemd / launchd)"
   echo "  restart      Restart service (systemd / launchd)"
@@ -1051,6 +1063,7 @@ usage() {
   echo "  logs         Tail service logs (journalctl / log file)"
   echo "  run          Run in foreground (no service; any OS)"
   echo "  https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)"
+  echo "  hooks-setup  Register Claude Code hooks (~/.claude/settings.json) for accurate/instant status"
   echo "  uninstall    Remove service registration and optionally clean up files"
   echo "  version      Print version"
 }
@@ -1092,6 +1105,7 @@ case "$command" in
   logs)    cmd_logs ;;
   run)         cmd_run ;;
   https-setup) cmd_https_setup ;;
+  hooks-setup) cmd_hooks_setup ;;
   uninstall)   cmd_uninstall ;;
   version|--version|-V) cmd_version ;;
   is-registered) cmd_is_registered ;;
