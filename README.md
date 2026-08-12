@@ -57,71 +57,27 @@ A first-class host needs Linux or macOS. Browser access from any OS (macOS / Win
 
 ## Setup
 
-On a Linux or macOS host, `./any-console setup` registers a systemd (Linux) or launchd (macOS) service. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
-
-### Quick install (prebuilt binary — no Rust/Node/Python toolchain needed)
-
-Downloads a prebuilt release from [GitHub Releases](https://github.com/kt0319/any-console/releases) into `~/.any-console` and runs a non-interactive setup. Only `git` and `tmux` are needed at runtime (nothing to build):
+Downloads a prebuilt release from [GitHub Releases](https://github.com/kt0319/any-console/releases) into `~/.any-console` and runs a non-interactive setup. No Rust/Node toolchain needed — only `git` and `tmux` at runtime:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash
 ```
 
-Then finish service registration interactively (systemd/launchd):
+Then finish service registration interactively — this registers a systemd (Linux) or launchd (macOS) service; the `./any-console` helper detects the OS. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots:
 
 ```bash
 cd ~/.any-console && ./any-console setup
 ```
 
-To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. `./any-console update` does the same thing in a binary install: it detects the layout and delegates to `install.sh`, which downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
+For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
 
-### systemd (Linux) — build from source
-
-```bash
-git clone https://github.com/kt0319/any-console.git ~/any-console
-cd ~/any-console
-./any-console setup
-```
-
-Installs dependencies, builds the frontend, and registers a systemd service in one step. After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
-
-### launchd (macOS) — build from source
-
-```bash
-git clone https://github.com/kt0319/any-console.git ~/any-console
-cd ~/any-console
-./any-console setup
-```
-
-Same one-step flow as Linux. On macOS, `setup` registers a `launchd` user `LaunchAgent` (no sudo needed) that starts at login. For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
-
-Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install rust node git tmux gh`.
+To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. `./any-console update` does the same thing: it downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
 
 ### Requirements
 
-Required:
-
-- Rust toolchain (`cargo`) — install via [rustup](https://rustup.rs/); the server binary is built from source on `setup`/`update`
-- Node.js 18+
 - `git` — used by the Git UI
 - `tmux` — required for terminal session management
-
-Optional:
-
-- `gh` (GitHub CLI) — for fetching GitHub repos, issues, PRs, and Actions
-
-Installation examples:
-
-```bash
-# Debian/Ubuntu
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-sudo apt install nodejs git tmux
-# optional: follow the official gh install guide
-
-# macOS
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-brew install node git tmux gh
-```
+- `gh` (GitHub CLI, optional) — for fetching GitHub repos, issues, PRs, and Actions
 
 ## Authentication
 
@@ -253,9 +209,8 @@ The default port is 8888. To change it, set `__global__.port` in `config.json`.
 For the systemd (Linux) and launchd (macOS) setups, all operations go through the `./any-console` command, which detects the OS and drives the right service manager.
 
 ```
-./any-console setup        First-time setup (install deps + build + register service)
-./any-console update       Update to the latest release (checksum-verified download,
-                           or release-tag checkout + build in source checkouts)
+./any-console setup        First-time setup (register service)
+./any-console update       Update to the latest release (checksum-verified download)
 ./any-console start        Start the service          (systemctl / launchctl)
 ./any-console stop         Stop the service           (systemctl / launchctl)
 ./any-console restart      Restart the service        (systemctl / launchctl)
@@ -275,7 +230,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console update
 ```
 
-In a binary install (from the quick-install flow), this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered. In a source checkout, it checks out the latest release tag, rebuilds the server (`cargo build --release`) and frontend, refreshes the service definition, and restarts. Either way it's a no-op when you're already on the latest release.
+Delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered. It's a no-op when you're already on the latest release.
 
 Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed — `config.json` files keyed by workspace display name are no longer rewritten to ID keys (they still load, but new installs always use ID keys), and leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) from the pre-2026-06 terminal architecture are no longer cleaned up at startup. When upgrading from such an old version, kill those stale tmux sessions manually (`tmux kill-session -t <name>`) if any remain.
 
