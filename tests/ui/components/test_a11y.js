@@ -357,6 +357,9 @@ describe("a11y: SessionSidebar", () => {
     await nextTick();
     await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
+    // isSessionSidebarOpenはlocalStorageへ永続化される（layout.js参照）ため、
+    // 他ファイルの初期状態を汚さないよう戻しておく。
+    layoutStore.isSessionSidebarOpen = false;
   });
 });
 
@@ -401,6 +404,34 @@ describe("a11y: TabBar", () => {
     expect(movedTabs[1].attributes("tabindex")).toBe("0");
 
     cleanup();
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: SessionOpenModal", () => {
+  it("Open Sessionオーバーレイ（WorkspaceOpen）に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const { default: SessionOpenModal } = await import("../../../ui/components/SessionOpenModal.vue");
+    const { useSessionOpenNav } = await import("../../../ui/composables/useSessionOpenNav.js");
+    const wrapper = mount(SessionOpenModal, { attachTo: document.body });
+    useSessionOpenNav().openView("WorkspaceOpen");
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+    useSessionOpenNav().closeNav();
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: TerminalSettingsModal", () => {
+  it("Settingsオーバーレイ（ModalMenu）に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const { default: TerminalSettingsModal } = await import("../../../ui/components/TerminalSettingsModal.vue");
+    const { useSettingsNav } = await import("../../../ui/composables/useSettingsNav.js");
+    const wrapper = mount(TerminalSettingsModal, { attachTo: document.body });
+    useSettingsNav().openView("ModalMenu");
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+    useSettingsNav().closeNav();
     wrapper.unmount();
   });
 });

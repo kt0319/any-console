@@ -182,8 +182,10 @@ import { useListDragSort } from "../composables/useListDragSort.js";
 import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.js";
 import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/workspace-groups.js";
 import { useModalView } from "../composables/useModalView.js";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
 
 const { modalTitle, pushView, popView } = useModalView();
+const { canNavigateBack, closeNav } = useSessionOpenNav();
 modalTitle.value = "Open Session";
 
 const terminalStore = useTerminalStore();
@@ -369,8 +371,13 @@ watch(() => terminalStore.openTabs.length, (newLen, oldLen) => {
   loadDetachedSessions();
   // Openページから新規タブを作成した（Workspace/Job/New terminal起動、
   // WorkspaceJobsPane経由も含む）場合は、作られたタブを見に行きやすいよう
-  // Sessions一覧へ自動で戻る。タブ数が減った時（Detach等）は対象外。
-  if (newLen > oldLen) popView();
+  // 自動で戻る。奥のビュー（WorkspaceAdd等）からならWorkspaceOpenルートへ
+  // popViewし、既にルートならこのオーバーレイごと閉じてターミナルへ戻す
+  // （タブ数が減った時＝Detach等は対象外）。
+  if (newLen > oldLen) {
+    if (canNavigateBack.value) popView();
+    else closeNav();
+  }
 });
 
 onBeforeUnmount(() => {

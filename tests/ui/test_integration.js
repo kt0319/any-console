@@ -820,6 +820,9 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
+    // isSessionSidebarOpenはlocalStorageへ永続化される（layout.js参照）ため、
+    // 他ファイルの初期状態を汚さないよう戻しておく。
+    useLayoutStore().isSessionSidebarOpen = false;
   });
 
   function seedSidebar({ panelBottom = false } = {}) {
@@ -836,12 +839,12 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     workspaceStore.allWorkspaces = [
       { name: "app", branch: "main", clean: false, ahead: 2, behind: 0, changed_files: 1, insertions: 5, deletions: 2 },
     ];
-    // PC はSessionSidebar.vue（サイドバーの入れ物+SettingsPanel）、モバイルは
-    // 歯車廃止によりSessionSidebar.vue自体が描画されなくなった（Modal.vueが
-    // 同じSettingsPanel.vueを全面オーバーレイで出す）ため、行の中身自体
-    // （SessionListView.vue）を直接マウントして検証する。
+    // PC はSessionSidebar.vue（サイドバーの入れ物+SessionListPanel）、モバイルは
+    // Modal.vueが同じSessionListPanel.vueを全面オーバーレイで出す（このテスト
+    // ではSessionSidebar.vue自体はPC専用のためモバイル時は描画されない）ため、
+    // 行の中身自体（SessionListView.vue）を直接マウントして検証する。
     wrapper = panelBottom
-      ? mount(SessionListView, { attachTo: document.body, global: { provide: { modalTitle: ref(""), pushView: () => {} } } })
+      ? mount(SessionListView, { attachTo: document.body })
       : mount(SessionSidebar, { attachTo: document.body });
     return { layoutStore, terminalStore };
   }

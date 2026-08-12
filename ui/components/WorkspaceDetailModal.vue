@@ -34,25 +34,25 @@
 <script setup>
 import { ref, computed, provide, watch } from "vue";
 import { useModal } from "../composables/useModal.js";
-import { useSettingsNav } from "../composables/useSettingsNav.js";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
 import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 
 // WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用の全面
-// オーバーレイ。Settingsのナビゲーション（useSettingsNav.js／SessionSidebar.vue
-// /Modal.vue）とは完全に独立しており（useWorkspaceDetailNav.js）、開いても
-// 裏のセッション一覧/設定側の表示は変化しない。PC・モバイル共通でこの
-// コンポーネントが担当する（.content-area、TabBarの下＝ターミナル表示
-// エリアと同じ場所に配置。PCはサイドバー分.content-areaが右へ縮んでいる
-// ため、サイドバーには被さらずターミナル部分だけに重なる）。
+// オーバーレイ。セッション一覧/Open Session/Settingsのナビゲーションとは
+// 完全に独立しており（useWorkspaceDetailNav.js）、開いても裏のそれらの
+// 表示は変化しない。PC・モバイル共通でこのコンポーネントが担当する
+// （.content-area、TabBarの下＝ターミナル表示エリアと同じ場所に配置。
+// PCはサイドバー分.content-areaが右へ縮んでいるため、サイドバーには
+// 被さらずターミナル部分だけに重なる）。
 //
-// pushView/popViewだけは例外的にuseSettingsNav.jsの実体をprovideする
-// （WorkspaceJobsPane.vueの「Add Job」からJobConfig（Settings側の画面）を
+// pushView/popViewだけは例外的にuseSessionOpenNav.jsの実体をprovideする
+// （WorkspaceJobsPane.vueの「Add Job」からJobConfig（Open Session側の画面）を
 // 開く導線があるため）。
 
 const modal = useModal();
-const { pushView, popView } = useSettingsNav();
+const { pushView, popView } = useSessionOpenNav();
 const {
   isOpen, viewState, modalTitle, modalBranch,
   onBack, close, setPaneRef, updateViewState,

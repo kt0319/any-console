@@ -79,11 +79,10 @@ test.describe("port preview", () => {
     await row.locator(".job-item-label", { hasText: "Terminal" }).click();
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
-    // サイドバーのセッション行にも同じ .pill-server-btn が出るため、サイドバーを
-    // 閉じて TerminalPane のピル行だけを対象にする（PCはサイドバー展開中
-    // ハンバーガー自体を隠すため、タイトル行の閉じるボタンを使う）。
-    await page.locator(".modal-close-btn").click();
-    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
+    // Open Sessionオーバーレイ（SessionOpenModal.vue）は、ルート表示中に新規
+    // タブが作られると自動で閉じてターミナルへ戻る（WorkspaceOpen.vue参照）
+    // ため、ここで明示的に閉じる必要はない。
+    await expect(page.locator(".session-open-modal")).toBeHidden({ timeout: 5000 });
 
     // GET /preview/ports はアクセス時に同期でスキャンを起こす（server/src/preview.rs）。
     // TerminalPane のポーリング間隔（DEV_SERVER_POLL_INTERVAL_MS=10s）を最大

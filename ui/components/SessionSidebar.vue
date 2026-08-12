@@ -4,38 +4,33 @@
     class="session-sidebar"
     aria-label="Sessions"
   >
-    <SettingsPanel />
+    <SessionListPanel />
   </nav>
 </template>
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount } from "vue";
 import { useLayoutStore } from "../stores/layout.js";
-import { useSettingsNav } from "../composables/useSettingsNav.js";
-import SettingsPanel from "./SettingsPanel.vue";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+import SessionListPanel from "./SessionListPanel.vue";
 
-// タブバー左端のハンバーガーで開くPC用サイドバー。中身（セッション一覧+
-// 設定）は共有のSettingsPanel.vue/useSettingsNav.jsに集約されており、この
+// タブバー左端のハンバーガーで開くPC用サイドバー。中身（セッション一覧）は
+// 共有のSessionListPanel.vue/useSessionListOverlay.jsに集約されており、この
 // コンポーネントはコンテンツ左側に固定表示するための入れ物でしかない
-// （モバイルはModal.vueが同じSettingsPanel.vueを全面オーバーレイで表示する）。
-//
-// PCでは歯車ボタンを廃止し、ハンバーガー1つでこのサイドバーを開閉する。
-// ナビゲーションのルートは常にセッション一覧（SessionListView）で、
-// 設定へ進むと一覧は隠れ、戻ると一覧に戻る（一覧と設定を同時に出さない）。
+// （モバイルはModal.vueが同じSessionListPanel.vueを全面オーバーレイで表示する）。
+// Open Session/Settingsはタブバーの「+」/歯車ボタンから独立して開くため、
+// このサイドバーはセッション一覧専用になっている。
 
 const layoutStore = useLayoutStore();
-const { closeNav } = useSettingsNav();
+const { close } = useSessionListOverlay();
 
 const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isPanelBottom);
 
 // Esc で閉じる（モバイルはModal.vue側のuseModalが同様のEscハンドリングを持つ）。
-// closeNavでビュースタックもSessionListへ戻しておく（×ボタンと同じ挙動。
-// 単にisSessionSidebarOpenだけ倒すと、次回開いた時に前回の設定画面の
-// 続きから表示されてしまうため）。
 function onKeydown(e) {
   if (e.key !== "Escape" || e.defaultPrevented) return;
   if (!layoutStore.isSessionSidebarOpen) return;
-  closeNav();
+  close();
 }
 
 onMounted(() => {

@@ -4,16 +4,16 @@
     class="modal-overlay"
     role="dialog"
     aria-modal="true"
-    @mousedown.self="closeNav"
+    @mousedown.self="close"
   >
     <div ref="modalEl" class="modal">
-      <SettingsPanel ref="panelRef" />
+      <SessionListPanel ref="panelRef" />
       <button
         type="button"
         class="modal-close-btn"
         aria-label="Close"
         data-tooltip="Close"
-        @click="closeNav"
+        @click="close"
       >&times;</button>
     </div>
   </div>
@@ -22,32 +22,30 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useModal } from "../composables/useModal.js";
-import { useSettingsNav } from "../composables/useSettingsNav.js";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
 import { useLayoutStore } from "../stores/layout.js";
-import SettingsPanel from "./SettingsPanel.vue";
+import SessionListPanel from "./SessionListPanel.vue";
 
-// モバイル専用のオーバーレイ表示。設定画面の中身・ナビゲーション状態は
-// SettingsPanel.vue / useSettingsNav.js に集約されており、PCではこの
-// オーバーレイを使わずSessionSidebar.vueへ直接インライン表示する
-// （歯車ボタン廃止・ハンバーガー1つにセッション一覧+設定を統合）。
+// モバイル専用のオーバーレイ表示。中身はSessionListPanel.vue/
+// useSessionListOverlay.jsに集約されており、PCではこのオーバーレイを使わず
+// SessionSidebar.vueへ直接インライン表示する。Open Session/Settingsは
+// SessionOpenModal.vue/TerminalSettingsModal.vueが別途タブバーのボタンから開く。
 
 const modal = useModal();
 const layoutStore = useLayoutStore();
-const { closeNav } = useSettingsNav();
+const { close } = useSessionListOverlay();
 const modalEl = ref(null);
 const panelRef = ref(null);
 
 // isSessionSidebarOpen（ハンバーガーで開閉）かつモバイルの時だけ、
 // フォーカストラップ・Escハンドリング付きのオーバーレイとして開閉する。
-// ナビゲーションのルートは常にSessionList（セッション一覧）で、設定へ
-// 進んでも同じオーバーレイ内でビューが変わるだけ（isSessionSidebarOpen
-// 自体は開いたまま）。PCはSessionSidebar.vue側が同じisSessionSidebarOpen
-// を見て自身のサイドバーを開くだけで、このオーバーレイ自体は使わない。
+// PCはSessionSidebar.vue側が同じisSessionSidebarOpenを見て自身のサイドバー
+// を開くだけで、このオーバーレイ自体は使わない。
 watch(
   () => layoutStore.isSessionSidebarOpen && layoutStore.isPanelBottom,
   (shouldShow) => {
     if (shouldShow) {
-      modal.open(() => modalEl.value, closeNav);
+      modal.open(() => modalEl.value, close);
     } else if (modal.visible.value) {
       modal.close();
     }

@@ -26,6 +26,8 @@
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
       <Modal />
+      <SessionOpenModal />
+      <TerminalSettingsModal />
       <WorkspaceDetailModal />
     </div>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
@@ -41,6 +43,8 @@ import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
+import SessionOpenModal from "./SessionOpenModal.vue";
+import TerminalSettingsModal from "./TerminalSettingsModal.vue";
 import WorkspaceDetailModal from "./WorkspaceDetailModal.vue";
 import SessionSidebar from "./SessionSidebar.vue";
 import StatusOverlay from "./StatusOverlay.vue";
@@ -52,6 +56,10 @@ import { useTerminal } from "../composables/useTerminal.js";
 import { useViewport } from "../composables/useViewport.js";
 import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
+import { useSettingsNav } from "../composables/useSettingsNav.js";
+import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
 import { useClientLogs } from "../composables/useClientLogs.js";
 import { useAppBootstrap } from "../composables/useAppBootstrap.js";
@@ -141,6 +149,22 @@ const debugInfo = computed(() => {
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
+
+// isSettingsOpenは「セッション一覧・Open Session・Settings・WorkspaceDetailの
+// いずれかのオーバーレイが表示中か」を表す既存フラグ（useTerminalInput/
+// useGlobalShortcutsがショートカット抑止に使う）。4つの独立したオーバーレイ
+// に分離したため、ここで集約する。
+const { isOpen: isSessionListOverlayOpen } = useSessionListOverlay();
+const { isOpen: isSessionOpenNavOpen } = useSessionOpenNav();
+const { isOpen: isSettingsNavOpen } = useSettingsNav();
+const { isOpen: isWorkspaceDetailOpen } = useWorkspaceDetailNav();
+watch(
+  [isSessionListOverlayOpen, isSessionOpenNavOpen, isSettingsNavOpen, isWorkspaceDetailOpen],
+  ([sessionList, sessionOpen, settings, workspaceDetail]) => {
+    layoutStore.isSettingsOpen = sessionList || sessionOpen || settings || workspaceDetail;
+  },
+  { immediate: true },
+);
 
 let mainPanelResizeObserver = null;
 

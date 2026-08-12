@@ -22,13 +22,14 @@ test.describe("mobile viewport", () => {
 
     // 設定モーダルはモバイルでは全画面表示
     await page.locator(".screen-empty-menu-item", { hasText: "Settings" }).tap();
-    const modal = page.locator(".modal");
+    const modal = page.locator(".terminal-settings-modal .modal");
     await expect(modal).toBeVisible({ timeout: 5000 });
     const box = await modal.boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(370);
 
-    // ハンバーガー（開いている間は Close に変わる）で閉じられる
-    await page.locator(".tab-menu-btn").tap();
-    await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
+    // タイトル行右端の専用閉じるボタンで閉じられる（ハンバーガーはセッション
+    // 一覧専用のため、Settingsオーバーレイの開閉には使わない）。
+    await page.locator(".terminal-settings-modal .modal-close-btn").tap();
+    await expect(page.locator(".terminal-settings-modal")).toBeHidden({ timeout: 5000 });
   });
 });

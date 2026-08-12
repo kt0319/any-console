@@ -1,5 +1,6 @@
 /* モーダル系オーバーレイの共通シェル。
-   Modal.vue（モバイルの設定オーバーレイ）/ SettingsPanel.vue（設定スタック）/
+   Modal.vue（モバイルのセッション一覧オーバーレイ）/ SessionListPanel.vue（セッション一覧）/
+   SessionOpenModal.vue（Open Sessionスタック）/ TerminalSettingsModal.vue（設定スタック）/
    WorkspaceDetailModal.vue（ワークスペース詳細オーバーレイ）で同じ見た目を
    共用する。配置・cursor などコンポーネント固有の差分は各コンポーネントの
    scoped スタイルで上書きする。 */

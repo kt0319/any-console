@@ -48,15 +48,6 @@
         </ul>
       </template>
     </div>
-
-    <div class="session-list-menu">
-      <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
-        <span class="mdi mdi-folder-plus-outline"></span> Open Session
-      </button>
-      <button type="button" class="settings-menu-item" @click="pushView('ModalMenu')">
-        <span class="mdi mdi-cog"></span> Settings
-      </button>
-    </div>
   </div>
 </template>
 
@@ -77,20 +68,14 @@ import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.js";
 import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
-import { useModalView } from "../composables/useModalView.js";
 
-// 統合ナビゲーション（useSettingsNav.js）の一番手前（ルート）のビュー。
-// 開いているタブごとにワークスペース名・ブランチ・変更サマリ・エージェント
-// 状態・Info Pillsを一覧表示する。
-// 行の組み立ては ui/utils/session-sidebar.js（純粋関数）。
+// セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
+// ごとにワークスペース名・ブランチ・変更サマリ・エージェント状態・
+// Info Pillsを一覧表示する。行の組み立ては ui/utils/session-sidebar.js
+// （純粋関数）。
 //
-// Open Session/Settingsへは下部固定のメニュー（本物のpushView遷移）から進む。
-// タブ帯としてSettingsPanel.vue側に常設表示していた時期もあったが、Sessions
-// ページを離れたらメニューごと消えてよいという方針になったため、埋め込み式の
-// メニューに戻した（メニュー自体はこのビューがマウントされている間だけ存在する）。
-
-const { modalTitle, pushView } = useModalView();
-modalTitle.value = "Sessions";
+// Open Session/Settingsはタブバーの「+」/歯車ボタン（useSessionOpenNav.js/
+// useSettingsNav.js）から独立して開くため、このビューからは直接遷移しない。
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -269,19 +254,4 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: var(--text-muted);
 }
-
-/* Open Session/Settingsへの入口。一覧の下に固定表示するメニュー。
-   行ボタンの見た目（.settings-menu-item / .settings-menu-version）は
-   ui/styles/settings-form.css（グローバル）でModalMenu.vueと共用する。 */
-.session-list-menu {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  border-top: 1px solid var(--border);
-}
-
-.session-list-menu .settings-menu-item:last-child {
-  border-bottom: none;
-}
-
 </style>

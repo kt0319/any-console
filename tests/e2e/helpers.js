@@ -200,16 +200,14 @@ export async function deleteWorkspaceViaApi(request, token, name) {
 }
 
 /**
- * 設定モーダルをグローバルショートカット（⌘⇧.）で開く。
- * 既存セッションの有無（空画面 / タブ表示）に依らず使える。
+ * 設定モーダル（TerminalSettingsModal.vue）をグローバルショートカット
+ * （⌘⇧.）で開く。PC・モバイル共通の全面オーバーレイのため、既存セッションの
+ * 有無（空画面 / タブ表示）に依らず使える。
  * @param {import("@playwright/test").Page} page
  */
 export async function openSettingsModal(page) {
   await page.keyboard.press("Meta+Shift+Period");
-  // .modal-overlay はモバイル幅（Modal.vue）だけに出る要素のため、PC幅の
-  // デフォルトビューポート（SessionSidebar.vue経由）でも共通して存在する
-  // .settings-panel（Modal.vue/SessionSidebar.vueの両方が使う中身）で待つ。
-  await expect(page.locator(".settings-panel")).toBeVisible({ timeout: 5000 });
+  await expect(page.locator(".terminal-settings-modal")).toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -222,21 +220,14 @@ export async function openSettingsView(page, label) {
 }
 
 /**
- * Workspaces（WorkspaceOpen）を開く。SettingsのModalMenu配下ではなく、
- * ハンバーガーで開くセッション一覧下部メニューの「Open Session」から
- * 直接開く導線に統一されている。下部メニューはSessionsルート表示中しか
- * 存在しないため、既に設定画面の奥にいる場合はタイトルの戻るボタンで
- * ルートまで遡ってから開く。
+ * Workspaces（WorkspaceOpen、SessionOpenModal.vue）を開く。タブバーの「+」
+ * ボタン（Open session）から独立して開き、押すたびに必ずWorkspaceOpen
+ * ルートへリセットされる。
  * @param {import("@playwright/test").Page} page
  */
 export async function openWorkspaces(page) {
-  // ハンバーガーは開く度にセッション一覧へリセットされるが、既に開いている
-  // 状態で押すと閉じてしまうため、未オープンの時だけ押す。
-  if (!(await page.locator(".settings-panel").isVisible())) {
-    await page.locator(".tab-menu-btn").click();
-  }
-  await popToNavRoot(page);
-  await page.locator(".session-list-menu .settings-menu-item", { hasText: "Open Session" }).click();
+  await page.locator('[aria-label="Open session"]').click();
+  await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
 }
 
 /**

@@ -3,7 +3,7 @@
     class="tab-bar-row"
     :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
   >
-    <!-- PCはサイドバー（SettingsPanel.vue）のタイトル行右端に専用の閉じる
+    <!-- PCはサイドバー（SessionListPanel.vue）のタイトル行右端に専用の閉じる
          ボタンがあるため、サイドバーが開いている間はこのボタン自体を隠し
          タブだけにする。モバイルはこのボタンだけが開閉の手段のため常に出す。 -->
     <button
@@ -20,22 +20,44 @@
     <div
       ref="tabListEl"
       class="tab-bar"
-      role="tablist"
-      aria-label="Open terminal tabs"
       @keydown="onTabListKeydown"
     >
-      <TabItem
-        v-for="item in sortedItems"
-        :key="item.tab.id || item.tab.wsUrl"
-        :tab="item.tab"
-        :active-tab-id="activeTabId"
-        :is-panel-bottom="isPanelBottom"
-        @select="onSelect"
-        @close="onClose"
-        @refresh="onRefresh"
-        @detach="onDetach"
-      />
+      <div class="tab-bar-tabs" role="tablist" aria-label="Open terminal tabs">
+        <TabItem
+          v-for="item in sortedItems"
+          :key="item.tab.id || item.tab.wsUrl"
+          :tab="item.tab"
+          :active-tab-id="activeTabId"
+          :is-panel-bottom="isPanelBottom"
+          @select="onSelect"
+          @close="onClose"
+          @refresh="onRefresh"
+          @detach="onDetach"
+        />
+      </div>
+      <button
+        type="button"
+        class="tab-menu-btn hover-bg"
+        :class="{ active: isSessionOpenOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSessionOpenOpen, 'tab-underline-top': isPanelBottom }"
+        @click="onOpenSessionClick"
+        :aria-label="openSessionLabel"
+        :aria-expanded="isSessionOpenOpen ? 'true' : 'false'"
+        :data-tooltip="openSessionLabel"
+      >
+        <span :class="['mdi', isSessionOpenOpen ? 'mdi-close' : 'mdi-plus']"></span>
+      </button>
     </div>
+    <button
+      type="button"
+      class="tab-menu-btn hover-bg"
+      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isPanelBottom }"
+      @click="onSettingsClick"
+      :aria-label="settingsLabel"
+      :aria-expanded="isSettingsOpen ? 'true' : 'false'"
+      :data-tooltip="settingsLabel"
+    >
+      <span :class="['mdi', isSettingsOpen ? 'mdi-close' : 'mdi-cog']"></span>
+    </button>
   </div>
 </template>
 
@@ -44,7 +66,8 @@ import { computed, nextTick, ref } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { emit } from "../app-bridge.js";
 import { nextTabIndex } from "../utils/tab-nav.js";
@@ -60,11 +83,7 @@ const tabListEl = ref(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
-// PCはセッション一覧+設定の入り口を兼ねる（歯車ボタン廃止）ため文言を変える。
-const sidebarToggleLabel = computed(() => {
-  if (isPanelBottom.value) return isSidebarOpen.value ? "Close session list" : "Open session list";
-  return isSidebarOpen.value ? "Close sessions & settings" : "Open sessions & settings";
-});
+const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Close session list" : "Open session list"));
 const sortedItems = computed(() => {
   return props.tabs
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
@@ -105,22 +124,28 @@ function onDetach(tab) {
   terminalStore.detachTab(tab.id);
 }
 
-const { isOpen: isWorkspaceDetailOpen, close: closeWorkspaceDetail } = useWorkspaceDetailNav();
-const { openView } = useSettingsNav();
+const { isOpen: isSessionListOpen, open: openSessionList, close: closeSessionList } = useSessionListOverlay();
+const { isOpen: isSessionOpenOpen, openView: openSessionOpenView, closeNav: closeSessionOpenNav } = useSessionOpenNav();
+const { isOpen: isSettingsOpen, openView: openSettingsView, closeNav: closeSettingsNav } = useSettingsNav();
+const openSessionLabel = computed(() => (isSessionOpenOpen.value ? "Close open session" : "Open session"));
+const settingsLabel = computed(() => (isSettingsOpen.value ? "Close settings" : "Settings"));
 
 function onMenuClick() {
-  if (isSidebarOpen.value) {
-    // モバイルはハンバーガー1つでサイドバーとWorkspaceDetailオーバーレイの
-    // 両方を閉じる（WorkspaceDetailはサイドバーとは独立した状態のため、
-    // 閉じる時だけここで明示的に合わせる。PCはWorkspaceDetailModal.vue側に
-    // 専用の閉じるボタンがあるため対象外）。
-    if (isPanelBottom.value && isWorkspaceDetailOpen.value) closeWorkspaceDetail();
-    layoutStore.toggleSessionSidebar();
-  } else {
-    // 開く時は常にセッション一覧（SessionList）から始める。前回設定の
-    // 途中まで進んでいても、ハンバーガーで開き直したら一覧に戻す。
-    openView("SessionList");
-  }
+  // 開閉のexclusive制御（他オーバーレイを閉じる/閉じないの判定）は
+  // useSessionListOverlay.js（useExclusiveMobileOverlay.js経由）に集約されて
+  // いるため、ここでは単純に開閉を切り替えるだけでよい。
+  if (isSessionListOpen.value) closeSessionList();
+  else openSessionList();
+}
+
+function onOpenSessionClick() {
+  if (isSessionOpenOpen.value) closeSessionOpenNav();
+  else openSessionOpenView("WorkspaceOpen");
+}
+
+function onSettingsClick() {
+  if (isSettingsOpen.value) closeSettingsNav();
+  else openSettingsView("ModalMenu");
 }
 </script>
 
@@ -155,6 +180,16 @@ function onMenuClick() {
 
 .tab-bar::-webkit-scrollbar {
   display: none;
+}
+
+/* role="tablist"の直接の子はrole="tab"だけを許容する（aria-required-children）
+   ため、タブ本体だけをこの内側の要素に分離する。「+」ボタンは.tab-barの
+   スクロール領域には残しつつ、tablistの外に置いて最後のタブのすぐ右に
+   並べる。 */
+.tab-bar-tabs {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
 }
 
 .tab-menu-btn {

@@ -32,14 +32,14 @@ test.describe("settings modal", () => {
 
   test("Esc キーでモーダルが閉じる", async ({ page }) => {
     await page.keyboard.press("Escape");
-    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(".terminal-settings-modal")).toBeHidden({ timeout: 5000 });
   });
 
   test("タイトル行の閉じるボタンでモーダルが閉じる", async ({ page }) => {
-    // PCはサイドバーが開いている間ハンバーガー自体を隠すため（TabBar.vue）、
-    // 閉じる手段はタイトル行右端の専用ボタン（SettingsPanel.vue）になる。
-    await expect(page.locator(".tab-menu-btn")).toHaveCount(0);
+    // Settingsはタブバーの独立した歯車ボタンから開く全面オーバーレイ
+    // （TerminalSettingsModal.vue）で、サイドバー（ハンバーガー）とは独立して
+    // 開閉するため、閉じる手段はタイトル行右端の専用ボタンになる。
     await page.locator(".modal-close-btn").click();
-    await expect(page.locator(".settings-panel")).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(".terminal-settings-modal")).toBeHidden({ timeout: 5000 });
   });
 });
