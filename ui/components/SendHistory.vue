@@ -1,5 +1,5 @@
 <template>
-  <div ref="scrollBodyEl" class="modal-scroll-body">
+  <div class="modal-scroll-body">
     <div class="history-list">
       <div v-for="(text, idx) in history" :key="idx" class="history-row">
         <button type="button" class="history-command" @click="onInsert(text)">{{ text }}</button>
@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
@@ -27,7 +27,6 @@ const emit = defineEmits(["close"]);
 
 const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send History", emit });
 const inputStore = useInputStore();
-const scrollBodyEl = ref(null);
 
 // inputHistory は最新が先頭（unshift）。表示もそのまま最新→古いの順にし、
 // 一番上（スクロール初期位置）に最新の項目が来るようにする。

@@ -24,7 +24,8 @@
 
 event="$1"
 
-if [ -z "$ANY_CONSOLE_HOOK_URL" ] || [ -z "$ANY_CONSOLE_SESSION" ] || [ -z "$event" ]; then
+if [ -z "$ANY_CONSOLE_HOOK_URL" ] || [ -z "$ANY_CONSOLE_HOOK_TOKEN" ] ||
+  [ -z "$ANY_CONSOLE_SESSION" ] || [ -z "$event" ]; then
   exit 0
 fi
 
@@ -38,30 +39,26 @@ fi
 stdin_json=$(cat 2>/dev/null)
 detail=$(printf '%s' "$stdin_json" | sed -n 's/.*"message"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 
+# detail はサーバ側で #[serde(default)] のため、空でも常に含めてよい。
+body="{\"session\":\"$ANY_CONSOLE_SESSION\",\"event\":\"$event\",\"detail\":\"$detail\"}"
+
 (
-  if [ -n "$detail" ]; then
-    body="{\"session\":\"$ANY_CONSOLE_SESSION\",\"event\":\"$event\",\"detail\":\"$detail\"}"
-  else
-    body="{\"session\":\"$ANY_CONSOLE_SESSION\",\"event\":\"$event\"}"
-  fi
   # ANY_CONSOLE_HOOK_URL は常に http:// で組み立てられる（server/src/tmux.rs
   # hook_session_env）が、サーバがTLSを有効化している環境では素のHTTPは
   # 弾かれて繋がらない。まずそのまま試し、失敗したらhttpsへ切り替えて
   # 同じloopback宛てに再試行する（loopback接続なので証明書のホスト名検証は
   # -kでスキップする）。
+  https_url=$(printf '%s' "$ANY_CONSOLE_HOOK_URL" | sed 's#^http:#https:#')
   curl -s -m 3 -X POST "$ANY_CONSOLE_HOOK_URL" \
     -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
     -H "Content-Type: application/json" \
     -d "$body" \
-    >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    https_url=$(printf '%s' "$ANY_CONSOLE_HOOK_URL" | sed 's#^http:#https:#')
+    >/dev/null 2>&1 ||
     curl -sk -m 3 -X POST "$https_url" \
       -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
       -H "Content-Type: application/json" \
       -d "$body" \
       >/dev/null 2>&1
-  fi
 ) &
 
 exit 0

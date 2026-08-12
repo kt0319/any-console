@@ -13,7 +13,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::config::ConfigStore;
 use crate::paths::{
@@ -492,15 +492,7 @@ fn cmd_hooks_install_claude() -> i32 {
             already.push(*event);
             continue;
         }
-        let mut hook_entry = Map::new();
-        hook_entry.insert("type".to_string(), Value::String("command".to_string()));
-        hook_entry.insert("command".to_string(), Value::String(command));
-        let mut group = Map::new();
-        group.insert(
-            "hooks".to_string(),
-            Value::Array(vec![Value::Object(hook_entry)]),
-        );
-        entries.push(Value::Object(group));
+        entries.push(json!({"hooks": [{"type": "command", "command": command}]}));
         added.push(*event);
     }
 
