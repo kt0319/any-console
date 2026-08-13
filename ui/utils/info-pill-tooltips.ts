@@ -61,7 +61,7 @@ export const ADD_PILL_TOOLTIP = "Add or open this directory as a workspace";
 
 /**
  * InfoPillRow の tooltips prop（キーごとのツールチップ文言）を一括で組み立てる。
- * TerminalPane.vue（computed）と session-sidebar.js（行データ）が共用する。
+ * TerminalPane.vue（computed）と session-sidebar.ts（行データ）が共用する。
  */
 export function buildInfoPillTooltips({
   name = "", isGitRepo = false,

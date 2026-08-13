@@ -16,7 +16,7 @@ import { watch } from "vue";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.ts";
 import { useWorkspaceStore } from "./stores/workspace.ts";
-import { useDispatchConfirm } from "./composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "./composables/useDispatchQueue.ts";
 import { dispatchWorkspaceLabel } from "./utils/dispatch-request.ts";
 import { installErrorReporter } from "./utils/error-reporter.ts";
 import { installTooltip } from "./utils/tooltip.ts";
@@ -89,7 +89,7 @@ async function bootstrap() {
 // ローカル表示のため、対象ワークスペースを解決してからgit:openFileModalで開く）。
 // 起動直後はまだdispatchキューがWSで届いていないことがあるため、届くまで待つ。
 function openDispatchRunView(dispatchId: string) {
-  const { queue, recent } = useDispatchConfirm();
+  const { queue, recent } = useDispatchQueue();
   const workspaceStore = useWorkspaceStore();
   function tryOpen() {
     const item = queue.value.find((q) => q.id === dispatchId) || recent.value.find((r) => r.id === dispatchId);

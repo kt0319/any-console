@@ -1,7 +1,7 @@
 import { useApi } from "./useApi.ts";
 
 // worktree 削除のAPI呼び出し。ワークスペース一覧（WorkspaceOpen.vue）と
-// Branchesタブ（useBranchActions.js）の両方から使うため、リクエスト部分だけ
+// Branchesタブ（useBranchActions.ts）の両方から使うため、リクエスト部分だけ
 // ここに共通化する（確認ダイアログや削除後のリフレッシュは画面ごとに異なる
 // ので呼び出し側の責務のまま）。
 export function useWorktreeRemove() {

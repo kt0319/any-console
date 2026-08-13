@@ -104,7 +104,7 @@ import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useGithubPolling } from "../composables/useGithubPolling.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { usePillPeek } from "../composables/usePillPeek.ts";
 import CircleKeyPad from "./CircleKeyPad.vue";
@@ -181,7 +181,7 @@ const branchPR = computed<Record<string, any> | null>(() => {
 
 // GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
 // 実行中→完了への遷移をピルに反映するため、表示中は定期的に再取得する
-// （参照カウント式のポーリングはuseWorkspaceActions側に集約）。
+// （参照カウント式のポーリングはuseWorkspaceRuns側に集約）。
 const branchAction = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findRunForBranch(runsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -203,7 +203,7 @@ watch(
   { immediate: true },
 );
 
-const { queue: dispatchQueue } = useDispatchConfirm();
+const { queue: dispatchQueue } = useDispatchQueue();
 const tabDispatchItems = computed(() => {
   if (!props.tab.workspace) return [];
   return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === props.tab.workspace);
@@ -251,7 +251,7 @@ watch(paneEl, (paneNode) => {
 
 // アイコンのみのボタンでも、PCでホバーした時にその時点の実際の値
 // （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
-// わかるようにする。文言の組み立てはinfo-pill-tooltips.js（純粋関数）。
+// わかるようにする。文言の組み立てはinfo-pill-tooltips.ts（純粋関数）。
 const tooltips = computed(() => buildInfoPillTooltips({
   name: props.tab.workspace || props.tab.label || "",
   isGitRepo: isGitRepo.value,
@@ -280,7 +280,7 @@ const tooltips = computed(() => buildInfoPillTooltips({
 // 表示条件（isGitRepo 等）と揃えておく（peekingKey による一時表示の判定にも
 // 同じ key を使う）。ここでは変化検出用の最小限の値（key + 見た目に影響する
 // text）だけ持てば良い。組み立て自体はセッションサイドバー行と
-// 共用するpill-peek.jsの純粋関数に集約する（branchをhistoryより前に置く
+// 共用するpill-peek.tsの純粋関数に集約する（branchをhistoryより前に置く
 // 理由等の詳細コメントもそちら参照）。
 // 省略表示形式（画面回転で変わりうる）をbranchのtextに使うと、回転しただけで
 // 「ブランチが変わった」と誤検知してpeekが発火してしまうため、表示形式に

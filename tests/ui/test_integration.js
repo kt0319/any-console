@@ -27,7 +27,7 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 import { useInputStore } from "../../ui/stores/input.ts";
-import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.ts";
+import { applyDispatchQueue } from "../../ui/composables/useDispatchQueue.ts";
 import { useKeyboardBarState } from "../../ui/composables/useKeyboardBarState.ts";
 import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../ui/utils/endpoints.ts";
 

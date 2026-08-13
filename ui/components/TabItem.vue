@@ -266,12 +266,7 @@ function finishTouchDrag(clientX, clientY) {
       terminalStore.moveTab(fromIndex, toIndex);
     }
   } else {
-    finishSplitDrop({
-      tabId: props.tab.id,
-      clientX, clientY,
-      openTabs: terminalStore.openTabs,
-      activeTabId: terminalStore.activeTabId,
-    });
+    finishSplitDrop({ tabId: props.tab.id, clientX, clientY });
   }
   clearDragOverIndicator();
   cancelDrag();

@@ -1,6 +1,6 @@
 // Info Pills（TerminalPaneのピル群）の種別ごとの定義を1箇所に集約する
 // ディスクリプタテーブル。設定ストアのフィールド一覧・デフォルト表示順
-// （ui/stores/info-pill-config.js）、設定画面のトグルのラベル・説明
+// （ui/stores/info-pill-config.ts）、設定画面のトグルのラベル・説明
 // （InfoPillConfig.vue）、ピル本体（InfoPillRow.vue）と peekピル
 // （TerminalPane.vue）のアイコンはすべて
 // ここから導出する。新しいピルを追加する時はまずこのテーブルへ1エントリ足す

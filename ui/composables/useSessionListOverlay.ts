@@ -5,7 +5,7 @@ import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 // セッション一覧オーバーレイ（PC: SessionSidebar.vue / モバイル: Modal.vue が
 // SessionListPanel.vueをホストする）の開閉を一箇所に集約する薄いcomposable。
 // 実体はlayoutStore.isSessionSidebarOpenのラップで、TabBar.vueのハンバーガー・
-// useSettingsNav.jsの旧SessionListへのリダイレクト・SessionListPanel.vueの
+// useSettingsNav.tsの旧SessionListへのリダイレクト・SessionListPanel.vueの
 // 閉じるボタンが同じロジックを重複させないための共通化。
 
 let registered = false;

@@ -76,7 +76,6 @@ function closeNav() {
   modalBranch.value = "";
   currentPaneRef.value = null;
   isOpen.value = false;
-  bridgeEmit("settings:closed");
 }
 
 function onBack() {
@@ -137,7 +136,7 @@ function registerListeners() {
   });
 
   // WorkspaceDetail（Files/Changes/History等）はSettingsのスタックとは
-  // 独立したuseWorkspaceDetailNav.jsで開閉する（設定側の表示はそのまま
+  // 独立したuseWorkspaceDetailNav.tsで開閉する（設定側の表示はそのまま
   // 変えない。WorkspaceDetailModal.vueが全面オーバーレイで表示する）。
   const { open: openWorkspaceDetail } = useWorkspaceDetailNav();
 

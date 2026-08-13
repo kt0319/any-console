@@ -1,17 +1,19 @@
 import { useAuthStore } from "../stores/auth.ts";
-import { emit } from "../app-bridge.ts";
 import { extractApiError } from "../utils/constants.ts";
+import { workspaceApiPath } from "../utils/endpoints.ts";
 import { debugLog } from "./useClientLogs.ts";
+import { useToast } from "./useToast.ts";
 
 type ApiRequestOpts = { method?: string, body?: any, checkStatus?: boolean, errorMessage?: string };
 type ApiResult = { ok: boolean, data: any };
 
 export function useApi() {
   const auth = useAuthStore();
+  const toast = useToast();
 
   function showErrorToast(data: any, errorMessage?: string) {
     if (errorMessage) {
-      emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
+      toast.error(extractApiError(data, errorMessage));
     }
   }
 
@@ -56,18 +58,17 @@ export function useApi() {
     try {
       const { ok, data } = await apiCommand(endpoint, body, { errorMessage });
       if (!ok) return false;
-      emit("toast:show", { message: successMessage, type: "success" });
+      toast.success(successMessage);
       onSuccess?.();
       return true;
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      emit("toast:show", { message, type: "error" });
+      toast.error(e instanceof Error ? e.message : String(e));
       return false;
     }
   }
 
   function wsEndpoint(workspace: string, path: string) {
-    return `/workspaces/${encodeURIComponent(workspace)}/${path}`;
+    return workspaceApiPath(workspace, `/${path}`);
   }
 
   return { apiCommand, apiWithToast, apiGet, apiPost, apiPut, apiPatch, apiDelete, wsEndpoint };

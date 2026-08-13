@@ -20,7 +20,7 @@ export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) 
     if (isCopyShortcut(e)) {
       const isFormField = isEditableTarget(e.target as HTMLElement);
       if (!isFormField && !layoutStore.isSettingsOpen) {
-        const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+        const tab = terminalStore.activeTab;
         if (copyTerminalSelection(tab?.term)) {
           e.preventDefault();
           return;
@@ -29,13 +29,13 @@ export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) 
     }
     if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey) return;
     if (e.code === "KeyW") {
-      const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+      const tab = terminalStore.activeTab;
       if (!tab) return;
       e.preventDefault();
       const result = await confirmCloseTab(confirm, tab);
       if (result === true) {
         await closeTab(tab);
-        const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+        const activeTab = terminalStore.activeTab;
         workspaceStore.selectedWorkspace = activeTab?.workspace || null;
       } else if (result === "refresh") {
         emit("tab:refresh", { tab });

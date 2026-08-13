@@ -71,7 +71,7 @@ import ConfigFile from "./ConfigFile.vue";
 // タブバーの歯車ボタンから開くSettings系列専用の全面オーバーレイ。
 // WorkspaceDetailModal.vue/SessionOpenModal.vueと同じシェル
 // （.modal-overlay/.modal/.settings-panel-header/.settings-panel-body）を
-// 使い、ナビゲーションはuseSettingsNav.js（Open Session/セッション一覧とは
+// 使い、ナビゲーションはuseSettingsNav.ts（Open Session/セッション一覧とは
 // 完全に独立したビュースタック）を使う。
 
 const modal = useModal();

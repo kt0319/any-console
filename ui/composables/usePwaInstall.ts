@@ -4,7 +4,7 @@
 // 内でリスナを登録すると (1) 解除されず累積する、(2) 再マウント後の新しい
 // インスタンスはイベントを取り逃して常に手動手順へフォールバックしてしまう。
 // リスナとキャプチャ済みプロンプトをモジュールスコープで1つだけ持つ
-// （usePreviewPorts.js と同じ単一化パターン）。
+// （usePreviewPorts.ts と同じ単一化パターン）。
 
 /** beforeinstallprompt でキャプチャした遅延プロンプト（Safari等では発火しない）。 */
 let deferredInstallPrompt: any = null;

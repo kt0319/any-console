@@ -99,7 +99,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.ts";
@@ -118,7 +118,7 @@ const emits = defineEmits(["back", "done"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
-const { queue, recent, runItem, rejectItem, rerunNow } = useDispatchConfirm();
+const { queue, recent, runItem, rejectItem, rerunNow } = useDispatchQueue();
 const workspaceStore = useWorkspaceStore();
 
 const itemId = props.itemId;
@@ -223,7 +223,7 @@ const dirtyBlockReason = computed(() => {
 });
 
 // dedup_key による置き換えは通知リンクを有効に保つため dispatch_id を維持する
-// （useDispatchConfirm.js 参照）。そのため置き換えられても dispatch:itemRemoved
+// （useDispatchQueue.ts 参照）。そのため置き換えられても dispatch:itemRemoved
 // は発火しない。retry_count の変化で「表示中の内容が別の失敗に置き換わった」
 // ことを検知し、フォームを黙って差し替えるのではなくダイアログを閉じる
 // （古い branch/text のまま承認され、置き換わった内容と食い違って実行される

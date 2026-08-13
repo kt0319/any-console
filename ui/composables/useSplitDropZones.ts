@@ -1,14 +1,18 @@
 import { useLayoutStore } from "../stores/layout.ts";
-import { useTerminalStore } from "../stores/terminal.ts";
+import { useSplitDropDrag } from "./useSplitDropDrag.ts";
 
 /**
- * ターミナル分割のドロップゾーン用ハンドラ群。
+ * ターミナル分割のドロップゾーン（HTML5 DnD 経由）用ハンドラ群。
  * - dragenter/dragleave で .drag-over クラスを切替
- * - drop で splitWithDrop を呼び、center ドロップなら activeTab を切替
+ * - drop で applySplitDrop（useSplitDropDrag と共通の確定処理）を呼ぶ
+ *
+ * ポインタ座標のヒットテストで確定する経路（タブ長押しドラッグ）は
+ * useSplitDropDrag.finishSplitDrop 側。確定処理はどちらも applySplitDrop に
+ * 一本化してある。
  */
-export function useTerminalDrop() {
+export function useSplitDropZones() {
   const layoutStore = useLayoutStore();
-  const terminalStore = useTerminalStore();
+  const { applySplitDrop } = useSplitDropDrag();
 
   function onDragEnter(e) {
     e.currentTarget.classList.add("drag-over");
@@ -25,10 +29,7 @@ export function useTerminalDrop() {
     const raw = layoutStore.dragTabId || e.dataTransfer.getData("text/plain");
     const tabId = typeof raw === "string" ? parseInt(raw, 10) : raw;
     if (tabId) {
-      layoutStore.splitWithDrop(tabId, direction, terminalStore.openTabs, terminalStore.activeTabId);
-      if (direction === "center" && !layoutStore.isSplitMode) {
-        terminalStore.switchTab(tabId);
-      }
+      applySplitDrop(tabId, direction);
     }
     layoutStore.dragTabId = null;
   }

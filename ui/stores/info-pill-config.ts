@@ -5,7 +5,7 @@ import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.ts";
 import { INFO_PILL_FIELDS } from "../utils/info-pills.ts";
 import { createServerSettings } from "../utils/server-settings.ts";
 
-// フィールド一覧・デフォルト表示順はinfo-pills.jsのディスクリプタテーブルから導出する。
+// フィールド一覧・デフォルト表示順はinfo-pills.tsのディスクリプタテーブルから導出する。
 const FIELDS = INFO_PILL_FIELDS;
 const DEFAULT_ORDER = INFO_PILL_FIELDS;
 

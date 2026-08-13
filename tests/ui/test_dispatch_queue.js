@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { applyDispatchQueue, useDispatchConfirm } from "../../ui/composables/useDispatchConfirm.ts";
+import { applyDispatchQueue, useDispatchQueue } from "../../ui/composables/useDispatchQueue.ts";
 import { on } from "../../ui/app-bridge.ts";
 
 const apiPostMock = vi.fn();
@@ -18,7 +18,7 @@ describe("applyDispatchQueue", () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
-    ({ queue, recent } = useDispatchConfirm());
+    ({ queue, recent } = useDispatchQueue());
     applyDispatchQueue([]);
   });
 
@@ -81,7 +81,7 @@ describe("rerunNow", () => {
 
   it("run:trueと上書き値を付けてrerun APIを呼び、成功でtrueを返す", async () => {
     apiPostMock.mockResolvedValue({ ok: true, data: {} });
-    const { rerunNow } = useDispatchConfirm();
+    const { rerunNow } = useDispatchQueue();
     const ok = await rerunNow("d1", { text: "echo edited" });
     expect(ok).toBe(true);
     expect(apiPostMock).toHaveBeenCalledWith(
@@ -93,7 +93,7 @@ describe("rerunNow", () => {
 
   it("失敗時はfalseを返す", async () => {
     apiPostMock.mockResolvedValue({ ok: false, data: null });
-    const { rerunNow } = useDispatchConfirm();
+    const { rerunNow } = useDispatchQueue();
     expect(await rerunNow("d1", {})).toBe(false);
   });
 });

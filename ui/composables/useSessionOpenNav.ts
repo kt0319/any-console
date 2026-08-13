@@ -3,14 +3,14 @@ import { on } from "../app-bridge.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 
 // Open Session系列（WorkspaceOpen/WorkspaceAdd/WorkspaceEdit/JobConfig/
-// IconPicker）専用のビュースタック。useSettingsNav.jsと同じ構造をルート
+// IconPicker）専用のビュースタック。useSettingsNav.tsと同じ構造をルート
 // ビュー"WorkspaceOpen"で複製したもの（SessionOpenModal.vueがホストする）。
 // タブバーの「+」ボタンから開き、SettingsやSessionListとは完全に独立して
 // 開閉する。
 //
 // isOpenはスタック深さ（canNavigateBack相当）では判定できない —
 // WorkspaceOpenルート自体が「開いている」状態を表すため、明示的なrefで持つ
-// （useWorkspaceDetailNav.jsと同様の考え方）。
+// （useWorkspaceDetailNav.tsと同様の考え方）。
 
 type NavEntry = { view: string, state: Record<string, any> };
 

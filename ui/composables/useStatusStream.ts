@@ -1,7 +1,7 @@
 import { watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
-import { applyDispatchQueue } from "./useDispatchConfirm.ts";
+import { applyDispatchQueue } from "./useDispatchQueue.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { useToast } from "./useToast.ts";
 import { on } from "../app-bridge.ts";
@@ -46,7 +46,7 @@ export function useStatusStream() {
   // ため（バックグラウンドのタブは「見ている」とみなさない）。
   function currentViewingSessionId() {
     if (document.hidden) return null;
-    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    const tab = terminalStore.activeTab;
     return tab?.sessionId || null;
   }
 

@@ -1,7 +1,7 @@
 import { createWorkspaceResourcePoll } from "./useWorkspaceResourcePoll.ts";
 
 // GitHub Actionsピル用。取得・重複排除・参照カウント式ポーリングの実装は
-// useWorkspaceResourcePoll.js に共通化してある（run実行中のステータス変化
+// useWorkspaceResourcePoll.ts に共通化してある（run実行中のステータス変化
 // （in_progress→success/failure）を拾うため、表示中だけ定期的に再取得する）。
 
 function mapRun(item: Record<string, any>) {
@@ -17,7 +17,7 @@ function mapRun(item: Record<string, any>) {
 
 const usePoll = createWorkspaceResourcePoll({ resourcePath: "github/runs", mapItem: mapRun });
 
-export function useWorkspaceActions() {
+export function useWorkspaceRuns() {
   const { itemsByWorkspace, fetchItems, startPolling, stopPolling } = usePoll();
   return { runsByWorkspace: itemsByWorkspace, fetchRuns: fetchItems, startPolling, stopPolling };
 }

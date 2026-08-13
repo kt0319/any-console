@@ -47,16 +47,24 @@ export function useSplitDropDrag() {
     return null;
   }
 
-  function finishSplitDrop({ tabId, clientX, clientY, openTabs, activeTabId }) {
+  /**
+   * ドロップ確定の共通処理（ポインタ座標経由の finishSplitDrop と HTML5 DnD
+   * 経由の useSplitDropZones.onDrop の両方から呼ぶ）。
+   */
+  function applySplitDrop(tabId, direction) {
+    layoutStore.splitWithDrop(tabId, direction, terminalStore.openTabs, terminalStore.activeTabId);
+    if (direction === "center" && !layoutStore.isSplitMode) {
+      terminalStore.switchTab(tabId);
+    }
+  }
+
+  function finishSplitDrop({ tabId, clientX, clientY }) {
     const dropDir = detectDropZone(clientX, clientY);
     layoutStore.isShowDropZones = false;
     layoutStore.dragTabId = null;
     clearHover();
     if (dropDir) {
-      layoutStore.splitWithDrop(tabId, dropDir, openTabs, activeTabId);
-      if (dropDir === "center" && !layoutStore.isSplitMode) {
-        terminalStore.switchTab(tabId);
-      }
+      applySplitDrop(tabId, dropDir);
     }
     return dropDir;
   }
@@ -71,6 +79,7 @@ export function useSplitDropDrag() {
     beginDrag,
     updateHover,
     detectDropZone,
+    applySplitDrop,
     finishSplitDrop,
     cancelDrag,
     clearHover,

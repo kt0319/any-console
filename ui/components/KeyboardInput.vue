@@ -74,7 +74,7 @@ const placeholder = computed(() => {
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
 
-// 境界判定本体は純粋関数としてkeyboard.jsに置く（テスト対象）。
+// 境界判定本体は純粋関数としてkeyboard.tsに置く（テスト対象）。
 function isFirstLine(el: HTMLTextAreaElement) {
   return isCaretOnFirstLine(el.value, el.selectionStart);
 }

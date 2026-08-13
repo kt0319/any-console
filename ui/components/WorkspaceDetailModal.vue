@@ -41,13 +41,13 @@ import WorkspaceDetail from "./WorkspaceDetail.vue";
 
 // WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用の全面
 // オーバーレイ。セッション一覧/Open Session/Settingsのナビゲーションとは
-// 完全に独立しており（useWorkspaceDetailNav.js）、開いても裏のそれらの
+// 完全に独立しており（useWorkspaceDetailNav.ts）、開いても裏のそれらの
 // 表示は変化しない。PC・モバイル共通でこのコンポーネントが担当する
 // （.content-area、TabBarの下＝ターミナル表示エリアと同じ場所に配置。
 // PCはサイドバー分.content-areaが右へ縮んでいるため、サイドバーには
 // 被さらずターミナル部分だけに重なる）。
 //
-// pushView/popViewだけは例外的にuseSessionOpenNav.jsの実体をprovideする
+// pushView/popViewだけは例外的にuseSessionOpenNav.tsの実体をprovideする
 // （WorkspaceJobsPane.vueの「Add Job」からJobConfig（Open Session側の画面）を
 // 開く導線があるため）。
 
@@ -58,7 +58,7 @@ const {
   onBack, close, setPaneRef, updateViewState,
 } = useWorkspaceDetailNav();
 const terminalStore = useTerminalStore();
-// タブ切替のたびに<WorkspaceDetail>を再マウントし、useWorkspaceDetailNav.js
+// タブ切替のたびに<WorkspaceDetail>を再マウントし、useWorkspaceDetailNav.ts
 // がタブごとに保持しているisOpen/detail(pane)を確実に反映させる
 // （WorkspaceDetail.vue自体はopen()をonMounted時にしか呼ばないため）。
 // null は「アクティブタブなし」。:key に渡すため number として扱う

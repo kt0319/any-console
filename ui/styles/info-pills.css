@@ -98,7 +98,7 @@
    白固定、ステータス部分（.pill-peek-actions-status）だけをpush/pullの
    Pushed/Pulled表示と同様に色付け+boldにする（PillPeek.vueが
    .pill-peek-actions-name/.pill-peek-actions-statusの2spanに分けて描画
-   する）。info-pills.jsのACTIONS_STATUS_COLOR_BUCKETが実行中/成功/失敗/
+   する）。info-pills.tsのACTIONS_STATUS_COLOR_BUCKETが実行中/成功/失敗/
    neutral（cancelled/skipped等の実害の無い終了）の4段階に丸め、必ず
    いずれかの色が付く。 */
 .pill-peek-brown .pill-peek-icon { color: #8c6c50; }

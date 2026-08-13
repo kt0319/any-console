@@ -1,7 +1,7 @@
 import { createWorkspaceResourcePoll } from "./useWorkspaceResourcePoll.ts";
 
 // GitHub PRピル用。取得・重複排除・参照カウント式ポーリングの実装は
-// useWorkspaceResourcePoll.js に共通化してある。
+// useWorkspaceResourcePoll.ts に共通化してある。
 
 function mapPR(item: Record<string, any>) {
   return {

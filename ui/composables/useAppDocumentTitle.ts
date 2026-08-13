@@ -16,7 +16,7 @@ export function useAppDocumentTitle() {
 
   const activeTabLabel = computed(() => {
     if (!terminalStore.openTabs.length) return "";
-    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    const tab = terminalStore.activeTab;
     return tabTitleLabel(tab, workspaceStore.allWorkspaces);
   });
 

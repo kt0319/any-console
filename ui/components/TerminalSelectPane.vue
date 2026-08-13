@@ -47,7 +47,7 @@ const allChecked = computed({
 const displayText = computed(() => applyFormat(original.value, format));
 
 function refresh() {
-  const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+  const tab = terminalStore.activeTab;
   original.value = tab ? (getFullBufferText(tab.term) || "") : "";
 }
 

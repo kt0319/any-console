@@ -170,7 +170,7 @@ export function usePillPeek({
 
   // peekピルの表示に使う派生値もここで返す（TerminalPane / SessionSidebarRow で
   // 同じ組み立てを繰り返さないため）。アイコン・色はキーごとの静的テーブル
-  // （info-pills.js）、テキスト・シグネチャはpill-peek.jsの純粋関数。
+  // （info-pills.ts）、テキスト・シグネチャはpill-peek.tsの純粋関数。
   const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
   const peekColorClass = computed(() => peekColorForKey(peekingKey.value, peekFields.value));
   const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));

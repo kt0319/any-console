@@ -112,7 +112,7 @@ import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { workspaceDisplayName } from "../utils/worktree.ts";
 
@@ -147,7 +147,7 @@ const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(n
 // （別レイヤーとして開いてしまい、ワークスペース詳細の外に見えてしまうため）。
 const selectedDispatchId = ref<string | null>(null);
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
-// （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.jsのcloseをprovideする）。
+// （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.tsのcloseをprovideする）。
 const closeWorkspaceDetail = inject<(() => void) | undefined>("closeWorkspaceDetail");
 function onDispatchRunDone() {
   selectedDispatchId.value = null;
@@ -170,7 +170,7 @@ const diffMessage = ref("");
 const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
-const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchConfirm();
+const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchQueue();
 // タブのバッジ数字は承認待ち（pending）件数のみでよい（実行済みrecentは
 // 件数に含めない）。ただしタブ自体の表示可否はrecentしか無い場合でも
 // 履歴を見返せるよう、pending/recentのどちらかがあれば出す。

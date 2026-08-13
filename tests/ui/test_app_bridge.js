@@ -25,7 +25,7 @@ function walk(dir) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       files.push(...walk(full));
-    } else if (/\.(js|vue)$/.test(entry)) {
+    } else if (/\.(js|ts|vue)$/.test(entry)) {
       files.push(full);
     }
   }
@@ -64,5 +64,18 @@ describe("BUS_EVENTS catalog", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it("has no unused catalog entries (dead events)", () => {
+    // カタログに載っているのに emit も on もされないイベントは、購読者の削除
+    // 漏れ・emit の書き忘れのどちらかを示す。circle-keypad プリセット等の
+    // 動的 emit（bridgeEmit(s.action, ...) 形式）はこの走査に載らないため、
+    // 文字列リテラルとして ui/ 内に現れるかどうかも許容条件にする。
+    const used = collectUsedEvents();
+    const allText = walk(UI_DIR)
+      .map((f) => readFileSync(f, "utf-8"))
+      .join("\n");
+    const unused = BUS_EVENTS.filter((name) => !used.has(name) && !allText.includes(`"${name}"`));
+    expect(unused).toEqual([]);
   });
 });

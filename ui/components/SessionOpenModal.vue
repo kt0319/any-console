@@ -54,7 +54,7 @@ import IconPicker from "./IconPicker.vue";
 // WorkspaceEdit/JobConfig/IconPicker）専用の全面オーバーレイ。
 // WorkspaceDetailModal.vueと同じシェル（.modal-overlay/.modal/
 // .settings-panel-header/.settings-panel-body）を使い、ナビゲーションは
-// useSessionOpenNav.js（Settings/セッション一覧とは完全に独立したビュー
+// useSessionOpenNav.ts（Settings/セッション一覧とは完全に独立したビュー
 // スタック）を使う。
 
 const modal = useModal();

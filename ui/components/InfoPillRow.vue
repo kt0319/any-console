@@ -154,7 +154,7 @@ const props = defineProps({
   hasAction: { type: Boolean, default: false },
   hasDevServer: { type: Boolean, default: false },
   dispatchCount: { type: Number, default: 0 },
-  // キーごとのツールチップ文言（ui/utils/info-pill-tooltips.js で組み立て）。
+  // キーごとのツールチップ文言（ui/utils/info-pill-tooltips.ts で組み立て）。
   tooltips: { type: Object, required: true },
 });
 
