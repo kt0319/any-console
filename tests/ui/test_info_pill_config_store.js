@@ -2,8 +2,8 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useInfoPillConfigStore } from "../../ui/stores/info-pill-config.js";
-import { useAuthStore } from "../../ui/stores/auth.js";
+import { useInfoPillConfigStore } from "../../ui/stores/info-pill-config.ts";
+import { useAuthStore } from "../../ui/stores/auth.ts";
 
 const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };

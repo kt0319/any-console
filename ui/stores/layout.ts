@@ -5,7 +5,8 @@ import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../u
 import { calcGridLayout } from "../utils/terminal-layout.ts";
 import { isTouchInput } from "../utils/device.ts";
 import { safeFlagLoad, safeFlagSave } from "../utils/storage.ts";
-import { useTerminalStore } from "./terminal.js";
+import { useTerminalStore } from "./terminal.ts";
+import type { TerminalTab } from "./terminal.ts";
 
 export const useLayoutStore = defineStore("layout", () => {
   const isTouchDevice = isTouchInput();
@@ -15,7 +16,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isPanelBottom.value = e.matches;
   });
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
-    || /** @type {any} */ (navigator).standalone === true;
+    || (navigator as any).standalone === true;
 
   const isSettingsOpen = ref(false);
 
@@ -35,14 +36,14 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   const isSplitMode = ref(false);
-  const splitPaneTabIds = ref(/** @type {(number|string)[]} */ ([]));
+  const splitPaneTabIds = ref<(number | string)[]>([]);
   const activePaneIndex = ref(0);
   const splitLayout = ref("grid");
 
   const isShowDropZones = ref(false);
-  const dragTabId = ref(null);
+  const dragTabId = ref<number | null>(null);
   // タッチドラッグ中、指下のタブに対する挿入インジケータ（別コンポーネントインスタンス間で共有するため store 経由）
-  const dragOverTabId = ref(null);
+  const dragOverTabId = ref<number | null>(null);
   const dragOverSide = ref("");
 
   let emptyPaneSeq = 0;
@@ -51,7 +52,7 @@ export const useLayoutStore = defineStore("layout", () => {
     return makeEmptyPaneId(emptyPaneSeq);
   }
 
-  function cornerToGridIndex(count, corner) {
+  function cornerToGridIndex(count: number, corner: string) {
     const rows = calcGridLayout(count);
     const topCols = rows[0] || 1;
     const bottomRow = rows.length - 1;
@@ -82,13 +83,13 @@ export const useLayoutStore = defineStore("layout", () => {
   // 空ける操作）でも「候補が1つだけ」の状態が再現され、外したタブ自身が
   // 即座に再割り当てされて選択画面に戻れなくなる不具合があった。生成時点
   // だけで判定するこの方式ならその副作用が起きない。
-  function soleRemainingTab(openTabs, excludeIds) {
+  function soleRemainingTab(openTabs: TerminalTab[] | null | undefined, excludeIds: (number | string)[]): TerminalTab | null {
     const exclude = new Set(excludeIds);
     const candidates = (openTabs || []).filter((t) => !exclude.has(t.id));
     return candidates.length === 1 ? candidates[0] : null;
   }
 
-  function splitWithDrop(tabId, direction, openTabs, _activeTabId) {
+  function splitWithDrop(tabId: number, direction: string, openTabs: TerminalTab[], _activeTabId?: number | null) {
     if (!tabId) return;
 
     if (direction === "center") {
@@ -144,8 +145,8 @@ export const useLayoutStore = defineStore("layout", () => {
     isSplitMode.value = true;
   }
 
-  function buildPanesWithTabAt(tabId, paneCount, targetIdx) {
-    const arr = new Array(paneCount).fill(null).map(() => nextEmptyId());
+  function buildPanesWithTabAt(tabId: number, paneCount: number, targetIdx: number) {
+    const arr: (number | string)[] = new Array(paneCount).fill(null).map(() => nextEmptyId());
     const idx = Math.min(Math.max(0, targetIdx), paneCount - 1);
     arr[idx] = tabId;
     return arr;
@@ -155,7 +156,7 @@ export const useLayoutStore = defineStore("layout", () => {
    * 指定ペインに既存タブを割り当てる。
    * そのタブが別ペインで表示中なら、元のペインを空きに置き換える（座席交換）。
    */
-  function assignTabToPane(paneIndex, tabId) {
+  function assignTabToPane(paneIndex: number, tabId: number) {
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
     const ids = splitPaneTabIds.value.slice();
     const existingIdx = ids.indexOf(tabId);
@@ -172,7 +173,7 @@ export const useLayoutStore = defineStore("layout", () => {
    * 指定タブIDをペイン配列から空きペインに置き換える。
    * 有効ペインが0個になったら分割を解除する。
    */
-  function replaceTabWithEmpty(tabId) {
+  function replaceTabWithEmpty(tabId: number) {
     if (!isSplitMode.value) return;
     const ids = splitPaneTabIds.value.map((id) => (id === tabId ? nextEmptyId() : id));
     // exitSplitMode は現在の splitPaneTabIds から復帰先タブを探すため、
@@ -190,11 +191,11 @@ export const useLayoutStore = defineStore("layout", () => {
    * フォールバックして terminalStore.switchTab を呼ぶ。呼び出し元はswitchTabを
    * 別途呼ぶ必要はない。
    */
-  function exitSplitMode(targetTabId) {
+  function exitSplitMode(targetTabId?: number | null): number | null {
     const ids = splitPaneTabIds.value;
     const activeId = ids[activePaneIndex.value];
     const restoreTabId = targetTabId
-      ?? (activeId != null && !isEmptyPaneId(activeId) ? activeId : null)
+      ?? (activeId != null && !isEmptyPaneId(activeId) ? (activeId as number) : null)
       ?? realTabIds(ids)[0]
       ?? null;
     isSplitMode.value = false;
@@ -211,7 +212,7 @@ export const useLayoutStore = defineStore("layout", () => {
    * （SplitEmptyPane の Add pane ボタンから呼ばれる）。現在のレイアウト軸は変更しない。
    * 開いているタブ数を超えてペインを増やしても埋められないため、そこで打ち止めにする。
    */
-  function addPane(paneIndex) {
+  function addPane(paneIndex: number) {
     if (!isSplitMode.value) return;
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
     const terminalStore = useTerminalStore();
@@ -229,9 +230,9 @@ export const useLayoutStore = defineStore("layout", () => {
    * 指定インデックスの空きペインをペイン配列から削除する（SplitEmptyPane のタイトル横の
    * ×ボタンから呼ばれる）。残りペインが1つになったら分割を解除し、それが実タブなら
    * 切り替え先として返す（呼び出し元で terminalStore.switchTab するため）。
-   * @returns {number|null} 切り替え先タブID（分割解除時のみ）
+   * @returns 切り替え先タブID（分割解除時のみ）
    */
-  function removeEmptyPane(paneIndex) {
+  function removeEmptyPane(paneIndex: number): number | null {
     if (!isSplitMode.value) return null;
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return null;
     const ids = splitPaneTabIds.value.slice();

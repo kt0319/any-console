@@ -7,7 +7,7 @@ import {
   WS_STALE_THRESHOLD_MS,
 } from "../utils/constants.ts";
 import { emit } from "../app-bridge.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { anyTabWsAlive, staleAliveTabs, decideOffline } from "../utils/connectivity.ts";
 
 const isOffline = ref(false);

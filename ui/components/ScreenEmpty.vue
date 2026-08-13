@@ -82,7 +82,7 @@ import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { isMobileUserAgent } from "../utils/device.ts";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.ts";
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { usePwaInstall } from "../composables/usePwaInstall.js";
 import StatusOverlay from "./StatusOverlay.vue";

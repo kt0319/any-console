@@ -1,5 +1,5 @@
 import { onMounted, onBeforeUnmount } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useTerminal } from "./useTerminal.js";
 import { useSessionSync } from "./useSessionSync.js";
 import { SESSION_RESUME_COALESCE_MS } from "../utils/constants.ts";

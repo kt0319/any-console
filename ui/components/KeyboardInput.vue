@@ -31,7 +31,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from "vue";
-import { useInputStore } from "../stores/input.js";
+import { useInputStore } from "../stores/input.ts";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";

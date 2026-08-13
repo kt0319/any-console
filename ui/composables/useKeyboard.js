@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { keyDefToAnsi } from "../utils/key-ansi.ts";
 import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.ts";
 import { attachFlickKey } from "./useFlickKey.js";

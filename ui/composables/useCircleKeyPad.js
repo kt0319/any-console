@@ -2,10 +2,10 @@ import { computed, reactive } from "vue";
 import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
 import {
   CIRCLE_KEYPAD_ANGLES,
   SPECIAL_POSITIONS,

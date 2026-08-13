@@ -51,9 +51,9 @@
 
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
 import { useGithubPolling } from "../composables/useGithubPolling.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";

@@ -2,7 +2,7 @@
 // @ts-check
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useLayoutStore } from "../../ui/stores/layout.js";
+import { useLayoutStore } from "../../ui/stores/layout.ts";
 
 async function freshModules() {
   vi.resetModules();

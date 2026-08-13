@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import ScreenEmpty from "../../../ui/components/ScreenEmpty.vue";
-import { useLayoutStore } from "../../../ui/stores/layout.js";
+import { useLayoutStore } from "../../../ui/stores/layout.ts";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
 const apiGetMock = vi.fn();

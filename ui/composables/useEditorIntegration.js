@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.ts";

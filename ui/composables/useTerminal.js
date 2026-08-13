@@ -1,4 +1,4 @@
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.ts";

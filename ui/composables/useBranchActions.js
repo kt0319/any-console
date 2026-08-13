@@ -6,7 +6,7 @@ import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { useToast } from "./useToast.js";
 import { useGitRemoteAction } from "./useGitRemoteAction.js";
 import { useWorktreeRemove } from "./useWorktreeRemove.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.js";
 

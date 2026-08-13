@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import type { Ref } from "vue";
 import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.ts";
 import { INFO_PILL_FIELDS } from "../utils/info-pills.ts";
 import { createServerSettings } from "../utils/server-settings.ts";
@@ -18,10 +19,10 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const files = ref(true);
   const add = ref(true);
   const dispatch = ref(true);
-  const order = ref([...DEFAULT_ORDER]);
+  const order = ref<string[]>([...DEFAULT_ORDER]);
   const loaded = ref(false);
 
-  const fieldRefs = { branch, history, prs, actions, changes, devserver, files, add, dispatch };
+  const fieldRefs: Record<string, Ref<boolean>> = { branch, history, prs, actions, changes, devserver, files, add, dispatch };
 
   // load のリトライ・loaded 確定の方針は createServerSettings 参照。
   const { load, save } = createServerSettings(EP_SETTINGS_INFO_PILLS, {
@@ -33,7 +34,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
       order.value = Array.isArray(data?.order) && data.order.length ? data.order : [...DEFAULT_ORDER];
     },
     serialize() {
-      const body = { order: order.value };
+      const body: Record<string, any> = { order: order.value };
       for (const field of FIELDS) body[field] = fieldRefs[field].value;
       return body;
     },
@@ -41,7 +42,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
 
   // useListDragSort の onReorder(fromIdx, toIdx) にそのまま渡せる形にする
   // （SessionListView.vue の terminalStore.moveTab と同じsplice方式）。
-  function reorder(fromIndex, toIndex) {
+  function reorder(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= order.value.length) return;
     if (toIndex < 0 || toIndex >= order.value.length) return;

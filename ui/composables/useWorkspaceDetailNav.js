@@ -1,5 +1,5 @@
 import { reactive, computed, watch } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.js";
 
 // WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用のナビゲー

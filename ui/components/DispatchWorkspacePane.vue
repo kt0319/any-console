@@ -35,7 +35,7 @@
 <script setup>
 import { computed } from "vue";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 

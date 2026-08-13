@@ -141,7 +141,7 @@ import { ref, computed, watch } from "vue";
 import { useBranchList } from "../composables/useBranchList.js";
 import { useBranchActions } from "../composables/useBranchActions.js";
 import { useBranchAddDialog } from "../composables/useBranchAddDialog.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush } from "../utils/git-branch.ts";
 import { emit } from "../app-bridge.js";

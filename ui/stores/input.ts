@@ -7,14 +7,14 @@ import { NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 
 export const useInputStore = defineStore("input", () => {
-  const inputHistory = ref(safeJsonLoad(INPUT_HISTORY_KEY, []));
-  const snippetsCache = ref(/** @type {{ label: string, command: string }[]} */ ([]));
+  const inputHistory = ref<string[]>(safeJsonLoad(INPUT_HISTORY_KEY, []));
+  const snippetsCache = ref<{ label: string, command: string }[]>([]);
   const isSnippetsLoaded = ref(false);
 
   const NUMBER_KEYS = ref(NUMBER_KEYS_DEF);
   const QWERTY_ROWS = ref(QWERTY_ROWS_DEF);
 
-  function addInputHistory(text) {
+  function addInputHistory(text: string) {
     if (!text) return;
     if (snippetsCache.value.some((s) => s.command === text)) return;
     inputHistory.value = inputHistory.value.filter((h) => h !== text);
@@ -23,7 +23,7 @@ export const useInputStore = defineStore("input", () => {
     safeJsonSave(INPUT_HISTORY_KEY, inputHistory.value);
   }
 
-  function removeInputHistory(text) {
+  function removeInputHistory(text: string) {
     inputHistory.value = inputHistory.value.filter((h) => h !== text);
     safeJsonSave(INPUT_HISTORY_KEY, inputHistory.value);
   }

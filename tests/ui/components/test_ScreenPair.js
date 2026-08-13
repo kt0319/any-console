@@ -7,7 +7,7 @@ import { expectNoA11yViolations } from "./axe-helper.js";
 
 const claimPairingMock = vi.fn();
 
-vi.mock("../../../ui/stores/auth.js", () => ({
+vi.mock("../../../ui/stores/auth.ts", () => ({
   useAuthStore: () => ({ claimPairing: (...args) => claimPairingMock(...args) }),
 }));
 

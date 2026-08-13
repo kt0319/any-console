@@ -1,7 +1,7 @@
 import { emit } from "../app-bridge.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { terminalSessionCwdPath } from "../utils/endpoints.ts";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.ts";
 import { openExternal } from "../utils/open-external.ts";

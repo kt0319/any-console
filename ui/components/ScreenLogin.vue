@@ -54,7 +54,7 @@
 
 <script setup>
 import { ref, nextTick } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 import { useModal } from "../composables/useModal.js";
 import { parsePairUrl } from "../utils/pairing.ts";
 

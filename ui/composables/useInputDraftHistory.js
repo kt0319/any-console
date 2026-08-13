@@ -1,5 +1,5 @@
 import { watch } from "vue";
-import { useInputStore } from "../stores/input.js";
+import { useInputStore } from "../stores/input.ts";
 
 /**
  * @param {import('vue').Ref<string>} draft

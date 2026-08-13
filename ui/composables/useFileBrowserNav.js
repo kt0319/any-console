@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import {
   terminalSessionFileContentPath,

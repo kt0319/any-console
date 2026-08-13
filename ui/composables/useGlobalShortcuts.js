@@ -1,7 +1,7 @@
 import { onMounted, onBeforeUnmount } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useConfirm } from "./useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { emit } from "../app-bridge.js";

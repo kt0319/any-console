@@ -36,7 +36,7 @@ import { ref, computed, provide, watch } from "vue";
 import { useModal } from "../composables/useModal.js";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
 import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 
 // WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用の全面

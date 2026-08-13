@@ -80,7 +80,7 @@ import { computed, ref, toRef, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useFileDragDrop } from "../composables/useFileDragDrop.js";
 import { useFileActions } from "../composables/useFileActions.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";

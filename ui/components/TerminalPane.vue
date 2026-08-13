@@ -88,9 +88,9 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { emit } from "../app-bridge.js";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
@@ -102,7 +102,7 @@ import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useGithubPolling } from "../composables/useGithubPolling.js";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useInfoPillActions } from "../composables/useInfoPillActions.js";
 import { usePillPeek } from "../composables/usePillPeek.js";

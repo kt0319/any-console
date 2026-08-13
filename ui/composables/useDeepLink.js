@@ -1,6 +1,6 @@
 import { nextTick } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "./useConfirm.js";

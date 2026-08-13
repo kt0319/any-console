@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useDeepLink } from "../../ui/composables/useDeepLink.js";
-import { useTerminalStore } from "../../ui/stores/terminal.js";
+import { useTerminalStore } from "../../ui/stores/terminal.ts";
 import { on } from "../../ui/app-bridge.js";
 
 describe("useDeepLink: attachSessionTab", () => {

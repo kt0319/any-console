@@ -14,7 +14,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useInputStore } from "../stores/input.js";
+import { useInputStore } from "../stores/input.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
 

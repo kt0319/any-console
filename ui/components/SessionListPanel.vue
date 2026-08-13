@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
 import SessionListView from "./SessionListView.vue";
 

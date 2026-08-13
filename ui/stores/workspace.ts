@@ -8,26 +8,26 @@ import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 const STATUS_CACHE_KEY = LS_PREFIX_WS_META + "status_cache";
 const STATUS_CACHE_FIELDS = ["last_commit_message", "branch"];
 
-function loadStatusCache() {
+function loadStatusCache(): Record<string, Record<string, any>> {
   const parsed = safeJsonLoad(STATUS_CACHE_KEY, null);
   return parsed && typeof parsed === "object" ? parsed : {};
 }
 
-function saveStatusCache(cache) {
+function saveStatusCache(cache: Record<string, Record<string, any>>) {
   safeJsonSave(STATUS_CACHE_KEY, cache);
 }
 
 export const useWorkspaceStore = defineStore("workspace", () => {
   const { apiGet } = useApi();
-  const allWorkspaces = ref(/** @type {Record<string, any>[]} */ ([]));
-  const groups = ref(/** @type {Record<string, any>[]} */ ([]));
-  const selectedWorkspace = ref(/** @type {string|null} */ (null));
+  const allWorkspaces = ref<Record<string, any>[]>([]);
+  const groups = ref<Record<string, any>[]>([]);
+  const selectedWorkspace = ref<string | null>(null);
 
   const currentWorkspace = computed(() =>
     allWorkspaces.value.find((w) => w.name === selectedWorkspace.value),
   );
 
-  async function _safeFetch(endpoint) {
+  async function _safeFetch(endpoint: string) {
     try {
       return await apiGet(endpoint);
     } catch {
@@ -60,9 +60,8 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   /**
    * ステータス配列（/workspaces/statuses の statuses、または WS push の statuses）を
    * ストアへマージする。
-   * @param {Record<string, any>[]} statuses
    */
-  function applyStatuses(statuses) {
+  function applyStatuses(statuses: Record<string, any>[]) {
     if (!Array.isArray(statuses) || statuses.length === 0) return;
     const cache = loadStatusCache();
     for (const status of statuses) {
@@ -76,7 +75,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
         if (v != null) ws[k] = v;
         else if (ws[k] === undefined) ws[k] = v;
       }
-      const entry = {};
+      const entry: Record<string, any> = {};
       for (const field of STATUS_CACHE_FIELDS) {
         if (ws[field] != null) entry[field] = ws[field];
       }

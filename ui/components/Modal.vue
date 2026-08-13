@@ -23,7 +23,7 @@
 import { ref, watch } from "vue";
 import { useModal } from "../composables/useModal.js";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
 // モバイル専用のオーバーレイ表示。中身はSessionListPanel.vue/

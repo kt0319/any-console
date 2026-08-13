@@ -45,7 +45,7 @@
 
 <script setup>
 import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";

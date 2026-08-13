@@ -38,7 +38,7 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from "vue";
 import { copyText } from "../utils/clipboard.ts";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { devServerUrl } from "../utils/preview-url.ts";

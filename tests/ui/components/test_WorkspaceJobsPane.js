@@ -40,7 +40,7 @@ let wrapper;
 
 beforeEach(async () => {
   setActivePinia(createPinia());
-  const { useWorkspaceStore } = await import("../../../ui/stores/workspace.js");
+  const { useWorkspaceStore } = await import("../../../ui/stores/workspace.ts");
   const store = useWorkspaceStore();
   store.allWorkspaces = [{ name: "ws1", icon: "mdi-folder" }];
   store.selectedWorkspace = "ws1";

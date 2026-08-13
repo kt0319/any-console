@@ -5,11 +5,11 @@
 
 const EMPTY_PANE_PREFIX = "empty:";
 
-export function isEmptyPaneId(id) {
+export function isEmptyPaneId(id: unknown): id is string {
   return typeof id === "string" && id.startsWith(EMPTY_PANE_PREFIX);
 }
 
-export function makeEmptyPaneId(seq) {
+export function makeEmptyPaneId(seq: number | string): string {
   return `${EMPTY_PANE_PREFIX}${seq}`;
 }
 

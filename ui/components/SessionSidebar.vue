@@ -10,7 +10,7 @@
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount } from "vue";
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
 import SessionListPanel from "./SessionListPanel.vue";
 

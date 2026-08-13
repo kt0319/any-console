@@ -100,7 +100,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.js";
 

@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { joinEntryPath } from "../utils/file-browser.ts";
 import { buildGithubFileUrl } from "../utils/git.ts";
 import { openExternal } from "../utils/open-external.ts";

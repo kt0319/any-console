@@ -1,8 +1,8 @@
 import { nextTick, ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useAuthStore } from "../stores/auth.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminal } from "./useTerminal.js";
 import { useToast } from "./useToast.js";
 import { usePrompt } from "./usePrompt.js";

@@ -1,5 +1,5 @@
 import { keyDefToAnsi } from "./key-ansi.ts";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 
 /**
  * 指定ターミナルタブの WebSocket へキー入力（ANSI シーケンス）を送信する。

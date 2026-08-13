@@ -1,12 +1,12 @@
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useAuthStore } from "../stores/auth.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useSessionSync } from "./useSessionSync.js";
 import { useStatusStream } from "./useStatusStream.js";
 import { useToast } from "./useToast.js";
-import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
+import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.js";
 

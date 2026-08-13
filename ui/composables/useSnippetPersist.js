@@ -1,4 +1,4 @@
-import { useInputStore } from "../stores/input.js";
+import { useInputStore } from "../stores/input.ts";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { emit } from "../app-bridge.js";

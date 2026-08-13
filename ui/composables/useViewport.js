@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import { KEYBOARD_CLOSE_DELAY_MS, KEYBOARD_OPEN_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS, DOUBLE_TAP_ZOOM_PREVENT_MS } from "../utils/constants.ts";
 
 let initialized = false;

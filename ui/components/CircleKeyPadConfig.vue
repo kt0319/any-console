@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
+import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
 import { useModalView } from "../composables/useModalView.js";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,

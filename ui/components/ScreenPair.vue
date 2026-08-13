@@ -23,7 +23,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 
 const props = defineProps({
   pairingId: { type: String, required: true },

@@ -1,7 +1,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useKeyboard } from "./useKeyboard.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { keyDefToAnsi } from "../utils/key-ansi.ts";
 import { isEditableOrDialogTarget, isEditableTarget } from "../utils/dom.ts";
 import { isTouchOnly } from "../utils/keyboard.ts";

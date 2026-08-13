@@ -1,5 +1,5 @@
-import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 
 const DROP_ZONE_CLASS_RE = /\bdrop-(top-left|top-right|bottom-left|bottom-right|left|right|top|bottom|center)\b/;
 

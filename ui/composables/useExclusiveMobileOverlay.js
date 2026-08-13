@@ -1,4 +1,4 @@
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 
 // セッション一覧(sessionList)・Open Session(sessionOpen)・Settings(settings)・
 // WorkspaceDetail(workspaceDetail)の4オーバーレイを排他制御するための

@@ -64,8 +64,8 @@
 <script setup>
 import { computed, nextTick, ref } from "vue";
 import TabItem from "./TabItem.vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
 import { useSettingsNav } from "../composables/useSettingsNav.js";

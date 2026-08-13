@@ -1,8 +1,8 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import {
   dispatchDecisionPath,
   dispatchRerunPath,

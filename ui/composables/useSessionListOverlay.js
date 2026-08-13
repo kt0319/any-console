@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.js";
 
 // セッション一覧オーバーレイ（PC: SessionSidebar.vue / モバイル: Modal.vue が

@@ -82,8 +82,8 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { useInputStore } from "../stores/input.js";
-import { useAuthStore } from "../stores/auth.js";
+import { useInputStore } from "../stores/input.ts";
+import { useAuthStore } from "../stores/auth.ts";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
 import { useQwertyCamera } from "../composables/useQwertyCamera.js";
 import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.ts";

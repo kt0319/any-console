@@ -1,6 +1,6 @@
 import { ref } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
 import { buildDetachedSessionList } from "../utils/detached-sessions.ts";

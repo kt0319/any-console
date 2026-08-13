@@ -1,6 +1,6 @@
 import { computed, watch } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const APP_NAME = "any-console";

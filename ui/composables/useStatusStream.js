@@ -1,6 +1,6 @@
 import { watch } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { applyDispatchQueue } from "./useDispatchConfirm.js";
 import { useSessionSync } from "./useSessionSync.js";
 import { useToast } from "./useToast.js";

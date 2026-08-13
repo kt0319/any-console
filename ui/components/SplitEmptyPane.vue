@@ -45,8 +45,8 @@
 
 <script setup>
 import { computed } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { emit } from "../app-bridge.js";

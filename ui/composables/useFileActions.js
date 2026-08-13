@@ -1,4 +1,4 @@
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useWorkspace } from "./useWorkspace.js";

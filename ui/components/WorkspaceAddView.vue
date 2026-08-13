@@ -8,8 +8,8 @@
 import { computed, onMounted } from "vue";
 import WorkspaceAddInline from "./WorkspaceAddInline.vue";
 import { useModalView } from "../composables/useModalView.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useApi } from "../composables/useApi.js";
 import { terminalSessionWorkspacePath } from "../utils/endpoints.ts";
 

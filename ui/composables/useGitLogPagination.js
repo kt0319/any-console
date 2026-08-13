@@ -1,6 +1,6 @@
 import { ref, computed, nextTick } from "vue";
-import { useGitStore } from "../stores/git.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useGitStore } from "../stores/git.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.ts";

@@ -1,7 +1,7 @@
-import { useAuthStore } from "../stores/auth.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useAuthStore } from "../stores/auth.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.ts";

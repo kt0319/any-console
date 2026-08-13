@@ -1,5 +1,5 @@
 import type { Ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 
 /**
  * サーバ設定エンドポイント（GET/PUT の /settings/*）の load/save 共通実装。

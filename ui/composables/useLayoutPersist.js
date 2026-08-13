@@ -1,7 +1,7 @@
 import { watch } from "vue";
-import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useAuthStore } from "../stores/auth.js";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useAuthStore } from "../stores/auth.ts";
 import { isEmptyPaneId, makeEmptyPaneId } from "../utils/empty-pane.ts";
 import { EP_SETTINGS_LAYOUT } from "../utils/endpoints.ts";
 import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.ts";

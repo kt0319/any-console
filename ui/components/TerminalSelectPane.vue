@@ -26,7 +26,7 @@
 
 <script setup>
 import { ref, reactive, computed } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { copyText } from "../utils/clipboard.ts";
 import { applyFormat } from "../utils/auto-format.ts";

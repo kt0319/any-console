@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 import { useToast } from "./useToast.js";
 
 /**

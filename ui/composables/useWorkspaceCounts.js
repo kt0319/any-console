@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.js";
 import { getCachedCount, useGitHub } from "./useGitHub.js";
 import { getStashCachedCount, setStashCache } from "./useStashCache.js";

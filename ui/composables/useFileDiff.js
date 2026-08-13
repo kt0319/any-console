@@ -1,6 +1,6 @@
 import { ref, watch } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore } from "../stores/git.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useGitStore } from "../stores/git.ts";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { colorDiff, escapeDiffHtml } from "../utils/diff-color.ts";

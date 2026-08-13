@@ -105,7 +105,7 @@ import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import DispatchRunView from "./DispatchRunView.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
 import { on } from "../app-bridge.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "../composables/useApi.js";
 import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";

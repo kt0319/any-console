@@ -1,8 +1,8 @@
 import { WS_MSG_RESIZE } from "../utils/constants.ts";
 import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
 import { fitTerminal, sendResize } from "./useTerminalResize.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { keyDefToAnsi } from "../utils/key-ansi.ts";
 import { isEditableOrDialogTarget } from "../utils/dom.ts";
 

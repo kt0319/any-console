@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 import { EP_PUSH_VAPID_KEY, EP_PUSH_SUBSCRIBE } from "../utils/endpoints.ts";
 
 const _supported = typeof PushManager !== "undefined" && "serviceWorker" in navigator;

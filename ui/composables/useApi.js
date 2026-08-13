@@ -1,4 +1,4 @@
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 import { emit } from "../app-bridge.js";
 import { extractApiError } from "../utils/constants.ts";
 import { debugLog } from "./useClientLogs.js";

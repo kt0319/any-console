@@ -27,7 +27,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
 import { on } from "../app-bridge.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useAppConnectivity } from "../composables/useAppConnectivity.js";
 import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
 import { useAppAuthGate } from "../composables/useAppAuthGate.js";

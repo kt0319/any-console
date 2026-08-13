@@ -159,8 +159,8 @@ const _collapsedGroups = new Set();
 
 <script setup>
 import { computed, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useDetachedSessions } from "../composables/useDetachedSessions.js";

@@ -1,5 +1,5 @@
 import { onMounted, onBeforeUnmount } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useAuthStore } from "../stores/auth.ts";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.ts";
 import { isEditableTarget } from "../utils/dom.ts";
 import { emit } from "../app-bridge.js";

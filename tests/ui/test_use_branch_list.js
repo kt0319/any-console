@@ -2,7 +2,7 @@
 // @ts-check
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useWorkspaceStore } from "../../ui/stores/workspace.js";
+import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 
 const apiGetMock = vi.fn();
 

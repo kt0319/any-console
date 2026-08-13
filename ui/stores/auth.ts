@@ -9,13 +9,8 @@ export const useAuthStore = defineStore("auth", () => {
   const serverHostname = ref("");
   const isHandlingUnauthorized = ref(false);
 
-  /**
-   * @param {string} endpoint
-   * @param {{ method?: string, body?: any }} [options]
-   */
-  async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
-    /** @type {Record<string, string>} */
-    const headers = {};
+  async function apiFetch(endpoint: string, { method = "GET", body = null }: { method?: string, body?: any } = {}): Promise<Response | null> {
+    const headers: Record<string, string> = {};
     if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(body);
@@ -28,7 +23,7 @@ export const useAuthStore = defineStore("auth", () => {
     return res;
   }
 
-  async function registerDevice(rawToken, name = "") {
+  async function registerDevice(rawToken: string, name = "") {
     const res = await fetch(EP_DEVICES_REGISTER, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -45,10 +40,8 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * QRペアリングのclaim。registerDevice と同様、cookie発行前なので生fetchを使う
    * （apiFetch は既認証セッション向けの401ハンドリングを持つため不適）。
-   * @param {string} pairingId
-   * @param {string} pairingToken
    */
-  async function claimPairing(pairingId, pairingToken) {
+  async function claimPairing(pairingId: string, pairingToken: string) {
     let res;
     try {
       res = await fetch(pairingClaimPath(pairingId), {
@@ -110,7 +103,7 @@ export const useAuthStore = defineStore("auth", () => {
     return false;
   }
 
-  function setServerInfo(hostname) {
+  function setServerInfo(hostname: string) {
     if (hostname) serverHostname.value = hostname;
   }
 
@@ -119,7 +112,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function clearPersistedApiCaches() {
-    const keysToDelete = [];
+    const keysToDelete: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (key.startsWith(LS_PREFIX_API_CACHE) || key.startsWith(LS_PREFIX_WS_META))) {

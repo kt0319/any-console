@@ -27,7 +27,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { INFO_PILLS } from "../utils/info-pills.ts";
 import { useModalView } from "../composables/useModalView.js";

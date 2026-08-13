@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 
 export function useWorkspace() {
   const store = useWorkspaceStore();

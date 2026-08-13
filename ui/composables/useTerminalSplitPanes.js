@@ -1,6 +1,6 @@
 import { ref, computed, watch, nextTick } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { buildGridRows } from "../utils/terminal-layout.ts";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
 

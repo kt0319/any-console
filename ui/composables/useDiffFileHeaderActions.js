@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useApi } from "./useApi.js";

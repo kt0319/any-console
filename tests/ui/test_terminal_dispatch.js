@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { dispatchKeyToTab, dispatchTextToTab } from "../../ui/utils/terminal-dispatch.ts";
-import { useTerminalStore } from "../../ui/stores/terminal.js";
+import { useTerminalStore } from "../../ui/stores/terminal.ts";
 
 function makeTab(sessionId = "s1") {
   const sent = [];

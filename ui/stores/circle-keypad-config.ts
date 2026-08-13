@@ -4,9 +4,23 @@ import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-prese
 import { EP_SETTINGS_CIRCLE_KEYPAD } from "../utils/endpoints.ts";
 import { createServerSettings } from "../utils/server-settings.ts";
 
-function sanitizeKeys(keys) {
+export interface CircleKeypadKeyDef {
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  label: string;
+}
+
+export interface CircleKeypadSpecialDef {
+  label: string;
+  action: string;
+  payload: object | null;
+}
+
+function sanitizeKeys(keys: any): CircleKeypadKeyDef[] {
   if (!Array.isArray(keys) || keys.length !== 8) return defaultKeyDefs();
-  return keys.map((k) => ({
+  return keys.map((k: any) => ({
     key: typeof k?.key === "string" ? k.key : "",
     ctrl: !!k?.ctrl,
     shift: !!k?.shift,
@@ -15,9 +29,9 @@ function sanitizeKeys(keys) {
   }));
 }
 
-function sanitizeSpecials(specials) {
+function sanitizeSpecials(specials: any): CircleKeypadSpecialDef[] {
   if (!Array.isArray(specials) || specials.length !== 4) return defaultSpecialDefs();
-  return specials.map((s) => ({
+  return specials.map((s: any) => ({
     label: typeof s?.label === "string" ? s.label : "",
     action: typeof s?.action === "string" ? s.action : "",
     payload: s?.payload && typeof s.payload === "object" ? s.payload : null,
@@ -25,10 +39,8 @@ function sanitizeSpecials(specials) {
 }
 
 export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", () => {
-  /** @type {import("vue").Ref<Array<{key: string, ctrl: boolean, shift: boolean, alt: boolean, label: string}>>} */
-  const keys = ref(defaultKeyDefs());
-  /** @type {import("vue").Ref<Array<{label: string, action: string, payload: object | null}>>} */
-  const specials = ref(defaultSpecialDefs());
+  const keys = ref<CircleKeypadKeyDef[]>(defaultKeyDefs());
+  const specials = ref<CircleKeypadSpecialDef[]>(defaultSpecialDefs());
   const enabled = ref(true);
   const loaded = ref(false);
 

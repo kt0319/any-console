@@ -1,5 +1,5 @@
-import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 
 /**
  * ターミナル分割のドロップゾーン用ハンドラ群。

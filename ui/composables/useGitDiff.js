@@ -1,5 +1,5 @@
-import { useAuthStore } from "../stores/auth.js";
-import { useGitStore, parseDiffChunks } from "../stores/git.js";
+import { useAuthStore } from "../stores/auth.ts";
+import { useGitStore, parseDiffChunks } from "../stores/git.ts";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.ts";

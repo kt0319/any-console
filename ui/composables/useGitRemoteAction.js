@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { useToast } from "./useToast.js";

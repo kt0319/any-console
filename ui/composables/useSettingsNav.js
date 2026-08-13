@@ -1,7 +1,7 @@
 import { ref, computed } from "vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.js";
 import { useSessionListOverlay } from "./useSessionListOverlay.js";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.js";

@@ -10,52 +10,63 @@ import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 import { isTouchInput } from "../utils/device.ts";
 import { findUrlInBuffer, TERMINAL_URL_REGEX } from "../utils/terminal-buffer-text.ts";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.ts";
-import { useAuthStore } from "./auth.js";
+import { useAuthStore } from "./auth.ts";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 
 let _longPressActive = false;
-export function setLongPressActive(v) { _longPressActive = !!v; }
+export function setLongPressActive(v: boolean) { _longPressActive = !!v; }
 
 function loadTerminalSettingsFromStorage() {
   return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
 }
 
-/**
- * @typedef {Object} TerminalTab
- * @property {number} id
- * @property {string} sessionId
- * @property {string} wsUrl
- * @property {string|null} workspace
- * @property {string} label
- * @property {{name: string, color: string|null}|null} wsIcon
- * @property {{name: string, color: string|null}|null} icon
- * @property {string|null} jobName
- * @property {string|null} jobLabel
- * @property {import("@xterm/xterm").Terminal|null} term
- * @property {import("@xterm/addon-fit").FitAddon} fitAddon
- * @property {WebSocket|null} ws
- * @property {number} _createdAt
- * @property {boolean} _pendingOpen
- * @property {boolean} _pendingRedraw
- * @property {boolean} _needsHistoryRestore
- * @property {boolean} _wsDisposed
- * @property {number} _reconnectAttempts
- * @property {ReturnType<typeof setTimeout>|null} _reconnectTimer
- * @property {ReturnType<typeof setTimeout>|null} _activityTimer
- * @property {boolean} _inputBound
- * @property {boolean} _elementBound
- */
+export interface TerminalTab {
+  id: number;
+  sessionId: string;
+  wsUrl: string;
+  workspace: string | null;
+  label: string;
+  wsIcon: { name: string, color: string | null } | null;
+  icon: { name: string, color: string | null } | null;
+  jobName: string | null;
+  jobLabel: string | null;
+  term: Terminal | null;
+  fitAddon: FitAddon;
+  ws: WebSocket | null;
+  _createdAt: number;
+  _pendingOpen: boolean;
+  _pendingRedraw: boolean;
+  _needsHistoryRestore: boolean;
+  _wsDisposed: boolean;
+  _reconnectAttempts: number;
+  _reconnectTimer: ReturnType<typeof setTimeout> | null;
+  _activityTimer: ReturnType<typeof setTimeout> | null;
+  _inputBound: boolean;
+  _elementBound: boolean;
+  // 以下は生成後に composables（useTerminal / useTerminalResize / useTerminalInput 等）が
+  // 実行時に付与するフィールド。
+  _activity?: boolean;
+  _connecting?: boolean;
+  _frameResizeObserver?: ResizeObserver | null;
+  _lastFitCols?: number;
+  _lastFitRows?: number;
+  _lastSendAt?: number;
+  _lastWriteAt?: number;
+  _postWriteRefresh?: ReturnType<typeof setTimeout> | null;
+  _releaseInput?: (() => void) | null;
+  _writeCount?: number;
+}
 
 export const useTerminalStore = defineStore("terminal", () => {
-  const openTabs = ref(/** @type {TerminalTab[]} */ ([]));
-  const activeTabId = ref(/** @type {number|null} */ (null));
+  const openTabs = ref<TerminalTab[]>([]);
+  const activeTabId = ref<number | null>(null);
   const terminalIdCounter = ref(0);
   const hasRestoredTabsFromStorage = ref(false);
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
   const terminalSettings = ref(loadTerminalSettingsFromStorage());
-  const tabFlags = reactive({});
+  const tabFlags = reactive<Record<number, Record<string, unknown>>>({});
   // tab は markRaw（xterm.Terminal/WebSocket等の重い実行時参照を保持するため
   // 意図的に非リアクティブ）なので、tab.workspace のようなフィールドの変更は
   // それ単体では画面に伝わらない。かといって tab オブジェクト自体を差し替えると
@@ -67,32 +78,32 @@ export const useTerminalStore = defineStore("terminal", () => {
   const tabWorkspaceVersion = ref(0);
   // closeTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
   // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
-  const pendingCloseSessionIds = ref(/** @type {Set<string>} */ (new Set()));
+  const pendingCloseSessionIds = ref(new Set<string>());
   // switchTab(tabId, { focus: false }) の直後、TerminalPane の isActive watcher が
   // 無条件で term.focus() してしまうのを一度だけ抑止するための one-shot フラグ。
   const suppressNextFocus = ref(false);
 
-  function markPendingClose(sessionId) {
+  function markPendingClose(sessionId: string) {
     if (!sessionId) return;
     pendingCloseSessionIds.value.add(sessionId);
   }
 
-  function clearPendingClose(sessionId) {
+  function clearPendingClose(sessionId: string) {
     if (!sessionId) return;
     pendingCloseSessionIds.value.delete(sessionId);
   }
   // sessionId → エージェント状態（backendはblocked/working/idleのみを送る）。
   // status stream WS が更新する。
-  const agentStates = reactive(/** @type {Record<string, string>} */ ({}));
+  const agentStates = reactive<Record<string, string>>({});
   // sessionId → true。working から idle への遷移（=作業完了）を検知した
   // セッション。idle自体はバッジ非表示にするため、タブを見る（switchTab）
   // までは「done」として表示し続けるための別レイヤー。
-  const doneSessions = reactive(/** @type {Record<string, boolean>} */ ({}));
+  const doneSessions = reactive<Record<string, boolean>>({});
   // sessionId → working状態に入った時刻(ms)。working→idle遷移時にここからの
   // 経過が WORKING_MIN_DURATION_MS 未満なら done化しない（backendのagent_watchが
   // 実際には何も作業していないセッションを、画面のちらつき等で一瞬working扱いに
   // してしまうことがあり、それを「作業完了」と誤認するのを防ぐため）。
-  const workingStartedAt = /** @type {Record<string, number>} */ ({});
+  const workingStartedAt: Record<string, number> = {};
 
   /**
    * status stream WS から届いたエージェント状態をマージする。
@@ -100,9 +111,8 @@ export const useTerminalStore = defineStore("terminal", () => {
    * 「done」として doneSessions に記録する。idle以外（working/blocked）が届いたら
    * doneSessions はクリアする（新しい作業の開始、またはblockedでの入力待ちが
    * doneより優先されるため）。
-   * @param {{ session_id: string, state: string }[]} states
    */
-  function applyAgentStates(states) {
+  function applyAgentStates(states: Array<{ session_id: string, state: string }>) {
     if (!Array.isArray(states)) return;
     for (const entry of states) {
       if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
@@ -125,34 +135,34 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  function setTabFlag(tabId, key, value) {
+  function setTabFlag(tabId: number, key: string, value: unknown) {
     if (!tabFlags[tabId]) tabFlags[tabId] = {};
     tabFlags[tabId][key] = value;
   }
 
-  function clearAgentState(sessionId) {
+  function clearAgentState(sessionId: string | null | undefined) {
     if (!sessionId) return;
     delete workingStartedAt[sessionId];
     delete agentStates[sessionId];
     delete doneSessions[sessionId];
   }
 
-  function clearDoneState(sessionId) {
+  function clearDoneState(sessionId: string | null | undefined) {
     if (sessionId) delete doneSessions[sessionId];
   }
 
   // sessionId → notify_phrase 検知フラグ。タブが選択されたら見た扱いでクリアする。
-  const phraseNotifySessions = reactive(/** @type {Record<string, boolean>} */ ({}));
+  const phraseNotifySessions = reactive<Record<string, boolean>>({});
 
-  function markPhraseNotify(sessionId) {
+  function markPhraseNotify(sessionId: string) {
     if (sessionId) phraseNotifySessions[sessionId] = true;
   }
 
-  function clearPhraseNotify(sessionId) {
+  function clearPhraseNotify(sessionId: string | null | undefined) {
     if (sessionId) delete phraseNotifySessions[sessionId];
   }
 
-  function clearTabFlags(tabId) {
+  function clearTabFlags(tabId: number) {
     delete tabFlags[tabId];
   }
 
@@ -160,7 +170,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     safeJsonSave(TERMINAL_SETTINGS_KEY, terminalSettings.value);
   }
 
-  function setTerminalSetting(key, value) {
+  function setTerminalSetting(key: string, value: unknown) {
     if (!(key in DEFAULT_TERMINAL_SETTINGS)) return null;
     const next = sanitizeTerminalSetting(key, value);
     terminalSettings.value[key] = next;
@@ -180,7 +190,17 @@ export const useTerminalStore = defineStore("terminal", () => {
   // 呼ぶが、確認から呼び出しまでの await の間に別経路が同じセッションのタブを
   // 追加してしまうレースがあり、二重タブが生成されうる。store 側の唯一の
   // 追加窓口でチェックすることで、呼び出し側の確認タイミングに関わらず防ぐ。
-  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }) {
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }: {
+    wsUrl: string,
+    workspace?: string | null,
+    wsIcon?: string | null,
+    wsIconColor?: string | null,
+    icon?: string | null,
+    iconColor?: string | null,
+    jobName?: string | null,
+    jobLabel?: string | null,
+    restored?: boolean,
+  }) {
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
     const existing = openTabs.value.find((t) => t.sessionId === sessionId);
     if (existing) return existing;
@@ -235,7 +255,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     return tab;
   }
 
-  function removeTab(tabId) {
+  function removeTab(tabId: number) {
     const idx = openTabs.value.findIndex((t) => t.id === tabId);
     if (idx === -1) return;
     const tab = openTabs.value[idx];
@@ -248,14 +268,14 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   // idx 位置以降で最初のタブ（無ければ末尾）へ active を移す。
-  function pickActiveAfter(idx) {
+  function pickActiveAfter(idx: number) {
     const tabs = openTabs.value;
     const next = tabs.find((_, i) => i >= idx) || tabs[tabs.length - 1];
     activeTabId.value = next ? next.id : null;
     if (next) clearDoneState(next.sessionId);
   }
 
-  function switchTab(tabId, { focus = true } = {}) {
+  function switchTab(tabId: number, { focus = true }: { focus?: boolean } = {}) {
     activeTabId.value = tabId;
     if (!focus) suppressNextFocus.value = true;
     const tab = openTabs.value.find((t) => t.id === tabId);
@@ -266,7 +286,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  function detachTab(tabId) {
+  function detachTab(tabId: number) {
     const idx = openTabs.value.findIndex((t) => t.id === tabId);
     if (idx === -1) return;
     const tab = openTabs.value[idx];
@@ -285,14 +305,12 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   /**
-   * @param {number} tabId
-   * @param {string | null} workspaceName
-   * @param {{ icon?: string, iconColor?: string } | null} [iconInfo] 紐付け先
+   * @param iconInfo 紐付け先
    *   ワークスペースのアイコン。渡すとタブバー等のアイコン（tab.wsIcon）も
    *   即座に切り替わる（未指定時はワークスペース名のみ更新。null許容だが
    *   その場合アイコンは変えない＝呼び出し側がアイコン解決できない場合用）。
    */
-  function setTabWorkspace(tabId, workspaceName, iconInfo = null) {
+  function setTabWorkspace(tabId: number, workspaceName: string | null, iconInfo: { icon?: string, iconColor?: string } | null = null) {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (!tab) return;
     tab.workspace = workspaceName || null;
@@ -304,7 +322,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     tabWorkspaceVersion.value++;
   }
 
-  function moveTab(fromIndex, toIndex) {
+  function moveTab(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= openTabs.value.length) return;
     if (toIndex < 0 || toIndex >= openTabs.value.length) return;
