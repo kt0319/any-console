@@ -669,7 +669,10 @@ pub struct RecentJobItem {
     job_command: String,
     #[serde(default, rename = "jobConfirm")]
     job_confirm: Option<bool>,
-    #[serde(default, rename = "jobDetached")]
+    /// alias は v4 リネーム（jobDetachedTab → jobDetached）の過渡期対応:
+    /// 開いたままの旧 SPA バンドルが PUT する `jobDetachedTab` を受理する
+    /// （Serialize には効かないため保存・応答は jobDetached のみ）。
+    #[serde(default, rename = "jobDetached", alias = "jobDetachedTab")]
     job_detached: bool,
     #[serde(default)]
     pinned: bool,

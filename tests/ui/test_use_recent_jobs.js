@@ -126,3 +126,35 @@ describe("useRecentJobs: サーバーとの同期", () => {
     expect(recentJobs.value.map((j) => j.key)).not.toContain("ws0:build");
   });
 });
+
+describe("useRecentJobs: 旧キー jobDetachedTab の正規化（v4 リネーム過渡期）", () => {
+  it("localStorage キャッシュの jobDetachedTab は読み込み時に jobDetached へ正規化される", async () => {
+    localStorage.setItem(
+      "any_console_recent_jobs",
+      JSON.stringify([job("ws1:dev", { jobDetachedTab: true })]),
+    );
+    // サーバー要求が未解決の間（= キャッシュ表示中）の起動経路を模す
+    apiGetMock.mockReturnValue(new Promise(() => {}));
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs } = useRecentJobs();
+    loadRecentJobs();
+
+    const item = recentJobs.value.find((j) => j.key === "ws1:dev");
+    expect(item.jobDetached).toBe(true);
+    expect("jobDetachedTab" in item).toBe(false);
+  });
+
+  it("サーバー応答に旧キーが残っていても正規化される（旧バックエンド互換）", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { recent_jobs: [job("ws2:run", { jobDetachedTab: true })] },
+    });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs } = useRecentJobs();
+    await loadRecentJobs();
+
+    const item = recentJobs.value.find((j) => j.key === "ws2:run");
+    expect(item.jobDetached).toBe(true);
+    expect("jobDetachedTab" in item).toBe(false);
+  });
+});

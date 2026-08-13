@@ -240,6 +240,10 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
         "icon_color": s("icon_color", ""),
         "confirm": b("confirm", true),
         "detached": b("detached", false),
+        // v4 リネーム（detached_tab → detached）の過渡期対応: 開いたままの
+        // 旧 SPA バンドルは detached_tab しか読まないため、同値のミラーを
+        // 併載する。旧バンドルが淘汰されたら削除してよい。
+        "detached_tab": b("detached", false),
         "notify_phrase": s("notify_phrase", ""),
     });
     if let Some(c) = is_common {
@@ -298,7 +302,10 @@ pub struct JobRequest {
     pub icon_color: String,
     #[serde(default = "yes")]
     pub confirm: bool,
-    #[serde(default)]
+    /// alias は v4 リネーム（detached_tab → detached）の過渡期対応: バックエンド
+    /// 更新時に開いたままの旧 SPA バンドルが送る `detached_tab` を受理する。
+    /// 旧バンドルが淘汰されたら alias は削除してよい。
+    #[serde(default, alias = "detached_tab")]
     pub detached: bool,
     #[serde(default)]
     pub notify_phrase: String,
@@ -520,6 +527,27 @@ mod tests {
         assert_eq!(d["label"], "job_x");
         assert_eq!(d["confirm"], true);
         assert_eq!(d["common"], false);
+    }
+
+    /// v4 リネームの過渡期対応: 応答は `detached` と同値の `detached_tab`
+    /// ミラーを併載し、リクエストは legacy の `detached_tab` も受理する。
+    #[test]
+    fn detached_transitional_aliases() {
+        let entry = serde_json::json!({"command": "npm run dev", "detached": true});
+        let d = job_entry_to_dict("dev", &entry, None);
+        assert_eq!(d["detached"], true);
+        assert_eq!(d["detached_tab"], true);
+
+        let legacy: JobRequest = serde_json::from_value(
+            serde_json::json!({"label": "x", "command": "x", "detached_tab": true}),
+        )
+        .unwrap();
+        assert!(legacy.detached);
+        let current: JobRequest = serde_json::from_value(
+            serde_json::json!({"label": "x", "command": "x", "detached": true}),
+        )
+        .unwrap();
+        assert!(current.detached);
     }
 
     #[test]

@@ -48,15 +48,28 @@ export function useRecentJobs() {
     await apiPut(EP_RECENT_JOBS, { recent_jobs }, { errorMessage: "Failed to save recent jobs" });
   }
 
+  // v4 リネーム（jobDetachedTab → jobDetached）の過渡期対応: 旧バンドルが
+  // 書いた localStorage キャッシュや旧バックエンドの応答には jobDetachedTab が
+  // 残っているため、読み込み時に新キーへ正規化する（サーバー要求が完了する前・
+  // 失敗時はキャッシュのまま起動経路に乗るため、ここで揃えないと detached
+  // 指定が落ちる）。旧データが淘汰されたら削除してよい。
+  function _normalizeLegacy(job: Record<string, any>): RecentJob {
+    if (job && job.jobDetached === undefined && job.jobDetachedTab !== undefined) {
+      const { jobDetachedTab, ...rest } = job;
+      return { ...rest, jobDetached: !!jobDetachedTab } as RecentJob;
+    }
+    return job as RecentJob;
+  }
+
   async function loadRecentJobs() {
     if (loaded) return;
     loaded = true;
     const parsed = safeJsonLoad(LS_KEY_RECENT_JOBS, []);
-    if (Array.isArray(parsed)) recentJobs.value = _sortAndTrim(parsed);
+    if (Array.isArray(parsed)) recentJobs.value = _sortAndTrim(parsed.map(_normalizeLegacy));
 
     const { ok, data } = await apiGet(EP_RECENT_JOBS);
     if (ok && Array.isArray(data?.recent_jobs)) {
-      recentJobs.value = _sortAndTrim(data.recent_jobs);
+      recentJobs.value = _sortAndTrim(data.recent_jobs.map(_normalizeLegacy));
       _save();
     }
   }
