@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { escapeHtml } from "../../ui/utils/escape-html.js";
+import { escapeHtml } from "../../ui/utils/escape-html.ts";
 
 describe("escapeHtml", () => {
   it("escapes ampersand", () => {

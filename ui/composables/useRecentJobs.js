@@ -1,11 +1,11 @@
 import { ref } from "vue";
-import { LS_KEY_RECENT_JOBS, RECENT_JOBS_MAX } from "../utils/constants.js";
-import { EP_RECENT_JOBS } from "../utils/endpoints.js";
+import { LS_KEY_RECENT_JOBS, RECENT_JOBS_MAX } from "../utils/constants.ts";
+import { EP_RECENT_JOBS } from "../utils/endpoints.ts";
 import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
-import { jobCommandPreview } from "../utils/format.js";
-import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
+import { jobCommandPreview } from "../utils/format.ts";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 
 /** @type {import("vue").Ref<Record<string, unknown>[]>} */
 const recentJobs = ref([]);

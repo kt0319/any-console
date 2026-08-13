@@ -1,8 +1,8 @@
 import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { joinEntryPath } from "../utils/file-browser.js";
-import { buildGithubFileUrl } from "../utils/git.js";
-import { openExternal } from "../utils/open-external.js";
+import { joinEntryPath } from "../utils/file-browser.ts";
+import { buildGithubFileUrl } from "../utils/git.ts";
+import { openExternal } from "../utils/open-external.ts";
 
 export function useFileEntryMenu({
   currentPath, fileContent,

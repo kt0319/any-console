@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { breakAtPunctuation, stripLeadingSpaces, joinWrappedLines, tidyWhitespace, applyFormat } from "../../ui/utils/auto-format.js";
+import { breakAtPunctuation, stripLeadingSpaces, joinWrappedLines, tidyWhitespace, applyFormat } from "../../ui/utils/auto-format.ts";
 
 describe("breakAtPunctuation", () => {
   it("句点で改行し、読点はそのまま", () => {

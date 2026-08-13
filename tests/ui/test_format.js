@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { formatSize, formatRelativeTime, truncateTail, jobCommandPreview } from "../../ui/utils/format.js";
-import { JOB_COMMAND_PREVIEW_MAX } from "../../ui/utils/constants.js";
+import { formatSize, formatRelativeTime, truncateTail, jobCommandPreview } from "../../ui/utils/format.ts";
+import { JOB_COMMAND_PREVIEW_MAX } from "../../ui/utils/constants.ts";
 
 describe("truncateTail", () => {
   it("上限以内はそのまま返す", () => {

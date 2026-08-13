@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
-import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
-import { NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "../data/keyboard-layout.js";
+import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.ts";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
+import { NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "../data/keyboard-layout.ts";
 
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 

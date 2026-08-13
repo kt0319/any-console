@@ -4,9 +4,9 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
-import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.js";
-import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../utils/session-jobs.js";
+import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.ts";
+import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
+import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../utils/session-jobs.ts";
 import { emit } from "../app-bridge.js";
 
 // モジュールスコープ: サーバー応答の一時的な揺らぎで /terminal/sessions から

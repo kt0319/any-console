@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { renderIconStr } from "../../ui/utils/render-icon.js";
+import { renderIconStr } from "../../ui/utils/render-icon.ts";
 
 describe("renderIconStr", () => {
   it("returns empty string for falsy icon", () => {

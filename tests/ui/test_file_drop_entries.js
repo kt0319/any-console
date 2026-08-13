@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collectDroppedFileEntries } from "../../ui/utils/file-drop-entries.js";
+import { collectDroppedFileEntries } from "../../ui/utils/file-drop-entries.ts";
 
 function makeFile(name) {
   return new File(["x"], name, { type: "text/plain" });

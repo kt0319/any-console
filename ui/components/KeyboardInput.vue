@@ -35,10 +35,10 @@ import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
-import { isComposingEvent } from "../utils/keyboard-event.js";
-import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.js";
+import { isComposingEvent } from "../utils/keyboard-event.ts";
+import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { KEYBOARD_INPUT_MIN_HEIGHT_PX, KEYBOARD_INPUT_MAX_HEIGHT_PX } from "../utils/constants.js";
+import { KEYBOARD_INPUT_MIN_HEIGHT_PX, KEYBOARD_INPUT_MAX_HEIGHT_PX } from "../utils/constants.ts";
 
 const emit = defineEmits(["focused", "submitted"]);
 // フリックバーの矢印キーと同じ履歴↑↓状態を物理キーボードの矢印キーでも

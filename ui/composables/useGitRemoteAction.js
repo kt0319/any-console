@@ -3,8 +3,8 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { useToast } from "./useToast.js";
-import { formatRemoteToast } from "../utils/git-remote.js";
-import { TOAST_DEFAULT_DURATION_MS, TOAST_DETAIL_DURATION_MS } from "../utils/constants.js";
+import { formatRemoteToast } from "../utils/git-remote.ts";
+import { TOAST_DEFAULT_DURATION_MS, TOAST_DETAIL_DURATION_MS } from "../utils/constants.ts";
 
 /** @type {Record<string, { label: string, confirm: string }>} */
 const REMOTE_ACTIONS = {

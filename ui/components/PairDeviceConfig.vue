@@ -54,15 +54,15 @@ import { useApi } from "../composables/useApi.js";
 import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useCopyFeedback } from "../composables/useCopyFeedback.js";
-import { generateQrSvg } from "../utils/qrcode.js";
-import { formatPairingCountdown } from "../utils/pairing.js";
-import { EP_AUTH_PAIRING_START, pairingStatusPath } from "../utils/endpoints.js";
+import { generateQrSvg } from "../utils/qrcode.ts";
+import { formatPairingCountdown } from "../utils/pairing.ts";
+import { EP_AUTH_PAIRING_START, pairingStatusPath } from "../utils/endpoints.ts";
 import {
   PAIRING_STATUS_POLL_MS,
   PAIRING_COUNTDOWN_TICK_MS,
   PAIRING_SUCCESS_CLOSE_DELAY_MS,
   extractApiError,
-} from "../utils/constants.js";
+} from "../utils/constants.ts";
 
 const { modalTitle, popView } = useModalView();
 modalTitle.value = "Add Device";

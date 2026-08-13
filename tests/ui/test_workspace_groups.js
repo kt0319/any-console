@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../../ui/utils/workspace-groups.js";
+import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../../ui/utils/workspace-groups.ts";
 
 describe("workspacesInGroup", () => {
   const list = [

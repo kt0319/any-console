@@ -1,7 +1,7 @@
 import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
-import { keyDefToAnsi } from "../utils/key-ansi.js";
-import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.js";
+import { keyDefToAnsi } from "../utils/key-ansi.ts";
+import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.ts";
 import { attachFlickKey } from "./useFlickKey.js";
 
 const modifierState = reactive({ ctrl: false, shift: false });

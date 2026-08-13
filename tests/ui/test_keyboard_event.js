@@ -4,7 +4,7 @@ import {
   MODIFIER_KEYS,
   isComposingEvent,
   isHardwareKeyboardEvent,
-} from "../../ui/utils/keyboard-event.js";
+} from "../../ui/utils/keyboard-event.ts";
 
 describe("MODIFIER_KEYS", () => {
   it("contains the four standard modifier names", () => {

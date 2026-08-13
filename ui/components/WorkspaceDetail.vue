@@ -113,8 +113,8 @@ import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { usePaneLoader } from "../composables/usePaneLoader.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
-import { workspaceDisplayName } from "../utils/worktree.js";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
+import { workspaceDisplayName } from "../utils/worktree.ts";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint } = useApi();

@@ -43,8 +43,8 @@
 <script setup>
 import { computed, ref } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { RECENT_JOBS_MAX } from "../utils/constants.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { RECENT_JOBS_MAX } from "../utils/constants.ts";
 
 const props = defineProps({
   allowExpand: { type: Boolean, default: true },

@@ -1,4 +1,4 @@
-import { WS_MSG_RESIZE, FRAME_FIT_DEBOUNCE_MS, FIT_WRITE_QUIET_MS, FIT_MAX_WAIT_MS } from "../utils/constants.js";
+import { WS_MSG_RESIZE, FRAME_FIT_DEBOUNCE_MS, FIT_WRITE_QUIET_MS, FIT_MAX_WAIT_MS } from "../utils/constants.ts";
 
 const encoder = new TextEncoder();
 

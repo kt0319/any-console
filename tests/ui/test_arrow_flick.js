@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { createArrowFlickHandler } from "../../ui/utils/arrow-flick.js";
+import { createArrowFlickHandler } from "../../ui/utils/arrow-flick.ts";
 
 function makeHandler(focused = true) {
   const deps = {

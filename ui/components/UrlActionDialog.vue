@@ -21,7 +21,7 @@ import { ref, onMounted } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { on } from "../app-bridge.js";
 import { useCopyFeedback } from "../composables/useCopyFeedback.js";
-import { openExternal } from "../utils/open-external.js";
+import { openExternal } from "../utils/open-external.ts";
 
 const terminalUrl = ref("");
 const { copied, copy } = useCopyFeedback();

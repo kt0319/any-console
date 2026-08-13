@@ -1,8 +1,8 @@
 import { ref, computed } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap } from "../utils/git-branch.js";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap } from "../utils/git-branch.ts";
 
 // モジュールスコープ: コンポーネント再マウント後もキャッシュを保持する
 const _remoteCache = new Map();

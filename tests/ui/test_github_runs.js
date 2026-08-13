@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../../ui/utils/github-runs.js";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../../ui/utils/github-runs.ts";
 
 describe("findPRForBranch", () => {
   const prs = [

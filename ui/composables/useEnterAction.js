@@ -1,4 +1,4 @@
-import { enterResolver } from "../utils/flick-resolvers.js";
+import { enterResolver } from "../utils/flick-resolvers.ts";
 
 /**
  * Enterキーの動作を一元管理する。

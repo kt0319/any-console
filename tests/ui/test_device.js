@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isMobileUserAgent } from "../../ui/utils/device.js";
+import { isMobileUserAgent } from "../../ui/utils/device.ts";
 
 describe("isMobileUserAgent", () => {
   it("detects iPhone", () => {

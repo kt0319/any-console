@@ -3,8 +3,8 @@ import { useGitStore } from "../stores/git.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
-import { parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.js";
-import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
+import { parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.ts";
+import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.ts";
 
 export function useGitLogPagination() {
   const { withWorkspace } = useWorkspace();

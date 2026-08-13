@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { createPendingPromise } from "../utils/pending-promise.js";
+import { createPendingPromise } from "../utils/pending-promise.ts";
 
 const visible = ref(false);
 const message = ref("");

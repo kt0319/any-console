@@ -7,8 +7,8 @@ import {
   qwertyFlickUpLabel,
   resolveQwertyVerticalFlick,
   resolveFnNumberKey,
-} from "../../ui/utils/qwerty-key.js";
-import { QWERTY_FLICK_THRESHOLD } from "../../ui/utils/constants.js";
+} from "../../ui/utils/qwerty-key.ts";
+import { QWERTY_FLICK_THRESHOLD } from "../../ui/utils/constants.ts";
 
 describe("qwertyDisplayLabel", () => {
   it("returns label when shift is off", () => {

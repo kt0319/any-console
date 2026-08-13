@@ -173,10 +173,10 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.js";
-import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.js";
-import { formatRelativeTime } from "../utils/format.js";
+import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.ts";
+import { formatRelativeTime } from "../utils/format.ts";
 import { useCopyFeedback } from "../composables/useCopyFeedback.js";
 import { useModalView } from "../composables/useModalView.js";
 

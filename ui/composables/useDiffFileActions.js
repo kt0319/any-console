@@ -4,9 +4,9 @@ import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useToast } from "./useToast.js";
 import { useConfirm } from "./useConfirm.js";
-import { copyText } from "../utils/clipboard.js";
+import { copyText } from "../utils/clipboard.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { workspaceCommitMessagePath } from "../utils/endpoints.js";
+import { workspaceCommitMessagePath } from "../utils/endpoints.ts";
 
 export function useDiffFileActions({ selectedCommit }) {
   const { apiGet } = useApi();

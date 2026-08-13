@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
-import { EP_PREVIEW_PORTS } from "../utils/endpoints.js";
-import { DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
+import { EP_PREVIEW_PORTS } from "../utils/endpoints.ts";
+import { DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.ts";
 
 // TerminalPane は開いているタブごとにマウントされ、非アクティブ分も v-show で
 // マウントされたまま残る。各ペインが個別にポーリングすると開いているタブ数だけ

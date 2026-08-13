@@ -96,10 +96,10 @@ import { useIsMobile } from "../composables/useIsMobile.js";
 import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.js";
 import { useCommitActionMenu } from "../composables/useCommitActionMenu.js";
 import { useDiffFileActions } from "../composables/useDiffFileActions.js";
-import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
-import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
-import { abbreviateBranch, entryBranches } from "../utils/git.js";
+import { renderFileIconFromPath } from "../utils/file-icon.ts";
+import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";
+import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.ts";
+import { abbreviateBranch, entryBranches } from "../utils/git.ts";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 

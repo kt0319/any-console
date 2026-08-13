@@ -47,8 +47,8 @@
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useDirectorySuggest } from "../composables/useDirectorySuggest.js";
-import { EP_WORKSPACES } from "../utils/endpoints.js";
-import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
+import { EP_WORKSPACES } from "../utils/endpoints.ts";
+import { MSG_ERROR_OCCURRED } from "../utils/constants.ts";
 
 const props = defineProps({
   initialPath: { type: String, default: "" },

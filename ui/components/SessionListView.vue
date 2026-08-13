@@ -54,18 +54,18 @@ import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.js";
+import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
 import { useGithubPolling } from "../composables/useGithubPolling.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useInfoPillActions } from "../composables/useInfoPillActions.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.js";
-import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
+import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
 
 // セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
 // ごとにワークスペース名・ブランチ・変更サマリ・エージェント状態・

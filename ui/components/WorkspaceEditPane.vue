@@ -53,9 +53,9 @@ import { useToast } from "../composables/useToast.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { EP_WORKSPACES } from "../utils/endpoints.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.ts";
+import { EP_WORKSPACES } from "../utils/endpoints.ts";
 
 
 const DEFAULT_WS_ICON = "mdi-console";

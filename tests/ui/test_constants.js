@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { extractApiError, MSG_ERROR_OCCURRED } from "../../ui/utils/constants.js";
+import { extractApiError, MSG_ERROR_OCCURRED } from "../../ui/utils/constants.ts";
 
 // ── Tests ──
 

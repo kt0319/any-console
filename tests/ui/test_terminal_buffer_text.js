@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   TERMINAL_URL_REGEX,
   findUrlInBuffer,
-} from "../../ui/utils/terminal-buffer-text.js";
+} from "../../ui/utils/terminal-buffer-text.ts";
 
 function makeTerm({ lines, viewportY = 0, cols = 80, rows = 24, element = null }) {
   const lineObjects = lines.map((text) => ({

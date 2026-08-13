@@ -62,14 +62,14 @@
 import { ref, onMounted, watch } from "vue";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { useApi } from "../composables/useApi.js";
-import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.js";
+import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.ts";
 import {
   LS_KEY_NOTIF_PREFS,
   NOTIFY_GRACE_DEBOUNCE_MS,
   PHRASE_NOTIFY_GRACE_SEC_DEFAULT,
   PHRASE_NOTIFY_GRACE_SEC_MAX,
-} from "../utils/constants.js";
-import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
+} from "../utils/constants.ts";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 import { useModalView } from "../composables/useModalView.js";
 
 const { modalTitle } = useModalView();

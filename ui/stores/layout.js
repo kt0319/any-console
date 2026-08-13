@@ -1,10 +1,10 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
-import { MOBILE_BREAKPOINT_PX, LS_KEY_SESSION_SIDEBAR_OPEN } from "../utils/constants.js";
-import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
-import { calcGridLayout } from "../utils/terminal-layout.js";
-import { isTouchInput } from "../utils/device.js";
-import { safeFlagLoad, safeFlagSave } from "../utils/storage.js";
+import { MOBILE_BREAKPOINT_PX, LS_KEY_SESSION_SIDEBAR_OPEN } from "../utils/constants.ts";
+import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.ts";
+import { calcGridLayout } from "../utils/terminal-layout.ts";
+import { isTouchInput } from "../utils/device.ts";
+import { safeFlagLoad, safeFlagSave } from "../utils/storage.ts";
 import { useTerminalStore } from "./terminal.js";
 
 export const useLayoutStore = defineStore("layout", () => {

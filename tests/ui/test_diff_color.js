@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { escapeDiffHtml, colorDiff } from "../../ui/utils/diff-color.js";
+import { escapeDiffHtml, colorDiff } from "../../ui/utils/diff-color.ts";
 
 describe("escapeDiffHtml", () => {
   it("returns empty string for falsy input", () => {

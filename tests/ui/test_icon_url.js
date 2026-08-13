@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { looksLikeUrl, extractDomain } from "../../ui/utils/icon-url.js";
+import { looksLikeUrl, extractDomain } from "../../ui/utils/icon-url.ts";
 
 describe("looksLikeUrl", () => {
   it("http URLを判定", () => {

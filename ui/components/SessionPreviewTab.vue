@@ -37,12 +37,12 @@
 
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from "vue";
-import { copyText } from "../utils/clipboard.js";
+import { copyText } from "../utils/clipboard.ts";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { devServerUrl } from "../utils/preview-url.js";
-import { openExternal } from "../utils/open-external.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { devServerUrl } from "../utils/preview-url.ts";
+import { openExternal } from "../utils/open-external.ts";
 import { useModalView } from "../composables/useModalView.js";
 
 // Settings（ModalMenu）の「Dev Server」項目から開くcurrentView

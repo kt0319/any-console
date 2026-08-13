@@ -43,18 +43,18 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { renderIconStr } from "../utils/render-icon.js";
-import { workspaceDisplayName } from "../utils/worktree.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { workspaceDisplayName } from "../utils/worktree.ts";
 import { useConfirm } from "../composables/useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
-import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
+import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.ts";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
-import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
+import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
 const props = defineProps({
   tab: { type: Object, required: true },

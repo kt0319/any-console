@@ -2,7 +2,7 @@
 // @ts-check
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { dispatchKeyToTab, dispatchTextToTab } from "../../ui/utils/terminal-dispatch.js";
+import { dispatchKeyToTab, dispatchTextToTab } from "../../ui/utils/terminal-dispatch.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 
 function makeTab(sessionId = "s1") {

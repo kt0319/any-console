@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.ts";
 import { useToast } from "./useToast.js";
 
 /**

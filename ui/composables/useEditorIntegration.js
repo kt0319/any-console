@@ -1,10 +1,10 @@
 import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
-import { isTouchInput } from "../utils/device.js";
-import { openExternal } from "../utils/open-external.js";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
+import { isTouchInput } from "../utils/device.ts";
+import { openExternal } from "../utils/open-external.ts";
 import { useToast } from "./useToast.js";
 
 export function useEditorIntegration() {

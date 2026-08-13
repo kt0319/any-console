@@ -2,14 +2,14 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useKeyboard } from "./useKeyboard.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { keyDefToAnsi } from "../utils/key-ansi.js";
-import { isEditableOrDialogTarget, isEditableTarget } from "../utils/dom.js";
-import { isTouchOnly } from "../utils/keyboard.js";
+import { keyDefToAnsi } from "../utils/key-ansi.ts";
+import { isEditableOrDialogTarget, isEditableTarget } from "../utils/dom.ts";
+import { isTouchOnly } from "../utils/keyboard.ts";
 import {
   MODIFIER_KEYS,
   isComposingEvent,
   isHardwareKeyboardEvent,
-} from "../utils/keyboard-event.js";
+} from "../utils/keyboard-event.ts";
 
 /**
  * 物理キーボード（iPad/iPhone の外付け含む）を window レベルで監視し、

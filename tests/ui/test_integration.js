@@ -29,7 +29,7 @@ import { useWorkspaceStore } from "../../ui/stores/workspace.js";
 import { useInputStore } from "../../ui/stores/input.js";
 import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.js";
 import { useKeyboardBarState } from "../../ui/composables/useKeyboardBarState.js";
-import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../ui/utils/endpoints.js";
+import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../ui/utils/endpoints.ts";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
 

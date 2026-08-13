@@ -46,10 +46,10 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { workspaceFileHistoryPath, workspaceFileDiffPath } from "../utils/endpoints.js";
-import { colorDiff } from "../utils/diff-color.js";
+import { workspaceFileHistoryPath, workspaceFileDiffPath } from "../utils/endpoints.ts";
+import { colorDiff } from "../utils/diff-color.ts";
 
 const props = defineProps({
   filePath: { type: String, required: true },

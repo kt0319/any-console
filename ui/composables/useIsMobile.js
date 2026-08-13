@@ -1,5 +1,5 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
-import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
+import { MOBILE_BREAKPOINT_PX } from "../utils/constants.ts";
 
 export function useIsMobile() {
   const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);

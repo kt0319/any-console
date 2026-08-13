@@ -2,14 +2,14 @@ import { nextTick } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
-import { buildActionSummary } from "../utils/actionSummary.js";
+import { buildActionSummary } from "../utils/actionSummary.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.js";
-import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.js";
+import { EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
+import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.ts";
 
 const VALID_PANES = new Set([
   "history", "files", "changes", "branch", "jobs", "stash", "issues", "actions", "prs",

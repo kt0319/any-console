@@ -2,9 +2,9 @@ import { watch } from "vue";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";
-import { isEmptyPaneId, makeEmptyPaneId } from "../utils/empty-pane.js";
-import { EP_SETTINGS_LAYOUT } from "../utils/endpoints.js";
-import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.js";
+import { isEmptyPaneId, makeEmptyPaneId } from "../utils/empty-pane.ts";
+import { EP_SETTINGS_LAYOUT } from "../utils/endpoints.ts";
+import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.ts";
 
 let _saveTimer = null;
 

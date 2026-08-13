@@ -7,7 +7,7 @@ import { useWorkspaceStore } from "../../ui/stores/workspace.js";
 const isTouchInputMock = vi.fn(() => false);
 const emitMock = vi.fn();
 
-vi.mock("../../ui/utils/device.js", () => ({
+vi.mock("../../ui/utils/device.ts", () => ({
   isTouchInput: () => isTouchInputMock(),
 }));
 

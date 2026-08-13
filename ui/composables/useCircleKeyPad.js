@@ -1,7 +1,7 @@
 import { computed, reactive } from "vue";
-import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.js";
+import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { getFullBufferText } from "../utils/terminal-buffer-text.js";
+import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -12,7 +12,7 @@ import {
   SPECIAL_BUTTON_SIZE,
   specialIdAt,
   sectorIndexFromDelta,
-} from "../utils/circle-keypad-geometry.js";
+} from "../utils/circle-keypad-geometry.ts";
 
 // スワイプで起動するサークルキーパッド。
 // ターミナル上でタッチ起点から一定距離（CIRCLE_KEYPAD_TRIGGER_PX）動かしたら起点に円形メニューを表示し、

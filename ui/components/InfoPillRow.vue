@@ -131,8 +131,8 @@
 
 <script setup>
 import { computed } from "vue";
-import { renderIconStr } from "../utils/render-icon.js";
-import { peekIconForKey } from "../utils/info-pills.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { peekIconForKey } from "../utils/info-pills.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { useTerminalStore } from "../stores/terminal.js";
 

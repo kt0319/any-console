@@ -18,7 +18,7 @@ import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
 import { emit } from "../app-bridge.js";
-import { extractApiError } from "../utils/constants.js";
+import { extractApiError } from "../utils/constants.ts";
 
 const { apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();

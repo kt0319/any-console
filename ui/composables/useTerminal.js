@@ -1,14 +1,14 @@
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.js";
-import { reconnectBackoffDelay } from "../utils/backoff.js";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.ts";
+import { reconnectBackoffDelay } from "../utils/backoff.ts";
 import { emit } from "../app-bridge.js";
 import { useToast } from "./useToast.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
-import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
+import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.ts";
 import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
-import { terminalSessionPath, terminalSessionHistoryPath } from "../utils/endpoints.js";
+import { terminalSessionPath, terminalSessionHistoryPath } from "../utils/endpoints.ts";
 import { debugLog } from "./useClientLogs.js";
 
 export function useTerminal() {

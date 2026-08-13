@@ -41,8 +41,8 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
-import { renderIconStr } from "../utils/render-icon.js";
-import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.ts";
 
 // ピルの値が変化した時に一時表示する1本の長いピル（.pill-peek-wide）。
 // 何をどの色・テキストで出すか（colorClass/iconClass/text/signature）は

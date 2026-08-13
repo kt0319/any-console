@@ -92,11 +92,11 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
@@ -110,11 +110,11 @@ import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
-import { buildReconnectLabel } from "../utils/terminal-ws.js";
-import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.js";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
-import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.js";
-import { buildTrailingPeekItems } from "../utils/pill-peek.js";
+import { buildReconnectLabel } from "../utils/terminal-ws.ts";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
+import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.ts";
+import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
 
 const props = defineProps({
   tab: { type: Object, required: true },

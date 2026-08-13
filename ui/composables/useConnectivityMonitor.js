@@ -1,14 +1,14 @@
 import { ref } from "vue";
-import { EP_AUTH_CHECK } from "../utils/endpoints.js";
+import { EP_AUTH_CHECK } from "../utils/endpoints.ts";
 import {
   CONNECTIVITY_PING_INTERVAL_MS as PING_INTERVAL_MS,
   CONNECTIVITY_PING_TIMEOUT_MS as PING_TIMEOUT_MS,
   CONNECTIVITY_OFFLINE_THRESHOLD as OFFLINE_THRESHOLD,
   WS_STALE_THRESHOLD_MS,
-} from "../utils/constants.js";
+} from "../utils/constants.ts";
 import { emit } from "../app-bridge.js";
 import { useTerminalStore } from "../stores/terminal.js";
-import { anyTabWsAlive, staleAliveTabs, decideOffline } from "../utils/connectivity.js";
+import { anyTabWsAlive, staleAliveTabs, decideOffline } from "../utils/connectivity.ts";
 
 const isOffline = ref(false);
 let pingTimerId = null;
@@ -65,7 +65,7 @@ export function useConnectivityMonitor() {
           tab._needsHistoryRestore = true;
           terminalStore.setTabFlag(tab.id, "reconnecting", true);
           terminalStore.setTabFlag(tab.id, "reconnectReason", "stale");
-          try { tab.ws.close(); } catch { /* already closing */ }
+          try { tab.ws?.close(); } catch { /* already closing */ }
         }
       }
     }

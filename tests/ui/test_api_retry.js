@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getWithRetry } from "../../ui/utils/api-retry.js";
+import { getWithRetry } from "../../ui/utils/api-retry.ts";
 
 describe("getWithRetry", () => {
   it("成功したら再試行しない", async () => {

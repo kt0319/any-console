@@ -1,6 +1,6 @@
 import { ref, watch } from "vue";
 import { emit } from "../app-bridge.js";
-import { createFlickHandlers } from "../utils/flick-handlers.js";
+import { createFlickHandlers } from "../utils/flick-handlers.ts";
 
 /**
  * QWERTY パネルの表示モード (shift / ctrl / 記号 / fn) と

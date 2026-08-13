@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { collectDroppedFileEntries } from "../utils/file-drop-entries.js";
+import { collectDroppedFileEntries } from "../utils/file-drop-entries.ts";
 
 export function useFileDragDrop({ uploadFn, isDiffMode }) {
   const isDropActive = ref(false);

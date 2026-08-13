@@ -1,16 +1,16 @@
 import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "./useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useToast } from "./useToast.js";
-import { MSG_DELETE_FAILED } from "../utils/constants.js";
+import { MSG_DELETE_FAILED } from "../utils/constants.ts";
 import { useConfirm } from "./useConfirm.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.js";
-import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.js";
-import { basename, dirname } from "../utils/path.js";
-import { workspaceFilesPath } from "../utils/endpoints.js";
+import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.ts";
+import { basename, dirname } from "../utils/path.ts";
+import { workspaceFilesPath } from "../utils/endpoints.ts";
 
 export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();

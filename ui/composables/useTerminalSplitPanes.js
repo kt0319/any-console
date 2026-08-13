@@ -1,8 +1,8 @@
 import { ref, computed, watch, nextTick } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { buildGridRows } from "../utils/terminal-layout.js";
-import { isEmptyPaneId } from "../utils/empty-pane.js";
+import { buildGridRows } from "../utils/terminal-layout.ts";
+import { isEmptyPaneId } from "../utils/empty-pane.ts";
 
 /**
  * TerminalBase の分割ペイン表示まわりの状態とロジック。

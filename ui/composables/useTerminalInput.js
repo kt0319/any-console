@@ -1,10 +1,10 @@
-import { WS_MSG_RESIZE } from "../utils/constants.js";
-import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.js";
+import { WS_MSG_RESIZE } from "../utils/constants.ts";
+import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
 import { fitTerminal, sendResize } from "./useTerminalResize.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
-import { keyDefToAnsi } from "../utils/key-ansi.js";
-import { isEditableOrDialogTarget } from "../utils/dom.js";
+import { keyDefToAnsi } from "../utils/key-ansi.ts";
+import { isEditableOrDialogTarget } from "../utils/dom.ts";
 
 const APP_PAGE_KEYS = new Set(["PageUp", "PageDown"]);
 

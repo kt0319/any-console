@@ -1,7 +1,7 @@
 // @ts-check
 import { ref } from "vue";
-import { copyText } from "../utils/clipboard.js";
-import { URL_COPIED_RESET_MS } from "../utils/constants.js";
+import { copyText } from "../utils/clipboard.ts";
+import { URL_COPIED_RESET_MS } from "../utils/constants.ts";
 
 /**
  * クリップボードコピー＋成功フィードバック（一定時間後に自動で戻るcopiedフラグ）。

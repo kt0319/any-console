@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractFilenameFromContentDisposition } from "../../ui/utils/content-disposition.js";
+import { extractFilenameFromContentDisposition } from "../../ui/utils/content-disposition.ts";
 
 describe("extractFilenameFromContentDisposition", () => {
   it("null/undefinedはnullを返す", () => {

@@ -48,12 +48,12 @@ import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { EP_COMMON_JOBS } from "../utils/endpoints.js";
-import { jobCommandPreview } from "../utils/format.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { EP_COMMON_JOBS } from "../utils/endpoints.ts";
+import { jobCommandPreview } from "../utils/format.ts";
 
 const props = defineProps({
   // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と

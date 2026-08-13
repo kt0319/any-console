@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GITHUB_POLL_INTERVAL_MS } from "../../ui/utils/constants.js";
+import { GITHUB_POLL_INTERVAL_MS } from "../../ui/utils/constants.ts";
 
 const apiGetMock = vi.fn();
 

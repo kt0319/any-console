@@ -5,7 +5,7 @@ import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 
 vi.mock("../../../ui/app-bridge.js", () => ({ emit: vi.fn(), on: vi.fn(() => () => {}) }));
-vi.mock("../../../ui/utils/constants.js", () => ({ TOAST_DEFAULT_DURATION_MS: 5000 }));
+vi.mock("../../../ui/utils/constants.ts", () => ({ TOAST_DEFAULT_DURATION_MS: 5000 }));
 
 // Teleport to="body" のため wrapper.find() ではなく document.body から検索する
 const bodyFind = (sel) => document.body.querySelector(sel);

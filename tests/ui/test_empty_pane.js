@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isEmptyPaneId, makeEmptyPaneId, realTabIds, countRealPanes } from "../../ui/utils/empty-pane.js";
+import { isEmptyPaneId, makeEmptyPaneId, realTabIds, countRealPanes } from "../../ui/utils/empty-pane.ts";
 
 describe("isEmptyPaneId", () => {
   it("'empty:'プレフィックスの文字列を真と判定", () => {

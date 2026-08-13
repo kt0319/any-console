@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { devServerOrigin, devServerUrl } from "../../ui/utils/preview-url.js";
+import { devServerOrigin, devServerUrl } from "../../ui/utils/preview-url.ts";
 
 describe("devServerOrigin", () => {
   it("scheme・ホスト名・proxyポートからoriginを組み立てる", () => {

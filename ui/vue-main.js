@@ -17,12 +17,12 @@ import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
 import { useWorkspaceStore } from "./stores/workspace.js";
 import { useDispatchConfirm } from "./composables/useDispatchConfirm.js";
-import { dispatchWorkspaceLabel } from "./utils/dispatch-request.js";
-import { installErrorReporter } from "./utils/error-reporter.js";
-import { installTooltip } from "./utils/tooltip.js";
+import { dispatchWorkspaceLabel } from "./utils/dispatch-request.ts";
+import { installErrorReporter } from "./utils/error-reporter.ts";
+import { installTooltip } from "./utils/tooltip.ts";
 import { emit } from "./app-bridge.js";
-import { safeJsonLoad } from "./utils/storage.js";
-import { LS_KEY_NOTIF_PREFS } from "./utils/constants.js";
+import { safeJsonLoad } from "./utils/storage.ts";
+import { LS_KEY_NOTIF_PREFS } from "./utils/constants.ts";
 
 // 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
 // dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。

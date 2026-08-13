@@ -4,12 +4,12 @@ import {
   buildViewingMessage,
   parseStatusStreamMessage,
   statusStreamReconnectDelay,
-} from "../../ui/utils/status-stream.js";
+} from "../../ui/utils/status-stream.ts";
 import {
   RECONNECT_BACKOFF_BASE_MS,
   RECONNECT_BACKOFF_MULTIPLIER,
   RECONNECT_BACKOFF_MAX,
-} from "../../ui/utils/constants.js";
+} from "../../ui/utils/constants.ts";
 
 describe("buildStatusStreamUrl", () => {
   it("ws/wss と host から URL を組み立てる", () => {

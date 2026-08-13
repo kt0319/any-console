@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { dispatchWorkspaceLabel, dispatchJobLabel } from "../utils/dispatch-request.js";
+import { dispatchWorkspaceLabel, dispatchJobLabel } from "../utils/dispatch-request.ts";
 
 // Dispatch Queue 一覧の1行分の本文（ワークスペース名・ジョブ/ブランチ・テキスト）。
 // pending 行と Recently executed 行で同じ表示ルールを共有する。

@@ -7,7 +7,7 @@ import { useStatusStream } from "./useStatusStream.js";
 import { useToast } from "./useToast.js";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
-import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
+import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.js";
 
 function waitForNextEvent(eventName) {

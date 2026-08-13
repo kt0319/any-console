@@ -101,7 +101,7 @@ import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.js";
+import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.js";
 
 // Session select の「新規セッション」を表す特別値。

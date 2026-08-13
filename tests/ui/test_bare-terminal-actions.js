@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cwdBaseName, resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../../ui/utils/bare-terminal-actions.js";
+import { cwdBaseName, resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../../ui/utils/bare-terminal-actions.ts";
 
 describe("cwdBaseName", () => {
   it("パスの末尾ディレクトリ名を返す", () => {

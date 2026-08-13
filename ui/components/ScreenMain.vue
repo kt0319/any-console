@@ -69,7 +69,7 @@ import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
 import { useDeepLink } from "../composables/useDeepLink.js";
 import { useLayoutPersist } from "../composables/useLayoutPersist.js";
 import { on, emit } from "../app-bridge.js";
-import { tabTitleLabel } from "../utils/tab-label.js";
+import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();

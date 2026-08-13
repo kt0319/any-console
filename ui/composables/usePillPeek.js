@@ -1,12 +1,12 @@
 import { computed, ref, watch, onBeforeUnmount } from "vue";
-import { PILL_PEEK_DURATION_MS } from "../utils/constants.js";
+import { PILL_PEEK_DURATION_MS } from "../utils/constants.ts";
 import {
   trailingItemsSignature,
   findChangedTrailingItems,
   buildPeekText,
   buildPeekSignature,
-} from "../utils/pill-peek.js";
-import { peekIconForKey, peekColorForKey } from "../utils/info-pills.js";
+} from "../utils/pill-peek.ts";
+import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を

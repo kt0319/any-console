@@ -1,6 +1,6 @@
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
-import { extractApiError } from "../utils/constants.js";
+import { extractApiError } from "../utils/constants.ts";
 import { debugLog } from "./useClientLogs.js";
 
 export function useApi() {

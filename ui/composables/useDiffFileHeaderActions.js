@@ -4,11 +4,11 @@ import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
-import { openExternal } from "../utils/open-external.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
-import { buildGithubFileUrl } from "../utils/git.js";
-import { workspaceGitDiscardPath } from "../utils/endpoints.js";
-import { basename, dirname } from "../utils/path.js";
+import { openExternal } from "../utils/open-external.ts";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
+import { buildGithubFileUrl } from "../utils/git.ts";
+import { workspaceGitDiscardPath } from "../utils/endpoints.ts";
+import { basename, dirname } from "../utils/path.ts";
 import { emit } from "../app-bridge.js";
 
 export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, editorUrlTemplate, openInEditor }) {

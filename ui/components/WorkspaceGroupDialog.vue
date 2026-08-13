@@ -32,7 +32,7 @@ import BaseDialog from "./BaseDialog.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { EP_GROUPS } from "../utils/endpoints.js";
+import { EP_GROUPS } from "../utils/endpoints.ts";
 
 const workspaceStore = useWorkspaceStore();
 const { apiPost, apiPut, apiDelete } = useApi();

@@ -31,7 +31,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useAppConnectivity } from "../composables/useAppConnectivity.js";
 import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
 import { useAppAuthGate } from "../composables/useAppAuthGate.js";
-import { parsePairUrl } from "../utils/pairing.js";
+import { parsePairUrl } from "../utils/pairing.ts";
 
 const layoutStore = useLayoutStore();
 

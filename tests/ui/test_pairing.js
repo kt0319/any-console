@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parsePairUrl, formatPairingCountdown } from "../../ui/utils/pairing.js";
+import { parsePairUrl, formatPairingCountdown } from "../../ui/utils/pairing.ts";
 
 describe("parsePairUrl", () => {
   it("parses id and token from a pairing url", () => {

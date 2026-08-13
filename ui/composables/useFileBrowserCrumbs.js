@@ -1,6 +1,6 @@
 import { computed } from "vue";
 import { emit } from "../app-bridge.js";
-import { splitPathSegments } from "../utils/file-browser.js";
+import { splitPathSegments } from "../utils/file-browser.ts";
 
 export function useFileBrowserCrumbs({ getDiffFile, currentPath, fileContent, navigateToPath, openFile }) {
   const displayPathSegments = computed(() => {

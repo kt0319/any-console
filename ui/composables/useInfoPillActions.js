@@ -2,11 +2,11 @@ import { emit } from "../app-bridge.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { terminalSessionCwdPath } from "../utils/endpoints.js";
-import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
-import { openExternal } from "../utils/open-external.js";
-import { devServerUrl } from "../utils/preview-url.js";
-import { copyText } from "../utils/clipboard.js";
+import { terminalSessionCwdPath } from "../utils/endpoints.ts";
+import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.ts";
+import { openExternal } from "../utils/open-external.ts";
+import { devServerUrl } from "../utils/preview-url.ts";
+import { copyText } from "../utils/clipboard.ts";
 
 // Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が
 // 同じopenPane(key)を使う。

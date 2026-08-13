@@ -9,7 +9,7 @@ import {
   extractMessage,
   extractStack,
   installErrorReporter,
-} from "../../ui/utils/error-reporter.js";
+} from "../../ui/utils/error-reporter.ts";
 
 describe("truncate", () => {
   it("returns empty string for non-string input", () => {

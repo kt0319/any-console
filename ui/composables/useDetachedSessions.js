@@ -3,9 +3,9 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
-import { buildDetachedSessionList } from "../utils/detached-sessions.js";
+import { buildDetachedSessionList } from "../utils/detached-sessions.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import {
   EP_TERMINAL_SESSIONS,
   EP_SYSTEM_TMUX_INFO,
@@ -13,7 +13,7 @@ import {
   EP_JOBS_WORKSPACES,
   terminalWsPath,
   terminalSessionDetachedPath,
-} from "../utils/endpoints.js";
+} from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.js";
 
 // モジュールスコープの単一状態（useRecentJobs.jsと同じパターン）。

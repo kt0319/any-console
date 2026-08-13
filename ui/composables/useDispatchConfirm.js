@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import {
@@ -8,7 +8,7 @@ import {
   dispatchRerunPath,
   EP_JOBS_WORKSPACES,
   EP_TERMINAL_SESSIONS,
-} from "../utils/endpoints.js";
+} from "../utils/endpoints.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.js";
 import { emit } from "../app-bridge.js";
 

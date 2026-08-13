@@ -45,8 +45,8 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
-import { EDITOR_CONFIG_DEBOUNCE_MS } from "../utils/constants.js";
+import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
+import { EDITOR_CONFIG_DEBOUNCE_MS } from "../utils/constants.ts";
 import { useModalView } from "../composables/useModalView.js";
 
 const { modalTitle } = useModalView();

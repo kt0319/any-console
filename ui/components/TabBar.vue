@@ -70,7 +70,7 @@ import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
 import { useSettingsNav } from "../composables/useSettingsNav.js";
 import { emit } from "../app-bridge.js";
-import { nextTabIndex } from "../utils/tab-nav.js";
+import { nextTabIndex } from "../utils/tab-nav.ts";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();

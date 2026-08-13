@@ -1,7 +1,7 @@
 import { setLongPressActive } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { createTouchTracker } from "../utils/gesture.js";
-import { findUrlInBuffer } from "../utils/terminal-buffer-text.js";
+import { createTouchTracker } from "../utils/gesture.ts";
+import { findUrlInBuffer } from "../utils/terminal-buffer-text.ts";
 import { emit } from "../app-bridge.js";
 import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeyPad.js";
 

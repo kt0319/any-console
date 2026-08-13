@@ -21,9 +21,9 @@
 <script setup>
 import { ref } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { setStashCache, invalidateStashCache } from "../composables/useStashCache.js";

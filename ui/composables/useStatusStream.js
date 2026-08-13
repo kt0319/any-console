@@ -11,7 +11,7 @@ import {
   buildViewingMessage,
   parseStatusStreamMessage,
   statusStreamReconnectDelay,
-} from "../utils/status-stream.js";
+} from "../utils/status-stream.ts";
 
 // アプリ全体で 1 本の WS を共有するモジュールシングルトン。
 let socket = /** @type {WebSocket|null} */ (null);

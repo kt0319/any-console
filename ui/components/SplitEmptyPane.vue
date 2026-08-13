@@ -47,8 +47,8 @@
 import { computed } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { isEmptyPaneId } from "../utils/empty-pane.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { emit } from "../app-bridge.js";
 import SplitModeSelector from "./SplitModeSelector.vue";
 

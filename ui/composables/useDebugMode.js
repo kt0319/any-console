@@ -1,6 +1,6 @@
 import { ref, watch } from "vue";
-import { LS_KEY_DEBUG_MODE, LS_KEY_DEBUG_LEVELS, DEBUG_LEVELS } from "../utils/constants.js";
-import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../utils/storage.js";
+import { LS_KEY_DEBUG_MODE, LS_KEY_DEBUG_LEVELS, DEBUG_LEVELS } from "../utils/constants.ts";
+import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 
 function loadLevels() {
   const parsed = safeJsonLoad(LS_KEY_DEBUG_LEVELS, null);

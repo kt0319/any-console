@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName } from "../../ui/utils/worktree.js";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {

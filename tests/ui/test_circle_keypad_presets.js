@@ -16,7 +16,7 @@ import {
   circleKeypadKeyLabel,
   defaultKeyDefs,
   defaultSpecialDefs,
-} from "../../ui/utils/circle-keypad-presets.js";
+} from "../../ui/utils/circle-keypad-presets.ts";
 
 describe("CIRCLE_KEYPAD_* metadata", () => {
   it("has 8 direction labels", () => {

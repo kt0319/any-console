@@ -11,7 +11,7 @@ import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "../composables/useApi.js";
-import { terminalSessionWorkspacePath } from "../utils/endpoints.js";
+import { terminalSessionWorkspacePath } from "../utils/endpoints.ts";
 
 const { modalTitle, popView, viewState } = useModalView();
 const workspaceStore = useWorkspaceStore();

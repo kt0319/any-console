@@ -55,7 +55,7 @@ import {
   modifierIdOf,
   baseKeyIdOf,
   circleKeypadKeyLabel,
-} from "../utils/circle-keypad-presets.js";
+} from "../utils/circle-keypad-presets.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "Circle Keypad";

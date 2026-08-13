@@ -9,7 +9,7 @@ import {
   resolveAgentBadgeState,
   sessionSidebarItems,
   pendingDispatchSidebarItems,
-} from "../../ui/utils/session-sidebar.js";
+} from "../../ui/utils/session-sidebar.ts";
 
 describe("agentStateDescriptor", () => {
   it("既知の状態はアイコン・ラベル・クラス名を返す", () => {

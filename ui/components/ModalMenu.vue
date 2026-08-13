@@ -56,8 +56,8 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useModalView } from "../composables/useModalView.js";

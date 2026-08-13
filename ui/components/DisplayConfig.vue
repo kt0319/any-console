@@ -22,7 +22,7 @@
 <script setup>
 import { onMounted } from "vue";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
-import { DEBUG_LEVELS } from "../utils/constants.js";
+import { DEBUG_LEVELS } from "../utils/constants.ts";
 import { useModalView } from "../composables/useModalView.js";
 
 const { modalTitle } = useModalView();

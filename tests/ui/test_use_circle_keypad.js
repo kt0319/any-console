@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useCircleKeyPad } from "../../ui/composables/useCircleKeyPad.js";
 import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.js";
-import { SPECIAL_POSITIONS } from "../../ui/utils/circle-keypad-geometry.js";
+import { SPECIAL_POSITIONS } from "../../ui/utils/circle-keypad-geometry.ts";
 
 describe("useCircleKeyPad: コーナーアクション None", () => {
   beforeEach(() => {

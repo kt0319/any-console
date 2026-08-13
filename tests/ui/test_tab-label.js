@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { workspaceBranchLabel, tabTitleLabel } from "../../ui/utils/tab-label.js";
+import { workspaceBranchLabel, tabTitleLabel } from "../../ui/utils/tab-label.ts";
 
 describe("workspaceBranchLabel", () => {
   const allWorkspaces = [

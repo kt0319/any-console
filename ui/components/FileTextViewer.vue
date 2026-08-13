@@ -37,8 +37,8 @@ hljs.registerLanguage("markdown", markdown);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("ini", ini);
 hljs.registerLanguage("dockerfile", dockerfile);
-import { escapeHtml } from "../utils/escape-html.js";
-import { formatSize } from "../utils/format.js";
+import { escapeHtml } from "../utils/escape-html.ts";
+import { formatSize } from "../utils/format.ts";
 
 const props = defineProps({
   fileContent: { type: Object, required: true },

@@ -1,13 +1,13 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import {
   terminalSessionFileContentPath,
   terminalSessionFilesPath,
   workspaceFileContentPath,
   workspaceFilesPath,
-} from "../utils/endpoints.js";
+} from "../utils/endpoints.ts";
 
 export function useFileBrowserNav({ getTerminalSessionId = () => "" } = {}) {
   const workspaceStore = useWorkspaceStore();

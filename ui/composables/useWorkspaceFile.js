@@ -2,10 +2,10 @@ import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useToast } from "./useToast.js";
-import { triggerBlobDownload } from "../utils/download.js";
-import { extractFilenameFromContentDisposition } from "../utils/content-disposition.js";
-import { workspaceDownloadPath } from "../utils/endpoints.js";
-import { basename } from "../utils/path.js";
+import { triggerBlobDownload } from "../utils/download.ts";
+import { extractFilenameFromContentDisposition } from "../utils/content-disposition.ts";
+import { workspaceDownloadPath } from "../utils/endpoints.ts";
+import { basename } from "../utils/path.ts";
 
 export function useWorkspaceFile() {
   const auth = useAuthStore();

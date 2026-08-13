@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../../ui/utils/session-jobs.js";
+import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../../ui/utils/session-jobs.ts";
 
 describe("needsJobsRefetch", () => {
   it("空 allJobs + ジョブセッションあり → 再取得する", () => {

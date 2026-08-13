@@ -91,9 +91,9 @@ import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
 import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.js";
 import { useShowGitignored } from "../composables/useShowGitignored.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
-import { renderFileIcon } from "../utils/file-icon.js";
-import { formatRelativeTime } from "../utils/format.js";
-import { entrySizeText } from "../utils/file-browser.js";
+import { renderFileIcon } from "../utils/file-icon.ts";
+import { formatRelativeTime } from "../utils/format.ts";
+import { entrySizeText } from "../utils/file-browser.ts";
 
 const workspaceStore = useWorkspaceStore();
 

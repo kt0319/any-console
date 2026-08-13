@@ -66,10 +66,10 @@ import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.ts";
+import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.ts";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut, apiDelete } = useApi();

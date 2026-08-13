@@ -13,7 +13,7 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.js";
-import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
+import { isTouchOnly, listenForEscape } from "../utils/keyboard.ts";
 
 /**
  * ダイアログ共通シェル。オーバーレイ描画・フォーカストラップ・Esc で閉じる・

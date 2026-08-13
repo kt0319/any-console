@@ -2,12 +2,12 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useConfirm } from "./useConfirm.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { useToast } from "./useToast.js";
 import { useGitRemoteAction } from "./useGitRemoteAction.js";
 import { useWorktreeRemove } from "./useWorktreeRemove.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.js";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.js";
 
 export function useBranchActions(branchList) {

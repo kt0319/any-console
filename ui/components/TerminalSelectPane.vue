@@ -27,9 +27,9 @@
 <script setup>
 import { ref, reactive, computed } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
-import { getFullBufferText } from "../utils/terminal-buffer-text.js";
-import { copyText } from "../utils/clipboard.js";
-import { applyFormat } from "../utils/auto-format.js";
+import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
+import { copyText } from "../utils/clipboard.ts";
+import { applyFormat } from "../utils/auto-format.ts";
 import { useToast } from "../composables/useToast.js";
 
 const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"];

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { listenForEscape, isCaretOnFirstLine, isCaretOnLastLine } from "../../ui/utils/keyboard.js";
+import { listenForEscape, isCaretOnFirstLine, isCaretOnLastLine } from "../../ui/utils/keyboard.ts";
 
 function dispatchKeydown(key) {
   const event = new KeyboardEvent("keydown", { key, cancelable: true });

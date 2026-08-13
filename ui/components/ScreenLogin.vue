@@ -56,7 +56,7 @@
 import { ref, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useModal } from "../composables/useModal.js";
-import { parsePairUrl } from "../utils/pairing.js";
+import { parsePairUrl } from "../utils/pairing.ts";
 
 const auth = useAuthStore();
 const emits = defineEmits(["authenticated"]);

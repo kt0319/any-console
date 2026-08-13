@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.js";
-import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../../ui/utils/storage.js";
+import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.ts";
+import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../../ui/utils/storage.ts";
 
 // ── Tests ──
 

@@ -1,6 +1,6 @@
 import { onMounted } from "vue";
-import { arrowResolver } from "../utils/flick-resolvers.js";
-import { createArrowFlickHandler } from "../utils/arrow-flick.js";
+import { arrowResolver } from "../utils/flick-resolvers.ts";
+import { createArrowFlickHandler } from "../utils/arrow-flick.ts";
 import { useEnterAction } from "./useEnterAction.js";
 
 export function useKeyboardBarFlicks({

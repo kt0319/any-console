@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
-import { WORKING_MIN_DURATION_MS } from "../../ui/utils/constants.js";
+import { WORKING_MIN_DURATION_MS } from "../../ui/utils/constants.ts";
 
 // addTerminalTab は xterm 依存で重いので使わず、active 再選出ロジックの検証に
 // 必要な最小プロパティ（id / term / sessionId）だけのタブを直接挿入する。

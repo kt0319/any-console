@@ -1,6 +1,6 @@
 import { ref, watch } from "vue";
-import { LS_PREFIX_WS_META } from "../utils/constants.js";
-import { safeFlagLoad, safeFlagSave } from "../utils/storage.js";
+import { LS_PREFIX_WS_META } from "../utils/constants.ts";
+import { safeFlagLoad, safeFlagSave } from "../utils/storage.ts";
 
 const SHOW_GITIGNORED_KEY_PREFIX = LS_PREFIX_WS_META + "show_gitignored_";
 

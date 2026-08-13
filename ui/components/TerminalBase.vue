@@ -62,7 +62,7 @@
 import TerminalPane from "./TerminalPane.vue";
 import SplitEmptyPane from "./SplitEmptyPane.vue";
 import TerminalSplitDropZones from "./TerminalSplitDropZones.vue";
-import { isEmptyPaneId } from "../utils/empty-pane.js";
+import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { useTerminalSplitPanes } from "../composables/useTerminalSplitPanes.js";
 
 defineProps({

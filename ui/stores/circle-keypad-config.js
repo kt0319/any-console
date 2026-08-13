@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.js";
-import { EP_SETTINGS_CIRCLE_KEYPAD } from "../utils/endpoints.js";
-import { createServerSettings } from "../utils/server-settings.js";
+import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.ts";
+import { EP_SETTINGS_CIRCLE_KEYPAD } from "../utils/endpoints.ts";
+import { createServerSettings } from "../utils/server-settings.ts";
 
 function sanitizeKeys(keys) {
   if (!Array.isArray(keys) || keys.length !== 8) return defaultKeyDefs();

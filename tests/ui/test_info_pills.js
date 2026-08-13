@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { INFO_PILLS, INFO_PILL_FIELDS, peekIconForKey, peekColorForKey } from "../../ui/utils/info-pills.js";
+import { INFO_PILLS, INFO_PILL_FIELDS, peekIconForKey, peekColorForKey } from "../../ui/utils/info-pills.ts";
 
 describe("peekColorForKey", () => {
   it("キーごとの静的な色クラスを返す", () => {

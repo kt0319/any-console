@@ -2,8 +2,8 @@ import { useAuthStore } from "../stores/auth.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
-import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.js";
-import { workspaceCommitDiffPath } from "../utils/endpoints.js";
+import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.ts";
+import { workspaceCommitDiffPath } from "../utils/endpoints.ts";
 
 export function buildFileList(files) {
   return (files || []).map((f) => ({

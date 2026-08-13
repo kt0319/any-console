@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.js";
-import { INFO_PILL_FIELDS } from "../utils/info-pills.js";
-import { createServerSettings } from "../utils/server-settings.js";
+import { EP_SETTINGS_INFO_PILLS } from "../utils/endpoints.ts";
+import { INFO_PILL_FIELDS } from "../utils/info-pills.ts";
+import { createServerSettings } from "../utils/server-settings.ts";
 
 // フィールド一覧・デフォルト表示順はinfo-pills.jsのディスクリプタテーブルから導出する。
 const FIELDS = INFO_PILL_FIELDS;

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { LS_PREFIX_API_CACHE, LS_PREFIX_WS_META } from "../utils/constants.js";
-import { EP_AUTH_CHECK, EP_AUTH_LOGOUT, EP_DEVICES_REGISTER, pairingClaimPath } from "../utils/endpoints.js";
+import { LS_PREFIX_API_CACHE, LS_PREFIX_WS_META } from "../utils/constants.ts";
+import { EP_AUTH_CHECK, EP_AUTH_LOGOUT, EP_DEVICES_REGISTER, pairingClaimPath } from "../utils/endpoints.ts";
 
 export const useAuthStore = defineStore("auth", () => {
   // 実トークンは cookie で管理されるため保持しない。認証済みかどうかのフラグのみ持つ。

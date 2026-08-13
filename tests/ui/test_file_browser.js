@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   joinEntryPath, splitPathSegments, entrySizeText, buildGithubEntryUrl,
-} from "../../ui/utils/file-browser.js";
+} from "../../ui/utils/file-browser.ts";
 
 // ── Tests ──
 

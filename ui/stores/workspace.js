@@ -1,9 +1,9 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { EP_GROUPS, EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.js";
-import { LS_PREFIX_WS_META } from "../utils/constants.js";
-import { safeJsonLoad, safeJsonSave } from "../utils/storage.js";
+import { EP_GROUPS, EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.ts";
+import { LS_PREFIX_WS_META } from "../utils/constants.ts";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 
 const STATUS_CACHE_KEY = LS_PREFIX_WS_META + "status_cache";
 const STATUS_CACHE_FIELDS = ["last_commit_message", "branch"];

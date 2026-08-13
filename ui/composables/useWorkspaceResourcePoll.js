@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
-import { GITHUB_POLL_INTERVAL_MS } from "../utils/constants.js";
+import { GITHUB_POLL_INTERVAL_MS } from "../utils/constants.ts";
 
 // ワークスペース単位の GitHub 系リソース（PR一覧・Actions run一覧）を取得・
 // ポーリングする composable の共通実装（useWorkspacePRs / useWorkspaceActions

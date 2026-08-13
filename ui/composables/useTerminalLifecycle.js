@@ -6,9 +6,9 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "./useTerminal.js";
 import { useToast } from "./useToast.js";
 import { usePrompt } from "./usePrompt.js";
-import { EP_RUN, terminalSessionDetachedPath } from "../utils/endpoints.js";
-import { TERMINAL_JOB_KEY } from "../utils/constants.js";
-import { collectCommandVars } from "../utils/command-vars.js";
+import { EP_RUN, terminalSessionDetachedPath } from "../utils/endpoints.ts";
+import { TERMINAL_JOB_KEY } from "../utils/constants.ts";
+import { collectCommandVars } from "../utils/command-vars.ts";
 import { rememberJobIcon } from "./useSessionSync.js";
 
 export function useTerminalLifecycle({ terminalBaseView }) {

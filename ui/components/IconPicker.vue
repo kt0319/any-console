@@ -53,10 +53,10 @@
 import { ref, nextTick, onMounted } from "vue";
 import { useModalView } from "../composables/useModalView.js";
 import { useIconUpload } from "../composables/useIconUpload.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { looksLikeUrl, extractDomain } from "../utils/icon-url.js";
-import { buildIconGridModel } from "../utils/icon-grid.js";
-import MDI_ICONS from "../data/mdi-icons.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { looksLikeUrl, extractDomain } from "../utils/icon-url.ts";
+import { buildIconGridModel } from "../utils/icon-grid.ts";
+import MDI_ICONS from "../data/mdi-icons.ts";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle.value = "Icon Picker";

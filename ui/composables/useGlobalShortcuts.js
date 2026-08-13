@@ -3,10 +3,10 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useConfirm } from "./useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { emit } from "../app-bridge.js";
-import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.js";
-import { isEditableTarget } from "../utils/dom.js";
+import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
+import { isEditableTarget } from "../utils/dom.ts";
 
 export function useGlobalShortcuts({ closeTab }) {
   const terminalStore = useTerminalStore();

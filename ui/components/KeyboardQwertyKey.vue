@@ -86,8 +86,8 @@ import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
 import { useQwertyCamera } from "../composables/useQwertyCamera.js";
-import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.js";
-import { restartTapBounce } from "../utils/dom.js";
+import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.ts";
+import { restartTapBounce } from "../utils/dom.ts";
 
 // KeyboardBar.vue専用の部品（単独では使わない）。入力欄・矢印/Enterキーなどの
 // 状態はすべてKeyboardBar.vue側で一元管理し、このコンポーネントへはprops経由で

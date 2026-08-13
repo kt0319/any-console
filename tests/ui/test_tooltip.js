@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { installTooltip } from "../../ui/utils/tooltip.js";
+import { installTooltip } from "../../ui/utils/tooltip.ts";
 
 function setHoverCapable(matches) {
   window.matchMedia = vi.fn().mockReturnValue({ matches });

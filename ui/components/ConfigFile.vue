@@ -19,10 +19,10 @@ import hljs from "highlight.js/lib/core";
 import json from "highlight.js/lib/languages/json";
 hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
+import { getWithRetry } from "../utils/api-retry.ts";
 import { useToast } from "../composables/useToast.js";
-import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
-import { triggerBlobDownload } from "../utils/download.js";
+import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.ts";
+import { triggerBlobDownload } from "../utils/download.ts";
 import { useModalView } from "../composables/useModalView.js";
 
 const { modalTitle } = useModalView();

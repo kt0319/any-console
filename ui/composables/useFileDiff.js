@@ -2,9 +2,9 @@ import { ref, watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { useApi } from "./useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { colorDiff, escapeDiffHtml } from "../utils/diff-color.js";
-import { workspaceFileContentPath } from "../utils/endpoints.js";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { colorDiff, escapeDiffHtml } from "../utils/diff-color.ts";
+import { workspaceFileContentPath } from "../utils/endpoints.ts";
 
 export function useFileDiff({ getDiffFile, getDiffMessage, getDiffCommitHash }) {
   const workspaceStore = useWorkspaceStore();

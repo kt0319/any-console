@@ -1,4 +1,4 @@
-import { resolveQwertyVerticalFlick, resolveFnNumberKey } from "../utils/qwerty-key.js";
+import { resolveQwertyVerticalFlick, resolveFnNumberKey } from "../utils/qwerty-key.ts";
 
 /**
  * QWERTY キーのタッチ/タップ処理。

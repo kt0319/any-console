@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildDetachedSessionList, AC_PREFIX } from "../../ui/utils/detached-sessions.js";
+import { buildDetachedSessionList, AC_PREFIX } from "../../ui/utils/detached-sessions.ts";
 
 describe("buildDetachedSessionList", () => {
   it("classifies ac- sessions as managed (external: false)", () => {

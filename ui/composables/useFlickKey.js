@@ -1,7 +1,7 @@
 import {
   LONG_PRESS_MS, FLICK_THRESHOLD,
   REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION,
-} from "../utils/constants.js";
+} from "../utils/constants.ts";
 
 /**
  * フリック式キーボードのキー要素にタッチ/クリックハンドラを attach する。
