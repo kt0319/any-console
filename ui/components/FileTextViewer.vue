@@ -9,7 +9,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from "vue";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
@@ -45,8 +45,8 @@ const props = defineProps({
   fileName: { type: String, default: "" },
 });
 
-const codeEl = ref(null);
-const highlightedLines = ref([]);
+const codeEl = ref<HTMLElement | null>(null);
+const highlightedLines = ref<string[]>([]);
 
 function highlight() {
   const content = props.fileContent?.content;

@@ -73,7 +73,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.ts";
 import { emit } from "../app-bridge.ts";
@@ -100,7 +100,7 @@ const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
-const serverInfo = ref(null);
+const serverInfo = ref<{ hostname?: string, version?: string } | null>(null);
 
 // 「Open on your phone」導線: 認証必須な環境で出す一回きりのオンボーディング促し。
 // 完了後も項目自体は消さず、チェックマークで完了を示す（何を設定済みか後から

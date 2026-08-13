@@ -13,7 +13,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
     "baseUrl": "."
   },
-  "include": ["ui/env.d.ts", "ui/**/*.js", "ui/**/*.ts"],
+  "include": ["ui/env.d.ts", "ui/**/*.js", "ui/**/*.ts", "ui/**/*.vue"],
   "exclude": [
     "node_modules",
     "dist",

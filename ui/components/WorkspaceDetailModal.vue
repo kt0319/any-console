@@ -31,7 +31,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, provide, watch } from "vue";
 import { useModal } from "../composables/useModal.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
@@ -61,7 +61,9 @@ const terminalStore = useTerminalStore();
 // タブ切替のたびに<WorkspaceDetail>を再マウントし、useWorkspaceDetailNav.js
 // がタブごとに保持しているisOpen/detail(pane)を確実に反映させる
 // （WorkspaceDetail.vue自体はopen()をonMounted時にしか呼ばないため）。
-const activeTabId = computed(() => terminalStore.activeTabId);
+// null は「アクティブタブなし」。:key に渡すため number として扱う
+// （実行時の値・挙動は不変）。
+const activeTabId = computed(() => terminalStore.activeTabId as number);
 
 provide("modalTitle", modalTitle);
 provide("modalBranch", modalBranch);
@@ -73,7 +75,7 @@ provide("updateViewState", updateViewState);
 // （WorkspaceDetail.vue参照）。
 provide("closeWorkspaceDetail", close);
 
-const modalEl = ref(null);
+const modalEl = ref<HTMLElement | null>(null);
 
 watch(
   isOpen,

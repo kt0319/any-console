@@ -39,8 +39,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, nextTick } from "vue";
+<script setup lang="ts">
+import { ref, computed, watch, nextTick, type ComponentPublicInstance, type PropType } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.ts";
 
@@ -55,7 +55,7 @@ const props = defineProps({
   iconClass: { type: String, default: "" },
   text: { type: String, default: "" },
   // 内容が変化した時だけマーキーを再測定するための、キーごとの比較用シグネチャ。
-  signature: { type: String, default: null },
+  signature: { type: String as PropType<string | null>, default: null },
   tab: { type: Object, required: true },
   maxWidth: { type: Number, required: true },
   changedFiles: { type: Number, default: 0 },
@@ -86,7 +86,7 @@ const emits = defineEmits(["peek-click"]);
 // 1回きりのスクロールにする（.pill-peek-marquee-run、infiniteループは
 // しない）。History以外の全ラベルにも同じ扱いを揃える。
 const marqueeRun = ref(false);
-const marqueeTextEl = ref(null);
+const marqueeTextEl = ref<HTMLElement | null>(null);
 // はみ出し幅（scrollWidth - clientWidth）。末尾がちょうど見える位置で
 // 止まるよう、アニメーションの移動量をこの実測値に合わせる。
 const marqueeOffset = ref(0);
@@ -105,8 +105,8 @@ function measureMarquee() {
 // marqueeTextEl がまだ null/旧要素のままで測定に失敗する（挿入後は再測定
 // されず、動くべき時に動かないまま固定される）。実際にDOMへ挿入された瞬間
 // （関数refのマウント時）にも測るようにして、このレースを避ける。
-function setMarqueeTextEl(el) {
-  marqueeTextEl.value = el;
+function setMarqueeTextEl(el: Element | ComponentPublicInstance | null) {
+  marqueeTextEl.value = el as HTMLElement | null;
   if (el) nextTick(measureMarquee);
 }
 

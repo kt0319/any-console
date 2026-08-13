@@ -24,7 +24,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
@@ -32,11 +32,11 @@ import { copyText } from "../utils/clipboard.ts";
 import { applyFormat } from "../utils/auto-format.ts";
 import { useToast } from "../composables/useToast.ts";
 
-const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"];
+const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"] as const;
 
 const terminalStore = useTerminalStore();
 const toast = useToast();
-const textareaEl = ref(null);
+const textareaEl = ref<HTMLTextAreaElement | null>(null);
 const original = ref("");
 
 const format = reactive({ stripLeading: false, joinWrapped: false, breakLines: false, tidy: false });

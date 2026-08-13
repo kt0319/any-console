@@ -58,7 +58,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
 import { usePushNotification } from "../composables/usePushNotification.ts";
 import { useApi } from "../composables/useApi.ts";
@@ -73,7 +73,7 @@ import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Notifications";
+modalTitle!.value = "Notifications";
 
 const { isSupported, isSubscribed, permission, subscribe, unsubscribe, init } = usePushNotification();
 const { apiGet, apiPut } = useApi();
@@ -89,10 +89,10 @@ async function loadGraceSec() {
   graceSecLoaded = true;
 }
 
-let graceSaveTimer = null;
+let graceSaveTimer: ReturnType<typeof setTimeout> | null = null;
 watch(graceSec, (val) => {
   if (!graceSecLoaded) return;
-  clearTimeout(graceSaveTimer);
+  clearTimeout(graceSaveTimer ?? undefined);
   graceSaveTimer = setTimeout(async () => {
     const clamped = Math.min(PHRASE_NOTIFY_GRACE_SEC_MAX, Math.max(0, Number.isFinite(val) ? Math.trunc(val) : PHRASE_NOTIFY_GRACE_SEC_DEFAULT));
     graceSec.value = clamped;

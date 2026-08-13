@@ -6,7 +6,7 @@
           <span class="settings-item-label">{{ schema.label }}</span>
         </div>
         <div class="terminal-settings-control-row">
-          <button type="button" class="terminal-font-size-step-btn" :disabled="currentValues[key] <= schema.min" @click="stepValue(key, -1)">-</button>
+          <button type="button" class="terminal-font-size-step-btn" :disabled="currentValues[key] <= schema.min!" @click="stepValue(key, -1)">-</button>
           <input
             type="number"
             class="form-input terminal-font-size-input"
@@ -15,9 +15,9 @@
             :step="schema.step || 1"
             :value="currentValues[key]"
             inputmode="numeric"
-            @change="commitValue(key, $event.target.value)"
+            @change="commitValue(key, ($event.target as HTMLInputElement).value)"
           />
-          <button type="button" class="terminal-font-size-step-btn" :disabled="currentValues[key] >= schema.max" @click="stepValue(key, 1)">+</button>
+          <button type="button" class="terminal-font-size-step-btn" :disabled="currentValues[key] >= schema.max!" @click="stepValue(key, 1)">+</button>
         </div>
         <div class="terminal-settings-value">{{ currentValues[key] }}{{ schema.unit || '' }}</div>
         <div v-if="schema.note" class="settings-note">{{ schema.note }}</div>
@@ -27,7 +27,7 @@
           <span class="settings-item-label">{{ schema.label }}</span>
           <span v-if="schema.note" class="settings-note">{{ schema.note }}</span>
         </div>
-        <input type="checkbox" :checked="currentValues[key]" @change="commitValue(key, $event.target.checked)" />
+        <input type="checkbox" :checked="currentValues[key]" @change="commitValue(key, ($event.target as HTMLInputElement).checked)" />
       </label>
       <div v-else-if="schema.type === 'select'" class="settings-item">
         <div class="settings-item-header">
@@ -35,7 +35,7 @@
         </div>
         <div class="terminal-settings-segmented">
           <button
-            v-for="opt in schema.options"
+            v-for="opt in schema.options!"
             :key="opt.value"
             type="button"
             class="terminal-settings-segmented-btn"
@@ -52,28 +52,42 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Terminal";
+modalTitle!.value = "Terminal";
+
+// TERMINAL_SETTINGS_META（utils/terminal-settings.ts）はキーごとに形の異なる
+// リテラルの union になるため、テンプレートの分岐（schema.type ごとの表示）で
+// 使いやすい共通スキーマ型に揃える。
+interface TerminalSettingSchema {
+  type: string;
+  label: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  note?: string;
+  options?: { value: string, label: string }[];
+}
 
 const terminalStore = useTerminalStore();
-const TERMINAL_SETTINGS_META = terminalStore.TERMINAL_SETTINGS_META;
-const currentValues = reactive({ ...terminalStore.terminalSettings });
+const TERMINAL_SETTINGS_META = terminalStore.TERMINAL_SETTINGS_META as Record<string, TerminalSettingSchema>;
+const currentValues = reactive<Record<string, any>>({ ...terminalStore.terminalSettings });
 
 function syncFromStore() {
   Object.assign(currentValues, terminalStore.terminalSettings);
 }
 
-function commitValue(key, rawValue) {
+function commitValue(key: string, rawValue: unknown) {
   const next = terminalStore.setTerminalSetting(key, rawValue);
   if (next != null) currentValues[key] = next;
 }
 
-function stepValue(key, direction) {
+function stepValue(key: string, direction: number) {
   const schema = TERMINAL_SETTINGS_META[key];
   const step = schema.step || 1;
   commitValue(key, currentValues[key] + step * direction);

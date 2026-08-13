@@ -11,7 +11,7 @@
   <span v-if="request.text" class="dispatch-queue-text">{{ request.text }}</span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { dispatchWorkspaceLabel, dispatchJobLabel } from "../utils/dispatch-request.ts";
 
 // Dispatch Queue 一覧の1行分の本文（ワークスペース名・ジョブ/ブランチ・テキスト）。

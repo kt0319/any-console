@@ -35,7 +35,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from "vue";
 import { copyText } from "../utils/clipboard.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
@@ -52,14 +52,14 @@ import { useModalView } from "../composables/useModalView.ts";
 // 他の利用と重複起動にはならない）。
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Dev Server";
+modalTitle!.value = "Dev Server";
 
 const { ports, start: startPolling, stop: stopPolling } = usePreviewPorts();
 onMounted(startPolling);
 onBeforeUnmount(stopPolling);
 
 const workspaceStore = useWorkspaceStore();
-const copiedPort = ref(null);
+const copiedPort = ref<number | null>(null);
 const hostname = location.hostname;
 
 function workspaceIconHtml(name) {

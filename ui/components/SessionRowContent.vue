@@ -20,7 +20,7 @@
   </span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { buildNumstatHtml } from "../utils/git.ts";

@@ -43,7 +43,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
@@ -58,15 +58,18 @@ const props = defineProps({
 const workspaceStore = useWorkspaceStore();
 const { apiGet } = useApi();
 
-const entries = ref([]);
+// git log 1行分（parseLogOutput が組み立てる表示用エントリ）。
+type HistoryEntry = { hash: string, time: string, author: string, message: string };
+
+const entries = ref<HistoryEntry[]>([]);
 const isLoading = ref(false);
 const loadError = ref("");
-const selectedEntry = ref(null);
+const selectedEntry = ref<HistoryEntry | null>(null);
 const diffHtml = ref("");
 const isDiffLoading = ref(false);
 const diffError = ref("");
 
-function parseLogOutput(stdout) {
+function parseLogOutput(stdout: string): HistoryEntry[] {
   return stdout
     .split("\n")
     .map((line) => line.trim())
@@ -104,13 +107,13 @@ async function loadHistory() {
   }
 }
 
-async function selectEntry(entry) {
+async function selectEntry(entry: HistoryEntry) {
   selectedEntry.value = entry;
   diffHtml.value = "";
   diffError.value = "";
   isDiffLoading.value = true;
   try {
-    const workspace = workspaceStore.selectedWorkspace;
+    const workspace = workspaceStore.selectedWorkspace!;
     const { ok, data } = await getWithRetry(apiGet, workspaceFileDiffPath(workspace, entry.hash, props.filePath));
     if (!ok) {
       diffError.value = data?.stderr || data?.detail || "Failed to load diff";

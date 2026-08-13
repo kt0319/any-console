@@ -26,7 +26,7 @@
   </li>
 </template>
 
-<script setup>
+<script setup lang="ts">
 defineProps({
   label: { type: String, required: true },
   iconHtml: { type: String, default: "" },

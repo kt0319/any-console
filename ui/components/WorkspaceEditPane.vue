@@ -46,7 +46,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useToast } from "../composables/useToast.ts";
@@ -63,7 +63,9 @@ const DEFAULT_WS_ICON = "mdi-console";
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const workspaceStore = useWorkspaceStore();
 
-const editWs = ref(viewState.value?.workspace || null);
+// useModalView() の各値は provide 側（モーダルシェル）が常に提供する
+// （null は部分 provide のユニットテスト向けのデフォルト）ため、non-null で扱う。
+const editWs = ref(viewState!.value?.workspace || null);
 const editIcon = ref(editWs.value?.icon || "");
 const editIconColor = ref(editWs.value?.icon_color || "");
 const editName = ref(editWs.value?.name || "");
@@ -73,7 +75,7 @@ const savingDetails = ref(false);
 const deleting = ref(false);
 const saveError = ref("");
 
-modalTitle.value = editWs.value?.name || "Workspace";
+modalTitle!.value = editWs.value?.name || "Workspace";
 
 const isDetailsDirty = computed(() =>
   editName.value.trim() !== (editWs.value?.name || "")
@@ -94,7 +96,7 @@ async function onDelete() {
     const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(name)}`, { errorMessage: MSG_DELETE_FAILED });
     if (ok) {
       await workspaceStore.fetchWorkspaces();
-      popView();
+      popView!();
       toast.info(`Deleted "${name}"`);
     } else if (data?.detail) {
       saveError.value = data.detail;
@@ -104,7 +106,7 @@ async function onDelete() {
   }
 }
 
-async function saveWsConfig(extra = {}) {
+async function saveWsConfig(extra: Record<string, any> = {}) {
   if (!editWs.value) return false;
   saveError.value = "";
   try {
@@ -129,7 +131,7 @@ async function saveWsConfig(extra = {}) {
       editWs.value = next;
       editName.value = next.name || "";
       editPath.value = next.path || "";
-      modalTitle.value = next.name || modalTitle.value;
+      modalTitle!.value = next.name || modalTitle!.value;
     }
     return true;
   } catch (e) {
@@ -153,7 +155,7 @@ async function saveDetails() {
 }
 
 function openIconPicker() {
-  pushView("IconPicker", {
+  pushView!("IconPicker", {
     currentIcon: editIcon.value,
     currentColor: editIconColor.value,
     onReturn: (result, parentEntry) => {
@@ -166,11 +168,11 @@ function openIconPicker() {
 }
 
 onMounted(() => {
-  if (viewState.value && "pendingIcon" in viewState.value) {
-    editIcon.value = viewState.value.pendingIcon;
-    editIconColor.value = viewState.value.pendingColor ?? "";
-    delete viewState.value.pendingIcon;
-    delete viewState.value.pendingColor;
+  if (viewState!.value && "pendingIcon" in viewState!.value) {
+    editIcon.value = viewState!.value.pendingIcon;
+    editIconColor.value = viewState!.value.pendingColor ?? "";
+    delete viewState!.value.pendingIcon;
+    delete viewState!.value.pendingColor;
     saveWsConfig();
   }
 });

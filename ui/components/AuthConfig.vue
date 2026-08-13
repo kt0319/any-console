@@ -170,7 +170,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
@@ -180,21 +180,28 @@ import { formatRelativeTime } from "../utils/format.ts";
 import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
-const { modalTitle, pushView } = useModalView();
-modalTitle.value = "Auth";
+// 設定モーダル配下でのみ使われるため provide 値は常に入っている（useModalView.ts 参照）。
+const modalView = useModalView();
+const pushView = modalView.pushView!;
+modalView.modalTitle!.value = "Auth";
 
 const { apiGet, apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 
+// /devices の1件分（テンプレートで参照するフィールドのみ）。
+type Device = { id: string, name: string, current?: boolean, source?: string, last_seen_at?: number };
+// /api-tokens の1件分。
+type ApiToken = { id: string, name: string, scope: string, last_used?: number | null };
+
 const loading = ref(true);
-const devices = ref([]);
+const devices = ref<Device[]>([]);
 const devicesLoading = ref(true);
 
-const apiTokens = ref([]);
+const apiTokens = ref<ApiToken[]>([]);
 const apiTokensLoading = ref(true);
 const newTokenName = ref("");
 const creatingToken = ref(false);
-const createdToken = ref(/** @type {{id: string, name: string, token: string}|null} */ (null));
+const createdToken = ref<{ id: string, name: string, token: string } | null>(null);
 const { copied: tokenCopied, copy: copyCreatedTokenText } = useCopyFeedback();
 
 const enabled = ref(false);
@@ -258,7 +265,7 @@ async function loadDevices() {
   devicesLoading.value = false;
 }
 
-async function revoke(d) {
+async function revoke(d: Device) {
   const isSelf = !!d.current;
   const msg = isSelf
     ? `Logout this device "${d.name}"? You will need to sign in again.`
@@ -298,7 +305,7 @@ async function copyCreatedToken() {
   await copyCreatedTokenText(createdToken.value.token);
 }
 
-async function revokeApiToken(t) {
+async function revokeApiToken(t: ApiToken) {
   if (!await confirm(`Revoke API token "${t.name}"? Workflows using it will stop working. This cannot be undone.`)) return;
   const { ok } = await apiDelete(apiTokenPath(t.id), { errorMessage: "Failed to revoke" });
   if (!ok) return;

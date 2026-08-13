@@ -29,8 +29,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, nextTick, onMounted } from "vue";
+<script setup lang="ts">
+import { ref, computed, watch, nextTick, onMounted, type PropType, type Ref } from "vue";
 import { useInputStore } from "../stores/input.ts";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.ts";
@@ -47,25 +47,27 @@ const emit = defineEmits(["focused", "submitted"]);
 // historyIndexが別々になり、フリックと物理キーを混ぜて使った時に履歴が
 // 正しく辿れなくなる）。
 const props = defineProps({
-  historyPrev: { type: Function, required: true },
-  historyNext: { type: Function, required: true },
+  historyPrev: { type: Function as PropType<() => void>, required: true },
+  historyNext: { type: Function as PropType<() => void>, required: true },
 });
 
 const inputStore = useInputStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
 
 const draft = defineModel("draft", { default: "" });
-const inputEl = ref(null);
+const inputEl = ref<HTMLTextAreaElement | null>(null);
 const focused = ref(false);
 const composing = ref(false);
 
-const { hasHardwareKeyboard } = useHardwareKeyboard({ inputEl, composing });
+// useHardwareKeyboard / useSuppressedBlur は input 要素前提の型だが、
+// 実際に使うのは両要素共通の focus/blur/selection 系のみ（textarea でも動く）。
+const { hasHardwareKeyboard } = useHardwareKeyboard({ inputEl: inputEl as unknown as Ref<HTMLInputElement | null>, composing });
 const {
   markInternal: markInternalInteraction,
   blur,
   handleBlur,
   resetSuppression,
-} = useSuppressedBlur(inputEl);
+} = useSuppressedBlur(inputEl as Ref<HTMLElement | null>);
 
 const placeholder = computed(() => {
   if (focused.value) return "↑↓ history";
@@ -73,17 +75,17 @@ const placeholder = computed(() => {
 });
 
 // 境界判定本体は純粋関数としてkeyboard.jsに置く（テスト対象）。
-function isFirstLine(el) {
+function isFirstLine(el: HTMLTextAreaElement) {
   return isCaretOnFirstLine(el.value, el.selectionStart);
 }
 
-function isLastLine(el) {
+function isLastLine(el: HTMLTextAreaElement) {
   return isCaretOnLastLine(el.value, el.selectionEnd);
 }
 
 // 複数行入力中はまずカーソル移動をブラウザ標準に任せ、最初/最後の行にいる
 // ときだけ履歴↑↓として扱う（そうしないと行移動が一切できなくなる）。
-function onArrowKey(e, action, atBoundary) {
+function onArrowKey(e: KeyboardEvent, action: () => void, atBoundary: (el: HTMLTextAreaElement) => boolean) {
   if (isComposingEvent(e, composing.value)) return;
   const el = inputEl.value;
   if (el && !atBoundary(el)) return;
@@ -92,7 +94,7 @@ function onArrowKey(e, action, atBoundary) {
 }
 
 // Enterで送信、Shift+Enterで改行。IME変換確定のEnterは素通しする。
-function onEnterKey(e) {
+function onEnterKey(e: KeyboardEvent) {
   if (isComposingEvent(e, composing.value)) return;
   if (e.shiftKey) return;
   e.preventDefault();
@@ -101,7 +103,7 @@ function onEnterKey(e) {
 
 // 入力モード中の Esc で入力モードを抜ける（フォーカスを外す）。
 // IME 変換中の Esc は変換キャンセル用なので素通し。
-function onEscape(e) {
+function onEscape(e: KeyboardEvent) {
   if (isComposingEvent(e, composing.value)) return;
   e.preventDefault();
   blur();
@@ -117,8 +119,8 @@ function onFocus() {
 // draft.value への反映を止める仕様のため、hasDraft（親のsend/enterアイコン
 // 切替）が変換中の未確定文字列を拾えない。DOMのinput/compositionupdateを
 // 直接見て draft.value を追従させ、変換中でも送信ボタンをsend表示にする。
-function onInput(e) {
-  const value = e.target.value;
+function onInput(e: Event) {
+  const value = (e.target as HTMLTextAreaElement).value;
   if (draft.value !== value) draft.value = value;
 }
 
@@ -133,7 +135,7 @@ function resizeTextarea() {
 watch(draft, () => nextTick(resizeTextarea));
 onMounted(resizeTextarea);
 
-function moveCursor(delta) {
+function moveCursor(delta: number) {
   const el = inputEl.value;
   if (!el) return;
   const pos = Math.max(0, Math.min(el.value.length, (el.selectionStart || 0) + delta));
@@ -155,7 +157,7 @@ function isFocused() {
   return document.activeElement === inputEl.value;
 }
 
-function appendChar(text) {
+function appendChar(text: string) {
   draft.value += text;
 }
 

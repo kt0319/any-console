@@ -13,7 +13,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, nextTick } from "vue";
 import hljs from "highlight.js/lib/core";
 import json from "highlight.js/lib/languages/json";
@@ -26,13 +26,13 @@ import { triggerBlobDownload } from "../utils/download.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Config File";
+modalTitle!.value = "Config File";
 
 const { apiGet, apiPost } = useApi();
 const toast = useToast();
 const jsonText = ref("");
-const fileInput = ref(null);
-const codeEl = ref(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+const codeEl = ref<HTMLElement | null>(null);
 
 function highlight() {
   nextTick(() => {

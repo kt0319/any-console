@@ -39,7 +39,7 @@
           :key="'local-' + branch.name"
           v-show="branch.current || expanded"
           :class="['branch-item', { current: branch.current }]"
-          :aria-expanded="branch.current ? expanded : null"
+          :aria-expanded="branch.current ? expanded : undefined"
           @click="onRowClick(branch)"
         >
           <div class="branch-item-name">
@@ -136,7 +136,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useBranchList } from "../composables/useBranchList.ts";
 import { useBranchActions } from "../composables/useBranchActions.ts";
@@ -180,7 +180,7 @@ const {
 } = useBranchActions(branchList);
 
 const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
-const branchListEl = ref(null);
+const branchListEl = ref<HTMLElement | null>(null);
 
 const {
   addModalOpen,

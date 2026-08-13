@@ -10,7 +10,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.ts";
 import { isTouchOnly, listenForEscape } from "../utils/keyboard.ts";
@@ -29,10 +29,10 @@ const props = defineProps({
 });
 const emit = defineEmits(["dismiss"]);
 
-const overlayEl = ref(null);
-let prevFocus = null;
-let releaseEscape = null;
-let releaseTrap = null;
+const overlayEl = ref<HTMLElement | null>(null);
+let prevFocus: Element | null = null;
+let releaseEscape: (() => void) | null = null;
+let releaseTrap: (() => void) | null = null;
 
 function releaseAll() {
   releaseTrap?.();
@@ -59,7 +59,7 @@ watch(() => props.visible, async (visible) => {
   // タッチデバイスでは復元しない（xterm 等へ戻すとソフトキーボードが起動するため）
   if (!isTouchOnly()) {
     await nextTick();
-    /** @type {HTMLElement|null} */ (prevFocus)?.focus?.();
+    (prevFocus as HTMLElement | null)?.focus?.();
   }
   prevFocus = null;
 });

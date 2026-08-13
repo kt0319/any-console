@@ -65,7 +65,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalDrop } from "../composables/useTerminalDrop.ts";

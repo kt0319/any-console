@@ -85,7 +85,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
@@ -134,7 +134,11 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-const { onCommitAction } = useCommitActionMenu();
+// GitHistory では closeFn（第3引数）を渡さない呼び方のため、その形に型を絞る
+// （実行時は従来どおり同じ関数をそのまま呼ぶ）。
+const { onCommitAction } = useCommitActionMenu() as {
+  onCommitAction: (entry: Record<string, any>, ev: { action: string, branch?: string }) => void,
+};
 
 function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });

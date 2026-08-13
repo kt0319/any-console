@@ -140,7 +140,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.ts";
@@ -164,9 +164,9 @@ const isVisible = computed(() => props.isPanelBottom);
 
 const { clearModifiers, sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
-const keyboardInput = ref(null);
-const barArrowFlickEl = ref(null);
-const barEnterFlickEl = ref(null);
+const keyboardInput = ref<InstanceType<typeof KeyboardInput> | null>(null);
+const barArrowFlickEl = ref<HTMLElement | null>(null);
+const barEnterFlickEl = ref<HTMLElement | null>(null);
 
 // ─── 入力 / スニペット状態・キーボード開閉 ──────────────────────
 const {

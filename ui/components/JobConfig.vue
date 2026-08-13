@@ -60,7 +60,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useModalView } from "../composables/useModalView.ts";
@@ -71,7 +71,13 @@ import { renderIconStr } from "../utils/render-icon.ts";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.ts";
 import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.ts";
 
-const { modalTitle, viewState, pushView, popView } = useModalView();
+// useModalView の各値は inject（default null はテスト用）。実行時は常に
+// provide されるため non-null で扱う。
+const modalView = useModalView();
+const modalTitle = modalView.modalTitle!;
+const viewState = modalView.viewState!;
+const pushView = modalView.pushView!;
+const popView = modalView.popView!;
 const { apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 const workspaceStore = useWorkspaceStore();

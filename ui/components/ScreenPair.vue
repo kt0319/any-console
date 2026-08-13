@@ -21,7 +21,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.ts";
 
@@ -47,7 +47,9 @@ onMounted(async () => {
     errorMessage.value = "This link is missing its pairing code.";
     return;
   }
-  const result = await auth.claimPairing(props.pairingId, props.pairingToken);
+  // claimPairing の戻りは成功形（ok/deviceId/name）と失敗形（ok/error）のユニオン。
+  // ここでは ok と error だけ使うため、共通形に受ける。
+  const result: { ok: boolean; error?: string } = await auth.claimPairing(props.pairingId, props.pairingToken);
   claiming.value = false;
   if (!result.ok) {
     errorMessage.value = result.error || "Pairing failed.";

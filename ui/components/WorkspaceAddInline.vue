@@ -43,7 +43,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useDirectorySuggest } from "../composables/useDirectorySuggest.ts";

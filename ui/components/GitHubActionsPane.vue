@@ -24,7 +24,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
 import { useGitHub, runStatusIcon, runStatusClass, openUrl } from "../composables/useGitHub.ts";
 

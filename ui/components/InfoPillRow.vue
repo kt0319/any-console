@@ -129,7 +129,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { peekIconForKey } from "../utils/info-pills.ts";

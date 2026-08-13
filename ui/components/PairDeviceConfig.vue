@@ -48,7 +48,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useToast } from "../composables/useToast.ts";
@@ -64,7 +64,11 @@ import {
   extractApiError,
 } from "../utils/constants.ts";
 
-const { modalTitle, popView } = useModalView();
+// useModalView の各値は inject（default null はテスト用）。実行時は常に
+// provide されるため non-null で扱う。
+const modalView = useModalView();
+const modalTitle = modalView.modalTitle!;
+const popView = modalView.popView!;
 modalTitle.value = "Add Device";
 
 const { apiPost, apiGet } = useApi();
@@ -75,16 +79,12 @@ const error = ref("");
 const pairingId = ref("");
 const pairingUrl = ref("");
 const secondsLeft = ref(0);
-/** @type {import("vue").Ref<"pending" | "claimed" | "expired">} */
-const status = ref("pending");
+const status = ref<"pending" | "claimed" | "expired">("pending");
 const { copied, copy: copyLink } = useCopyFeedback();
 
-/** @type {ReturnType<typeof setInterval> | null} */
-let pollTimer = null;
-/** @type {ReturnType<typeof setInterval> | null} */
-let tickTimer = null;
-/** @type {ReturnType<typeof setTimeout> | null} */
-let closeTimer = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
 // unmount後に解決したstatus応答が、共有viewStackに対してpopView等の副作用を
 // 起こさないようにするガード(pairingId比較だけでは、unmount後もrefの値自体は
 // 変わらず残るため、古いpairingへの切り替わりとunmountを区別できない)。

@@ -90,7 +90,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, inject, nextTick, onMounted, onUnmounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
@@ -131,24 +131,24 @@ const {
   loadCounts,
 } = useWorkspaceCounts();
 
-const fileBrowser = ref(null);
-const gitHistory = ref(null);
-const gitChanges = ref(null);
-const gitBranch = ref(null);
-const gitStash = ref(null);
-const githubIssues = ref(null);
-const githubActions = ref(null);
-const githubPrs = ref(null);
-const jobsPane = ref(null);
-const terminalSelectPane = ref(null);
+const fileBrowser = ref<InstanceType<typeof FileBrowser> | null>(null);
+const gitHistory = ref<InstanceType<typeof GitHistory> | null>(null);
+const gitChanges = ref<InstanceType<typeof GitChanges> | null>(null);
+const gitBranch = ref<InstanceType<typeof GitChangeBranch> | null>(null);
+const gitStash = ref<InstanceType<typeof GitStash> | null>(null);
+const githubIssues = ref<InstanceType<typeof GitHubIssuesPane> | null>(null);
+const githubActions = ref<InstanceType<typeof GitHubActionsPane> | null>(null);
+const githubPrs = ref<InstanceType<typeof GitHubPRsPane> | null>(null);
+const jobsPane = ref<InstanceType<typeof WorkspaceJobsPane> | null>(null);
+const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(null);
 
 // DispatchタブでDispatchWorkspacePane（一覧）→DispatchRunView（1件の詳細/実行）
 // をローカルに切り替えるための状態。Settings側のpushViewには乗せない
 // （別レイヤーとして開いてしまい、ワークスペース詳細の外に見えてしまうため）。
-const selectedDispatchId = ref(null);
+const selectedDispatchId = ref<string | null>(null);
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
 // （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.jsのcloseをprovideする）。
-const closeWorkspaceDetail = inject("closeWorkspaceDetail");
+const closeWorkspaceDetail = inject<(() => void) | undefined>("closeWorkspaceDetail");
 function onDispatchRunDone() {
   selectedDispatchId.value = null;
   closeWorkspaceDetail?.();
@@ -186,8 +186,8 @@ const dispatchRecentCount = computed(() => {
 });
 
 const fileBrowserDeep = ref(false);
-const terminalSessionId = computed(() => viewState.value?.detail?.terminalSessionId || "");
-const fileBrowserRootLabel = computed(() => viewState.value?.detail?.rootLabel || "");
+const terminalSessionId = computed(() => viewState!.value?.detail?.terminalSessionId || "");
+const fileBrowserRootLabel = computed(() => viewState!.value?.detail?.rootLabel || "");
 
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
@@ -197,9 +197,12 @@ const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile
 
 const isGitWorkspace = computed(() => !terminalSessionId.value && !!workspaceStore.currentWorkspace?.is_git_repo);
 
+// タブ定義。count / iconColor / hidden はタブによって持たないものがあるため optional。
+type WorkspaceTabDef = { key: string, icon: string, label: string, count?: number, iconColor?: string, hidden?: boolean };
+
 const tabs = computed(() => {
   const isGit = isGitWorkspace.value;
-  const list = [
+  const list: WorkspaceTabDef[] = [
     {
       key: "files",
       icon: filesBrowsing.value ? "mdi-folder-open-outline" : "mdi-folder-outline",
@@ -219,7 +222,7 @@ const tabs = computed(() => {
 
 function updateViewTitle() {
   const ws = workspaceStore.currentWorkspace;
-  modalTitle.value = fileBrowserRootLabel.value || (ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git"));
+  modalTitle!.value = fileBrowserRootLabel.value || (ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git"));
   if (modalBranch) modalBranch.value = "";
 }
 
@@ -336,7 +339,7 @@ function open(options) {
   }
 }
 
-async function switchPane(key, opts = {}) {
+async function switchPane(key: string, opts: { expandBranch?: boolean, expandStash?: boolean } = {}) {
   // 後方互換: "github" → "issues"、"browser"/"branch" → "history"、"stash" → "changes"
   // （Branch/StashはそれぞれHistory/Changesタブへ統合。一覧は通常畳んだ状態で
   // 開始するが、branch/stashピル経由（opts.expandBranch/opts.expandStash）の
@@ -346,7 +349,7 @@ async function switchPane(key, opts = {}) {
   if (key === "stash") key = "changes";
 
   activePane.value = key;
-  updateViewState?.({ detail: { ...(viewState.value?.detail || {}), pane: key } });
+  updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
   updateViewTitle();
 
   if (key === "history") {
@@ -455,7 +458,7 @@ defineExpose({ handleBack });
 
 
 onMounted(() => {
-  const detail = viewState.value?.detail;
+  const detail = viewState!.value?.detail;
   open(detail);
 });
 </script>

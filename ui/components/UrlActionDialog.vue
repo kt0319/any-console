@@ -16,7 +16,7 @@
   </BaseDialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { on } from "../app-bridge.ts";

@@ -152,12 +152,12 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 // グループの折りたたみ状態をモジュールスコープで保持（再マウント後も維持）
-const _collapsedGroups = new Set();
+const _collapsedGroups = new Set<string>();
 </script>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
@@ -184,7 +184,12 @@ import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/w
 import { useModalView } from "../composables/useModalView.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 
-const { modalTitle, pushView, popView } = useModalView();
+// useModalView の各値は inject（default null はテスト用）。実行時は常に
+// provide されるため non-null で扱う。
+const modalView = useModalView();
+const modalTitle = modalView.modalTitle!;
+const pushView = modalView.pushView!;
+const popView = modalView.popView!;
 const { canNavigateBack, closeNav } = useSessionOpenNav();
 modalTitle.value = "Open Session";
 
@@ -198,17 +203,17 @@ const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 
-const wsListEl = ref(null);
+const wsListEl = ref<HTMLElement | null>(null);
 const collapsedGroups = reactive(_collapsedGroups);
 
 // グループダイアログ
-const groupDialog = ref(null);
+const groupDialog = ref<InstanceType<typeof WorkspaceGroupDialog> | null>(null);
 
 // グループなし（トップレベル）。フィルタ規則は workspacesInGroup（共通）参照。
 const ungrouped = computed(() => workspacesInGroup(workspaceStore.allWorkspaces, null));
 
 // グループ内のワークスペース
-function groupedWorkspaces(groupId) {
+function groupedWorkspaces(groupId: string) {
   return workspacesInGroup(workspaceStore.allWorkspaces, groupId);
 }
 
@@ -216,12 +221,14 @@ const displayWorkspaces = computed(() => workspaceStore.allWorkspaces);
 
 // グループヘッダーとワークスペースを1本のリストに統合
 // type:'header' はグループ見出し、type:'ws' はワークスペース行
-const flatList = computed(() =>
+// 要素型は useWorkspaceListDrag.ts の FlatRow と同形にする（dragFlatList と
+// 合流させてテンプレートで区別なく扱うため。header/ws の判別は item.type）。
+const flatList = computed<({ type: string } & Record<string, any>)[]>(() =>
   buildFlatList(ungrouped.value, workspaceStore.groups, groupedWorkspaces, collapsedGroups),
 );
 
 const worktreesByBase = computed(() => {
-  const map = {};
+  const map: Record<string, Record<string, any>[]> = {};
   for (const ws of workspaceStore.allWorkspaces) {
     if (ws.worktree && ws.worktree_base) {
       (map[ws.worktree_base] ||= []).push(ws);
@@ -231,7 +238,7 @@ const worktreesByBase = computed(() => {
 });
 
 // ---- グループドラッグ ----
-const { dragFromIdx: groupDragFrom, dragOverIdx: groupDragOver, onDragStart: onGroupDragStart } = useListDragSort({
+const { dragFromIdx, dragOverIdx: groupDragOver, onDragStart: onGroupDragStart } = useListDragSort({
   rowSelector: ".picker-group-header",
   onReorder: async (from, to) => {
     const groups = [...workspaceStore.groups];
@@ -241,6 +248,9 @@ const { dragFromIdx: groupDragFrom, dragOverIdx: groupDragOver, onDragStart: onG
     await workspaceStore.fetchGroups();
   },
 });
+// null は「非ドラッグ中」（テンプレートの数値比較は常に false になる）。
+// 比較式の型エラーを避けるため number として扱う（実行時の値・挙動は不変）。
+const groupDragFrom = computed(() => dragFromIdx.value as number);
 
 // ---- ワークスペースドラッグ ----
 const { dragIdx, dragOffsetY, dragFlatList, onDragStart, cleanup: cleanupWsDrag } = useWorkspaceListDrag({
@@ -271,7 +281,7 @@ async function _saveOrderAndGroups(finalList) {
   await workspaceStore.fetchWorkspaces();
 }
 
-function toggleGroup(groupId) {
+function toggleGroup(groupId: string) {
   if (collapsedGroups.has(groupId)) {
     collapsedGroups.delete(groupId);
   } else {
@@ -279,11 +289,11 @@ function toggleGroup(groupId) {
   }
 }
 
-function doAction(ws, action) {
+function doAction(ws: Record<string, any>, action: string) {
   gitAction(ws.name, action, { branch: ws.branch });
 }
 
-function pushActionFor(ws) {
+function pushActionFor(ws: Record<string, any>) {
   return ws.has_upstream === false ? "push-upstream" : "push";
 }
 
@@ -330,24 +340,24 @@ const isEditMode = ref(false);
 
 // ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
 // （モーダルは開かない）。排他的に1つしか開かない（別の行を開くと前の行は閉じる）。
-const expandedWorkspace = ref(/** @type {string | null} */ (null));
+const expandedWorkspace = ref<string | null>(null);
 
-function toggleJobs(ws) {
+function toggleJobs(ws: Record<string, any>) {
   expandedWorkspace.value = expandedWorkspace.value === ws.name ? null : ws.name;
 }
 
-function openChanges(ws) {
+function openChanges(ws: Record<string, any>) {
   workspaceStore.selectedWorkspace = ws.name;
   // WorkspaceDetailはSettingsのスタックとは独立しているため、他のピル等と
   // 同じgit:openFileModalイベント経由で開く（useSettingsNav.js参照）。
   bridgeEmit("git:openFileModal", { pane: "changes" });
 }
 
-function openEditWs(ws) {
+function openEditWs(ws: Record<string, any>) {
   pushView("WorkspaceEdit", { workspace: ws });
 }
 
-async function removeWorktree(base, wt) {
+async function removeWorktree(base: Record<string, any>, wt: Record<string, any>) {
   await confirm(removeWorktreeConfirmMessage(wt), {
     busyLabel: "Removing...",
     run: async () => {

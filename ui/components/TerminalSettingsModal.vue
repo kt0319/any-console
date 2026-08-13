@@ -49,7 +49,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, provide, watch } from "vue";
 import { useModal } from "../composables/useModal.ts";
 import { useSettingsNav } from "../composables/useSettingsNav.ts";
@@ -88,7 +88,7 @@ provide("pushView", pushView);
 provide("popView", popView);
 provide("updateViewState", updateViewState);
 
-const modalEl = ref(null);
+const modalEl = ref<HTMLElement | null>(null);
 
 function close() {
   closeNav();

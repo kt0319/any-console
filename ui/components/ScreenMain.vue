@@ -36,7 +36,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
@@ -81,8 +81,11 @@ const keyboardOpen = ref(false);
 const { startSyncPolling, stopSyncPolling } = useSessionSync();
 const { loadSnippetCache, addSnippet, deleteSnippet } = useSnippetPersist();
 
-const tabBarView = ref(null);
-const terminalBaseView = ref(null);
+const tabBarView = ref<InstanceType<typeof TabBar> | null>(null);
+// TerminalBase.vue が defineExpose する形のうち、ここで使う部分
+// （useTerminalLifecycle.ts 内の TerminalBaseViewRef と同形 + useViewport の
+// FitCallback が渡す scrollToBottom）。
+const terminalBaseView = ref<{ fitAllTerminals: (opts?: { force?: boolean, scrollToBottom?: boolean }) => void } | null>(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink, attachSessionTab } = useDeepLink();
@@ -166,13 +169,13 @@ watch(
   { immediate: true },
 );
 
-let mainPanelResizeObserver = null;
+let mainPanelResizeObserver: ResizeObserver | null = null;
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");
 }
 
-const bridgeCleanups = [];
+const bridgeCleanups: (() => void)[] = [];
 
 onMounted(() => {
   bridgeCleanups.push(on("layout:fitAll", (detail) => {

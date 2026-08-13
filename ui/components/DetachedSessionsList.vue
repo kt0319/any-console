@@ -18,7 +18,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 
 // WorkspaceOpen.vueの「Detached Sessions」カテゴリの中身。タブに紐付いていない

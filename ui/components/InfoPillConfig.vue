@@ -8,14 +8,14 @@
         class="settings-item settings-toggle pill-toggle-row"
         :class="{
           'drag-source': dragFromIdx === idx,
-          'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
-          'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
+          'drag-over-above': dragOverIdx === idx && dragFromIdx !== null && dragFromIdx > idx,
+          'drag-over-below': dragOverIdx === idx && dragFromIdx !== null && dragFromIdx < idx,
         }"
       >
         <span class="drag-handle" aria-hidden="true" @pointerdown.prevent="onDragStart($event, idx)">
           <span class="mdi mdi-drag-vertical"></span>
         </span>
-        <input type="checkbox" :checked="infoPillConfig[item.field]" @change="setField(item.field, $event.target.checked)" />
+        <input type="checkbox" :checked="infoPillConfig[item.field]" @change="setField(item.field, ($event.target as HTMLInputElement).checked)" />
         <div class="settings-toggle-copy">
           <span class="settings-item-label">{{ item.label }}</span>
           <span class="settings-note">{{ item.note }}</span>
@@ -25,7 +25,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { useListDragSort } from "../composables/useListDragSort.ts";
@@ -33,7 +33,7 @@ import { INFO_PILLS } from "../utils/info-pills.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Info Pills";
+modalTitle!.value = "Info Pills";
 
 const infoPillConfig = useInfoPillConfigStore();
 if (!infoPillConfig.loaded) infoPillConfig.load();
@@ -45,7 +45,7 @@ if (!infoPillConfig.loaded) infoPillConfig.load();
 const TOGGLES = INFO_PILLS.map(({ key, label, note }) => ({ field: key, label, note }));
 
 const orderedToggles = computed(() =>
-  infoPillConfig.order.map((field) => TOGGLES.find((t) => t.field === field)).filter(Boolean),
+  infoPillConfig.order.map((field) => TOGGLES.find((t) => t.field === field)).filter((t): t is (typeof TOGGLES)[number] => !!t),
 );
 
 const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
@@ -53,8 +53,8 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   onReorder: (fromIdx, toIdx) => infoPillConfig.reorder(fromIdx, toIdx),
 });
 
-function setField(field, value) {
-  infoPillConfig[field] = value;
+function setField(field: string, value: boolean) {
+  (infoPillConfig as unknown as Record<string, boolean>)[field] = value;
   infoPillConfig.save();
 }
 </script>

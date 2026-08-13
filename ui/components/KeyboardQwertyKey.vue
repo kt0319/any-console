@@ -24,8 +24,8 @@
             <div
               class="quick-key"
               :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
-              @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
-              @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
+              @touchstart.prevent="onQwertyTouchStart($event)"
+              @touchend.prevent="onQwertyTouchEnd($event, keyDef)"
               @touchcancel="onQuickKeyCancel($event)"
               @click="onQwertyTap(keyDef)"
             >
@@ -79,7 +79,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useInputStore } from "../stores/input.ts";
@@ -109,6 +109,16 @@ const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, modifierState, clearModifiers, getActiveTerminalTab } = useKeyboard();
 
+// キーレイアウト（data/keyboard-layout.ts）の1キー分。flickUp/flickDown/noSymbol は
+// 一部のキーのみ持つ。
+interface QwertyKeyDef {
+  label: string;
+  key: string;
+  flickUp?: string;
+  flickDown?: string;
+  noSymbol?: boolean;
+}
+
 const keyboardInput = ref(null);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
@@ -116,8 +126,8 @@ const hasDraft = computed(() => draft.value.trim().length > 0);
 const inputFocused = computed(() => props.externalInputFocused);
 const panelView = computed(() => props.panelView);
 
-const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
-const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
+const qwertyRows = computed<QwertyKeyDef[][]>(() => inputStore.QWERTY_ROWS || []);
+const numberKeys = computed<QwertyKeyDef[]>(() => inputStore.NUMBER_KEYS || []);
 
 const showFnView = computed(() => props.externalFnView);
 // 記号ロック機能は撤去済み。symbolDisplayLabel 等の分岐を壊さないための常時 false の無害な状態。
