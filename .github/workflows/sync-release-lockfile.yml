@@ -1,0 +1,52 @@
+name: Sync Cargo.lock for release
+
+# release-please のリリースPRは server/Cargo.toml の version だけを書き換え、
+# server/Cargo.lock 内の自己参照エントリ（[[package]] name = "any-console-server"）
+# までは追従しない。ズレたままだと release マージ後に手動で
+# `cargo build` → Cargo.lock コミットが必要になる（実際に v0.12.0 で発生した）ため、
+# リリースPRのブランチへ自動で追従コミットする。
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "server/Cargo.toml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync-cargo-lock:
+    # release-please が作るPRブランチだけを対象にする（それ以外のCargo.toml変更
+    # PRはバージョン欄を書き換えないため、通常は差分が出ずno-opになる）。
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+
+      # cargo check は Cargo.toml の version を Cargo.lock の自己参照エントリへ
+      # 反映するだけで完結する（依存関係の解決には手を付けない）。
+      - name: Sync Cargo.lock version with Cargo.toml
+        working-directory: server
+        run: cargo check
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- server/Cargo.lock; then
+            echo "Cargo.lock already in sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add server/Cargo.lock
+          git commit -m "build: Cargo.lockのバージョンをリリースバージョンに追従"
+          git push origin "HEAD:${{ github.head_ref }}"
