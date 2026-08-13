@@ -37,8 +37,10 @@ jobs:
             runner: ubuntu-24.04
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
+          # macos-13（旧Intelランナー）は廃止によりジョブが永遠にqueuedのまま
+          # 開始されない。Intel macビルドは後継のmacos-15-intelを使う。
           - target: x86_64-apple-darwin
-            runner: macos-13
+            runner: macos-15-intel
           - target: aarch64-apple-darwin
             runner: macos-14
     runs-on: ${{ matrix.runner }}
