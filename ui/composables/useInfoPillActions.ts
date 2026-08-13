@@ -1,5 +1,5 @@
 import type { ComputedRef, Ref } from "vue";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { useApi } from "./useApi.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";

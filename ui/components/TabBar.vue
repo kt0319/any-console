@@ -69,7 +69,7 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 import { useSettingsNav } from "../composables/useSettingsNav.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { nextTabIndex } from "../utils/tab-nav.ts";
 
 const terminalStore = useTerminalStore();

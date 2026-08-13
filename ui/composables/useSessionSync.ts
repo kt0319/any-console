@@ -7,7 +7,7 @@ import { useLayoutPersist } from "./useLayoutPersist.ts";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.ts";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
 import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../utils/session-jobs.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 
 // モジュールスコープ: サーバー応答の一時的な揺らぎで /terminal/sessions から
 // セッションが消えてタブが削除→再生成されても、一度解決できたジョブアイコンは

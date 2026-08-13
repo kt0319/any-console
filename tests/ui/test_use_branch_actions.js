@@ -17,7 +17,7 @@ vi.mock("../../ui/composables/useToast.ts", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
 }));
 
-// vi.resetModules()するとapp-bridge.jsも再読み込みされ、on/emitが別々の
+// vi.resetModules()するとapp-bridge.tsも再読み込みされ、on/emitが別々の
 // モジュールインスタンス（別々のリスナーレジストリ）を参照してイベントが
 // 届かなくなる。on・useBranchActionsの両方をresetModules後に同じタイミングで
 // 動的importし、同一インスタンスを共有させる。
@@ -25,7 +25,7 @@ async function freshModule() {
   vi.resetModules();
   const [{ useBranchActions }, { on }] = await Promise.all([
     import("../../ui/composables/useBranchActions.ts"),
-    import("../../ui/app-bridge.js"),
+    import("../../ui/app-bridge.ts"),
   ]);
   return { useBranchActions, on };
 }

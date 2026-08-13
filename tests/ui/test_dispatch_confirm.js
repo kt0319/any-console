@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { applyDispatchQueue, useDispatchConfirm } from "../../ui/composables/useDispatchConfirm.ts";
-import { on } from "../../ui/app-bridge.js";
+import { on } from "../../ui/app-bridge.ts";
 
 const apiPostMock = vi.fn();
 

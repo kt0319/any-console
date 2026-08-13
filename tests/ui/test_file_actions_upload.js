@@ -9,7 +9,7 @@ import { useFileActions } from "../../ui/composables/useFileActions.ts";
 import { useConfirm } from "../../ui/composables/useConfirm.ts";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 import { useAuthStore } from "../../ui/stores/auth.ts";
-import { on } from "../../ui/app-bridge.js";
+import { on } from "../../ui/app-bridge.ts";
 
 function fakeFile(name) {
   return { name };

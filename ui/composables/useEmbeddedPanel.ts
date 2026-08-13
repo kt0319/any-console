@@ -1,5 +1,5 @@
 import { inject, onMounted, type Ref } from "vue";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 
 // SendHistory.vue / SendSnippet.vue が共有する「設定モーダル / KeyboardBar
 // 埋め込みの両方で使えるパネル」の定型。

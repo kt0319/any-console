@@ -4,7 +4,7 @@ import type { TerminalTab } from "../stores/terminal.ts";
 import { useAuthStore } from "../stores/auth.ts";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.ts";
 import { isEditableTarget } from "../utils/dom.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { useToast } from "./useToast.ts";
 
 export function useTerminalPaste({ tab, isActive }: { tab: Ref<TerminalTab>, isActive: Ref<boolean> }) {

@@ -28,7 +28,7 @@
 | P2 | `ui/utils` + `ui/data` | 73 ファイルを `.ts` 化。coverage include も更新 |
 | P3 | `ui/stores` | 8 ファイルを `.ts` 化 |
 | P4 | `ui/composables` | 95 ファイルを `.ts` 化 |
-| P5 | エントリ | `vue-main` / `app-bridge` を `.ts` 化（jsconfig 時代の exclude を解除）、`index.html` 更新 |
+| P5 | エントリ | `vue-main` / `app-bridge` を `.ts` 化(jsconfig 時代の exclude を解除)、`index.html` 更新。`ui/` の `.js` が sw.js のみになったため `checkJs` を無効化(未変換 `.vue` の JS script が import 経由で検査対象に入るのを防ぐ。従来どおり P6 の `lang="ts"` 化で検査対象になる) |
 | P6 | `ui/components` | 全 SFC を `<script setup lang="ts">` 化し、`tsconfig` の include に `ui/**/*.vue` を追加 |
 | P7 | 仕上げ | `noImplicitAny` 有効化、ドキュメント更新、最終検証 |
 

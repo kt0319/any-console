@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { on } from "../app-bridge.js";
+import { on } from "../app-bridge.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 
 // Open Session系列（WorkspaceOpen/WorkspaceAdd/WorkspaceEdit/JobConfig/

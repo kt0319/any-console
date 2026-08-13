@@ -3,7 +3,7 @@ import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.ts";
 import { reconnectBackoffDelay } from "../utils/backoff.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { useToast } from "./useToast.ts";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.ts";
 import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.ts";

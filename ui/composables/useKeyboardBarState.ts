@@ -1,5 +1,5 @@
 import { ref, computed, nextTick, onUnmounted, watch, type Ref } from "vue";
-import { on, emit } from "../app-bridge.js";
+import { on, emit } from "../app-bridge.ts";
 
 /**
  * KeyboardBar の入力 / スニペット状態とキーボード開閉を管理する。

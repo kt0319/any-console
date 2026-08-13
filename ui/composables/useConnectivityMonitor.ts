@@ -6,7 +6,7 @@ import {
   CONNECTIVITY_OFFLINE_THRESHOLD as OFFLINE_THRESHOLD,
   WS_STALE_THRESHOLD_MS,
 } from "../utils/constants.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { anyTabWsAlive, staleAliveTabs, decideOffline } from "../utils/connectivity.ts";
 

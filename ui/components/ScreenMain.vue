@@ -68,7 +68,7 @@ import { useSessionResume } from "../composables/useSessionResume.ts";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
-import { on, emit } from "../app-bridge.js";
+import { on, emit } from "../app-bridge.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const layoutStore = useLayoutStore();

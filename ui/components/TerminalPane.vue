@@ -91,7 +91,7 @@ import { useTerminal } from "../composables/useTerminal.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
 import { useTerminalPaste } from "../composables/useTerminalPaste.ts";

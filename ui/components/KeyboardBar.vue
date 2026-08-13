@@ -147,7 +147,7 @@ import { useInputDraftHistory } from "../composables/useInputDraftHistory.ts";
 import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.ts";
 import { useKeyboardBarState } from "../composables/useKeyboardBarState.ts";
 import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
 import SendSnippet from "./SendSnippet.vue";

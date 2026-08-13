@@ -4,7 +4,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { applyDispatchQueue } from "./useDispatchConfirm.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { useToast } from "./useToast.ts";
-import { on } from "../app-bridge.js";
+import { on } from "../app-bridge.ts";
 import { debugLog } from "./useClientLogs.ts";
 import {
   buildStatusStreamUrl,

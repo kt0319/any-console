@@ -10,7 +10,7 @@ import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { buildGithubFileUrl } from "../utils/git.ts";
 import { workspaceGitDiscardPath } from "../utils/endpoints.ts";
 import { basename, dirname } from "../utils/path.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 
 export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, editorUrlTemplate, openInEditor }: {
   filePath: Ref<string>,

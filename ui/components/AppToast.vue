@@ -27,7 +27,7 @@
 <script setup>
 import { ref, nextTick } from "vue";
 import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { copyText } from "../utils/clipboard.ts";
 
 let idCounter = 0;

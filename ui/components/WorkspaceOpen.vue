@@ -177,7 +177,7 @@ import RecentJobsList from "./RecentJobsList.vue";
 import DetachedSessionsList from "./DetachedSessionsList.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.ts";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 import { useListDragSort } from "../composables/useListDragSort.ts";
 import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.ts";
 import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/workspace-groups.ts";

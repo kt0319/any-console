@@ -5,7 +5,7 @@ import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { usePrompt } from "./usePrompt.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { buildActionSummary } from "../utils/actionSummary.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";

@@ -1,6 +1,6 @@
 import { computed, reactive } from "vue";
 import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.ts";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";

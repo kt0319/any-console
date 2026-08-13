@@ -26,7 +26,7 @@ import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
-import { on } from "../app-bridge.js";
+import { on } from "../app-bridge.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useAppConnectivity } from "../composables/useAppConnectivity.ts";
 import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.ts";

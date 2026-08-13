@@ -37,7 +37,7 @@ import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.ts";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.ts";
 import { isComposingEvent } from "../utils/keyboard-event.ts";
 import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 import { KEYBOARD_INPUT_MIN_HEIGHT_PX, KEYBOARD_INPUT_MAX_HEIGHT_PX } from "../utils/constants.ts";
 
 const emit = defineEmits(["focused", "submitted"]);

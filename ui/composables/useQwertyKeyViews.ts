@@ -1,5 +1,5 @@
 import { ref, watch } from "vue";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { createFlickHandlers } from "../utils/flick-handlers.ts";
 
 /**

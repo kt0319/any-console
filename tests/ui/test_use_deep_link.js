@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useDeepLink } from "../../ui/composables/useDeepLink.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
-import { on } from "../../ui/app-bridge.js";
+import { on } from "../../ui/app-bridge.ts";
 
 describe("useDeepLink: attachSessionTab", () => {
   beforeEach(() => {

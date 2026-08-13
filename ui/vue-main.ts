@@ -20,7 +20,7 @@ import { useDispatchConfirm } from "./composables/useDispatchConfirm.ts";
 import { dispatchWorkspaceLabel } from "./utils/dispatch-request.ts";
 import { installErrorReporter } from "./utils/error-reporter.ts";
 import { installTooltip } from "./utils/tooltip.ts";
-import { emit } from "./app-bridge.js";
+import { emit } from "./app-bridge.ts";
 import { safeJsonLoad } from "./utils/storage.ts";
 import { LS_KEY_NOTIF_PREFS } from "./utils/constants.ts";
 
@@ -38,7 +38,7 @@ function installChunkErrorAutoReload() {
     } catch { /* private mode 等 */ }
     location.reload();
   }
-  function isChunkError(msg) {
+  function isChunkError(msg: unknown) {
     if (!msg) return false;
     const s = String(msg).toLowerCase();
     return s.includes("dynamically imported module")
@@ -88,7 +88,7 @@ async function bootstrap() {
 // 直接開く（DispatchRunViewはSettings側の画面ではなくWorkspaceDetail.vue内の
 // ローカル表示のため、対象ワークスペースを解決してからgit:openFileModalで開く）。
 // 起動直後はまだdispatchキューがWSで届いていないことがあるため、届くまで待つ。
-function openDispatchRunView(dispatchId) {
+function openDispatchRunView(dispatchId: string) {
   const { queue, recent } = useDispatchConfirm();
   const workspaceStore = useWorkspaceStore();
   function tryOpen() {

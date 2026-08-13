@@ -13,7 +13,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { nextTick } from "vue";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
-vi.mock("../../../ui/app-bridge.js", () => ({
+vi.mock("../../../ui/app-bridge.ts", () => ({
   emit: vi.fn(),
   on: vi.fn(() => () => {}),
 }));

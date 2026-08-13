@@ -25,7 +25,7 @@ import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 import { setStashCache, invalidateStashCache } from "../composables/useStashCache.ts";
 
 const emit = defineEmits(["count"]);

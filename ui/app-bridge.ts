@@ -44,28 +44,28 @@ export const BUS_EVENTS = Object.freeze([
 
 const KNOWN_EVENTS = new Set(BUS_EVENTS);
 
-function checkEventName(where, event) {
+function checkEventName(where: "emit" | "on", event: string) {
   if (!KNOWN_EVENTS.has(event)) {
     debugLog(
       "[Event] ⚠ unknown event name in",
       `${where}():`,
       event,
-      "— typo か、未登録なら app-bridge.js の BUS_EVENTS に追記すること"
+      "— typo か、未登録なら app-bridge.ts の BUS_EVENTS に追記すること"
     );
   }
 }
 
 const bus = new EventTarget();
 
-export function emit(event, detail) {
+export function emit(event: string, detail?: unknown) {
   checkEventName("emit", event);
   debugLog("[Event]", event, detail ?? "");
   bus.dispatchEvent(new CustomEvent(event, { detail }));
 }
 
-export function on(event, handler) {
+export function on(event: string, handler: (detail: any) => void): () => void {
   checkEventName("on", event);
-  const wrapper = (e) => handler(e.detail);
+  const wrapper = (e: Event) => handler((e as CustomEvent).detail);
   bus.addEventListener(event, wrapper);
   return () => bus.removeEventListener(event, wrapper);
 }

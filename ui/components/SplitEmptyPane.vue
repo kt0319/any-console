@@ -49,7 +49,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import SplitModeSelector from "./SplitModeSelector.vue";
 
 const props = defineProps({

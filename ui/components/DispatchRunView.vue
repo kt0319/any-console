@@ -102,7 +102,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
-import { on } from "../app-bridge.js";
+import { on } from "../app-bridge.ts";
 
 // Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new_session__";

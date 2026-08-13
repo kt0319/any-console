@@ -14,7 +14,7 @@ import {
   terminalWsPath,
   terminalSessionDetachedPath,
 } from "../utils/endpoints.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 
 // モジュールスコープの単一状態（useRecentJobs.jsと同じパターン）。
 // WorkspaceOpen.vue（カテゴリ見出しのv-if判定用）とDetachedSessionsList.vue

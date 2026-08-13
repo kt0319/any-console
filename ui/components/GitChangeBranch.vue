@@ -144,7 +144,7 @@ import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush } from "../utils/git-branch.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 
 defineProps({
   expanded: { type: Boolean, default: false },

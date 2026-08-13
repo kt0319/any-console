@@ -100,7 +100,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
     await flushPromises();
 
-    const { on } = await import("../../../ui/app-bridge.js");
+    const { on } = await import("../../../ui/app-bridge.ts");
     const handler = vi.fn();
     const off = on("settings:open", handler);
     await wrapper.findAll("button").find((b) => b.text().includes("Open on your phone"))?.trigger("click");

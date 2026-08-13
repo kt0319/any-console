@@ -13,7 +13,7 @@ import { fitTerminal, sendResize } from "../../ui/composables/useTerminalResize.
 import { useTerminal } from "../../ui/composables/useTerminal.ts";
 import { useConfirm } from "../../ui/composables/useConfirm.ts";
 import { usePrompt } from "../../ui/composables/usePrompt.ts";
-import { emit, on } from "../../ui/app-bridge.js";
+import { emit, on } from "../../ui/app-bridge.ts";
 import ConfirmDialog from "../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../ui/components/PromptDialog.vue";
 import WorkspaceDetail from "../../ui/components/WorkspaceDetail.vue";

@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BUS_EVENTS } from "../../ui/app-bridge.js";
+import { BUS_EVENTS } from "../../ui/app-bridge.ts";
 
 const UI_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "ui");
 

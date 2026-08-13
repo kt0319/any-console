@@ -1,5 +1,5 @@
 import { computed, type Ref } from "vue";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { splitPathSegments } from "../utils/file-browser.ts";
 
 export function useFileBrowserCrumbs({ getDiffFile, currentPath, fileContent, navigateToPath, openFile }: {

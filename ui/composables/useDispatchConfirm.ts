@@ -10,7 +10,7 @@ import {
   EP_TERMINAL_SESSIONS,
 } from "../utils/endpoints.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 
 type DispatchQueueItem = { id: string, request: Record<string, any> };
 type DispatchRecentItem = DispatchQueueItem & { decision: string };

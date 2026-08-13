@@ -3,7 +3,7 @@ import { LS_KEY_RECENT_JOBS, RECENT_JOBS_MAX } from "../utils/constants.ts";
 import { EP_RECENT_JOBS } from "../utils/endpoints.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { useApi } from "./useApi.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { jobCommandPreview } from "../utils/format.ts";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 

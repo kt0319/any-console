@@ -8,7 +8,7 @@ import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
 // useToast は未型付けのため、利用するメソッドの型をここで明示する。

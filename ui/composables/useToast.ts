@@ -1,4 +1,4 @@
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 
 interface ToastOptions {
   duration?: number;

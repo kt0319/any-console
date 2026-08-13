@@ -6,7 +6,7 @@ import { useWorkspace } from "./useWorkspace.ts";
 import { useToast } from "./useToast.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { copyText } from "../utils/clipboard.ts";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 import { workspaceCommitMessagePath } from "../utils/endpoints.ts";
 
 // useToast は未型付けのため、利用するメソッドの型をここで明示する。

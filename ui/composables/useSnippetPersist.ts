@@ -1,7 +1,7 @@
 import { useInputStore } from "../stores/input.ts";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { EP_SNIPPETS } from "../utils/endpoints.ts";
 
 export function useSnippetPersist() {

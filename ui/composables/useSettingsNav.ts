@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { on, emit as bridgeEmit } from "../app-bridge.js";
+import { on, emit as bridgeEmit } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";

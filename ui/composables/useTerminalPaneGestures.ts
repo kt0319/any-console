@@ -4,7 +4,7 @@ import type { TerminalTab } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { createTouchTracker } from "../utils/gesture.ts";
 import { findUrlInBuffer } from "../utils/terminal-buffer-text.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeyPad.ts";
 
 const LONG_PRESS_URL_MS = 400;

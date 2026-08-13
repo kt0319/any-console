@@ -11,7 +11,7 @@ vi.mock("../../ui/utils/device.ts", () => ({
   isTouchInput: () => isTouchInputMock(),
 }));
 
-vi.mock("../../ui/app-bridge.js", () => ({
+vi.mock("../../ui/app-bridge.ts", () => ({
   emit: (...args) => emitMock(...args),
 }));
 

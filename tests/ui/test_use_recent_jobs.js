@@ -2,7 +2,7 @@
 // @ts-check
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
-vi.mock("../../ui/app-bridge.js", () => ({
+vi.mock("../../ui/app-bridge.ts", () => ({
   emit: vi.fn(),
   on: vi.fn(() => () => {}),
 }));

@@ -50,7 +50,7 @@ import { useRecentJobs } from "../composables/useRecentJobs.ts";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
-import { emit, on } from "../app-bridge.js";
+import { emit, on } from "../app-bridge.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_COMMON_JOBS } from "../utils/endpoints.ts";
 import { jobCommandPreview } from "../utils/format.ts";

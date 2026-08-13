@@ -4,7 +4,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
 import { isEditableTarget } from "../utils/dom.ts";
 

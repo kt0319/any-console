@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 
-// vi.resetModules()するとapp-bridge.jsも再読み込みされ、on/emitが別々の
+// vi.resetModules()するとapp-bridge.tsも再読み込みされ、on/emitが別々の
 // モジュールインスタンス（別々のリスナーレジストリ）を参照してイベントが
 // 届かなくなるため、useSessionOpenNav/useExclusiveMobileOverlay/app-bridgeを
 // 同じタイミングで動的importし、同一インスタンスを共有させる
@@ -14,7 +14,7 @@ async function freshModules() {
   const [{ useSessionOpenNav }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([
     import("../../ui/composables/useSessionOpenNav.ts"),
     import("../../ui/composables/useExclusiveMobileOverlay.ts"),
-    import("../../ui/app-bridge.js"),
+    import("../../ui/app-bridge.ts"),
   ]);
   return { useSessionOpenNav, useExclusiveMobileOverlay, emit: bridge.emit };
 }

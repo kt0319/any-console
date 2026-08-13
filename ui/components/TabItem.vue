@@ -50,7 +50,7 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.ts";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
 import { useLongPress } from "../composables/useLongPress.ts";

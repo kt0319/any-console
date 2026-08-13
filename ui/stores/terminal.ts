@@ -4,7 +4,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION, WORKING_MIN_DURATION_MS } from "../utils/constants.ts";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.ts";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.ts";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 import { isTouchInput } from "../utils/device.ts";

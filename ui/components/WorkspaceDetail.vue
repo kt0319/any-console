@@ -104,7 +104,7 @@ import GitHubPRsPane from "./GitHubPRsPane.vue";
 import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import DispatchRunView from "./DispatchRunView.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
-import { on } from "../app-bridge.js";
+import { on } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useToast } from "../composables/useToast.ts";
@@ -330,7 +330,7 @@ function open(options) {
   });
 
   switchPane(resolvedPane, { expandBranch: wantBranchExpanded, expandStash: wantStashExpanded });
-  // dispatch通知タップ等、特定の1件を直接開きたい場合（vue-main.js参照）。
+  // dispatch通知タップ等、特定の1件を直接開きたい場合（vue-main.ts参照）。
   if (resolvedPane === "dispatch" && options.dispatchItemId) {
     selectedDispatchId.value = options.dispatchItemId;
   }

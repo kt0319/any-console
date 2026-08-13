@@ -1,5 +1,5 @@
 import { useAuthStore } from "../stores/auth.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { extractApiError } from "../utils/constants.ts";
 import { debugLog } from "./useClientLogs.ts";
 

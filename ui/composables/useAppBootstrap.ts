@@ -8,7 +8,7 @@ import { useToast } from "./useToast.ts";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.ts";
-import { on } from "../app-bridge.js";
+import { on } from "../app-bridge.ts";
 
 // useToast は未型付けのため、利用するメソッドの型をここで明示する。
 type ToastFn = (message: string, opts?: { duration?: number, action?: string | object }) => void;

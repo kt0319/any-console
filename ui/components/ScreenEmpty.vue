@@ -76,7 +76,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.ts";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";

@@ -34,7 +34,7 @@ import { useConfirm } from "../../../ui/composables/useConfirm.ts";
 import { usePrompt } from "../../../ui/composables/usePrompt.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
 import { useAuthStore } from "../../../ui/stores/auth.ts";
-import { emit, on } from "../../../ui/app-bridge.js";
+import { emit, on } from "../../../ui/app-bridge.ts";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
 afterEach(() => {

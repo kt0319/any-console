@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "checkJs": true,
+    "checkJs": false,
     "noEmit": true,
     "target": "ES2022",
     "module": "ES2022",
@@ -17,8 +17,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "ui/sw.js",
-    "ui/vue-main.js",
-    "ui/app-bridge.js"
+    "ui/sw.js"
   ]
 }

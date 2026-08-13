@@ -64,7 +64,7 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
-import { emit } from "../app-bridge.js";
+import { emit } from "../app-bridge.ts";
 import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
 
 // セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
