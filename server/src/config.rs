@@ -116,12 +116,19 @@ impl ConfigStore {
             Map::new()
         };
 
-        let (normalized, errors) = normalize_loaded_config(&Value::Object(raw), GLOBAL_CONFIG_KEY);
+        // マイグレーション → 正規化の順で行う。正規化はスキーマ既定値と等しい
+        // 値（例: `detached: false`）をエントリから落とすため、先に正規化すると
+        // マイグレーションが「新キーが明示されているか」を判定できない
+        // （v3 で `detached_tab: true` と `detached: false` が併存する config を
+        // 読むと、新キー側の false が消えて legacy の true が採用されてしまう —
+        // Codex レビュー指摘）。生の config を変換してから検証する。
+        let (migrated, did_migrate) = migrate_config_version(raw);
+        let (normalized, errors) =
+            normalize_loaded_config(&Value::Object(migrated), GLOBAL_CONFIG_KEY);
         for (name, error) in errors {
             tracing::warn!("config validation failed key={name}: {error}");
         }
-        let (migrated, did_migrate) = migrate_config_version(normalized);
-        (migrated, restore_needed || did_migrate)
+        (normalized, restore_needed || did_migrate)
     }
 
     /// 現在保持しているロック下で読み込む（書き戻しは行わない）。既に排他ロックを
@@ -692,6 +699,33 @@ mod tests {
         // マイグレーション結果が書き戻されている
         let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
         assert!(text.contains("recent_jobs"));
+    }
+
+    /// v3 config に legacy `detached_tab: true` と新キー `detached: false` が
+    /// 併存する場合、新キー側（false）が勝つこと。正規化を先に走らせると
+    /// 既定値どおりの `detached: false` が消えて legacy の true が復活するため、
+    /// read_core は「マイグレーション → 正規化」の順であることを検証する
+    /// （Codex レビュー指摘）。
+    #[test]
+    fn migration_prefers_explicit_new_key_over_legacy() {
+        let dir = tempfile::tempdir().unwrap();
+        write_file(
+            &dir,
+            "config.json",
+            r#"{
+                "__global__": {"config_version": 3},
+                "ws_a": {
+                    "path": "/tmp/a",
+                    "jobs": {"dev": {"command": "x", "detached_tab": true, "detached": false}}
+                }
+            }"#,
+        );
+        let cfg = store(&dir).load_all();
+        let job = cfg["ws_a"]["jobs"]["dev"].as_object().unwrap();
+        assert!(!job.contains_key("detached_tab"));
+        // detached: false は新キー側が採用された上で、既定値のため正規化で省かれる
+        // （detached_tab: true が detached: true として残らないことが本題）。
+        assert!(!job.contains_key("detached"));
     }
 
     #[test]
