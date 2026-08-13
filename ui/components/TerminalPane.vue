@@ -102,7 +102,7 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.ts";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
-import { useGithubPolling } from "../composables/useGithubPolling.ts";
+import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
@@ -172,8 +172,8 @@ const devServerEntry = computed(() => {
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
 // （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
-// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGithubPollingに集約。
-const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
+// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
+const { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling } = useGitHubPolling();
 const branchPR = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -197,8 +197,8 @@ const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.valu
 watch(
   githubWorkspaceKey,
   (workspace, prevWorkspace) => {
-    if (prevWorkspace) stopGithubPolling(prevWorkspace);
-    if (workspace) startGithubPolling(workspace);
+    if (prevWorkspace) stopGitHubPolling(prevWorkspace);
+    if (workspace) startGitHubPolling(workspace);
   },
   { immediate: true },
 );
@@ -519,7 +519,7 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
-  if (githubWorkspaceKey.value) stopGithubPolling(githubWorkspaceKey.value);
+  if (githubWorkspaceKey.value) stopGitHubPolling(githubWorkspaceKey.value);
   roPane?.disconnect();
   roPane = null;
   if (frameEl.value) {

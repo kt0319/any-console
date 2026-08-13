@@ -5,13 +5,13 @@ type GitHubPaneLoader = (listRef: Ref<any[]>, loadingRef: Ref<boolean>, errorRef
 
 export function useGitHubPane(loaderFn: GitHubPaneLoader, opts: { onLoaded?: (items: any[]) => void } = {}) {
   const { onLoaded } = opts;
-  const { githubUrl, loadWorkspaceGithubUrl } = useGitHub();
+  const { githubUrl, loadWorkspaceGitHubUrl } = useGitHub();
   const items = ref<any[]>([]);
   const isLoading = ref(false);
   const error = ref("");
 
   async function reload() {
-    loadWorkspaceGithubUrl();
+    loadWorkspaceGitHubUrl();
     if (!githubUrl.value) return;
     await loaderFn(items, isLoading, error);
     onLoaded?.(items.value);

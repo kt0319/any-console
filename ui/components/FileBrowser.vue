@@ -154,7 +154,7 @@ const {
 });
 
 const {
-  githubUrl: diffGithubUrl, openGithub: openDiffFileGithub, openEditor: openDiffFileInEditor,
+  githubUrl: diffGitHubUrl, openGitHub: openDiffFileGitHub, openEditor: openDiffFileInEditor,
   browseToFolder: browseToDiffFolder,
   discard: discardDiffFile, deleteFile: deleteDiffFile,
 } = useDiffFileHeaderActions({
@@ -196,7 +196,7 @@ const displayPathSegments = rawDisplayPathSegments as ComputedRef<string[]>;
 
 const {
   openDirInEditor,
-  openFileGithubUrl, openCurrentFileGithub, openCurrentFileInEditor,
+  openFileGitHubUrl, openCurrentFileGitHub, openCurrentFileInEditor,
   onEntryClick,
 } = useFileEntryMenu({
   currentPath, fileContent,
@@ -226,7 +226,7 @@ const headerActions = computed<HeaderAction[]>(() => {
     return [
       { icon: "mdi-folder-open-outline", label: "Show in Files", ariaLabel: "Show in Files", onClick: browseToDiffFolder },
       ...(showEditorButton.value ? [editorAction(openDiffFileInEditor)] : []),
-      ...(diffGithubUrl.value ? [githubAction(openDiffFileGithub)] : []),
+      ...(diffGitHubUrl.value ? [githubAction(openDiffFileGitHub)] : []),
       ...(props.diffIsWorkingTree
         ? [
             { icon: "mdi-undo", label: "Discard", ariaLabel: "Discard", danger: true, onClick: discardDiffFile },
@@ -245,7 +245,7 @@ const headerActions = computed<HeaderAction[]>(() => {
       },
       ...(showEditorButton.value ? [editorAction(openCurrentFileInEditor)] : []),
       { icon: "mdi-download", label: "Download", ariaLabel: "Download", onClick: () => downloadFile(currentPath.value) },
-      ...(openFileGithubUrl.value ? [githubAction(openCurrentFileGithub)] : []),
+      ...(openFileGitHubUrl.value ? [githubAction(openCurrentFileGitHub)] : []),
       moveAction(),
       deleteAction(deleteCurrentPath),
     ];

@@ -55,7 +55,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
-import { useGithubPolling } from "../composables/useGithubPolling.ts";
+import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
@@ -82,8 +82,8 @@ const { confirm } = useConfirm();
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
-// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGithubPollingに集約。
-const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
+// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
+const { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling } = useGitHubPolling();
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { queue: dispatchQueue } = useDispatchQueue();
 
@@ -192,22 +192,22 @@ const githubWorkspaceKeys = computed(() => {
   return [...keys];
 });
 
-let activeGithubKeys: string[] = [];
+let activeGitHubKeys: string[] = [];
 watch(githubWorkspaceKeys, (keys) => {
   const keySet = new Set(keys);
-  for (const old of activeGithubKeys) {
-    if (!keySet.has(old)) stopGithubPolling(old);
+  for (const old of activeGitHubKeys) {
+    if (!keySet.has(old)) stopGitHubPolling(old);
   }
   for (const key of keys) {
-    if (!activeGithubKeys.includes(key)) startGithubPolling(key);
+    if (!activeGitHubKeys.includes(key)) startGitHubPolling(key);
   }
-  activeGithubKeys = keys;
+  activeGitHubKeys = keys;
 }, { immediate: true });
 
 startPreviewPolling();
 
 onBeforeUnmount(() => {
-  for (const key of activeGithubKeys) stopGithubPolling(key);
+  for (const key of activeGitHubKeys) stopGitHubPolling(key);
   stopPreviewPolling();
 });
 </script>

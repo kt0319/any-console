@@ -1,7 +1,7 @@
 import { computed, type Ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { joinEntryPath } from "../utils/file-browser.ts";
-import { buildGithubFileUrl } from "../utils/git.ts";
+import { buildGitHubFileUrl } from "../utils/git.ts";
 import { openExternal } from "../utils/open-external.ts";
 
 export function useFileEntryMenu({
@@ -22,14 +22,14 @@ export function useFileEntryMenu({
     openInEditor(currentPath.value);
   }
 
-  const openFileGithubUrl = computed(() => {
+  const openFileGitHubUrl = computed(() => {
     const ws = workspaceStore.currentWorkspace;
     if (!ws?.github_url || !currentPath.value || !fileContent.value) return "";
-    return buildGithubFileUrl(ws.github_url, ws.branch || "main", currentPath.value);
+    return buildGitHubFileUrl(ws.github_url, ws.branch || "main", currentPath.value);
   });
 
-  function openCurrentFileGithub() {
-    openExternal(openFileGithubUrl.value);
+  function openCurrentFileGitHub() {
+    openExternal(openFileGitHubUrl.value);
   }
 
   function openCurrentFileInEditor() {
@@ -49,7 +49,7 @@ export function useFileEntryMenu({
 
   return {
     openDirInEditor,
-    openFileGithubUrl, openCurrentFileGithub, openCurrentFileInEditor,
+    openFileGitHubUrl, openCurrentFileGitHub, openCurrentFileInEditor,
     onEntryClick,
   };
 }

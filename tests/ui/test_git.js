@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -297,22 +297,22 @@ describe("entryBranches", () => {
   });
 });
 
-describe("buildGithubFileUrl", () => {
+describe("buildGitHubFileUrl", () => {
   it("github_url/blob/ref/path 形式のURLを生成する", () => {
-    expect(buildGithubFileUrl("https://github.com/u/repo", "main", "src/app.js"))
+    expect(buildGitHubFileUrl("https://github.com/u/repo", "main", "src/app.js"))
       .toBe("https://github.com/u/repo/blob/main/src/app.js");
   });
 
   it("githubUrlが空なら空文字列", () => {
-    expect(buildGithubFileUrl("", "main", "src/app.js")).toBe("");
+    expect(buildGitHubFileUrl("", "main", "src/app.js")).toBe("");
   });
 
   it("refが空なら空文字列", () => {
-    expect(buildGithubFileUrl("https://github.com/u/repo", "", "src/app.js")).toBe("");
+    expect(buildGitHubFileUrl("https://github.com/u/repo", "", "src/app.js")).toBe("");
   });
 
   it("builds tree URL when type is tree", () => {
-    expect(buildGithubFileUrl("https://github.com/u/repo", "main", "src", "tree"))
+    expect(buildGitHubFileUrl("https://github.com/u/repo", "main", "src", "tree"))
       .toBe("https://github.com/u/repo/tree/main/src");
   });
 });

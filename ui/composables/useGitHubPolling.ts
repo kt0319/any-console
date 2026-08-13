@@ -7,22 +7,22 @@ import { useWorkspaceRuns } from "./useWorkspaceRuns.ts";
 // タブのワークスペース集合）が共用する。個別の取得・重複排除・参照カウント式
 // ポーリングの実装は useWorkspacePRs / useWorkspaceRuns（それぞれ
 // useWorkspaceResourcePoll.ts の共通ファクトリ）のまま。
-export function useGithubPolling() {
+export function useGitHubPolling() {
   const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
   const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceRuns();
 
   /** 取得してからポーリングを開始する。 */
-  function startGithubPolling(workspace: string) {
+  function startGitHubPolling(workspace: string) {
     fetchPRs(workspace);
     fetchRuns(workspace);
     startPRsPolling(workspace);
     startActionsPolling(workspace);
   }
 
-  function stopGithubPolling(workspace: string) {
+  function stopGitHubPolling(workspace: string) {
     stopPRsPolling(workspace);
     stopActionsPolling(workspace);
   }
 
-  return { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling };
+  return { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling };
 }

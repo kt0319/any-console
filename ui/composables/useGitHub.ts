@@ -58,7 +58,7 @@ export function useGitHub() {
     return m ? m[1] : githubUrl.value;
   });
 
-  function loadWorkspaceGithubUrl() {
+  function loadWorkspaceGitHubUrl() {
     const ws = workspaceStore.currentWorkspace;
     githubUrl.value = ws?.github_url || "";
     return githubUrl.value;
@@ -120,5 +120,5 @@ export function useGitHub() {
     url: r.url || "",
   }));
 
-  return { githubUrl, repoName, loadWorkspaceGithubUrl, loadIssues, loadPRs, loadActions };
+  return { githubUrl, repoName, loadWorkspaceGitHubUrl, loadIssues, loadPRs, loadActions };
 }

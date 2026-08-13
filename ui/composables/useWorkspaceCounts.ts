@@ -16,7 +16,7 @@ export function useWorkspaceCounts() {
     apiGet: (endpoint: string, opts?: { errorMessage?: string }) => Promise<{ ok: boolean, data: any }>,
     wsEndpoint: (workspace: string, path: string) => string,
   } = useApi();
-  const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
+  const { loadWorkspaceGitHubUrl, loadIssues, loadPRs } = useGitHub();
 
   const issuesCount = ref<number | null>(null);
   const prsCount = ref<number | null>(null);
@@ -29,7 +29,7 @@ export function useWorkspaceCounts() {
     return ws.changed_files || 0;
   });
 
-  const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
+  const hasGitHub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
   /** キャッシュ済みの件数で即座に初期表示する。 */
   function primeFromCache(workspace: string) {
@@ -54,8 +54,8 @@ export function useWorkspaceCounts() {
       if (ok) branchCount.value = (data || []).filter((b) => !b.remote).length;
     } catch {}
 
-    if (!hasGithub.value) return;
-    loadWorkspaceGithubUrl();
+    if (!hasGitHub.value) return;
+    loadWorkspaceGitHubUrl();
     const issueItems = ref([]), issueLoading = ref(false), issueError = ref("");
     const prItems = ref([]), prLoading = ref(false), prError = ref("");
     await Promise.all([
@@ -72,7 +72,7 @@ export function useWorkspaceCounts() {
     stashCount,
     branchCount,
     changesCount,
-    hasGithub,
+    hasGitHub,
     primeFromCache,
     loadCounts,
   };
