@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1](https://github.com/kt0319/any-console/compare/v0.12.0...v0.12.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* aarch64-linuxでgetpwuid_rのバッファ型が合わずビルドできない問題を修正 ([41b2a83](https://github.com/kt0319/any-console/commit/41b2a83b32b2e8905610d38dd9b22ac0241d40d7))
+
+
+### Build
+
+* Cargo.lockのバージョンを0.12.0リリースに追従 ([c07f1b7](https://github.com/kt0319/any-console/commit/c07f1b7526006363ecb7b0b6fe890dff8622f8b0))
+
+
+### CI
+
+* リリースのIntel macビルドを廃止済みmacos-13からmacos-15-intelへ移行 ([a0e1955](https://github.com/kt0319/any-console/commit/a0e1955b4aeaf5ac1424cf9ef32888f99a86ec59))
+
 ## [0.12.0](https://github.com/kt0319/any-console/compare/v0.11.0...v0.12.0) (2026-08-13)
 
 
