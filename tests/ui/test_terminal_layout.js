@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { calcGridLayout, buildGridRows } from "../../ui/utils/terminal-layout.js";
+import { calcGridLayout, buildGridRows } from "../../ui/utils/terminal-layout.ts";
 
 describe("calcGridLayout", () => {
   it("returns [1] for count 1", () => {

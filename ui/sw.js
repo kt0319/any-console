@@ -116,7 +116,7 @@ self.addEventListener('push', (event) => {
 // 既存タブへの postMessage が届いたかを ack で確認するタイムアウト（ms）。
 // iOS Safari の PWA はバックグラウンドで凍結したページへの postMessage が
 // 届かないことがあるため、一定時間内に ack が無ければ URL 遷移にフォールバックする
-// （vue-main.js の起動時チェックが openDispatchQueue クエリを見て開く）。
+// （vue-main.ts の起動時チェックが openDispatchQueue クエリを見て開く）。
 const NOTIFICATION_ACK_TIMEOUT_MS = 800;
 
 function postMessageWithAck(client, message) {

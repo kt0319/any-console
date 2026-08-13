@@ -41,24 +41,24 @@
   </button>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { renderIconStr } from "../utils/render-icon.js";
-import { workspaceDisplayName } from "../utils/worktree.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { emit } from "../app-bridge.js";
-import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
-import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
-import { useLongPress } from "../composables/useLongPress.js";
-import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount, type PropType } from "vue";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { workspaceDisplayName } from "../utils/worktree.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { emit } from "../app-bridge.ts";
+import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.ts";
+import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
+import { useLongPress } from "../composables/useLongPress.ts";
+import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
 const props = defineProps({
-  tab: { type: Object, required: true },
-  activeTabId: { type: Number, default: null },
+  tab: { type: Object as PropType<TerminalTab>, required: true },
+  activeTabId: { type: Number as PropType<number | null>, default: null },
   isPanelBottom: { type: Boolean, default: false },
 });
 
@@ -69,7 +69,7 @@ const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
-const pillEl = ref(null);
+const pillEl = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 const dropSide = ref("");
 let closePending = false;
@@ -238,9 +238,9 @@ function onDropOnTab(e) {
 // クローズはタブ本体のタップ/クリックでは行わず、常に tab-close ボタン経由。
 const touchTracker = createTouchTracker();
 
-function hitTestTab(clientX, clientY) {
+function hitTestTab(clientX: number, clientY: number) {
   const el = document.elementFromPoint(clientX, clientY);
-  const btn = el?.closest?.(".tab-btn[data-tab-id]");
+  const btn = el?.closest?.<HTMLElement>(".tab-btn[data-tab-id]");
   if (!btn) return null;
   const tabId = Number(btn.dataset.tabId);
   if (!Number.isFinite(tabId) || tabId === props.tab.id) return null;

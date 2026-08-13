@@ -6,7 +6,7 @@ import {
   buildTrailingPeekItems,
   buildPeekText,
   buildPeekSignature,
-} from "../../ui/utils/pill-peek.js";
+} from "../../ui/utils/pill-peek.ts";
 
 const ALL_ON = {
   files: true,

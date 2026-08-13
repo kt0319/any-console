@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useWorkspaceStore } from "../../ui/stores/workspace.js";
+import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 
 describe("workspace store: applyStatuses", () => {
   let store;

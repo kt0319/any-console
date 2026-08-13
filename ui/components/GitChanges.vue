@@ -38,26 +38,40 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from "vue";
 import FileItem from "./FileItem.vue";
 import GitCommitForm from "./GitCommitForm.vue";
-import { useGitDiff } from "../composables/useGitDiff.js";
-import { useWorkspace } from "../composables/useWorkspace.js";
-import { emit } from "../app-bridge.js";
-import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
+import { useGitDiff } from "../composables/useGitDiff.ts";
+import { useWorkspace } from "../composables/useWorkspace.ts";
+import { emit } from "../app-bridge.ts";
+import { renderFileIconFromPath } from "../utils/file-icon.ts";
+import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { getWorkspace } = useWorkspace();
 
-const files = ref([]);
+interface DiffFileRow {
+  path: string;
+  status: string;
+  numstat?: string;
+}
+
+interface DiffActionButton {
+  label: string;
+  class?: string;
+  loading?: boolean;
+  disabled?: () => boolean;
+  handler: () => void;
+}
+
+const files = ref<DiffFileRow[]>([]);
 const isLoading = ref(false);
 const loadError = ref("");
 const selectedFile = ref("");
-const actionButtons = ref([]);
+const actionButtons = ref<DiffActionButton[]>([]);
 const isWorkingTree = ref(false);
-const commitForm = ref(null);
+const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
 
 const isCommitDisabled = computed(
   // defineExpose された ref はテンプレート ref 経由では自動アンラップされる（.value を付けると常に undefined）

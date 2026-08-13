@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isEditableTarget, isEditableOrDialogTarget, restartTapBounce } from "../../ui/utils/dom.js";
+import { isEditableTarget, isEditableOrDialogTarget, restartTapBounce } from "../../ui/utils/dom.ts";
 
 describe("isEditableTarget", () => {
   it("true for INPUT/TEXTAREA elements", () => {

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { collectCommandVars } from "../../ui/utils/command-vars.js";
+import { collectCommandVars } from "../../ui/utils/command-vars.ts";
 
 describe("collectCommandVars", () => {
   it("returns empty object when there are no placeholders", async () => {

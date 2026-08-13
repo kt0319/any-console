@@ -2,11 +2,11 @@
 // @ts-check
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useLayoutStore } from "../../ui/stores/layout.js";
+import { useLayoutStore } from "../../ui/stores/layout.ts";
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useExclusiveMobileOverlay.js");
+  return import("../../ui/composables/useExclusiveMobileOverlay.ts");
 }
 
 function registerAll(registerOverlay, closed) {

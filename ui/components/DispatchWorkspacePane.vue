@@ -32,11 +32,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 // WorkspaceDetail.vueの「Dispatch」タブの中身。旧SessionDispatchesTab.vue

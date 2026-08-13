@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {

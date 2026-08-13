@@ -17,9 +17,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
-import { useIsMobile } from "../composables/useIsMobile.js";
+import { useIsMobile } from "../composables/useIsMobile.ts";
 
 defineProps({
   currentMode: { type: String, required: true },

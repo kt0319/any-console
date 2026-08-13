@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap, canPull, canPush } from "../../ui/utils/git-branch.js";
+import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap, canPull, canPush } from "../../ui/utils/git-branch.ts";
 
 // ── Tests ──
 

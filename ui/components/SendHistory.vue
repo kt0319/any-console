@@ -12,11 +12,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
-import { useInputStore } from "../stores/input.js";
-import { emit as bridgeEmit } from "../app-bridge.js";
-import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
+import { useInputStore } from "../stores/input.ts";
+import { emit as bridgeEmit } from "../app-bridge.ts";
+import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.ts";
 
 // embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.js 参照
 // （SendSnippet.vue と共通）。

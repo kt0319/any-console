@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-nocheck
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { copyText, isCopyShortcut, copyTerminalSelection } from "../../ui/utils/clipboard.js";
+import { copyText, isCopyShortcut, copyTerminalSelection } from "../../ui/utils/clipboard.ts";
 
 describe("copyText", () => {
   const origClipboard = navigator.clipboard;

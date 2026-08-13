@@ -18,24 +18,30 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
-import { useWorkspace } from "../composables/useWorkspace.js";
-import { emit as bridgeEmit } from "../app-bridge.js";
-import { setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
+import { useApi } from "../composables/useApi.ts";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
+import { useWorkspace } from "../composables/useWorkspace.ts";
+import { emit as bridgeEmit } from "../app-bridge.ts";
+import { setStashCache, invalidateStashCache } from "../composables/useStashCache.ts";
 
 const emit = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { withWorkspace } = useWorkspace();
 
-const stashEntries = ref([]);
+interface StashEntry {
+  ref: string;
+  message: string;
+  time?: string;
+}
+
+const stashEntries = ref<StashEntry[]>([]);
 const isStashListLoading = ref(false);
-const stashListEl = ref(null);
+const stashListEl = ref<HTMLElement | null>(null);
 
 async function loadStashList() {
   await withWorkspace(async (workspace) => {
@@ -55,7 +61,7 @@ async function loadStashList() {
   });
 }
 
-async function stashPop(entry) {
+async function stashPop(entry: StashEntry) {
   await withWorkspace(async (workspace) => {
     const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash pop failed" });
     if (!ok) return;
@@ -65,7 +71,7 @@ async function stashPop(entry) {
   });
 }
 
-async function stashDrop(entry) {
+async function stashDrop(entry: StashEntry) {
   if (!await confirmIrreversible(confirm, `Drop stash ${entry.ref}?`)) return;
   await withWorkspace(async (workspace) => {
     const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref }, { errorMessage: "Stash drop failed" });

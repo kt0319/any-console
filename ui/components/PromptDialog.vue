@@ -25,10 +25,10 @@
   </BaseDialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { usePrompt } from "../composables/usePrompt.js";
+import { usePrompt } from "../composables/usePrompt.ts";
 
 const {
   visible,
@@ -44,7 +44,7 @@ const {
   onCancel,
 } = usePrompt();
 
-const inputEl = ref(null);
+const inputEl = ref<HTMLInputElement | null>(null);
 
 // 入力ダイアログは端末種別に関わらず入力欄へ直接フォーカスする
 watch(visible, async (nextVisible) => {

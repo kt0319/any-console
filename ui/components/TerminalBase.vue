@@ -58,12 +58,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import TerminalPane from "./TerminalPane.vue";
 import SplitEmptyPane from "./SplitEmptyPane.vue";
 import TerminalSplitDropZones from "./TerminalSplitDropZones.vue";
-import { isEmptyPaneId } from "../utils/empty-pane.js";
-import { useTerminalSplitPanes } from "../composables/useTerminalSplitPanes.js";
+import { isEmptyPaneId } from "../utils/empty-pane.ts";
+import { useTerminalSplitPanes } from "../composables/useTerminalSplitPanes.ts";
+import type { TerminalTab } from "../stores/terminal.ts";
 
 defineProps({
   isPanelBottom: { type: Boolean, default: false },
@@ -80,10 +81,15 @@ const {
   isShowDropZones,
   splitContainerClasses,
   gridRows,
-  getTabById,
+  getTabById: getTabByIdBase,
   selectPane,
   fitAllTerminals,
 } = useTerminalSplitPanes();
+
+// getTabById はタブ未解決時にプレースホルダ（{ id, _pendingOpen: false }）を返すが、
+// TerminalPane の tab prop は TerminalTab として受けるため型上は TerminalTab に
+// 揃える（従来からの挙動そのままで、型のためのラッパー）。
+const getTabById = (tabId: number | string) => getTabByIdBase(tabId) as TerminalTab;
 
 defineExpose({ fitAllTerminals, selectPane });
 </script>

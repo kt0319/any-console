@@ -2,9 +2,9 @@
 // @ts-check
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { bindTerminalInput } from "../../ui/composables/useTerminalInput.js";
-import { useLayoutStore } from "../../ui/stores/layout.js";
-import { useTerminalStore } from "../../ui/stores/terminal.js";
+import { bindTerminalInput } from "../../ui/composables/useTerminalInput.ts";
+import { useLayoutStore } from "../../ui/stores/layout.ts";
+import { useTerminalStore } from "../../ui/stores/terminal.ts";
 
 function decode(bytes) {
   return new TextDecoder().decode(bytes);

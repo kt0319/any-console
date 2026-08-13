@@ -19,24 +19,24 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted } from "vue";
-import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
-import { DEBUG_LEVELS } from "../utils/constants.js";
-import { useModalView } from "../composables/useModalView.js";
+import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.ts";
+import { DEBUG_LEVELS } from "../utils/constants.ts";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 const debugMode = useDebugMode();
 const debugLevels = useDebugLevels();
 
-function toggleLevel(level) {
+function toggleLevel(level: string) {
   const next = new Set(debugLevels.value);
   if (next.has(level)) next.delete(level);
   else next.add(level);
   debugLevels.value = next;
 }
 
-onMounted(() => { modalTitle.value = "Display"; });
+onMounted(() => { modalTitle!.value = "Display"; });
 </script>
 
 <style scoped>

@@ -30,11 +30,11 @@ import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import SessionSidebar from "../../../ui/components/SessionSidebar.vue";
 import TabBar from "../../../ui/components/TabBar.vue";
 import { createPinia, setActivePinia } from "pinia";
-import { useConfirm } from "../../../ui/composables/useConfirm.js";
-import { usePrompt } from "../../../ui/composables/usePrompt.js";
-import { useWorkspaceStore } from "../../../ui/stores/workspace.js";
-import { useAuthStore } from "../../../ui/stores/auth.js";
-import { emit, on } from "../../../ui/app-bridge.js";
+import { useConfirm } from "../../../ui/composables/useConfirm.ts";
+import { usePrompt } from "../../../ui/composables/usePrompt.ts";
+import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
+import { useAuthStore } from "../../../ui/stores/auth.ts";
+import { emit, on } from "../../../ui/app-bridge.ts";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
 afterEach(() => {
@@ -158,7 +158,7 @@ describe("a11y: SplitEmptyPane", () => {
   it("空きペイン（タブ選択+分割パターン選択+Add pane+Remove pane）に a11y 違反が無い", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-    const { useLayoutStore } = await import("../../../ui/stores/layout.js");
+    const { useLayoutStore } = await import("../../../ui/stores/layout.ts");
     const layoutStore = useLayoutStore();
     layoutStore.splitWithDrop(1, "left", []);
     layoutStore.splitPaneTabIds = [1, "empty:1"];
@@ -336,8 +336,8 @@ describe("a11y: FileBrowser (Loading / Error メッセージ)", () => {
 describe("a11y: SessionSidebar", () => {
   it("セッションサイドバー（ブランチ・エージェント状態付き）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
-    const { useLayoutStore } = await import("../../../ui/stores/layout.js");
-    const { useTerminalStore } = await import("../../../ui/stores/terminal.js");
+    const { useLayoutStore } = await import("../../../ui/stores/layout.ts");
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
     const layoutStore = useLayoutStore();
     const terminalStore = useTerminalStore();
     layoutStore.isSessionSidebarOpen = true;
@@ -365,7 +365,7 @@ describe("a11y: TabBar", () => {
   it("タブバーに tablist / tab / aria-selected がある", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-    const { useTerminalStore } = await import("../../../ui/stores/terminal.js");
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
     const terminalStore = useTerminalStore();
     const tabs = [
       { id: 1, sessionId: "s1", workspace: null, label: "one", wsIcon: null, icon: null },
@@ -410,7 +410,7 @@ describe("a11y: SessionOpenModal", () => {
   it("Open Sessionオーバーレイ（WorkspaceOpen）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const { default: SessionOpenModal } = await import("../../../ui/components/SessionOpenModal.vue");
-    const { useSessionOpenNav } = await import("../../../ui/composables/useSessionOpenNav.js");
+    const { useSessionOpenNav } = await import("../../../ui/composables/useSessionOpenNav.ts");
     const wrapper = mount(SessionOpenModal, { attachTo: document.body });
     useSessionOpenNav().openView("WorkspaceOpen");
     await flushPromises();
@@ -424,7 +424,7 @@ describe("a11y: TerminalSettingsModal", () => {
   it("Settingsオーバーレイ（ModalMenu）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const { default: TerminalSettingsModal } = await import("../../../ui/components/TerminalSettingsModal.vue");
-    const { useSettingsNav } = await import("../../../ui/composables/useSettingsNav.js");
+    const { useSettingsNav } = await import("../../../ui/composables/useSettingsNav.ts");
     const wrapper = mount(TerminalSettingsModal, { attachTo: document.body });
     useSettingsNav().openView("ModalMenu");
     await flushPromises();

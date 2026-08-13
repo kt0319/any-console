@@ -1,17 +1,17 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GITHUB_POLL_INTERVAL_MS } from "../../ui/utils/constants.js";
+import { GITHUB_POLL_INTERVAL_MS } from "../../ui/utils/constants.ts";
 
 const apiGetMock = vi.fn();
 
-vi.mock("../../ui/composables/useApi.js", () => ({
+vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: apiGetMock, wsEndpoint: (ws, path) => `/workspaces/${ws}/${path}` }),
 }));
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useWorkspaceActions.js");
+  return import("../../ui/composables/useWorkspaceActions.ts");
 }
 
 beforeEach(() => {

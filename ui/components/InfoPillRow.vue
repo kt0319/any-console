@@ -129,12 +129,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
-import { renderIconStr } from "../utils/render-icon.js";
-import { peekIconForKey } from "../utils/info-pills.js";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { peekIconForKey } from "../utils/info-pills.ts";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 
 // ターミナルペイン右上のアイコンピル群（Info Pills）。表示条件・並び順は
 // 設定（infoPillConfig）と親から渡される現在値に従う。ピルのキーごとの

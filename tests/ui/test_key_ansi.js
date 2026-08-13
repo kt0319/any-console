@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { keyDefToAnsi } from "../../ui/utils/key-ansi.js";
+import { keyDefToAnsi } from "../../ui/utils/key-ansi.ts";
 
 describe("keyDefToAnsi", () => {
   it("converts ctrl + letter to control byte", () => {

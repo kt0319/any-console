@@ -8,10 +8,10 @@
   </nav>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount } from "vue";
-import { useLayoutStore } from "../stores/layout.js";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
 // タブバー左端のハンバーガーで開くPC用サイドバー。中身（セッション一覧）は
@@ -27,7 +27,7 @@ const { close } = useSessionListOverlay();
 const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isPanelBottom);
 
 // Esc で閉じる（モバイルはModal.vue側のuseModalが同様のEscハンドリングを持つ）。
-function onKeydown(e) {
+function onKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.defaultPrevented) return;
   if (!layoutStore.isSessionSidebarOpen) return;
   close();

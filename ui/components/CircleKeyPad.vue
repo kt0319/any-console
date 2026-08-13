@@ -23,26 +23,32 @@
   </div>
 </template>
 
-<script setup>
-import { SPECIAL_BUTTON_SIZE } from "../composables/useCircleKeyPad.js";
+<script setup lang="ts">
+import type { PropType } from "vue";
+import { SPECIAL_BUTTON_SIZE } from "../composables/useCircleKeyPad.ts";
+
+// useCircleKeyPad.ts の state / keys / specials（表示用に整形済み）を受け取る。
+interface KeyPadState { visible: boolean; originX: number; originY: number; activeId: string | null }
+interface KeyPadKey { id: string; angle: number; label: string }
+interface KeyPadSpecial { id: string; label: string; action: string | null | undefined; offsetX: number; offsetY: number }
 
 defineProps({
-  state: { type: Object, required: true },
-  keys: { type: Array, required: true },
-  specials: { type: Array, required: true },
+  state: { type: Object as PropType<KeyPadState>, required: true },
+  keys: { type: Array as PropType<KeyPadKey[]>, required: true },
+  specials: { type: Array as PropType<KeyPadSpecial[]>, required: true },
 });
 
 const RING_RADIUS = 44;
 const RADIUS = RING_RADIUS + 44;
 
-function itemStyle(k) {
+function itemStyle(k: KeyPadKey) {
   const rad = k.angle * (Math.PI / 180);
   const x = Math.cos(rad) * RADIUS;
   const y = Math.sin(rad) * RADIUS;
   return { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` };
 }
 
-function specialStyle(b) {
+function specialStyle(b: KeyPadSpecial) {
   return {
     minWidth: `${SPECIAL_BUTTON_SIZE.width}px`,
     minHeight: `${SPECIAL_BUTTON_SIZE.height}px`,

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isPastDragThreshold, createTouchTracker } from "../../ui/utils/gesture.js";
+import { isPastDragThreshold, createTouchTracker } from "../../ui/utils/gesture.ts";
 
 describe("isPastDragThreshold", () => {
   it("returns false when within threshold", () => {

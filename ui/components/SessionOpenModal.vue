@@ -40,10 +40,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, provide, watch } from "vue";
-import { useModal } from "../composables/useModal.js";
-import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
+import { useModal } from "../composables/useModal.ts";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAddView from "./WorkspaceAddView.vue";
 import WorkspaceEditPane from "./WorkspaceEditPane.vue";
@@ -71,7 +71,7 @@ provide("pushView", pushView);
 provide("popView", popView);
 provide("updateViewState", updateViewState);
 
-const modalEl = ref(null);
+const modalEl = ref<HTMLElement | null>(null);
 
 function close() {
   closeNav();

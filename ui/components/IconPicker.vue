@@ -49,17 +49,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick, onMounted } from "vue";
-import { useModalView } from "../composables/useModalView.js";
-import { useIconUpload } from "../composables/useIconUpload.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { looksLikeUrl, extractDomain } from "../utils/icon-url.js";
-import { buildIconGridModel } from "../utils/icon-grid.js";
-import MDI_ICONS from "../data/mdi-icons.js";
+import { useModalView } from "../composables/useModalView.ts";
+import { useIconUpload } from "../composables/useIconUpload.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { looksLikeUrl, extractDomain } from "../utils/icon-url.ts";
+import { buildIconGridModel } from "../utils/icon-grid.ts";
+import MDI_ICONS from "../data/mdi-icons.ts";
 
 const { modalTitle, viewState, popView } = useModalView();
-modalTitle.value = "Icon Picker";
+modalTitle!.value = "Icon Picker";
 
 const { readIconFile } = useIconUpload();
 
@@ -86,18 +86,18 @@ const ICON_PRESET_COLORS = [
   { label: "White", value: "#ffffff" },
 ];
 
-const searchRef = ref(null);
-const uploadRef = ref(null);
-const gridRef = ref(null);
+const searchRef = ref<HTMLInputElement | null>(null);
+const uploadRef = ref<HTMLInputElement | null>(null);
+const gridRef = ref<HTMLDivElement | null>(null);
 const searchQuery = ref("");
-const selectedIcon = ref(null);
+const selectedIcon = ref<string | null>(null);
 const selectedColor = ref("");
 const previewHtml = ref("");
 const loadingIcons = ref(false);
 const canSubmit = ref(false);
 let pendingClear = false;
 
-function renderGrid(icons, query) {
+function renderGrid(icons: string[], query: string) {
   const el = gridRef.value;
   if (!el) return;
   el.innerHTML = "";
@@ -125,20 +125,20 @@ function renderGrid(icons, query) {
   }
 }
 
-function selectMdiIcon(iconName) {
+function selectMdiIcon(iconName: string) {
   selectedIcon.value = iconName;
   pendingClear = false;
   previewHtml.value = renderIconStr(iconName, selectedColor.value);
   canSubmit.value = true;
   const el = gridRef.value;
   if (el) {
-    el.querySelectorAll(".icon-picker-item").forEach((item) => {
+    el.querySelectorAll<HTMLButtonElement>(".icon-picker-item").forEach((item) => {
       item.classList.toggle("selected", item.title === iconName.replace("mdi-", ""));
     });
   }
 }
 
-function selectColor(color) {
+function selectColor(color: string) {
   selectedColor.value = color;
   if (selectedIcon.value) {
     previewHtml.value = renderIconStr(selectedIcon.value, color);
@@ -209,12 +209,12 @@ function submit() {
   } else {
     return;
   }
-  popView({ icon, color });
+  popView!({ icon, color });
 }
 
 onMounted(async () => {
-  const currentIcon = viewState.value?.currentIcon || null;
-  const currentColor = viewState.value?.currentColor || "";
+  const currentIcon = viewState!.value?.currentIcon || null;
+  const currentColor = viewState!.value?.currentColor || "";
   selectedIcon.value = currentIcon;
   selectedColor.value = currentColor;
   pendingClear = false;
@@ -233,7 +233,7 @@ onMounted(async () => {
   if (currentIcon && currentIcon.startsWith("mdi-")) {
     const el = gridRef.value;
     if (el) {
-      el.querySelectorAll(".icon-picker-item").forEach((item) => {
+      el.querySelectorAll<HTMLButtonElement>(".icon-picker-item").forEach((item) => {
         item.classList.toggle("selected", item.title === currentIcon.replace("mdi-", ""));
       });
     }

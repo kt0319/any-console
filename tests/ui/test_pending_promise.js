@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { createPendingPromise } from "../../ui/utils/pending-promise.js";
+import { createPendingPromise } from "../../ui/utils/pending-promise.ts";
 
 describe("createPendingPromise", () => {
   it("starts with no pending promise", () => {

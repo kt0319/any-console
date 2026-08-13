@@ -19,11 +19,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from "vue";
-import { useModal } from "../composables/useModal.js";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useModal } from "../composables/useModal.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
 // モバイル専用のオーバーレイ表示。中身はSessionListPanel.vue/
@@ -34,8 +34,8 @@ import SessionListPanel from "./SessionListPanel.vue";
 const modal = useModal();
 const layoutStore = useLayoutStore();
 const { close } = useSessionListOverlay();
-const modalEl = ref(null);
-const panelRef = ref(null);
+const modalEl = ref<HTMLElement | null>(null);
+const panelRef = ref<InstanceType<typeof SessionListPanel> | null>(null);
 
 // isSessionSidebarOpen（ハンバーガーで開閉）かつモバイルの時だけ、
 // フォーカストラップ・Escハンドリング付きのオーバーレイとして開閉する。

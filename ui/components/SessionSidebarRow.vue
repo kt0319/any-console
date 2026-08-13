@@ -69,15 +69,15 @@
   </li>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
-import { usePillPeek } from "../composables/usePillPeek.js";
-import { buildTrailingPeekItems } from "../utils/pill-peek.js";
-import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.js";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
+import { usePillPeek } from "../composables/usePillPeek.ts";
+import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
+import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 
 // SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態
 // （usePillPeek）を持たせるため、TerminalPaneの浮遊ピルと同じ「値が変化したら
@@ -104,10 +104,10 @@ const rowStateClasses = computed(() => ({
 
 // TerminalPane.vue（trailingMaxWidth）と同じ考え方: 閉じるボタン＋余白ぶんを
 // 差し引いた残りをpeekピル/InfoPillRowの上限幅にする。
-const pillsRowEl = ref(null);
+const pillsRowEl = ref<HTMLElement | null>(null);
 const pillsRowWidth = ref(0);
 const pillsMaxWidth = computed(() => Math.max(0, pillsRowWidth.value - SIDEBAR_PILL_ROW_RESERVED_PX));
-let roPillsRow = null;
+let roPillsRow: ResizeObserver | null = null;
 watch(pillsRowEl, (el) => {
   roPillsRow?.disconnect();
   roPillsRow = null;
@@ -144,7 +144,7 @@ const peekFields = computed(() => ({
   dispatchTooltip: props.item.tooltips?.dispatch,
 }));
 
-const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig));
+const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig as unknown as Record<string, boolean>));
 
 // peekピル表示用の派生値（アイコン・色・テキスト・シグネチャ）も
 // usePillPeekが返す（TerminalPaneと共用）。

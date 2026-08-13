@@ -42,15 +42,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
-import { EDITOR_CONFIG_DEBOUNCE_MS } from "../utils/constants.js";
-import { useModalView } from "../composables/useModalView.js";
+import { useApi } from "../composables/useApi.ts";
+import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
+import { EDITOR_CONFIG_DEBOUNCE_MS } from "../utils/constants.ts";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Editor";
+modalTitle!.value = "Editor";
 
 const { apiGet, apiPut } = useApi();
 
@@ -61,7 +61,7 @@ const EDITOR_PRESETS = [
 ];
 const TEMPLATE_VARS = ["{user}", "{host}", "{workspace}", "{workspace_path}"];
 
-const textareaRef = ref(null);
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const urlTemplate = ref("");
 const editorUser = ref("");
 const editorHost = ref("");
@@ -76,7 +76,7 @@ const previewUrl = computed(() => {
     .replace(/\{workspace_path\}/g, "/home/user/example-workspace");
 });
 
-function insertVar(v) {
+function insertVar(v: string) {
   const ta = textareaRef.value;
   if (!ta) return;
   const start = ta.selectionStart;
@@ -89,9 +89,9 @@ function insertVar(v) {
   requestAnimationFrame(() => ta.setSelectionRange(pos, pos));
 }
 
-let saveTimer = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
 watch(urlTemplate, (val) => {
-  clearTimeout(saveTimer);
+  if (saveTimer != null) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const url_template = val.trim();
     await apiPut(EP_SETTINGS_EDITOR, { url_template });

@@ -2,30 +2,30 @@
 // @ts-check
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useWorkspaceStore } from "../../ui/stores/workspace.js";
+import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 
 const gitActionMock = vi.fn(async () => ({ ok: true, data: {} }));
 
-vi.mock("../../ui/composables/useGitRemoteAction.js", () => ({
+vi.mock("../../ui/composables/useGitRemoteAction.ts", () => ({
   useGitRemoteAction: () => ({
     gitAction: gitActionMock,
     isRunning: vi.fn(() => false),
   }),
 }));
 
-vi.mock("../../ui/composables/useToast.js", () => ({
+vi.mock("../../ui/composables/useToast.ts", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
 }));
 
-// vi.resetModules()するとapp-bridge.jsも再読み込みされ、on/emitが別々の
+// vi.resetModules()するとapp-bridge.tsも再読み込みされ、on/emitが別々の
 // モジュールインスタンス（別々のリスナーレジストリ）を参照してイベントが
 // 届かなくなる。on・useBranchActionsの両方をresetModules後に同じタイミングで
 // 動的importし、同一インスタンスを共有させる。
 async function freshModule() {
   vi.resetModules();
   const [{ useBranchActions }, { on }] = await Promise.all([
-    import("../../ui/composables/useBranchActions.js"),
-    import("../../ui/app-bridge.js"),
+    import("../../ui/composables/useBranchActions.ts"),
+    import("../../ui/app-bridge.ts"),
   ]);
   return { useBranchActions, on };
 }

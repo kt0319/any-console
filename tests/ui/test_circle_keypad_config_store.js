@@ -2,9 +2,9 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.js";
-import { useAuthStore } from "../../ui/stores/auth.js";
-import { defaultKeyDefs } from "../../ui/utils/circle-keypad-presets.js";
+import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.ts";
+import { useAuthStore } from "../../ui/stores/auth.ts";
+import { defaultKeyDefs } from "../../ui/utils/circle-keypad-presets.ts";
 
 const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };

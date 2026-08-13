@@ -8,13 +8,13 @@ import {
   PAIRING_STATUS_POLL_MS,
   PAIRING_SUCCESS_CLOSE_DELAY_MS,
   PAIRING_COUNTDOWN_TICK_MS,
-} from "../../../ui/utils/constants.js";
+} from "../../../ui/utils/constants.ts";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
 const apiPostMock = vi.fn();
 const apiGetMock = vi.fn();
 
-vi.mock("../../../ui/composables/useApi.js", () => ({
+vi.mock("../../../ui/composables/useApi.ts", () => ({
   useApi: () => ({
     apiPost: (...args) => apiPostMock(...args),
     apiGet: (...args) => apiGetMock(...args),

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { generateQrSvg } from "../../ui/utils/qrcode.js";
+import { generateQrSvg } from "../../ui/utils/qrcode.ts";
 
 describe("generateQrSvg", () => {
   it("returns empty string for empty input", () => {

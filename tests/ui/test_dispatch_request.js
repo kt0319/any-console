@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dispatchWorkspaceLabel, dispatchJobLabel } from "../../ui/utils/dispatch-request.js";
+import { dispatchWorkspaceLabel, dispatchJobLabel } from "../../ui/utils/dispatch-request.ts";
 
 describe("dispatchWorkspaceLabel", () => {
   it("effective_workspace（worktree解決済み）を優先する", () => {

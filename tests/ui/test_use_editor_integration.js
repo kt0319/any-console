@@ -2,22 +2,22 @@
 // @ts-check
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useWorkspaceStore } from "../../ui/stores/workspace.js";
+import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 
 const isTouchInputMock = vi.fn(() => false);
 const emitMock = vi.fn();
 
-vi.mock("../../ui/utils/device.js", () => ({
+vi.mock("../../ui/utils/device.ts", () => ({
   isTouchInput: () => isTouchInputMock(),
 }));
 
-vi.mock("../../ui/app-bridge.js", () => ({
+vi.mock("../../ui/app-bridge.ts", () => ({
   emit: (...args) => emitMock(...args),
 }));
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useEditorIntegration.js");
+  return import("../../ui/composables/useEditorIntegration.ts");
 }
 
 beforeEach(() => {

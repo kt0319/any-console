@@ -26,13 +26,13 @@
   </BaseDialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useApi } from "../composables/useApi.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { EP_GROUPS } from "../utils/endpoints.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useApi } from "../composables/useApi.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { EP_GROUPS } from "../utils/endpoints.ts";
 
 const workspaceStore = useWorkspaceStore();
 const { apiPost, apiPut, apiDelete } = useApi();
@@ -41,8 +41,8 @@ const { confirm } = useConfirm();
 // グループダイアログ
 const groupDialogOpen = ref(false);
 const groupInputName = ref("");
-const groupInputEl = ref(null);
-const editingGroup = ref(null);
+const groupInputEl = ref<HTMLInputElement | null>(null);
+const editingGroup = ref<Record<string, any> | null>(null);
 
 function startAddGroup() {
   editingGroup.value = null;

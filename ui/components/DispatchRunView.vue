@@ -95,14 +95,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.js";
-import { on } from "../app-bridge.js";
+import { useApi } from "../composables/useApi.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
+import { on } from "../app-bridge.ts";
 
 // Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new_session__";
@@ -155,9 +155,9 @@ const branchSelectValue = computed({
   },
 });
 
-const jobs = ref([]);
-const sessions = ref([]);
-const localBranches = ref([]);
+const jobs = ref<{ key: string, label: string }[]>([]);
+const sessions = ref<Record<string, any>[]>([]);
+const localBranches = ref<string[]>([]);
 const localBranchesLoaded = ref(false);
 const running = ref(false);
 const discarding = ref(false);
@@ -228,7 +228,7 @@ const dirtyBlockReason = computed(() => {
 // ことを検知し、フォームを黙って差し替えるのではなくダイアログを閉じる
 // （古い branch/text のまま承認され、置き換わった内容と食い違って実行される
 // 事故を防ぐため）。
-const initialRetryCount = ref(/** @type {number|null} */ (null));
+const initialRetryCount = ref<number | null>(null);
 
 onMounted(() => {
   if (!item.value) { emits("back"); return; }
@@ -273,7 +273,7 @@ watch(selectedWorkspace, async (ws) => {
   if (!ws) return;
   const res = await apiGet(wsEndpoint(ws, "jobs"));
   if (res.ok && res.data) {
-    jobs.value = Object.entries(res.data).map(([key, def]) => ({ key, label: def.label || key }));
+    jobs.value = Object.entries(res.data as Record<string, any>).map(([key, def]) => ({ key, label: def.label || key }));
   }
   if (selectedJob.value !== "terminal" && !jobs.value.some((j) => j.key === selectedJob.value)) {
     selectedJob.value = "terminal";

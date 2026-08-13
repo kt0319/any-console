@@ -2,8 +2,8 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useLayoutStore } from "../../ui/stores/layout.js";
-import { useTerminalStore } from "../../ui/stores/terminal.js";
+import { useLayoutStore } from "../../ui/stores/layout.ts";
+import { useTerminalStore } from "../../ui/stores/terminal.ts";
 
 // addTerminalTab は xterm 依存で重いので使わず、id だけの最小タブを直接挿入する
 // （test_terminal_store.js の seedTabs と同じ方針）。

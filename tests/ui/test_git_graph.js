@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { GRAPH_ROW_HEIGHT, GRAPH_COL_WIDTH, colColor, parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../../ui/utils/git-graph.js";
+import { GRAPH_ROW_HEIGHT, GRAPH_COL_WIDTH, colColor, parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../../ui/utils/git-graph.ts";
 
 const HALF = GRAPH_ROW_HEIGHT / 2;
 

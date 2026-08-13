@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { basename, dirname } from "../../ui/utils/path.js";
+import { basename, dirname } from "../../ui/utils/path.ts";
 
 describe("basename", () => {
   it("末尾要素を返す", () => {

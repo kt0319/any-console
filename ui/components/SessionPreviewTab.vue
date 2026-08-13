@@ -35,15 +35,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from "vue";
-import { copyText } from "../utils/clipboard.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { usePreviewPorts } from "../composables/usePreviewPorts.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { devServerUrl } from "../utils/preview-url.js";
-import { openExternal } from "../utils/open-external.js";
-import { useModalView } from "../composables/useModalView.js";
+import { copyText } from "../utils/clipboard.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { devServerUrl } from "../utils/preview-url.ts";
+import { openExternal } from "../utils/open-external.ts";
+import { useModalView } from "../composables/useModalView.ts";
 
 // Settings（ModalMenu）の「Dev Server」項目から開くcurrentView
 // （'SessionPreview'）。旧PreviewPorts.vue（ModalMenu配下の独立画面）から
@@ -52,14 +52,14 @@ import { useModalView } from "../composables/useModalView.js";
 // 他の利用と重複起動にはならない）。
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Dev Server";
+modalTitle!.value = "Dev Server";
 
 const { ports, start: startPolling, stop: stopPolling } = usePreviewPorts();
 onMounted(startPolling);
 onBeforeUnmount(stopPolling);
 
 const workspaceStore = useWorkspaceStore();
-const copiedPort = ref(null);
+const copiedPort = ref<number | null>(null);
 const hostname = location.hostname;
 
 function workspaceIconHtml(name) {

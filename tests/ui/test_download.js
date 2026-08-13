@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { triggerBlobDownload } from "../../ui/utils/download.js";
+import { triggerBlobDownload } from "../../ui/utils/download.ts";
 
 describe("triggerBlobDownload", () => {
   beforeEach(() => {

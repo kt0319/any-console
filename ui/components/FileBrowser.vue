@@ -75,25 +75,25 @@
   </div>
 </template>
 
-<script setup>
-import { computed, ref, toRef, watch, onMounted, onBeforeUnmount } from "vue";
+<script setup lang="ts">
+import { computed, ref, toRef, watch, onMounted, onBeforeUnmount, type ComputedRef } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useFileDragDrop } from "../composables/useFileDragDrop.js";
-import { useFileActions } from "../composables/useFileActions.js";
-import { useEditorIntegration } from "../composables/useEditorIntegration.js";
-import { useFileDiff } from "../composables/useFileDiff.js";
-import { useFileBrowserNav } from "../composables/useFileBrowserNav.js";
-import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.js";
-import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
-import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.js";
-import { useShowGitignored } from "../composables/useShowGitignored.js";
-import { useIsMobile } from "../composables/useIsMobile.js";
-import { renderFileIcon } from "../utils/file-icon.js";
-import { formatRelativeTime } from "../utils/format.js";
-import { entrySizeText } from "../utils/file-browser.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useFileDragDrop } from "../composables/useFileDragDrop.ts";
+import { useFileActions } from "../composables/useFileActions.ts";
+import { useEditorIntegration } from "../composables/useEditorIntegration.ts";
+import { useFileDiff } from "../composables/useFileDiff.ts";
+import { useFileBrowserNav } from "../composables/useFileBrowserNav.ts";
+import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.ts";
+import { useFileEntryMenu } from "../composables/useFileEntryMenu.ts";
+import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.ts";
+import { useShowGitignored } from "../composables/useShowGitignored.ts";
+import { useIsMobile } from "../composables/useIsMobile.ts";
+import { renderFileIcon } from "../utils/file-icon.ts";
+import { formatRelativeTime } from "../utils/format.ts";
+import { entrySizeText } from "../utils/file-browser.ts";
 
 const workspaceStore = useWorkspaceStore();
 
@@ -106,12 +106,22 @@ const props = defineProps({
   terminalSessionId: { type: String, default: "" },
 });
 
+// useFileBrowserNav の entries は Record<string, any>[]。テンプレート
+// （renderFileIcon / onEntryClick 等）で必要な形をここで確定させる。
+interface FileEntry {
+  name: string;
+  type: string;
+  gitignored?: boolean;
+  mtime?: number;
+  [key: string]: any;
+}
+
 const {
   currentPath, entries, fileContent,
   isLoading: isFileBrowserLoading, errorMessage: fileBrowserError, showHistory,
   navigateToPath, openFile, toggleHistory,
 } = useFileBrowserNav({ getTerminalSessionId: () => props.terminalSessionId });
-const uploadInputEl = ref(null);
+const uploadInputEl = ref<HTMLInputElement | null>(null);
 const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
 
 const {
@@ -166,19 +176,23 @@ const {
   isDiffMode: () => !!props.diffFile,
 });
 
-const visibleEntries = computed(() => {
-  if (showGitignored.value) return entries.value;
-  return entries.value.filter((e) => !e.gitignored);
+const visibleEntries = computed<FileEntry[]>(() => {
+  const all = entries.value as FileEntry[];
+  if (showGitignored.value) return all;
+  return all.filter((e) => !e.gitignored);
 });
 const rootLabel = computed(() => props.rootLabel || workspaceStore.selectedWorkspace || "root");
 
 const {
-  displayPathSegments, onCrumbClick,
+  displayPathSegments: rawDisplayPathSegments, onCrumbClick,
 } = useFileBrowserCrumbs({
   getDiffFile: () => props.diffFile,
   currentPath, fileContent,
   navigateToPath, openFile,
 });
+// splitPathSegments（utils/file-browser.ts）が未型付けのため any になっている。
+// テンプレート（v-for のインデックス比較）で使う型をここで確定させる。
+const displayPathSegments = rawDisplayPathSegments as ComputedRef<string[]>;
 
 const {
   openDirInEditor,
@@ -193,12 +207,21 @@ const {
 // ヘッダーアクション（Editor/GitHub/Download/Move/Delete等）は diff表示・
 // ファイル表示・ディレクトリ表示で同じボタンが重複するため、宣言的な配列に
 // して v-for で描画する（モードごとの差分は配列の組み立てだけに現れる）。
-const editorAction = (onClick) => ({ icon: "mdi-file-edit-outline", label: "Editor", ariaLabel: "Open in editor", onClick });
-const githubAction = (onClick) => ({ icon: "mdi-github", label: "GitHub", ariaLabel: "GitHub", onClick });
-const moveAction = () => ({ icon: "mdi-file-move-outline", label: "Move", ariaLabel: "Rename or move", onClick: moveCurrentPath });
-const deleteAction = (onClick) => ({ icon: "mdi-delete-outline", label: "Delete", ariaLabel: "Delete", danger: true, onClick });
+interface HeaderAction {
+  icon: string;
+  label: string;
+  ariaLabel: string;
+  tooltip?: string;
+  danger?: boolean;
+  onClick: () => void | Promise<void>;
+}
 
-const headerActions = computed(() => {
+const editorAction = (onClick: () => void | Promise<void>): HeaderAction => ({ icon: "mdi-file-edit-outline", label: "Editor", ariaLabel: "Open in editor", onClick });
+const githubAction = (onClick: () => void | Promise<void>): HeaderAction => ({ icon: "mdi-github", label: "GitHub", ariaLabel: "GitHub", onClick });
+const moveAction = (): HeaderAction => ({ icon: "mdi-file-move-outline", label: "Move", ariaLabel: "Rename or move", onClick: moveCurrentPath });
+const deleteAction = (onClick: () => void | Promise<void>): HeaderAction => ({ icon: "mdi-delete-outline", label: "Delete", ariaLabel: "Delete", danger: true, onClick });
+
+const headerActions = computed<HeaderAction[]>(() => {
   if (props.diffFile) {
     return [
       { icon: "mdi-folder-open-outline", label: "Show in Files", ariaLabel: "Show in Files", onClick: browseToDiffFolder },

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { createFlickHandlers } from "../../ui/utils/flick-handlers.js";
+import { createFlickHandlers } from "../../ui/utils/flick-handlers.ts";
 
 function makeStartEvent(x, y) {
   const target = { classList: { add: vi.fn(), remove: vi.fn() } };

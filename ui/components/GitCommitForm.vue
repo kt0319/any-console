@@ -11,14 +11,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useApi } from "../composables/useApi.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useToast } from "../composables/useToast.js";
-import { emit } from "../app-bridge.js";
-import { extractApiError } from "../utils/constants.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useApi } from "../composables/useApi.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useToast } from "../composables/useToast.ts";
+import { emit } from "../app-bridge.ts";
+import { extractApiError } from "../utils/constants.ts";
 
 const { apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();

@@ -36,7 +36,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
@@ -48,28 +48,28 @@ import TerminalSettingsModal from "./TerminalSettingsModal.vue";
 import WorkspaceDetailModal from "./WorkspaceDetailModal.vue";
 import SessionSidebar from "./SessionSidebar.vue";
 import StatusOverlay from "./StatusOverlay.vue";
-import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminal } from "../composables/useTerminal.js";
-import { useViewport } from "../composables/useViewport.js";
-import { useSessionSync } from "../composables/useSessionSync.js";
-import { useSnippetPersist } from "../composables/useSnippetPersist.js";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
-import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
-import { useSettingsNav } from "../composables/useSettingsNav.js";
-import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
-import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
-import { useClientLogs } from "../composables/useClientLogs.js";
-import { useAppBootstrap } from "../composables/useAppBootstrap.js";
-import { useTerminalLifecycle } from "../composables/useTerminalLifecycle.js";
-import { useSessionResume } from "../composables/useSessionResume.js";
-import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
-import { useDeepLink } from "../composables/useDeepLink.js";
-import { useLayoutPersist } from "../composables/useLayoutPersist.js";
-import { on, emit } from "../app-bridge.js";
-import { tabTitleLabel } from "../utils/tab-label.js";
+import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminal } from "../composables/useTerminal.ts";
+import { useViewport } from "../composables/useViewport.ts";
+import { useSessionSync } from "../composables/useSessionSync.ts";
+import { useSnippetPersist } from "../composables/useSnippetPersist.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
+import { useSettingsNav } from "../composables/useSettingsNav.ts";
+import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.ts";
+import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.ts";
+import { useClientLogs } from "../composables/useClientLogs.ts";
+import { useAppBootstrap } from "../composables/useAppBootstrap.ts";
+import { useTerminalLifecycle } from "../composables/useTerminalLifecycle.ts";
+import { useSessionResume } from "../composables/useSessionResume.ts";
+import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
+import { useDeepLink } from "../composables/useDeepLink.ts";
+import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
+import { on, emit } from "../app-bridge.ts";
+import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -81,8 +81,11 @@ const keyboardOpen = ref(false);
 const { startSyncPolling, stopSyncPolling } = useSessionSync();
 const { loadSnippetCache, addSnippet, deleteSnippet } = useSnippetPersist();
 
-const tabBarView = ref(null);
-const terminalBaseView = ref(null);
+const tabBarView = ref<InstanceType<typeof TabBar> | null>(null);
+// TerminalBase.vue が defineExpose する形のうち、ここで使う部分
+// （useTerminalLifecycle.ts 内の TerminalBaseViewRef と同形 + useViewport の
+// FitCallback が渡す scrollToBottom）。
+const terminalBaseView = ref<{ fitAllTerminals: (opts?: { force?: boolean, scrollToBottom?: boolean }) => void } | null>(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink, attachSessionTab } = useDeepLink();
@@ -166,13 +169,13 @@ watch(
   { immediate: true },
 );
 
-let mainPanelResizeObserver = null;
+let mainPanelResizeObserver: ResizeObserver | null = null;
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");
 }
 
-const bridgeCleanups = [];
+const bridgeCleanups: (() => void)[] = [];
 
 onMounted(() => {
   bridgeCleanups.push(on("layout:fitAll", (detail) => {

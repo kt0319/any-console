@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { extractPlaceholders } from "../../ui/utils/placeholders.js";
+import { extractPlaceholders } from "../../ui/utils/placeholders.ts";
 
 describe("extractPlaceholders", () => {
   it("returns [] for empty/blank input", () => {

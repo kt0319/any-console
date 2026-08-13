@@ -2,11 +2,11 @@
 // @ts-check
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useWorkspaceStore } from "../../ui/stores/workspace.js";
+import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 
 const apiGetMock = vi.fn();
 
-vi.mock("../../ui/composables/useApi.js", () => ({
+vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({
     apiGet: apiGetMock,
     wsEndpoint: (ws, action) => `/workspaces/${ws}/${action}`,
@@ -15,7 +15,7 @@ vi.mock("../../ui/composables/useApi.js", () => ({
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useGitLogPagination.js");
+  return import("../../ui/composables/useGitLogPagination.ts");
 }
 
 function jsonResponse(data) {

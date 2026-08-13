@@ -18,8 +18,8 @@
   </div>
 </template>
 
-<script setup>
-import { useDetachedSessions } from "../composables/useDetachedSessions.js";
+<script setup lang="ts">
+import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 
 // WorkspaceOpen.vueの「Detached Sessions」カテゴリの中身。タブに紐付いていない
 // tmuxセッションの一覧。行自体がボタンで、押すとそのままOpen/Adoptする

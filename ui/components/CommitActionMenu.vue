@@ -26,9 +26,11 @@
   </span>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { PropType } from "vue";
+
 defineProps({
-  branches: { type: Array, default: () => [] },
+  branches: { type: Array as PropType<string[]>, default: () => [] },
 });
 
 defineEmits(["exec", "show-detail"]);

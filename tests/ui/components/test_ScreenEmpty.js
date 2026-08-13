@@ -4,12 +4,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import ScreenEmpty from "../../../ui/components/ScreenEmpty.vue";
-import { useLayoutStore } from "../../../ui/stores/layout.js";
+import { useLayoutStore } from "../../../ui/stores/layout.ts";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
 const apiGetMock = vi.fn();
 
-vi.mock("../../../ui/composables/useApi.js", () => ({
+vi.mock("../../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: (...args) => apiGetMock(...args) }),
 }));
 
@@ -100,7 +100,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
     await flushPromises();
 
-    const { on } = await import("../../../ui/app-bridge.js");
+    const { on } = await import("../../../ui/app-bridge.ts");
     const handler = vi.fn();
     const off = on("settings:open", handler);
     await wrapper.findAll("button").find((b) => b.text().includes("Open on your phone"))?.trigger("click");

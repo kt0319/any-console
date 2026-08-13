@@ -3,12 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { ref, defineComponent, h } from "vue";
 
-vi.mock("../../ui/app-bridge.js", () => ({
+vi.mock("../../ui/app-bridge.ts", () => ({
   emit: vi.fn(),
 }));
 
-import { emit as bridgeEmit } from "../../ui/app-bridge.js";
-import { useEmbeddedPanel } from "../../ui/composables/useEmbeddedPanel.js";
+import { emit as bridgeEmit } from "../../ui/app-bridge.ts";
+import { useEmbeddedPanel } from "../../ui/composables/useEmbeddedPanel.ts";
 
 function mountPanel({ embedded, modalTitle }) {
   let panel;

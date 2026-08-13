@@ -49,23 +49,23 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from "vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.js";
-import { useGithubPolling } from "../composables/useGithubPolling.js";
-import { usePreviewPorts } from "../composables/usePreviewPorts.js";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useInfoPillActions } from "../composables/useInfoPillActions.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
+import { useGithubPolling } from "../composables/useGithubPolling.ts";
+import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
-import { emit } from "../app-bridge.js";
-import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.js";
+import { emit } from "../app-bridge.ts";
+import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
 
 // セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
 // ごとにワークスペース名・ブランチ・変更サマリ・エージェント状態・
@@ -93,7 +93,7 @@ const { queue: dispatchQueue } = useDispatchConfirm();
 // （Branch/Changes/PR/Actions/DevServer/Dispatchの各ピル）で出すため、
 // 組み立てロジックはsessionSidebarItemsと共有する（session-sidebar.js）。
 const pendingDispatchWorkspaces = computed(() => {
-  const openTabWorkspaces = new Set(terminalStore.openTabs.map((t) => t.workspace).filter(Boolean));
+  const openTabWorkspaces = new Set(terminalStore.openTabs.map((t) => t.workspace).filter((w): w is string => Boolean(w)));
   return pendingDispatchSidebarItems(workspaceStore.allWorkspaces, openTabWorkspaces, {
     prsByWorkspace: prsByWorkspace.value,
     runsByWorkspace: runsByWorkspace.value,
@@ -183,7 +183,7 @@ async function onCloseTab(item) {
 // 集合が変わるたびに増減分だけ開始/停止する（TerminalPaneの同種ロジック
 // を複数ワークスペース分にまとめたもの）。
 const githubWorkspaceKeys = computed(() => {
-  const keys = new Set();
+  const keys = new Set<string>();
   for (const tab of terminalStore.openTabs) {
     if (!tab.workspace) continue;
     const ws = workspaceStore.allWorkspaces.find((w) => w.name === tab.workspace);
@@ -192,7 +192,7 @@ const githubWorkspaceKeys = computed(() => {
   return [...keys];
 });
 
-let activeGithubKeys = /** @type {string[]} */ ([]);
+let activeGithubKeys: string[] = [];
 watch(githubWorkspaceKeys, (keys) => {
   const keySet = new Set(keys);
   for (const old of activeGithubKeys) {

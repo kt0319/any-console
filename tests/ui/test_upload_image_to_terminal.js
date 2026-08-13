@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { uploadImageToTerminal } from "../../ui/utils/upload-image-to-terminal.js";
+import { uploadImageToTerminal } from "../../ui/utils/upload-image-to-terminal.ts";
 
 const OPEN = 1;
 globalThis.WebSocket = /** @type {any} */ ({ OPEN });

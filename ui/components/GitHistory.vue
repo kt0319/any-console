@@ -85,21 +85,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
-import { useGitDiff } from "../composables/useGitDiff.js";
-import { useGitLogPagination } from "../composables/useGitLogPagination.js";
-import { useIsMobile } from "../composables/useIsMobile.js";
-import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.js";
-import { useCommitActionMenu } from "../composables/useCommitActionMenu.js";
-import { useDiffFileActions } from "../composables/useDiffFileActions.js";
-import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
-import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
-import { abbreviateBranch, entryBranches } from "../utils/git.js";
+import { useGitDiff } from "../composables/useGitDiff.ts";
+import { useGitLogPagination } from "../composables/useGitLogPagination.ts";
+import { useIsMobile } from "../composables/useIsMobile.ts";
+import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.ts";
+import { useCommitActionMenu } from "../composables/useCommitActionMenu.ts";
+import { useDiffFileActions } from "../composables/useDiffFileActions.ts";
+import { renderFileIconFromPath } from "../utils/file-icon.ts";
+import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";
+import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.ts";
+import { abbreviateBranch, entryBranches } from "../utils/git.ts";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
@@ -134,7 +134,11 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-const { onCommitAction } = useCommitActionMenu();
+// GitHistory では closeFn（第3引数）を渡さない呼び方のため、その形に型を絞る
+// （実行時は従来どおり同じ関数をそのまま呼ぶ）。
+const { onCommitAction } = useCommitActionMenu() as {
+  onCommitAction: (entry: Record<string, any>, ev: { action: string, branch?: string }) => void,
+};
 
 function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });

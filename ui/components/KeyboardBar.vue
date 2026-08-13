@@ -140,14 +140,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { useKeyboard } from "../composables/useKeyboard.js";
-import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
-import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.js";
-import { useKeyboardBarState } from "../composables/useKeyboardBarState.js";
-import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.js";
-import { emit } from "../app-bridge.js";
+import { useKeyboard } from "../composables/useKeyboard.ts";
+import { useInputDraftHistory } from "../composables/useInputDraftHistory.ts";
+import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.ts";
+import { useKeyboardBarState } from "../composables/useKeyboardBarState.ts";
+import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.ts";
+import { emit } from "../app-bridge.ts";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
 import SendSnippet from "./SendSnippet.vue";
@@ -164,9 +164,9 @@ const isVisible = computed(() => props.isPanelBottom);
 
 const { clearModifiers, sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
-const keyboardInput = ref(null);
-const barArrowFlickEl = ref(null);
-const barEnterFlickEl = ref(null);
+const keyboardInput = ref<InstanceType<typeof KeyboardInput> | null>(null);
+const barArrowFlickEl = ref<HTMLElement | null>(null);
+const barEnterFlickEl = ref<HTMLElement | null>(null);
 
 // ─── 入力 / スニペット状態・キーボード開閉 ──────────────────────
 const {

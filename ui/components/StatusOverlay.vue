@@ -9,14 +9,14 @@
   </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 defineProps({
   visible: { type: Boolean, default: false },
   label: { type: String, required: true },
   variant: {
     type: String,
     default: "error",
-    validator: (v) => ["error", "warning", "info"].includes(v),
+    validator: (v: string) => ["error", "warning", "info"].includes(v),
   },
 });
 </script>

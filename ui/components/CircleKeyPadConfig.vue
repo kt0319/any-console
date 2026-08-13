@@ -4,7 +4,7 @@
     <template v-else>
       <div class="ckpad-cfg-section">
         <label class="ckpad-cfg-enable">
-          <input type="checkbox" :checked="circleKeypad.enabled" @change="setEnabled($event.target.checked)">
+          <input type="checkbox" :checked="circleKeypad.enabled" @change="setEnabled(($event.target as HTMLInputElement).checked)">
           Enable Circle Keypad
         </label>
       </div>
@@ -14,10 +14,10 @@
         <p class="ckpad-cfg-desc">8 keys around the ring, clockwise from north.</p>
         <div v-for="(k, i) in circleKeypad.keys" :key="i" class="ckpad-cfg-row">
           <span class="ckpad-cfg-dir">{{ directions[i] }}</span>
-          <select class="form-input ckpad-cfg-select ckpad-cfg-select-modifier" :value="modifierIdOf(k)" @change="setModifier(i, $event.target.value)">
+          <select class="form-input ckpad-cfg-select ckpad-cfg-select-modifier" :value="modifierIdOf(k)" @change="setModifier(i, ($event.target as HTMLSelectElement).value)">
             <option v-for="m in modifierOptions" :key="m.id" :value="m.id">{{ m.label }}</option>
           </select>
-          <select class="form-input ckpad-cfg-select" :value="baseKeyIdOf(k)" @change="setBaseKey(i, $event.target.value)">
+          <select class="form-input ckpad-cfg-select" :value="baseKeyIdOf(k)" @change="setBaseKey(i, ($event.target as HTMLSelectElement).value)">
             <option v-for="bk in baseKeys" :key="bk.id" :value="bk.id">{{ bk.label }}</option>
           </select>
         </div>
@@ -28,7 +28,7 @@
         <p class="ckpad-cfg-desc">Special buttons outside the ring.</p>
         <div v-for="(s, i) in circleKeypad.specials" :key="i" class="ckpad-cfg-row">
           <span class="ckpad-cfg-dir">{{ corners[i] }}</span>
-          <select class="form-input ckpad-cfg-select" :value="specialId(s)" @change="setSpecial(i, $event.target.value)">
+          <select class="form-input ckpad-cfg-select" :value="specialId(s)" @change="setSpecial(i, ($event.target as HTMLSelectElement).value)">
             <option v-for="p in specialPresets" :key="p.id" :value="p.id">{{ p.label }}</option>
           </select>
         </div>
@@ -41,9 +41,9 @@
   </div>
 </template>
 
-<script setup>
-import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
-import { useModalView } from "../composables/useModalView.js";
+<script setup lang="ts">
+import { useCircleKeyPadConfigStore, type CircleKeypadSpecialDef } from "../stores/circle-keypad-config.ts";
+import { useModalView } from "../composables/useModalView.ts";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,
   CIRCLE_KEYPAD_BASE_KEYS,
@@ -55,10 +55,12 @@ import {
   modifierIdOf,
   baseKeyIdOf,
   circleKeypadKeyLabel,
-} from "../utils/circle-keypad-presets.js";
+} from "../utils/circle-keypad-presets.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "Circle Keypad";
+// modalTitle は provide 側（モーダルシェル）が常に提供する（null は部分 provide の
+// ユニットテスト向けのデフォルト）ため、non-null で扱う。
+modalTitle!.value = "Circle Keypad";
 
 const circleKeypad = useCircleKeyPadConfigStore();
 const modifierOptions = CIRCLE_KEYPAD_MODIFIER_OPTIONS;
@@ -69,7 +71,7 @@ const corners = CIRCLE_KEYPAD_CORNER_LABELS;
 
 if (!circleKeypad.loaded) circleKeypad.load();
 
-function specialId(s) {
+function specialId(s: CircleKeypadSpecialDef) {
   return CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) =>
     p.action === s.action
     && JSON.stringify(p.payload || null) === JSON.stringify(s.payload || null)

@@ -20,10 +20,10 @@
   </span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
-import { renderIconStr } from "../utils/render-icon.js";
-import { buildNumstatHtml } from "../utils/git.js";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { buildNumstatHtml } from "../utils/git.ts";
 
 // SessionListView.vueの通常表示・編集モード表示の両方が使う行の中身
 // （アイコン・ラベル・worktree・フレーズ通知・エージェント状態・ブランチ・

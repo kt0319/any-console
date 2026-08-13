@@ -24,14 +24,30 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick } from "vue";
-import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.js";
-import { emit } from "../app-bridge.js";
-import { copyText } from "../utils/clipboard.js";
+import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.ts";
+import { emit } from "../app-bridge.ts";
+import { copyText } from "../utils/clipboard.ts";
+
+// action はイベント名の文字列、または { event, ...payload } 形式のオブジェクト。
+type ToastAction = string | ({ event: string } & Record<string, unknown>);
+
+interface ToastItem {
+  id: number;
+  message: string;
+  lines: string[];
+  type: string;
+  top: number;
+  action: ToastAction | null;
+  swipeDy: number;
+  // スワイプ追跡用の一時フィールド
+  _ty?: number;
+  _tx?: number;
+}
 
 let idCounter = 0;
-const toasts = ref([]);
+const toasts = ref<ToastItem[]>([]);
 
 function restack() {
   let offset = 24;
@@ -41,7 +57,7 @@ function restack() {
   }
 }
 
-function dismiss(toast, { runAction = true } = {}) {
+function dismiss(toast: ToastItem, { runAction = true } = {}) {
   if (runAction && toast.action) {
     const action = toast.action;
     if (typeof action === "string") {
@@ -59,24 +75,24 @@ function dismiss(toast, { runAction = true } = {}) {
 
 const SWIPE_DISMISS_PX = 40;
 
-function onPointerDown(toast, e) {
+function onPointerDown(toast: ToastItem, e: PointerEvent) {
   toast._ty = e.clientY;
   toast._tx = e.clientX;
-  e.currentTarget.setPointerCapture?.(e.pointerId);
+  (e.currentTarget as Element | null)?.setPointerCapture?.(e.pointerId);
 }
 
-function onPointerMove(toast, e) {
+function onPointerMove(toast: ToastItem, e: PointerEvent) {
   if (toast._ty === undefined) return;
   const dy = e.clientY - toast._ty;
-  const dx = e.clientX - toast._tx;
+  const dx = e.clientX - toast._tx!;
   if (Math.abs(dy) > Math.abs(dx)) toast.swipeDy = dy;
 }
 
-function onPointerUp(toast, e) {
+function onPointerUp(toast: ToastItem, e: PointerEvent) {
   const dy = toast.swipeDy || 0;
   toast.swipeDy = 0;
   toast._ty = undefined;
-  e.currentTarget.releasePointerCapture?.(e.pointerId);
+  (e.currentTarget as Element | null)?.releasePointerCapture?.(e.pointerId);
   if (Math.abs(dy) > SWIPE_DISMISS_PX) {
     dismiss(toast, { runAction: false });
   } else if (Math.abs(dy) < 5) {
@@ -84,15 +100,15 @@ function onPointerUp(toast, e) {
   }
 }
 
-function onPointerCancel(toast) {
+function onPointerCancel(toast: ToastItem) {
   toast.swipeDy = 0;
   toast._ty = undefined;
 }
 
-function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action = null) {
+function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action: ToastAction | null = null) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
-  const toast = { id, message: text, lines: text.split("\n"), type, top: 24, action, swipeDy: 0 };
+  const toast: ToastItem = { id, message: text, lines: text.split("\n"), type, top: 24, action, swipeDy: 0 };
   toasts.value.push(toast);
   nextTick(restack);
   setTimeout(() => {

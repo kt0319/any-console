@@ -85,39 +85,40 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef } from "vue";
-import { useTerminal } from "../composables/useTerminal.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.js";
-import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
-import { useTerminalPaste } from "../composables/useTerminalPaste.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { confirmCloseTab } from "../utils/tab-close-confirm.js";
-import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
-import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
-import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
-import { usePreviewPorts } from "../composables/usePreviewPorts.js";
-import { useGithubPolling } from "../composables/useGithubPolling.js";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useInfoPillActions } from "../composables/useInfoPillActions.js";
-import { usePillPeek } from "../composables/usePillPeek.js";
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef, type PropType, type Ref } from "vue";
+import type { Terminal } from "@xterm/xterm";
+import { useTerminal } from "../composables/useTerminal.ts";
+import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { emit } from "../app-bridge.ts";
+import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
+import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
+import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.ts";
+import { useCircleKeyPad } from "../composables/useCircleKeyPad.ts";
+import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
+import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { useGithubPolling } from "../composables/useGithubPolling.ts";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
+import { usePillPeek } from "../composables/usePillPeek.ts";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
-import { buildReconnectLabel } from "../utils/terminal-ws.js";
-import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.js";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
-import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.js";
-import { buildTrailingPeekItems } from "../utils/pill-peek.js";
+import { buildReconnectLabel } from "../utils/terminal-ws.ts";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
+import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.ts";
+import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
 
 const props = defineProps({
-  tab: { type: Object, required: true },
+  tab: { type: Object as PropType<TerminalTab>, required: true },
   paneIndex: { type: Number, default: -1 },
 });
 
@@ -173,7 +174,7 @@ const devServerEntry = computed(() => {
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
 // PR/Actionsのポーリングは必ずペアで開始・停止するためuseGithubPollingに集約。
 const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
-const branchPR = computed(() => {
+const branchPR = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
 });
@@ -181,7 +182,7 @@ const branchPR = computed(() => {
 // GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
 // 実行中→完了への遷移をピルに反映するため、表示中は定期的に再取得する
 // （参照カウント式のポーリングはuseWorkspaceActions側に集約）。
-const branchAction = computed(() => {
+const branchAction = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findRunForBranch(runsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
 });
@@ -210,7 +211,7 @@ const tabDispatchItems = computed(() => {
 
 // ピル・peekピルのクリック時の遷移（openPane(key)）はuseInfoPillActionsに集約。
 const { openPane } = useInfoPillActions({
-  tab: tabRef,
+  tab: tabRef as Ref<Record<string, any>>,
   isGitRepo,
   devServerEntry,
 });
@@ -223,10 +224,10 @@ function onPeekClick() {
 
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
-const paneEl = ref(null);
-const frameEl = ref(null);
-const pillEl = ref(null);
-let activeFitTimer = null;
+const paneEl = ref<HTMLElement | null>(null);
+const frameEl = ref<HTMLElement | null>(null);
+const pillEl = ref<HTMLElement | null>(null);
+let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 
 // 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
 // 横スクロール上限幅を 100vw 基準にすると、狭いペインではみ出した Branches/
@@ -236,7 +237,7 @@ const paneWidthRef = ref(0);
 // 閉じるボタン・ワークスペースピル本体・余白ぶんを差し引いた残りをスクロール
 // 領域の上限にする。マイナスにはしない。
 const trailingMaxWidth = computed(() => Math.max(0, paneWidthRef.value - PANE_PILL_TRAILING_RESERVED_PX));
-let roPane = null;
+let roPane: ResizeObserver | null = null;
 
 watch(paneEl, (paneNode) => {
   roPane?.disconnect();
@@ -289,7 +290,7 @@ const tooltips = computed(() => buildInfoPillTooltips({
 // peek関連（buildTrailingPeekItems / buildPeekText / buildPeekSignature）で使う
 // フィールドはこの1つのcomputedに集約する（SessionSidebarRow.vueと同形。
 // 2箇所に分けて組み立てると、フィールド追加時に片方だけ足すズレが起きるため）。
-const peekFields = computed(() => ({
+const peekFields = computed<Record<string, any>>(() => ({
   workspaceLabel: props.tab.workspace || props.tab.label || "",
   isGitRepo: isGitRepo.value,
   hasSession: !!props.tab.sessionId,
@@ -309,7 +310,7 @@ const peekFields = computed(() => ({
   dispatchTooltip: tooltips.value.dispatch,
 }));
 
-const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig));
+const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig as unknown as Record<string, boolean>));
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
@@ -351,7 +352,7 @@ const isReconnecting = computed(() =>
   !isOffline.value && !!terminalStore.tabFlags[props.tab.id]?.reconnecting,
 );
 const reconnectLabel = computed(() =>
-  buildReconnectLabel(terminalStore.tabFlags[props.tab.id]?.reconnectReason),
+  buildReconnectLabel(terminalStore.tabFlags[props.tab.id]?.reconnectReason as string | undefined),
 );
 
 const paneIndexRef = toRef(props, "paneIndex");
@@ -359,7 +360,7 @@ const circleKeypad = useCircleKeyPad();
 const circleKeypadKeys = circleKeypad.keys;
 const circleKeypadSpecials = circleKeypad.specials;
 const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onMouseDown } = useTerminalPaneGestures({
-  tab: tabRef,
+  tab: tabRef as Ref<TerminalTab | null | undefined>,
   pillEl,
   circleKeypad,
   isActive,
@@ -388,8 +389,8 @@ function scheduleActiveFit() {
   }, ACTIVE_FIT_DELAY_MS);
 }
 
-function onSplitCloseDown(e) {
-  e.currentTarget.setPointerCapture(e.pointerId);
+function onSplitCloseDown(e: PointerEvent) {
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 }
 
 function onSplitCloseUp() {
@@ -398,8 +399,8 @@ function onSplitCloseUp() {
 
 let tabClosePending = false;
 
-function onTabCloseDown(e) {
-  e.currentTarget.setPointerCapture(e.pointerId);
+function onTabCloseDown(e: PointerEvent) {
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   tabClosePending = true;
 }
 
@@ -412,7 +413,7 @@ async function onTabCloseUp() {
   else if (result === "detach") terminalStore.detachTab(props.tab.id);
 }
 
-function onPointerDown(e) {
+function onPointerDown(e: PointerEvent) {
   if (layoutStore.isTouchDevice) return;
   const tab = props.tab;
   if (tab) {
@@ -430,7 +431,7 @@ function onPointerDown(e) {
   emits("select-pane", props.paneIndex);
 }
 
-function onWheel(e) {
+function onWheel(e: WheelEvent) {
   const term = props.tab?.term;
   if (!term) return;
   e.preventDefault();
@@ -439,13 +440,14 @@ function onWheel(e) {
 // term.open() 後に xterm フォーカスポリシーを注入する。
 // isPanelBottom（モバイル / 狭幅PC）では textarea へのフォーカスを禁止し、
 // キーボードバー入力経由でのみターミナルへ送るよう統一する。
-function applyFocusGuard(term) {
-  if (!term?.textarea) return;
+function applyFocusGuard(term: Terminal | null | undefined) {
+  const textarea = term?.textarea;
+  if (!term || !textarea) return;
   const origFocus = term.focus.bind(term);
   term.focus = () => { if (!layoutStore.isPanelBottom) origFocus(); };
-  term.textarea.tabIndex = -1;
-  term.textarea.addEventListener("focus", () => {
-    if (layoutStore.isPanelBottom) term.textarea.blur();
+  textarea.tabIndex = -1;
+  textarea.addEventListener("focus", () => {
+    if (layoutStore.isPanelBottom) textarea.blur();
   });
 }
 
@@ -527,7 +529,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   tabId: props.tab.id,
-  fit(opts) {
+  fit(opts?: { force?: boolean, scrollToBottom?: boolean }) {
     if (!paneEl.value || paneEl.value.offsetParent === null) return;
     fitTerminal(props.tab, opts);
   },

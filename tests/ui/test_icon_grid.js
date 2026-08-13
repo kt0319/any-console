@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { filterIcons, buildIconGridModel } from "../../ui/utils/icon-grid.js";
+import { filterIcons, buildIconGridModel } from "../../ui/utils/icon-grid.ts";
 
 describe("filterIcons", () => {
   it("returns all icons for an empty query", () => {

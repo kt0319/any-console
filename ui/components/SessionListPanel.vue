@@ -21,9 +21,9 @@
   </div>
 </template>
 
-<script setup>
-import { useLayoutStore } from "../stores/layout.js";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+<script setup lang="ts">
+import { useLayoutStore } from "../stores/layout.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import SessionListView from "./SessionListView.vue";
 
 // Modal.vue（モバイルのオーバーレイ表示）とSessionSidebar.vue（PCのインライン

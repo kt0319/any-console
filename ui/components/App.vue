@@ -17,7 +17,7 @@
   <UrlActionDialog />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onErrorCaptured } from "vue";
 import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
@@ -26,16 +26,19 @@ import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
-import { on } from "../app-bridge.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useAppConnectivity } from "../composables/useAppConnectivity.js";
-import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
-import { useAppAuthGate } from "../composables/useAppAuthGate.js";
-import { parsePairUrl } from "../utils/pairing.js";
+import { on } from "../app-bridge.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useAppConnectivity } from "../composables/useAppConnectivity.ts";
+import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.ts";
+import { useAppAuthGate } from "../composables/useAppAuthGate.ts";
+import { parsePairUrl } from "../utils/pairing.ts";
 
 const layoutStore = useLayoutStore();
 
-const fatalError = ref(null);
+// テンプレート（Reloadボタン）から参照するためのグローバル location。
+const location = window.location;
+
+const fatalError = ref<string | null>(null);
 
 onErrorCaptured((err) => {
   fatalError.value = err?.message || String(err);
@@ -49,7 +52,7 @@ const pairInfo = parsePairUrl(location.pathname, location.search);
 useAppDocumentTitle();
 useAppConnectivity();
 const { showLogin, authenticated, onAuthenticated, checkAuthOnBoot } = useAppAuthGate();
-const appToast = ref(null);
+const appToast = ref<InstanceType<typeof AppToast> | null>(null);
 
 onMounted(async () => {
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");

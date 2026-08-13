@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { arrowResolver, enterResolver } from "../../ui/utils/flick-resolvers.js";
+import { arrowResolver, enterResolver } from "../../ui/utils/flick-resolvers.ts";
 
 describe("arrowResolver", () => {
   it("returns ArrowLeft for left flick", () => {

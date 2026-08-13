@@ -1,12 +1,12 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { reconnectBackoffDelay } from "../../ui/utils/backoff.js";
+import { reconnectBackoffDelay } from "../../ui/utils/backoff.ts";
 import {
   RECONNECT_BACKOFF_BASE_MS,
   RECONNECT_BACKOFF_MAX,
   RECONNECT_BACKOFF_MULTIPLIER,
   RECONNECT_INITIAL_DELAY,
-} from "../../ui/utils/constants.js";
+} from "../../ui/utils/constants.ts";
 
 describe("reconnectBackoffDelay", () => {
   it("grows exponentially from the base delay", () => {

@@ -24,9 +24,9 @@
   </div>
 </template>
 
-<script setup>
-import { useGitHubPane } from "../composables/useGitHubPane.js";
-import { useGitHub, runStatusIcon, runStatusClass, openUrl } from "../composables/useGitHub.js";
+<script setup lang="ts">
+import { useGitHubPane } from "../composables/useGitHubPane.ts";
+import { useGitHub, runStatusIcon, runStatusClass, openUrl } from "../composables/useGitHub.ts";
 
 const { loadActions } = useGitHub();
 const { githubUrl, items, isLoading, error, reload } = useGitHubPane(loadActions);

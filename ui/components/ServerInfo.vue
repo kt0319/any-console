@@ -64,17 +64,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.js";
-import { useModalView } from "../composables/useModalView.js";
+import { useApi } from "../composables/useApi.ts";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.ts";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
-modalTitle.value = "System Info";
+modalTitle!.value = "System Info";
 
 const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
@@ -117,12 +117,23 @@ async function updApply() {
   }
   upd.applying = false;
 }
+// 1カードの1行分（Processes 行だけ pid を持ち、kill ボタンを出す）。
+type SiRow = { label: string, values: (string | number)[], pid?: number };
+// 1カード分。refreshable は Processes カードのみ true。
+type SiSection = {
+  label: string,
+  rows: SiRow[],
+  error?: string | null,
+  refreshable?: boolean,
+  rightValues?: string[],
+};
+
 const isLoading = ref(true);
 const isRefreshing = ref(false);
-const sections = ref([]);
+const sections = ref<SiSection[]>([]);
 // /system/info のレスポンス（updatableフラグをテンプレート側のUpdateカード
 // 表示条件に使うため、load()内のローカル値をrefとして保持する）。
-const serverInfo = ref(null);
+const serverInfo = ref<Record<string, any> | null>(null);
 
 function parseBrowser(ua) {
   for (const [re, name] of [
@@ -203,7 +214,8 @@ async function load() {
       label: "Client",
       rows: [
         row("Browser", parseBrowser(navigator.userAgent)),
-        row("Platform", navigator.userAgentData?.platform || navigator.platform || "-"),
+        // userAgentData は lib.dom 未定義（Chromium系のみの実験的API）のため型だけ補う。
+        row("Platform", (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || "-"),
         row("Screen", `${screen.width} x ${screen.height}`),
         row("Viewport", `${window.innerWidth} x ${window.innerHeight}`),
         row("Touch", layoutStore.isTouchDevice ? "Yes" : "No"),

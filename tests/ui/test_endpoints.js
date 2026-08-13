@@ -18,7 +18,7 @@ import {
   pairingStatusPath,
   pairingClaimPath,
   devicePath,
-} from "../../ui/utils/endpoints.js";
+} from "../../ui/utils/endpoints.ts";
 
 // ── Tests ──
 

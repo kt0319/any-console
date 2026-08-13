@@ -13,12 +13,12 @@ import { createPinia, setActivePinia } from "pinia";
 import { nextTick } from "vue";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
-vi.mock("../../../ui/app-bridge.js", () => ({
+vi.mock("../../../ui/app-bridge.ts", () => ({
   emit: vi.fn(),
   on: vi.fn(() => () => {}),
 }));
 
-vi.mock("../../../ui/composables/useApi.js", () => ({
+vi.mock("../../../ui/composables/useApi.ts", () => ({
   useApi: () => ({
     wsEndpoint: (ws, path) => `/workspaces/${ws}/${path}`,
     apiGet: vi.fn(async (url) => {
@@ -40,7 +40,7 @@ let wrapper;
 
 beforeEach(async () => {
   setActivePinia(createPinia());
-  const { useWorkspaceStore } = await import("../../../ui/stores/workspace.js");
+  const { useWorkspaceStore } = await import("../../../ui/stores/workspace.ts");
   const store = useWorkspaceStore();
   store.allWorkspaces = [{ name: "ws1", icon: "mdi-folder" }];
   store.selectedWorkspace = "ws1";

@@ -32,9 +32,9 @@
   </div>
 </template>
 
-<script setup>
-import { useGitHubPane } from "../composables/useGitHubPane.js";
-import { useGitHub, labelStyle, openUrl } from "../composables/useGitHub.js";
+<script setup lang="ts">
+import { useGitHubPane } from "../composables/useGitHubPane.ts";
+import { useGitHub, labelStyle, openUrl } from "../composables/useGitHub.ts";
 
 const emit = defineEmits(["count"]);
 const { loadPRs } = useGitHub();

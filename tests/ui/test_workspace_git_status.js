@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import { ref } from "vue";
-import { useWorkspaceGitStatus } from "../../ui/composables/useWorkspaceGitStatus.js";
+import { useWorkspaceGitStatus } from "../../ui/composables/useWorkspaceGitStatus.ts";
 
 function make(wsValue) {
   return useWorkspaceGitStatus(ref(wsValue));

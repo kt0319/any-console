@@ -61,25 +61,25 @@
   </div>
 </template>
 
-<script setup>
-import { computed, nextTick, ref } from "vue";
+<script setup lang="ts">
+import { computed, nextTick, ref, type PropType } from "vue";
 import TabItem from "./TabItem.vue";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
-import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
-import { useSettingsNav } from "../composables/useSettingsNav.js";
-import { emit } from "../app-bridge.js";
-import { nextTabIndex } from "../utils/tab-nav.js";
+import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
+import { useSettingsNav } from "../composables/useSettingsNav.ts";
+import { emit } from "../app-bridge.ts";
+import { nextTabIndex } from "../utils/tab-nav.ts";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 
 const props = defineProps({
-  tabs: { type: Array, default: () => [] },
+  tabs: { type: Array as PropType<TerminalTab[]>, default: () => [] },
 });
 
-const tabListEl = ref(null);
+const tabListEl = ref<HTMLElement | null>(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
@@ -90,17 +90,17 @@ const sortedItems = computed(() => {
     .map((tab, i) => ({ type: "tab", tab, index: i }));
 });
 
-function onSelect(tab, { skipFocus = false } = {}) {
+function onSelect(tab: TerminalTab, { skipFocus = false } = {}) {
   emit("tab:select", { tab, skipFocus });
 }
 
-function focusTab(tab) {
+function focusTab(tab: TerminalTab) {
   nextTick(() => {
-    tabListEl.value?.querySelector(`[data-tab-id="${tab.id}"]`)?.focus?.();
+    tabListEl.value?.querySelector<HTMLElement>(`[data-tab-id="${tab.id}"]`)?.focus?.();
   });
 }
 
-function onTabListKeydown(e) {
+function onTabListKeydown(e: KeyboardEvent) {
   const tabs = sortedItems.value.map((item) => item.tab);
   const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId.value);
   const nextIndex = nextTabIndex(e.key, currentIndex, tabs.length);
@@ -112,15 +112,15 @@ function onTabListKeydown(e) {
   focusTab(nextTab);
 }
 
-function onClose(tab) {
+function onClose(tab: TerminalTab) {
   emit("tab:close", { tab });
 }
 
-function onRefresh(tab) {
+function onRefresh(tab: TerminalTab) {
   emit("tab:refresh", { tab });
 }
 
-function onDetach(tab) {
+function onDetach(tab: TerminalTab) {
   terminalStore.detachTab(tab.id);
 }
 

@@ -9,7 +9,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from "vue";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
@@ -37,16 +37,16 @@ hljs.registerLanguage("markdown", markdown);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("ini", ini);
 hljs.registerLanguage("dockerfile", dockerfile);
-import { escapeHtml } from "../utils/escape-html.js";
-import { formatSize } from "../utils/format.js";
+import { escapeHtml } from "../utils/escape-html.ts";
+import { formatSize } from "../utils/format.ts";
 
 const props = defineProps({
   fileContent: { type: Object, required: true },
   fileName: { type: String, default: "" },
 });
 
-const codeEl = ref(null);
-const highlightedLines = ref([]);
+const codeEl = ref<HTMLElement | null>(null);
+const highlightedLines = ref<string[]>([]);
 
 function highlight() {
   const content = props.fileContent?.content;

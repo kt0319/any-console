@@ -43,17 +43,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useRecentJobs } from "../composables/useRecentJobs.js";
-import { useApi } from "../composables/useApi.js";
-import { getWithRetry } from "../utils/api-retry.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { emit, on } from "../app-bridge.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { EP_COMMON_JOBS } from "../utils/endpoints.js";
-import { jobCommandPreview } from "../utils/format.js";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useRecentJobs } from "../composables/useRecentJobs.ts";
+import { useApi } from "../composables/useApi.ts";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { emit, on } from "../app-bridge.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { EP_COMMON_JOBS } from "../utils/endpoints.ts";
+import { jobCommandPreview } from "../utils/format.ts";
 
 const props = defineProps({
   // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と
@@ -64,27 +64,38 @@ const props = defineProps({
   editMode: { type: Boolean, default: false },
 });
 
-const pushView = inject("pushView");
+const pushView = inject<(view: string, state?: Record<string, any>) => void>("pushView")!;
+
+interface Job {
+  name: string;
+  label?: string;
+  icon?: string;
+  icon_color?: string;
+  command?: string;
+  confirm?: boolean;
+  detached_tab?: boolean;
+  common?: boolean;
+}
 
 // common jobs は全ワークスペース共通・変更頻度が低いためモジュール単位で1回だけ保持する。
 // workspace-local jobs は ws 単位でキャッシュする。いずれも jobs:refresh で無効化する。
-let commonJobsCache = null;
-const wsJobsCache = {};
+let commonJobsCache: Job[] | null = null;
+const wsJobsCache: Record<string, Job[]> = {};
 
 const workspaceStore = useWorkspaceStore();
 const { recordJob } = useRecentJobs();
 const { apiGet, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 
-const commonJobs = ref([]);
-const localJobs = ref([]);
+const commonJobs = ref<Job[]>([]);
+const localJobs = ref<Job[]>([]);
 
 const workspace = computed(() => props.workspace || workspaceStore.selectedWorkspace);
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
 );
 
-function applyJobs(wsName) {
+function applyJobs(wsName: string | null) {
   commonJobs.value = commonJobsCache || [];
   localJobs.value = wsName ? (wsJobsCache[wsName] || []) : [];
 }
@@ -93,16 +104,16 @@ async function loadCommonJobs() {
   if (commonJobsCache) return;
   const { ok, data } = await getWithRetry(apiGet, EP_COMMON_JOBS);
   if (!ok) return;
-  commonJobsCache = Object.entries(data)
+  commonJobsCache = Object.entries(data as Record<string, Omit<Job, "name">>)
     .filter(([n]) => n !== "terminal")
     .map(([n, job]) => ({ name: n, ...job }));
 }
 
-async function loadWsJobs(wsName) {
+async function loadWsJobs(wsName: string) {
   if (wsJobsCache[wsName]) return;
   const { ok, data } = await getWithRetry(apiGet, wsEndpoint(wsName, "jobs"));
   if (!ok) return;
-  wsJobsCache[wsName] = Object.entries(data)
+  wsJobsCache[wsName] = Object.entries(data as Record<string, Omit<Job, "name">>)
     .filter(([n, job]) => n !== "terminal" && !job.common)
     .map(([n, job]) => ({ name: n, ...job }));
 }
@@ -128,7 +139,7 @@ function openTerminal() {
   });
 }
 
-async function runJob(job) {
+async function runJob(job: Job) {
   const wsName = workspace.value;
   if (!wsName) return;
   if (job.confirm !== false) {
@@ -150,7 +161,7 @@ async function runJob(job) {
   });
 }
 
-function startEditJob(job, isCommon) {
+function startEditJob(job: Job, isCommon: boolean) {
   const wsName = workspace.value;
   if (!wsName) return;
   pushView("JobConfig", {

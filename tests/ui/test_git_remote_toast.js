@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { formatRemoteToast } from "../../ui/utils/git-remote.js";
+import { formatRemoteToast } from "../../ui/utils/git-remote.ts";
 
 describe("formatRemoteToast", () => {
   it("コミットなしの場合はPulledと区別できる専用文言", () => {

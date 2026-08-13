@@ -5,7 +5,7 @@ import {
   anyTabWsAlive,
   staleAliveTabs,
   decideOffline,
-} from "../../ui/utils/connectivity.js";
+} from "../../ui/utils/connectivity.ts";
 
 const STALE = 35000;
 const WS_OPEN = 1;

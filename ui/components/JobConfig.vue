@@ -60,18 +60,24 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useModalView } from "../composables/useModalView.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
-import { renderIconStr } from "../utils/render-icon.js";
-import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.js";
+import { useApi } from "../composables/useApi.ts";
+import { useModalView } from "../composables/useModalView.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.ts";
+import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.ts";
 
-const { modalTitle, viewState, pushView, popView } = useModalView();
+// useModalView の各値は inject（default null はテスト用）。実行時は常に
+// provide されるため non-null で扱う。
+const modalView = useModalView();
+const modalTitle = modalView.modalTitle!;
+const viewState = modalView.viewState!;
+const pushView = modalView.pushView!;
+const popView = modalView.popView!;
 const { apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 const workspaceStore = useWorkspaceStore();

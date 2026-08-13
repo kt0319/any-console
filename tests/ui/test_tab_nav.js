@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { nextTabIndex } from "../../ui/utils/tab-nav.js";
+import { nextTabIndex } from "../../ui/utils/tab-nav.ts";
 
 describe("nextTabIndex", () => {
   it("ArrowRightは次のindex、末尾では先頭へ折り返す", () => {

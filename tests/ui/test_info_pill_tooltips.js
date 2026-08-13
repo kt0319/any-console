@@ -10,7 +10,7 @@ import {
   filesTooltip,
   historyTooltip,
   prsTooltip,
-} from "../../ui/utils/info-pill-tooltips.js";
+} from "../../ui/utils/info-pill-tooltips.ts";
 
 describe("buildInfoPillTooltips", () => {
   it("既定値（すべて未指定）でも全キーの文言を返す", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitRelativePath, resolveUploadTargetDir } from "../../ui/utils/file-upload-path.js";
+import { splitRelativePath, resolveUploadTargetDir } from "../../ui/utils/file-upload-path.ts";
 
 describe("splitRelativePath", () => {
   it("階層が無ければdirは空文字", () => {

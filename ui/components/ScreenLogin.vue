@@ -52,11 +52,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick } from "vue";
-import { useAuthStore } from "../stores/auth.js";
-import { useModal } from "../composables/useModal.js";
-import { parsePairUrl } from "../utils/pairing.js";
+import { useAuthStore } from "../stores/auth.ts";
+import { useModal } from "../composables/useModal.ts";
+import { parsePairUrl } from "../utils/pairing.ts";
+
+// auth ストアの registerDevice / claimPairing / checkToken の応答のうち
+// ここで参照するフィールド（error / hostname は失敗 / 成功時のみ載る）。
+interface AuthResult { ok: boolean; error?: string; hostname?: string }
 
 const auth = useAuthStore();
 const emits = defineEmits(["authenticated"]);
@@ -65,19 +69,19 @@ const visible = ref(true);
 const tokenValue = ref("");
 const errorMessage = ref("");
 const submitting = ref(false);
-const tokenInput = ref(null);
+const tokenInput = ref<HTMLInputElement | null>(null);
 const hostname = window.location.hostname;
 
 const scanner = useModal();
-const scanModalEl = ref(null);
-const videoEl = ref(null);
+const scanModalEl = ref<HTMLElement | null>(null);
+const videoEl = ref<HTMLVideoElement | null>(null);
 const scanClaiming = ref(false);
 const scanError = ref("");
-let scanStream = null;
-let scanFrameId = null;
-let decodeQr = null;
+let scanStream: MediaStream | null = null;
+let scanFrameId: number | null = null;
+let decodeQr: typeof import("jsqr").default | null = null;
 const scanCanvas = document.createElement("canvas");
-const scanCanvasCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+const scanCanvasCtx = scanCanvas.getContext("2d", { willReadFrequently: true })!;
 
 async function handleLogin() {
   const val = tokenValue.value.trim();
@@ -85,16 +89,16 @@ async function handleLogin() {
   submitting.value = true;
   errorMessage.value = "";
 
-  const loginResult = await auth.registerDevice(val);
+  const loginResult: AuthResult = await auth.registerDevice(val);
   if (!loginResult.ok) {
-    errorMessage.value = loginResult.error;
+    errorMessage.value = loginResult.error!;
     submitting.value = false;
     return;
   }
 
-  const result = await auth.checkToken();
+  const result: AuthResult = await auth.checkToken();
   if (result.ok) {
-    auth.setServerInfo(result.hostname);
+    auth.setServerInfo(result.hostname!);
     visible.value = false;
     emits("authenticated");
   } else {
@@ -150,7 +154,8 @@ function scanFrame() {
   scanCanvas.height = video.videoHeight;
   scanCanvasCtx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
   const imageData = scanCanvasCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
-  const code = decodeQr(imageData.data, imageData.width, imageData.height);
+  // decodeQr は openScanner での dynamic import 完了後にのみ scanFrame が動くため non-null。
+  const code = decodeQr!(imageData.data, imageData.width, imageData.height);
   if (code) {
     handleScannedText(code.data);
   } else {
@@ -158,9 +163,9 @@ function scanFrame() {
   }
 }
 
-async function handleScannedText(text) {
+async function handleScannedText(text: string) {
   const trimmed = text.trim();
-  let parsed = null;
+  let parsed: ReturnType<typeof parsePairUrl> = null;
   try {
     const url = new URL(trimmed);
     parsed = parsePairUrl(url.pathname, url.search);
@@ -173,7 +178,7 @@ async function handleScannedText(text) {
   // ペアリングURL（別デバイスで発行したQR）でなければ、生トークンのQR
   // （初回起動ログのブートストラップQR）として直接ログインを試みる。
   // 無関係なQR（ノイズ）でもサーバ側で単に無効トークン扱いになるだけで安全。
-  const result = parsed && parsed.token
+  const result: AuthResult = parsed && parsed.token
     ? await auth.claimPairing(parsed.id, parsed.token)
     : await auth.registerDevice(trimmed);
   if (!result.ok) {
@@ -181,8 +186,8 @@ async function handleScannedText(text) {
     scanError.value = result.error || "Pairing failed.";
     return;
   }
-  const checkResult = await auth.checkToken();
-  if (checkResult.ok) auth.setServerInfo(checkResult.hostname);
+  const checkResult: AuthResult = await auth.checkToken();
+  if (checkResult.ok) auth.setServerInfo(checkResult.hostname!);
   scanClaiming.value = false;
   scanner.close();
   visible.value = false;

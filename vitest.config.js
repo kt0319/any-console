@@ -7,7 +7,7 @@ export default defineConfig({
     include: ["tests/ui/**/test_*.js"],
     coverage: {
       provider: "v8",
-      include: ["ui/utils/**/*.js"],
+      include: ["ui/utils/**/*.ts"],
       reporter: ["text", "lcov", "json-summary"],
       reportsDirectory: "coverage",
       thresholds: {

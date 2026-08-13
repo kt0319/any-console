@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { renderFileIcon, renderFileIconFromPath } from "../../ui/utils/file-icon.js";
+import { renderFileIcon, renderFileIconFromPath } from "../../ui/utils/file-icon.ts";
 
 describe("renderFileIcon", () => {
   it("returns a directory icon for dir entries", () => {
