@@ -140,6 +140,7 @@ const {
 } = useFileDiff({
   getDiffFile: () => props.diffFile,
   getDiffMessage: () => props.diffMessage,
+  getDiffCommitHash: () => props.diffCommitHash,
 });
 
 const {
