@@ -454,6 +454,47 @@ async fn recent_jobs_rejects_oversized_fields() {
     }
 }
 
+/// v4 リネーム（jobDetachedTab → jobDetached）の過渡期互換（Codex レビュー指摘）:
+/// - PUT: legacy キーのみ・両キー併存（旧 SPA が GET ミラー応答を丸ごと PUT し
+///   返すケース）のどちらも受理し、保存形は jobDetached に畳み込む
+/// - GET: 旧 SPA が読めるよう jobDetached: true の項目に jobDetachedTab を併載する
+#[tokio::test]
+async fn recent_jobs_detached_transitional_compat() {
+    let front = spawn_front().await;
+
+    // legacy キーのみ（旧 SPA の新規記録）
+    let resp = put_json(
+        &front,
+        "/recent-jobs",
+        &json!({"recent_jobs": [{"key": "k1", "jobDetachedTab": true}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["recent_jobs"][0]["jobDetached"], json!(true));
+
+    // GET は保存形（jobDetached）に加えて過渡期ミラー（jobDetachedTab）を併載する
+    let got = get_json(&front, "/recent-jobs").await;
+    assert_eq!(got["recent_jobs"][0]["jobDetached"], json!(true));
+    assert_eq!(got["recent_jobs"][0]["jobDetachedTab"], json!(true));
+
+    // 両キー併存（旧 SPA が GET 応答をそのまま PUT し返す）でも 4xx にならず、
+    // 新キー側が正となる
+    let resp = put_json(
+        &front,
+        "/recent-jobs",
+        &json!({"recent_jobs": [
+            {"key": "k1", "jobDetached": true, "jobDetachedTab": true},
+            {"key": "k2", "jobDetached": false, "jobDetachedTab": true},
+        ]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["recent_jobs"][0]["jobDetached"], json!(true));
+    assert_eq!(body["recent_jobs"][1]["jobDetached"], json!(false));
+}
+
 #[tokio::test]
 async fn settings_routes_require_auth() {
     let front = spawn_front().await;

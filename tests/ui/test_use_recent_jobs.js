@@ -157,4 +157,18 @@ describe("useRecentJobs: 旧キー jobDetachedTab の正規化（v4 リネーム
     expect(item.jobDetached).toBe(true);
     expect("jobDetachedTab" in item).toBe(false);
   });
+
+  it("両キー併存（GET ミラー応答）は新キーを正とし legacy キーを落とす", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { recent_jobs: [job("ws3:x", { jobDetached: false, jobDetachedTab: true })] },
+    });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs } = useRecentJobs();
+    await loadRecentJobs();
+
+    const item = recentJobs.value.find((j) => j.key === "ws3:x");
+    expect(item.jobDetached).toBe(false);
+    expect("jobDetachedTab" in item).toBe(false);
+  });
 });

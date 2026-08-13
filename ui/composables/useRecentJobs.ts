@@ -54,9 +54,12 @@ export function useRecentJobs() {
   // 失敗時はキャッシュのまま起動経路に乗るため、ここで揃えないと detached
   // 指定が落ちる）。旧データが淘汰されたら削除してよい。
   function _normalizeLegacy(job: Record<string, any>): RecentJob {
-    if (job && job.jobDetached === undefined && job.jobDetachedTab !== undefined) {
+    if (job && job.jobDetachedTab !== undefined) {
+      // 両キー併存（サーバーの GET 応答は過渡期ミラーとして両方を載せる）でも
+      // legacy キーは常に落とし、新キーが明示されていればそちらを正とする。
       const { jobDetachedTab, ...rest } = job;
-      return { ...rest, jobDetached: !!jobDetachedTab } as RecentJob;
+      const jobDetached = rest.jobDetached !== undefined ? !!rest.jobDetached : !!jobDetachedTab;
+      return { ...rest, jobDetached } as RecentJob;
     }
     return job as RecentJob;
   }
