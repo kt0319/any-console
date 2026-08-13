@@ -122,8 +122,8 @@ impl Paths {
         let tmux_prefix =
             resolve_tmux_prefix(std::env::var("ANY_CONSOLE_TMUX_PREFIX").ok().as_deref());
         // Python main.py の DIST_DIR と同じ場所（vite.config.js の outDir =
-        // PROJECT_ROOT/dist）。Rust 側はビルド済み dist の配信のみサポートし、
-        // ソースモード（ui/ 直接配信 + キャッシュバスト書き換え）は Python へ proxy する。
+        // PROJECT_ROOT/dist）。ビルド済み dist の配信のみサポートする
+        // （ソースモード = ui/ 直接配信 + キャッシュバスト書き換えは移植していない）。
         let dist = project_root.join("dist");
         Self {
             frontend_dir: dist,
@@ -133,6 +133,11 @@ impl Paths {
             config_file,
             tmux_prefix,
         }
+    }
+
+    /// セッション ID から tmux セッション名（`{tmux_prefix}{session_id}`）を組み立てる。
+    pub fn tmux_session_name(&self, session_id: &str) -> String {
+        format!("{}{session_id}", self.tmux_prefix)
     }
 }
 

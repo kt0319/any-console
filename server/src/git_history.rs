@@ -62,6 +62,24 @@ fn default_limit() -> i64 {
     50
 }
 
+/// `git_log` / `unpulled_log` 共通の log 引数。History ペインは両方の出力を
+/// 同じパーサで読むため、pretty-format は必ずここで揃える（片方だけ変えると
+/// フロント側のパースが静かに壊れる）。
+fn history_log_args(max_count: &str, graph: bool) -> Vec<&str> {
+    let mut args = vec![
+        "--no-pager",
+        "log",
+        "--date-order",
+        max_count,
+        "--date=format-local:%Y-%m-%d %H:%M",
+        "--pretty=format:%H\t%ad\t%an\t%D\t%s",
+    ];
+    if graph {
+        args.insert(3, "--graph");
+    }
+    args
+}
+
 pub async fn git_log(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -73,17 +91,7 @@ pub async fn git_log(
     let safe_skip = q.skip.clamp(0, GIT_LOG_MAX_SKIP);
     let max_count = format!("--max-count={safe_limit}");
     let skip_arg = format!("--skip={safe_skip}");
-    let mut args = vec![
-        "--no-pager",
-        "log",
-        "--date-order",
-        max_count.as_str(),
-        "--date=format-local:%Y-%m-%d %H:%M",
-        "--pretty=format:%H\t%ad\t%an\t%D\t%s",
-    ];
-    if q.graph {
-        args.insert(3, "--graph");
-    }
+    let mut args = history_log_args(max_count.as_str(), q.graph);
     if safe_skip > 0 {
         args.insert(4 + usize::from(q.graph), skip_arg.as_str());
     }
@@ -122,17 +130,7 @@ pub async fn unpulled_log(
     }
     let safe_limit = q.limit.clamp(1, GIT_LOG_MAX_ENTRIES);
     let max_count = format!("--max-count={safe_limit}");
-    let mut args = vec![
-        "--no-pager",
-        "log",
-        "--date-order",
-        max_count.as_str(),
-        "--date=format-local:%Y-%m-%d %H:%M",
-        "--pretty=format:%H\t%ad\t%an\t%D\t%s",
-    ];
-    if q.graph {
-        args.insert(3, "--graph");
-    }
+    let mut args = history_log_args(max_count.as_str(), q.graph);
     args.push("HEAD..@{u}");
     run_git_command(&args, &ws_path, GIT_STANDARD_TIMEOUT_SEC, "log", &[])
         .await

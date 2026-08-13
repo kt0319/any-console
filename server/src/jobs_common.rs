@@ -1,9 +1,7 @@
 //! ジョブ系ルーターの共有ロジック（Python 側 `api/routers/jobs_common.py` +
 //! `api/job_models.py` + `api/validators.py` のアイコン検証の移植）。
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -85,39 +83,35 @@ pub fn validate_icon_color(color: &str) -> Result<String, ApiError> {
 // Python 側と同じ TTL。移行期間中、Rust の書き込みは Python 側キャッシュを即時
 // 無効化できないが、TTL 以内に必ず再読込されるため staleness の上限は従来と同じ。
 
-type JobsCacheEntry = (Instant, Map<String, Value>);
+pub struct JobsCache(crate::util::TtlCache<Map<String, Value>>);
 
-#[derive(Default)]
-pub struct JobsCache {
-    store: Mutex<HashMap<String, JobsCacheEntry>>,
+impl Default for JobsCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl JobsCache {
     pub fn new() -> Self {
-        Self::default()
+        Self(crate::util::TtlCache::new(Duration::from_secs(
+            WORKSPACE_JOBS_CACHE_TTL_SEC,
+        )))
     }
 
     fn get(&self, key: &str) -> Option<Map<String, Value>> {
-        let store = self.store.lock().expect("jobs cache lock poisoned");
-        store.get(key).and_then(|(ts, v)| {
-            (ts.elapsed() < Duration::from_secs(WORKSPACE_JOBS_CACHE_TTL_SEC)).then(|| v.clone())
-        })
+        self.0.get(key)
     }
 
     fn set(&self, key: &str, value: Map<String, Value>) {
-        let mut store = self.store.lock().expect("jobs cache lock poisoned");
-        store.insert(key.to_string(), (Instant::now(), value));
+        self.0.set(key, value);
     }
 
     fn invalidate(&self, key: &str) {
-        self.store
-            .lock()
-            .expect("jobs cache lock poisoned")
-            .remove(key);
+        self.0.invalidate(key);
     }
 
     fn invalidate_all(&self) {
-        self.store.lock().expect("jobs cache lock poisoned").clear();
+        self.0.invalidate_all();
     }
 }
 

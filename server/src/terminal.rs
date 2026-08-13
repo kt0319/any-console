@@ -33,10 +33,6 @@ const WS_PING_INTERVAL_SEC: u64 = 15;
 const WS_MSG_RESIZE: u8 = 0x00;
 const WS_CLOSE_SESSION_EXITED: u16 = 4001;
 
-fn tmux_name(state: &AppState, session_id: &str) -> String {
-    format!("{}{session_id}", state.paths.tmux_prefix)
-}
-
 // ─── GET /terminal/sessions ──────────────────────────────────────────────────
 
 async fn session_list_entry(
@@ -101,7 +97,7 @@ pub async fn list_terminal_sessions(
     let entries: Vec<(String, String)> = ids
         .into_iter()
         .map(|id| {
-            let name = format!("{}{}", state.paths.tmux_prefix, id);
+            let name = state.paths.tmux_session_name(&id);
             (id, name)
         })
         .collect();
@@ -131,10 +127,7 @@ pub async fn get_terminal_history(
     _auth: RequireAuth,
     QueryParams(query): QueryParams<HistoryQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let session_arc = state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    let session_arc = state.terminal_session(&session_id).await?;
     let full_name = { session_arc.lock().await.tmux_session_name.clone() };
 
     if let (Some(cols), Some(rows)) = (query.cols, query.rows) {
@@ -208,10 +201,7 @@ pub async fn delete_terminal_session(
     // 先にハイドレートしてから削除する。そうしないと `remove` が None を返して
     // 404 になり、tmux セッションは実際にはキルされないまま残り続ける
     // （Codex レビュー指摘）。
-    state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    state.terminal_session(&session_id).await?;
     let Some(session_arc) = state.terminal_registry.remove(&session_id).await else {
         return Err(not_found("Terminal session not found"));
     };
@@ -229,11 +219,8 @@ pub async fn get_terminal_session_cwd(
     Path(session_id): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
-    let name = tmux_name(&state, &session_id);
+    state.terminal_session(&session_id).await?;
+    let name = state.paths.tmux_session_name(&session_id);
     let cwd = tmux::get_session_cwd(&name)
         .await
         .ok_or_else(|| not_found("CWD unavailable"))?;
@@ -245,11 +232,8 @@ async fn resolve_terminal_session_file(
     session_id: &str,
     path: &str,
 ) -> Result<(PathBuf, PathBuf, PathBuf), ApiError> {
-    state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, session_id)
-        .await?;
-    let name = tmux_name(state, session_id);
+    state.terminal_session(session_id).await?;
+    let name = state.paths.tmux_session_name(session_id);
     let cwd = tmux::get_session_cwd(&name)
         .await
         .ok_or_else(|| not_found("CWD unavailable"))?;
@@ -326,10 +310,7 @@ pub async fn set_terminal_session_workspace(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<WorkspaceBody>,
 ) -> Result<Json<Value>, ApiError> {
-    let session_arc = state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    let session_arc = state.terminal_session(&session_id).await?;
     {
         let mut s = session_arc.lock().await;
         s.workspace = Some(body.workspace.clone());
@@ -353,10 +334,7 @@ pub async fn set_terminal_detached(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<DetachedBody>,
 ) -> Result<Json<Value>, ApiError> {
-    let session_arc = state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    let session_arc = state.terminal_session(&session_id).await?;
     let detached = {
         let mut s = session_arc.lock().await;
         s.detached = body.detached;
@@ -514,11 +492,7 @@ async fn handle_terminal_ws(
     rows: u16,
     mut socket: WebSocket,
 ) {
-    let session_arc = match state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await
-    {
+    let session_arc = match state.terminal_session(&session_id).await {
         Ok(arc) => arc,
         Err(_) => {
             close_ws(&mut socket, 1008, "Session not found").await;

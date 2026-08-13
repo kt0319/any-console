@@ -183,49 +183,10 @@ pub async fn post_agent_hook_event(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ConfigStore;
-    use crate::dispatch::DispatchState;
-    use crate::git_info::GitInfoCache;
-    use crate::git_lock::WorkspaceLocks;
-    use crate::github::GhCache;
-    use crate::jobs_common::JobsCache;
-    use crate::rate_limit::FixedWindowCounter;
-    use crate::terminal_session::TerminalRegistry;
 
     fn test_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let state = AppState {
-            paths: crate::paths::Paths {
-                project_root: dir.path().to_path_buf(),
-                data_dir: dir.path().join("data"),
-                config_file: dir.path().join("config.json"),
-                frontend_dir: dir.path().join("dist"),
-                icons_dir: dir.path().join("icons"),
-                tmux_prefix: "ac-".to_string(),
-            },
-            config: ConfigStore::new(dir.path().join("config.json")),
-            git_locks: WorkspaceLocks::new(),
-            gh_cache: GhCache::new(),
-            git_info_cache: GitInfoCache::new(),
-            git_watch: crate::git_watch::GitWatchState::new(),
-            jobs_cache: JobsCache::new(),
-            terminal_registry: TerminalRegistry::new(),
-            dispatch: DispatchState::new(),
-            agent_hooks: AgentHookState::new(),
-            agent_watch: crate::agent_watch::AgentWatchState::new(),
-            status_stream: crate::status_stream::StatusStreamState::new(),
-            manifest_store: crate::screen_manifest::ManifestStore::new(
-                dir.path().join("agent_manifests"),
-                dir.path(),
-            ),
-            preview: crate::preview::PreviewState::new(),
-            pairing: crate::pairing::PairingState::new(),
-            push: crate::push::PushState::new(),
-            static_ctx: None,
-            auth: crate::auth::Auth::load(dir.path().join("data"), false),
-            rate_counter: FixedWindowCounter::new(),
-            rate_limit: 1000,
-        };
+        let state = crate::state::test_app_state(dir.path(), "ac-", 1000);
         (state, dir)
     }
 

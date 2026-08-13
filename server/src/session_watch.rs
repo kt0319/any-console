@@ -59,38 +59,7 @@ mod tests {
 
     fn test_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let state = AppState {
-            paths: crate::paths::Paths {
-                project_root: dir.path().to_path_buf(),
-                data_dir: dir.path().join("data"),
-                config_file: dir.path().join("config.json"),
-                frontend_dir: dir.path().join("dist"),
-                icons_dir: dir.path().join("icons"),
-                tmux_prefix: "ac-".to_string(),
-            },
-            config: crate::config::ConfigStore::new(dir.path().join("config.json")),
-            git_locks: crate::git_lock::WorkspaceLocks::new(),
-            gh_cache: crate::github::GhCache::new(),
-            git_info_cache: crate::git_info::GitInfoCache::new(),
-            git_watch: crate::git_watch::GitWatchState::new(),
-            jobs_cache: crate::jobs_common::JobsCache::new(),
-            terminal_registry: crate::terminal_session::TerminalRegistry::new(),
-            dispatch: crate::dispatch::DispatchState::new(),
-            agent_hooks: crate::agent_hooks::AgentHookState::new(),
-            agent_watch: crate::agent_watch::AgentWatchState::new(),
-            status_stream: crate::status_stream::StatusStreamState::new(),
-            manifest_store: crate::screen_manifest::ManifestStore::new(
-                dir.path().join("agent_manifests"),
-                dir.path(),
-            ),
-            preview: crate::preview::PreviewState::new(),
-            pairing: crate::pairing::PairingState::new(),
-            push: crate::push::PushState::new(),
-            static_ctx: None,
-            auth: crate::auth::Auth::load(dir.path().join("data"), false),
-            rate_counter: crate::rate_limit::FixedWindowCounter::new(),
-            rate_limit: 1000,
-        };
+        let state = crate::state::test_app_state(dir.path(), "ac-", 1000);
         (state, dir)
     }
 

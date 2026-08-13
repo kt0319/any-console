@@ -534,40 +534,41 @@ pub struct UpdateSnippetsRequest {
     snippets: Vec<SnippetItem>,
 }
 
+/// スニペット1件を正規化する（GET/PUT で必ず同じ結果になるようここへ集約する）。
+/// command が trim 後に空なら None。label が空なら `default_label(command)` を
+/// 補い、双方を最大長へ切り詰める。
+fn normalize_snippet(label: &str, command: &str) -> Option<Value> {
+    let command = command.trim();
+    if command.is_empty() {
+        return None;
+    }
+    let label = label.trim();
+    let label = if label.is_empty() {
+        default_label(command)
+    } else {
+        label.to_string()
+    };
+    Some(json!({
+        "label": truncate_chars(&label, MAX_LABEL_LENGTH),
+        "command": truncate_chars(command, MAX_COMMAND_LENGTH),
+    }))
+}
+
 pub async fn get_snippets(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
     let raw = state
         .config
         .load_global_section("snippets")
         .unwrap_or(json!([]));
     let items = raw.as_array().cloned().unwrap_or_default();
-    let mut sanitized = Vec::new();
-    for item in items {
-        let Some(obj) = item.as_object() else {
-            continue;
-        };
-        let command = obj
-            .get("command")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if command.is_empty() {
-            continue;
-        }
-        let mut label = obj
-            .get("label")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if label.is_empty() {
-            label = default_label(&command);
-        }
-        sanitized.push(json!({
-            "label": truncate_chars(&label, MAX_LABEL_LENGTH),
-            "command": truncate_chars(&command, MAX_COMMAND_LENGTH),
-        }));
-    }
+    let sanitized: Vec<Value> = items
+        .iter()
+        .filter_map(Value::as_object)
+        .filter_map(|obj| {
+            let label = obj.get("label").and_then(Value::as_str).unwrap_or("");
+            let command = obj.get("command").and_then(Value::as_str).unwrap_or("");
+            normalize_snippet(label, command)
+        })
+        .collect();
     Json(json!({"snippets": sanitized}))
 }
 
@@ -580,25 +581,11 @@ pub async fn put_snippets(
         check_max_len("label", &item.label, MAX_LABEL_LENGTH)?;
         check_max_len("command", &item.command, MAX_COMMAND_LENGTH)?;
     }
-    let mut snippets = Vec::new();
-    for item in &body.snippets {
-        let command = item.command.trim().to_string();
-        if command.is_empty() {
-            continue;
-        }
-        let label = {
-            let l = item.label.trim();
-            if l.is_empty() {
-                default_label(&command)
-            } else {
-                l.to_string()
-            }
-        };
-        snippets.push(json!({
-            "label": truncate_chars(&label, MAX_LABEL_LENGTH),
-            "command": truncate_chars(&command, MAX_COMMAND_LENGTH),
-        }));
-    }
+    let snippets: Vec<Value> = body
+        .snippets
+        .iter()
+        .filter_map(|item| normalize_snippet(&item.label, &item.command))
+        .collect();
     save_global(&state.config, "snippets", Value::Array(snippets.clone()))?;
     Ok(Json(json!({"status": "ok", "snippets": snippets})))
 }

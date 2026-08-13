@@ -488,15 +488,12 @@ async fn resolve_session(
 ) -> Option<(String, Arc<Mutex<TerminalSession>>)> {
     if let Some(sid) = body.session_id.as_deref().filter(|s| !s.is_empty()) {
         // レジストリ未登録でも tmux 上には実在しうる（Rust 再起動直後・別プロセスが
-        // 作成した等）ため、registry-only の `get` ではなく `get_or_register` で
-        // on-demand ハイドレートしてから解決する（Codex レビュー指摘: `get` だけだと
+        // 作成した等）ため、registry-only の `get` ではなく `terminal_session`
+        // （get_or_register）で on-demand ハイドレートしてから解決する
+        // （Codex レビュー指摘: `get` だけだと
         // 明示的に選択されたセッションが無視され、別のセッションへ誤って送信/新規
         // セッションを二重作成してしまう）。
-        if let Ok(sess) = state
-            .terminal_registry
-            .get_or_register(&state.config, &state.paths.tmux_prefix, sid)
-            .await
-        {
+        if let Ok(sess) = state.terminal_session(sid).await {
             return Some((sid.to_string(), sess));
         }
     }
@@ -800,20 +797,14 @@ async fn dispatch_core(
 
     let dispatch_id = crate::util::token_urlsafe(8);
     let notify_push = |state: &Arc<AppState>| {
-        let body_text = dispatch_notification_body(&effective_ws, &body, &job_def);
-        let url_path = format!("/?openDispatchQueue=1&dispatchId={dispatch_id}");
-        let push_state = state.clone();
-        tokio::spawn(async move {
-            crate::push::send_push_notification(
-                &push_state,
-                "Dispatch",
-                &body_text,
-                &url_path,
-                "dispatch",
-                None,
-            )
-            .await;
-        });
+        crate::push::spawn_push_notification(
+            state,
+            "Dispatch",
+            dispatch_notification_body(&effective_ws, &body, &job_def),
+            format!("/?openDispatchQueue=1&dispatchId={dispatch_id}"),
+            "dispatch",
+            None,
+        );
     };
 
     if body.direct {
@@ -1237,43 +1228,7 @@ mod tests {
     }
 
     async fn test_state(dir: &tempfile::TempDir) -> Arc<AppState> {
-        use crate::auth::Auth;
-        use crate::config::ConfigStore;
-        use crate::git_lock::WorkspaceLocks;
-        use crate::rate_limit::FixedWindowCounter;
-        use crate::terminal_session::TerminalRegistry;
-        let data_dir = dir.path().join("data");
-        Arc::new(AppState {
-            paths: Paths {
-                project_root: dir.path().to_path_buf(),
-                data_dir: data_dir.clone(),
-                config_file: dir.path().join("config.json"),
-                frontend_dir: dir.path().join("dist"),
-                icons_dir: data_dir.join("icons"),
-                tmux_prefix: "ac-test-".to_string(),
-            },
-            config: ConfigStore::new(dir.path().join("config.json")),
-            git_locks: WorkspaceLocks::new(),
-            gh_cache: crate::github::GhCache::new(),
-            git_info_cache: crate::git_info::GitInfoCache::new(),
-            git_watch: crate::git_watch::GitWatchState::new(),
-            jobs_cache: crate::jobs_common::JobsCache::new(),
-            terminal_registry: TerminalRegistry::new(),
-            dispatch: DispatchState::new(),
-            agent_hooks: crate::agent_hooks::AgentHookState::new(),
-            agent_watch: crate::agent_watch::AgentWatchState::new(),
-            status_stream: crate::status_stream::StatusStreamState::new(),
-            manifest_store: crate::screen_manifest::ManifestStore::new(
-                dir.path().join("agent_manifests"),
-                dir.path(),
-            ),
-            preview: crate::preview::PreviewState::new(),
-            pairing: crate::pairing::PairingState::new(),
-            push: crate::push::PushState::new(),
-            static_ctx: None,
-            auth: Auth::load(data_dir, false),
-            rate_counter: FixedWindowCounter::new(),
-            rate_limit: 10_000,
-        })
+        // rate_limit はテストの連続リクエストが制限に触れないよう引き上げる。
+        Arc::new(crate::state::test_app_state(dir.path(), "ac-test-", 10_000))
     }
 }

@@ -4,9 +4,8 @@
 //! （Actions/PR ピルの 30 秒ポーリング `GITHUB_POLL_INTERVAL_MS` と同周期にし、
 //! 外部 API の呼び出し頻度をポーリング1周あたり最大1回に抑える）。
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::{Path, State};
 use axum::Json;
@@ -21,26 +20,27 @@ use crate::subprocess::run_subprocess_safe;
 const GITHUB_CLI_TIMEOUT_SEC: f64 = 8.0;
 const PER_WORKSPACE_TTL_SEC: u64 = 30;
 
-#[derive(Default)]
-pub struct GhCache {
-    store: Mutex<HashMap<String, (Instant, Value)>>,
+pub struct GhCache(crate::util::TtlCache<Value>);
+
+impl Default for GhCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GhCache {
     pub fn new() -> Self {
-        Self::default()
+        Self(crate::util::TtlCache::new(Duration::from_secs(
+            PER_WORKSPACE_TTL_SEC,
+        )))
     }
 
     fn get(&self, key: &str) -> Option<Value> {
-        let store = self.store.lock().expect("gh cache lock poisoned");
-        store.get(key).and_then(|(ts, v)| {
-            (ts.elapsed() < Duration::from_secs(PER_WORKSPACE_TTL_SEC)).then(|| v.clone())
-        })
+        self.0.get(key)
     }
 
     fn set(&self, key: &str, value: Value) {
-        let mut store = self.store.lock().expect("gh cache lock poisoned");
-        store.insert(key.to_string(), (Instant::now(), value));
+        self.0.set(key, value);
     }
 }
 

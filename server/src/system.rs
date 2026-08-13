@@ -205,12 +205,7 @@ pub async fn client_errors(
         (&body.user_agent, 500, "user_agent"),
         (&body.info, 1000, "info"),
     ] {
-        if value.chars().count() > max {
-            return Err(ApiError::new(
-                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-                format!("{field} exceeds max length {max}"),
-            ));
-        }
+        crate::jobs_common::check_max_len(field, value, max)?;
     }
     tracing::warn!(
         "client-error type={} url={} message={} info={} source={}:{}:{} ua={}\n{}",
