@@ -21,6 +21,8 @@ import { dispatchWorkspaceLabel } from "./utils/dispatch-request.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
 import { installTooltip } from "./utils/tooltip.js";
 import { emit } from "./app-bridge.js";
+import { safeJsonLoad } from "./utils/storage.js";
+import { LS_KEY_NOTIF_PREFS } from "./utils/constants.js";
 
 // 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
 // dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。
@@ -118,6 +120,15 @@ bootstrap();
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
+  // 通知タイプ設定をSWへ同期する（SW側でCache Storageへ永続化される）。
+  // 設定画面を開いた時だけの同期だと、SW更新等で永続化前の端末が
+  // 初期値（全てオン）のままpushを表示してしまうため、起動時にも送る。
+  navigator.serviceWorker.ready
+    .then((reg) => {
+      const prefs = safeJsonLoad(LS_KEY_NOTIF_PREFS, null);
+      if (prefs) reg.active?.postMessage({ type: "sync-notif-prefs", prefs });
+    })
+    .catch(() => {});
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type === "notification-navigate") {
       emit("notification:open-session", { sessionId: event.data.sessionId });

@@ -24,7 +24,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((names) =>
       Promise.all(
         names.map((name) => {
-          if (name !== CACHE_NAME) return caches.delete(name);
+          // 通知設定の永続化キャッシュはSWのバージョン更新に紐付かないため残す。
+          if (name !== CACHE_NAME && name !== NOTIF_PREFS_CACHE) return caches.delete(name);
         })
       )
     )
@@ -64,11 +65,34 @@ function isCacheableAsset(request, url) {
 }
 
 // 通知タイプごとの表示設定。ページから sync-notif-prefs メッセージで同期する。
-let _notifPrefs = { dispatch: true, phrase: true, blocked: true };
+// SWはアイドルで停止されpush受信のたびに再起動されるため、メモリ変数だけだと
+// push時には常に初期値へ戻ってしまう。Cache Storageへ永続化し、push時は
+// 保存値を読み直して判定する。
+const NOTIF_PREFS_CACHE = 'any-console-notif-prefs';
+const NOTIF_PREFS_URL = '/__notif-prefs__';
+const DEFAULT_NOTIF_PREFS = { dispatch: true, phrase: true, blocked: true };
+
+async function saveNotifPrefs(prefs) {
+  try {
+    const cache = await caches.open(NOTIF_PREFS_CACHE);
+    await cache.put(NOTIF_PREFS_URL, new Response(JSON.stringify(prefs)));
+  } catch (_e) {}
+}
+
+async function loadNotifPrefs() {
+  try {
+    const cache = await caches.open(NOTIF_PREFS_CACHE);
+    const res = await cache.match(NOTIF_PREFS_URL);
+    if (res) return { ...DEFAULT_NOTIF_PREFS, ...(await res.json()) };
+  } catch (_e) {}
+  return { ...DEFAULT_NOTIF_PREFS };
+}
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'sync-notif-prefs') {
-    _notifPrefs = { ...event.data.prefs };
+    const prefs = { ...event.data.prefs };
+    if (event.waitUntil) event.waitUntil(saveNotifPrefs(prefs));
+    else saveNotifPrefs(prefs);
   }
 });
 
@@ -77,15 +101,16 @@ self.addEventListener('push', (event) => {
   try {
     if (event.data) Object.assign(data, JSON.parse(event.data.text()));
   } catch (_e) {}
-  if (data.type && _notifPrefs[data.type] === false) return;
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
+  event.waitUntil((async () => {
+    const prefs = await loadNotifPrefs();
+    if (data.type && prefs[data.type] === false) return;
+    await self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: { url: data.url, type: data.type },
-    })
-  );
+    });
+  })());
 });
 
 // 既存タブへの postMessage が届いたかを ack で確認するタイムアウト（ms）。
