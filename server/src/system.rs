@@ -384,7 +384,9 @@ pub(crate) fn current_user() -> String {
     unsafe {
         let uid = libc::getuid();
         let mut pwd: libc::passwd = std::mem::zeroed();
-        let mut buf = [0i8; 1024];
+        // c_char は x86_64/mac では i8、aarch64-linux では u8 とターゲット依存の
+        // ため、i8/u8 を直接書かず c_char で確保する。
+        let mut buf = [0 as libc::c_char; 1024];
         let mut result: *mut libc::passwd = std::ptr::null_mut();
         let rc = libc::getpwuid_r(uid, &mut pwd, buf.as_mut_ptr(), buf.len(), &mut result);
         if rc == 0 && !result.is_null() && !pwd.pw_name.is_null() {
