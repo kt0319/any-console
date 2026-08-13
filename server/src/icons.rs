@@ -146,10 +146,12 @@ async fn download_favicon(icons_dir: &Path, domain: &str, fallback: &str) -> Str
     })
 }
 
-/// アイコン値を正規化する（Python `normalize_icon` 相当）。data URI の保存に
-/// 失敗した場合はエラーを返す（Python は素通しの例外で呼び出し元に伝播する —
-/// favicon と異なりここでは fallback せず、呼び出し元が 500 を返す）。
-pub async fn normalize_icon(icons_dir: &Path, icon: &str) -> std::io::Result<String> {
+/// アイコン値を解決し、必要ならディスクへ保存する（Python `normalize_icon` 相当）。
+/// `favicon:<domain>` は外部ダウンロード、data URI は `icons_dir` への書き込みを
+/// 伴う。data URI の保存に失敗した場合はエラーを返す（Python は素通しの例外で
+/// 呼び出し元に伝播する — favicon と異なりここでは fallback せず、呼び出し元が
+/// 500 を返す）。
+pub async fn resolve_and_store_icon(icons_dir: &Path, icon: &str) -> std::io::Result<String> {
     if let Some(domain) = icon.strip_prefix(FAVICON_PREFIX) {
         return Ok(download_favicon(icons_dir, domain, icon).await);
     }
@@ -181,7 +183,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // 1x1 GIF
         let uri = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-        let out = normalize_icon(dir.path(), uri).await.unwrap();
+        let out = resolve_and_store_icon(dir.path(), uri).await.unwrap();
         assert!(out.starts_with("icon:"), "{out}");
         assert!(out.ends_with(".gif"));
         let filename = out.strip_prefix("icon:").unwrap();
@@ -190,11 +192,13 @@ mod tests {
         assert_eq!(filename.split('.').next().unwrap().len(), 16);
         // 非対応 MIME・非 data URI はそのまま
         assert_eq!(
-            normalize_icon(dir.path(), "mdi-rocket").await.unwrap(),
+            resolve_and_store_icon(dir.path(), "mdi-rocket")
+                .await
+                .unwrap(),
             "mdi-rocket"
         );
         assert_eq!(
-            normalize_icon(dir.path(), "data:image/tiff;base64,AAAA")
+            resolve_and_store_icon(dir.path(), "data:image/tiff;base64,AAAA")
                 .await
                 .unwrap(),
             "data:image/tiff;base64,AAAA"
@@ -211,7 +215,7 @@ mod tests {
         let icons_dir = dir.path().join("icons");
         std::fs::write(&icons_dir, b"not a directory").unwrap();
         let uri = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-        assert!(normalize_icon(&icons_dir, uri).await.is_err());
+        assert!(resolve_and_store_icon(&icons_dir, uri).await.is_err());
     }
 
     /// save_icon_bytes 自体の書き込み失敗が Err として伝わること（icons_dir と

@@ -39,8 +39,7 @@ pub struct AppState {
     pub push: PushState,
     /// ui/dist が存在する場合のみ Some（無ければフォールバックが 404 を返す）。
     pub static_ctx: Option<StaticCtx>,
-    /// Phase 0 では認証必須ルートを Rust 側で持たないが、以降のフェーズが使う
-    /// 認証コアをここで保持・起動時ロードする。
+    /// 認証コア（起動時にロードし、`RequireAuth` 等の全認証チェックが参照する）。
     pub auth: Auth,
     pub rate_counter: FixedWindowCounter,
     pub rate_limit: u32,

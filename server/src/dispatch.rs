@@ -15,7 +15,7 @@
 //! push 通知は `crate::push::send_push_notification` へネイティブに委譲する
 //! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信は
 //! `state.status_stream.broadcast`（`broadcast_queue()`）でネイティブに行う。
-//! dispatch scope API トークン検証は `Auth::verify_api_token`（`auth.rs`）へ
+//! dispatch scope API トークン検証は `Auth::verify_and_touch_api_token`（`auth.rs`）へ
 //! ネイティブに委譲する。
 
 use std::path::{Path as FsPath, PathBuf};
@@ -29,7 +29,7 @@ use tokio::sync::Mutex;
 
 use crate::auth::{parse_cookies, AuthKind, RequireAuth};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
-use crate::git_helpers::{invalidate_git_info, validate_branch_name};
+use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
     git_branch, git_branches, resolve_workspace_path, run_git_raw, GitError, GIT_QUICK_TIMEOUT_SEC,
 };
@@ -420,7 +420,7 @@ async fn ensure_branch(
             stderr
         }));
     }
-    invalidate_git_info(state, workspace_name, ws_path);
+    invalidate_and_publish_git_info(state, workspace_name, ws_path);
     Ok(())
 }
 
@@ -699,7 +699,7 @@ async fn verify_dispatch_auth(
             AuthKind::Tailscale | AuthKind::Device => (result.label, false),
         });
     }
-    if let Some(entry) = state.auth.verify_api_token(bearer) {
+    if let Some(entry) = state.auth.verify_and_touch_api_token(bearer) {
         if entry.get("scope").and_then(Value::as_str) == Some(crate::auth::API_TOKEN_SCOPE_DISPATCH)
         {
             let token_id = entry.get("id").and_then(Value::as_str).unwrap_or_default();

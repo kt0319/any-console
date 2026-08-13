@@ -795,6 +795,9 @@ pub fn stop_scanner(state: &PreviewState) {
 // ─── HTTP エンドポイント（`GET /preview/ports`）─────────────────────────────
 
 /// パネルを開いた時だけスキャンを起こす（常時ポーリングはしない）。
+///
+/// 注意: GET だが冪等ではない — アクセスタイマの更新（`touch_access`）と
+/// 必要に応じたポートスキャン・プロキシ起動（`scan_once`）を伴う。
 pub async fn list_detected_ports(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,

@@ -230,7 +230,7 @@ impl TerminalSession {
     }
 
     /// 1つのブリッジを完全に閉じる（reader 停止・PTY 解放。ベースセッションは残す）。
-    pub fn detach_client_bridge(&mut self, bridge_id: u64) {
+    pub fn close_client_bridge(&mut self, bridge_id: u64) {
         if let Some(bridge) = self.bridges.remove(&bridge_id) {
             bridge.reader_handle.abort();
             crate::pty::terminate(bridge.pid);
@@ -240,10 +240,10 @@ impl TerminalSession {
     }
 
     /// 全クライアントブリッジを切断する（Python `_detach_pty_bridge` 相当）。
-    pub fn detach_all_bridges(&mut self) {
+    pub fn close_all_bridges(&mut self) {
         let ids: Vec<u64> = self.bridges.keys().copied().collect();
         for id in ids {
-            self.detach_client_bridge(id);
+            self.close_client_bridge(id);
         }
     }
 
@@ -394,7 +394,7 @@ impl TerminalRegistry {
     pub async fn kill(&self, session_arc: &Arc<Mutex<TerminalSession>>) {
         let tmux_name = {
             let mut session = session_arc.lock().await;
-            session.detach_all_bridges();
+            session.close_all_bridges();
             session.tmux_session_name.clone()
         };
         crate::subprocess::kill_tmux_by_name(&tmux_name).await;

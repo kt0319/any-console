@@ -471,7 +471,7 @@ pub async fn pull(
     .await?;
     tracing::info!("git pull workspace={} rc={}", name, result["exit_code"]);
     // Python は execute_git_action 内で invalidate する（unstash より前）
-    crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
+    crate::git_helpers::invalidate_and_publish_git_info(&state, &name, &ws_path);
     if stashed {
         unstash(&ws_path, &env, &mut result).await?;
     }

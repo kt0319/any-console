@@ -26,8 +26,8 @@
 //! そのままコンパイルできる（`\x{7F}` 波括弧 hex エスケープ・`\p{Alphabetic}`
 //! Unicode プロパティともにネイティブ対応）。
 //!
-//! まだ `build_router` / `AppState` には配線していない（agent_watch の Rust
-//! 移植が揃うまで使う場所が無い独立モジュール）。
+//! `AppState::manifest_store` として保持され、`agent_watch.rs`・
+//! `manifest_update.rs` から利用される。
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};

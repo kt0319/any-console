@@ -334,8 +334,8 @@ pub async fn git_info(cache: &GitInfoCache, directory: &Path) -> Map<String, Val
     info
 }
 
-/// /workspaces/statuses の要素形式（`git_info_to_status_dict` 相当）。
-pub async fn git_info_to_status_dict(cache: &GitInfoCache, directory: &Path, name: &str) -> Value {
+/// /workspaces/statuses の要素形式（`git_info_to_status_json` 相当）。
+pub async fn git_info_to_status_json(cache: &GitInfoCache, directory: &Path, name: &str) -> Value {
     let mut result = git_info(cache, directory).await;
     result.insert("name".to_string(), json!(name));
     Value::Object(result)

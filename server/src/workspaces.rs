@@ -23,12 +23,12 @@ use crate::auth::RequireAuth;
 use crate::config::{generate_entity_id, ConfigStore};
 use crate::errors::{bad_request, conflict, server_error, ApiError};
 use crate::git_helpers::validate_workspace_name;
-use crate::git_info::git_info_to_status_dict;
+use crate::git_info::git_info_to_status_json;
 use crate::git_utils::{
     background_fetch, dynamic_worktree_entries, git_branch, git_default_branch, git_github_url,
     git_is_repo, list_git_workspace_paths, registered_paths_by_resolved,
 };
-use crate::icons::normalize_icon;
+use crate::icons::resolve_and_store_icon;
 use crate::paths::{collapse_user_path, expand_user_path, safe_resolve_str};
 use crate::state::AppState;
 use crate::util::{JsonBody, QueryParams};
@@ -36,7 +36,7 @@ use crate::util::{JsonBody, QueryParams};
 /// Python `BACKGROUND_FETCH_EXECUTOR`（max_workers=4）に対応する並列度。
 const BACKGROUND_FETCH_CONCURRENCY: usize = 4;
 /// Python `BACKGROUND_EXECUTOR`（max_workers=8）に対応する並列度。
-/// `workspace_summary`・`git_info_to_status_dict` の並列 fan-out に使う
+/// `workspace_summary`・`git_info_to_status_json` の並列 fan-out に使う
 /// （Codex レビュー指摘: 以前は `join_all` で無制限に並列実行しており、
 /// Raspberry Pi 等リソースの限られた実機でワークスペース数が多いとスレッド/
 /// プロセス数が跳ね上がりうる — Python 側は元々このプールで上限を設けている）。
@@ -210,7 +210,7 @@ pub async fn list_workspace_statuses(
     }
     let status_futures: Vec<_> = items
         .iter()
-        .map(|(path, name)| git_info_to_status_dict(&state.git_info_cache, path, name))
+        .map(|(path, name)| git_info_to_status_json(&state.git_info_cache, path, name))
         .collect();
     let statuses: Vec<Value> = futures_util::stream::iter(status_futures)
         .buffered(BACKGROUND_EXECUTOR_CONCURRENCY)
@@ -296,7 +296,7 @@ pub async fn update_workspace_config(
     // 早期の 404 判定用（実際の読み込み・書き込みは下のロック内で再度行う —
     // ここでの結果は非同期のアイコン正規化の後に古くなりうるため使わない）。
     ensure_workspace_exists(&state.config, &name)?;
-    let icon = normalize_icon(&state.paths.icons_dir, body.icon.trim())
+    let icon = resolve_and_store_icon(&state.paths.icons_dir, body.icon.trim())
         .await
         .map_err(|e| server_error(e.to_string()))?;
     let icon_color = body.icon_color.trim().to_string();

@@ -76,7 +76,7 @@ pub fn validate_stash_ref(stash_ref: &str) -> Result<String, ApiError> {
 ///
 /// Python 側の `invalidate_git_info`（= status stream への即時 nudge）に対応して、
 /// ローカルの git_info キャッシュを無効化し、`git_watch::nudge_workspace` で
-/// status stream へ即時反映を促す（`invalidate_git_info` 参照）。
+/// status stream へ即時反映を促す（`invalidate_and_publish_git_info` 参照）。
 pub async fn execute_git_action(
     state: &Arc<AppState>,
     name: &str,
@@ -100,13 +100,13 @@ pub async fn execute_git_action(
         extra,
         result["exit_code"]
     );
-    invalidate_git_info(state, name, &ws_path);
+    invalidate_and_publish_git_info(state, name, &ws_path);
     Ok(result)
 }
 
 /// Python `invalidate_git_info` の Rust 対応: ローカルキャッシュの無効化 +
 /// status stream への即時 nudge（`git_watch::nudge_workspace`）。
-pub fn invalidate_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
+pub fn invalidate_and_publish_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
     state.git_info_cache.invalidate(ws_path);
     crate::git_watch::nudge_workspace(state, name.to_string());
 }

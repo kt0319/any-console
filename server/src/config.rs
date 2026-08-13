@@ -260,9 +260,9 @@ impl ConfigStore {
 
     /// workspace のエントリ dict を返す（見つからなければ空 — Python
     /// `load_workspace_config` 相当）。
-    pub fn load_workspace_config(&self, workspace_name: &str) -> Map<String, Value> {
+    pub fn load_workspace_config(&self, identifier: &str) -> Map<String, Value> {
         let cfg = self.load_all();
-        Self::find_workspace_key(&cfg, workspace_name)
+        Self::find_workspace_key(&cfg, identifier)
             .and_then(|key| cfg.get(&key).and_then(Value::as_object).cloned())
             .unwrap_or_default()
     }
@@ -271,15 +271,15 @@ impl ConfigStore {
     /// 渡された config に name が無ければ既存エントリの name を引き継ぐ。
     pub fn save_workspace_config(
         &self,
-        workspace_name: &str,
+        identifier: &str,
         config: Map<String, Value>,
     ) -> Result<(), String> {
         let _lock = self
             .file_lock(true)
             .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         let mut all = self.read_unlocked();
-        let key = Self::find_workspace_key(&all, workspace_name)
-            .unwrap_or_else(|| workspace_name.to_string());
+        let key =
+            Self::find_workspace_key(&all, identifier).unwrap_or_else(|| identifier.to_string());
         let mut merged = config;
         if !merged.contains_key("name") {
             let existing_name = all
@@ -299,12 +299,12 @@ impl ConfigStore {
 
     /// Python `delete_workspace_config` と同一: エントリを削除し、
     /// `__global__.workspace_order` からも取り除く。存在しなければ何もしない。
-    pub fn delete_workspace_config(&self, workspace_name: &str) -> Result<(), String> {
+    pub fn delete_workspace_config(&self, identifier: &str) -> Result<(), String> {
         let _lock = self
             .file_lock(true)
             .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
         let mut all = self.read_unlocked();
-        let Some(key) = Self::find_workspace_key(&all, workspace_name) else {
+        let Some(key) = Self::find_workspace_key(&all, identifier) else {
             return Ok(());
         };
         all.remove(&key);

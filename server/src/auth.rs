@@ -403,7 +403,7 @@ impl Auth {
     /// raw_token がどれかの api_tokens エントリと一致すれば last_used を
     /// スロットリング付きで更新して返す（secret_hash を含む生の entry）。
     /// 一致しなければ None（`api/auth.py` `_verify_api_token`）。
-    pub fn verify_api_token(&self, raw_token: &str) -> Option<Value> {
+    pub fn verify_and_touch_api_token(&self, raw_token: &str) -> Option<Value> {
         if raw_token.is_empty() {
             return None;
         }
@@ -439,7 +439,7 @@ fn strip_api_token_secret(mut entry: Value) -> Value {
 //
 // すべてメイントークン認証（`RequireAuth`）のみを要求する。dispatch scope の
 // API トークン自身でこれらのエンドポイントを呼ぶことはできない
-// （`Auth::verify_api_token` は `POST /dispatch` にしか使わないため）。
+// （`Auth::verify_and_touch_api_token` は `POST /dispatch` にしか使わないため）。
 
 #[derive(serde::Deserialize, Default)]
 pub struct CreateApiTokenBody {
@@ -645,6 +645,9 @@ fn autoregister_device(
 
 /// `GET /auth/check`。フロントエンドの起動時セッション確認（トークン/デバイス
 /// cookie/Tailscale ヘッダのいずれかで認証できればログイン状態とみなす）。
+///
+/// 注意: GET だが冪等ではない — Tailscale 経路では `autoregister_device` により
+/// devices.json への新規デバイス登録と Set-Cookie を行う。
 pub async fn auth_check(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
@@ -989,10 +992,12 @@ mod tests {
         let token_id = meta["id"].as_str().unwrap().to_string();
         assert!(token_id.starts_with("tok_"));
 
-        let entry = auth.verify_api_token(&raw).expect("raw token verifies");
+        let entry = auth
+            .verify_and_touch_api_token(&raw)
+            .expect("raw token verifies");
         assert_eq!(entry["id"], token_id);
-        assert!(auth.verify_api_token("wrong").is_none());
-        assert!(auth.verify_api_token("").is_none());
+        assert!(auth.verify_and_touch_api_token("wrong").is_none());
+        assert!(auth.verify_and_touch_api_token("").is_none());
     }
 
     #[test]
@@ -1052,9 +1057,9 @@ mod tests {
             "unused token starts with no last_used"
         );
 
-        let first = auth.verify_api_token(&raw).unwrap();
+        let first = auth.verify_and_touch_api_token(&raw).unwrap();
         assert!(first["last_used"].is_i64(), "first verify stamps last_used");
-        let second = auth.verify_api_token(&raw).unwrap();
+        let second = auth.verify_and_touch_api_token(&raw).unwrap();
         // 直後の再検証は throttle 内なので last_used は変わらない。
         assert_eq!(first["last_used"], second["last_used"]);
     }

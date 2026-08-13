@@ -57,7 +57,7 @@ pub async fn validate_icon(state: &AppState, icon: &str) -> Result<String, ApiEr
     if icon.chars().count() > MAX_ICON_VALUE_LENGTH {
         return Err(too_large("Icon value too long"));
     }
-    let normalized = crate::icons::normalize_icon(&state.paths.icons_dir, icon)
+    let normalized = crate::icons::resolve_and_store_icon(&state.paths.icons_dir, icon)
         .await
         .map_err(|e| server_error(e.to_string()))?;
     if !icon_pattern_matches(&normalized) {
@@ -166,17 +166,17 @@ pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), A
     Ok(())
 }
 
-pub fn load_workspace_jobs_data(state: &AppState, workspace_name: &str) -> Map<String, Value> {
-    if let Some(cached) = state.jobs_cache.get(workspace_name) {
+pub fn load_workspace_jobs_data(state: &AppState, identifier: &str) -> Map<String, Value> {
+    if let Some(cached) = state.jobs_cache.get(identifier) {
         return cached;
     }
-    let cfg = state.config.load_workspace_config(workspace_name);
+    let cfg = state.config.load_workspace_config(identifier);
     let data = cfg
         .get("jobs")
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
-    state.jobs_cache.set(workspace_name, data.clone());
+    state.jobs_cache.set(identifier, data.clone());
     data
 }
 
@@ -186,14 +186,14 @@ pub fn load_workspace_jobs_data(state: &AppState, workspace_name: &str) -> Map<S
 /// `commit_common_jobs` のコメント参照）。
 pub fn commit_workspace_jobs(
     state: &AppState,
-    workspace_name: &str,
+    identifier: &str,
     mutate: JobsMutator,
 ) -> Result<(), ApiError> {
-    let workspace_name_owned = workspace_name.to_string();
+    let identifier_owned = identifier.to_string();
     state.config.with_exclusive(|all| {
         // Python save_workspace_config_section と同じ: エントリの jobs キーだけ差し替える
-        let key = ConfigStore::find_workspace_key(all, &workspace_name_owned)
-            .unwrap_or_else(|| workspace_name_owned.clone());
+        let key = ConfigStore::find_workspace_key(all, &identifier_owned)
+            .unwrap_or_else(|| identifier_owned.clone());
         let mut entry = all
             .get(&key)
             .and_then(Value::as_object)
@@ -209,21 +209,21 @@ pub fn commit_workspace_jobs(
         all.insert(key, Value::Object(entry));
         Ok(())
     })?;
-    state.jobs_cache.invalidate(workspace_name);
+    state.jobs_cache.invalidate(identifier);
     Ok(())
 }
 
 /// worktree のワークスペースはベースのワークスペースとジョブを共有する。
-pub fn resolve_jobs_owner(state: &AppState, workspace_name: &str) -> String {
-    if workspace_name.is_empty() {
-        return workspace_name.to_string();
+pub fn resolve_jobs_owner(state: &AppState, identifier: &str) -> String {
+    if identifier.is_empty() {
+        return identifier.to_string();
     }
-    if let Some((base, _branch)) = split_worktree_name(workspace_name) {
+    if let Some((base, _branch)) = split_worktree_name(identifier) {
         if state.config.resolve_workspace_id(&base).is_some() {
             return base;
         }
     }
-    workspace_name.to_string()
+    identifier.to_string()
 }
 
 // ─── JobDefinition の整形 ───────────────────────────────────────────────────
@@ -256,12 +256,12 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
 
 /// 共通ジョブとワークスペースジョブをマージして API 応答形に整形する
 /// （Python `serialize_workspace_jobs` 相当）。
-pub fn serialize_workspace_jobs(state: &AppState, workspace_name: &str) -> Map<String, Value> {
-    if workspace_name.is_empty() {
+pub fn serialize_workspace_jobs(state: &AppState, identifier: &str) -> Map<String, Value> {
+    if identifier.is_empty() {
         return Map::new();
     }
     let common = load_common_jobs_data(state);
-    let owner = resolve_jobs_owner(state, workspace_name);
+    let owner = resolve_jobs_owner(state, identifier);
     let ws = load_workspace_jobs_data(state, &owner);
     merge_jobs_serialized(&ws, &common)
 }
@@ -284,8 +284,8 @@ pub fn merge_jobs_serialized(
 
 /// ジョブ名の存在確認（recent-jobs の除去判定用 — Python `get_workspace_jobs` の
 /// キー集合に対応）。
-pub fn workspace_job_names(state: &AppState, workspace_name: &str) -> Vec<String> {
-    serialize_workspace_jobs(state, workspace_name)
+pub fn workspace_job_names(state: &AppState, identifier: &str) -> Vec<String> {
+    serialize_workspace_jobs(state, identifier)
         .keys()
         .cloned()
         .collect()

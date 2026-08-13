@@ -14,7 +14,7 @@ use axum::response::{IntoResponse, Response};
 use crate::state::AppState;
 
 /// フォールバックハンドラ: 静的ファイル → ネイティブ 404 の順で処理する。
-pub async fn fallback(
+pub async fn handle(
     State(state): State<Arc<AppState>>,
     ConnectInfo(_addr): ConnectInfo<std::net::SocketAddr>,
     req: Request,

@@ -6,11 +6,9 @@
 //! `tokio::sync::broadcast::Sender`（`status_stream.rs`）へ直接 `send()` するだけで
 //! 不要になる（マルチスレッドから安全に呼べる）。
 //!
-//! まだ実際の呼び出し元（`terminal_session.rs` のセッション作成・`terminal.rs` の
-//! 削除ハンドラ・`agent_watch.rs` の自動紐付け）へは配線していない —
-//! status stream の実体（`/workspaces/statuses/ws`）が Rust に無い間は、送信しても
-//! 購読者が存在しないため（Python 側の同エンドポイントが引き続き実際の購読者を
-//! 抱えている）。配線は状態ストリーム一括切替のタイミングで行う。
+//! 呼び出し元はセッション作成（`job_runner.rs`・`dispatch.rs`）・削除
+//! （`terminal.rs`）・エージェント自動紐付け（`agent_watch.rs`）で、
+//! `/workspaces/statuses/ws`（`status_stream.rs`）の購読者へ配信される。
 
 use serde_json::json;
 

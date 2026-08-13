@@ -1,10 +1,7 @@
 //! ターミナルセッションの HTTP エンドポイントと WebSocket（Python 側
 //! `api/routers/terminal.py` の移植）。`terminal_session.rs`（レジストリ）・
-//! `tmux.rs`・`pty.rs` の上に構築する。
-//!
-//! **注意**: このモジュールはまだ `build_router` に配線されていない
-//! （`docs/RUST_MIGRATION.md` Phase 5 参照 — `/run`・`/dispatch` と同時に
-//! 配線する設計判断のため）。
+//! `tmux.rs`・`pty.rs` の上に構築する。全ハンドラは `build_router`（lib.rs）で
+//! 配線済み。
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -126,6 +123,8 @@ pub struct HistoryQuery {
     rows: Option<u16>,
 }
 
+/// 注意: GET だが冪等ではない — `cols`/`rows` 指定時は履歴取得前に
+/// `tmux resize-window` / `set-option window-size` で tmux 側の状態を変更する。
 pub async fn get_terminal_history(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
@@ -624,7 +623,7 @@ async fn handle_terminal_ws(
 
     {
         let mut session = session_arc.lock().await;
-        session.detach_client_bridge(bridge_id);
+        session.close_client_bridge(bridge_id);
     }
     if pty_eof {
         tracing::info!("PTY EOF detected, closing client session={session_id}");

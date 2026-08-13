@@ -15,7 +15,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 
-use crate::rate_limit::{should_skip, RATE_WINDOW_SEC};
+use crate::rate_limit::{should_skip_rate_limit, RATE_WINDOW_SEC};
 use crate::state::AppState;
 
 /// セキュリティ応答ヘッダを全レスポンスに付与する。
@@ -49,13 +49,13 @@ pub async fn rate_limit(
     req: Request,
     next: Next,
 ) -> Response {
-    if should_skip(req.uri().path()) {
+    if should_skip_rate_limit(req.uri().path()) {
         return next.run(req).await;
     }
     let key = format!("api:{}", addr.ip());
     if !state
         .rate_counter
-        .is_allowed(&key, state.rate_limit, Duration::from_secs(RATE_WINDOW_SEC))
+        .try_acquire(&key, state.rate_limit, Duration::from_secs(RATE_WINDOW_SEC))
     {
         return (
             StatusCode::TOO_MANY_REQUESTS,

@@ -6,7 +6,7 @@
 //! 認証トークン生成を、このバイナリ自身のサブコマンドとして肩代わりする
 //! （実行時に必要な外部依存を git・tmux・（macOSは任意で）tailscale だけにする）。
 //!
-//! `dispatch` はサブコマンドとして認識できた時だけ `Some(exit_code)` を返す。
+//! `run_subcommand` はサブコマンドとして認識できた時だけ `Some(exit_code)` を返す。
 //! 未認識の引数（0個含む）は `None` を返し、呼び出し元（main.rs）が通常の
 //! サーバ起動へフォールバックする。
 
@@ -20,7 +20,7 @@ use crate::paths::{
     collapse_user_path, expand_user_path, project_root_from_env, safe_resolve_str, Paths,
 };
 
-pub async fn dispatch(args: &[String]) -> Option<i32> {
+pub async fn run_subcommand(args: &[String]) -> Option<i32> {
     match args.first().map(String::as_str) {
         Some("--version") | Some("-V") => {
             print_version();
@@ -602,17 +602,17 @@ mod tests {
 
     #[tokio::test]
     async fn no_args_falls_through_to_server_start() {
-        assert_eq!(dispatch(&[]).await, None);
+        assert_eq!(run_subcommand(&[]).await, None);
     }
 
     #[tokio::test]
     async fn unknown_first_arg_falls_through_to_server_start() {
-        assert_eq!(dispatch(&["foo".to_string()]).await, None);
+        assert_eq!(run_subcommand(&["foo".to_string()]).await, None);
     }
 
     #[tokio::test]
     async fn version_flags_are_handled() {
-        assert_eq!(dispatch(&["--version".to_string()]).await, Some(0));
-        assert_eq!(dispatch(&["-V".to_string()]).await, Some(0));
+        assert_eq!(run_subcommand(&["--version".to_string()]).await, Some(0));
+        assert_eq!(run_subcommand(&["-V".to_string()]).await, Some(0));
     }
 }

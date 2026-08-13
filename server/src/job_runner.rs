@@ -114,7 +114,7 @@ fn validate_terminal_command(command: Option<String>) -> Result<Option<String>, 
     Ok(Some(stripped))
 }
 
-pub async fn execute_job(
+pub async fn run_terminal_job(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
     JsonBody(body): JsonBody<RunRequest>,
