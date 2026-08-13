@@ -31,7 +31,7 @@ use crate::auth::{parse_cookies, AuthKind, RequireAuth};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
 use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
-    git_branch, git_branches, resolve_workspace_path, run_git_raw, GitError, GIT_QUICK_TIMEOUT_SEC,
+    git_branch, git_branches, resolve_workspace_path, run_git_raw, GIT_QUICK_TIMEOUT_SEC,
 };
 use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
@@ -365,12 +365,7 @@ async fn has_uncommitted_changes(ws_path: &FsPath) -> Result<bool, ApiError> {
     .await
     {
         Ok(out) => Ok(out.code == 0 && !out.stdout.trim().is_empty()),
-        Err(GitError::Timeout) => Err(crate::errors::timeout_error(
-            "Failed to check workspace status",
-        )),
-        Err(GitError::Os(e)) => Err(server_error(format!(
-            "Failed to check workspace status: {e}"
-        ))),
+        Err(e) => Err(crate::git_utils::map_git_error(e, "Workspace status check")),
     }
 }
 
@@ -405,13 +400,9 @@ async fn ensure_branch(
         return Err(bad_request(format!("Branch does not exist: {branch}")));
     };
     let args_ref: Vec<&str> = args.iter_mut().map(|s| s.as_str()).collect();
-    let result = match run_git_raw(&args_ref, ws_path, GIT_QUICK_TIMEOUT_SEC, &[]).await {
-        Ok(out) => out,
-        Err(GitError::Timeout) => {
-            return Err(crate::errors::timeout_error("Branch operation timed out"))
-        }
-        Err(GitError::Os(e)) => return Err(server_error(format!("Branch operation failed: {e}"))),
-    };
+    let result = run_git_raw(&args_ref, ws_path, GIT_QUICK_TIMEOUT_SEC, &[])
+        .await
+        .map_err(|e| crate::git_utils::map_git_error(e, "Branch operation"))?;
     if result.code != 0 {
         let stderr = result.stderr.trim().to_string();
         return Err(bad_request(if stderr.is_empty() {

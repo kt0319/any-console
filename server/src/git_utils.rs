@@ -114,6 +114,16 @@ pub fn command_result_json(out: &GitOutput) -> Value {
     })
 }
 
+/// `GitError` を API エラーへ写像する共通規則: タイムアウトは 504
+/// `"{op_label} timed out"`、OS エラーは 500 `"{op_label} failed: {e}"`。
+/// 呼び出し箇所ごとに文言がばらけないよう、変換は必ずここを通す。
+pub fn map_git_error(e: GitError, op_label: &str) -> ApiError {
+    match e {
+        GitError::Timeout => timeout_error(format!("{op_label} timed out")),
+        GitError::Os(e) => server_error(format!("{op_label} failed: {e}")),
+    }
+}
+
 /// git コマンドを実行し定型 dict を返す（Python `run_git_command` 相当）。
 /// タイムアウトは 504、OS エラーは 500 に写像する。
 pub async fn run_git_command(
@@ -125,15 +135,14 @@ pub async fn run_git_command(
 ) -> Result<Value, ApiError> {
     match run_git_raw(args, cwd, timeout_sec, env).await {
         Ok(out) => Ok(command_result_json(&out)),
-        Err(GitError::Timeout) => {
+        Err(e) => {
             let label = if operation.is_empty() {
                 args.iter().take(2).copied().collect::<Vec<_>>().join(" ")
             } else {
                 operation.to_string()
             };
-            Err(timeout_error(format!("git {label} timed out")))
+            Err(map_git_error(e, &format!("git {label}")))
         }
-        Err(GitError::Os(e)) => Err(server_error(format!("git failed to run: {e}"))),
     }
 }
 

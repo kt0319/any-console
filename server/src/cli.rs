@@ -377,7 +377,7 @@ fn cmd_jobs_register_ai_agents(tools: &[String]) -> i32 {
             Value::String(meta.icon_color.to_string()),
         );
         entry.insert("confirm".to_string(), Value::Bool(false));
-        entry.insert("detached_tab".to_string(), Value::Bool(true));
+        entry.insert("detached".to_string(), Value::Bool(true));
         if !meta.notify_phrase.is_empty() {
             entry.insert(
                 "notify_phrase".to_string(),

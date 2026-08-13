@@ -6,7 +6,7 @@
     <div v-if="!ports.length" class="settings-item-desc">
       No ports detected yet. Start a dev server (e.g. <code>npm run dev</code>) in a terminal.
     </div>
-    <div v-for="p in ports" :key="`${p.session_id}-${p.port}`" class="preview-row">
+    <div v-for="p in ports" :key="p.port" class="preview-row">
       <div class="preview-meta">
         <div class="preview-top-row">
           <span v-if="p.workspace" class="preview-label">

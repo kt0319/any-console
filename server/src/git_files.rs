@@ -20,7 +20,7 @@ use crate::errors::{
 use crate::git_helpers::{
     resolve_and_validate_workspace_path, resolve_workspace_file, validate_commit_ref,
 };
-use crate::git_utils::{run_git_raw, GitError, GIT_SHORT_TIMEOUT_SEC};
+use crate::git_utils::{run_git_raw, GIT_SHORT_TIMEOUT_SEC};
 use crate::state::AppState;
 use crate::util::{base64_standard, JsonBody, QueryParams, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
@@ -65,21 +65,17 @@ async fn run_raw_git_checked(
     args: &[&str],
     cwd: &FsPath,
 ) -> Result<crate::git_utils::GitOutput, ApiError> {
-    match run_git_raw(args, cwd, GIT_SHORT_TIMEOUT_SEC, &[]).await {
-        Ok(out) => Ok(out),
-        Err(GitError::Timeout) => Err(crate::errors::timeout_error("Git operation timed out")),
-        Err(GitError::Os(e)) => Err(server_error(format!("Git operation failed: {e}"))),
-    }
+    run_git_raw(args, cwd, GIT_SHORT_TIMEOUT_SEC, &[])
+        .await
+        .map_err(|e| crate::git_utils::map_git_error(e, "Git operation"))
 }
 
 /// バイナリ安全な raw 実行（stdout をバイト列で返す）。実体は
 /// `git_utils::run_git_raw_bytes`（C ロケール強制などの実行設定を共有）。
 async fn run_raw_git_bytes(args: &[&str], cwd: &FsPath) -> Result<(i32, Vec<u8>), ApiError> {
-    match crate::git_utils::run_git_raw_bytes(args, cwd, GIT_SHORT_TIMEOUT_SEC).await {
-        Ok(out) => Ok(out),
-        Err(GitError::Timeout) => Err(crate::errors::timeout_error("Git operation timed out")),
-        Err(GitError::Os(e)) => Err(server_error(format!("Git operation failed: {e}"))),
-    }
+    crate::git_utils::run_git_raw_bytes(args, cwd, GIT_SHORT_TIMEOUT_SEC)
+        .await
+        .map_err(|e| crate::git_utils::map_git_error(e, "Git operation"))
 }
 
 // ─── コンテンツ応答の組み立て（git_file_utils.py）───────────────────────────
@@ -344,6 +340,50 @@ async fn read_file_content_at_ref(
 
 // ─── ルート ─────────────────────────────────────────────────────────────────
 
+/// `resolve_*` が返した相対パスを応答用文字列にする（"." はルート = 空文字）。
+pub(crate) fn rel_path_string(rel: &FsPath) -> String {
+    let s = rel.to_string_lossy();
+    if s == "." {
+        String::new()
+    } else {
+        s.into_owned()
+    }
+}
+
+/// ルート配下のディレクトリ一覧応答（workspace / terminal session 共用）。
+pub(crate) async fn list_dir_response(
+    root: &FsPath,
+    target: &FsPath,
+    rel: &FsPath,
+) -> Result<Value, ApiError> {
+    let rel_path = rel_path_string(rel);
+    if !target.is_dir() {
+        return Err(not_found("Directory not found"));
+    }
+    let entries = list_directory_entries(root, target).await?;
+    Ok(json!({"status": "ok", "path": rel_path, "entries": entries}))
+}
+
+/// ルート配下のファイル内容応答（workspace / terminal session 共用）。
+/// symlink は 400 で拒否する。`path_label` は応答の `path` フィールドに
+/// そのまま載せる表示用文字列。
+pub(crate) fn file_content_or_error(
+    path_label: &str,
+    target: &FsPath,
+    rel: &FsPath,
+) -> Result<Value, ApiError> {
+    if rel.to_string_lossy() == "." {
+        return Err(not_found("File not found"));
+    }
+    if target.is_symlink() {
+        return Err(bad_request("Symlinks not supported"));
+    }
+    if !target.is_file() {
+        return Err(not_found("File not found"));
+    }
+    read_file_content_response(path_label, target)
+}
+
 #[derive(Deserialize)]
 pub struct FilesQuery {
     #[serde(default)]
@@ -359,27 +399,14 @@ pub async fn list_files(
     QueryParams(q): QueryParams<FilesQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let (ws_path, target, rel) = resolve_workspace_file(&state, &name, &q.path).await?;
-    let rel_path = {
-        let s = rel.to_string_lossy().into_owned();
-        if s == "." {
-            String::new()
-        } else {
-            s
-        }
-    };
     if let Some(ref_value) = validate_optional_commit_ref(q.r#ref.as_deref())? {
+        let rel_path = rel_path_string(&rel);
         let entries = list_directory_entries_at_ref(&ws_path, &rel_path, &ref_value).await?;
         return Ok(Json(
             json!({"status": "ok", "path": rel_path, "entries": entries}),
         ));
     }
-    if !target.is_dir() {
-        return Err(not_found("Directory not found"));
-    }
-    let entries = list_directory_entries(&ws_path, &target).await?;
-    Ok(Json(
-        json!({"status": "ok", "path": rel_path, "entries": entries}),
-    ))
+    list_dir_response(&ws_path, &target, &rel).await.map(Json)
 }
 
 #[derive(Deserialize)]
@@ -405,13 +432,7 @@ pub async fn file_content(
             .await
             .map(Json);
     }
-    if target.is_symlink() {
-        return Err(bad_request("Symlinks not supported"));
-    }
-    if !target.is_file() {
-        return Err(not_found("File not found"));
-    }
-    read_file_content_response(&q.path, &target).map(Json)
+    file_content_or_error(&q.path, &target, &rel).map(Json)
 }
 
 // ─── upload ─────────────────────────────────────────────────────────────────

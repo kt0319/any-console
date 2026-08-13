@@ -669,8 +669,8 @@ pub struct RecentJobItem {
     job_command: String,
     #[serde(default, rename = "jobConfirm")]
     job_confirm: Option<bool>,
-    #[serde(default, rename = "jobDetachedTab")]
-    job_detached_tab: bool,
+    #[serde(default, rename = "jobDetached")]
+    job_detached: bool,
     #[serde(default)]
     pinned: bool,
 }

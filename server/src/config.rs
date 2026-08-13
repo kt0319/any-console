@@ -684,7 +684,7 @@ mod tests {
         let s = store(&dir);
         let cfg = s.load_all();
         let global = cfg[GLOBAL_CONFIG_KEY].as_object().unwrap();
-        assert_eq!(global["config_version"], json!(3));
+        assert_eq!(global["config_version"], json!(4));
         assert_eq!(
             global["recent_jobs"],
             json!([{"key": "k1", "pinned": true}])

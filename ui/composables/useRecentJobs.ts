@@ -19,7 +19,7 @@ interface RecentJob {
   jobIconColor: string;
   jobCommand: string;
   jobConfirm: boolean | null;
-  jobDetachedTab: boolean;
+  jobDetached: boolean;
   pinned: boolean;
 }
 
@@ -75,7 +75,7 @@ export function useRecentJobs() {
       jobIconColor: job.icon_color || "",
       jobCommand: job.command || "",
       jobConfirm: job.confirm ?? null,
-      jobDetachedTab: !!job.detached_tab,
+      jobDetached: !!job.detached,
       pinned: existing?.pinned || false,
     };
     const rest = recentJobs.value.filter((j) => j.key !== key);
@@ -108,7 +108,7 @@ export function useRecentJobs() {
       jobIcon: recent.jobIcon,
       jobIconColor: recent.jobIconColor,
       initialCommand: recent.jobCommand,
-      detached: !!recent.jobDetachedTab,
+      detached: !!recent.jobDetached,
     });
   }
 

@@ -19,7 +19,6 @@ use tokio::sync::mpsc;
 
 use crate::auth::RequireAuth;
 use crate::errors::{not_found, server_error, timeout_error, ApiError};
-use crate::git_files::{list_directory_entries, read_file_content_response};
 use crate::git_helpers::resolve_and_validate_workspace_path;
 use crate::git_utils::resolve_workspace_path;
 use crate::json_store::{load_json_file, save_json_file};
@@ -258,21 +257,9 @@ pub async fn list_terminal_session_files(
 ) -> Result<Json<Value>, ApiError> {
     let (root, target, rel) =
         resolve_terminal_session_file(&state, &session_id, &query.path).await?;
-    let rel_path = {
-        let s = rel.to_string_lossy();
-        if s == "." {
-            String::new()
-        } else {
-            s.into_owned()
-        }
-    };
-    if !target.is_dir() {
-        return Err(not_found("Directory not found"));
-    }
-    let entries = list_directory_entries(&root, &target).await?;
-    Ok(Json(
-        json!({"status": "ok", "path": rel_path, "entries": entries}),
-    ))
+    crate::git_files::list_dir_response(&root, &target, &rel)
+        .await
+        .map(Json)
 }
 
 #[derive(Deserialize)]
@@ -287,14 +274,8 @@ pub async fn get_terminal_session_file_content(
     QueryParams(query): QueryParams<FileContentQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let (_, target, rel) = resolve_terminal_session_file(&state, &session_id, &query.path).await?;
-    let rel_path = rel.to_string_lossy();
-    if rel_path == "." {
-        return Err(not_found("File not found"));
-    }
-    if target.is_symlink() || !target.is_file() {
-        return Err(not_found("File not found"));
-    }
-    Ok(Json(read_file_content_response(&rel_path, &target)?))
+    let rel_path = rel.to_string_lossy().into_owned();
+    crate::git_files::file_content_or_error(&rel_path, &target, &rel).map(Json)
 }
 
 // ─── PUT /terminal/sessions/{id}/workspace, /detached ───────────────────────

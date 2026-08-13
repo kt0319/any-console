@@ -335,13 +335,13 @@ async fn export_health_and_import() {
     .await
     .error_for_status()
     .unwrap();
-    // export の読み込みがバージョンマイグレーション（v0 → v3 刻印）を起こす
+    // export の読み込みがバージョンマイグレーション（v0 → v4 刻印）を起こす
     // （Python も同じ: config_version は読み込み時に刻印される）
     let exported = get_json(&front, "/settings/export").await;
     assert_eq!(exported["__global__"]["editor"]["url_template"], "e://x");
     let health = get_json(&front, "/settings/config-health").await;
     assert_eq!(health["ok"], true);
-    assert_eq!(health["config_version"], 3);
+    assert_eq!(health["config_version"], 4);
 
     // import: global は丸ごと置換
     let resp = common::client()

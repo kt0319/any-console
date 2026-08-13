@@ -213,7 +213,7 @@ fn validate_recent_job(data: &Value) -> Result<Value, String> {
             default: Value::Null,
             kind: FieldKind::Bool,
         },
-        b("jobDetachedTab"),
+        b("jobDetached"),
         b("pinned"),
     ];
     dump_model(data, &specs).map(Value::Object)
@@ -236,7 +236,7 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
             kind: FieldKind::Bool,
         },
         FieldSpec {
-            key: "detached_tab",
+            key: "detached",
             default: Value::Bool(false),
             kind: FieldKind::Bool,
         },

@@ -43,7 +43,6 @@ const PORT_STALE_SEC: i64 = 8;
 const PREVIEW_IDLE_SEC: u64 = 60;
 const MIN_PORT: u16 = 1024;
 const MAX_PORT: u16 = 65535;
-const SESSION_ID: &str = "local";
 
 const PROXY_OFFSET: u16 = 20000;
 const PROXY_MIN_TARGET: u16 = 1024;
@@ -70,7 +69,6 @@ pub fn proxy_port_for(target: u16) -> Option<u16> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DetectedPort {
-    pub session_id: String,
     pub port: u16,
     pub proxy_port: Option<u16>,
     pub process: String,
@@ -499,7 +497,6 @@ pub async fn scan_once(state: &Arc<AppState>) {
                 detected.insert(
                     *port,
                     DetectedPort {
-                        session_id: SESSION_ID.to_string(),
                         port: *port,
                         proxy_port: proxy,
                         process: proc.clone(),
@@ -1187,7 +1184,6 @@ mod tests {
     fn needs_probe_delays_initial_probe() {
         let now = now_epoch();
         let entry = DetectedPort {
-            session_id: SESSION_ID.to_string(),
             port: 3000,
             proxy_port: Some(23000),
             process: "x".to_string(),
@@ -1209,7 +1205,6 @@ mod tests {
     fn needs_probe_retries_after_false_result() {
         let now = now_epoch();
         let mut entry = DetectedPort {
-            session_id: SESSION_ID.to_string(),
             port: 3000,
             proxy_port: Some(23000),
             process: "x".to_string(),
@@ -1231,7 +1226,6 @@ mod tests {
     #[test]
     fn needs_probe_never_for_confirmed_http() {
         let entry = DetectedPort {
-            session_id: SESSION_ID.to_string(),
             port: 3000,
             proxy_port: Some(23000),
             process: "x".to_string(),
@@ -1341,7 +1335,6 @@ mod tests {
             detected.insert(
                 3000,
                 DetectedPort {
-                    session_id: SESSION_ID.to_string(),
                     port: 3000,
                     proxy_port: proxy_port_for(3000),
                     process: "node".to_string(),
@@ -1369,7 +1362,6 @@ mod tests {
         state.preview.detected.lock().unwrap().insert(
             20000,
             DetectedPort {
-                session_id: SESSION_ID.to_string(),
                 port: 20000,
                 proxy_port: None,
                 process: "x".to_string(),
@@ -1393,7 +1385,6 @@ mod tests {
         state.preview.detected.lock().unwrap().insert(
             8888,
             DetectedPort {
-                session_id: SESSION_ID.to_string(),
                 port: 8888,
                 proxy_port: None,
                 process: "any-console-server".to_string(),
@@ -1419,7 +1410,6 @@ mod tests {
         state.preview.detected.lock().unwrap().insert(
             5037,
             DetectedPort {
-                session_id: SESSION_ID.to_string(),
                 port: 5037,
                 proxy_port: Some(25037),
                 process: "adb".to_string(),
