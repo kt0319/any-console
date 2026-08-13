@@ -33,26 +33,27 @@
           <span class="settings-note">When a "Notify phrase" appears in job output.</span>
         </div>
       </label>
-      <label class="settings-item settings-toggle">
-        <input type="checkbox" v-model="prefs.blocked" @change="savePrefs" />
-        <div class="settings-toggle-copy">
-          <span class="settings-item-label">Agent blocked</span>
-          <span class="settings-note">When an agent needs your input to continue.</span>
-        </div>
-      </label>
-      <label v-if="prefs.phrase" class="settings-item">
+      <label class="settings-item" :class="{ 'notif-disabled': !prefs.phrase }">
         <span class="settings-item-label">Phrase notify delay</span>
         <input
           type="number"
           min="0"
           :max="PHRASE_NOTIFY_GRACE_SEC_MAX"
           class="form-input notif-grace-input"
+          :disabled="!prefs.phrase"
           v-model.number="graceSec"
         />
         <span class="settings-note">
           Seconds to wait after the phrase appears before sending a push
           (avoids notifying while you're already watching).
         </span>
+      </label>
+      <label class="settings-item settings-toggle">
+        <input type="checkbox" v-model="prefs.blocked" @change="savePrefs" />
+        <div class="settings-toggle-copy">
+          <span class="settings-item-label">Agent blocked</span>
+          <span class="settings-note">When an agent needs your input to continue.</span>
+        </div>
       </label>
     </template>
   </div>
