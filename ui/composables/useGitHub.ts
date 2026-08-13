@@ -3,6 +3,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { openExternal } from "../utils/open-external.ts";
+import { mapGitHubPR, mapGitHubRun } from "../utils/github-runs.ts";
 
 const _countCache: Record<string, number> = {};
 
@@ -102,23 +103,9 @@ export function useGitHub() {
     labels: item.labels || [],
   }));
 
-  const loadPRs = _makeLoader("github/pulls", "prs", (item) => ({
-    number: item.number,
-    title: item.title,
-    author: item.author?.login || "",
-    isDraft: !!item.isDraft,
-    headRefName: item.headRefName || "",
-    labels: item.labels || [],
-  }));
+  const loadPRs = _makeLoader("github/pulls", "prs", mapGitHubPR);
 
-  const loadActions = _makeLoader("github/runs", "actions", (r) => ({
-    id: r.databaseId || r.id,
-    name: r.name || r.workflowName || "",
-    status: r.status || "",
-    conclusion: r.conclusion || "",
-    headBranch: r.headBranch || "",
-    url: r.url || "",
-  }));
+  const loadActions = _makeLoader("github/runs", "actions", mapGitHubRun);
 
   return { githubUrl, repoName, loadWorkspaceGitHubUrl, loadIssues, loadPRs, loadActions };
 }

@@ -44,7 +44,7 @@ defineEmits(["exec", "show-detail"]);
   flex-wrap: wrap;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .file-browser-header-actions {
     flex-basis: 100%;
     justify-content: flex-end;

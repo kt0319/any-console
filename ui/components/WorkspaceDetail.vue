@@ -633,7 +633,7 @@ onMounted(() => {
   flex-direction: column;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .workspace-detail {
     flex-direction: column-reverse;
   }
