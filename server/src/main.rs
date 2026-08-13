@@ -54,7 +54,7 @@ async fn main() {
     // サーバを起動せずその場で処理して終了する（any-console スクリプトが
     // python3 の代わりにこのバイナリを呼ぶための軽量CLI。cli.rs 参照）。
     let args: Vec<String> = std::env::args().collect();
-    if let Some(code) = any_console_server::cli::dispatch(&args[1..]).await {
+    if let Some(code) = any_console_server::cli::run_subcommand(&args[1..]).await {
         std::process::exit(code);
     }
 

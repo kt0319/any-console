@@ -463,7 +463,7 @@ pub fn notify_workspaces_changed(state: &AppState) {
 }
 
 /// API 経由の git 操作直後に該当ワークスペースの再計算・push を予約する
-/// （Python `nudge_workspace` 相当。`git_helpers::invalidate_git_info` から呼ぶ）。
+/// （Python `nudge_workspace` 相当。`git_helpers::invalidate_and_publish_git_info` から呼ぶ）。
 /// 購読者がいなければ何もしない。
 pub fn nudge_workspace(state: &Arc<AppState>, workspace_name: String) {
     if state.status_stream.subscriber_count() == 0 {
@@ -483,7 +483,7 @@ pub fn nudge_workspace(state: &Arc<AppState>, workspace_name: String) {
 ///
 /// Python 版はキャッシュ命中時に branch/upstream/ahead-behind を使い回す
 /// `refresh_git_info`（部分更新）で高速化しているが、Rust 版は毎回
-/// `git_info_cache` を invalidate してから `git_info_to_status_dict`
+/// `git_info_cache` を invalidate してから `git_info_to_status_json`
 /// （`/workspaces/statuses` と共通のフル再計算パイプライン）を呼ぶ単純な実装
 /// にした。TTL キャッシュ命中時に diff/status が古いまま配信される事故を防ぐ
 /// 確実さを優先し、watch イベントごとに数回分余計な git サブプロセスが増える
@@ -491,7 +491,7 @@ pub fn nudge_workspace(state: &Arc<AppState>, workspace_name: String) {
 async fn push_status(state: &Arc<AppState>, target: &WatchTarget) {
     state.git_info_cache.invalidate(&target.path);
     let status =
-        crate::git_info::git_info_to_status_dict(&state.git_info_cache, &target.path, &target.name)
+        crate::git_info::git_info_to_status_json(&state.git_info_cache, &target.path, &target.name)
             .await;
     {
         let mut last_sent = state

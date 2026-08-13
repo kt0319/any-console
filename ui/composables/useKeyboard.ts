@@ -27,9 +27,7 @@ export function useKeyboard() {
   const terminalStore = useTerminalStore();
 
   function getActiveTerminalTab(): TerminalTab | null {
-    const tabs = terminalStore.openTabs;
-    const id = terminalStore.activeTabId;
-    const tab = tabs.find((t) => t.id === id);
+    const tab = terminalStore.activeTab;
     if (!tab || !tab.term) return null;
     return tab;
   }

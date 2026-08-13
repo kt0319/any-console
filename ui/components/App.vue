@@ -46,7 +46,7 @@ onErrorCaptured((err) => {
 });
 
 // "/pair/{id}?t=..." はQRペアリングのclaim画面。vue-router非導入のため、起動時の
-// URLをパースするだけの単純なルーティングで済ませる(ui/utils/pairing.js参照)。
+// URLをパースするだけの単純なルーティングで済ませる(ui/utils/pairing.ts参照)。
 const pairInfo = parsePairUrl(location.pathname, location.search);
 
 useAppDocumentTitle();

@@ -5,7 +5,7 @@
       :key="recent.key"
       type="button"
       class="recent-jobs-item hover-bg"
-      :class="{ 'is-detached-tab': recent.jobDetachedTab }"
+      :class="{ 'is-detached-tab': recent.jobDetached }"
       @click="runRecentJob(recent)"
     >
       <span class="recent-jobs-item-icons">

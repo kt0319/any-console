@@ -185,7 +185,7 @@ defineExpose({ show });
   transform: translateX(-50%) translateY(-100%);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .toast {
     padding: 8px 12px;
     max-width: calc(100% - 16px);

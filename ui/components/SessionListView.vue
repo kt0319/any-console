@@ -55,9 +55,9 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
-import { useGithubPolling } from "../composables/useGithubPolling.ts";
+import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
@@ -69,11 +69,11 @@ import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
 
 // セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
 // ごとにワークスペース名・ブランチ・変更サマリ・エージェント状態・
-// Info Pillsを一覧表示する。行の組み立ては ui/utils/session-sidebar.js
+// Info Pillsを一覧表示する。行の組み立ては ui/utils/session-sidebar.ts
 // （純粋関数）。
 //
-// Open Session/Settingsはタブバーの「+」/歯車ボタン（useSessionOpenNav.js/
-// useSettingsNav.js）から独立して開くため、このビューからは直接遷移しない。
+// Open Session/Settingsはタブバーの「+」/歯車ボタン（useSessionOpenNav.ts/
+// useSettingsNav.ts）から独立して開くため、このビューからは直接遷移しない。
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -82,16 +82,16 @@ const { confirm } = useConfirm();
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
-// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGithubPollingに集約。
-const { prsByWorkspace, runsByWorkspace, startGithubPolling, stopGithubPolling } = useGithubPolling();
+// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
+const { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling } = useGitHubPolling();
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
-const { queue: dispatchQueue } = useDispatchConfirm();
+const { queue: dispatchQueue } = useDispatchQueue();
 
 // 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、
 // タブ一覧の下に別枠で出す（タブが既にあるワークスペースはInfoPillRowの
 // dispatchピルで足りるため対象外）。通常のセッション行と同じ情報
 // （Branch/Changes/PR/Actions/DevServer/Dispatchの各ピル）で出すため、
-// 組み立てロジックはsessionSidebarItemsと共有する（session-sidebar.js）。
+// 組み立てロジックはsessionSidebarItemsと共有する（session-sidebar.ts）。
 const pendingDispatchWorkspaces = computed(() => {
   const openTabWorkspaces = new Set(terminalStore.openTabs.map((t) => t.workspace).filter((w): w is string => Boolean(w)));
   return pendingDispatchSidebarItems(workspaceStore.allWorkspaces, openTabWorkspaces, {
@@ -192,22 +192,22 @@ const githubWorkspaceKeys = computed(() => {
   return [...keys];
 });
 
-let activeGithubKeys: string[] = [];
+let activeGitHubKeys: string[] = [];
 watch(githubWorkspaceKeys, (keys) => {
   const keySet = new Set(keys);
-  for (const old of activeGithubKeys) {
-    if (!keySet.has(old)) stopGithubPolling(old);
+  for (const old of activeGitHubKeys) {
+    if (!keySet.has(old)) stopGitHubPolling(old);
   }
   for (const key of keys) {
-    if (!activeGithubKeys.includes(key)) startGithubPolling(key);
+    if (!activeGitHubKeys.includes(key)) startGitHubPolling(key);
   }
-  activeGithubKeys = keys;
+  activeGitHubKeys = keys;
 }, { immediate: true });
 
 startPreviewPolling();
 
 onBeforeUnmount(() => {
-  for (const key of activeGithubKeys) stopGithubPolling(key);
+  for (const key of activeGitHubKeys) stopGitHubPolling(key);
   stopPreviewPolling();
 });
 </script>

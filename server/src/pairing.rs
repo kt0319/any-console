@@ -92,7 +92,7 @@ fn check_rate_limit(state: &PairingState, client_ip: &str) -> Result<(), ApiErro
     let key = format!("pairing:{client_ip}");
     if state
         .rate_counter
-        .is_allowed(&key, PAIRING_RATE_LIMIT, RATE_WINDOW)
+        .try_acquire(&key, PAIRING_RATE_LIMIT, RATE_WINDOW)
     {
         Ok(())
     } else {

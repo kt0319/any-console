@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, reactive, markRaw } from "vue";
+import { ref, reactive, computed, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -61,6 +61,10 @@ export interface TerminalTab {
 export const useTerminalStore = defineStore("terminal", () => {
   const openTabs = ref<TerminalTab[]>([]);
   const activeTabId = ref<number | null>(null);
+  // アクティブなタブ（`openTabs.find(...)` の定型を一本化）。tab は markRaw の
+  // ため、この computed はタブの切替・開閉にのみ反応する（フィールド変更には
+  // 反応しない — インラインで find していた従来と同じ性質）。
+  const activeTab = computed(() => openTabs.value.find((t) => t.id === activeTabId.value));
   const terminalIdCounter = ref(0);
   const hasRestoredTabsFromStorage = ref(false);
   const restoreSessionsLoading = ref(false);
@@ -185,7 +189,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側（useSessionSync の
-  // ポーリング/WS通知、useDispatchConfirm の focusSession 等）はそれぞれ
+  // ポーリング/WS通知、useDispatchQueue の focusSession 等）はそれぞれ
   // 独立した非同期処理で「既存タブが無いか」を確認してから addTerminalTab を
   // 呼ぶが、確認から呼び出しまでの await の間に別経路が同じセッションのタブを
   // 追加してしまうレースがあり、二重タブが生成されうる。store 側の唯一の
@@ -366,6 +370,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   return {
     openTabs,
     activeTabId,
+    activeTab,
     hasRestoredTabsFromStorage,
     restoreSessionsLoading,
     restoreSessionsError,

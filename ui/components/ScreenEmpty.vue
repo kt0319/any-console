@@ -121,7 +121,7 @@ const eligiblePwaInstall = computed(() => !isLocalDev && location.protocol === "
 const donePwaInstall = computed(() => layoutStore.isPwa);
 
 // beforeinstallprompt のキャプチャはモジュールスコープで1つだけ保持する
-// （再マウントでのリスナ累積・イベント取り逃し防止。usePwaInstall.js 参照）。
+// （再マウントでのリスナ累積・イベント取り逃し防止。usePwaInstall.ts 参照）。
 const { promptInstall } = usePwaInstall();
 
 // PWAインストール済み(=isPwa)の場合に出すpush通知の導線。

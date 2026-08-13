@@ -192,7 +192,7 @@ onMounted(() => {
 
   bridgeCleanups.push(on("tab:close", ({ tab }) => {
     closeTab(tab);
-    const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    const activeTab = terminalStore.activeTab;
     workspaceStore.selectedWorkspace = activeTab?.workspace || null;
   }));
 
@@ -273,7 +273,7 @@ defineExpose({
 /* PCでセッションサイドバーを開いている間は、ターミナルに被せず
    SessionSidebar.vue の幅（--session-sidebar-width）ぶん右へ縮める。TabBar.vue の
    .tab-bar-row-sidebar-open と同じ幅を使う。marginで実際の描画幅を
-   変えることで、TerminalBase配下のResizeObserver（useTerminalResize.js）
+   変えることで、TerminalBase配下のResizeObserver（useTerminalResize.ts）
    が幅変化を検知して自動でfitTerminal/sendResizeする（オーバーレイで
    隠すだけだと見た目は隠れても列数はリサイズされないため）。 */
 .content-area-sidebar-open {

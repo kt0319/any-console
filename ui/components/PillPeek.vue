@@ -68,7 +68,7 @@ const props = defineProps({
   pullCount: { type: Number, default: 0 },
   actionName: { type: String, default: "" },
   actionStatusText: { type: String, default: "" },
-  // このpeekが実際に表示される時間（usePillPeek.js参照。キューで分割
+  // このpeekが実際に表示される時間（usePillPeek.ts参照。キューで分割
   // された場合はPILL_PEEK_DURATION_MSより短い）。
   peekDurationMs: { type: Number, default: PILL_PEEK_DURATION_MS },
 });

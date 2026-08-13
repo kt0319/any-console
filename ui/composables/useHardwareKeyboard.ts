@@ -68,7 +68,7 @@ export function useHardwareKeyboard({ inputEl, composing }: {
     if (!target) return;
     // 編集可能要素・ダイアログ内のクリックは xterm に戻さない
     if (isEditableOrDialogTarget(target)) return;
-    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    const tab = terminalStore.activeTab;
     try { tab?.term?.focus(); } catch {}
   }
 

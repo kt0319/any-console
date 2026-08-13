@@ -1,7 +1,7 @@
 //! git worktree の作成・一覧・削除（Python 側 `api/routers/git_worktree.py` の移植）。
 //!
 //! worktree を作成すると、その作業ツリーは動的 worktree 名（'{base} [{branch}]'）で
-//! 参照できる。作成・削除後は Python と同じ位置で `invalidate_git_info`
+//! 参照できる。作成・削除後は Python と同じ位置で `invalidate_and_publish_git_info`
 //! （ローカルキャッシュ無効化 + Python 側 status stream への nudge）を呼ぶ。
 
 use std::path::{Path as FsPath, PathBuf};
@@ -54,7 +54,7 @@ fn main_worktree_path(worktrees: &[Value]) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-async fn ensure_git_repo(state: &Arc<AppState>, name: &str) -> Result<PathBuf, ApiError> {
+async fn resolve_git_repo_path(state: &Arc<AppState>, name: &str) -> Result<PathBuf, ApiError> {
     let ws_path = resolve_workspace_path(&state.config, name).await?;
     if !git_is_repo(&ws_path).await {
         return Err(bad_request(format!(
@@ -69,7 +69,7 @@ pub async fn list_worktrees(
     Path(name): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    let ws_path = ensure_git_repo(&state, &name).await?;
+    let ws_path = resolve_git_repo_path(&state, &name).await?;
     let worktrees = git_worktree_list(&ws_path).await;
     let registered = registered_paths_by_resolved(&state.config);
     let main_path = main_worktree_path(&worktrees);
@@ -112,7 +112,7 @@ pub async fn create_worktree(
     };
 
     let _guard = state.git_locks.acquire(&name).await?;
-    let ws_path = ensure_git_repo(&state, &name).await?;
+    let ws_path = resolve_git_repo_path(&state, &name).await?;
     let worktrees = git_worktree_list(&ws_path).await;
     let main_path = main_worktree_path(&worktrees).unwrap_or_else(|| ws_path.clone());
 
@@ -140,7 +140,7 @@ pub async fn create_worktree(
 
     let result =
         run_git_command(&args, &ws_path, GIT_LONG_TIMEOUT_SEC, "worktree add", &[]).await?;
-    crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
+    crate::git_helpers::invalidate_and_publish_git_info(&state, &name, &ws_path);
     crate::git_helpers::ensure_git_result_ok(&result, "Failed to create worktree")?;
 
     let base_config = state.config.load_workspace_config(&name);
@@ -151,7 +151,7 @@ pub async fn create_worktree(
         .unwrap_or(&name);
     let display_name = worktree_display_name(base_display, &branch);
     tracing::info!(
-        "worktree created repo={} branch={} path={}",
+        "worktree created workspace={} branch={} path={}",
         name,
         branch,
         target.display()
@@ -177,7 +177,7 @@ pub async fn delete_worktree(
     JsonBody(body): JsonBody<DeleteWorktreeRequest>,
 ) -> Result<Json<Value>, ApiError> {
     let _guard = state.git_locks.acquire(&name).await?;
-    let ws_path = ensure_git_repo(&state, &name).await?;
+    let ws_path = resolve_git_repo_path(&state, &name).await?;
     let worktrees = git_worktree_list(&ws_path).await;
     let main_path = main_worktree_path(&worktrees);
 
@@ -217,9 +217,9 @@ pub async fn delete_worktree(
         &[],
     )
     .await?;
-    crate::git_helpers::invalidate_git_info(&state, &name, &ws_path);
+    crate::git_helpers::invalidate_and_publish_git_info(&state, &name, &ws_path);
     crate::git_helpers::ensure_git_result_ok(&result, "Failed to remove worktree")?;
-    tracing::info!("worktree removed repo={} path={}", name, body.path);
+    tracing::info!("worktree removed workspace={} path={}", name, body.path);
     Ok(Json(json!({"status": "ok"})))
 }
 

@@ -3,7 +3,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 
 // WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用のナビゲー
-// ション状態。useSettingsNav.jsのビュースタックとは完全に独立させている
+// ション状態。useSettingsNav.tsのビュースタックとは完全に独立させている
 // （以前はSettingsのスタックに"WorkspaceDetail"を積んでいたため、開くたびに
 // セッション一覧/設定側の表示（currentView・modalTitle）まで巻き込んで
 // 切り替わってしまっていた）。WorkspaceDetailを開いても、裏の
@@ -12,7 +12,7 @@ import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 // WorkspaceDetail.vueはuseModalView()経由でmodalTitle/modalBranch/viewState/
 // updateViewStateをinjectする前提のため、WorkspaceDetailModal.vueはこの
 // composableの値をその名前でprovideする（pushView/popViewだけは、Jobsペイン
-// からJobConfigを開く導線のためuseSettingsNav.js側の実物をprovideする）。
+// からJobConfigを開く導線のためuseSettingsNav.ts側の実物をprovideする）。
 //
 // 状態はterminalStoreのタブID（activeTabId）をキーにしたMapで保持し、
 // タブごとに開閉状態・表示中のペイン（detail.pane）を独立させる（タブAで

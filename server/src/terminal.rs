@@ -1,10 +1,7 @@
 //! ターミナルセッションの HTTP エンドポイントと WebSocket（Python 側
 //! `api/routers/terminal.py` の移植）。`terminal_session.rs`（レジストリ）・
-//! `tmux.rs`・`pty.rs` の上に構築する。
-//!
-//! **注意**: このモジュールはまだ `build_router` に配線されていない
-//! （`docs/RUST_MIGRATION.md` Phase 5 参照 — `/run`・`/dispatch` と同時に
-//! 配線する設計判断のため）。
+//! `tmux.rs`・`pty.rs` の上に構築する。全ハンドラは `build_router`（lib.rs）で
+//! 配線済み。
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,7 +19,6 @@ use tokio::sync::mpsc;
 
 use crate::auth::RequireAuth;
 use crate::errors::{not_found, server_error, timeout_error, ApiError};
-use crate::git_files::{list_directory_entries, read_file_content_response};
 use crate::git_helpers::resolve_and_validate_workspace_path;
 use crate::git_utils::resolve_workspace_path;
 use crate::json_store::{load_json_file, save_json_file};
@@ -35,10 +31,6 @@ const PENDING_TEXT_DELAY_SEC: f64 = 0.5;
 const WS_PING_INTERVAL_SEC: u64 = 15;
 const WS_MSG_RESIZE: u8 = 0x00;
 const WS_CLOSE_SESSION_EXITED: u16 = 4001;
-
-fn tmux_name(state: &AppState, session_id: &str) -> String {
-    format!("{}{session_id}", state.paths.tmux_prefix)
-}
 
 // ─── GET /terminal/sessions ──────────────────────────────────────────────────
 
@@ -104,7 +96,7 @@ pub async fn list_terminal_sessions(
     let entries: Vec<(String, String)> = ids
         .into_iter()
         .map(|id| {
-            let name = format!("{}{}", state.paths.tmux_prefix, id);
+            let name = state.paths.tmux_session_name(&id);
             (id, name)
         })
         .collect();
@@ -126,16 +118,15 @@ pub struct HistoryQuery {
     rows: Option<u16>,
 }
 
+/// 注意: GET だが冪等ではない — `cols`/`rows` 指定時は履歴取得前に
+/// `tmux resize-window` / `set-option window-size` で tmux 側の状態を変更する。
 pub async fn get_terminal_history(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
     _auth: RequireAuth,
     QueryParams(query): QueryParams<HistoryQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let session_arc = state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    let session_arc = state.terminal_session(&session_id).await?;
     let full_name = { session_arc.lock().await.tmux_session_name.clone() };
 
     if let (Some(cols), Some(rows)) = (query.cols, query.rows) {
@@ -209,10 +200,7 @@ pub async fn delete_terminal_session(
     // 先にハイドレートしてから削除する。そうしないと `remove` が None を返して
     // 404 になり、tmux セッションは実際にはキルされないまま残り続ける
     // （Codex レビュー指摘）。
-    state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    state.terminal_session(&session_id).await?;
     let Some(session_arc) = state.terminal_registry.remove(&session_id).await else {
         return Err(not_found("Terminal session not found"));
     };
@@ -230,11 +218,8 @@ pub async fn get_terminal_session_cwd(
     Path(session_id): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
-    let name = tmux_name(&state, &session_id);
+    state.terminal_session(&session_id).await?;
+    let name = state.paths.tmux_session_name(&session_id);
     let cwd = tmux::get_session_cwd(&name)
         .await
         .ok_or_else(|| not_found("CWD unavailable"))?;
@@ -246,11 +231,8 @@ async fn resolve_terminal_session_file(
     session_id: &str,
     path: &str,
 ) -> Result<(PathBuf, PathBuf, PathBuf), ApiError> {
-    state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, session_id)
-        .await?;
-    let name = tmux_name(state, session_id);
+    state.terminal_session(session_id).await?;
+    let name = state.paths.tmux_session_name(session_id);
     let cwd = tmux::get_session_cwd(&name)
         .await
         .ok_or_else(|| not_found("CWD unavailable"))?;
@@ -275,21 +257,9 @@ pub async fn list_terminal_session_files(
 ) -> Result<Json<Value>, ApiError> {
     let (root, target, rel) =
         resolve_terminal_session_file(&state, &session_id, &query.path).await?;
-    let rel_path = {
-        let s = rel.to_string_lossy();
-        if s == "." {
-            String::new()
-        } else {
-            s.into_owned()
-        }
-    };
-    if !target.is_dir() {
-        return Err(not_found("Directory not found"));
-    }
-    let entries = list_directory_entries(&root, &target).await?;
-    Ok(Json(
-        json!({"status": "ok", "path": rel_path, "entries": entries}),
-    ))
+    crate::git_files::list_dir_response(&root, &target, &rel)
+        .await
+        .map(Json)
 }
 
 #[derive(Deserialize)]
@@ -304,14 +274,8 @@ pub async fn get_terminal_session_file_content(
     QueryParams(query): QueryParams<FileContentQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let (_, target, rel) = resolve_terminal_session_file(&state, &session_id, &query.path).await?;
-    let rel_path = rel.to_string_lossy();
-    if rel_path == "." {
-        return Err(not_found("File not found"));
-    }
-    if target.is_symlink() || !target.is_file() {
-        return Err(not_found("File not found"));
-    }
-    Ok(Json(read_file_content_response(&rel_path, &target)?))
+    let rel_path = rel.to_string_lossy().into_owned();
+    crate::git_files::file_content_or_error(&rel_path, &target, &rel).map(Json)
 }
 
 // ─── PUT /terminal/sessions/{id}/workspace, /detached ───────────────────────
@@ -327,10 +291,7 @@ pub async fn set_terminal_session_workspace(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<WorkspaceBody>,
 ) -> Result<Json<Value>, ApiError> {
-    let session_arc = state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    let session_arc = state.terminal_session(&session_id).await?;
     {
         let mut s = session_arc.lock().await;
         s.workspace = Some(body.workspace.clone());
@@ -354,10 +315,7 @@ pub async fn set_terminal_detached(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<DetachedBody>,
 ) -> Result<Json<Value>, ApiError> {
-    let session_arc = state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await?;
+    let session_arc = state.terminal_session(&session_id).await?;
     let detached = {
         let mut s = session_arc.lock().await;
         s.detached = body.detached;
@@ -515,11 +473,7 @@ async fn handle_terminal_ws(
     rows: u16,
     mut socket: WebSocket,
 ) {
-    let session_arc = match state
-        .terminal_registry
-        .get_or_register(&state.config, &state.paths.tmux_prefix, &session_id)
-        .await
-    {
+    let session_arc = match state.terminal_session(&session_id).await {
         Ok(arc) => arc,
         Err(_) => {
             close_ws(&mut socket, 1008, "Session not found").await;
@@ -624,7 +578,7 @@ async fn handle_terminal_ws(
 
     {
         let mut session = session_arc.lock().await;
-        session.detach_client_bridge(bridge_id);
+        session.close_client_bridge(bridge_id);
     }
     if pty_eof {
         tracing::info!("PTY EOF detected, closing client session={session_id}");

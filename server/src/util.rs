@@ -5,6 +5,45 @@ use serde::de::DeserializeOwned;
 
 use crate::errors::ApiError;
 
+/// TTL 付きの単純なインプロセスキャッシュ
+/// （`GitInfoCache` / `JobsCache` / `GhCache` が共用する get/set の実体）。
+pub struct TtlCache<V> {
+    store: std::sync::Mutex<std::collections::HashMap<String, (std::time::Instant, V)>>,
+    ttl: std::time::Duration,
+}
+
+impl<V: Clone> TtlCache<V> {
+    pub fn new(ttl: std::time::Duration) -> Self {
+        Self {
+            store: std::sync::Mutex::new(std::collections::HashMap::new()),
+            ttl,
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Option<V> {
+        let store = self.store.lock().expect("ttl cache lock poisoned");
+        store
+            .get(key)
+            .and_then(|(ts, v)| (ts.elapsed() < self.ttl).then(|| v.clone()))
+    }
+
+    pub fn set(&self, key: &str, value: V) {
+        let mut store = self.store.lock().expect("ttl cache lock poisoned");
+        store.insert(key.to_string(), (std::time::Instant::now(), value));
+    }
+
+    pub fn invalidate(&self, key: &str) {
+        self.store
+            .lock()
+            .expect("ttl cache lock poisoned")
+            .remove(key);
+    }
+
+    pub fn invalidate_all(&self) {
+        self.store.lock().expect("ttl cache lock poisoned").clear();
+    }
+}
+
 /// 制御文字を `\xNN` 形式へエスケープする（`sanitize_log_value`）。
 pub fn sanitize_log_value(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
@@ -87,68 +126,17 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
-const B64URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
 /// `secrets.token_urlsafe(n)` 相当: n バイトの乱数を base64url（パディング無し）で返す。
 pub fn token_urlsafe(n_bytes: usize) -> String {
     let mut buf = vec![0u8; n_bytes];
     getrandom::fill(&mut buf).expect("os rng");
-    let mut out = String::with_capacity(n_bytes.div_ceil(3) * 4);
-    for chunk in buf.chunks(3) {
-        let b = [
-            chunk[0],
-            chunk.get(1).copied().unwrap_or(0),
-            chunk.get(2).copied().unwrap_or(0),
-        ];
-        let idx = [
-            b[0] >> 2,
-            ((b[0] & 0x03) << 4) | (b[1] >> 4),
-            ((b[1] & 0x0f) << 2) | (b[2] >> 6),
-            b[2] & 0x3f,
-        ];
-        let emit = match chunk.len() {
-            1 => 2,
-            2 => 3,
-            _ => 4,
-        };
-        for &i in idx.iter().take(emit) {
-            out.push(B64URL[i as usize] as char);
-        }
-    }
-    out
+    base64url_encode(&buf)
 }
-
-const B64STD: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /// 標準 base64（パディング有り）。data URL 用（Python `base64.b64encode` 相当）。
 pub fn base64_standard(data: &[u8]) -> String {
-    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let b = [
-            chunk[0],
-            chunk.get(1).copied().unwrap_or(0),
-            chunk.get(2).copied().unwrap_or(0),
-        ];
-        let idx = [
-            b[0] >> 2,
-            ((b[0] & 0x03) << 4) | (b[1] >> 4),
-            ((b[1] & 0x0f) << 2) | (b[2] >> 6),
-            b[2] & 0x3f,
-        ];
-        out.push(B64STD[idx[0] as usize] as char);
-        out.push(B64STD[idx[1] as usize] as char);
-        out.push(if chunk.len() > 1 {
-            B64STD[idx[2] as usize] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            B64STD[idx[3] as usize] as char
-        } else {
-            '='
-        });
-    }
-    out
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.encode(data)
 }
 
 /// `secrets.token_hex(n)` 相当: n バイトの乱数を hex 文字列で返す。

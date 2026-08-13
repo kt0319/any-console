@@ -108,33 +108,33 @@ export function terminalSessionHistoryPath(sessionId: string, opts?: { cols?: nu
 }
 
 export function workspaceGitDiscardPath(workspace: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/git/discard`;
+  return workspaceApiPath(workspace, "/git/discard");
 }
 
 export function workspaceDownloadPath(workspace: string, filePath: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`;
+  return workspaceApiPath(workspace, `/download?path=${encodeURIComponent(filePath)}`);
 }
 
 export function workspaceFileContentPath(workspace: string, filePath: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(filePath)}`;
+  return workspaceApiPath(workspace, `/file-content?path=${encodeURIComponent(filePath)}`);
 }
 
 export function workspaceFilesPath(workspace: string, path: string = ""): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/files?path=${encodeURIComponent(path)}`;
+  return workspaceApiPath(workspace, `/files?path=${encodeURIComponent(path)}`);
 }
 
 export function workspaceCommitDiffPath(workspace: string, hash: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(hash)}`;
+  return workspaceApiPath(workspace, `/diff/${encodeURIComponent(hash)}`);
 }
 
 export function workspaceCommitMessagePath(workspace: string, hash: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/commit-message?hash=${encodeURIComponent(hash)}`;
+  return workspaceApiPath(workspace, `/commit-message?hash=${encodeURIComponent(hash)}`);
 }
 
 export function workspaceFileHistoryPath(workspace: string, filePath: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/file-history?path=${encodeURIComponent(filePath)}`;
+  return workspaceApiPath(workspace, `/file-history?path=${encodeURIComponent(filePath)}`);
 }
 
 export function workspaceFileDiffPath(workspace: string, hash: string, filePath: string): string {
-  return `/workspaces/${encodeURIComponent(workspace)}/file-diff/${encodeURIComponent(hash)}?path=${encodeURIComponent(filePath)}`;
+  return workspaceApiPath(workspace, `/file-diff/${encodeURIComponent(hash)}?path=${encodeURIComponent(filePath)}`);
 }

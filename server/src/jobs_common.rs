@@ -1,9 +1,7 @@
 //! ジョブ系ルーターの共有ロジック（Python 側 `api/routers/jobs_common.py` +
 //! `api/job_models.py` + `api/validators.py` のアイコン検証の移植）。
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -57,7 +55,7 @@ pub async fn validate_icon(state: &AppState, icon: &str) -> Result<String, ApiEr
     if icon.chars().count() > MAX_ICON_VALUE_LENGTH {
         return Err(too_large("Icon value too long"));
     }
-    let normalized = crate::icons::normalize_icon(&state.paths.icons_dir, icon)
+    let normalized = crate::icons::resolve_and_store_icon(&state.paths.icons_dir, icon)
         .await
         .map_err(|e| server_error(e.to_string()))?;
     if !icon_pattern_matches(&normalized) {
@@ -85,39 +83,35 @@ pub fn validate_icon_color(color: &str) -> Result<String, ApiError> {
 // Python 側と同じ TTL。移行期間中、Rust の書き込みは Python 側キャッシュを即時
 // 無効化できないが、TTL 以内に必ず再読込されるため staleness の上限は従来と同じ。
 
-type JobsCacheEntry = (Instant, Map<String, Value>);
+pub struct JobsCache(crate::util::TtlCache<Map<String, Value>>);
 
-#[derive(Default)]
-pub struct JobsCache {
-    store: Mutex<HashMap<String, JobsCacheEntry>>,
+impl Default for JobsCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl JobsCache {
     pub fn new() -> Self {
-        Self::default()
+        Self(crate::util::TtlCache::new(Duration::from_secs(
+            WORKSPACE_JOBS_CACHE_TTL_SEC,
+        )))
     }
 
     fn get(&self, key: &str) -> Option<Map<String, Value>> {
-        let store = self.store.lock().expect("jobs cache lock poisoned");
-        store.get(key).and_then(|(ts, v)| {
-            (ts.elapsed() < Duration::from_secs(WORKSPACE_JOBS_CACHE_TTL_SEC)).then(|| v.clone())
-        })
+        self.0.get(key)
     }
 
     fn set(&self, key: &str, value: Map<String, Value>) {
-        let mut store = self.store.lock().expect("jobs cache lock poisoned");
-        store.insert(key.to_string(), (Instant::now(), value));
+        self.0.set(key, value);
     }
 
     fn invalidate(&self, key: &str) {
-        self.store
-            .lock()
-            .expect("jobs cache lock poisoned")
-            .remove(key);
+        self.0.invalidate(key);
     }
 
     fn invalidate_all(&self) {
-        self.store.lock().expect("jobs cache lock poisoned").clear();
+        self.0.invalidate_all();
     }
 }
 
@@ -166,17 +160,17 @@ pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), A
     Ok(())
 }
 
-pub fn load_workspace_jobs_data(state: &AppState, workspace_name: &str) -> Map<String, Value> {
-    if let Some(cached) = state.jobs_cache.get(workspace_name) {
+pub fn load_workspace_jobs_data(state: &AppState, identifier: &str) -> Map<String, Value> {
+    if let Some(cached) = state.jobs_cache.get(identifier) {
         return cached;
     }
-    let cfg = state.config.load_workspace_config(workspace_name);
+    let cfg = state.config.load_workspace_config(identifier);
     let data = cfg
         .get("jobs")
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
-    state.jobs_cache.set(workspace_name, data.clone());
+    state.jobs_cache.set(identifier, data.clone());
     data
 }
 
@@ -186,14 +180,14 @@ pub fn load_workspace_jobs_data(state: &AppState, workspace_name: &str) -> Map<S
 /// `commit_common_jobs` のコメント参照）。
 pub fn commit_workspace_jobs(
     state: &AppState,
-    workspace_name: &str,
+    identifier: &str,
     mutate: JobsMutator,
 ) -> Result<(), ApiError> {
-    let workspace_name_owned = workspace_name.to_string();
+    let identifier_owned = identifier.to_string();
     state.config.with_exclusive(|all| {
         // Python save_workspace_config_section と同じ: エントリの jobs キーだけ差し替える
-        let key = ConfigStore::find_workspace_key(all, &workspace_name_owned)
-            .unwrap_or_else(|| workspace_name_owned.clone());
+        let key = ConfigStore::find_workspace_key(all, &identifier_owned)
+            .unwrap_or_else(|| identifier_owned.clone());
         let mut entry = all
             .get(&key)
             .and_then(Value::as_object)
@@ -209,21 +203,21 @@ pub fn commit_workspace_jobs(
         all.insert(key, Value::Object(entry));
         Ok(())
     })?;
-    state.jobs_cache.invalidate(workspace_name);
+    state.jobs_cache.invalidate(identifier);
     Ok(())
 }
 
 /// worktree のワークスペースはベースのワークスペースとジョブを共有する。
-pub fn resolve_jobs_owner(state: &AppState, workspace_name: &str) -> String {
-    if workspace_name.is_empty() {
-        return workspace_name.to_string();
+pub fn resolve_jobs_owner(state: &AppState, identifier: &str) -> String {
+    if identifier.is_empty() {
+        return identifier.to_string();
     }
-    if let Some((base, _branch)) = split_worktree_name(workspace_name) {
+    if let Some((base, _branch)) = split_worktree_name(identifier) {
         if state.config.resolve_workspace_id(&base).is_some() {
             return base;
         }
     }
-    workspace_name.to_string()
+    identifier.to_string()
 }
 
 // ─── JobDefinition の整形 ───────────────────────────────────────────────────
@@ -245,7 +239,11 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
         "icon": s("icon", ""),
         "icon_color": s("icon_color", ""),
         "confirm": b("confirm", true),
-        "detached_tab": b("detached_tab", false),
+        "detached": b("detached", false),
+        // v4 リネーム（detached_tab → detached）の過渡期対応: 開いたままの
+        // 旧 SPA バンドルは detached_tab しか読まないため、同値のミラーを
+        // 併載する。旧バンドルが淘汰されたら削除してよい。
+        "detached_tab": b("detached", false),
         "notify_phrase": s("notify_phrase", ""),
     });
     if let Some(c) = is_common {
@@ -256,12 +254,12 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
 
 /// 共通ジョブとワークスペースジョブをマージして API 応答形に整形する
 /// （Python `serialize_workspace_jobs` 相当）。
-pub fn serialize_workspace_jobs(state: &AppState, workspace_name: &str) -> Map<String, Value> {
-    if workspace_name.is_empty() {
+pub fn serialize_workspace_jobs(state: &AppState, identifier: &str) -> Map<String, Value> {
+    if identifier.is_empty() {
         return Map::new();
     }
     let common = load_common_jobs_data(state);
-    let owner = resolve_jobs_owner(state, workspace_name);
+    let owner = resolve_jobs_owner(state, identifier);
     let ws = load_workspace_jobs_data(state, &owner);
     merge_jobs_serialized(&ws, &common)
 }
@@ -284,8 +282,8 @@ pub fn merge_jobs_serialized(
 
 /// ジョブ名の存在確認（recent-jobs の除去判定用 — Python `get_workspace_jobs` の
 /// キー集合に対応）。
-pub fn workspace_job_names(state: &AppState, workspace_name: &str) -> Vec<String> {
-    serialize_workspace_jobs(state, workspace_name)
+pub fn workspace_job_names(state: &AppState, identifier: &str) -> Vec<String> {
+    serialize_workspace_jobs(state, identifier)
         .keys()
         .cloned()
         .collect()
@@ -304,8 +302,11 @@ pub struct JobRequest {
     pub icon_color: String,
     #[serde(default = "yes")]
     pub confirm: bool,
-    #[serde(default)]
-    pub detached_tab: bool,
+    /// alias は v4 リネーム（detached_tab → detached）の過渡期対応: バックエンド
+    /// 更新時に開いたままの旧 SPA バンドルが送る `detached_tab` を受理する。
+    /// 旧バンドルが淘汰されたら alias は削除してよい。
+    #[serde(default, alias = "detached_tab")]
+    pub detached: bool,
     #[serde(default)]
     pub notify_phrase: String,
 }
@@ -395,8 +396,8 @@ async fn build_job_entry(
     if !body.confirm {
         entry.insert("confirm".to_string(), json!(false));
     }
-    if body.detached_tab {
-        entry.insert("detached_tab".to_string(), json!(true));
+    if body.detached {
+        entry.insert("detached".to_string(), json!(true));
     }
     if !notify_phrase.is_empty() {
         entry.insert("notify_phrase".to_string(), json!(notify_phrase));
@@ -526,6 +527,27 @@ mod tests {
         assert_eq!(d["label"], "job_x");
         assert_eq!(d["confirm"], true);
         assert_eq!(d["common"], false);
+    }
+
+    /// v4 リネームの過渡期対応: 応答は `detached` と同値の `detached_tab`
+    /// ミラーを併載し、リクエストは legacy の `detached_tab` も受理する。
+    #[test]
+    fn detached_transitional_aliases() {
+        let entry = serde_json::json!({"command": "npm run dev", "detached": true});
+        let d = job_entry_to_dict("dev", &entry, None);
+        assert_eq!(d["detached"], true);
+        assert_eq!(d["detached_tab"], true);
+
+        let legacy: JobRequest = serde_json::from_value(
+            serde_json::json!({"label": "x", "command": "x", "detached_tab": true}),
+        )
+        .unwrap();
+        assert!(legacy.detached);
+        let current: JobRequest = serde_json::from_value(
+            serde_json::json!({"label": "x", "command": "x", "detached": true}),
+        )
+        .unwrap();
+        assert!(current.detached);
     }
 
     #[test]

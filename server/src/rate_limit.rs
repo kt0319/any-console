@@ -49,7 +49,7 @@ const SKIP_EXACT: &[&str] = &[
 
 const SKIP_PREFIXES: &[&str] = &["/terminal/ws/", "/preview/"];
 
-pub fn should_skip(path: &str) -> bool {
+pub fn should_skip_rate_limit(path: &str) -> bool {
     SKIP_EXACT.contains(&path)
         || STATIC_DIRS.iter().any(|p| path.starts_with(p))
         || SKIP_PREFIXES.iter().any(|p| path.starts_with(p))
@@ -73,7 +73,8 @@ impl FixedWindowCounter {
         }
     }
 
-    pub fn is_allowed(&self, key: &str, limit: u32, window: Duration) -> bool {
+    /// 1 リクエスト分を記録した上で、上限内なら true を返す（呼ぶたびに 1 消費する）。
+    pub fn try_acquire(&self, key: &str, limit: u32, window: Duration) -> bool {
         let now = Instant::now();
         let mut counts = self.counts.lock().expect("rate limiter lock poisoned");
         match counts.get(key).copied() {
@@ -100,30 +101,30 @@ mod tests {
 
     #[test]
     fn skip_rules_match_python() {
-        assert!(should_skip("/"));
-        assert!(should_skip("/auth/check"));
-        assert!(should_skip("/agent-hooks/events"));
-        assert!(should_skip("/assets/index-abc123.js"));
-        assert!(should_skip("/terminal/ws/sess1"));
-        assert!(should_skip("/preview/local/3000/index.html"));
-        assert!(should_skip("/some/deep/file.css"));
-        assert!(!should_skip("/workspaces"));
-        assert!(!should_skip("/dispatch"));
-        assert!(!should_skip("/terminal/sessions"));
+        assert!(should_skip_rate_limit("/"));
+        assert!(should_skip_rate_limit("/auth/check"));
+        assert!(should_skip_rate_limit("/agent-hooks/events"));
+        assert!(should_skip_rate_limit("/assets/index-abc123.js"));
+        assert!(should_skip_rate_limit("/terminal/ws/sess1"));
+        assert!(should_skip_rate_limit("/preview/local/3000/index.html"));
+        assert!(should_skip_rate_limit("/some/deep/file.css"));
+        assert!(!should_skip_rate_limit("/workspaces"));
+        assert!(!should_skip_rate_limit("/dispatch"));
+        assert!(!should_skip_rate_limit("/terminal/sessions"));
     }
 
     #[test]
     fn fixed_window_counts_and_resets() {
         let c = FixedWindowCounter::new();
         let window = Duration::from_millis(50);
-        assert!(c.is_allowed("api:1.2.3.4", 2, window));
-        assert!(c.is_allowed("api:1.2.3.4", 2, window));
-        assert!(!c.is_allowed("api:1.2.3.4", 2, window));
+        assert!(c.try_acquire("api:1.2.3.4", 2, window));
+        assert!(c.try_acquire("api:1.2.3.4", 2, window));
+        assert!(!c.try_acquire("api:1.2.3.4", 2, window));
         // 別キーは独立
-        assert!(c.is_allowed("api:5.6.7.8", 2, window));
+        assert!(c.try_acquire("api:5.6.7.8", 2, window));
         // 窓が切れたらリセット
         std::thread::sleep(Duration::from_millis(60));
-        assert!(c.is_allowed("api:1.2.3.4", 2, window));
+        assert!(c.try_acquire("api:1.2.3.4", 2, window));
     }
 
     #[test]

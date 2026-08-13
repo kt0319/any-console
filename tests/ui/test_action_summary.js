@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildActionSummary } from "../../ui/utils/actionSummary.ts";
+import { buildActionSummary } from "../../ui/utils/action-summary.ts";
 
 describe("buildActionSummary", () => {
   it("titleと改行+空行を必ず含める", () => {

@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
@@ -49,7 +49,7 @@ import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 const workspaceStore = useWorkspaceStore();
 const emits = defineEmits(["select"]);
-const { queue, recent: allRecent } = useDispatchConfirm();
+const { queue, recent: allRecent } = useDispatchQueue();
 
 const pending = computed(() =>
   queue.value.filter((item) => dispatchWorkspaceLabel(item.request) === workspaceStore.selectedWorkspace),

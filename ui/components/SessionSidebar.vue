@@ -15,7 +15,7 @@ import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
 // タブバー左端のハンバーガーで開くPC用サイドバー。中身（セッション一覧）は
-// 共有のSessionListPanel.vue/useSessionListOverlay.jsに集約されており、この
+// 共有のSessionListPanel.vue/useSessionListOverlay.tsに集約されており、この
 // コンポーネントはコンテンツ左側に固定表示するための入れ物でしかない
 // （モバイルはModal.vueが同じSessionListPanel.vueを全面オーバーレイで表示する）。
 // Open Session/Settingsはタブバーの「+」/歯車ボタンから独立して開くため、

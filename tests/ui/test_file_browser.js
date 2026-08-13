@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import {
-  joinEntryPath, splitPathSegments, entrySizeText, buildGithubEntryUrl,
+  joinEntryPath, splitPathSegments, entrySizeText, buildGitHubEntryUrl,
 } from "../../ui/utils/file-browser.ts";
 
 // ── Tests ──
@@ -60,38 +60,38 @@ describe("entrySizeText", () => {
   });
 });
 
-describe("buildGithubEntryUrl", () => {
+describe("buildGitHubEntryUrl", () => {
   const ws = { github_url: "https://github.com/foo/bar", branch: "dev" };
 
   it("builds blob URL for files", () => {
-    const url = buildGithubEntryUrl(ws, "src", { name: "app.js", type: "file" });
+    const url = buildGitHubEntryUrl(ws, "src", { name: "app.js", type: "file" });
     expect(url).toBe("https://github.com/foo/bar/blob/dev/src/app.js");
   });
 
   it("builds tree URL for dirs", () => {
-    const url = buildGithubEntryUrl(ws, "src", { name: "components", type: "dir" });
+    const url = buildGitHubEntryUrl(ws, "src", { name: "components", type: "dir" });
     expect(url).toBe("https://github.com/foo/bar/tree/dev/src/components");
   });
 
   it("omits parent path at root", () => {
-    const url = buildGithubEntryUrl(ws, "", { name: "app.js", type: "file" });
+    const url = buildGitHubEntryUrl(ws, "", { name: "app.js", type: "file" });
     expect(url).toBe("https://github.com/foo/bar/blob/dev/app.js");
   });
 
   it("falls back to main when branch is missing", () => {
-    const url = buildGithubEntryUrl({ github_url: "https://github.com/foo/bar" }, "", { name: "app.js", type: "file" });
+    const url = buildGitHubEntryUrl({ github_url: "https://github.com/foo/bar" }, "", { name: "app.js", type: "file" });
     expect(url).toBe("https://github.com/foo/bar/blob/main/app.js");
   });
 
   it("returns empty without github_url", () => {
-    expect(buildGithubEntryUrl({}, "", { name: "app.js", type: "file" })).toBe("");
+    expect(buildGitHubEntryUrl({}, "", { name: "app.js", type: "file" })).toBe("");
   });
 
   it("returns empty without entry", () => {
-    expect(buildGithubEntryUrl(ws, "", null)).toBe("");
+    expect(buildGitHubEntryUrl(ws, "", null)).toBe("");
   });
 
   it("returns empty for null workspace", () => {
-    expect(buildGithubEntryUrl(null, "", { name: "a", type: "file" })).toBe("");
+    expect(buildGitHubEntryUrl(null, "", { name: "a", type: "file" })).toBe("");
   });
 });

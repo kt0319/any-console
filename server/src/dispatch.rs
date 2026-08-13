@@ -15,7 +15,7 @@
 //! push 通知は `crate::push::send_push_notification` へネイティブに委譲する
 //! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信は
 //! `state.status_stream.broadcast`（`broadcast_queue()`）でネイティブに行う。
-//! dispatch scope API トークン検証は `Auth::verify_api_token`（`auth.rs`）へ
+//! dispatch scope API トークン検証は `Auth::verify_and_touch_api_token`（`auth.rs`）へ
 //! ネイティブに委譲する。
 
 use std::path::{Path as FsPath, PathBuf};
@@ -29,9 +29,9 @@ use tokio::sync::Mutex;
 
 use crate::auth::{parse_cookies, AuthKind, RequireAuth};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
-use crate::git_helpers::{invalidate_git_info, validate_branch_name};
+use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
-    git_branch, git_branches, resolve_workspace_path, run_git_raw, GitError, GIT_QUICK_TIMEOUT_SEC,
+    git_branch, git_branches, resolve_workspace_path, run_git_raw, GIT_QUICK_TIMEOUT_SEC,
 };
 use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
@@ -365,12 +365,7 @@ async fn has_uncommitted_changes(ws_path: &FsPath) -> Result<bool, ApiError> {
     .await
     {
         Ok(out) => Ok(out.code == 0 && !out.stdout.trim().is_empty()),
-        Err(GitError::Timeout) => Err(crate::errors::timeout_error(
-            "Failed to check workspace status",
-        )),
-        Err(GitError::Os(e)) => Err(server_error(format!(
-            "Failed to check workspace status: {e}"
-        ))),
+        Err(e) => Err(crate::git_utils::map_git_error(e, "Workspace status check")),
     }
 }
 
@@ -405,13 +400,9 @@ async fn ensure_branch(
         return Err(bad_request(format!("Branch does not exist: {branch}")));
     };
     let args_ref: Vec<&str> = args.iter_mut().map(|s| s.as_str()).collect();
-    let result = match run_git_raw(&args_ref, ws_path, GIT_QUICK_TIMEOUT_SEC, &[]).await {
-        Ok(out) => out,
-        Err(GitError::Timeout) => {
-            return Err(crate::errors::timeout_error("Branch operation timed out"))
-        }
-        Err(GitError::Os(e)) => return Err(server_error(format!("Branch operation failed: {e}"))),
-    };
+    let result = run_git_raw(&args_ref, ws_path, GIT_QUICK_TIMEOUT_SEC, &[])
+        .await
+        .map_err(|e| crate::git_utils::map_git_error(e, "Branch operation"))?;
     if result.code != 0 {
         let stderr = result.stderr.trim().to_string();
         return Err(bad_request(if stderr.is_empty() {
@@ -420,7 +411,7 @@ async fn ensure_branch(
             stderr
         }));
     }
-    invalidate_git_info(state, workspace_name, ws_path);
+    invalidate_and_publish_git_info(state, workspace_name, ws_path);
     Ok(())
 }
 
@@ -488,15 +479,12 @@ async fn resolve_session(
 ) -> Option<(String, Arc<Mutex<TerminalSession>>)> {
     if let Some(sid) = body.session_id.as_deref().filter(|s| !s.is_empty()) {
         // レジストリ未登録でも tmux 上には実在しうる（Rust 再起動直後・別プロセスが
-        // 作成した等）ため、registry-only の `get` ではなく `get_or_register` で
-        // on-demand ハイドレートしてから解決する（Codex レビュー指摘: `get` だけだと
+        // 作成した等）ため、registry-only の `get` ではなく `terminal_session`
+        // （get_or_register）で on-demand ハイドレートしてから解決する
+        // （Codex レビュー指摘: `get` だけだと
         // 明示的に選択されたセッションが無視され、別のセッションへ誤って送信/新規
         // セッションを二重作成してしまう）。
-        if let Ok(sess) = state
-            .terminal_registry
-            .get_or_register(&state.config, &state.paths.tmux_prefix, sid)
-            .await
-        {
+        if let Ok(sess) = state.terminal_session(sid).await {
             return Some((sid.to_string(), sess));
         }
     }
@@ -699,7 +687,7 @@ async fn verify_dispatch_auth(
             AuthKind::Tailscale | AuthKind::Device => (result.label, false),
         });
     }
-    if let Some(entry) = state.auth.verify_api_token(bearer) {
+    if let Some(entry) = state.auth.verify_and_touch_api_token(bearer) {
         if entry.get("scope").and_then(Value::as_str) == Some(crate::auth::API_TOKEN_SCOPE_DISPATCH)
         {
             let token_id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
@@ -800,20 +788,14 @@ async fn dispatch_core(
 
     let dispatch_id = crate::util::token_urlsafe(8);
     let notify_push = |state: &Arc<AppState>| {
-        let body_text = dispatch_notification_body(&effective_ws, &body, &job_def);
-        let url_path = format!("/?openDispatchQueue=1&dispatchId={dispatch_id}");
-        let push_state = state.clone();
-        tokio::spawn(async move {
-            crate::push::send_push_notification(
-                &push_state,
-                "Dispatch",
-                &body_text,
-                &url_path,
-                "dispatch",
-                None,
-            )
-            .await;
-        });
+        crate::push::spawn_push_notification(
+            state,
+            "Dispatch",
+            dispatch_notification_body(&effective_ws, &body, &job_def),
+            format!("/?openDispatchQueue=1&dispatchId={dispatch_id}"),
+            "dispatch",
+            None,
+        );
     };
 
     if body.direct {
@@ -1237,43 +1219,7 @@ mod tests {
     }
 
     async fn test_state(dir: &tempfile::TempDir) -> Arc<AppState> {
-        use crate::auth::Auth;
-        use crate::config::ConfigStore;
-        use crate::git_lock::WorkspaceLocks;
-        use crate::rate_limit::FixedWindowCounter;
-        use crate::terminal_session::TerminalRegistry;
-        let data_dir = dir.path().join("data");
-        Arc::new(AppState {
-            paths: Paths {
-                project_root: dir.path().to_path_buf(),
-                data_dir: data_dir.clone(),
-                config_file: dir.path().join("config.json"),
-                frontend_dir: dir.path().join("dist"),
-                icons_dir: data_dir.join("icons"),
-                tmux_prefix: "ac-test-".to_string(),
-            },
-            config: ConfigStore::new(dir.path().join("config.json")),
-            git_locks: WorkspaceLocks::new(),
-            gh_cache: crate::github::GhCache::new(),
-            git_info_cache: crate::git_info::GitInfoCache::new(),
-            git_watch: crate::git_watch::GitWatchState::new(),
-            jobs_cache: crate::jobs_common::JobsCache::new(),
-            terminal_registry: TerminalRegistry::new(),
-            dispatch: DispatchState::new(),
-            agent_hooks: crate::agent_hooks::AgentHookState::new(),
-            agent_watch: crate::agent_watch::AgentWatchState::new(),
-            status_stream: crate::status_stream::StatusStreamState::new(),
-            manifest_store: crate::screen_manifest::ManifestStore::new(
-                dir.path().join("agent_manifests"),
-                dir.path(),
-            ),
-            preview: crate::preview::PreviewState::new(),
-            pairing: crate::pairing::PairingState::new(),
-            push: crate::push::PushState::new(),
-            static_ctx: None,
-            auth: Auth::load(data_dir, false),
-            rate_counter: FixedWindowCounter::new(),
-            rate_limit: 10_000,
-        })
+        // rate_limit はテストの連続リクエストが制限に触れないよう引き上げる。
+        Arc::new(crate::state::test_app_state(dir.path(), "ac-test-", 10_000))
     }
 }

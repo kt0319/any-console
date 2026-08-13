@@ -16,7 +16,7 @@ import { emit } from "../app-bridge.ts";
 const resolvedJobIcons = new Map<string, { icon: string, iconColor: string | null }>();
 
 // launchTerminal() 等、buildSessionTabParams を経由しない経路で既にジョブ
-// アイコンが解決済みのときにキャッシュへ書き込む（useTerminalLifecycle.js から使用）。
+// アイコンが解決済みのときにキャッシュへ書き込む（useTerminalLifecycle.ts から使用）。
 // 呼び出し側は mdi-play フォールバック適用前の生のジョブアイコンを渡すこと。
 export function rememberJobIcon(sessionId: string, icon: string, iconColor?: string | null) {
   if (!sessionId || !icon) return;

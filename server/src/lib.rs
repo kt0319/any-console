@@ -1,4 +1,4 @@
-//! any-console Rust バックエンド（Phase 0: ストラングラー proxy 骨格）。
+//! any-console Rust バックエンド（全ルートをネイティブ実装 — 移行の経緯は docs/RUST_MIGRATION.md）。
 //!
 //! バイナリ（main.rs）と統合テストが共有するライブラリ部。モジュール構成は
 //! Python 側 `api/` のファイル構成に対応させている（移植元の追跡を容易にするため）。
@@ -14,6 +14,7 @@ pub mod config_schema;
 pub mod devices;
 pub mod dispatch;
 pub mod errors;
+pub mod fallback;
 pub mod foreground;
 pub mod git_branches;
 pub mod git_diff;
@@ -38,7 +39,6 @@ pub mod middleware;
 pub mod pairing;
 pub mod paths;
 pub mod preview;
-pub mod proxy;
 pub mod pty;
 pub mod push;
 pub mod rate_limit;
@@ -70,8 +70,8 @@ use crate::state::AppState;
 async fn index(State(state): State<Arc<AppState>>) -> Response {
     match &state.static_ctx {
         Some(ctx) => ctx.serve_index(),
-        // dist 未ビルド時は Python のソースモード配信へ委ねる
-        None => proxy_get(state, "/").await,
+        // dist 未ビルド時はフォールバック（= 404）へ落とす
+        None => serve_static_or_404(state, "/").await,
     }
 }
 
@@ -79,26 +79,27 @@ async fn pair_page(State(state): State<Arc<AppState>>) -> Response {
     // QRペアリング画面は "/" と同じ SPA シェル（解釈はフロント側が行う）
     match &state.static_ctx {
         Some(ctx) => ctx.serve_index(),
-        None => proxy_get(state, "/").await,
+        None => serve_static_or_404(state, "/").await,
     }
 }
 
 async fn sw_js(State(state): State<Arc<AppState>>) -> Response {
     match &state.static_ctx {
         Some(ctx) => ctx.serve_sw(),
-        None => proxy_get(state, "/sw.js").await,
+        None => serve_static_or_404(state, "/sw.js").await,
     }
 }
 
-/// ハンドラ内から proxy へ委譲するための最小 GET リクエスト組み立て。
-async fn proxy_get(state: Arc<AppState>, path: &str) -> Response {
+/// ハンドラ内からフォールバック（静的ファイル → 404）へ委譲するための
+/// 最小 GET リクエスト組み立て。
+async fn serve_static_or_404(state: Arc<AppState>, path: &str) -> Response {
     let req = axum::http::Request::builder()
         .method("GET")
         .uri(path)
         .body(axum::body::Body::empty())
-        .expect("static proxy request");
+        .expect("static fallback request");
     let addr: SocketAddr = "127.0.0.1:0".parse().expect("loopback addr");
-    proxy::fallback(State(state), axum::extract::ConnectInfo(addr), req)
+    fallback::handle(State(state), axum::extract::ConnectInfo(addr), req)
         .await
         .into_response()
 }
@@ -108,7 +109,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/", get(index))
         .route("/pair/{pairing_id}", get(pair_page))
         .route("/sw.js", get(sw_js))
-        // ─── Rust ネイティブ移行済みルート（Phase 1: system）───────────────
+        // ─── system ─────────────────────────────────────────────────────────
         .route("/system/info", get(system::info))
         .route("/system/processes", get(system::processes))
         .route("/system/process/kill", post(system::process_kill))
@@ -123,7 +124,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             post(upload_image::upload_image)
                 .layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
         )
-        // ─── Rust ネイティブ移行済みルート（Phase 1: settings / groups）────
+        // ─── settings / groups ──────────────────────────────────────────────
         .route("/settings/config-health", get(settings::config_health))
         .route("/settings/export", get(settings::export_settings))
         .route("/settings/import", post(settings::import_settings))
@@ -163,7 +164,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             put(groups::update_group).delete(groups::delete_group),
         )
         .route("/group-order", put(groups::update_group_order))
-        // ─── Rust ネイティブ移行済みルート（Phase 2: git 履歴/差分/コミット/スタッシュ）
+        // ─── git 履歴/差分/コミット/スタッシュ ──────────────────────────────
         .route("/workspaces/{name}/git-log", get(git_history::git_log))
         .route(
             "/workspaces/{name}/unpulled-log",
@@ -210,7 +211,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(git_diff::file_commit_diff),
         )
         .route("/workspaces/{name}/git/discard", post(git_diff::discard))
-        // ─── Rust ネイティブ移行済みルート（Phase 2: ブランチ/ファイル/worktree/GitHub）
+        // ─── git ブランチ/ファイル/worktree/GitHub ──────────────────────────
         .route(
             "/workspaces/{name}/branches",
             get(git_branches::list_branches),
@@ -270,8 +271,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/workspaces/{name}/github/issues", get(github::issues))
         .route("/workspaces/{name}/github/pulls", get(github::pulls))
         .route("/workspaces/{name}/github/runs", get(github::runs))
-        // ─── Rust ネイティブ移行済みルート（Phase 3: ジョブ CRUD / recent-jobs）
-        // ジョブ実行（/run・dispatch）はターミナル依存のため Python のまま（Phase 5）
+        // ─── ジョブ CRUD / recent-jobs
         .route("/jobs/workspaces", get(jobs::list_all_workspace_jobs))
         .route(
             "/workspaces/{name}/jobs",
@@ -298,7 +298,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/recent-jobs",
             get(settings::get_recent_jobs).put(settings::put_recent_jobs),
         )
-        // ─── Rust ネイティブ移行済みルート（Phase 4: ワークスペース一覧/登録/設定 + status stream）
+        // ─── ワークスペース一覧/登録/設定 + status stream ───────────────────
         .route(
             "/workspaces",
             get(workspaces::list_workspaces).post(workspaces::add_workspace),
@@ -355,7 +355,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(terminal::get_tab_order).put(terminal::put_tab_order),
         )
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
-        .route("/run", post(job_runner::execute_job))
+        .route("/run", post(job_runner::run_terminal_job))
         .route("/dispatch", post(dispatch::dispatch))
         .route(
             "/dispatch/{dispatch_id}/decision",
@@ -369,9 +369,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/agent-hooks/events",
             post(agent_hooks::post_agent_hook_event),
         )
-        // ─── Rust ネイティブ移行済みルート（dev server ポートプレビュー） ───
+        // ─── dev server ポートプレビュー ────────────────────────────────────
         .route("/preview/ports", get(preview::list_detected_ports))
-        // ─── Rust ネイティブ移行済みルート（認証ドメイン: devices.json / auth.json）
+        // ─── 認証ドメイン（devices.json / auth.json） ───────────────────────
         // devices.json・auth.json への書き込みが Python/Rust の両方から起きる
         // split-brain を避けるため、この一群は同時に配線する（atomic cutover —
         // `server/src/devices.rs` / `server/src/pairing.rs` の module doc 参照）。
@@ -401,14 +401,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/auth/pairing/{pairing_id}/claim",
             post(pairing::claim_pairing),
         )
-        // ─── Rust ネイティブ移行済みルート（Web Push） ─────────────────────
+        // ─── Web Push ───────────────────────────────────────────────────────
         .route("/push/vapid-public-key", get(push::vapid_public_key_route))
         .route(
             "/push/subscribe",
             post(push::subscribe_route).delete(push::unsubscribe_route),
         )
         // ────────────────────────────────────────────────────────────────
-        .fallback(proxy::fallback)
+        .fallback(fallback::handle)
         // Python main.py の add_middleware 順（後着が外殻）を踏襲:
         // SecurityHeaders → RateLimit → ClientLog → ルート
         .layer(axum::middleware::from_fn(middleware::client_log))

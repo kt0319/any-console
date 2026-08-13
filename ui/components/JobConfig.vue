@@ -32,7 +32,7 @@
       <div class="job-section-divider"></div>
       <div class="ws-settings-row" style="gap:8px">
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached" /> Run detached</label>
       </div>
       <div class="ws-settings-row ws-settings-row-stack">
         <span class="ws-settings-label">Notify phrase <span class="job-label-note">(PWA only)</span></span>
@@ -117,7 +117,7 @@ const form = ref(
           icon: jobEntry.job.icon || DEFAULT_JOB_ICON,
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
-          detached_tab: !!jobEntry.job.detached_tab,
+          detached: !!jobEntry.job.detached,
           notify_phrase: jobEntry.job.notify_phrase || "",
         }
       : {
@@ -126,7 +126,7 @@ const form = ref(
           icon: DEFAULT_JOB_ICON,
           icon_color: "",
           confirm: false,
-          detached_tab: false,
+          detached: false,
           notify_phrase: "",
         }
 );
@@ -168,7 +168,7 @@ async function saveJob() {
       icon: f.icon.trim() || DEFAULT_JOB_ICON,
       icon_color: f.icon_color.trim(),
       confirm: f.confirm,
-      detached_tab: f.detached_tab,
+      detached: f.detached,
       notify_phrase: f.notify_phrase.trim(),
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);

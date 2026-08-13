@@ -132,7 +132,7 @@ const settingsLabel = computed(() => (isSettingsOpen.value ? "Close settings" : 
 
 function onMenuClick() {
   // 開閉のexclusive制御（他オーバーレイを閉じる/閉じないの判定）は
-  // useSessionListOverlay.js（useExclusiveMobileOverlay.js経由）に集約されて
+  // useSessionListOverlay.ts（useExclusiveMobileOverlay.ts経由）に集約されて
   // いるため、ここでは単純に開閉を切り替えるだけでよい。
   if (isSessionListOpen.value) closeSessionList();
   else openSessionList();

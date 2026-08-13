@@ -406,6 +406,30 @@ fn should_skip_for_viewing(
 /// 記録した `device_id` と `StatusStreamState::is_device_viewing` で判定）
 /// への送信だけをスキップする。dispatch通知等セッション閲覧と無関係な
 /// 通知は `session_id: None` で呼び、全購読へ通常通り送る。
+/// `send_push_notification` を fire-and-forget で `tokio::spawn` する定型
+/// （agent_watch の phrase/blocked 通知・dispatch 通知が共用する）。
+pub fn spawn_push_notification(
+    state: &std::sync::Arc<AppState>,
+    title: &'static str,
+    body: String,
+    url_path: String,
+    notif_type: &'static str,
+    session_id: Option<String>,
+) {
+    let state = state.clone();
+    tokio::spawn(async move {
+        send_push_notification(
+            &state,
+            title,
+            &body,
+            &url_path,
+            notif_type,
+            session_id.as_deref(),
+        )
+        .await;
+    });
+}
+
 pub async fn send_push_notification(
     state: &std::sync::Arc<AppState>,
     title: &str,

@@ -349,7 +349,7 @@ function toggleJobs(ws: Record<string, any>) {
 function openChanges(ws: Record<string, any>) {
   workspaceStore.selectedWorkspace = ws.name;
   // WorkspaceDetailはSettingsのスタックとは独立しているため、他のピル等と
-  // 同じgit:openFileModalイベント経由で開く（useSettingsNav.js参照）。
+  // 同じgit:openFileModalイベント経由で開く（useSettingsNav.ts参照）。
   bridgeEmit("git:openFileModal", { pane: "changes" });
 }
 

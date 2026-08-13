@@ -335,13 +335,13 @@ async fn export_health_and_import() {
     .await
     .error_for_status()
     .unwrap();
-    // export の読み込みがバージョンマイグレーション（v0 → v3 刻印）を起こす
+    // export の読み込みがバージョンマイグレーション（v0 → v4 刻印）を起こす
     // （Python も同じ: config_version は読み込み時に刻印される）
     let exported = get_json(&front, "/settings/export").await;
     assert_eq!(exported["__global__"]["editor"]["url_template"], "e://x");
     let health = get_json(&front, "/settings/config-health").await;
     assert_eq!(health["ok"], true);
-    assert_eq!(health["config_version"], 3);
+    assert_eq!(health["config_version"], 4);
 
     // import: global は丸ごと置換
     let resp = common::client()
@@ -452,6 +452,47 @@ async fn recent_jobs_rejects_oversized_fields() {
             "{field}: {body:?}"
         );
     }
+}
+
+/// v4 リネーム（jobDetachedTab → jobDetached）の過渡期互換（Codex レビュー指摘）:
+/// - PUT: legacy キーのみ・両キー併存（旧 SPA が GET ミラー応答を丸ごと PUT し
+///   返すケース）のどちらも受理し、保存形は jobDetached に畳み込む
+/// - GET: 旧 SPA が読めるよう jobDetached: true の項目に jobDetachedTab を併載する
+#[tokio::test]
+async fn recent_jobs_detached_transitional_compat() {
+    let front = spawn_front().await;
+
+    // legacy キーのみ（旧 SPA の新規記録）
+    let resp = put_json(
+        &front,
+        "/recent-jobs",
+        &json!({"recent_jobs": [{"key": "k1", "jobDetachedTab": true}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["recent_jobs"][0]["jobDetached"], json!(true));
+
+    // GET は保存形（jobDetached）に加えて過渡期ミラー（jobDetachedTab）を併載する
+    let got = get_json(&front, "/recent-jobs").await;
+    assert_eq!(got["recent_jobs"][0]["jobDetached"], json!(true));
+    assert_eq!(got["recent_jobs"][0]["jobDetachedTab"], json!(true));
+
+    // 両キー併存（旧 SPA が GET 応答をそのまま PUT し返す）でも 4xx にならず、
+    // 新キー側が正となる
+    let resp = put_json(
+        &front,
+        "/recent-jobs",
+        &json!({"recent_jobs": [
+            {"key": "k1", "jobDetached": true, "jobDetachedTab": true},
+            {"key": "k2", "jobDetached": false, "jobDetachedTab": true},
+        ]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["recent_jobs"][0]["jobDetached"], json!(true));
+    assert_eq!(body["recent_jobs"][1]["jobDetached"], json!(false));
 }
 
 #[tokio::test]

@@ -112,7 +112,7 @@ import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { workspaceDisplayName } from "../utils/worktree.ts";
 
@@ -126,7 +126,7 @@ const {
   prsCount,
   stashCount,
   changesCount,
-  hasGithub,
+  hasGitHub,
   primeFromCache,
   loadCounts,
 } = useWorkspaceCounts();
@@ -147,7 +147,7 @@ const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(n
 // （別レイヤーとして開いてしまい、ワークスペース詳細の外に見えてしまうため）。
 const selectedDispatchId = ref<string | null>(null);
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
-// （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.jsのcloseをprovideする）。
+// （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.tsのcloseをprovideする）。
 const closeWorkspaceDetail = inject<(() => void) | undefined>("closeWorkspaceDetail");
 function onDispatchRunDone() {
   selectedDispatchId.value = null;
@@ -170,7 +170,7 @@ const diffMessage = ref("");
 const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
-const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchConfirm();
+const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchQueue();
 // タブのバッジ数字は承認待ち（pending）件数のみでよい（実行済みrecentは
 // 件数に含めない）。ただしタブ自体の表示可否はrecentしか無い場合でも
 // 履歴を見返せるよう、pending/recentのどちらかがあれば出す。
@@ -211,9 +211,9 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--accent)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
-    { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
-    { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
-    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#8c6c50", hidden: !isGit || !hasGithub.value },
+    { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
+    { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGitHub.value || !prsCount.value },
+    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#8c6c50", hidden: !isGit || !hasGitHub.value },
     { key: "dispatch", icon: "mdi-inbox-arrow-down-outline", label: "Dispatch", iconColor: "var(--pink)", count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
@@ -633,7 +633,7 @@ onMounted(() => {
   flex-direction: column;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .workspace-detail {
     flex-direction: column-reverse;
   }

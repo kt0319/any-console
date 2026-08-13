@@ -6,7 +6,7 @@ import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { usePrompt } from "./usePrompt.ts";
 import { emit } from "../app-bridge.ts";
-import { buildActionSummary } from "../utils/actionSummary.ts";
+import { buildActionSummary } from "../utils/action-summary.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
 import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.ts";

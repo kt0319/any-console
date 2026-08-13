@@ -4,7 +4,7 @@
 //! ターミナル WS・`/run` と同時に配線する）ため、テスト専用の Router を直接
 //! 組み立てる。dispatch キューの配信は `state.status_stream`（ネイティブ
 //! broadcast channel）を直接購読して検証する。dispatch scope API トークン検証は
-//! `Auth::verify_api_token` へネイティブに移行済みのため、フェイクではなく
+//! `Auth::verify_and_touch_api_token` へネイティブに移行済みのため、フェイクではなく
 //! `Auth::create_api_token` で実際に発行したトークンを使う。push 通知は
 //! `crate::push` へネイティブに移行済みのため、フェイクの Web Push サービスへ
 //! 実際に暗号化された HTTP リクエストが飛ぶことを検証する（暗号の正しさ自体は

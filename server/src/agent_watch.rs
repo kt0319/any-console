@@ -222,7 +222,7 @@ async fn session_meta(state: &AppState, session_id: &str) -> (Option<String>, Op
         let session = cached.lock().await;
         return (session.workspace.clone(), session.job_name.clone());
     }
-    let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+    let tmux_name = state.paths.tmux_session_name(session_id);
     let meta = crate::tmux::load_tmux_metadata(&tmux_name).await;
     (
         meta.get("TMUX_WORKSPACE").cloned(),
@@ -241,7 +241,7 @@ async fn apply_workspace_tag(state: &AppState, session_id: &str, workspace: &str
         session.workspace = Some(workspace.to_string());
         session.save_workspace().await;
     } else {
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(session_id);
         crate::tmux::set_environment(&tmux_name, &[("TMUX_WORKSPACE", workspace)]).await;
     }
     tracing::info!("auto-bound workspace session={session_id} workspace={workspace}");
@@ -303,7 +303,7 @@ async fn apply_job_tag(
         }
         session.save_metadata().await;
     } else {
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(session_id);
         crate::tmux::set_environment(
             &tmux_name,
             &[
@@ -427,7 +427,7 @@ pub async fn collect_agent_states(
     let mut inspector = ForegroundInspector::new();
 
     for session_id in &session_ids {
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(session_id);
         let Some(capture) = crate::tmux::capture_visible_pane(&tmux_name).await else {
             continue;
         };
@@ -670,20 +670,14 @@ async fn poll_loop(state: Arc<AppState>) {
                 Some(w) => format!("{w}: {phrase}"),
                 None => phrase.clone(),
             };
-            let url_path = format!("/?session={session_id}");
-            let session_id = session_id.clone();
-            let push_state = state.clone();
-            tokio::spawn(async move {
-                crate::push::send_push_notification(
-                    &push_state,
-                    "Phrase detected",
-                    &body,
-                    &url_path,
-                    "phrase",
-                    Some(&session_id),
-                )
-                .await;
-            });
+            crate::push::spawn_push_notification(
+                &state,
+                "Phrase detected",
+                body,
+                format!("/?session={session_id}"),
+                "phrase",
+                Some(session_id.clone()),
+            );
         }
         // blocked（許可待ち）遷移は phrase と異なり猶予を設けず即時 push する
         // （入力待ちは早く気づけるほど良いため）。
@@ -692,20 +686,14 @@ async fn poll_loop(state: Arc<AppState>) {
                 Some(w) => format!("{w}: waiting for your input"),
                 None => "waiting for your input".to_string(),
             };
-            let url_path = format!("/?session={session_id}");
-            let session_id = session_id.clone();
-            let push_state = state.clone();
-            tokio::spawn(async move {
-                crate::push::send_push_notification(
-                    &push_state,
-                    "Agent blocked",
-                    &body,
-                    &url_path,
-                    "blocked",
-                    Some(&session_id),
-                )
-                .await;
-            });
+            crate::push::spawn_push_notification(
+                &state,
+                "Agent blocked",
+                body,
+                format!("/?session={session_id}"),
+                "blocked",
+                Some(session_id.clone()),
+            );
         }
     }
 }
@@ -968,14 +956,6 @@ mod tests {
 #[cfg(test)]
 mod collect_agent_states_tests {
     use super::*;
-    use crate::config::ConfigStore;
-    use crate::dispatch::DispatchState;
-    use crate::git_info::GitInfoCache;
-    use crate::git_lock::WorkspaceLocks;
-    use crate::github::GhCache;
-    use crate::jobs_common::JobsCache;
-    use crate::rate_limit::FixedWindowCounter;
-    use crate::terminal_session::TerminalRegistry;
     use serde_json::json;
 
     /// テストが作った実tmuxセッションを、途中の `assert!` がpanicして
@@ -1000,36 +980,9 @@ mod collect_agent_states_tests {
 
     fn test_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
+        // 並行テストで tmux セッション名が衝突しないようランごとにランダム化する。
         let prefix = format!("ac-awtest-{}-", crate::util::token_hex(4));
-        let state = AppState {
-            paths: crate::paths::Paths {
-                project_root: dir.path().to_path_buf(),
-                data_dir: dir.path().join("data"),
-                config_file: dir.path().join("config.json"),
-                frontend_dir: dir.path().join("dist"),
-                icons_dir: dir.path().join("icons"),
-                tmux_prefix: prefix,
-            },
-            config: ConfigStore::new(dir.path().join("config.json")),
-            git_locks: WorkspaceLocks::new(),
-            gh_cache: GhCache::new(),
-            git_info_cache: GitInfoCache::new(),
-            git_watch: crate::git_watch::GitWatchState::new(),
-            jobs_cache: JobsCache::new(),
-            terminal_registry: TerminalRegistry::new(),
-            dispatch: DispatchState::new(),
-            agent_hooks: crate::agent_hooks::AgentHookState::new(),
-            agent_watch: crate::agent_watch::AgentWatchState::new(),
-            status_stream: crate::status_stream::StatusStreamState::new(),
-            manifest_store: ManifestStore::new(dir.path().join("agent_manifests"), dir.path()),
-            preview: crate::preview::PreviewState::new(),
-            pairing: crate::pairing::PairingState::new(),
-            push: crate::push::PushState::new(),
-            static_ctx: None,
-            auth: crate::auth::Auth::load(dir.path().join("data"), false),
-            rate_counter: FixedWindowCounter::new(),
-            rate_limit: 1000,
-        };
+        let state = crate::state::test_app_state(dir.path(), &prefix, 1000);
         (state, dir)
     }
 
@@ -1056,7 +1009,7 @@ mod collect_agent_states_tests {
             )
             .await
             .expect("session should be created");
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(&session_id);
         assert!(
             crate::tmux::wait_pane_ready(&tmux_name, crate::tmux::TMUX_PANE_READY_TIMEOUT_SEC)
                 .await
@@ -1096,7 +1049,7 @@ mod collect_agent_states_tests {
         let (state, dir) = test_state();
         let store = ManifestStore::new(dir.path().join("agent_manifests"), dir.path());
         let session_id = create_session(&state, None, None, None).await;
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
 
         let mut last_capture = HashMap::new();
@@ -1203,7 +1156,7 @@ mod collect_agent_states_tests {
         let (state, dir) = test_state();
         let store = ManifestStore::new(dir.path().join("agent_manifests"), dir.path());
         let session_id = create_session(&state, None, None, None).await;
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
 
         let mut last_capture = HashMap::new();
@@ -1286,7 +1239,7 @@ mod collect_agent_states_tests {
             .unwrap();
 
         let session_id = create_session(&state, None, None, Some("agent")).await;
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo FINISHED", true).await);
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
@@ -1357,7 +1310,7 @@ mod collect_agent_states_tests {
         state.config.save_all(&cfg).unwrap();
 
         let session_id = create_session(&state, Some(ws_dir.to_str().unwrap()), None, None).await;
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
 
         let mut rx = state.status_stream.tx.subscribe();
@@ -1401,7 +1354,7 @@ mod collect_agent_states_tests {
         crate::jobs_common::save_common_jobs_data(&state, jobs).unwrap();
 
         let session_id = create_session(&state, None, None, None).await;
-        let tmux_name = format!("{}{session_id}", state.paths.tmux_prefix);
+        let tmux_name = state.paths.tmux_session_name(&session_id);
         // sleepプロセスはセッションと一緒にこのガードのkillで後始末される。
         let _guard = TmuxSessionGuard(tmux_name.clone());
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "sleep 987654321", true).await);

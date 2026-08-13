@@ -137,7 +137,7 @@ export function entryBranches(entry) {
 /**
  * GitHub のファイル/ディレクトリ URL を組み立てる（GitHub リンク生成の単一実装）。
  */
-export function buildGithubFileUrl(githubUrl: string, ref: string, path: string, type: "blob" | "tree" = "blob") {
+export function buildGitHubFileUrl(githubUrl: string, ref: string, path: string, type: "blob" | "tree" = "blob") {
   if (!githubUrl || !ref) return "";
   return `${githubUrl}/${type}/${ref}/${path}`;
 }

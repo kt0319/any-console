@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 
@@ -17,30 +17,34 @@ use crate::git_utils::{parse_github_url, run_git_raw, GIT_QUICK_TIMEOUT_SEC};
 
 const GIT_INFO_CACHE_TTL_SEC: u64 = 5;
 
-/// キャッシュエントリ: (格納時刻, git_info の結果 dict)。
-type GitInfoEntry = (Instant, Map<String, Value>);
-
-#[derive(Default)]
 pub struct GitInfoCache {
-    store: Mutex<HashMap<String, GitInfoEntry>>,
+    store: crate::util::TtlCache<Map<String, Value>>,
+    /// invalidate ごとに進む世代カウンタ。計算開始時と格納時で世代が変わって
+    /// いたら格納をスキップし、古い計算結果でキャッシュを上書きしないための
+    /// ガードに使う（`git_info_cached` 参照）。
     generations: Mutex<HashMap<String, u64>>,
+}
+
+impl Default for GitInfoCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GitInfoCache {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            store: crate::util::TtlCache::new(Duration::from_secs(GIT_INFO_CACHE_TTL_SEC)),
+            generations: Mutex::new(HashMap::new()),
+        }
     }
 
     fn get(&self, key: &str) -> Option<Map<String, Value>> {
-        let store = self.store.lock().expect("git info cache poisoned");
-        store.get(key).and_then(|(ts, v)| {
-            (ts.elapsed() < Duration::from_secs(GIT_INFO_CACHE_TTL_SEC)).then(|| v.clone())
-        })
+        self.store.get(key)
     }
 
     fn set(&self, key: &str, value: Map<String, Value>) {
-        let mut store = self.store.lock().expect("git info cache poisoned");
-        store.insert(key.to_string(), (Instant::now(), value));
+        self.store.set(key, value);
     }
 
     fn generation(&self, key: &str) -> u64 {
@@ -55,10 +59,7 @@ impl GitInfoCache {
     /// キャッシュ無効化 + 世代を進める（Python `invalidate_git_info_cache` 相当）。
     pub fn invalidate(&self, directory: &Path) {
         let key = directory.to_string_lossy().into_owned();
-        self.store
-            .lock()
-            .expect("git info cache poisoned")
-            .remove(&key);
+        self.store.invalidate(&key);
         *self
             .generations
             .lock()
@@ -334,8 +335,8 @@ pub async fn git_info(cache: &GitInfoCache, directory: &Path) -> Map<String, Val
     info
 }
 
-/// /workspaces/statuses の要素形式（`git_info_to_status_dict` 相当）。
-pub async fn git_info_to_status_dict(cache: &GitInfoCache, directory: &Path, name: &str) -> Value {
+/// /workspaces/statuses の要素形式（`git_info_to_status_json` 相当）。
+pub async fn git_info_to_status_json(cache: &GitInfoCache, directory: &Path, name: &str) -> Value {
     let mut result = git_info(cache, directory).await;
     result.insert("name".to_string(), json!(name));
     Value::Object(result)

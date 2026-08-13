@@ -1,8 +1,9 @@
 //! ui/dist の静的配信（Python 側 `main.py` の StaticFiles 相当）。
 //!
-//! Rust 側はビルド済み `ui/dist` の配信のみサポートする。dist が無い場合は
-//! 静的配信を無効化し、全リクエストを Python への proxy に落とす（Python の
-//! ソースモード = ui/ 直接配信 + キャッシュバスト書き換えは移植しない）。
+//! ビルド済み `ui/dist` の配信のみサポートする。dist が無い場合は静的配信を
+//! 無効化し、全リクエストがフォールバック（`fallback.rs` = 404）へ落ちる
+//! （旧 Python のソースモード = ui/ 直接配信 + キャッシュバスト書き換えは
+//! 移植していない）。
 //!
 //! キャッシュ規則は Python と同一:
 //! - index.html / sw.js: no-cache
@@ -90,7 +91,7 @@ impl StaticCtx {
         }
     }
 
-    /// URL パスに対応する静的ファイルがあれば配信する。無ければ None（proxy へ）。
+    /// URL パスに対応する静的ファイルがあれば配信する。無ければ None（404 へ）。
     pub fn try_serve(&self, url_path: &str) -> Option<Response> {
         let rel = sanitize_url_path(url_path)?;
         // icons（data/icons、ユーザーアップロード分）は埋め込み対象外・常にディスクのみ。

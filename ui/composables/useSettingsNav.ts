@@ -1,7 +1,6 @@
-import { ref, computed } from "vue";
-import { on, emit as bridgeEmit } from "../app-bridge.ts";
+import { on } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useLayoutStore } from "../stores/layout.ts";
+import { createViewStackNav } from "./createViewStackNav.ts";
 import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";
 import { useSessionListOverlay } from "./useSessionListOverlay.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
@@ -12,81 +11,18 @@ import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 // 同じ全面オーバーレイ）が開く。セッション一覧・Open Sessionとは完全に
 // 独立した系列で、ルートはModalMenu固定（ここから外れない）。
 //
+// ビュースタックの実装本体は createViewStackNav.ts（useSessionOpenNav と共通）。
 // 個々の設定画面（ModalMenu/TerminalConfig/...）は useModalView() 経由で
 // modalTitle/modalBranch/viewState/pushView/popView/updateViewState を
 // injectするインターフェースのまま変わらない（provideする側がTerminalSettingsModal.vue
 // になるだけ）。
 
-type NavEntry = { view: string, state: Record<string, any> };
-
 const ROOT_VIEW = "ModalMenu";
 
-const rootEntry = (): NavEntry => ({ view: ROOT_VIEW, state: {} });
-
-const viewStack = ref<NavEntry[]>([rootEntry()]);
-const modalTitle = ref("");
-const modalBranch = ref("");
-const isOpen = ref(false);
-const currentPaneRef = ref<{ handleBack?: () => boolean } | null>(null);
-
-const currentView = computed(() => viewStack.value.at(-1)?.view ?? null);
-const currentState = computed(() => viewStack.value.at(-1)?.state ?? {});
-const canNavigateBack = computed(() => viewStack.value.length > 1);
+const nav = createViewStackNav({ rootView: ROOT_VIEW, overlayKey: "settings" });
+const { openView, closeNav } = nav;
 
 let workspaceStore: ReturnType<typeof useWorkspaceStore> | null = null;
-
-function setPaneRef(el) {
-  currentPaneRef.value = el;
-}
-
-function pushView(view: string, state: Record<string, any> = {}) {
-  modalBranch.value = "";
-  viewStack.value = [...viewStack.value, { view, state }];
-}
-
-function updateViewState(state: Record<string, any>) {
-  if (!viewStack.value.length) return;
-  const stack = viewStack.value.slice();
-  stack[stack.length - 1] = { ...stack[stack.length - 1], state };
-  viewStack.value = stack;
-}
-
-function popView(result?: unknown) {
-  modalBranch.value = "";
-  if (viewStack.value.length <= 1) return; // ModalMenu（ルート）より前には戻れない
-  const popped = viewStack.value.at(-1);
-  const newStack = viewStack.value.slice(0, -1);
-  if (result != null && popped?.state?.onReturn) {
-    popped.state.onReturn(result, newStack.at(-1));
-  }
-  viewStack.value = newStack;
-}
-
-function openView(views: string | NavEntry[]) {
-  const { closeOthersOn } = useExclusiveMobileOverlay();
-  closeOthersOn("settings");
-  const list = Array.isArray(views) ? views : [{ view: views, state: {} }];
-  viewStack.value = list[0]?.view === ROOT_VIEW ? list : [rootEntry(), ...list];
-  isOpen.value = true;
-}
-
-function closeNav() {
-  viewStack.value = [rootEntry()];
-  modalTitle.value = "";
-  modalBranch.value = "";
-  currentPaneRef.value = null;
-  isOpen.value = false;
-  bridgeEmit("settings:closed");
-}
-
-function onBack() {
-  if (currentPaneRef.value?.handleBack?.()) return;
-  if (!canNavigateBack.value) {
-    closeNav();
-    return;
-  }
-  popView();
-}
 
 let listenersRegistered = false;
 
@@ -137,7 +73,7 @@ function registerListeners() {
   });
 
   // WorkspaceDetail（Files/Changes/History等）はSettingsのスタックとは
-  // 独立したuseWorkspaceDetailNav.jsで開閉する（設定側の表示はそのまま
+  // 独立したuseWorkspaceDetailNav.tsで開閉する（設定側の表示はそのまま
   // 変えない。WorkspaceDetailModal.vueが全面オーバーレイで表示する）。
   const { open: openWorkspaceDetail } = useWorkspaceDetailNav();
 
@@ -155,9 +91,5 @@ function registerListeners() {
 
 export function useSettingsNav() {
   registerListeners();
-  return {
-    viewStack, currentView, currentState, canNavigateBack, isOpen,
-    modalTitle, modalBranch,
-    pushView, popView, updateViewState, openView, closeNav, onBack, setPaneRef,
-  };
+  return { ...nav };
 }

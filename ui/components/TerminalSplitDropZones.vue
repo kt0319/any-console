@@ -68,14 +68,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useTerminalDrop } from "../composables/useTerminalDrop.ts";
+import { useSplitDropZones } from "../composables/useSplitDropZones.ts";
 
 const layoutStore = useLayoutStore();
 
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
-const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
+const { onDragEnter, onDragLeave, onDrop } = useSplitDropZones();
 </script>
 
 <style scoped>

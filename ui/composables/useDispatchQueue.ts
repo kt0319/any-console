@@ -43,7 +43,7 @@ export function applyDispatchQueue(items: DispatchQueueItem[], recentItems?: Dis
   for (const q of removed) emit("dispatch:itemRemoved", { id: q.id });
 }
 
-export function useDispatchConfirm() {
+export function useDispatchQueue() {
   const { apiPost, apiGet } = useApi();
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();

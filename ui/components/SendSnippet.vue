@@ -30,7 +30,7 @@ import { useInputStore } from "../stores/input.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
 import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.ts";
 
-// embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.js 参照
+// embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.ts 参照
 // （SendHistory.vue と共通。circle keypadの"snippets"プリセット経由も
 // embedded=false の設定モーダル表示）。
 const props = defineProps({

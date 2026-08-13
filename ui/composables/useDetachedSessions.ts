@@ -16,7 +16,7 @@ import {
 } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
 
-// モジュールスコープの単一状態（useRecentJobs.jsと同じパターン）。
+// モジュールスコープの単一状態（useRecentJobs.tsと同じパターン）。
 // WorkspaceOpen.vue（カテゴリ見出しのv-if判定用）とDetachedSessionsList.vue
 // （一覧描画）の両方から呼ばれるため、呼び出しごとに別状態にならないよう
 // 共有する。

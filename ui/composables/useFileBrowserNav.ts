@@ -40,6 +40,30 @@ export function useFileBrowserNav({ getTerminalSessionId = () => "" }: {
     return workspaceFileContentPath(workspace, path);
   }
 
+  // navigateToPath / openFile 共通の取得テンプレ（ローディング・エラー整形）。
+  async function fetchInto(
+    endpoint: string,
+    errorText: string,
+    label: string,
+    apply: (data: any) => void,
+  ) {
+    isLoading.value = true;
+    errorMessage.value = "";
+    try {
+      const { ok, data } = await getWithRetry(apiGet, endpoint);
+      if (!ok) {
+        errorMessage.value = errorText;
+        return;
+      }
+      apply(data);
+    } catch (e) {
+      errorMessage.value = errorText;
+      console.error(`FileBrowser ${label} failed:`, e);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   async function navigateToPath(path: string) {
     const endpoint = resolveListEndpoint(path);
     if (!endpoint) return;
@@ -47,44 +71,18 @@ export function useFileBrowserNav({ getTerminalSessionId = () => "" }: {
     currentPath.value = path;
     fileContent.value = null;
     showHistory.value = false;
-    isLoading.value = true;
-    errorMessage.value = "";
-
-    try {
-      const { ok, data } = await getWithRetry(apiGet, endpoint);
-      if (!ok) {
-        errorMessage.value = "Failed to load";
-        return;
-      }
+    await fetchInto(endpoint, "Failed to load", "navigate", (data) => {
       entries.value = data.entries || [];
-    } catch (e) {
-      errorMessage.value = "Failed to load";
-      console.error("FileBrowser navigate failed:", e);
-    } finally {
-      isLoading.value = false;
-    }
+    });
   }
 
   async function openFile(path: string) {
     const endpoint = resolveFileEndpoint(path);
     if (!endpoint) return;
 
-    isLoading.value = true;
-    errorMessage.value = "";
-
-    try {
-      const { ok, data } = await getWithRetry(apiGet, endpoint);
-      if (!ok) {
-        errorMessage.value = "Could not open file";
-        return;
-      }
+    await fetchInto(endpoint, "Could not open file", "openFile", (data) => {
       fileContent.value = data;
-    } catch (e) {
-      errorMessage.value = "Could not open file";
-      console.error("FileBrowser openFile failed:", e);
-    } finally {
-      isLoading.value = false;
-    }
+    });
   }
 
   function toggleHistory() {

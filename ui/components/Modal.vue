@@ -27,7 +27,7 @@ import { useLayoutStore } from "../stores/layout.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
 // モバイル専用のオーバーレイ表示。中身はSessionListPanel.vue/
-// useSessionListOverlay.jsに集約されており、PCではこのオーバーレイを使わず
+// useSessionListOverlay.tsに集約されており、PCではこのオーバーレイを使わず
 // SessionSidebar.vueへ直接インライン表示する。Open Session/Settingsは
 // SessionOpenModal.vue/TerminalSettingsModal.vueが別途タブバーのボタンから開く。
 

@@ -43,7 +43,6 @@ const PORT_STALE_SEC: i64 = 8;
 const PREVIEW_IDLE_SEC: u64 = 60;
 const MIN_PORT: u16 = 1024;
 const MAX_PORT: u16 = 65535;
-const SESSION_ID: &str = "local";
 
 const PROXY_OFFSET: u16 = 20000;
 const PROXY_MIN_TARGET: u16 = 1024;
@@ -70,7 +69,6 @@ pub fn proxy_port_for(target: u16) -> Option<u16> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DetectedPort {
-    pub session_id: String,
     pub port: u16,
     pub proxy_port: Option<u16>,
     pub process: String,
@@ -499,7 +497,6 @@ pub async fn scan_once(state: &Arc<AppState>) {
                 detected.insert(
                     *port,
                     DetectedPort {
-                        session_id: SESSION_ID.to_string(),
                         port: *port,
                         proxy_port: proxy,
                         process: proc.clone(),
@@ -795,6 +792,9 @@ pub fn stop_scanner(state: &PreviewState) {
 // ─── HTTP エンドポイント（`GET /preview/ports`）─────────────────────────────
 
 /// パネルを開いた時だけスキャンを起こす（常時ポーリングはしない）。
+///
+/// 注意: GET だが冪等ではない — アクセスタイマの更新（`touch_access`）と
+/// 必要に応じたポートスキャン・プロキシ起動（`scan_once`）を伴う。
 pub async fn list_detected_ports(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
@@ -1140,38 +1140,7 @@ mod tests {
 
     fn test_state() -> (Arc<AppState>, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let state = Arc::new(AppState {
-            paths: crate::paths::Paths {
-                project_root: dir.path().to_path_buf(),
-                data_dir: dir.path().join("data"),
-                config_file: dir.path().join("config.json"),
-                frontend_dir: dir.path().join("dist"),
-                icons_dir: dir.path().join("icons"),
-                tmux_prefix: "ac-".to_string(),
-            },
-            config: ConfigStore::new(dir.path().join("config.json")),
-            git_locks: crate::git_lock::WorkspaceLocks::new(),
-            gh_cache: crate::github::GhCache::new(),
-            git_info_cache: crate::git_info::GitInfoCache::new(),
-            git_watch: crate::git_watch::GitWatchState::new(),
-            jobs_cache: crate::jobs_common::JobsCache::new(),
-            terminal_registry: crate::terminal_session::TerminalRegistry::new(),
-            dispatch: crate::dispatch::DispatchState::new(),
-            agent_hooks: crate::agent_hooks::AgentHookState::new(),
-            agent_watch: crate::agent_watch::AgentWatchState::new(),
-            status_stream: crate::status_stream::StatusStreamState::new(),
-            manifest_store: crate::screen_manifest::ManifestStore::new(
-                dir.path().join("agent_manifests"),
-                dir.path(),
-            ),
-            preview: PreviewState::new(),
-            pairing: crate::pairing::PairingState::new(),
-            push: crate::push::PushState::new(),
-            static_ctx: None,
-            auth: crate::auth::Auth::load(dir.path().join("data"), false),
-            rate_counter: crate::rate_limit::FixedWindowCounter::new(),
-            rate_limit: 1000,
-        });
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "ac-", 1000));
         (state, dir)
     }
 
@@ -1215,7 +1184,6 @@ mod tests {
     fn needs_probe_delays_initial_probe() {
         let now = now_epoch();
         let entry = DetectedPort {
-            session_id: SESSION_ID.to_string(),
             port: 3000,
             proxy_port: Some(23000),
             process: "x".to_string(),
@@ -1237,7 +1205,6 @@ mod tests {
     fn needs_probe_retries_after_false_result() {
         let now = now_epoch();
         let mut entry = DetectedPort {
-            session_id: SESSION_ID.to_string(),
             port: 3000,
             proxy_port: Some(23000),
             process: "x".to_string(),
@@ -1259,7 +1226,6 @@ mod tests {
     #[test]
     fn needs_probe_never_for_confirmed_http() {
         let entry = DetectedPort {
-            session_id: SESSION_ID.to_string(),
             port: 3000,
             proxy_port: Some(23000),
             process: "x".to_string(),
@@ -1369,7 +1335,6 @@ mod tests {
             detected.insert(
                 3000,
                 DetectedPort {
-                    session_id: SESSION_ID.to_string(),
                     port: 3000,
                     proxy_port: proxy_port_for(3000),
                     process: "node".to_string(),
@@ -1397,7 +1362,6 @@ mod tests {
         state.preview.detected.lock().unwrap().insert(
             20000,
             DetectedPort {
-                session_id: SESSION_ID.to_string(),
                 port: 20000,
                 proxy_port: None,
                 process: "x".to_string(),
@@ -1421,7 +1385,6 @@ mod tests {
         state.preview.detected.lock().unwrap().insert(
             8888,
             DetectedPort {
-                session_id: SESSION_ID.to_string(),
                 port: 8888,
                 proxy_port: None,
                 process: "any-console-server".to_string(),
@@ -1447,7 +1410,6 @@ mod tests {
         state.preview.detected.lock().unwrap().insert(
             5037,
             DetectedPort {
-                session_id: SESSION_ID.to_string(),
                 port: 5037,
                 proxy_port: Some(25037),
                 process: "adb".to_string(),

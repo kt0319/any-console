@@ -534,40 +534,41 @@ pub struct UpdateSnippetsRequest {
     snippets: Vec<SnippetItem>,
 }
 
+/// スニペット1件を正規化する（GET/PUT で必ず同じ結果になるようここへ集約する）。
+/// command が trim 後に空なら None。label が空なら `default_label(command)` を
+/// 補い、双方を最大長へ切り詰める。
+fn normalize_snippet(label: &str, command: &str) -> Option<Value> {
+    let command = command.trim();
+    if command.is_empty() {
+        return None;
+    }
+    let label = label.trim();
+    let label = if label.is_empty() {
+        default_label(command)
+    } else {
+        label.to_string()
+    };
+    Some(json!({
+        "label": truncate_chars(&label, MAX_LABEL_LENGTH),
+        "command": truncate_chars(command, MAX_COMMAND_LENGTH),
+    }))
+}
+
 pub async fn get_snippets(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
     let raw = state
         .config
         .load_global_section("snippets")
         .unwrap_or(json!([]));
     let items = raw.as_array().cloned().unwrap_or_default();
-    let mut sanitized = Vec::new();
-    for item in items {
-        let Some(obj) = item.as_object() else {
-            continue;
-        };
-        let command = obj
-            .get("command")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if command.is_empty() {
-            continue;
-        }
-        let mut label = obj
-            .get("label")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if label.is_empty() {
-            label = default_label(&command);
-        }
-        sanitized.push(json!({
-            "label": truncate_chars(&label, MAX_LABEL_LENGTH),
-            "command": truncate_chars(&command, MAX_COMMAND_LENGTH),
-        }));
-    }
+    let sanitized: Vec<Value> = items
+        .iter()
+        .filter_map(Value::as_object)
+        .filter_map(|obj| {
+            let label = obj.get("label").and_then(Value::as_str).unwrap_or("");
+            let command = obj.get("command").and_then(Value::as_str).unwrap_or("");
+            normalize_snippet(label, command)
+        })
+        .collect();
     Json(json!({"snippets": sanitized}))
 }
 
@@ -580,25 +581,11 @@ pub async fn put_snippets(
         check_max_len("label", &item.label, MAX_LABEL_LENGTH)?;
         check_max_len("command", &item.command, MAX_COMMAND_LENGTH)?;
     }
-    let mut snippets = Vec::new();
-    for item in &body.snippets {
-        let command = item.command.trim().to_string();
-        if command.is_empty() {
-            continue;
-        }
-        let label = {
-            let l = item.label.trim();
-            if l.is_empty() {
-                default_label(&command)
-            } else {
-                l.to_string()
-            }
-        };
-        snippets.push(json!({
-            "label": truncate_chars(&label, MAX_LABEL_LENGTH),
-            "command": truncate_chars(&command, MAX_COMMAND_LENGTH),
-        }));
-    }
+    let snippets: Vec<Value> = body
+        .snippets
+        .iter()
+        .filter_map(|item| normalize_snippet(&item.label, &item.command))
+        .collect();
     save_global(&state.config, "snippets", Value::Array(snippets.clone()))?;
     Ok(Json(json!({"status": "ok", "snippets": snippets})))
 }
@@ -658,6 +645,20 @@ pub async fn get_recent_jobs(
     } else {
         valid
     };
+    // v4 リネーム（jobDetachedTab → jobDetached）の過渡期対応: 開いたままの
+    // 旧 SPA バンドルは GET 応答で自前キャッシュを丸ごと置き換えた上で
+    // jobDetachedTab しか読まないため、応答にのみ同値のミラーを併載する
+    // （保存形は jobDetached のみ）。旧バンドルが淘汰されたら削除してよい。
+    let mut result = result;
+    if let Some(items) = result.as_array_mut() {
+        for item in items {
+            if let Some(obj) = item.as_object_mut() {
+                if obj.get("jobDetached") == Some(&Value::Bool(true)) {
+                    obj.insert("jobDetachedTab".to_string(), Value::Bool(true));
+                }
+            }
+        }
+    }
     Ok(Json(json!({"recent_jobs": result})))
 }
 
@@ -682,10 +683,31 @@ pub struct RecentJobItem {
     job_command: String,
     #[serde(default, rename = "jobConfirm")]
     job_confirm: Option<bool>,
-    #[serde(default, rename = "jobDetachedTab")]
-    job_detached_tab: bool,
+    /// v4 リネーム（jobDetachedTab → jobDetached）の過渡期対応。serde の
+    /// alias ではなく独立フィールドで受ける — GET 応答のミラー（`get_recent_jobs`）
+    /// を丸ごと PUT し返す旧 SPA は両キーを同時に送ってくるため、alias だと
+    /// duplicate field エラーで保存が壊れる。新キーが明示されていればそちらを
+    /// 正とし（新キー優先）、無ければ legacy を採用する（`detached()`）。
+    /// 保存形は jobDetached のみ（`skip_serializing`）。
+    #[serde(
+        default,
+        rename = "jobDetached",
+        skip_serializing_if = "Option::is_none"
+    )]
+    job_detached: Option<bool>,
+    #[serde(default, rename = "jobDetachedTab", skip_serializing)]
+    job_detached_tab_legacy: Option<bool>,
     #[serde(default)]
     pinned: bool,
+}
+
+impl RecentJobItem {
+    /// detached の実効値（新キー優先で legacy へフォールバック）。
+    fn detached(&self) -> bool {
+        self.job_detached
+            .or(self.job_detached_tab_legacy)
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Deserialize)]
@@ -723,7 +745,15 @@ pub async fn put_recent_jobs(
         .recent_jobs
         .iter()
         .filter(|item| !item.key.trim().is_empty())
-        .map(|item| serde_json::to_value(item).expect("serializable"))
+        .map(|item| {
+            let mut v = serde_json::to_value(item).expect("serializable");
+            // legacy キー（jobDetachedTab）でしか指定されていない場合も、
+            // 保存形は常に実効値の jobDetached に畳み込む（過渡期対応）。
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert("jobDetached".to_string(), json!(item.detached()));
+            }
+            v
+        })
         .collect();
     save_global(
         &state.config,

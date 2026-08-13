@@ -7,7 +7,7 @@ import { useApi } from "./useApi.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { openExternal } from "../utils/open-external.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
-import { buildGithubFileUrl } from "../utils/git.ts";
+import { buildGitHubFileUrl } from "../utils/git.ts";
 import { workspaceGitDiscardPath } from "../utils/endpoints.ts";
 import { basename, dirname } from "../utils/path.ts";
 import { emit } from "../app-bridge.ts";
@@ -29,10 +29,10 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
     const ws = workspaceStore.currentWorkspace;
     if (!ws?.github_url || !filePath.value) return "";
     const ref = isWorkingTree.value ? (ws.branch || "main") : (commitHash.value || "");
-    return buildGithubFileUrl(ws.github_url, ref, filePath.value);
+    return buildGitHubFileUrl(ws.github_url, ref, filePath.value);
   });
 
-  function openGithub() {
+  function openGitHub() {
     openExternal(githubUrl.value);
   }
 
@@ -67,6 +67,6 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
   }
 
   return {
-    githubUrl, openGithub, openEditor, browseToFolder, discard, deleteFile,
+    githubUrl, openGitHub, openEditor, browseToFolder, discard, deleteFile,
   };
 }

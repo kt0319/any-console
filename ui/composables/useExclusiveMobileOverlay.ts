@@ -12,7 +12,7 @@ import { useLayoutStore } from "../stores/layout.ts";
 // 表示と同じ感覚を維持するため）。sessionOpen/settings/workspaceDetailの
 // 3つはPCでも互いに排他。
 
-type OverlayKey = "sessionList" | "sessionOpen" | "settings" | "workspaceDetail";
+export type OverlayKey = "sessionList" | "sessionOpen" | "settings" | "workspaceDetail";
 
 const closers = new Map<OverlayKey, () => void>();
 

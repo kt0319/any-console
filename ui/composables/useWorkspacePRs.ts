@@ -1,17 +1,11 @@
 import { createWorkspaceResourcePoll } from "./useWorkspaceResourcePoll.ts";
+import { mapGitHubPR } from "../utils/github-runs.ts";
 
 // GitHub PRピル用。取得・重複排除・参照カウント式ポーリングの実装は
-// useWorkspaceResourcePoll.js に共通化してある。
+// useWorkspaceResourcePoll.ts に、レスポンスの整形は utils/github-runs.ts の
+// mapGitHubPR に共通化してある（useGitHub の PRペインと同じ形）。
 
-function mapPR(item: Record<string, any>) {
-  return {
-    number: item.number,
-    title: item.title,
-    headRefName: item.headRefName || "",
-  };
-}
-
-const usePoll = createWorkspaceResourcePoll({ resourcePath: "github/pulls", mapItem: mapPR });
+const usePoll = createWorkspaceResourcePoll({ resourcePath: "github/pulls", mapItem: mapGitHubPR });
 
 export function useWorkspacePRs() {
   const { itemsByWorkspace, fetchItems, startPolling, stopPolling } = usePoll();

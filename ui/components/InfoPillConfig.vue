@@ -38,7 +38,7 @@ modalTitle!.value = "Info Pills";
 const infoPillConfig = useInfoPillConfigStore();
 if (!infoPillConfig.loaded) infoPillConfig.load();
 
-// ラベル・説明はinfo-pills.jsのディスクリプタテーブルから導出する
+// ラベル・説明はinfo-pills.tsのディスクリプタテーブルから導出する
 // （文言はピル本体のツールチップに揃えてテーブル側で管理）。
 // 表示順は infoPillConfig.order（ドラッグハンドルで並び替え可能。
 // ワークスペース一覧・Sessions編集モードと同じuseListDragSort）に従う。

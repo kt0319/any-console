@@ -11,7 +11,7 @@
         v-for="job in commonJobs"
         :key="'c-' + job.name"
         class="job-item-row hover-bg"
-        :class="{ 'job-item-detached': job.detached_tab }"
+        :class="{ 'job-item-detached': job.detached }"
       >
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
@@ -29,7 +29,7 @@
         v-for="job in localJobs"
         :key="'l-' + job.name"
         class="job-item-row hover-bg"
-        :class="{ 'job-item-detached': job.detached_tab }"
+        :class="{ 'job-item-detached': job.detached }"
       >
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
@@ -73,7 +73,7 @@ interface Job {
   icon_color?: string;
   command?: string;
   confirm?: boolean;
-  detached_tab?: boolean;
+  detached?: boolean;
   common?: boolean;
 }
 
@@ -157,7 +157,7 @@ async function runJob(job: Job) {
     jobIcon: job.icon,
     jobIconColor: job.icon_color,
     initialCommand: job.command,
-    detached: !!job.detached_tab,
+    detached: !!job.detached,
   });
 }
 
