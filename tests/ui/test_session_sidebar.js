@@ -174,7 +174,6 @@ describe("sessionSidebarItems: Info Pills用データ（PR/Actions/Dev Server/Di
     const app = items.find((i) => i.id === 1);
     expect(app.hasPr).toBe(true);
     expect(app.hasAction).toBe(true);
-    expect(app.actionStatusClass).toBe("action-status-running");
     expect(app.tooltips.prs).toContain("#1");
   });
 

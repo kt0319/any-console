@@ -53,8 +53,6 @@
           :has-action="item.hasAction"
           :has-dev-server="item.hasDevServer"
           :dispatch-count="item.dispatchCount"
-          :action-status-class="item.actionStatusClass"
-          :action-status-icon="item.actionStatusIcon"
           :tooltips="item.tooltips"
           @open="emits('pillOpen', $event)"
         />

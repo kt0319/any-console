@@ -38,8 +38,6 @@
               :has-action="p.hasAction"
               :has-dev-server="p.hasDevServer"
               :dispatch-count="p.dispatchCount"
-              :action-status-class="p.actionStatusClass"
-              :action-status-icon="p.actionStatusIcon"
               :tooltips="p.tooltips"
               @open="onPendingPillOpen(p, $event)"
             />

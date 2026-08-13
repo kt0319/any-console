@@ -258,15 +258,11 @@
 }
 
 /* Actionsピルはブランドカラーをブラウンにし、WorkspaceDetailのActionsタブ
-   （iconColor）と揃える。失敗・実行中の状態色は下のaction-status-*で上書き。 */
+   （iconColor）と揃える。状態は常にブラウン固定（peekやActionsタブ側で
+   確認する前提）で、ここでは色を変えない。 */
 .pill-actions-btn .mdi {
   color: #8c6c50;
 }
-
-/* github-runs.jsのrunStatusClassが返すクラス。push/pullの状態色付けと
-   揃え、失敗=error色・実行中=warning色にする。 */
-.pill-actions-btn.action-status-failure .mdi { color: var(--error); }
-.pill-actions-btn.action-status-running .mdi { color: var(--warning); }
 
 /* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが
    ある時」だけ存在する（v-if）ため、Changes（.pill-numstat-btn）と同じく

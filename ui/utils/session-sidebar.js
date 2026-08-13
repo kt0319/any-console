@@ -1,5 +1,5 @@
 import { workspaceDisplayName } from "./worktree.js";
-import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, runStatusIcon } from "./github-runs.js";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "./github-runs.js";
 import { dispatchWorkspaceLabel } from "./dispatch-request.js";
 import { buildInfoPillTooltips } from "./info-pill-tooltips.js";
 
@@ -98,8 +98,6 @@ function buildPillFields(wsName, ws, ctx) {
     branchPR,
     hasAction: !!visibleBranchAction,
     branchAction,
-    actionStatusClass: runStatusClass(branchAction),
-    actionStatusIcon: runStatusIcon(),
     hasDevServer: !!devServerEntry,
     devServerEntry,
     dispatchCount: dispatchItems.length,

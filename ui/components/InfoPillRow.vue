@@ -79,13 +79,13 @@
           v-else-if="key === 'actions' && hasAction && infoPillConfig.actions"
           type="button"
           class="pill-chip pill-devserver-btn pill-actions-btn"
-          :class="[actionStatusClass, pillActivityClass]"
+          :class="pillActivityClass"
           :aria-label="tooltips.actions"
           :data-tooltip="tooltips.actions"
           @pointerdown.stop
           @click.stop="emits('open', 'actions')"
         >
-          <span class="mdi" :class="actionStatusIcon"></span>
+          <span class="mdi" :class="peekIconForKey('actions')"></span>
         </button>
         <button
           v-else-if="key === 'devserver' && hasDevServer && infoPillConfig.devserver"
@@ -154,8 +154,6 @@ const props = defineProps({
   hasAction: { type: Boolean, default: false },
   hasDevServer: { type: Boolean, default: false },
   dispatchCount: { type: Number, default: 0 },
-  actionStatusClass: { type: String, default: "" },
-  actionStatusIcon: { type: String, default: "" },
   // キーごとのツールチップ文言（ui/utils/info-pill-tooltips.js で組み立て）。
   tooltips: { type: Object, required: true },
 });

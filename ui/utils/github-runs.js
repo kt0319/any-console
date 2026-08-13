@@ -32,25 +32,3 @@ export function isNoticeableRun(run) {
   if (!run) return false;
   return !(run.status === "completed" && run.conclusion !== "failure");
 }
-
-/**
- * 実行状況で色を変えるためのCSSクラス（成功runはisNoticeableRunで既に非表示の
- * ため、ここに来るのは失敗=エラー色・進行中=警告色のみ）。
- * @param {{status?: string, conclusion?: string} | null | undefined} run
- * @returns {string}
- */
-export function runStatusClass(run) {
-  if (!run) return "";
-  if (run.status !== "completed") return "action-status-running";
-  if (run.conclusion === "failure") return "action-status-failure";
-  return "";
-}
-
-/**
- * 状態によらずWorkspaceDetail.vueのActionsタブと同じmdi-cog-play-outlineに
- * 統一する（状態の違いは色=action-status-*で示す）。
- * @returns {string}
- */
-export function runStatusIcon() {
-  return "mdi-cog-play-outline";
-}

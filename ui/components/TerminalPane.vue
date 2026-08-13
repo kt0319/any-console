@@ -55,8 +55,6 @@
           :has-action="!!visibleBranchAction"
           :has-dev-server="!!devServerEntry"
           :dispatch-count="tabDispatchItems.length"
-          :action-status-class="actionStatusClass"
-          :action-status-icon="actionStatusIcon"
           :tooltips="tooltips"
           @open="openPane"
         />
@@ -113,7 +111,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
-import { findPRForBranch, findRunForBranch, isNoticeableRun, runStatusClass, runStatusIcon } from "../utils/github-runs.js";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.js";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.js";
 import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.js";
 import { buildTrailingPeekItems } from "../utils/pill-peek.js";
@@ -270,10 +268,6 @@ const tooltips = computed(() => buildInfoPillTooltips({
   branchPR: branchPR.value,
   branchAction: branchAction.value,
 }));
-
-// 実行状況で色・アイコンを変える（判定はgithub-runs.jsのrunStatusClass/Icon参照）。
-const actionStatusClass = computed(() => runStatusClass(branchAction.value));
-const actionStatusIcon = computed(() => runStatusIcon());
 
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。値が更新された時だけピル行を

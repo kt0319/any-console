@@ -253,8 +253,6 @@ describe("a11y: InfoPillRow", () => {
         hasAction: true,
         hasDevServer: true,
         dispatchCount: 2,
-        actionStatusClass: "action-status-running",
-        actionStatusIcon: "mdi-progress-clock",
         tooltips: {
           files: "ws1  ·  Browse files",
           history: "History: feat: something",
