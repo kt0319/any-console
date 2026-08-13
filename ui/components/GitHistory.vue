@@ -55,8 +55,8 @@
       <template v-for="(row, idx) in graphRows" :key="idx">
         <div
           class="git-log-entry git-log-commit"
-          :class="{ 'git-log-graph-only': !row.entry, 'git-log-entry-pending': row.entry?.pending }"
-          :data-tooltip="row.entry?.pending ? 'Not pulled yet' : null"
+          :class="{ 'git-log-graph-only': !row.entry, 'git-log-entry-pending': row.entry?.pending, 'git-log-entry-unpushed': row.entry?.unpushed }"
+          :data-tooltip="row.entry?.pending ? 'Not pulled yet' : row.entry?.unpushed ? 'Not pushed yet' : null"
           @click="row.entry && openCommitDiffFiles(row.entry)"
         >
           <svg class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
@@ -316,6 +316,15 @@ defineExpose({
    まだローカル履歴の一部ではないことを示す非アクティブ表示。 */
 .git-log-entry-pending {
   opacity: 0.55;
+}
+
+/* まだupstreamにpushされていないローカルコミット（ahead件数分）。
+   pendingと違い履歴自体は確定しているためグラフは通常表示のまま、
+   テキストのみ非アクティブ色にして「未push」を示す。 */
+.git-log-entry-unpushed .git-log-entry-msg,
+.git-log-entry-unpushed .git-log-entry-author,
+.git-log-entry-unpushed .git-log-entry-time {
+  color: var(--text-muted);
 }
 
 .diff-file-row.action-open {

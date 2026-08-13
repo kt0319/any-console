@@ -1,5 +1,6 @@
 import { ref, computed, nextTick } from "vue";
 import { useGitStore } from "../stores/git.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.js";
@@ -8,6 +9,7 @@ import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 export function useGitLogPagination() {
   const { withWorkspace } = useWorkspace();
   const gitStore = useGitStore();
+  const workspaceStore = useWorkspaceStore();
   const { apiGet, wsEndpoint } = useApi();
 
   const graphRows = ref(/** @type {any[]} */ ([]));
@@ -33,6 +35,21 @@ export function useGitLogPagination() {
   // Historyペインの先頭に非アクティブ表示するために取得する。upstream 未設定の
   // ワークスペースでは空配列（サーバ側が空stdoutを返す）。取得失敗はHistory本体の
   // 表示を妨げないよう握りつぶす（[]を返すだけ）。
+  // ahead 件数（現在ブランチが upstream より進んでいる = 未pushのコミット数）分だけ、
+  // 履歴先頭から entry.unpushed を付与する。git-log は HEAD から新しい順に並ぶため、
+  // 先頭の ahead 件が未push分と一致する。upstream 未設定/pushしていないローカルブランチも
+  // ahead に含まれる（canPush 相当の定義に合わせる）。
+  function _markUnpushed(rows) {
+    let remaining = Number(workspaceStore.currentWorkspace?.ahead) || 0;
+    if (remaining <= 0) return;
+    for (const row of rows) {
+      if (!row.entry) continue;
+      row.entry.unpushed = true;
+      remaining--;
+      if (remaining <= 0) break;
+    }
+  }
+
   async function _fetchPending(workspace) {
     const { ok, data } = await apiGet(
       wsEndpoint(workspace, `unpulled-log?limit=${gitStore.GIT_LOG_ENTRIES_PER_PAGE}&graph=true`),
@@ -59,6 +76,7 @@ export function useGitLogPagination() {
         ]);
         if (result) {
           pendingGraphRows = pendingRows;
+          _markUnpushed(result.rows);
           graphRows.value = [...pendingGraphRows, ...result.rows];
           hasMoreHistory.value = result.count >= perPage;
         }
@@ -83,6 +101,7 @@ export function useGitLogPagination() {
       try {
         const result = await _fetchPage(workspace, totalLimit);
         if (result) {
+          _markUnpushed(result.rows);
           graphRows.value = [...pendingGraphRows, ...result.rows];
           hasMoreHistory.value = result.count >= totalLimit;
         }
