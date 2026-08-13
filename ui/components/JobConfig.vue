@@ -62,9 +62,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useModalView } from "../composables/useModalView.js";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useApi } from "../composables/useApi.ts";
+import { useModalView } from "../composables/useModalView.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { renderIconStr } from "../utils/render-icon.ts";

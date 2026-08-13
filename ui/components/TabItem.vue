@@ -45,15 +45,15 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { workspaceDisplayName } from "../utils/worktree.ts";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { emit } from "../app-bridge.js";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.ts";
-import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
-import { useLongPress } from "../composables/useLongPress.js";
+import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
+import { useLongPress } from "../composables/useLongPress.ts";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
 const props = defineProps({

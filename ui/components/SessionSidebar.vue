@@ -11,7 +11,7 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
 // タブバー左端のハンバーガーで開くPC用サイドバー。中身（セッション一覧）は

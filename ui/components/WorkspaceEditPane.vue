@@ -48,10 +48,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useToast } from "../composables/useToast.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useModalView } from "../composables/useModalView.js";
+import { useApi } from "../composables/useApi.ts";
+import { useToast } from "../composables/useToast.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.ts";

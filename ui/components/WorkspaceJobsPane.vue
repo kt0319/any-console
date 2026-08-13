@@ -46,10 +46,10 @@
 <script setup>
 import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useRecentJobs } from "../composables/useRecentJobs.js";
-import { useApi } from "../composables/useApi.js";
+import { useRecentJobs } from "../composables/useRecentJobs.ts";
+import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_COMMON_JOBS } from "../utils/endpoints.ts";

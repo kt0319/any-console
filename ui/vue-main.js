@@ -16,7 +16,7 @@ import { watch } from "vue";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.ts";
 import { useWorkspaceStore } from "./stores/workspace.ts";
-import { useDispatchConfirm } from "./composables/useDispatchConfirm.js";
+import { useDispatchConfirm } from "./composables/useDispatchConfirm.ts";
 import { dispatchWorkspaceLabel } from "./utils/dispatch-request.ts";
 import { installErrorReporter } from "./utils/error-reporter.ts";
 import { installTooltip } from "./utils/tooltip.ts";

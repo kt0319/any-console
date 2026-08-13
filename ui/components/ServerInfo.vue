@@ -66,12 +66,12 @@
 
 <script setup>
 import { ref, reactive, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "System Info";

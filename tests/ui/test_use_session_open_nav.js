@@ -12,8 +12,8 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 async function freshModules() {
   vi.resetModules();
   const [{ useSessionOpenNav }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([
-    import("../../ui/composables/useSessionOpenNav.js"),
-    import("../../ui/composables/useExclusiveMobileOverlay.js"),
+    import("../../ui/composables/useSessionOpenNav.ts"),
+    import("../../ui/composables/useExclusiveMobileOverlay.ts"),
     import("../../ui/app-bridge.js"),
   ]);
   return { useSessionOpenNav, useExclusiveMobileOverlay, emit: bridge.emit };

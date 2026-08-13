@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
-import { usePwaInstall } from "../../ui/composables/usePwaInstall.js";
+import { usePwaInstall } from "../../ui/composables/usePwaInstall.ts";
 
 function firePrompt() {
   const event = new Event("beforeinstallprompt");

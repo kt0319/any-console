@@ -17,7 +17,7 @@ vi.mock("../../ui/app-bridge.js", () => ({
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useEditorIntegration.js");
+  return import("../../ui/composables/useEditorIntegration.ts");
 }
 
 beforeEach(() => {

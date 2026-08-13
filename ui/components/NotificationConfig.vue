@@ -60,8 +60,8 @@
 
 <script setup>
 import { ref, onMounted, watch } from "vue";
-import { usePushNotification } from "../composables/usePushNotification.js";
-import { useApi } from "../composables/useApi.js";
+import { usePushNotification } from "../composables/usePushNotification.ts";
+import { useApi } from "../composables/useApi.ts";
 import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.ts";
 import {
   LS_KEY_NOTIF_PREFS,
@@ -70,7 +70,7 @@ import {
   PHRASE_NOTIFY_GRACE_SEC_MAX,
 } from "../utils/constants.ts";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "Notifications";

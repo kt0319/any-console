@@ -28,9 +28,9 @@
 <script setup>
 import { computed } from "vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
-import { useListDragSort } from "../composables/useListDragSort.js";
+import { useListDragSort } from "../composables/useListDragSort.ts";
 import { INFO_PILLS } from "../utils/info-pills.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "Info Pills";

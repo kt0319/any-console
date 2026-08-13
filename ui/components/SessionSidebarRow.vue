@@ -75,7 +75,7 @@ import SessionRowContent from "./SessionRowContent.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
-import { usePillPeek } from "../composables/usePillPeek.js";
+import { usePillPeek } from "../composables/usePillPeek.ts";
 import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 

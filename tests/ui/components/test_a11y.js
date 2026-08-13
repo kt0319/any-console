@@ -30,8 +30,8 @@ import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import SessionSidebar from "../../../ui/components/SessionSidebar.vue";
 import TabBar from "../../../ui/components/TabBar.vue";
 import { createPinia, setActivePinia } from "pinia";
-import { useConfirm } from "../../../ui/composables/useConfirm.js";
-import { usePrompt } from "../../../ui/composables/usePrompt.js";
+import { useConfirm } from "../../../ui/composables/useConfirm.ts";
+import { usePrompt } from "../../../ui/composables/usePrompt.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
 import { useAuthStore } from "../../../ui/stores/auth.ts";
 import { emit, on } from "../../../ui/app-bridge.js";
@@ -410,7 +410,7 @@ describe("a11y: SessionOpenModal", () => {
   it("Open Sessionオーバーレイ（WorkspaceOpen）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const { default: SessionOpenModal } = await import("../../../ui/components/SessionOpenModal.vue");
-    const { useSessionOpenNav } = await import("../../../ui/composables/useSessionOpenNav.js");
+    const { useSessionOpenNav } = await import("../../../ui/composables/useSessionOpenNav.ts");
     const wrapper = mount(SessionOpenModal, { attachTo: document.body });
     useSessionOpenNav().openView("WorkspaceOpen");
     await flushPromises();
@@ -424,7 +424,7 @@ describe("a11y: TerminalSettingsModal", () => {
   it("Settingsオーバーレイ（ModalMenu）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const { default: TerminalSettingsModal } = await import("../../../ui/components/TerminalSettingsModal.vue");
-    const { useSettingsNav } = await import("../../../ui/composables/useSettingsNav.js");
+    const { useSettingsNav } = await import("../../../ui/composables/useSettingsNav.ts");
     const wrapper = mount(TerminalSettingsModal, { attachTo: document.body });
     useSettingsNav().openView("ModalMenu");
     await flushPromises();

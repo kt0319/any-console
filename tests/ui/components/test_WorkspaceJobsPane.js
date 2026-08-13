@@ -18,7 +18,7 @@ vi.mock("../../../ui/app-bridge.js", () => ({
   on: vi.fn(() => () => {}),
 }));
 
-vi.mock("../../../ui/composables/useApi.js", () => ({
+vi.mock("../../../ui/composables/useApi.ts", () => ({
   useApi: () => ({
     wsEndpoint: (ws, path) => `/workspaces/${ws}/${path}`,
     apiGet: vi.fn(async (url) => {

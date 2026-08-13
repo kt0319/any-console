@@ -1,8 +1,8 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildFileList } from "../../ui/composables/useGitDiff.js";
-import { useConfirm } from "../../ui/composables/useConfirm.js";
-import { usePrompt } from "../../ui/composables/usePrompt.js";
+import { buildFileList } from "../../ui/composables/useGitDiff.ts";
+import { useConfirm } from "../../ui/composables/useConfirm.ts";
+import { usePrompt } from "../../ui/composables/usePrompt.ts";
 import { buildWebSocketUrl, buildReconnectLabel } from "../../ui/utils/terminal-ws.ts";
 import { extractApiError } from "../../ui/utils/constants.ts";
 

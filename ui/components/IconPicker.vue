@@ -51,8 +51,8 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from "vue";
-import { useModalView } from "../composables/useModalView.js";
-import { useIconUpload } from "../composables/useIconUpload.js";
+import { useModalView } from "../composables/useModalView.ts";
+import { useIconUpload } from "../composables/useIconUpload.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { looksLikeUrl, extractDomain } from "../utils/icon-url.ts";
 import { buildIconGridModel } from "../utils/icon-grid.ts";

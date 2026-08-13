@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect, vi } from "vitest";
-import { useBranchAddDialog } from "../../ui/composables/useBranchAddDialog.js";
+import { useBranchAddDialog } from "../../ui/composables/useBranchAddDialog.ts";
 
 function setup() {
   const createBranch = vi.fn();

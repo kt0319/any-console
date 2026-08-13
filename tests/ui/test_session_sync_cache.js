@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSessionTabParamsWithCache, rememberJobIcon } from "../../ui/composables/useSessionSync.js";
+import { buildSessionTabParamsWithCache, rememberJobIcon } from "../../ui/composables/useSessionSync.ts";
 
 describe("buildSessionTabParamsWithCache", () => {
   it("ジョブ定義が解決できた場合はそのアイコンを使い、キャッシュへ書き込む", () => {

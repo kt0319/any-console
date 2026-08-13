@@ -36,7 +36,7 @@
 
 <script setup>
 import BaseDialog from "./BaseDialog.vue";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConfirm } from "../composables/useConfirm.ts";
 
 const {
   visible, message, extraButton, extra2Button, okButton, busy, busyLabel,

@@ -7,10 +7,10 @@
 <script setup>
 import { computed, onMounted } from "vue";
 import WorkspaceAddInline from "./WorkspaceAddInline.vue";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { terminalSessionWorkspacePath } from "../utils/endpoints.ts";
 
 const { modalTitle, popView, viewState } = useModalView();

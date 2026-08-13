@@ -138,9 +138,9 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useBranchList } from "../composables/useBranchList.js";
-import { useBranchActions } from "../composables/useBranchActions.js";
-import { useBranchAddDialog } from "../composables/useBranchAddDialog.js";
+import { useBranchList } from "../composables/useBranchList.ts";
+import { useBranchActions } from "../composables/useBranchActions.ts";
+import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush } from "../utils/git-branch.ts";

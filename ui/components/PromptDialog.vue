@@ -28,7 +28,7 @@
 <script setup>
 import { ref, watch, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { usePrompt } from "../composables/usePrompt.js";
+import { usePrompt } from "../composables/usePrompt.ts";
 
 const {
   visible,

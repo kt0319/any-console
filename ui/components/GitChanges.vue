@@ -42,8 +42,8 @@
 import { ref, computed } from "vue";
 import FileItem from "./FileItem.vue";
 import GitCommitForm from "./GitCommitForm.vue";
-import { useGitDiff } from "../composables/useGitDiff.js";
-import { useWorkspace } from "../composables/useWorkspace.js";
+import { useGitDiff } from "../composables/useGitDiff.ts";
+import { useWorkspace } from "../composables/useWorkspace.ts";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.ts";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";

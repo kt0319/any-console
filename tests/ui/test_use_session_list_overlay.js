@@ -7,8 +7,8 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 async function freshModules() {
   vi.resetModules();
   const [{ useSessionListOverlay }, { useExclusiveMobileOverlay }] = await Promise.all([
-    import("../../ui/composables/useSessionListOverlay.js"),
-    import("../../ui/composables/useExclusiveMobileOverlay.js"),
+    import("../../ui/composables/useSessionListOverlay.ts"),
+    import("../../ui/composables/useExclusiveMobileOverlay.ts"),
   ]);
   return { useSessionListOverlay, useExclusiveMobileOverlay };
 }

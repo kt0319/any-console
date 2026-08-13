@@ -33,9 +33,9 @@
 
 <script setup>
 import { ref, computed, provide, watch } from "vue";
-import { useModal } from "../composables/useModal.js";
-import { useSessionOpenNav } from "../composables/useSessionOpenNav.js";
-import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.js";
+import { useModal } from "../composables/useModal.ts";
+import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
+import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 

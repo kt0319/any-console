@@ -1,4 +1,4 @@
-import { debugLog } from "./composables/useClientLogs.js";
+import { debugLog } from "./composables/useClientLogs.ts";
 
 // アプリ内イベントバスで流れるイベント名のカタログ（単一の出所）。
 //

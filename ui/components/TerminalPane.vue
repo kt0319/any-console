@@ -87,25 +87,25 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef } from "vue";
-import { useTerminal } from "../composables/useTerminal.js";
+import { useTerminal } from "../composables/useTerminal.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { emit } from "../app-bridge.js";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
-import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
-import { useTerminalPaste } from "../composables/useTerminalPaste.js";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
+import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
-import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
-import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
-import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
-import { usePreviewPorts } from "../composables/usePreviewPorts.js";
-import { useGithubPolling } from "../composables/useGithubPolling.js";
+import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.ts";
+import { useCircleKeyPad } from "../composables/useCircleKeyPad.ts";
+import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
+import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { useGithubPolling } from "../composables/useGithubPolling.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
-import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
-import { useInfoPillActions } from "../composables/useInfoPillActions.js";
-import { usePillPeek } from "../composables/usePillPeek.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.ts";
+import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
+import { usePillPeek } from "../composables/usePillPeek.ts";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";

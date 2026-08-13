@@ -21,8 +21,8 @@
 
 <script setup>
 import { ref, watch } from "vue";
-import { useModal } from "../composables/useModal.js";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.js";
+import { useModal } from "../composables/useModal.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 

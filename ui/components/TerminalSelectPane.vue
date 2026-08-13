@@ -30,7 +30,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { copyText } from "../utils/clipboard.ts";
 import { applyFormat } from "../utils/auto-format.ts";
-import { useToast } from "../composables/useToast.js";
+import { useToast } from "../composables/useToast.ts";
 
 const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"];
 

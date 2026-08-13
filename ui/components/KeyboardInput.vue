@@ -32,9 +32,9 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from "vue";
 import { useInputStore } from "../stores/input.ts";
-import { useKeyboard } from "../composables/useKeyboard.js";
-import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
-import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
+import { useKeyboard } from "../composables/useKeyboard.ts";
+import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.ts";
+import { useSuppressedBlur } from "../composables/useSuppressedBlur.ts";
 import { isComposingEvent } from "../utils/keyboard-event.ts";
 import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";

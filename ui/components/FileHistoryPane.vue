@@ -45,7 +45,7 @@
 
 <script setup>
 import { ref, watch } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { workspaceFileHistoryPath, workspaceFileDiffPath } from "../utils/endpoints.ts";

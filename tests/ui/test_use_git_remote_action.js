@@ -7,7 +7,7 @@ import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 const apiCommandMock = vi.fn(async () => ({ ok: true, data: {} }));
 const apiWithToastMock = vi.fn(async ({ onSuccess } = {}) => {});
 
-vi.mock("../../ui/composables/useApi.js", () => ({
+vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({
     apiCommand: apiCommandMock,
     apiWithToast: apiWithToastMock,
@@ -15,17 +15,17 @@ vi.mock("../../ui/composables/useApi.js", () => ({
   }),
 }));
 
-vi.mock("../../ui/composables/useConfirm.js", () => ({
+vi.mock("../../ui/composables/useConfirm.ts", () => ({
   useConfirm: () => ({ confirm: vi.fn(async () => true) }),
 }));
 
-vi.mock("../../ui/composables/useToast.js", () => ({
+vi.mock("../../ui/composables/useToast.ts", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useGitRemoteAction.js");
+  return import("../../ui/composables/useGitRemoteAction.ts");
 }
 
 beforeEach(() => {

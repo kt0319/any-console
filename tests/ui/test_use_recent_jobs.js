@@ -10,11 +10,11 @@ vi.mock("../../ui/app-bridge.js", () => ({
 const apiGetMock = vi.fn();
 const apiPutMock = vi.fn(async () => ({ ok: true, data: { status: "ok" } }));
 
-vi.mock("../../ui/composables/useApi.js", () => ({
+vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: apiGetMock, apiPut: apiPutMock }),
 }));
 
-vi.mock("../../ui/composables/useConfirm.js", () => ({
+vi.mock("../../ui/composables/useConfirm.ts", () => ({
   useConfirm: () => ({ confirm: vi.fn(async () => true) }),
 }));
 
@@ -30,7 +30,7 @@ const job = (key, overrides = {}) => ({
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useRecentJobs.js");
+  return import("../../ui/composables/useRecentJobs.ts");
 }
 
 beforeEach(() => {

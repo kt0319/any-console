@@ -28,7 +28,7 @@
 import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.js";
+import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.ts";
 
 // embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.js 参照
 // （SendHistory.vue と共通。circle keypadの"snippets"プリセット経由も

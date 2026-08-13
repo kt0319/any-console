@@ -12,7 +12,7 @@
 
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
-import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.js";
+import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.ts";
 import { isTouchOnly, listenForEscape } from "../utils/keyboard.ts";
 
 /**

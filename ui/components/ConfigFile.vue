@@ -18,12 +18,12 @@ import { ref, onMounted, nextTick } from "vue";
 import hljs from "highlight.js/lib/core";
 import json from "highlight.js/lib/languages/json";
 hljs.registerLanguage("json", json);
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useToast } from "../composables/useToast.js";
+import { useToast } from "../composables/useToast.ts";
 import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.ts";
 import { triggerBlobDownload } from "../utils/download.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "Config File";

@@ -68,7 +68,7 @@
 <script setup>
 import { computed } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useTerminalDrop } from "../composables/useTerminalDrop.js";
+import { useTerminalDrop } from "../composables/useTerminalDrop.ts";
 
 const layoutStore = useLayoutStore();
 

@@ -55,7 +55,7 @@
 <script setup>
 import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "Terminal";

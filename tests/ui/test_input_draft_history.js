@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { ref } from "vue";
-import { useInputDraftHistory } from "../../ui/composables/useInputDraftHistory.js";
+import { useInputDraftHistory } from "../../ui/composables/useInputDraftHistory.ts";
 import { useInputStore } from "../../ui/stores/input.ts";
 
 function setup({ history = [] } = {}) {

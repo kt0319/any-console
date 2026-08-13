@@ -4,13 +4,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const apiGetMock = vi.fn();
 
-vi.mock("../../ui/composables/useApi.js", () => ({
+vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: apiGetMock }),
 }));
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/usePreviewPorts.js");
+  return import("../../ui/composables/usePreviewPorts.ts");
 }
 
 beforeEach(() => {

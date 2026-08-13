@@ -14,9 +14,9 @@
 <script setup>
 import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useApi } from "../composables/useApi.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useToast } from "../composables/useToast.js";
+import { useApi } from "../composables/useApi.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useToast } from "../composables/useToast.ts";
 import { emit } from "../app-bridge.js";
 import { extractApiError } from "../utils/constants.ts";
 

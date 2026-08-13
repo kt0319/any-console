@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { defineComponent, ref, h } from "vue";
 import { mount } from "@vue/test-utils";
 import { setActivePinia, createPinia } from "pinia";
-import { useTerminalPaste } from "../../ui/composables/useTerminalPaste.js";
+import { useTerminalPaste } from "../../ui/composables/useTerminalPaste.ts";
 import { uploadImageToTerminal } from "../../ui/utils/upload-image-to-terminal.ts";
 
 vi.mock("../../ui/utils/upload-image-to-terminal.ts", () => ({

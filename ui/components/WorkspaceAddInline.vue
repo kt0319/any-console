@@ -45,8 +45,8 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useDirectorySuggest } from "../composables/useDirectorySuggest.js";
+import { useApi } from "../composables/useApi.ts";
+import { useDirectorySuggest } from "../composables/useDirectorySuggest.ts";
 import { EP_WORKSPACES } from "../utils/endpoints.ts";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.ts";
 

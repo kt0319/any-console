@@ -8,7 +8,7 @@ vi.mock("../../ui/app-bridge.js", () => ({
 }));
 
 import { emit as bridgeEmit } from "../../ui/app-bridge.js";
-import { useEmbeddedPanel } from "../../ui/composables/useEmbeddedPanel.js";
+import { useEmbeddedPanel } from "../../ui/composables/useEmbeddedPanel.ts";
 
 function mountPanel({ embedded, modalTitle }) {
   let panel;

@@ -43,7 +43,7 @@
 
 <script setup>
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,
   CIRCLE_KEYPAD_BASE_KEYS,

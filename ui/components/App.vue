@@ -28,9 +28,9 @@ import PromptDialog from "./PromptDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
 import { on } from "../app-bridge.js";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useAppConnectivity } from "../composables/useAppConnectivity.js";
-import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
-import { useAppAuthGate } from "../composables/useAppAuthGate.js";
+import { useAppConnectivity } from "../composables/useAppConnectivity.ts";
+import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.ts";
+import { useAppAuthGate } from "../composables/useAppAuthGate.ts";
 import { parsePairUrl } from "../utils/pairing.ts";
 
 const layoutStore = useLayoutStore();

@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ref } from "vue";
 import { setActivePinia, createPinia } from "pinia";
-import { useTerminalPaneGestures } from "../../ui/composables/useTerminalPaneGestures.js";
+import { useTerminalPaneGestures } from "../../ui/composables/useTerminalPaneGestures.ts";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 
 function makeTouchStart(x, y) {

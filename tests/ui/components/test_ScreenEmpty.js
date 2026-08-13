@@ -9,7 +9,7 @@ import { expectNoA11yViolations } from "./axe-helper.js";
 
 const apiGetMock = vi.fn();
 
-vi.mock("../../../ui/composables/useApi.js", () => ({
+vi.mock("../../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: (...args) => apiGetMock(...args) }),
 }));
 

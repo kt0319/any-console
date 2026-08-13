@@ -39,11 +39,11 @@
 import { onMounted, onBeforeUnmount, ref } from "vue";
 import { copyText } from "../utils/clipboard.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { devServerUrl } from "../utils/preview-url.ts";
 import { openExternal } from "../utils/open-external.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 // Settings（ModalMenu）の「Dev Server」項目から開くcurrentView
 // （'SessionPreview'）。旧PreviewPorts.vue（ModalMenu配下の独立画面）から

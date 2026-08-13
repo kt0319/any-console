@@ -1,0 +1,21 @@
+import { ref } from "vue";
+import type { Ref } from "vue";
+import { copyText } from "../utils/clipboard.ts";
+import { URL_COPIED_RESET_MS } from "../utils/constants.ts";
+
+/**
+ * クリップボードコピー＋成功フィードバック（一定時間後に自動で戻るcopiedフラグ）。
+ */
+export function useCopyFeedback(): { copied: Ref<boolean>, copy: (text: string) => Promise<boolean> } {
+  const copied = ref(false);
+
+  async function copy(text: string) {
+    copied.value = await copyText(text);
+    if (copied.value) {
+      setTimeout(() => { copied.value = false; }, URL_COPIED_RESET_MS);
+    }
+    return copied.value;
+  }
+
+  return { copied, copy };
+}

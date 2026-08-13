@@ -44,10 +44,10 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
 import { EDITOR_CONFIG_DEBOUNCE_MS } from "../utils/constants.ts";
-import { useModalView } from "../composables/useModalView.js";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 modalTitle.value = "Editor";

@@ -81,11 +81,11 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useKeyboard } from "../composables/useKeyboard.js";
+import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useInputStore } from "../stores/input.ts";
 import { useAuthStore } from "../stores/auth.ts";
-import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
-import { useQwertyCamera } from "../composables/useQwertyCamera.js";
+import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.ts";
+import { useQwertyCamera } from "../composables/useQwertyCamera.ts";
 import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.ts";
 import { restartTapBounce } from "../utils/dom.ts";
 

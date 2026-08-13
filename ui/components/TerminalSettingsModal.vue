@@ -51,8 +51,8 @@
 
 <script setup>
 import { ref, provide, watch } from "vue";
-import { useModal } from "../composables/useModal.js";
-import { useSettingsNav } from "../composables/useSettingsNav.js";
+import { useModal } from "../composables/useModal.ts";
+import { useSettingsNav } from "../composables/useSettingsNav.ts";
 import ModalMenu from "./ModalMenu.vue";
 import SessionPreviewTab from "./SessionPreviewTab.vue";
 import TerminalConfig from "./TerminalConfig.vue";

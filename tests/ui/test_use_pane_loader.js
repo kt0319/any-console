@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { usePaneLoader } from "../../ui/composables/usePaneLoader.js";
+import { usePaneLoader } from "../../ui/composables/usePaneLoader.ts";
 
 describe("usePaneLoader", () => {
   it("同じキーでの2回目以降のensureはロードしない", () => {

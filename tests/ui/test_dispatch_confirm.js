@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { applyDispatchQueue, useDispatchConfirm } from "../../ui/composables/useDispatchConfirm.js";
+import { applyDispatchQueue, useDispatchConfirm } from "../../ui/composables/useDispatchConfirm.ts";
 import { on } from "../../ui/app-bridge.js";
 
 const apiPostMock = vi.fn();
 
-vi.mock("../../ui/composables/useApi.js", () => ({
+vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: vi.fn(async () => ({ ok: false })), apiPost: apiPostMock }),
 }));
 

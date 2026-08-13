@@ -50,10 +50,10 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useToast } from "../composables/useToast.js";
-import { useModalView } from "../composables/useModalView.js";
-import { useCopyFeedback } from "../composables/useCopyFeedback.js";
+import { useApi } from "../composables/useApi.ts";
+import { useToast } from "../composables/useToast.ts";
+import { useModalView } from "../composables/useModalView.ts";
+import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 import { generateQrSvg } from "../utils/qrcode.ts";
 import { formatPairingCountdown } from "../utils/pairing.ts";
 import { EP_AUTH_PAIRING_START, pairingStatusPath } from "../utils/endpoints.ts";

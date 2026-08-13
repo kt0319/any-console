@@ -90,12 +90,12 @@ import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
-import { useGitDiff } from "../composables/useGitDiff.js";
-import { useGitLogPagination } from "../composables/useGitLogPagination.js";
-import { useIsMobile } from "../composables/useIsMobile.js";
-import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.js";
-import { useCommitActionMenu } from "../composables/useCommitActionMenu.js";
-import { useDiffFileActions } from "../composables/useDiffFileActions.js";
+import { useGitDiff } from "../composables/useGitDiff.ts";
+import { useGitLogPagination } from "../composables/useGitLogPagination.ts";
+import { useIsMobile } from "../composables/useIsMobile.ts";
+import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.ts";
+import { useCommitActionMenu } from "../composables/useCommitActionMenu.ts";
+import { useDiffFileActions } from "../composables/useDiffFileActions.ts";
 import { renderFileIconFromPath } from "../utils/file-icon.ts";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.ts";

@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { SPECIAL_BUTTON_SIZE } from "../composables/useCircleKeyPad.js";
+import { SPECIAL_BUTTON_SIZE } from "../composables/useCircleKeyPad.ts";
 
 defineProps({
   state: { type: Object, required: true },

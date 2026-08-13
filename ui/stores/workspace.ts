@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { EP_GROUPS, EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.ts";
 import { LS_PREFIX_WS_META } from "../utils/constants.ts";
 import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";

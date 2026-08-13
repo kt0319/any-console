@@ -20,13 +20,13 @@
 
 <script setup>
 import { ref } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
-import { useWorkspace } from "../composables/useWorkspace.js";
+import { useWorkspace } from "../composables/useWorkspace.ts";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
+import { setStashCache, invalidateStashCache } from "../composables/useStashCache.ts";
 
 const emit = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();

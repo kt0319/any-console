@@ -172,13 +172,13 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useConfirm } from "../composables/useConfirm.js";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.ts";
 import { formatRelativeTime } from "../utils/format.ts";
-import { useCopyFeedback } from "../composables/useCopyFeedback.js";
-import { useModalView } from "../composables/useModalView.js";
+import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
+import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Auth";

@@ -9,10 +9,10 @@ import { defineComponent, ref } from "vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { fitTerminal, sendResize } from "../../ui/composables/useTerminalResize.js";
-import { useTerminal } from "../../ui/composables/useTerminal.js";
-import { useConfirm } from "../../ui/composables/useConfirm.js";
-import { usePrompt } from "../../ui/composables/usePrompt.js";
+import { fitTerminal, sendResize } from "../../ui/composables/useTerminalResize.ts";
+import { useTerminal } from "../../ui/composables/useTerminal.ts";
+import { useConfirm } from "../../ui/composables/useConfirm.ts";
+import { usePrompt } from "../../ui/composables/usePrompt.ts";
 import { emit, on } from "../../ui/app-bridge.js";
 import ConfirmDialog from "../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../ui/components/PromptDialog.vue";
@@ -27,8 +27,8 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 import { useInputStore } from "../../ui/stores/input.ts";
-import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.js";
-import { useKeyboardBarState } from "../../ui/composables/useKeyboardBarState.js";
+import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.ts";
+import { useKeyboardBarState } from "../../ui/composables/useKeyboardBarState.ts";
 import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../ui/utils/endpoints.ts";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────

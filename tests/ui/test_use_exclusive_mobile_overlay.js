@@ -6,7 +6,7 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useExclusiveMobileOverlay.js");
+  return import("../../ui/composables/useExclusiveMobileOverlay.ts");
 }
 
 function registerAll(registerOverlay, closed) {
