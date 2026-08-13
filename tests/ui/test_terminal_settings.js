@@ -63,6 +63,11 @@ describe("sanitizeTerminalSetting", () => {
     it("rejects 1 as not boolean true", () => {
       expect(sanitizeTerminalSetting("cursorBlink", 1)).toBe(false);
     });
+
+    it("returns fallback for undefined (後から追加された設定キーの保存値なし)", () => {
+      expect(sanitizeTerminalSetting("cursorBlink", undefined)).toBe(true);
+      expect(sanitizeTerminalSetting("copyOnSelect", undefined)).toBe(true);
+    });
   });
 
   describe("cursorStyle (select)", () => {
@@ -95,13 +100,13 @@ describe("sanitizeTerminalSetting", () => {
 });
 
 describe("sanitizeTerminalSettings", () => {
-  it("returns number defaults but false for booleans when input is empty", () => {
-    // Boolean sanitizer treats undefined as false, not as default
+  it("returns defaults for all keys when input is empty", () => {
     const result = sanitizeTerminalSettings({});
     expect(result.fontSize).toBe(12);
     expect(result.cursorStyle).toBe("block");
-    expect(result.cursorBlink).toBe(false);
-    expect(result.scrollOnOutput).toBe(false);
+    expect(result.cursorBlink).toBe(true);
+    expect(result.scrollOnOutput).toBe(true);
+    expect(result.copyOnSelect).toBe(true);
   });
 
   it("returns same result for null as for empty object", () => {
@@ -120,7 +125,7 @@ describe("sanitizeTerminalSettings", () => {
     const result = sanitizeTerminalSettings({ fontSize: 18, cursorBlink: false });
     expect(result.fontSize).toBe(18);
     expect(result.cursorBlink).toBe(false);
-    expect(result.scrollOnOutput).toBe(false);  // boolean: undefined → false
+    expect(result.scrollOnOutput).toBe(true);  // boolean: undefined → default
   });
 
   it("ignores unknown keys", () => {

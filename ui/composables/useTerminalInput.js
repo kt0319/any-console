@@ -88,7 +88,11 @@ export function bindTerminalInput(tab) {
   // マウス選択でテキストが確定したら自動的にブラウザクリップボードへコピーする。
   // 受動的に高頻度で走るため copyText は使わない（textarea フォールバックが
   // select() でフォーカスを奪う）。非 secure context では黙って何もしない。
+  // Wayland環境ではブラウザが書き込みで所有者になったまま他アプリの上書きを
+  // 検知できず、以後のペーストが古い選択テキストに化けることがあるため、
+  // 設定（Copy on Select）でオフにできる。
   tab.term?.onSelectionChange(() => {
+    if (!terminalStore.terminalSettings.copyOnSelect) return;
     const text = tab.term?.getSelection();
     if (text) navigator.clipboard?.writeText(text).catch(() => {});
   });
@@ -96,7 +100,10 @@ export function bindTerminalInput(tab) {
   // OSC 52: tmux が set-clipboard on のときに送ってくるクリップボード同期シーケンス。
   // data = "c;BASE64TEXT" の形式。デコードしてブラウザのクリップボードに書き込む。
   // 出力ストリーム起点の受動経路のため copyText のフォールバックは使わない（フォーカスを奪う）。
+  // この経路もブラウザをクリップボード所有者にするため、copyOnSelect オフ時は
+  // 書き込まない（Wayland の所有権通知問題の回避を選択時コピーと揃える）。
   tab.term?.parser.registerOscHandler(52, (data) => {
+    if (!terminalStore.terminalSettings.copyOnSelect) return true;
     const semi = data.indexOf(";");
     if (semi === -1) return false;
     const b64 = data.slice(semi + 1);

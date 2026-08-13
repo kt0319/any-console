@@ -130,4 +130,36 @@ describe("bindTerminalInput", () => {
 
     expect(useTerminalStore().doneSessions.s1).toBeUndefined();
   });
+
+  it("選択時の自動コピーはcopyOnSelect設定に従う", () => {
+    const { tab, term } = makeTab();
+    term.getSelection = vi.fn(() => "selected text");
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    bindTerminalInput(tab);
+    const onSelection = term.onSelectionChange.mock.calls[0][0];
+
+    onSelection();
+    expect(writeText).toHaveBeenCalledWith("selected text");
+
+    useTerminalStore().setTerminalSetting("copyOnSelect", false);
+    onSelection();
+    expect(writeText).toHaveBeenCalledTimes(1);
+  });
+
+  it("OSC 52のクリップボード書き込みもcopyOnSelect設定に従う", () => {
+    const { tab, term } = makeTab();
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    bindTerminalInput(tab);
+    const oscHandler = term.parser.registerOscHandler.mock.calls[0][1];
+    const payload = `c;${btoa("copied via osc52")}`;
+
+    expect(oscHandler(payload)).toBe(true);
+    expect(writeText).toHaveBeenCalledWith("copied via osc52");
+
+    useTerminalStore().setTerminalSetting("copyOnSelect", false);
+    expect(oscHandler(payload)).toBe(true);
+    expect(writeText).toHaveBeenCalledTimes(1);
+  });
 });

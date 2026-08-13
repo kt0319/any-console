@@ -13,6 +13,7 @@ export const TERMINAL_SETTINGS_META = Object.freeze({
   cursorBlink: { type: "boolean", label: "Cursor Blink", note: "Applied to new terminals." },
   scrollback: { type: "number", label: "Scrollback", min: 1000, max: 200000, step: 1000, unit: "lines", note: "Lines of history retained. Applied to new terminals." },
   scrollOnOutput: { type: "boolean", label: "Scroll on Output", note: "Applied to new terminals." },
+  copyOnSelect: { type: "boolean", label: "Copy on Select", note: "Automatically copy selected text to the clipboard. Also applies to clipboard sync from tmux (OSC 52)." },
   touchScrollSensitivity: { type: "number", label: "Touch Scroll Sensitivity", min: 0.5, max: 5, step: 0.5 },
 });
 
@@ -22,6 +23,7 @@ export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
   cursorBlink: true,
   scrollback: 100000,
   scrollOnOutput: true,
+  copyOnSelect: true,
   touchScrollSensitivity: 1.5,
 });
 
@@ -29,7 +31,13 @@ export function sanitizeTerminalSetting(key, value) {
   const schema = TERMINAL_SETTINGS_META[key];
   const fallback = DEFAULT_TERMINAL_SETTINGS[key];
   if (!schema) return fallback;
-  if (schema.type === "boolean") return value === true || value === "true";
+  // 保存値に存在しないキー（後から追加された設定）はデフォルトに倒す。
+  // undefinedをfalse扱いすると、新しいboolean設定を追加するたび既存ユーザーだけ
+  // デフォルトtrueのはずがオフで始まってしまう。
+  if (schema.type === "boolean") {
+    if (value === undefined) return fallback;
+    return value === true || value === "true";
+  }
   if (schema.type === "number") {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
