@@ -8,13 +8,6 @@
   >
     <div ref="modalEl" class="modal">
       <SessionListPanel ref="panelRef" />
-      <button
-        type="button"
-        class="modal-close-btn"
-        aria-label="Close"
-        data-tooltip="Close"
-        @click="close"
-      >&times;</button>
     </div>
   </div>
 </template>
@@ -73,25 +66,11 @@ watch(
   overflow: hidden;
 }
 
-/* モバイルはヘッダーが下部（ボトムシート風）に来るため、閉じる操作が
-   ハンバーガー/Esc/バックドロップタップしか無いと分かりにくい。右下に
-   独立した閉じるボタンを出す。見た目は modal-shell.css（グローバル）の
-   .modal-close-btn で WorkspaceDetailModal.vue と共用し、ここでは
-   右下固定の配置だけを指定する。 */
-.modal-close-btn {
-  position: absolute;
-  right: 8px;
-  bottom: calc(env(safe-area-inset-bottom) + 8px);
-  z-index: 1;
-}
-
+/* モバイルはヘッダーが下部（ボトムシート風）に来る。閉じるボタンは
+   SessionListPanel.vue自身のヘッダー（左端）にPC/モバイル共通で出す。 */
 :deep(.settings-panel-header) {
   border-bottom: none;
   border-top: 1px solid var(--border);
-  /* 右下固定の.modal-close-btn（36px + 右8px）と、ヘッダー右端の編集ボタン
-     （.settings-panel-edit-btn）が重ならないよう、閉じるボタン分の余白を
-     ヘッダー右側に確保する。 */
-  padding-right: calc(36px + 8px);
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   order: 1;
 }
