@@ -76,10 +76,11 @@
             <button
               v-if="linkedWorktree(branch)"
               type="button"
-              class="commit-action-item commit-action-danger"
-              title="Remove worktree"
+              class="commit-action-item commit-action-danger branch-delete-btn"
+              aria-label="Remove worktree"
+              data-tooltip="Remove worktree"
               @click="removeWorktree(linkedWorktree(branch))"
-            >Remove WT</button>
+            ><span class="mdi mdi-trash-can-outline"></span></button>
             <button
               v-if="!branch.current && !worktreeByBranch[branch.name]"
               type="button"
