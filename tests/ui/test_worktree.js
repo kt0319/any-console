@@ -35,15 +35,33 @@ describe("removeWorktreeConfirmMessage", () => {
     );
   });
 
-  it("開いているセッションが1件ある時はそれも閉じることを単数形で明示する", () => {
-    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, 1)).toBe(
+  it("開いているタブが1件ある時はそれも閉じることを単数形で明示する", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, { openTabs: 1 })).toBe(
       'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its open session will also be closed.',
     );
   });
 
-  it("開いているセッションが複数ある時は複数形で明示する", () => {
-    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, 2)).toBe(
+  it("開いているタブ+detachedセッションの合計が複数の時は複数形で明示する", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, { openTabs: 1, detachedSessions: 1 })).toBe(
       'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its open sessions will also be closed.',
+    );
+  });
+
+  it("dev serverプロセスが検出された時は停止することも明示する（単数）", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, { devServers: 1 })).toBe(
+      'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its dev server process will also be stopped.',
+    );
+  });
+
+  it("dev serverプロセスが複数の時は複数形で明示する", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, { devServers: 2 })).toBe(
+      'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its 2 dev server processes will also be stopped.',
+    );
+  });
+
+  it("セッション・dev server両方ある時は両方明示する", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, { openTabs: 1, devServers: 1 })).toBe(
+      'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its open session will also be closed. Its dev server process will also be stopped.',
     );
   });
 });

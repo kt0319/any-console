@@ -219,6 +219,18 @@ pub async fn delete_worktree(
     .await?;
     crate::git_helpers::invalidate_and_publish_git_info(&state, &name, &ws_path);
     crate::git_helpers::ensure_git_result_ok(&result, "Failed to remove worktree")?;
+    // 削除自体は成功しても、過去の失敗した削除試行や外部からの手動削除で
+    // .git/worktrees/<id> のメタデータだけが孤立して残っていることがある。
+    // pruneは対象が無くても無害なので、ベストエフォートで毎回実行しておく
+    // （失敗してもこの削除操作自体は成功扱いのまま進める）。
+    let _ = run_git_command(
+        &["worktree", "prune"],
+        &ws_path,
+        GIT_LONG_TIMEOUT_SEC,
+        "worktree prune",
+        &[],
+    )
+    .await;
     tracing::info!("worktree removed workspace={} path={}", name, body.path);
     Ok(Json(json!({"status": "ok"})))
 }

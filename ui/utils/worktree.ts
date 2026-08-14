@@ -20,17 +20,25 @@ export function worktreeConfirmLabel(wt?: { worktree_branch?: string; branch?: s
 
 /**
  * worktree 削除の確認メッセージ（削除元の画面によらず同一文言にする）。
- * openSessionCount > 0 の時は、削除に伴いそのworktreeを開いているセッションも
- * 閉じることを明示する（findOpenTabsForWorktree の結果件数を渡す）。
+ * residueは useWorktreeCleanup().findResidue() の結果件数
+ * （openTabs+detachedSessionsはまとめて「セッション」として、devServersは
+ * 別枠で明示する。どちらもディレクトリを消すだけでは自動的には片付かない
+ * ため、削除に伴い一緒に閉じる/停止することを事前に伝える）。
  */
 export function removeWorktreeConfirmMessage(
   wt?: { worktree_branch?: string; branch?: string; name?: string; path?: string },
-  openSessionCount = 0,
+  residue: { openTabs?: number; detachedSessions?: number; devServers?: number } = {},
 ): string {
   const base = `Remove worktree "${worktreeConfirmLabel(wt)}"? The working tree directory will be deleted. This cannot be undone.`;
-  if (openSessionCount <= 0) return base;
-  const sessionsLabel = openSessionCount === 1 ? "session" : "sessions";
-  return `${base} Its open ${sessionsLabel} will also be closed.`;
+  const sessionCount = (residue.openTabs || 0) + (residue.detachedSessions || 0);
+  const parts: string[] = [];
+  if (sessionCount > 0) {
+    parts.push(`Its open ${sessionCount === 1 ? "session" : "sessions"} will also be closed.`);
+  }
+  if (residue.devServers) {
+    parts.push(`Its ${residue.devServers === 1 ? "dev server process" : `${residue.devServers} dev server processes`} will also be stopped.`);
+  }
+  return parts.length ? `${base} ${parts.join(" ")}` : base;
 }
 
 /**

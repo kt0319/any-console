@@ -169,8 +169,9 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useToast } from "../composables/useToast.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { dirtyBadgeHtml } from "../utils/git.ts";
-import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage, findOpenTabsForWorktree } from "../utils/worktree.ts";
+import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
 import { useWorktreeRemove } from "../composables/useWorktreeRemove.ts";
+import { useWorktreeCleanup } from "../composables/useWorktreeCleanup.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
@@ -197,6 +198,7 @@ const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, wsEndpoint } = useApi();
 const { removeWorktreeRequest } = useWorktreeRemove();
+const { findResidue, cleanupResidue } = useWorktreeCleanup();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -358,12 +360,16 @@ function openEditWs(ws: Record<string, any>) {
 }
 
 async function removeWorktree(base: Record<string, any>, wt: Record<string, any>) {
-  const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, wt);
-  await confirm(removeWorktreeConfirmMessage(wt, openTabs.length), {
+  const residue = await findResidue(wt);
+  await confirm(removeWorktreeConfirmMessage(wt, {
+    openTabs: residue.openTabs.length,
+    detachedSessions: residue.detachedSessions.length,
+    devServers: residue.devServers.length,
+  }), {
     busyLabel: "Removing...",
     run: async () => {
       if (!await removeWorktreeRequest(base.name, wt)) return;
-      for (const tab of openTabs) bridgeEmit("tab:close", { tab });
+      await cleanupResidue(residue);
       await workspaceStore.fetchWorkspaces();
       toast.success("Worktree removed");
     },

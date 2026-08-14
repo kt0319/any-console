@@ -7,8 +7,8 @@ import { useToast } from "./useToast.ts";
 import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useTerminalStore } from "../stores/terminal.ts";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, findOpenTabsForWorktree, worktreeWorkspaceName } from "../utils/worktree.ts";
+import { useWorktreeCleanup } from "./useWorktreeCleanup.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
@@ -26,7 +26,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
   const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
   const { gitAction, isRunning } = useGitRemoteAction();
   const workspaceStore = useWorkspaceStore();
-  const terminalStore = useTerminalStore();
+  const { findResidue, cleanupResidue } = useWorktreeCleanup();
 
   const { loadBranchList, loadWorktrees, loadRemoteBranches, remoteLoaded, invalidateRemoteCache } = branchList;
 
@@ -66,14 +66,17 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     await withWorkspace(async (workspace) => {
       // wt（/worktrees API由来）はconfig.jsonに明示登録されたworktreeでしか
       // workspace/nameが埋まらないため、通常はここで base+branch から
-      // "base [branch]" 形式を組み立てて補う（findOpenTabsForWorktreeが
+      // "base [branch]" 形式を組み立てて補う（findResidueが
       // wt.workspace||wt.name を見るだけだと常に空でタブが見つからなかった）。
-      const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, {
-        workspace: wt.workspace || wt.name || worktreeWorkspaceName(workspace, wt.branch),
-      });
-      if (!await confirm(removeWorktreeConfirmMessage(wt, openTabs.length))) return;
+      const wsName = wt.workspace || wt.name || worktreeWorkspaceName(workspace, wt.branch);
+      const residue = await findResidue(wt, wsName);
+      if (!await confirm(removeWorktreeConfirmMessage(wt, {
+        openTabs: residue.openTabs.length,
+        detachedSessions: residue.detachedSessions.length,
+        devServers: residue.devServers.length,
+      }))) return;
       if (!await removeWorktreeRequest(workspace, wt)) return;
-      for (const tab of openTabs) emit("tab:close", { tab });
+      await cleanupResidue(residue);
       await workspaceStore.fetchWorkspaces();
       await loadWorktrees();
       toast.success(`Worktree removed: ${workspace} [${worktreeConfirmLabel(wt)}]`);
