@@ -392,6 +392,19 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
+/* Chromeのタブと同じく、隣り合う2つの非アクティブタブの間に縦線を出す
+   （アクティブタブに隣接する側・モバイルのopacity減光時は出さない）。
+   gap（.tab-bar-tabsで7px）の中央に来るよう -(gap+線幅)/2 = -4px ずらす。 */
+.tab-btn:not(.tab-panel-bottom):not(.active) + .tab-btn:not(.active)::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--border);
+}
+
 .tab-btn.drag-over-left {
   box-shadow: inset 2px 0 0 var(--accent);
 }

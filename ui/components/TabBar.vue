@@ -155,7 +155,10 @@ function onSettingsClick() {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  min-height: 37px;
+  /* タップターゲット推奨サイズ(44px)に揃える。ScreenMain.vueのpanel-bottom時の
+     オーバーライドと同じ値にすることで、SessionListPanel.vueの
+     .settings-panel-header（min-height:44px）とPCでも高さがズレないようにする。 */
+  min-height: 44px;
 }
 
 /* PCでセッションサイドバーを開いている間は、サイドバー幅（SessionSidebar.vue
@@ -170,7 +173,9 @@ function onSettingsClick() {
   display: flex;
   flex: 1;
   min-width: 0;
-  gap: 6px;
+  /* .tab-bar-tabsのgapと同じ7pxにする（下の「+」隣の縦線を整数pxで中央に
+     置くため）。 */
+  gap: 7px;
   padding: 0 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -194,7 +199,7 @@ function onSettingsClick() {
 .tab-bar-tabs {
   display: flex;
   flex-shrink: 0;
-  gap: 6px;
+  gap: 7px;
 }
 
 .tab-menu-btn {
@@ -215,6 +220,20 @@ function onSettingsClick() {
   font-weight: 500;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+/* タブとタブの間の縦線（TabItem.vue参照）と同じく、最後のタブが非アクティブの
+   時だけ「+」ボタンとの間にも縦線を出す（アクティブタブに隣接する側・モバイルの
+   opacity減光時は出さない）。隙間は.tab-barのgap(7px)+.tab-menu-btnの
+   margin-left(4px)=11pxのため -(11+1)/2 = -6px で中央にする。 */
+.tab-bar-tabs:has(.tab-btn):not(:has(.tab-btn.tab-panel-bottom)):not(:has(.tab-btn.active:last-child)) + .tab-menu-btn::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--border);
 }
 
 .tab-menu-btn:active {
