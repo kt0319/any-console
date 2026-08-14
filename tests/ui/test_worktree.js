@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName } from "../../ui/utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -115,5 +115,18 @@ describe("baseWorkspaceName", () => {
     expect(baseWorkspaceName("")).toBe("");
     expect(baseWorkspaceName(undefined)).toBe("");
     expect(baseWorkspaceName(null)).toBe("");
+  });
+});
+
+describe("worktreeWorkspaceName", () => {
+  it("ベース名とブランチ名から\"base [branch]\"形式を組み立てる（baseWorkspaceNameの逆）", () => {
+    expect(worktreeWorkspaceName("dw-joy-frontend", "feature/DW_JOY_DEV-975")).toBe("dw-joy-frontend [feature/DW_JOY_DEV-975]");
+    expect(baseWorkspaceName(worktreeWorkspaceName("app", "feat/x"))).toBe("app");
+  });
+
+  it("baseかbranchが無ければ空文字", () => {
+    expect(worktreeWorkspaceName("", "feat/x")).toBe("");
+    expect(worktreeWorkspaceName("app", "")).toBe("");
+    expect(worktreeWorkspaceName(undefined, undefined)).toBe("");
   });
 });

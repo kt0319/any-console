@@ -107,6 +107,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（テスト用 git リポジトリを一時領域に作成。Stash は独立タブではなく Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへのコミット反映（bare リモート + 2 クローンを一時領域に作成し、片方から push して「他者の新規コミット」を模す）
+  - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること（テスト用 git リポジトリ + API で worktree 作成後、UI から削除して検証）
   - `split.spec.js`: タブドラッグによるターミナル分割と SplitModeSelector での軸切替え（ピル群の上下位置はドラッグ切替えを廃止し、デバイスに応じて自動決定される）
   - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログ（Open / Copy）からの proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー

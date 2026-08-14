@@ -8,7 +8,7 @@ import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, findOpenTabsForWorktree } from "../utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, findOpenTabsForWorktree, worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
@@ -64,7 +64,13 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
 
   async function removeWorktree(wt: WorktreeEntry) {
     await withWorkspace(async (workspace) => {
-      const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, wt);
+      // wt（/worktrees API由来）はconfig.jsonに明示登録されたworktreeでしか
+      // workspace/nameが埋まらないため、通常はここで base+branch から
+      // "base [branch]" 形式を組み立てて補う（findOpenTabsForWorktreeが
+      // wt.workspace||wt.name を見るだけだと常に空でタブが見つからなかった）。
+      const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, {
+        workspace: wt.workspace || wt.name || worktreeWorkspaceName(workspace, wt.branch),
+      });
       if (!await confirm(removeWorktreeConfirmMessage(wt, openTabs.length))) return;
       if (!await removeWorktreeRequest(workspace, wt)) return;
       for (const tab of openTabs) emit("tab:close", { tab });

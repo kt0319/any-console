@@ -77,3 +77,17 @@ export function baseWorkspaceName(name?: string | null): string {
   if (!/\s$/.test(stripped.slice(0, open))) return name;
   return base;
 }
+
+/**
+ * baseWorkspaceName の逆。ベース名とブランチ名から worktree のワークスペース名
+ * （"base [branch]"形式）を組み立てる（server/src/git_utils.rs の
+ * worktree_display_name と同じ規則）。
+ * GitChangeBranch.vue の `/worktrees` API 由来の worktree エントリは
+ * workspace/name フィールドを持たない（config.json に明示登録された worktree
+ * でしか埋まらないため、通常は空）ので、findOpenTabsForWorktree に渡す前に
+ * ここで組み立てる必要がある。
+ */
+export function worktreeWorkspaceName(base?: string | null, branch?: string | null): string {
+  if (!base || !branch) return "";
+  return `${base} [${branch}]`;
+}
