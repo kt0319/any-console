@@ -380,7 +380,10 @@ defineExpose({
 
 .main-panel.panel-bottom :deep(.tab-bar) {
   padding: 0 4px;
-  gap: 2px;
+  /* TabBar.vueの「+」隣の縦線の中央位置(::before)は隙間(gap + .tab-menu-btnの
+     margin-left 4px)から算出しており、その合計が奇数でないと整数pxで
+     中央にできない。3pxにして合計7px(-4pxで中央)にする。 */
+  gap: 3px;
 }
 
 .main-panel.panel-bottom :deep(.tab-btn) {
@@ -388,6 +391,12 @@ defineExpose({
   padding: 12px 16px;
   min-width: 0;
   justify-content: center;
+}
+
+/* TabBar.vue側の元セレクタ(:has()込みで詳細度が高い)に負けないよう、同じ
+   条件をそのまま.main-panel.panel-bottomの下に足して詳細度で上回る。 */
+.main-panel.panel-bottom :deep(.tab-bar-tabs):has(.tab-btn):not(:has(.tab-btn.active:last-child)) + .tab-menu-btn::before {
+  left: -4px;
 }
 
 .main-panel.panel-bottom :deep(.keyboard-bar) {

@@ -372,16 +372,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* モバイル(パネル下部)はアイコンのみでテキストが無く、下線だけでは
-   アクティブ判別がしづらいため、非アクティブ側を明確に減光する。 */
-.tab-btn.tab-panel-bottom {
-  opacity: 0.55;
-}
-
-.tab-btn.tab-panel-bottom.active {
-  opacity: 1;
-}
-
 .tab-btn.tab-activity {
   animation: tab-activity-glow 3s ease-in-out 1;
 }
@@ -393,9 +383,9 @@ onBeforeUnmount(() => {
 }
 
 /* Chromeのタブと同じく、隣り合う2つの非アクティブタブの間に縦線を出す
-   （アクティブタブに隣接する側・モバイルのopacity減光時は出さない）。
-   gap（.tab-bar-tabsで7px）の中央に来るよう -(gap+線幅)/2 = -4px ずらす。 */
-.tab-btn:not(.tab-panel-bottom):not(.active) + .tab-btn:not(.active)::before {
+   （アクティブタブに隣接する側は出さない）。gap（.tab-bar-tabsで7px）の
+   中央に来るよう -(gap+線幅)/2 = -4px ずらす。 */
+.tab-btn:not(.active) + .tab-btn:not(.active)::before {
   content: "";
   position: absolute;
   left: -4px;

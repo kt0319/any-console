@@ -223,10 +223,10 @@ function onSettingsClick() {
 }
 
 /* タブとタブの間の縦線（TabItem.vue参照）と同じく、最後のタブが非アクティブの
-   時だけ「+」ボタンとの間にも縦線を出す（アクティブタブに隣接する側・モバイルの
-   opacity減光時は出さない）。隙間は.tab-barのgap(7px)+.tab-menu-btnの
-   margin-left(4px)=11pxのため -(11+1)/2 = -6px で中央にする。 */
-.tab-bar-tabs:has(.tab-btn):not(:has(.tab-btn.tab-panel-bottom)):not(:has(.tab-btn.active:last-child)) + .tab-menu-btn::before {
+   時だけ「+」ボタンとの間にも縦線を出す（アクティブタブに隣接する側は出さない）。
+   隙間は.tab-barのgap(7px)+.tab-menu-btnのmargin-left(4px)=11pxのため
+   -(11+1)/2 = -6px で中央にする。 */
+.tab-bar-tabs:has(.tab-btn):not(:has(.tab-btn.active:last-child)) + .tab-menu-btn::before {
   content: "";
   position: absolute;
   left: -6px;
