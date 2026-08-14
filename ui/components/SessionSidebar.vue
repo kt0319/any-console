@@ -55,7 +55,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-secondary);
+  /* KeyboardBar.vue（ui/styles/keyboard-bar.css の .keyboard-bar）と同じ背景色に揃える。 */
+  background: var(--bg-tertiary);
   border-right: 1px solid var(--border);
 }
 </style>
