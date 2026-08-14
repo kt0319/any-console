@@ -98,10 +98,11 @@ describe("sessionSidebarItems", () => {
     expect(bare.icon).toEqual({ name: "mdi-robot", color: null });
   });
 
-  it("worktree は「ベース名 | ブランチ」表示になり isWorktree が立つ", () => {
+  it("worktree はベース名のみのラベルになり isWorktree が立つ（ブランチは下段の branch フィールドで表示するため）", () => {
     const items = sessionSidebarItems(tabs, workspaces);
     const wt = items[2];
-    expect(wt.label).toBe("app | feat/x");
+    expect(wt.label).toBe("app");
+    expect(wt.branch).toBe("feat/x");
     expect(wt.isWorktree).toBe(true);
     expect(wt.dirty).toBe(false);
   });
@@ -245,11 +246,12 @@ describe("pendingDispatchSidebarItems", () => {
     expect(app.agent).toEqual({ icon: "mdi-inbox-arrow-down-outline", label: "Pending", className: "agent-state-dispatch-pending" });
   });
 
-  it("worktreeは「ベース名 | ブランチ」表示になる", () => {
+  it("worktreeはベース名のみのラベルになる", () => {
     const items = pendingDispatchSidebarItems(workspaces, new Set(), {
       dispatchQueue: [{ request: { workspace: "wt" } }],
     });
-    expect(items[0].label).toBe("app | feat/x");
+    expect(items[0].label).toBe("app");
+    expect(items[0].branch).toBe("feat/x");
     expect(items[0].isWorktree).toBe(true);
   });
 

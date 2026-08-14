@@ -1,4 +1,3 @@
-import { workspaceDisplayName } from "./worktree.ts";
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "./github-runs.ts";
 import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
 import { buildInfoPillTooltips } from "./info-pill-tooltips.ts";
@@ -142,7 +141,10 @@ export function sessionSidebarItems(
     .filter((tab) => !tabFlags[tab.id]?.autoDiscovered)
     .map((tab) => {
       const ws = tab.workspace ? (workspaces || []).find((w) => w.name === tab.workspace) : undefined;
-      const label = ws?.worktree ? workspaceDisplayName(ws) : (tab.workspace || tab.label || "terminal");
+      // worktree行はブランチを下段（session-sidebar-sub）で別表示するため、
+      // タイトルはworkspaceDisplayName()の「ベース名 | ブランチ」ではなく
+      // ベース名のみにする（TabItem.vue等の1行表示とは異なりここは2行使える）。
+      const label = ws?.worktree ? (ws.worktree_base || ws.name || "") : (tab.workspace || tab.label || "terminal");
       const pill = buildPillFields(tab.workspace, ws, ctx);
       return {
         tab,
@@ -186,7 +188,7 @@ export function pendingDispatchSidebarItems(
     const pill = buildPillFields(wsName, ws, ctx);
     return {
       workspace: wsName,
-      label: ws?.worktree ? workspaceDisplayName(ws) : wsName,
+      label: ws?.worktree ? (ws.worktree_base || ws.name || wsName) : wsName,
       wsIcon: ws?.icon ? { name: ws.icon, color: ws.icon_color } : null,
       jobIcon: null,
       isWorktree: !!ws?.worktree,
