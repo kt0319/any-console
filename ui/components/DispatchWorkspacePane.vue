@@ -36,7 +36,8 @@
 import { computed } from "vue";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
+import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
+import { baseWorkspaceName } from "../utils/worktree.ts";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 // WorkspaceDetail.vueの「Dispatch」タブの中身。旧SessionDispatchesTab.vue
@@ -54,9 +55,14 @@ const { queue, recent: allRecent } = useDispatchQueue();
 const pending = computed(() =>
   queue.value.filter((item) => dispatchWorkspaceLabel(item.request) === workspaceStore.selectedWorkspace),
 );
-const recent = computed(() =>
-  allRecent.value.filter((item) => dispatchWorkspaceLabel(item.request) === workspaceStore.selectedWorkspace),
-);
+// 履歴（recent）はworktreeと元のディレクトリで共有する。worktreeで実行した
+// dispatchも元のディレクトリの履歴に出したい／worktree側からも元のディレクトリ
+// の履歴を見たいため、ベースワークスペース名同士で突き合わせる（pendingは
+// 承認操作を伴うため対象を絞ったまま変更しない）。
+const recent = computed(() => {
+  const base = baseWorkspaceName(workspaceStore.selectedWorkspace);
+  return allRecent.value.filter((item) => dispatchBaseWorkspaceLabel(item.request) === base);
+});
 </script>
 
 <style scoped>

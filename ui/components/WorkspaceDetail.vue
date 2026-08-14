@@ -113,8 +113,8 @@ import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
-import { workspaceDisplayName } from "../utils/worktree.ts";
+import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
+import { workspaceDisplayName, baseWorkspaceName } from "../utils/worktree.ts";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint } = useApi();
@@ -179,10 +179,13 @@ const dispatchPendingCount = computed(() => {
   if (!ws) return 0;
   return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
 });
+// recentはworktreeと元のディレクトリで履歴を共有する（DispatchWorkspacePane.vue
+// と同じ規則。ベースワークスペース名同士で突き合わせる）。
 const dispatchRecentCount = computed(() => {
   const ws = workspaceStore.selectedWorkspace;
   if (!ws) return 0;
-  return dispatchRecent.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
+  const base = baseWorkspaceName(ws);
+  return dispatchRecent.value.filter((item) => dispatchBaseWorkspaceLabel(item.request) === base).length;
 });
 
 const fileBrowserDeep = ref(false);

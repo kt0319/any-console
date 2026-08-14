@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName, findOpenTabsForWorktree } from "../../ui/utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -91,5 +91,29 @@ describe("workspaceDisplayName", () => {
 
   it("returns empty string for nullish input", () => {
     expect(workspaceDisplayName(undefined)).toBe("");
+  });
+});
+
+describe("baseWorkspaceName", () => {
+  it("worktree名（\"base [branch]\"形式）からベース名を取り出す", () => {
+    expect(baseWorkspaceName("app [feature/x]")).toBe("app");
+  });
+
+  it("スラッシュを含むブランチ名でも取り出せる", () => {
+    expect(baseWorkspaceName("dw-joy-frontend [feature/DW_JOY_DEV-975]")).toBe("dw-joy-frontend");
+  });
+
+  it("worktreeでなければそのまま返す", () => {
+    expect(baseWorkspaceName("app")).toBe("app");
+  });
+
+  it("角括弧の直前にスペースが無い場合はworktree形式とみなさずそのまま返す", () => {
+    expect(baseWorkspaceName("weird[name]")).toBe("weird[name]");
+  });
+
+  it("空/未指定は空文字", () => {
+    expect(baseWorkspaceName("")).toBe("");
+    expect(baseWorkspaceName(undefined)).toBe("");
+    expect(baseWorkspaceName(null)).toBe("");
   });
 });

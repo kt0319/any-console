@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dispatchWorkspaceLabel, dispatchJobLabel } from "../../ui/utils/dispatch-request.ts";
+import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel, dispatchJobLabel } from "../../ui/utils/dispatch-request.ts";
 
 describe("dispatchWorkspaceLabel", () => {
   it("effective_workspace（worktree解決済み）を優先する", () => {
@@ -14,6 +14,20 @@ describe("dispatchWorkspaceLabel", () => {
     expect(dispatchWorkspaceLabel(null)).toBe("");
     expect(dispatchWorkspaceLabel(undefined)).toBe("");
     expect(dispatchWorkspaceLabel({})).toBe("");
+  });
+});
+
+describe("dispatchBaseWorkspaceLabel", () => {
+  it("worktreeのeffective_workspaceからベース名を取り出す（履歴を元のディレクトリと共有するため）", () => {
+    expect(dispatchBaseWorkspaceLabel({ effective_workspace: "ws [feature/x]", workspace: "ws" })).toBe("ws");
+  });
+
+  it("worktreeでなければdispatchWorkspaceLabelと同じ値", () => {
+    expect(dispatchBaseWorkspaceLabel({ workspace: "ws" })).toBe("ws");
+  });
+
+  it("request未指定は空文字", () => {
+    expect(dispatchBaseWorkspaceLabel(null)).toBe("");
   });
 });
 

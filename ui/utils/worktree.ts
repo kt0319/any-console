@@ -58,3 +58,22 @@ export function workspaceDisplayName(ws?: { name?: string; worktree?: boolean; w
   }
   return (ws && ws.name) || "";
 }
+
+/**
+ * worktreeのワークスペース名（"base [branch]"形式、server/src/git_utils.rs の
+ * worktree_display_name/split_worktree_name と同じ規則）からベースワークスペース名
+ * を取り出す。worktreeでなければそのまま返す。
+ * dispatch履歴をworktreeと元のディレクトリで共有表示するための正規化に使う
+ * （dispatch-request.ts の dispatchBaseWorkspaceLabel 参照）。
+ */
+export function baseWorkspaceName(name?: string | null): string {
+  if (!name || !name.endsWith("]")) return name || "";
+  const stripped = name.slice(0, -1);
+  const open = stripped.indexOf("[");
+  if (open === -1) return name;
+  const base = stripped.slice(0, open).trimEnd();
+  const branch = stripped.slice(open + 1);
+  if (!base || !branch) return name;
+  if (!/\s$/.test(stripped.slice(0, open))) return name;
+  return base;
+}
