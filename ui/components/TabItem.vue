@@ -44,7 +44,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, type PropType } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
-import { workspaceDisplayName } from "../utils/worktree.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
@@ -99,7 +98,9 @@ const tabWorkspace = computed(() => {
 const label = computed(() => {
   if (props.tab.workspace) {
     const ws = tabWorkspace.value;
-    if (ws?.worktree) return workspaceDisplayName(ws);
+    // worktreeアイコン(tab-worktree-icon)で既に判別できるため、タブ名には
+    // worktree名（"ベース名 | ブランチ"）を出さずベース名だけにする。
+    if (ws?.worktree) return ws.worktree_base || props.tab.workspace;
     return props.tab.workspace;
   }
   return props.tab.label || "terminal";
