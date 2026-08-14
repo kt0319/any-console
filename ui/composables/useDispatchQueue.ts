@@ -84,7 +84,11 @@ export function useDispatchQueue() {
     if (!ok) return false;
     // WS ブロードキャストでも消えるが、切断中でも一覧へ即時反映する。
     removeFromQueue(id);
-    focusSession(data?.session_id, data?.workspace);
+    // await必須（Codexレビュー指摘: fire-and-forgetだと、呼び出し元がrunItem完了
+    // 直後にモーダルを閉じる等で先に進んだ場合、新規セッションのタブ作成/WS接続が
+    // 完了する前に処理が終わり、pending text（TMUX_PENDING_TEXT）を流すサーバ側の
+    // flush_pending_textが呼ばれずコマンドが入力されないことがあった）。
+    await focusSession(data?.session_id, data?.workspace);
     return true;
   }
 
@@ -111,7 +115,8 @@ export function useDispatchQueue() {
       errorMessage: "Failed to rerun dispatch (it may no longer be in recent history)",
     });
     if (!ok) return false;
-    focusSession(data?.session_id, data?.workspace);
+    // runItemと同じ理由でawait必須（コメント参照）。
+    await focusSession(data?.session_id, data?.workspace);
     return true;
   }
 

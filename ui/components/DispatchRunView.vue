@@ -173,9 +173,19 @@ function initFromRequest(req) {
   createMode.value = req?.create_branch ? "branch" : "";
 }
 
-// worktree はドロップダウンの選択肢に含めない（ベースワークスペースのみ選択可能）ため、
-// 元のリクエストのworktree情報は選択中ワークスペースが変わっていない時だけ表示する。
-const workspaceOptions = computed(() => workspaceStore.allWorkspaces.filter((w) => !w.worktree));
+// 新規セッション作成時はworktreeをドロップダウンの選択肢に含めない
+// （ベースワークスペースのみ選択可能。worktree自体はCreate worktreeで別途作る）。
+// 既存セッションを選んだ時（disabledの参考表示）は、そのセッションのworkspaceが
+// worktreeのこともあるため、一覧に無いと選択値と選択肢がズレて空欄に見えて
+// しまう。選択中の値が一覧に無ければ表示専用として追加する。
+const workspaceOptions = computed(() => {
+  const opts = workspaceStore.allWorkspaces.filter((w) => !w.worktree);
+  if (!isNewSession.value && selectedWorkspace.value && !opts.some((w) => w.name === selectedWorkspace.value)) {
+    const current = workspaceStore.allWorkspaces.find((w) => w.name === selectedWorkspace.value);
+    if (current) opts.push(current);
+  }
+  return opts;
+});
 const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWorkspace.value === request.value?.workspace);
 
 // worktree 上の dispatch はブランチが既に固定されているため、ブランチ操作の
@@ -247,11 +257,13 @@ watch(() => request.value?.retry_count, (count) => {
   }
 });
 
-watch(selectedSessionId, () => {
+// セッション一覧はSession selectの選択肢そのものなので、選択操作のたびに
+// 取り直す必要はなくマウント時に1回だけ取得すれば足りる。
+onMounted(() => {
   apiGet(EP_TERMINAL_SESSIONS).then((res) => {
     if (res.ok && Array.isArray(res.data)) sessions.value = res.data.filter((s) => !s.detached);
   });
-}, { immediate: true });
+});
 
 // 既存セッションを選んだら、そのセッションの実際の Workspace / Job を
 // プレビュー表示に反映する（disabled のままだが選択中セッションに追従させる）。
@@ -347,6 +359,14 @@ async function run() {
       overrides.branch = null;
       overrides.base_branch = null;
       overrides.create_branch = null;
+      // worktree自体の作成に成功した時点でモーダルを閉じる。以降のdispatch実行
+      // （新規セッション起動＋Input欄の送信）は結果を待たずバックグラウンドで
+      // 継続する（作成〜実行の2段階の完了待ちでモーダルが開いたままになるのを
+      // 避けるため）。実行自体が失敗した場合はrunItem/rerunNow内のapiPostが
+      // 通常のエラートースト（errorMessage）で通知する。
+      emits("done");
+      (isRerun.value ? rerunNow(itemId, overrides) : runItem(itemId, overrides)).catch(() => {});
+      return;
     }
     const ok = isRerun.value ? await rerunNow(itemId, overrides) : await runItem(itemId, overrides);
     // Run 成功後はそのままセッションを見せたいので、一覧へ戻さずワークスペース
