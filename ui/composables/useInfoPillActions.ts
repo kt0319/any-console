@@ -1,13 +1,10 @@
 import type { ComputedRef, Ref } from "vue";
 import { emit } from "../app-bridge.ts";
 import { useApi } from "./useApi.ts";
-import { useConfirm } from "./useConfirm.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { terminalSessionCwdPath } from "../utils/endpoints.ts";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.ts";
-import { openExternal } from "../utils/open-external.ts";
-import { devServerUrl } from "../utils/preview-url.ts";
-import { copyText } from "../utils/clipboard.ts";
+import { useDevServerOpen } from "./useDevServerOpen.ts";
 
 // Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が
 // 同じopenPane(key)を使う。
@@ -20,7 +17,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry }: {
   const { apiGet } = useApi() as {
     apiGet: (endpoint: string, opts?: { errorMessage?: string }) => Promise<{ ok: boolean, data: any }>,
   };
-  const { confirm } = useConfirm();
+  const { confirmOpenDevServer } = useDevServerOpen();
 
   // history/changes/branch/prs/actions はワークスペース詳細の同名ペインを開く
   // （pane名＝ピルのキー）。
@@ -78,17 +75,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry }: {
   async function openDevServer() {
     const p = devServerEntry.value;
     if (!p) return;
-    const url = devServerUrl(p, location.hostname);
-    const result = await confirm(`Open dev server preview at "${url}"?`, {
-      ok: { label: "Open" },
-      extra: { label: "Copy", value: "copy", icon: "mdi-content-copy" },
-    });
-    if (result === "copy") {
-      await copyText(url);
-      return;
-    }
-    if (!result) return;
-    openExternal(url);
+    await confirmOpenDevServer(p);
   }
 
   // 他のピル（history/changes/branch/prs/actions）と同じく、常にワークスペース

@@ -24,6 +24,11 @@ export const RECONNECT_BACKOFF_BASE_MS = 1000;
 export const RECONNECT_BACKOFF_MAX = 5000;
 export const RECONNECTING_OVERLAY_MIN_ATTEMPTS = 2;
 export const DEV_SERVER_POLL_INTERVAL_MS = 10000;
+// SessionPreviewTab.vue: killで送ったSIGTERMがプロセス終了・ポートスキャン
+// 反映されるまで、既定の10秒間隔（DEV_SERVER_POLL_INTERVAL_MS）より短い間隔で
+// 数回だけ確認する（スピナー表示を早めに終わらせるため）。
+export const DEV_SERVER_KILL_POLL_INTERVAL_MS = 500;
+export const DEV_SERVER_KILL_POLL_TIMEOUT_MS = 5000;
 // GitHub（gh CLI経由のPR/Actions一覧）の再取得間隔。ローカルのポートスキャン
 // （DEV_SERVER_POLL_INTERVAL_MS）と違い外部APIを叩くため、控えめな間隔にする。
 export const GITHUB_POLL_INTERVAL_MS = 30000;

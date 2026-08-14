@@ -24,11 +24,20 @@
         </div>
       </div>
       <template v-if="!p.is_self">
-        <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
-          <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
-        </button>
         <button type="button" class="preview-open" @click="openPreview(p)">
           <span class="mdi mdi-open-in-new"></span> Open
+        </button>
+        <button
+          v-if="p.pid"
+          type="button"
+          class="preview-kill commit-action-danger"
+          :class="{ running: killingPids.has(p.pid) }"
+          :disabled="killingPids.has(p.pid)"
+          aria-label="Kill process"
+          data-tooltip="Kill process"
+          @click="killDevServer(p)"
+        >
+          <span class="mdi mdi-close"></span>
         </button>
       </template>
     </div>
@@ -36,13 +45,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from "vue";
-import { copyText } from "../utils/clipboard.ts";
+import { onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { useDevServerOpen } from "../composables/useDevServerOpen.ts";
+import { useProcessKill } from "../composables/useProcessKill.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
-import { devServerUrl } from "../utils/preview-url.ts";
-import { openExternal } from "../utils/open-external.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 // Settings（ModalMenu）の「Dev Server」項目から開くcurrentView
@@ -54,12 +62,13 @@ import { useModalView } from "../composables/useModalView.ts";
 const { modalTitle } = useModalView();
 modalTitle!.value = "Dev Server";
 
-const { ports, start: startPolling, stop: stopPolling } = usePreviewPorts();
+const { ports, start: startPolling, stop: stopPolling, fetchPorts } = usePreviewPorts();
 onMounted(startPolling);
 onBeforeUnmount(stopPolling);
 
 const workspaceStore = useWorkspaceStore();
-const copiedPort = ref<number | null>(null);
+const { confirmOpenDevServer } = useDevServerOpen();
+const { killingPids, killProcess } = useProcessKill();
 const hostname = location.hostname;
 
 function workspaceIconHtml(name) {
@@ -67,25 +76,18 @@ function workspaceIconHtml(name) {
   return renderIconStr(ws?.icon || "mdi-console", ws?.icon_color, 14);
 }
 
-function buildPreviewUrl(p) {
-  return devServerUrl(p, location.hostname);
+// Server pill（TerminalPane）と同じOpen/Copy選択の確認フローにする
+// （直接開かず、URLだけ確認・コピーもできるようにする）。
+async function openPreview(p) {
+  await confirmOpenDevServer(p);
 }
 
-function openPreview(p) {
-  const url = buildPreviewUrl(p);
-  if (!url) return;
-  // iOS PWA モードでは <a target="_blank"> がループするため window.open 版（openExternal）を使う。
-  // ユーザーインタラクション（click）から直接呼ぶのでポップアップブロックに引っかかりにくい。
-  openExternal(url);
-}
-
-async function copyUrl(p) {
-  const url = buildPreviewUrl(p);
-  await copyText(url);
-  copiedPort.value = p.port;
-  setTimeout(() => {
-    if (copiedPort.value === p.port) copiedPort.value = null;
-  }, 1500);
+function killDevServer(p) {
+  return killProcess(p.pid, {
+    confirmMessage: `Kill process ${p.pid} (${p.process}, port ${p.port})? This sends SIGTERM.`,
+    refetch: fetchPorts,
+    isGone: () => !ports.value.some((port) => port.pid === p.pid),
+  });
 }
 </script>
 
@@ -169,18 +171,43 @@ async function copyUrl(p) {
   cursor: pointer;
   text-decoration: none;
 }
-.preview-copy {
+/* color/border-colorは.commit-action-danger（base.css）が担う。ここでは
+   border style/widthのみ指定し、色は指定しない（currentColorでcolorに追従）。 */
+.preview-kill {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 1px solid;
   border-radius: var(--radius);
   font-size: 16px;
   cursor: pointer;
+}
+
+/* GitActionBtn.vueのrunning状態と同じ表現（アイコンを隠しスピナーを出す）。 */
+.preview-kill.running {
+  pointer-events: none;
+  color: transparent;
+}
+
+.preview-kill.running > * {
+  visibility: hidden;
+}
+
+.preview-kill.running::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--error-bg-20);
+  border-top-color: var(--error);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
 }
 .preview-proxy {
   color: var(--accent);

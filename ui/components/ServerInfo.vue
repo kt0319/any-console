@@ -4,12 +4,12 @@
     <div v-else v-for="section in sections" :key="section.label" class="si-card">
       <div class="si-card-head">
         <span class="si-card-title">{{ section.label }}</span>
-        <button v-if="section.refreshable" type="button" class="si-refresh" :disabled="isRefreshing" @click="refresh">
-          <span class="mdi mdi-refresh" :class="{ spinning: isRefreshing }"></span>
-        </button>
         <span v-if="section.rightValues" class="si-col-heads">
           <span v-for="v in section.rightValues" :key="v">{{ v }}</span>
         </span>
+        <button v-if="section.refreshable" type="button" class="si-refresh" :disabled="isRefreshing" @click="refresh">
+          <span class="mdi mdi-refresh" :class="{ spinning: isRefreshing }"></span>
+        </button>
       </div>
       <div v-if="section.error" class="status-message error">{{ section.error }}</div>
       <div v-else>
@@ -18,7 +18,16 @@
           <span class="si-vals">
             <span v-for="v in row.values" :key="v">{{ v }}</span>
           </span>
-          <button v-if="row.pid" type="button" class="si-kill-btn" aria-label="Kill process" data-tooltip="Kill process" @click="killProcess(row.pid)">
+          <button
+            v-if="row.pid"
+            type="button"
+            class="si-kill-btn commit-action-danger"
+            :class="{ running: killingPids.has(row.pid) }"
+            :disabled="killingPids.has(row.pid)"
+            aria-label="Kill process"
+            data-tooltip="Kill process"
+            @click="killProcessRow(row.pid)"
+          >
             <span class="mdi mdi-close"></span>
           </button>
         </div>
@@ -70,8 +79,9 @@ import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
-import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.ts";
+import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import { useProcessKill } from "../composables/useProcessKill.ts";
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "System Info";
@@ -79,6 +89,7 @@ modalTitle!.value = "System Info";
 const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
+const { killingPids, killProcess } = useProcessKill();
 
 const upd = reactive({
   checking: false,
@@ -235,10 +246,12 @@ async function load() {
   isLoading.value = false;
 }
 
-async function killProcess(pid) {
-  if (!await confirm(`Kill process ${pid}? This sends SIGTERM.`)) return;
-  const { ok } = await apiPost(EP_SYSTEM_PROCESS_KILL, { pid }, { errorMessage: "Failed to kill process" });
-  if (ok) await refresh();
+function killProcessRow(pid) {
+  return killProcess(pid, {
+    confirmMessage: `Kill process ${pid}? This sends SIGTERM.`,
+    refetch: refresh,
+    isGone: () => !sections.value.find((s) => s.refreshable)?.rows.some((r) => r.pid === pid),
+  });
 }
 
 async function refresh() {
@@ -275,8 +288,27 @@ defineExpose({ load });
 .si-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
-.si-kill-btn { background: none; border: none; color: var(--text-muted); padding: 0 0 0 8px; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; }
-@media (hover: hover) and (pointer: fine) {
-  .si-kill-btn:hover { color: var(--error); }
+/* color/border-colorは.commit-action-danger（base.css）が担う。 */
+.si-kill-btn { position: relative; background: none; border: none; padding: 0 0 0 8px; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; }
+
+/* GitActionBtn.vueのrunning状態と同じ表現（アイコンを隠しスピナーを出す）。 */
+.si-kill-btn.running {
+  pointer-events: none;
+  color: transparent;
+}
+.si-kill-btn.running > * {
+  visibility: hidden;
+}
+.si-kill-btn.running::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--error-bg-20);
+  border-top-color: var(--error);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
 }
 </style>
