@@ -59,7 +59,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'branch')"
         >
-          <span class="mdi" :class="peekIconForKey('branch')"></span>
+          <span class="mdi" :class="isWorktree ? 'mdi-file-tree pill-branch-worktree-icon' : peekIconForKey('branch')"></span>
           <span v-if="ahead > 0" class="pill-branch-count push-count"><span class="mdi mdi-arrow-up-thin"></span>{{ ahead }}</span>
           <span v-if="behind > 0" class="pill-branch-count pull-count"><span class="mdi mdi-arrow-down-thin"></span>{{ behind }}</span>
         </button>
@@ -147,6 +147,7 @@ const props = defineProps({
   tab: { type: Object, required: true },
   maxWidth: { type: Number, required: true },
   isGitRepo: { type: Boolean, default: false },
+  isWorktree: { type: Boolean, default: false },
   isDirty: { type: Boolean, default: false },
   ahead: { type: Number, default: 0 },
   behind: { type: Number, default: 0 },

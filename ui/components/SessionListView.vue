@@ -31,6 +31,7 @@
               :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
               :max-width="PILL_MAX_WIDTH_UNLIMITED_PX"
               :is-git-repo="p.isGitRepo"
+              :is-worktree="p.isWorktree"
               :is-dirty="p.dirty"
               :ahead="p.ahead"
               :behind="p.behind"

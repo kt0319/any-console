@@ -48,6 +48,7 @@
           :tab="tab"
           :max-width="trailingMaxWidth"
           :is-git-repo="isGitRepo"
+          :is-worktree="!!paneWorkspace?.worktree"
           :is-dirty="isDirty"
           :ahead="ahead"
           :behind="behind"

@@ -329,6 +329,13 @@
   color: var(--success);
 }
 
+/* worktreeの時はブランチアイコンをworktree専用アイコン(mdi-file-tree)に
+   差し替える。色も他のworktree表示（GitChangeBranch.vueのbranch-worktree-icon等）
+   と揃えてaccent(青)にする。 */
+.pill-branch-btn .pill-branch-worktree-icon {
+  color: var(--accent);
+}
+
 /* Push(↑)/Pull(↓)件数。値がある時だけ表示される（v-if）ので常時表示で良い
    （他ピルのpeek-hover方式とは異なり、これは数字自体が主情報のため）。 */
 .pill-branch-count {

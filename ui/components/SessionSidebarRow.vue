@@ -46,6 +46,7 @@
           :tab="item.tab"
           :max-width="pillsMaxWidth"
           :is-git-repo="item.isGitRepo"
+          :is-worktree="item.isWorktree"
           :is-dirty="item.dirty"
           :ahead="item.ahead"
           :behind="item.behind"
