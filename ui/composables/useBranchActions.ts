@@ -7,7 +7,8 @@ import { useToast } from "./useToast.ts";
 import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, findOpenTabsForWorktree } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
@@ -15,7 +16,7 @@ import type { useBranchList } from "./useBranchList.ts";
 type ToastFn = (message: string, opts?: { duration?: number, action?: string | object }) => void;
 
 type BranchEntry = { name: string, current?: boolean, remote?: boolean };
-type WorktreeEntry = { worktree_branch?: string, branch?: string, name?: string, path?: string };
+type WorktreeEntry = { worktree_branch?: string, branch?: string, name?: string, path?: string, workspace?: string };
 
 export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
   const { apiCommand, wsEndpoint } = useApi();
@@ -25,6 +26,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
   const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
   const { gitAction, isRunning } = useGitRemoteAction();
   const workspaceStore = useWorkspaceStore();
+  const terminalStore = useTerminalStore();
 
   const { loadBranchList, loadWorktrees, loadRemoteBranches, remoteLoaded, invalidateRemoteCache } = branchList;
 
@@ -62,8 +64,10 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
 
   async function removeWorktree(wt: WorktreeEntry) {
     await withWorkspace(async (workspace) => {
-      if (!await confirm(removeWorktreeConfirmMessage(wt))) return;
+      const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, wt);
+      if (!await confirm(removeWorktreeConfirmMessage(wt, openTabs.length))) return;
       if (!await removeWorktreeRequest(workspace, wt)) return;
+      for (const tab of openTabs) emit("tab:close", { tab });
       await workspaceStore.fetchWorkspaces();
       await loadWorktrees();
       toast.success(`Worktree removed: ${workspace} [${worktreeConfirmLabel(wt)}]`);

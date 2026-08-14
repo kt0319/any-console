@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName } from "../../ui/utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName, findOpenTabsForWorktree } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -33,6 +33,44 @@ describe("removeWorktreeConfirmMessage", () => {
     expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" })).toBe(
       'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone.',
     );
+  });
+
+  it("開いているセッションが1件ある時はそれも閉じることを単数形で明示する", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, 1)).toBe(
+      'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its open session will also be closed.',
+    );
+  });
+
+  it("開いているセッションが複数ある時は複数形で明示する", () => {
+    expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, 2)).toBe(
+      'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its open sessions will also be closed.',
+    );
+  });
+});
+
+describe("findOpenTabsForWorktree", () => {
+  const tabs = [
+    { id: 1, workspace: "app" },
+    { id: 2, workspace: "app-feature-x" },
+    { id: 3, workspace: null },
+  ];
+
+  it("GitChangeBranch.vue経由（wt.workspaceが登録名）のタブを見つける", () => {
+    const found = findOpenTabsForWorktree(tabs, { branch: "feature/x", path: "/tmp/wt", workspace: "app-feature-x" });
+    expect(found).toEqual([tabs[1]]);
+  });
+
+  it("WorkspaceOpen.vue経由（wt自体が登録ワークスペース、wt.nameが登録名）のタブを見つける", () => {
+    const found = findOpenTabsForWorktree(tabs, { name: "app-feature-x", worktree: true });
+    expect(found).toEqual([tabs[1]]);
+  });
+
+  it("該当するタブが無ければ空配列を返す", () => {
+    expect(findOpenTabsForWorktree(tabs, { workspace: "no-such-ws" })).toEqual([]);
+  });
+
+  it("wt自体にworkspace/nameが無ければ空配列を返す", () => {
+    expect(findOpenTabsForWorktree(tabs, { path: "/tmp/wt" })).toEqual([]);
   });
 });
 

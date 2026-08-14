@@ -169,7 +169,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useToast } from "../composables/useToast.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { dirtyBadgeHtml } from "../utils/git.ts";
-import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
+import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage, findOpenTabsForWorktree } from "../utils/worktree.ts";
 import { useWorktreeRemove } from "../composables/useWorktreeRemove.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
@@ -358,10 +358,12 @@ function openEditWs(ws: Record<string, any>) {
 }
 
 async function removeWorktree(base: Record<string, any>, wt: Record<string, any>) {
-  await confirm(removeWorktreeConfirmMessage(wt), {
+  const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, wt);
+  await confirm(removeWorktreeConfirmMessage(wt, openTabs.length), {
     busyLabel: "Removing...",
     run: async () => {
       if (!await removeWorktreeRequest(base.name, wt)) return;
+      for (const tab of openTabs) bridgeEmit("tab:close", { tab });
       await workspaceStore.fetchWorkspaces();
       toast.success("Worktree removed");
     },
