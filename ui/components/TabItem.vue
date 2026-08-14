@@ -23,11 +23,11 @@
       <span v-html="wsIconHtml"></span>
       <span v-if="isDirty" class="tab-dirty-badge" aria-label="uncommitted changes"></span>
     </span>
-    <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span v-if="iconHtml" class="tab-icon-slot tab-icon-badge-wrap">
       <span v-html="iconHtml"></span>
       <span v-if="!wsIconHtml && isDirty" class="tab-dirty-badge" aria-label="uncommitted changes"></span>
     </span>
+    <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span class="tab-extra">
       {{ label }}
       <span
