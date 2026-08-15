@@ -47,7 +47,7 @@ test.describe("workspace lifecycle", () => {
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace");
 
     await page.locator(".ws-add-input").fill(wsDir);
-    await page.locator(".ws-add-btn").click();
+    await page.locator(".ws-add-submit-btn").click();
 
     // 登録成功後は Workspaces 一覧へ戻る（Settings → Workspaces → Add Workspace の1つ上）。
     // 一覧に追加した名前が表示される
@@ -76,7 +76,7 @@ test.describe("workspace lifecycle", () => {
     await openAddWorkspace(page);
 
     await page.locator(".ws-add-input").fill(wsDir);
-    await page.locator(".ws-add-btn").click();
+    await page.locator(".ws-add-submit-btn").click();
     await expect(page.locator(".form-message.error")).toContainText("already registered", { timeout: 5000 });
   });
 
@@ -86,7 +86,7 @@ test.describe("workspace lifecycle", () => {
     // テスト管理下の wsDir 配下で「作っていない」子パスを使う。
     // 固定の絶対パスだと実在する環境で登録が成功しサーバ状態を汚してしまう。
     await page.locator(".ws-add-input").fill(path.join(wsDir, "e2e-missing-subdir"));
-    await page.locator(".ws-add-btn").click();
+    await page.locator(".ws-add-submit-btn").click();
     await expect(page.locator(".form-message.error")).toContainText("Directory does not exist", { timeout: 5000 });
   });
 

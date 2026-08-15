@@ -225,6 +225,23 @@ async fn add_update_delete_workspace_roundtrip() {
     let new_id = body["id"].as_str().unwrap().to_string();
     assert!(new_id.starts_with("ws_"));
 
+    // アイコン付きで登録
+    let icon_dir = front.dir.path().join("iconproj");
+    std::fs::create_dir_all(&icon_dir).unwrap();
+    let res = send_json(
+        &front,
+        reqwest::Method::POST,
+        "/workspaces",
+        &json!({"path": icon_dir.to_string_lossy(), "icon": "mdi-rocket", "icon_color": "#00ff00"}),
+    )
+    .await;
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    let icon_id = body["id"].as_str().unwrap().to_string();
+    let cfg = load_config(&front);
+    assert_eq!(cfg[&icon_id]["icon"], "mdi-rocket");
+    assert_eq!(cfg[&icon_id]["icon_color"], "#00ff00");
+
     // 名前重複は 409
     let res = send_json(
         &front,

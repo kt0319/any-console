@@ -15,18 +15,7 @@
         @input="loadSuggest"
         @keydown.enter="doAddExisting"
       />
-      <button
-        type="button"
-        class="ws-add-btn"
-        :disabled="adding"
-        :title="adding ? 'Adding...' : 'Add workspace'"
-        @click="doAddExisting"
-      >
-        <span class="mdi mdi-plus"></span>
-      </button>
     </div>
-    <div v-if="addError" class="form-message error">{{ addError }}</div>
-    <div v-if="addSuccess" class="form-message success">{{ addSuccess }}</div>
     <div v-if="suggestVisible && suggestEntries.length" class="ws-suggest-list">
       <div class="ws-suggest-base">{{ suggestBase }}</div>
       <div
@@ -40,6 +29,26 @@
         <span v-if="entry.registered" class="ws-suggest-badge">Registered</span>
       </div>
     </div>
+    <div class="ws-settings-row">
+      <span class="ws-settings-label">Icon</span>
+      <button type="button" class="icon-select-btn" @click="openIconPicker">
+        <span class="icon-select-preview">
+          <span v-html="renderIconStr(addIcon || 'mdi-console', addIconColor, 18)"></span>
+          <span class="icon-select-label">{{ addIcon || 'Default' }}</span>
+        </span>
+      </button>
+    </div>
+    <div v-if="addError" class="form-message error">{{ addError }}</div>
+    <div v-if="addSuccess" class="form-message success">{{ addSuccess }}</div>
+    <button
+      type="button"
+      class="primary ws-add-submit-btn"
+      :disabled="adding"
+      @click="doAddExisting"
+    >
+      <span class="mdi mdi-plus"></span>
+      {{ adding ? 'Adding...' : 'Add Workspace' }}
+    </button>
   </div>
 </template>
 
@@ -47,6 +56,8 @@
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useDirectorySuggest } from "../composables/useDirectorySuggest.ts";
+import { useModalView } from "../composables/useModalView.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_WORKSPACES } from "../utils/endpoints.ts";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.ts";
 
@@ -57,8 +68,11 @@ const props = defineProps({
 const emit = defineEmits(["added"]);
 
 const { apiPost } = useApi();
+const { viewState, pushView } = useModalView();
 
 const addPath = ref(props.initialPath || "");
+const addIcon = ref("");
+const addIconColor = ref("");
 const adding = ref(false);
 const addError = ref("");
 const addSuccess = ref("");
@@ -73,18 +87,37 @@ const {
   onSuggestClick,
 } = useDirectorySuggest(addPath);
 
+function openIconPicker() {
+  pushView!("IconPicker", {
+    currentIcon: addIcon.value,
+    currentColor: addIconColor.value,
+    onReturn: (result, parentEntry) => {
+      if (parentEntry) {
+        parentEntry.state.pendingIcon = result.icon;
+        parentEntry.state.pendingColor = result.color;
+      }
+    },
+  });
+}
+
 async function doAddExisting() {
   if (!addPath.value.trim()) { addError.value = "Please enter a path"; return; }
   adding.value = true;
   addError.value = "";
   addSuccess.value = "";
   try {
-    const { ok, data } = await apiPost(EP_WORKSPACES, { path: addPath.value.trim() });
+    const { ok, data } = await apiPost(EP_WORKSPACES, {
+      path: addPath.value.trim(),
+      icon: addIcon.value || null,
+      icon_color: addIconColor.value || null,
+    });
     if (!ok) {
       addError.value = data?.detail || "Failed to add";
     } else {
       addSuccess.value = `${data?.name || "directory"} added`;
       addPath.value = "";
+      addIcon.value = "";
+      addIconColor.value = "";
       emit("added", data?.name || null);
       loadSuggest();
     }
@@ -96,6 +129,12 @@ async function doAddExisting() {
 }
 
 onMounted(() => {
+  if (viewState!.value && "pendingIcon" in viewState!.value) {
+    addIcon.value = viewState!.value.pendingIcon;
+    addIconColor.value = viewState!.value.pendingColor ?? "";
+    delete viewState!.value.pendingIcon;
+    delete viewState!.value.pendingColor;
+  }
   loadSuggest();
 });
 </script>
@@ -134,24 +173,12 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-.ws-add-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+.ws-add-submit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.ws-add-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .ws-suggest-list {

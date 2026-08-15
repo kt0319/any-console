@@ -346,6 +346,10 @@ pub struct AddWorkspaceRequest {
     path: String,
     #[serde(default)]
     name: Option<String>,
+    #[serde(default)]
+    icon: Option<String>,
+    #[serde(default)]
+    icon_color: Option<String>,
 }
 
 pub async fn add_workspace(
@@ -386,6 +390,12 @@ pub async fn add_workspace(
     let mut config = Map::new();
     config.insert("name".to_string(), json!(display_name));
     config.insert("path".to_string(), json!(collapse_user_path(&abs_path)));
+    if let Some(icon) = body.icon.as_deref().filter(|s| !s.is_empty()) {
+        config.insert("icon".to_string(), json!(icon));
+    }
+    if let Some(icon_color) = body.icon_color.as_deref().filter(|s| !s.is_empty()) {
+        config.insert("icon_color".to_string(), json!(icon_color));
+    }
     state
         .config
         .save_workspace_config(&new_id, config)
