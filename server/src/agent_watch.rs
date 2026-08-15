@@ -238,7 +238,7 @@ async fn session_meta(state: &AppState, session_id: &str) -> (Option<String>, Op
 async fn apply_workspace_tag(state: &AppState, session_id: &str, workspace: &str) {
     if let Some(cached) = state.terminal_registry.get(session_id).await {
         let mut session = cached.lock().await;
-        session.workspace = Some(workspace.to_string());
+        session.set_workspace(Some(workspace.to_string()));
         session.save_workspace().await;
     } else {
         let tmux_name = state.paths.tmux_session_name(session_id);
@@ -260,7 +260,7 @@ async fn resolve_workspace(
     if workspace.is_some() || pane_path.is_empty() {
         return workspace;
     }
-    let matched = state.config.match_workspace_by_path(pane_path);
+    let matched = crate::git_utils::match_workspace_with_worktree(&state.config, pane_path).await;
     if let Some(ws) = &matched {
         apply_workspace_tag(state, session_id, ws).await;
     }

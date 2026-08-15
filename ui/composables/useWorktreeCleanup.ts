@@ -1,6 +1,6 @@
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useApi } from "./useApi.ts";
-import { findOpenTabsForWorktree } from "../utils/worktree.ts";
+import { findOpenTabsForWorktree, baseWorkspaceName } from "../utils/worktree.ts";
 import { EP_TERMINAL_SESSIONS, EP_PREVIEW_PORTS, EP_SYSTEM_PROCESS_KILL, terminalSessionPath } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
 
@@ -18,17 +18,31 @@ export function useWorktreeCleanup() {
   const terminalStore = useTerminalStore();
   const { apiGet, apiDelete, apiPost } = useApi();
 
-  async function findResidue(wt?: { workspace?: string; name?: string; branch?: string }, wsWorkspaceName?: string) {
+  async function findResidue(
+    wt?: { workspace?: string; name?: string; branch?: string; worktree_base?: string; worktree_branch?: string },
+    wsWorkspaceName?: string,
+  ) {
     const wsName = wsWorkspaceName || wt?.workspace || wt?.name;
     const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, { workspace: wsName });
     if (!wsName) return { openTabs, detachedSessions: [] as any[], devServers: [] as any[] };
 
+    // サーバ側のworktree_base/worktree_branchが取れる場合はそちらで比較する
+    // （workspace文字列の完全一致より安全。dev serverのworkspace値はcwdから
+    // 都度推測されるためbracket形式の文字列が完全一致しない場合がある）。
+    // worktreeでない対象（expectedBranchが取れない）は従来通りworkspace完全一致。
+    const expectedBranch = wt?.worktree_branch || wt?.branch;
+    const expectedBase = wsName ? baseWorkspaceName(wsName) : wt?.worktree_base;
+
     const openTabSessionIds = new Set(openTabs.map((t) => t.sessionId).filter(Boolean));
     const [sessionsRes, portsRes] = await Promise.all([apiGet(EP_TERMINAL_SESSIONS), apiGet(EP_PREVIEW_PORTS)]);
     const detachedSessions = (sessionsRes.ok && Array.isArray(sessionsRes.data) ? sessionsRes.data : [])
-      .filter((s: any) => s.workspace === wsName && !openTabSessionIds.has(s.session_id));
+      .filter((s: any) =>
+        !openTabSessionIds.has(s.session_id) &&
+        (expectedBranch ? (s.worktree_base === expectedBase && s.worktree_branch === expectedBranch) : s.workspace === wsName));
     const devServers = (portsRes.ok && Array.isArray(portsRes.data) ? portsRes.data : [])
-      .filter((p: any) => p.workspace === wsName && p.pid);
+      .filter((p: any) =>
+        p.pid &&
+        (expectedBranch ? (p.worktree_base === expectedBase && p.worktree_branch === expectedBranch) : p.workspace === wsName));
 
     return { openTabs, detachedSessions, devServers };
   }

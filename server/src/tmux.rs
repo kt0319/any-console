@@ -433,11 +433,12 @@ pub async fn get_session_cwd(tmux_name: &str) -> Option<String> {
 }
 
 /// ペインのカレントディレクトリから最長前方一致するワークスペース名を返す
-/// （Python `detect_workspace_from_tmux` 相当。照合は `config::match_workspace_by_path`）。
+/// （Python `detect_workspace_from_tmux` 相当。照合は
+/// `git_utils::match_workspace_with_worktree`、worktree配下も判別する）。
 pub async fn detect_workspace_from_tmux(config: &ConfigStore, tmux_name: &str) -> Option<String> {
     let pane_path = display_message(tmux_name, "#{pane_current_path}").await;
     match pane_path {
-        Some(p) => config.match_workspace_by_path(&p),
+        Some(p) => crate::git_utils::match_workspace_with_worktree(config, &p).await,
         None => {
             tracing::warn!("detect_workspace_from_tmux failed session={tmux_name}");
             None

@@ -422,6 +422,52 @@ pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Opti
     None
 }
 
+/// cwd を登録済みワークスペース（および、その配下の動的 worktree）と照合する。
+/// `ConfigStore::match_workspace_by_path` はベースワークスペースの登録パスとの
+/// 前方一致しか見ないため、worktree（`<base>/.worktrees/<branch>` に作られる、
+/// baseのサブディレクトリ）配下のcwdもbase名にマッチしてしまい、
+/// worktree自体を区別できない。この関数はまずbase名を解決した上で、cwdが
+/// そのリポジトリのworktreeのいずれかに属していないか確認し、該当すれば
+/// "{base} [{branch}]" 形式で返す（属さなければ従来通りbase名を返す）。
+pub async fn match_workspace_with_worktree(config: &ConfigStore, cwd: &str) -> Option<String> {
+    let base_name = config.match_workspace_by_path(cwd)?;
+
+    let cfg = config.load_all();
+    let key = ConfigStore::find_workspace_key(&cfg, &base_name)?;
+    let entry = cfg.get(&key)?;
+    let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
+    let ws_path = crate::paths::expand_user_path(raw_path);
+
+    // シンボリックリンクを含む一時ディレクトリ（macOSの/var→/private/var等）で
+    // cwdとgitが報告するパスの表記が食い違わないよう、両方とも解決してから
+    // 比較する（registered_paths_by_resolvedと同じ safe_resolve_str を使う）。
+    let cwd_resolved = crate::paths::safe_resolve_str(Path::new(cwd));
+    let ws_resolved = crate::paths::safe_resolve_str(&ws_path);
+
+    // ベースパス自体との完全一致ならworktree配下ではあり得ない（worktreeは
+    // baseのサブディレクトリに作られる）ため、無駄なgit worktree list
+    // サブプロセス起動を避けて早期リターンする。
+    if cwd_resolved == ws_resolved || !ws_path.is_dir() {
+        return Some(base_name);
+    }
+
+    for wt in git_worktree_list(&ws_path).await.into_iter().skip(1) {
+        let wt_path = wt.get("path").and_then(Value::as_str).unwrap_or("");
+        if wt_path.is_empty() {
+            continue;
+        }
+        let wt_resolved = crate::paths::safe_resolve_str(Path::new(wt_path));
+        if cwd_resolved == wt_resolved || cwd_resolved.starts_with(&format!("{wt_resolved}/")) {
+            let branch = wt.get("branch").and_then(Value::as_str).unwrap_or("");
+            if branch.is_empty() {
+                break;
+            }
+            return Some(worktree_display_name(&base_name, branch));
+        }
+    }
+    Some(base_name)
+}
+
 /// 登録済みワークスペースのうち実在する git リポジトリを (表示名, パス) で列挙する
 /// （Python `list_git_workspace_paths` 相当 — `~` は展開する）。
 pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathBuf)> {
@@ -708,5 +754,74 @@ mod tests {
         for entry in &entries {
             assert_eq!(entry["worktree_branch"], "feat/x");
         }
+    }
+
+    fn register_workspace(store: &crate::config::ConfigStore, name: &str, path: &Path) {
+        let mut cfg = store.load_all();
+        cfg.insert(
+            format!("ws_{name}"),
+            json!({"name": name, "path": path.to_string_lossy()}),
+        );
+        store.save_all(&cfg).unwrap();
+    }
+
+    // any-console の実際のworktreeレイアウト（server/src/git_worktree.rs の
+    // create_worktree: `<base_repo>/.worktrees/<branch>`、baseのサブディレクトリ）
+    // を再現する。init_repo_with_worktree自体は任意のパスを渡せば良いだけなので、
+    // ここでネストしたパスを渡す。
+
+    #[tokio::test]
+    async fn match_workspace_with_worktree_returns_bracket_name_for_worktree_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("repo");
+        let wt = repo.join(".worktrees").join("feat-x");
+        init_repo_with_worktree(&repo, &wt).await;
+        let store = crate::config::ConfigStore::new(dir.path().join("config.json"));
+        register_workspace(&store, "proj", &repo);
+
+        let result = match_workspace_with_worktree(&store, wt.to_str().unwrap()).await;
+        assert_eq!(result, Some("proj [feat/x]".to_string()));
+
+        // worktree配下のサブディレクトリでも同じ結果になること
+        let sub = wt.join("src");
+        std::fs::create_dir_all(&sub).unwrap();
+        let result_sub = match_workspace_with_worktree(&store, sub.to_str().unwrap()).await;
+        assert_eq!(result_sub, Some("proj [feat/x]".to_string()));
+    }
+
+    #[tokio::test]
+    async fn match_workspace_with_worktree_returns_plain_name_for_base_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("repo");
+        let wt = repo.join(".worktrees").join("feat-x");
+        init_repo_with_worktree(&repo, &wt).await;
+        let store = crate::config::ConfigStore::new(dir.path().join("config.json"));
+        register_workspace(&store, "proj", &repo);
+
+        let result = match_workspace_with_worktree(&store, repo.to_str().unwrap()).await;
+        assert_eq!(result, Some("proj".to_string()));
+    }
+
+    #[tokio::test]
+    async fn match_workspace_with_worktree_returns_plain_name_for_unrelated_subdir() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("repo");
+        let wt = repo.join(".worktrees").join("feat-x");
+        init_repo_with_worktree(&repo, &wt).await;
+        let store = crate::config::ConfigStore::new(dir.path().join("config.json"));
+        register_workspace(&store, "proj", &repo);
+
+        let src = repo.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let result = match_workspace_with_worktree(&store, src.to_str().unwrap()).await;
+        assert_eq!(result, Some("proj".to_string()));
+    }
+
+    #[tokio::test]
+    async fn match_workspace_with_worktree_none_when_no_registered_match() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = crate::config::ConfigStore::new(dir.path().join("config.json"));
+        let result = match_workspace_with_worktree(&store, "/no/such/path").await;
+        assert_eq!(result, None);
     }
 }

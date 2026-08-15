@@ -75,6 +75,56 @@ describe("useWorktreeCleanup", () => {
       await findResidue({ name: "app-feature-x" });
       expect(apiGetMock).toHaveBeenCalledWith("/terminal/sessions");
     });
+
+    it("wt.branchが分かる時はworktree_base/worktree_branchで比較する（workspace文字列が完全一致しなくても見つかる）", async () => {
+      // dev serverのworkspaceはcwdから都度推測されるため、bracket形式の完全一致に
+      // ならないことがある（server/src/preview.rsのmatch_workspace参照）。
+      // worktree_base/worktree_branchが一致していれば拾えることを確認する。
+      apiGetMock.mockImplementation(async (ep) => {
+        if (ep === "/terminal/sessions") {
+          return {
+            ok: true,
+            data: [
+              { session_id: "s3", workspace: "app", worktree_base: "app", worktree_branch: "feat/x" },
+              { session_id: "s4", workspace: "other", worktree_base: "other", worktree_branch: "feat/y" },
+            ],
+          };
+        }
+        if (ep === "/preview/ports") {
+          return {
+            ok: true,
+            data: [
+              { pid: 111, port: 3000, workspace: "app", worktree_base: "app", worktree_branch: "feat/x" },
+              { pid: 222, port: 4000, workspace: "app", worktree_base: "app", worktree_branch: "feat/y" },
+            ],
+          };
+        }
+        return { ok: false, data: null };
+      });
+
+      const { findResidue } = useWorktreeCleanup();
+      const residue = await findResidue({ workspace: "app [feat/x]", branch: "feat/x" });
+
+      expect(residue.detachedSessions.map((s) => s.session_id)).toEqual(["s3"]);
+      expect(residue.devServers.map((p) => p.pid)).toEqual([111]);
+    });
+
+    it("worktree_branchが無い対象（worktreeでない）は従来通りworkspace完全一致で比較する", async () => {
+      apiGetMock.mockImplementation(async (ep) => {
+        if (ep === "/terminal/sessions") {
+          return { ok: true, data: [{ session_id: "s3", workspace: "app", worktree_base: "app", worktree_branch: "feat/x" }] };
+        }
+        if (ep === "/preview/ports") {
+          return { ok: true, data: [] };
+        }
+        return { ok: false, data: null };
+      });
+
+      const { findResidue } = useWorktreeCleanup();
+      const residue = await findResidue(undefined, "app");
+      // worktree_base一致だけでは拾わない（branchが無いのでworkspace完全一致が必要）
+      expect(residue.detachedSessions).toEqual([{ session_id: "s3", workspace: "app", worktree_base: "app", worktree_branch: "feat/x" }]);
+    });
   });
 
   describe("cleanupResidue", () => {

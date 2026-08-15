@@ -39,12 +39,14 @@ async fn session_list_entry(
     session_id: &str,
     full_tmux_name: &str,
 ) -> Value {
-    let (workspace, icon, icon_color, job_name, job_label, interactive, detached) =
+    let (workspace, worktree_base, worktree_branch, icon, icon_color, job_name, job_label, interactive, detached) =
         match state.terminal_registry.get(session_id).await {
             Some(arc) => {
                 let s = arc.lock().await;
                 (
                     s.workspace.clone(),
+                    s.worktree_base.clone(),
+                    s.worktree_branch.clone(),
                     s.icon.clone(),
                     s.icon_color.clone(),
                     s.job_name.clone(),
@@ -57,6 +59,8 @@ async fn session_list_entry(
                 let s = TerminalSession::from_tmux(&state.config, full_tmux_name).await;
                 (
                     s.workspace,
+                    s.worktree_base,
+                    s.worktree_branch,
                     s.icon,
                     s.icon_color,
                     s.job_name,
@@ -70,6 +74,8 @@ async fn session_list_entry(
     json!({
         "session_id": session_id,
         "workspace": workspace,
+        "worktree_base": worktree_base,
+        "worktree_branch": worktree_branch,
         "ws_url": format!("/terminal/ws/{session_id}"),
         "icon": icon,
         "icon_color": icon_color,
@@ -294,7 +300,7 @@ pub async fn set_terminal_session_workspace(
     let session_arc = state.terminal_session(&session_id).await?;
     {
         let mut s = session_arc.lock().await;
-        s.workspace = Some(body.workspace.clone());
+        s.set_workspace(Some(body.workspace.clone()));
         s.save_workspace().await;
     }
     tracing::info!(

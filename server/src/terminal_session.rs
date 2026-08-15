@@ -64,6 +64,11 @@ impl ClientBridge {
 
 pub struct TerminalSession {
     pub workspace: Option<String>,
+    /// workspace が worktree（"{base} [{branch}]"形式）の時のベース名/ブランチ名。
+    /// workspace から split_worktree_name で都度導出する（別途永続化はしない）。
+    /// 直接代入せず set_workspace() 経由で更新すること。
+    pub worktree_base: Option<String>,
+    pub worktree_branch: Option<String>,
     pub icon: Option<String>,
     pub icon_color: Option<String>,
     pub job_name: Option<String>,
@@ -84,6 +89,8 @@ impl TerminalSession {
     fn new(tmux_session_name: String) -> Self {
         Self {
             workspace: None,
+            worktree_base: None,
+            worktree_branch: None,
             icon: None,
             icon_color: None,
             job_name: None,
@@ -97,6 +104,18 @@ impl TerminalSession {
         }
     }
 
+    /// workspace をセットし、同時に worktree_base/worktree_branch を
+    /// split_worktree_name から再計算する（workspaceとの直接代入は避け、
+    /// これを経由してズレを防ぐ）。
+    pub fn set_workspace(&mut self, workspace: Option<String>) {
+        let split = workspace
+            .as_deref()
+            .and_then(crate::git_utils::split_worktree_name);
+        self.worktree_base = split.as_ref().map(|(b, _)| b.clone());
+        self.worktree_branch = split.map(|(_, br)| br);
+        self.workspace = workspace;
+    }
+
     /// tmux セッションの環境変数（`TMUX_WORKSPACE` 等）から再構築する
     /// （Python `TerminalSession.from_tmux` 相当）。
     pub async fn from_tmux(config: &ConfigStore, tmux_name: &str) -> Self {
@@ -106,7 +125,7 @@ impl TerminalSession {
             None => tmux::detect_workspace_from_tmux(config, tmux_name).await,
         };
         let mut sess = Self::new(tmux_name.to_string());
-        sess.workspace = workspace;
+        sess.set_workspace(workspace);
         sess.icon = meta.get("TMUX_ICON").cloned();
         sess.icon_color = meta.get("TMUX_ICON_COLOR").cloned();
         sess.job_name = meta.get("TMUX_JOB_NAME").cloned();
@@ -343,7 +362,7 @@ impl TerminalRegistry {
             .map_err(|e| server_error(format!("Failed to create terminal: {e}")))?;
 
         let mut session = TerminalSession::new(tmux_name);
-        session.workspace = workspace;
+        session.set_workspace(workspace);
         session.icon = icon;
         session.icon_color = icon_color;
         session.job_name = job_name;

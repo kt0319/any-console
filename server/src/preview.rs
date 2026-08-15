@@ -84,6 +84,10 @@ pub struct DetectedPort {
     pub http_probed_at: i64,
     pub cwd: Option<String>,
     pub workspace: Option<String>,
+    /// workspace が worktree（"{base} [{branch}]"形式）の時のベース名/ブランチ名。
+    /// `workspace` から `split_worktree_name` で都度導出する（別途永続化はしない）。
+    pub worktree_base: Option<String>,
+    pub worktree_branch: Option<String>,
 }
 
 /// TLS 証明書の起動時ロード結果（Python の `_ssl_loaded`/`_ssl_ctx` に対応する
@@ -373,14 +377,14 @@ async fn read_cwd(pid: u32) -> Option<String> {
         .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// cwd を登録済みワークスペースのパスと前方一致させ、最長一致の名前を返す
-/// （`ConfigStore::match_workspace_by_path` — Python `_match_workspace` 相当）。
-fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<String> {
+/// cwd を登録済みワークスペース（worktree含む）と照合する
+/// （`git_utils::match_workspace_with_worktree` 参照）。
+async fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<String> {
     let cwd = cwd?;
     if cwd.is_empty() {
         return None;
     }
-    config.match_workspace_by_path(cwd)
+    crate::git_utils::match_workspace_with_worktree(config, cwd).await
 }
 
 // ─── ポートスキャン: OS 呼び出し ────────────────────────────────────────────
@@ -469,11 +473,16 @@ pub async fn scan_once(state: &Arc<AppState>) {
             .map(|(port, (_proc, pid))| (*port, *pid))
             .collect()
     };
-    let mut lookups: HashMap<u16, (Option<String>, Option<String>)> = HashMap::new();
+    type PortLookup = (Option<String>, Option<String>, Option<String>, Option<String>);
+    let mut lookups: HashMap<u16, PortLookup> = HashMap::new();
     for (port, pid) in needs_lookup {
         let cwd = read_cwd(pid).await;
-        let workspace = match_workspace(&state.config, cwd.as_deref());
-        lookups.insert(port, (cwd, workspace));
+        let workspace = match_workspace(&state.config, cwd.as_deref()).await;
+        let (worktree_base, worktree_branch) = workspace
+            .as_deref()
+            .and_then(crate::git_utils::split_worktree_name)
+            .map_or((None, None), |(b, br)| (Some(b), Some(br)));
+        lookups.insert(port, (cwd, workspace, worktree_base, worktree_branch));
     }
 
     let scheme_now = preview_scheme(preview, &state.paths.project_root);
@@ -487,13 +496,16 @@ pub async fn scan_once(state: &Arc<AppState>) {
                 existing.process = proc.clone();
                 if existing.pid != Some(*pid) {
                     existing.pid = Some(*pid);
-                    if let Some((cwd, workspace)) = lookups.get(port) {
+                    if let Some((cwd, workspace, worktree_base, worktree_branch)) = lookups.get(port) {
                         existing.cwd = cwd.clone();
                         existing.workspace = workspace.clone();
+                        existing.worktree_base = worktree_base.clone();
+                        existing.worktree_branch = worktree_branch.clone();
                     }
                 }
             } else {
-                let (cwd, workspace) = lookups.get(port).cloned().unwrap_or((None, None));
+                let (cwd, workspace, worktree_base, worktree_branch) =
+                    lookups.get(port).cloned().unwrap_or((None, None, None, None));
                 detected.insert(
                     *port,
                     DetectedPort {
@@ -509,6 +521,8 @@ pub async fn scan_once(state: &Arc<AppState>) {
                         http_probed_at: 0,
                         cwd,
                         workspace,
+                        worktree_base,
+                        worktree_branch,
                     },
                 );
             }
@@ -1075,49 +1089,49 @@ mod tests {
         store
     }
 
-    #[test]
-    fn match_workspace_none_for_empty_cwd() {
+    #[tokio::test]
+    async fn match_workspace_none_for_empty_cwd() {
         let store = store_with_workspaces(&[]);
-        assert_eq!(match_workspace(&store, None), None);
-        assert_eq!(match_workspace(&store, Some("")), None);
+        assert_eq!(match_workspace(&store, None).await, None);
+        assert_eq!(match_workspace(&store, Some("")).await, None);
     }
 
-    #[test]
-    fn match_workspace_exact_and_subdirectory_match() {
+    #[tokio::test]
+    async fn match_workspace_exact_and_subdirectory_match() {
         let store = store_with_workspaces(&[("my-app", Some("My App"), "/Users/dev/my-app")]);
         assert_eq!(
-            match_workspace(&store, Some("/Users/dev/my-app")),
+            match_workspace(&store, Some("/Users/dev/my-app")).await,
             Some("My App".to_string())
         );
         assert_eq!(
-            match_workspace(&store, Some("/Users/dev/my-app/packages/web")),
+            match_workspace(&store, Some("/Users/dev/my-app/packages/web")).await,
             Some("My App".to_string())
         );
     }
 
-    #[test]
-    fn match_workspace_falls_back_to_key_when_name_missing() {
+    #[tokio::test]
+    async fn match_workspace_falls_back_to_key_when_name_missing() {
         let store = store_with_workspaces(&[("my-app", None, "/Users/dev/my-app")]);
         assert_eq!(
-            match_workspace(&store, Some("/Users/dev/my-app")),
+            match_workspace(&store, Some("/Users/dev/my-app")).await,
             Some("my-app".to_string())
         );
     }
 
-    #[test]
-    fn match_workspace_no_match_for_unrelated_cwd() {
+    #[tokio::test]
+    async fn match_workspace_no_match_for_unrelated_cwd() {
         let store = store_with_workspaces(&[("my-app", Some("My App"), "/Users/dev/my-app")]);
-        assert_eq!(match_workspace(&store, Some("/Users/dev/other-app")), None);
+        assert_eq!(match_workspace(&store, Some("/Users/dev/other-app")).await, None);
     }
 
-    #[test]
-    fn match_workspace_picks_longest_prefix() {
+    #[tokio::test]
+    async fn match_workspace_picks_longest_prefix() {
         let store = store_with_workspaces(&[
             ("root", Some("Root"), "/Users/dev"),
             ("nested", Some("Nested"), "/Users/dev/my-app"),
         ]);
         assert_eq!(
-            match_workspace(&store, Some("/Users/dev/my-app/src")),
+            match_workspace(&store, Some("/Users/dev/my-app/src")).await,
             Some("Nested".to_string())
         );
     }
@@ -1196,6 +1210,8 @@ mod tests {
             http_probed_at: 0,
             cwd: None,
             workspace: None,
+            worktree_base: None,
+            worktree_branch: None,
         };
         assert!(!needs_probe(&entry, now), "検出直後はまだプローブしない");
         assert!(needs_probe(&entry, now + INITIAL_PROBE_DELAY_SEC + 1));
@@ -1217,6 +1233,8 @@ mod tests {
             http_probed_at: now,
             cwd: None,
             workspace: None,
+            worktree_base: None,
+            worktree_branch: None,
         };
         assert!(!needs_probe(&entry, now), "再試行間隔内は再プローブしない");
         entry.http_probed_at = now - HTTP_PROBE_RETRY_SEC - 1;
@@ -1238,6 +1256,8 @@ mod tests {
             http_probed_at: 0,
             cwd: None,
             workspace: None,
+            worktree_base: None,
+            worktree_branch: None,
         };
         assert!(!needs_probe(&entry, now_epoch() + 1_000_000));
     }
@@ -1347,6 +1367,8 @@ mod tests {
                     http_probed_at: 0,
                     cwd: None,
                     workspace: None,
+                    worktree_base: None,
+                    worktree_branch: None,
                 },
             );
         }
@@ -1374,6 +1396,8 @@ mod tests {
                 http_probed_at: 0,
                 cwd: None,
                 workspace: None,
+                worktree_base: None,
+                worktree_branch: None,
             },
         );
         assert!(list_ports(&state.preview).is_empty());
@@ -1397,6 +1421,8 @@ mod tests {
                 http_probed_at: 0,
                 cwd: None,
                 workspace: None,
+                worktree_base: None,
+                worktree_branch: None,
             },
         );
         let items = list_ports(&state.preview);
@@ -1422,6 +1448,8 @@ mod tests {
                 http_probed_at: 0,
                 cwd: None,
                 workspace: None,
+                worktree_base: None,
+                worktree_branch: None,
             },
         );
         assert!(list_ports(&state.preview).is_empty());
