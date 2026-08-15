@@ -102,7 +102,7 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
 }
 
 .session-sidebar-notify {
-  color: var(--accent);
+  color: var(--warning);
   font-size: 14px;
   flex-shrink: 0;
 }
