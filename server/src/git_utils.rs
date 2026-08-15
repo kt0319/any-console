@@ -18,6 +18,12 @@ pub const GIT_SHORT_TIMEOUT_SEC: f64 = 10.0;
 pub const GIT_STANDARD_TIMEOUT_SEC: f64 = 30.0;
 pub const GIT_LONG_TIMEOUT_SEC: f64 = 60.0;
 pub const BACKGROUND_FETCH_TIMEOUT_SEC: f64 = 15.0;
+/// ワークスペースにアイコンが未設定（空文字/キー欠如）の時のデフォルト値。
+/// 未設定のままだとタブバー等でjob側アイコンだけが表示され、あたかも
+/// jobアイコンがワークスペースを代表しているように見えてしまうため、
+/// 読み出し時点で必ず埋める（`ui/components/WorkspaceEditPane.vue` の
+/// `DEFAULT_WS_ICON` と同じ値）。
+pub const DEFAULT_WORKSPACE_ICON: &str = "mdi-console";
 
 /// バックグラウンドの `git fetch --quiet` を実行し、実行できたかを返す
 /// （Python `background_fetch` 相当 — 終了コードは見ない。タイムアウト・OS
@@ -530,7 +536,7 @@ async fn worktree_entries_for_workspace(
             "path": wt_path_str,
             "is_git_repo": true,
             "branch": branch,
-            "icon": entry.get("icon").and_then(Value::as_str).unwrap_or(""),
+            "icon": entry.get("icon").and_then(Value::as_str).filter(|s| !s.is_empty()).unwrap_or(DEFAULT_WORKSPACE_ICON),
             "icon_color": entry.get("icon_color").and_then(Value::as_str).unwrap_or(""),
             "exists": true,
             "worktree": true,

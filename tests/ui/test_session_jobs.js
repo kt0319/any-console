@@ -130,9 +130,9 @@ describe("buildSessionTabParams", () => {
     expect(p.jobLabel).toBe("claude");
   });
 
-  it("ワークスペース未登録なら session.icon にフォールバック", () => {
+  it("ワークスペース未登録ならwsIconはnull（job側のsession.iconへはフォールバックしない）", () => {
     const p = buildSessionTabParams({ ...session, icon: "mdi-star" }, { workspaces: [], allJobs: {} });
-    expect(p.wsIcon).toBe("mdi-star");
+    expect(p.wsIcon).toBe(null);
   });
 
   it("ジョブ定義が無ければ mdi-play にフォールバック", () => {

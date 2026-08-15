@@ -84,8 +84,11 @@ export function buildSessionTabParams(
   return {
     wsUrl: session.ws_url,
     workspace: session.workspace || null,
-    wsIcon: ws?.icon || session.icon || null,
-    wsIconColor: ws?.icon_color || session.icon_color || null,
+    // wsIconはワークスペース設定からのみ解決する（session.icon/icon_colorは
+    // job側のアイコンで別概念のため、ここへフォールバックすると「ワークスペース
+    // にアイコン未設定の時job側アイコンが乗っ取る」バグになる）。
+    wsIcon: ws?.icon || null,
+    wsIconColor: ws?.icon_color || null,
     icon: session.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
     iconColor: jobDef?.icon_color || null,
     jobName: session.job_name || null,

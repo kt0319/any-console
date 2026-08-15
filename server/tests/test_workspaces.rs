@@ -131,7 +131,10 @@ async fn list_workspaces_returns_summary() {
     assert_eq!(ws["is_git_repo"], true);
     assert_eq!(ws["branch"], "main");
     assert_eq!(ws["exists"], true);
-    assert_eq!(ws["icon"], "");
+    // アイコン未設定でも空文字ではなくデフォルト値で埋まる（未設定のままだと
+    // タブバー等でjob側アイコンだけが表示され、あたかもjobアイコンが
+    // ワークスペースを代表しているように見えてしまうため）。
+    assert_eq!(ws["icon"], "mdi-console");
     assert_eq!(ws["icon_color"], "");
     assert_eq!(ws["group_id"], Value::Null);
     // remote 未設定なので github_url / default_branch は含まれない

@@ -26,7 +26,7 @@ use crate::git_helpers::validate_workspace_name;
 use crate::git_info::git_info_to_status_json;
 use crate::git_utils::{
     background_fetch, dynamic_worktree_entries, git_branch, git_default_branch, git_github_url,
-    git_is_repo, list_git_workspace_paths, registered_paths_by_resolved,
+    git_is_repo, list_git_workspace_paths, registered_paths_by_resolved, DEFAULT_WORKSPACE_ICON,
 };
 use crate::icons::resolve_and_store_icon;
 use crate::paths::{collapse_user_path, expand_user_path, safe_resolve_str};
@@ -100,7 +100,7 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
         "path": path_str,
         "is_git_repo": is_git,
         "branch": branch,
-        "icon": config.get("icon").and_then(Value::as_str).unwrap_or(""),
+        "icon": config.get("icon").and_then(Value::as_str).filter(|s| !s.is_empty()).unwrap_or(DEFAULT_WORKSPACE_ICON),
         "icon_color": config.get("icon_color").and_then(Value::as_str).unwrap_or(""),
         "group_id": config.get("group_id").and_then(Value::as_str).filter(|s| !s.is_empty()),
         "exists": is_dir,
