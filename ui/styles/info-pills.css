@@ -416,32 +416,6 @@
   }
 }
 
-.pill-icon-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  flex-shrink: 0;
-}
-
-.pill-icon-badge-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1;
-}
-
-.pill-dirty-badge {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f5a623;
-  border: 1px solid rgba(26, 27, 38, 0.88);
-}
-
 .pill-files-btn .favicon-icon {
   width: 14px;
   height: 14px;

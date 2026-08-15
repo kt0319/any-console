@@ -15,11 +15,7 @@
           @pointerdown.stop
           @click.stop="emits('open', 'files')"
         >
-          <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
-            <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
-            <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-          </span>
-          <span v-else class="mdi" :class="peekIconForKey('files')"></span>
+          <span class="mdi" :class="peekIconForKey('files')"></span>
         </button>
         <button
           v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
