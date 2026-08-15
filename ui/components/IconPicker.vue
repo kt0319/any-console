@@ -1,50 +1,85 @@
 <template>
-  <div>
-    <div class="icon-picker-input-row">
+  <div class="modal-scroll-body">
+    <div class="icon-picker-mode-row">
+      <label class="icon-picker-mode-option">
+        <input type="radio" name="icon-picker-mode" value="mdi" v-model="mode" @change="onModeChange" />
+        MDI Icon
+      </label>
+      <label class="icon-picker-mode-option">
+        <input type="radio" name="icon-picker-mode" value="favicon" v-model="mode" @change="onModeChange" />
+        Favicon URL
+      </label>
+      <label class="icon-picker-mode-option">
+        <input type="radio" name="icon-picker-mode" value="image" v-model="mode" @change="onModeChange" />
+        Image
+      </label>
+    </div>
+
+    <template v-if="mode === 'mdi'">
+      <div class="icon-picker-section-label">Icon</div>
       <input
         ref="searchRef"
         v-model="searchQuery"
         type="text"
         class="form-input icon-picker-search"
-        placeholder="Search icons / Favicon URL"
+        placeholder="Search icons..."
         autocomplete="off"
         @input="onSearchInput"
       />
-      <div class="icon-picker-favicon-confirm">
-        <span class="icon-picker-favicon-preview" v-html="previewHtml"></span>
-        <button type="button" class="icon-picker-clear-btn" @click="clearSelection">Clear</button>
-        <button type="button" class="icon-picker-upload-btn" @click="triggerUpload">
-          <span class="mdi mdi-image-plus"></span> Image
-        </button>
-        <input
-          ref="uploadRef"
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
-          style="display:none"
-          @change="handleUpload"
-        />
-        <button
-          type="button"
-          class="primary icon-picker-url-ok-btn"
-          :disabled="!canSubmit"
-          @click="submit"
-        >Select</button>
+      <div ref="gridRef" class="icon-picker-grid">
+        <div v-if="loadingIcons" class="icon-picker-loading">Loading...</div>
       </div>
-    </div>
-    <div class="color-palette">
-      <button
-        v-for="preset in ICON_PRESET_COLORS"
-        :key="preset.label"
-        type="button"
-        class="color-palette-item"
-        :class="{ selected: selectedColor === preset.value }"
-        :title="preset.label"
-        :style="{ background: preset.value || 'var(--text-primary)' }"
-        @click="selectColor(preset.value)"
+
+      <div class="icon-picker-section-label">Color</div>
+      <div class="color-palette">
+        <button
+          v-for="preset in ICON_PRESET_COLORS"
+          :key="preset.label"
+          type="button"
+          class="color-palette-item"
+          :class="{ selected: selectedColor === preset.value }"
+          :title="preset.label"
+          :style="{ background: preset.value || 'var(--text-primary)' }"
+          @click="selectColor(preset.value)"
+        />
+      </div>
+    </template>
+
+    <template v-else-if="mode === 'favicon'">
+      <div class="icon-picker-section-label">Favicon URL</div>
+      <input
+        v-model="faviconUrl"
+        type="text"
+        class="form-input"
+        placeholder="https://example.com"
+        autocomplete="off"
+        @input="onFaviconInput"
       />
-    </div>
-    <div ref="gridRef" class="icon-picker-grid">
-      <div v-if="loadingIcons" class="icon-picker-loading">Loading...</div>
+    </template>
+
+    <template v-else>
+      <div class="icon-picker-section-label">Image</div>
+      <button type="button" class="icon-picker-upload-btn" @click="triggerUpload">
+        <span class="mdi mdi-image-plus"></span> Choose Image
+      </button>
+      <input
+        ref="uploadRef"
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+        style="display:none"
+        @change="handleUpload"
+      />
+    </template>
+
+    <div class="icon-picker-footer">
+      <span class="icon-picker-footer-preview" v-html="previewHtml"></span>
+      <button type="button" class="icon-picker-clear-btn" @click="clearAndClose">Clear</button>
+      <button
+        type="button"
+        class="primary icon-picker-select-btn"
+        :disabled="!canSubmit"
+        @click="submit"
+      >Select</button>
     </div>
   </div>
 </template>
@@ -89,13 +124,16 @@ const ICON_PRESET_COLORS = [
 const searchRef = ref<HTMLInputElement | null>(null);
 const uploadRef = ref<HTMLInputElement | null>(null);
 const gridRef = ref<HTMLDivElement | null>(null);
+const mode = ref<"mdi" | "favicon" | "image">("mdi");
 const searchQuery = ref("");
+const faviconUrl = ref("");
+// mdi-xxx（グリッド選択）とdata:image/...（アップロード）はモードで排他なので別状態にする。
 const selectedIcon = ref<string | null>(null);
+const uploadedIcon = ref<string | null>(null);
 const selectedColor = ref("");
 const previewHtml = ref("");
 const loadingIcons = ref(false);
 const canSubmit = ref(false);
-let pendingClear = false;
 
 function renderGrid(icons: string[], query: string) {
   const el = gridRef.value;
@@ -125,50 +163,77 @@ function renderGrid(icons: string[], query: string) {
   }
 }
 
+function highlightGridSelection(iconName: string | null) {
+  const el = gridRef.value;
+  if (!el) return;
+  el.querySelectorAll<HTMLButtonElement>(".icon-picker-item").forEach((item) => {
+    item.classList.toggle("selected", !!iconName && item.title === iconName.replace("mdi-", ""));
+  });
+}
+
+// 現在のmode・入力内容からプレビューとcanSubmitを再計算する。
+function updatePreview() {
+  if (mode.value === "mdi") {
+    if (selectedIcon.value) {
+      previewHtml.value = renderIconStr(selectedIcon.value, selectedColor.value, 24);
+      canSubmit.value = true;
+    } else {
+      previewHtml.value = "";
+      canSubmit.value = false;
+    }
+    return;
+  }
+  if (mode.value === "favicon") {
+    const raw = faviconUrl.value.trim();
+    if (looksLikeUrl(raw)) {
+      previewHtml.value = renderIconStr(`favicon:${extractDomain(raw)}`, "", 24);
+      canSubmit.value = true;
+    } else {
+      previewHtml.value = "";
+      canSubmit.value = false;
+    }
+    return;
+  }
+  if (uploadedIcon.value) {
+    previewHtml.value = renderIconStr(uploadedIcon.value, "", 24);
+    canSubmit.value = true;
+  } else {
+    previewHtml.value = "";
+    canSubmit.value = false;
+  }
+}
+
 function selectMdiIcon(iconName: string) {
   selectedIcon.value = iconName;
-  pendingClear = false;
-  previewHtml.value = renderIconStr(iconName, selectedColor.value);
-  canSubmit.value = true;
-  const el = gridRef.value;
-  if (el) {
-    el.querySelectorAll<HTMLButtonElement>(".icon-picker-item").forEach((item) => {
-      item.classList.toggle("selected", item.title === iconName.replace("mdi-", ""));
-    });
-  }
+  updatePreview();
+  highlightGridSelection(iconName);
 }
 
 function selectColor(color: string) {
   selectedColor.value = color;
-  if (selectedIcon.value) {
-    previewHtml.value = renderIconStr(selectedIcon.value, color);
-  }
+  updatePreview();
 }
 
 function onSearchInput() {
-  const raw = searchQuery.value.trim();
-  selectedIcon.value = null;
-  pendingClear = false;
-  if (looksLikeUrl(raw)) {
-    const domain = extractDomain(raw);
-    previewHtml.value = renderIconStr(`favicon:${domain}`, "", 24);
-    canSubmit.value = true;
-    renderGrid(MDI_ICONS, "");
-  } else {
-    previewHtml.value = "";
-    canSubmit.value = false;
-    renderGrid(MDI_ICONS, raw.toLowerCase());
+  renderGrid(MDI_ICONS, searchQuery.value.trim().toLowerCase());
+  highlightGridSelection(selectedIcon.value);
+}
+
+function onFaviconInput() {
+  updatePreview();
+}
+
+async function onModeChange() {
+  updatePreview();
+  if (mode.value === "mdi") {
+    await nextTick();
+    renderGrid(MDI_ICONS, searchQuery.value.trim().toLowerCase());
+    highlightGridSelection(selectedIcon.value);
   }
 }
 
-function clearSelection() {
-  selectedIcon.value = null;
-  pendingClear = true;
-  searchQuery.value = "";
-  previewHtml.value = "";
-  canSubmit.value = true;
-  const el = gridRef.value;
-  if (el) el.querySelectorAll(".icon-picker-item").forEach((item) => item.classList.remove("selected"));
+function clearAndClose() {
+  popView!({ icon: "", color: "" });
 }
 
 function triggerUpload() {
@@ -183,138 +248,108 @@ async function handleUpload() {
   if (!file) return;
   const dataUrl = await readIconFile(file);
   if (dataUrl) {
-    selectedIcon.value = dataUrl;
-    pendingClear = false;
-    searchQuery.value = "";
-    previewHtml.value = renderIconStr(dataUrl, "", 24);
-    canSubmit.value = true;
-    const el = gridRef.value;
-    if (el) el.querySelectorAll(".icon-picker-item").forEach((item) => item.classList.remove("selected"));
+    uploadedIcon.value = dataUrl;
+    updatePreview();
   }
   if (uploadRef.value) uploadRef.value.value = "";
 }
 
 function submit() {
-  const raw = searchQuery.value.trim();
-  let icon = "";
-  let color = "";
-  if (looksLikeUrl(raw)) {
-    icon = `favicon:${extractDomain(raw)}`;
-  } else if (selectedIcon.value) {
-    icon = selectedIcon.value;
-    color = icon.startsWith("data:image/") ? "" : selectedColor.value;
-  } else if (pendingClear) {
-    icon = "";
-    color = "";
-  } else {
+  if (mode.value === "mdi") {
+    if (!selectedIcon.value) return;
+    popView!({ icon: selectedIcon.value, color: selectedColor.value });
     return;
   }
-  popView!({ icon, color });
+  if (mode.value === "favicon") {
+    const raw = faviconUrl.value.trim();
+    if (looksLikeUrl(raw)) popView!({ icon: `favicon:${extractDomain(raw)}`, color: "" });
+    return;
+  }
+  if (uploadedIcon.value) popView!({ icon: uploadedIcon.value, color: "" });
 }
 
 onMounted(async () => {
   const currentIcon = viewState!.value?.currentIcon || null;
   const currentColor = viewState!.value?.currentColor || "";
-  selectedIcon.value = currentIcon;
   selectedColor.value = currentColor;
-  pendingClear = false;
   searchQuery.value = "";
+  faviconUrl.value = "";
 
-  if (currentIcon) {
-    previewHtml.value = renderIconStr(currentIcon, currentColor, 24);
-    canSubmit.value = true;
-  } else {
-    previewHtml.value = "";
-    canSubmit.value = false;
+  if (currentIcon && currentIcon.startsWith("favicon:")) {
+    // favicon:domain から編集を再開できるようURL欄へ復元し、Favicon URLモードを選ぶ。
+    mode.value = "favicon";
+    faviconUrl.value = `https://${currentIcon.slice("favicon:".length)}`;
+  } else if (currentIcon && currentIcon.startsWith("data:image/")) {
+    mode.value = "image";
+    uploadedIcon.value = currentIcon;
+  } else if (currentIcon) {
+    mode.value = "mdi";
+    selectedIcon.value = currentIcon;
   }
+  updatePreview();
 
-  await nextTick();
-  renderGrid(MDI_ICONS, "");
-  if (currentIcon && currentIcon.startsWith("mdi-")) {
-    const el = gridRef.value;
-    if (el) {
-      el.querySelectorAll<HTMLButtonElement>(".icon-picker-item").forEach((item) => {
-        item.classList.toggle("selected", item.title === currentIcon.replace("mdi-", ""));
-      });
-    }
+  if (mode.value === "mdi") {
+    await nextTick();
+    renderGrid(MDI_ICONS, "");
+    highlightGridSelection(selectedIcon.value);
   }
 });
 </script>
 
-<style scoped>
-.icon-picker-input-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-
-.icon-picker-input-row .icon-picker-search {
-  flex: 1;
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.icon-picker-favicon-confirm {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.icon-picker-favicon-preview {
+<style>
+/* icon-picker-item/-more は renderGrid() が document.createElement で
+   動的生成するため、scoped CSS の data-v-xxxx 属性が付かずscoped側の
+   セレクタが一切マッチしない。ここだけ非scopedにして確実に当てる。 */
+.icon-picker-grid .icon-picker-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  width: 32px;
-  height: 32px;
-}
-
-.icon-picker-clear-btn {
-  min-width: auto;
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-  flex-shrink: 0;
-  color: var(--text-muted);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.icon-picker-url-ok-btn {
-  min-width: auto;
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-.icon-picker-upload-btn {
-  min-width: auto;
-  min-height: 32px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 4px;
-  white-space: nowrap;
-  line-height: 1;
+  width: 46px;
+  height: 46px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--text-primary);
+  font-size: 26px;
+  line-height: 1;
   cursor: pointer;
+}
+
+.icon-picker-grid .icon-picker-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-muted, rgba(33, 150, 243, 0.15));
+}
+
+.icon-picker-grid .icon-picker-more {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+</style>
+
+<style scoped>
+.icon-picker-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 10px 0 6px;
+}
+
+.icon-picker-section-label:first-child {
+  margin-top: 0;
+}
+
+.icon-picker-search {
+  margin-bottom: 6px;
 }
 
 .color-palette {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 0 0;
   flex-wrap: wrap;
 }
 
@@ -338,43 +373,97 @@ onMounted(async () => {
   border-color: var(--text-primary);
 }
 
+.icon-picker-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.icon-picker-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.icon-picker-mode-option input[type="radio"] {
+  cursor: pointer;
+}
+
+.icon-picker-upload-btn {
+  min-width: auto;
+  min-height: 36px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .icon-picker-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
   overflow-y: auto;
-  flex: 1;
+  max-height: 220px;
   padding: 4px 0;
   align-content: flex-start;
 }
 
-.icon-picker-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.icon-picker-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-muted, rgba(33, 150, 243, 0.15));
-}
-
-.icon-picker-loading,
-.icon-picker-more {
+.icon-picker-loading {
   width: 100%;
   text-align: center;
   font-size: 12px;
   color: var(--text-muted);
   padding: 12px 0;
+}
+
+.icon-picker-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.icon-picker-footer-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.icon-picker-clear-btn {
+  min-width: auto;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.icon-picker-select-btn {
+  flex: 1;
+  min-height: 36px;
 }
 </style>
