@@ -113,20 +113,21 @@ describe("workspaceDisplayName", () => {
 });
 
 describe("baseWorkspaceName", () => {
-  it("worktree名（\"base [branch]\"形式）からベース名を取り出す", () => {
-    expect(baseWorkspaceName("app [feature/x]")).toBe("app");
+  it("worktree名（\"base:branch\"形式）からベース名を取り出す", () => {
+    expect(baseWorkspaceName("app:feature/x")).toBe("app");
   });
 
   it("スラッシュを含むブランチ名でも取り出せる", () => {
-    expect(baseWorkspaceName("dw-joy-frontend [feature/DW_JOY_DEV-975]")).toBe("dw-joy-frontend");
+    expect(baseWorkspaceName("dw-joy-frontend:feature/DW_JOY_DEV-975")).toBe("dw-joy-frontend");
   });
 
   it("worktreeでなければそのまま返す", () => {
     expect(baseWorkspaceName("app")).toBe("app");
   });
 
-  it("角括弧の直前にスペースが無い場合はworktree形式とみなさずそのまま返す", () => {
-    expect(baseWorkspaceName("weird[name]")).toBe("weird[name]");
+  it("コロンの前後どちらかが空ならworktree形式とみなさずそのまま返す", () => {
+    expect(baseWorkspaceName(":no-base")).toBe(":no-base");
+    expect(baseWorkspaceName("no-branch:")).toBe("no-branch:");
   });
 
   it("空/未指定は空文字", () => {
@@ -137,8 +138,8 @@ describe("baseWorkspaceName", () => {
 });
 
 describe("worktreeWorkspaceName", () => {
-  it("ベース名とブランチ名から\"base [branch]\"形式を組み立てる（baseWorkspaceNameの逆）", () => {
-    expect(worktreeWorkspaceName("dw-joy-frontend", "feature/DW_JOY_DEV-975")).toBe("dw-joy-frontend [feature/DW_JOY_DEV-975]");
+  it("ベース名とブランチ名から\"base:branch\"形式を組み立てる（baseWorkspaceNameの逆）", () => {
+    expect(worktreeWorkspaceName("dw-joy-frontend", "feature/DW_JOY_DEV-975")).toBe("dw-joy-frontend:feature/DW_JOY_DEV-975");
     expect(baseWorkspaceName(worktreeWorkspaceName("app", "feat/x"))).toBe("app");
   });
 

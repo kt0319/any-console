@@ -7,7 +7,7 @@ import { baseWorkspaceName } from "./worktree.ts";
 
 /**
  * 表示・照合に使うワークスペース名。worktree 実行時はサーバが解決した
- * effective_workspace（例: "ws [feature/x]"）を優先する。
+ * effective_workspace（例: "ws:feature/x"）を優先する。
  */
 export function dispatchWorkspaceLabel(request: { effective_workspace?: string, workspace?: string } | null | undefined): string {
   return request?.effective_workspace || request?.workspace || "";

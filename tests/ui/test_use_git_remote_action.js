@@ -39,7 +39,7 @@ describe("useGitRemoteAction: 実行中ロックの範囲", () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.allWorkspaces = [
       { name: "repo", worktree: false },
-      { name: "repo [feature/x]", worktree: true, worktree_base: "repo" },
+      { name: "repo:feature/x", worktree: true, worktree_base: "repo" },
     ];
     let resolveApiCommand;
     apiCommandMock.mockReturnValue(new Promise((resolve) => { resolveApiCommand = resolve; }));
@@ -52,15 +52,15 @@ describe("useGitRemoteAction: 実行中ロックの範囲", () => {
     await Promise.resolve();
 
     // ベースがpull中なら、同じリポジトリを指すworktree名でも busy 扱いになる
-    expect(isAnyRunning("repo [feature/x]")).toBe(true);
+    expect(isAnyRunning("repo:feature/x")).toBe(true);
 
     // worktree側から別アクションを起動しようとしても、同じリポジトリなので実行されない
-    await gitAction("repo [feature/x]", "push");
+    await gitAction("repo:feature/x", "push");
     expect(apiCommandMock).toHaveBeenCalledTimes(1);
 
     resolveApiCommand({ ok: true, data: {} });
     await p;
-    expect(isAnyRunning("repo [feature/x]")).toBe(false);
+    expect(isAnyRunning("repo:feature/x")).toBe(false);
   });
 
   it("無関係な別ワークスペースの操作はブロックされない", async () => {

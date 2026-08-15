@@ -27,7 +27,7 @@ describe("useWorktreeCleanup", () => {
     it("開いているタブ・detachedセッション・dev serverを対象workspace名でまとめて見つける", async () => {
       const terminalStore = useTerminalStore();
       terminalStore.openTabs = [
-        { id: 1, sessionId: "s1", workspace: "app [feat/x]" },
+        { id: 1, sessionId: "s1", workspace: "app:feat/x" },
         { id: 2, sessionId: "s2", workspace: "other" },
       ];
       apiGetMock.mockImplementation(async (ep) => {
@@ -35,8 +35,8 @@ describe("useWorktreeCleanup", () => {
           return {
             ok: true,
             data: [
-              { session_id: "s1", workspace: "app [feat/x]" }, // 既に開いているタブ側なので対象外
-              { session_id: "s3", workspace: "app [feat/x]" }, // detached（タブに無い）
+              { session_id: "s1", workspace: "app:feat/x" }, // 既に開いているタブ側なので対象外
+              { session_id: "s3", workspace: "app:feat/x" }, // detached（タブに無い）
               { session_id: "s4", workspace: "other" },
             ],
           };
@@ -45,9 +45,9 @@ describe("useWorktreeCleanup", () => {
           return {
             ok: true,
             data: [
-              { pid: 111, port: 3000, workspace: "app [feat/x]" },
+              { pid: 111, port: 3000, workspace: "app:feat/x" },
               { pid: 222, port: 4000, workspace: "other" },
-              { pid: null, port: 5000, workspace: "app [feat/x]" }, // pid無しは対象外
+              { pid: null, port: 5000, workspace: "app:feat/x" }, // pid無しは対象外
             ],
           };
         }
@@ -55,7 +55,7 @@ describe("useWorktreeCleanup", () => {
       });
 
       const { findResidue } = useWorktreeCleanup();
-      const residue = await findResidue(undefined, "app [feat/x]");
+      const residue = await findResidue(undefined, "app:feat/x");
 
       expect(residue.openTabs.map((t) => t.sessionId)).toEqual(["s1"]);
       expect(residue.detachedSessions.map((s) => s.session_id)).toEqual(["s3"]);
@@ -103,7 +103,7 @@ describe("useWorktreeCleanup", () => {
       });
 
       const { findResidue } = useWorktreeCleanup();
-      const residue = await findResidue({ workspace: "app [feat/x]", branch: "feat/x" });
+      const residue = await findResidue({ workspace: "app:feat/x", branch: "feat/x" });
 
       expect(residue.detachedSessions.map((s) => s.session_id)).toEqual(["s3"]);
       expect(residue.devServers.map((p) => p.pid)).toEqual([111]);

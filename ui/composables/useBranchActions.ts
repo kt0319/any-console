@@ -66,7 +66,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     await withWorkspace(async (workspace) => {
       // wt（/worktrees API由来）はconfig.jsonに明示登録されたworktreeでしか
       // workspace/nameが埋まらないため、通常はここで base+branch から
-      // "base [branch]" 形式を組み立てて補う（findResidueが
+      // "base:branch" 形式を組み立てて補う（findResidueが
       // wt.workspace||wt.name を見るだけだと常に空でタブが見つからなかった）。
       const wsName = wt.workspace || wt.name || worktreeWorkspaceName(workspace, wt.branch);
       const residue = await findResidue(wt, wsName);
@@ -79,7 +79,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
       await cleanupResidue(residue);
       await workspaceStore.fetchWorkspaces();
       await loadWorktrees();
-      toast.success(`Worktree removed: ${workspace} [${worktreeConfirmLabel(wt)}]`);
+      toast.success(`Worktree removed: ${workspace}:${worktreeConfirmLabel(wt)}`);
     });
   }
 

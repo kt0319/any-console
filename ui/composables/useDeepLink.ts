@@ -10,6 +10,7 @@ import { buildActionSummary } from "../utils/action-summary.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
 import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.ts";
+import { worktreeWorkspaceName } from "../utils/worktree.ts";
 
 const VALID_PANES = new Set([
   "history", "files", "changes", "branch", "jobs", "stash", "issues", "actions", "prs",
@@ -112,7 +113,7 @@ export function useDeepLink() {
     const branch = params.get("branch");
     const baseBranch = params.get("base_branch") || params.get("base");
     const session = params.get("session");
-    const effectiveWs = ws && worktree ? `${ws} [${worktree}]` : ws;
+    const effectiveWs = ws && worktree ? worktreeWorkspaceName(ws, worktree) : ws;
 
     if (!effectiveWs && !session) return;
 

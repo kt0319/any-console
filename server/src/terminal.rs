@@ -39,37 +39,46 @@ async fn session_list_entry(
     session_id: &str,
     full_tmux_name: &str,
 ) -> Value {
-    let (workspace, worktree_base, worktree_branch, icon, icon_color, job_name, job_label, interactive, detached) =
-        match state.terminal_registry.get(session_id).await {
-            Some(arc) => {
-                let s = arc.lock().await;
-                (
-                    s.workspace.clone(),
-                    s.worktree_base.clone(),
-                    s.worktree_branch.clone(),
-                    s.icon.clone(),
-                    s.icon_color.clone(),
-                    s.job_name.clone(),
-                    s.job_label.clone(),
-                    s.interactive,
-                    s.detached,
-                )
-            }
-            None => {
-                let s = TerminalSession::from_tmux(&state.config, full_tmux_name).await;
-                (
-                    s.workspace,
-                    s.worktree_base,
-                    s.worktree_branch,
-                    s.icon,
-                    s.icon_color,
-                    s.job_name,
-                    s.job_label,
-                    s.interactive,
-                    s.detached,
-                )
-            }
-        };
+    let (
+        workspace,
+        worktree_base,
+        worktree_branch,
+        icon,
+        icon_color,
+        job_name,
+        job_label,
+        interactive,
+        detached,
+    ) = match state.terminal_registry.get(session_id).await {
+        Some(arc) => {
+            let s = arc.lock().await;
+            (
+                s.workspace.clone(),
+                s.worktree_base.clone(),
+                s.worktree_branch.clone(),
+                s.icon.clone(),
+                s.icon_color.clone(),
+                s.job_name.clone(),
+                s.job_label.clone(),
+                s.interactive,
+                s.detached,
+            )
+        }
+        None => {
+            let s = TerminalSession::from_tmux(&state.config, full_tmux_name).await;
+            (
+                s.workspace,
+                s.worktree_base,
+                s.worktree_branch,
+                s.icon,
+                s.icon_color,
+                s.job_name,
+                s.job_label,
+                s.interactive,
+                s.detached,
+            )
+        }
+    };
     let created_at = tmux::get_tmux_created(full_tmux_name).await;
     json!({
         "session_id": session_id,

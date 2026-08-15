@@ -369,26 +369,21 @@ pub async fn git_worktree_list(directory: &Path) -> Vec<Value> {
     }
 }
 
-/// worktree 表示名 '{base} [{branch}]' を (base, branch) に分解する。非該当は None。
+/// worktree 表示名 '{base}:{branch}' を (base, branch) に分解する。非該当は None。
+/// worktreeのワークスペース名 "base:branch" を base/branch に分解する。
+/// コロン区切りはgitのブランチ名規則がコロンを禁止しているため、
+/// 区切り文字とブランチ名が衝突しない（非貪欲に最初の':'で区切る）。
 pub fn split_worktree_name(name: &str) -> Option<(String, String)> {
-    // Python: ^(.+?)\s+\[(.+)\]$（非貪欲 base + 空白 + [branch]）
-    let stripped = name.strip_suffix(']')?;
-    let open = stripped.find('[')?;
-    let branch = &stripped[open + 1..];
-    let base = stripped[..open].trim_end();
+    let (base, branch) = name.split_once(':')?;
     if base.is_empty() || branch.is_empty() {
-        return None;
-    }
-    // '[' の直前に空白が必要（"a[b]" は非該当）
-    if !stripped[..open].ends_with(char::is_whitespace) {
         return None;
     }
     Some((base.to_string(), branch.to_string()))
 }
 
-/// 動的worktreeの表示名 '{base} [{branch}]' を組み立てる（split の逆）。
+/// 動的worktreeのワークスペース名 'base:branch' を組み立てる（split の逆）。
 pub fn worktree_display_name(base: &str, branch: &str) -> String {
-    format!("{base} [{branch}]")
+    format!("{base}:{branch}")
 }
 
 /// worktree 表示名ならベース名を、そうでなければ名前をそのまま返す。
@@ -398,7 +393,7 @@ pub fn worktree_base_of(name: &str) -> String {
         .unwrap_or_else(|| name.to_string())
 }
 
-/// '{base} [{branch}]' 形式の動的worktree名からパスを返す（config 未登録の worktree 用）。
+/// '{base}:{branch}' 形式の動的worktree名からパスを返す（config 未登録の worktree 用）。
 pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Option<PathBuf> {
     let (base_name, branch) = split_worktree_name(name)?;
     for entry in store.list_workspace_entries().values() {
@@ -428,7 +423,7 @@ pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Opti
 /// baseのサブディレクトリ）配下のcwdもbase名にマッチしてしまい、
 /// worktree自体を区別できない。この関数はまずbase名を解決した上で、cwdが
 /// そのリポジトリのworktreeのいずれかに属していないか確認し、該当すれば
-/// "{base} [{branch}]" 形式で返す（属さなければ従来通りbase名を返す）。
+/// "{base}:{branch}" 形式で返す（属さなければ従来通りbase名を返す）。
 pub async fn match_workspace_with_worktree(config: &ConfigStore, cwd: &str) -> Option<String> {
     let base_name = config.match_workspace_by_path(cwd)?;
 
@@ -661,16 +656,17 @@ mod tests {
     #[test]
     fn worktree_name_split_roundtrip() {
         assert_eq!(
-            split_worktree_name("proj [feat/x]"),
+            split_worktree_name("proj:feat/x"),
             Some(("proj".to_string(), "feat/x".to_string()))
         );
         assert_eq!(
-            split_worktree_name("a b [c]"),
+            split_worktree_name("a b:c"),
             Some(("a b".to_string(), "c".to_string()))
         );
         assert_eq!(split_worktree_name("plain-name"), None);
-        assert_eq!(split_worktree_name("a[b]"), None);
-        assert_eq!(worktree_display_name("proj", "feat/x"), "proj [feat/x]");
+        assert_eq!(split_worktree_name(":no-base"), None);
+        assert_eq!(split_worktree_name("no-branch:"), None);
+        assert_eq!(worktree_display_name("proj", "feat/x"), "proj:feat/x");
     }
 
     #[tokio::test]
@@ -771,7 +767,7 @@ mod tests {
     // ここでネストしたパスを渡す。
 
     #[tokio::test]
-    async fn match_workspace_with_worktree_returns_bracket_name_for_worktree_cwd() {
+    async fn match_workspace_with_worktree_returns_colon_name_for_worktree_cwd() {
         let dir = tempfile::tempdir().unwrap();
         let repo = dir.path().join("repo");
         let wt = repo.join(".worktrees").join("feat-x");
@@ -780,13 +776,13 @@ mod tests {
         register_workspace(&store, "proj", &repo);
 
         let result = match_workspace_with_worktree(&store, wt.to_str().unwrap()).await;
-        assert_eq!(result, Some("proj [feat/x]".to_string()));
+        assert_eq!(result, Some("proj:feat/x".to_string()));
 
         // worktree配下のサブディレクトリでも同じ結果になること
         let sub = wt.join("src");
         std::fs::create_dir_all(&sub).unwrap();
         let result_sub = match_workspace_with_worktree(&store, sub.to_str().unwrap()).await;
-        assert_eq!(result_sub, Some("proj [feat/x]".to_string()));
+        assert_eq!(result_sub, Some("proj:feat/x".to_string()));
     }
 
     #[tokio::test]

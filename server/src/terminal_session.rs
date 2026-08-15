@@ -64,7 +64,7 @@ impl ClientBridge {
 
 pub struct TerminalSession {
     pub workspace: Option<String>,
-    /// workspace が worktree（"{base} [{branch}]"形式）の時のベース名/ブランチ名。
+    /// workspace が worktree（"{base}:{branch}"形式）の時のベース名/ブランチ名。
     /// workspace から split_worktree_name で都度導出する（別途永続化はしない）。
     /// 直接代入せず set_workspace() 経由で更新すること。
     pub worktree_base: Option<String>,

@@ -624,7 +624,7 @@ async fn worktree_create_list_delete() {
     assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["status"], "ok");
-    assert_eq!(body["workspace"]["name"], "repo [wt-branch]");
+    assert_eq!(body["workspace"]["name"], "repo:wt-branch");
     let wt_path = body["workspace"]["path"].as_str().unwrap().to_string();
     assert!(std::path::Path::new(&wt_path).is_dir());
 
@@ -636,7 +636,7 @@ async fn worktree_create_list_delete() {
     assert_eq!(wt["is_main"], false);
 
     // 動的 worktree 名でルートが解決できる（git-log が引ける）
-    let encoded = "repo%20%5Bwt-branch%5D"; // "repo [wt-branch]"
+    let encoded = "repo%3Awt-branch"; // "repo:wt-branch"
     let log = get_json(&front, &format!("/workspaces/{encoded}/git-log")).await;
     assert_eq!(log["status"], "ok");
 

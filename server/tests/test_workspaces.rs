@@ -176,7 +176,7 @@ async fn list_workspaces_includes_dynamic_worktrees_and_respects_order() {
     assert_eq!(items[1]["id"], "ws_repo");
     let wt = &items[2];
     assert_eq!(wt["id"], Value::Null);
-    assert_eq!(wt["name"], "repo [feat/x]");
+    assert_eq!(wt["name"], "repo:feat/x");
     assert_eq!(wt["worktree"], true);
     assert_eq!(wt["worktree_base"], "repo");
     assert_eq!(wt["worktree_branch"], "feat/x");

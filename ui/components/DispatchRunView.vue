@@ -343,7 +343,7 @@ async function run() {
     const overrides = buildOverrides();
     if (selectedCreateWorktree.value) {
       // worktree は既存の GitChangeBranch.vue の Add > Worktree と同じ API で先に作成し、
-      // 作成後の compound な workspace 名（"{base} [{branch}]"）をそのまま dispatch の
+      // 作成後の compound な workspace 名（"{base}:{branch}"）をそのまま dispatch の
       // workspace として使う（dispatch.py 側の worktree フィールドは既存 worktree の
       // 検索専用で新規作成はしないため、作成自体はここで済ませる）。
       const { ok, data } = await apiCommand(

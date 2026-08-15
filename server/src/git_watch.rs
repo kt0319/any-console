@@ -751,7 +751,7 @@ mod tests {
             WatchTarget::new("main", PathBuf::from("/repos/main")),
             WatchTarget::new("nested", PathBuf::from("/repos/main/vendor/nested")),
             WatchTarget::worktree(
-                "main [feat]",
+                "main:feat",
                 PathBuf::from("/repos/main-feat"),
                 Some("main"),
                 None,
@@ -780,7 +780,7 @@ mod tests {
             "/repos/main/.git/packed-refs",
         ] {
             let names = match_workspaces(&set(&[shared_ref]), &plain_targets());
-            assert_eq!(names, set(&["main", "main [feat]"]), "for {shared_ref}");
+            assert_eq!(names, set(&["main", "main:feat"]), "for {shared_ref}");
         }
     }
 
@@ -796,7 +796,7 @@ mod tests {
                 Some(PathBuf::from("/repos/main/.git")),
             ),
             WatchTarget::worktree(
-                "main [feat]",
+                "main:feat",
                 PathBuf::from("/repos/main-feat"),
                 Some("main"),
                 None,
@@ -804,7 +804,7 @@ mod tests {
             ),
         ];
         let names = match_workspaces(&set(&["/repos/main/.git/FETCH_HEAD"]), &targets);
-        assert_eq!(names, set(&["main", "reg-wt", "main [feat]"]));
+        assert_eq!(names, set(&["main", "reg-wt", "main:feat"]));
     }
 
     #[test]
@@ -818,7 +818,7 @@ mod tests {
             &set(&["/repos/main/.git/worktrees/feat/HEAD"]),
             &plain_targets(),
         );
-        assert_eq!(names, set(&["main", "main [feat]"]));
+        assert_eq!(names, set(&["main", "main:feat"]));
     }
 
     #[test]

@@ -31,7 +31,8 @@ use crate::auth::{parse_cookies, AuthKind, RequireAuth};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
 use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
-    git_branch, git_branches, resolve_workspace_path, run_git_raw, GIT_QUICK_TIMEOUT_SEC,
+    git_branch, git_branches, resolve_workspace_path, run_git_raw, worktree_display_name,
+    GIT_QUICK_TIMEOUT_SEC,
 };
 use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
@@ -235,7 +236,7 @@ fn default_match() -> String {
 impl DispatchRequest {
     fn effective_workspace(&self) -> String {
         match self.worktree.as_deref().filter(|w| !w.is_empty()) {
-            Some(wt) => format!("{} [{wt}]", self.workspace),
+            Some(wt) => worktree_display_name(&self.workspace, wt),
             None => self.workspace.clone(),
         }
     }
@@ -1024,7 +1025,7 @@ mod tests {
         let mut req = base_request();
         assert_eq!(req.effective_workspace(), "proj");
         req.worktree = Some("feat/x".to_string());
-        assert_eq!(req.effective_workspace(), "proj [feat/x]");
+        assert_eq!(req.effective_workspace(), "proj:feat/x");
         req.worktree = Some(String::new());
         assert_eq!(req.effective_workspace(), "proj");
     }
@@ -1080,8 +1081,8 @@ mod tests {
             icon: String::new(),
             icon_color: String::new(),
         };
-        let body = dispatch_notification_body("proj [feat/x]", &req, &job_def);
-        assert!(body.starts_with("proj [feat/x]\nBuild \u{b7} feat/x\n"));
+        let body = dispatch_notification_body("proj:feat/x", &req, &job_def);
+        assert!(body.starts_with("proj:feat/x\nBuild \u{b7} feat/x\n"));
         // テキストは PUSH_TEXT_PREVIEW_LEN 文字までに切り詰められる
         let last_line = body.lines().last().unwrap();
         assert_eq!(last_line.chars().count(), PUSH_TEXT_PREVIEW_LEN);
@@ -1131,7 +1132,7 @@ mod tests {
         });
         record_recent(&state, "d1", payload, "rejected").await;
         let recent = state.dispatch.recent.lock().await;
-        assert_eq!(recent[0]["request"]["effective_workspace"], "proj [feat/x]");
+        assert_eq!(recent[0]["request"]["effective_workspace"], "proj:feat/x");
         assert!(
             recent[0]["request"].get("branch_status").is_none(),
             "実行時メタは除去される"

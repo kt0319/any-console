@@ -3,7 +3,7 @@ import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel, dispatchJobLabel } 
 
 describe("dispatchWorkspaceLabel", () => {
   it("effective_workspace（worktree解決済み）を優先する", () => {
-    expect(dispatchWorkspaceLabel({ effective_workspace: "ws [feature/x]", workspace: "ws" })).toBe("ws [feature/x]");
+    expect(dispatchWorkspaceLabel({ effective_workspace: "ws:feature/x", workspace: "ws" })).toBe("ws:feature/x");
   });
 
   it("effective_workspaceが無ければworkspace", () => {
@@ -19,7 +19,7 @@ describe("dispatchWorkspaceLabel", () => {
 
 describe("dispatchBaseWorkspaceLabel", () => {
   it("worktreeのeffective_workspaceからベース名を取り出す（履歴を元のディレクトリと共有するため）", () => {
-    expect(dispatchBaseWorkspaceLabel({ effective_workspace: "ws [feature/x]", workspace: "ws" })).toBe("ws");
+    expect(dispatchBaseWorkspaceLabel({ effective_workspace: "ws:feature/x", workspace: "ws" })).toBe("ws");
   });
 
   it("worktreeでなければdispatchWorkspaceLabelと同じ値", () => {

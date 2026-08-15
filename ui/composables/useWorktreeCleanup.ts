@@ -28,7 +28,7 @@ export function useWorktreeCleanup() {
 
     // サーバ側のworktree_base/worktree_branchが取れる場合はそちらで比較する
     // （workspace文字列の完全一致より安全。dev serverのworkspace値はcwdから
-    // 都度推測されるためbracket形式の文字列が完全一致しない場合がある）。
+    // 都度推測されるためcolon形式の文字列が完全一致しない場合がある）。
     // worktreeでない対象（expectedBranchが取れない）は従来通りworkspace完全一致。
     const expectedBranch = wt?.worktree_branch || wt?.branch;
     const expectedBase = wsName ? baseWorkspaceName(wsName) : wt?.worktree_base;

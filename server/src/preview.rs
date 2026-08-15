@@ -84,7 +84,7 @@ pub struct DetectedPort {
     pub http_probed_at: i64,
     pub cwd: Option<String>,
     pub workspace: Option<String>,
-    /// workspace が worktree（"{base} [{branch}]"形式）の時のベース名/ブランチ名。
+    /// workspace が worktree（"{base}:{branch}"形式）の時のベース名/ブランチ名。
     /// `workspace` から `split_worktree_name` で都度導出する（別途永続化はしない）。
     pub worktree_base: Option<String>,
     pub worktree_branch: Option<String>,
@@ -473,7 +473,12 @@ pub async fn scan_once(state: &Arc<AppState>) {
             .map(|(port, (_proc, pid))| (*port, *pid))
             .collect()
     };
-    type PortLookup = (Option<String>, Option<String>, Option<String>, Option<String>);
+    type PortLookup = (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    );
     let mut lookups: HashMap<u16, PortLookup> = HashMap::new();
     for (port, pid) in needs_lookup {
         let cwd = read_cwd(pid).await;
@@ -496,7 +501,9 @@ pub async fn scan_once(state: &Arc<AppState>) {
                 existing.process = proc.clone();
                 if existing.pid != Some(*pid) {
                     existing.pid = Some(*pid);
-                    if let Some((cwd, workspace, worktree_base, worktree_branch)) = lookups.get(port) {
+                    if let Some((cwd, workspace, worktree_base, worktree_branch)) =
+                        lookups.get(port)
+                    {
                         existing.cwd = cwd.clone();
                         existing.workspace = workspace.clone();
                         existing.worktree_base = worktree_base.clone();
@@ -504,8 +511,10 @@ pub async fn scan_once(state: &Arc<AppState>) {
                     }
                 }
             } else {
-                let (cwd, workspace, worktree_base, worktree_branch) =
-                    lookups.get(port).cloned().unwrap_or((None, None, None, None));
+                let (cwd, workspace, worktree_base, worktree_branch) = lookups
+                    .get(port)
+                    .cloned()
+                    .unwrap_or((None, None, None, None));
                 detected.insert(
                     *port,
                     DetectedPort {
@@ -1121,7 +1130,10 @@ mod tests {
     #[tokio::test]
     async fn match_workspace_no_match_for_unrelated_cwd() {
         let store = store_with_workspaces(&[("my-app", Some("My App"), "/Users/dev/my-app")]);
-        assert_eq!(match_workspace(&store, Some("/Users/dev/other-app")).await, None);
+        assert_eq!(
+            match_workspace(&store, Some("/Users/dev/other-app")).await,
+            None
+        );
     }
 
     #[tokio::test]

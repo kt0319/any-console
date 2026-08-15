@@ -68,27 +68,25 @@ export function workspaceDisplayName(ws?: { name?: string; worktree?: boolean; w
 }
 
 /**
- * worktreeのワークスペース名（"base [branch]"形式、server/src/git_utils.rs の
+ * worktreeのワークスペース名（"base:branch"形式、server/src/git_utils.rs の
  * worktree_display_name/split_worktree_name と同じ規則）からベースワークスペース名
  * を取り出す。worktreeでなければそのまま返す。
  * dispatch履歴をworktreeと元のディレクトリで共有表示するための正規化に使う
  * （dispatch-request.ts の dispatchBaseWorkspaceLabel 参照）。
  */
 export function baseWorkspaceName(name?: string | null): string {
-  if (!name || !name.endsWith("]")) return name || "";
-  const stripped = name.slice(0, -1);
-  const open = stripped.indexOf("[");
-  if (open === -1) return name;
-  const base = stripped.slice(0, open).trimEnd();
-  const branch = stripped.slice(open + 1);
+  if (!name) return "";
+  const idx = name.indexOf(":");
+  if (idx === -1) return name;
+  const base = name.slice(0, idx);
+  const branch = name.slice(idx + 1);
   if (!base || !branch) return name;
-  if (!/\s$/.test(stripped.slice(0, open))) return name;
   return base;
 }
 
 /**
  * baseWorkspaceName の逆。ベース名とブランチ名から worktree のワークスペース名
- * （"base [branch]"形式）を組み立てる（server/src/git_utils.rs の
+ * （"base:branch"形式）を組み立てる（server/src/git_utils.rs の
  * worktree_display_name と同じ規則）。
  * GitChangeBranch.vue の `/worktrees` API 由来の worktree エントリは
  * workspace/name フィールドを持たない（config.json に明示登録された worktree
@@ -97,5 +95,5 @@ export function baseWorkspaceName(name?: string | null): string {
  */
 export function worktreeWorkspaceName(base?: string | null, branch?: string | null): string {
   if (!base || !branch) return "";
-  return `${base} [${branch}]`;
+  return `${base}:${branch}`;
 }
