@@ -42,15 +42,19 @@ impl ClientBridge {
         self.pty.as_raw_fd()
     }
 
+    /// PTY への書き込みを、session のロックを離した後に実行できるよう
+    /// `Arc` を複製して返す（`AsyncPty::write_all` は EAGAIN 時に readiness
+    /// 待ちで await するため、session ロックを保持したまま呼ぶと他のクライアント
+    /// をブロックしてしまう）。
+    pub fn pty_handle(&self) -> Arc<crate::pty::AsyncPty> {
+        Arc::clone(&self.pty)
+    }
+
     /// この接続専用 PTY へ書き込む（Python の `os.write(bridge.fd, data)` 相当）。
-    pub fn write(&self, data: &[u8]) -> std::io::Result<usize> {
-        let fd = self.pty.as_raw_fd();
-        let n = unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) };
-        if n < 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(n as usize)
-        }
+    /// non-blocking fd での short write・EAGAIN は `AsyncPty::write_all` 側で
+    /// 吸収し、呼び出し側は全バイト書き込み完了を待てる。
+    pub async fn write(&self, data: &[u8]) -> std::io::Result<()> {
+        self.pty.write_all(data).await
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
@@ -465,7 +469,7 @@ mod tests {
         {
             let session = session_arc.lock().await;
             let bridge = session.bridges.get(&bridge_id).unwrap();
-            bridge.write(b"echo hello-bridge\n").unwrap();
+            bridge.write(b"echo hello-bridge\n").await.unwrap();
         }
 
         let mut collected = Vec::new();

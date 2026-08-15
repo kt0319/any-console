@@ -192,6 +192,39 @@ impl AsyncPty {
             }
         }
     }
+
+    /// `data` を全バイト書き込むまでリトライする（non-blocking fd での
+    /// short write・EAGAIN を吸収する）。生の `libc::write` を1回呼ぶだけだと、
+    /// PTY 入力バッファが埋まっている時に一部バイトしか書けない・EAGAIN で
+    /// 丸ごと失敗することがあり、長文ペーストが途中で欠落する原因になっていた。
+    pub async fn write_all(&self, data: &[u8]) -> io::Result<()> {
+        let fd = self.inner.get_ref().as_raw_fd();
+        let mut written = 0;
+        while written < data.len() {
+            let mut guard = self.inner.writable().await?;
+            let remaining = &data[written..];
+            let result = guard.try_io(|_| {
+                let n = unsafe {
+                    libc::write(
+                        fd,
+                        remaining.as_ptr() as *const libc::c_void,
+                        remaining.len(),
+                    )
+                };
+                if n < 0 {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(n as usize)
+                }
+            });
+            match result {
+                Ok(Ok(n)) => written += n,
+                Ok(Err(e)) => return Err(e),
+                Err(_would_block) => continue,
+            }
+        }
+        Ok(())
+    }
 }
 
 /// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る（Python
@@ -273,6 +306,35 @@ mod tests {
         }
         let text = String::from_utf8_lossy(&collected);
         assert!(text.contains("hello-pty"), "output was: {text:?}");
+        let _ = nix::sys::wait::waitpid(pid, None);
+    }
+
+    /// 大きなペースト（PTY入力バッファを超えるサイズ）を `write_all` で送っても
+    /// エラーにならないことを確認する（short write / EAGAIN のリトライ経路）。
+    /// echo経由でのバイト完全一致検証は tty line discipline 依存で環境ごとに
+    /// 挙動が揺れるため行わず、`write_all` 自体が全バイト分の書き込みを完遂して
+    /// `Ok(())` を返すことだけを見る。
+    #[tokio::test]
+    async fn write_all_completes_for_payload_larger_than_pty_buffer() {
+        // stdoutは/dev/nullに捨て、echoに依存しない（catが読み切ることで
+        // PTY入力バッファが空くのを確認するのが目的）。
+        let spec = ExecSpec::resolve(
+            "sh",
+            &["-c", "cat > /dev/null"],
+            &[("PATH", "/usr/bin:/bin")],
+        )
+        .unwrap();
+        let child = spawn(&spec, 80, 24).unwrap();
+        let pid = child.pid;
+        let pty = AsyncPty::new(child.master).unwrap();
+
+        let payload = vec![b'A'; 1_000_000];
+        tokio::time::timeout(std::time::Duration::from_secs(10), pty.write_all(&payload))
+            .await
+            .expect("write_all timed out")
+            .expect("write_all should succeed");
+
+        let _ = nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM);
         let _ = nix::sys::wait::waitpid(pid, None);
     }
 

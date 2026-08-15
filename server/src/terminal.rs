@@ -579,12 +579,14 @@ async fn handle_terminal_ws(
                             [("cmd".to_string(), json!(cmd))].into_iter().collect(),
                         );
                     }
-                    let write_result = {
+                    let pty = {
                         let session = session_arc.lock().await;
-                        session.bridges.get(&bridge_id).map(|b| b.write(&data))
+                        session.bridges.get(&bridge_id).map(|b| b.pty_handle())
                     };
-                    if let Some(Err(e)) = write_result {
-                        tracing::debug!("pty write failed session={session_id}: {e}");
+                    if let Some(pty) = pty {
+                        if let Err(e) = pty.write_all(&data).await {
+                            tracing::debug!("pty write failed session={session_id}: {e}");
+                        }
                     }
                 }
             }
