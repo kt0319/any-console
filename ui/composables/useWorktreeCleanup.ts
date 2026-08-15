@@ -33,16 +33,15 @@ export function useWorktreeCleanup() {
     const expectedBranch = wt?.worktree_branch || wt?.branch;
     const expectedBase = wsName ? baseWorkspaceName(wsName) : wt?.worktree_base;
 
+    const matchesTarget = (item: any) =>
+      expectedBranch ? (item.worktree_base === expectedBase && item.worktree_branch === expectedBranch) : item.workspace === wsName;
+
     const openTabSessionIds = new Set(openTabs.map((t) => t.sessionId).filter(Boolean));
     const [sessionsRes, portsRes] = await Promise.all([apiGet(EP_TERMINAL_SESSIONS), apiGet(EP_PREVIEW_PORTS)]);
     const detachedSessions = (sessionsRes.ok && Array.isArray(sessionsRes.data) ? sessionsRes.data : [])
-      .filter((s: any) =>
-        !openTabSessionIds.has(s.session_id) &&
-        (expectedBranch ? (s.worktree_base === expectedBase && s.worktree_branch === expectedBranch) : s.workspace === wsName));
+      .filter((s: any) => !openTabSessionIds.has(s.session_id) && matchesTarget(s));
     const devServers = (portsRes.ok && Array.isArray(portsRes.data) ? portsRes.data : [])
-      .filter((p: any) =>
-        p.pid &&
-        (expectedBranch ? (p.worktree_base === expectedBase && p.worktree_branch === expectedBranch) : p.workspace === wsName));
+      .filter((p: any) => p.pid && matchesTarget(p));
 
     return { openTabs, detachedSessions, devServers };
   }
