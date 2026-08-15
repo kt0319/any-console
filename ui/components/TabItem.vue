@@ -145,7 +145,13 @@ function onClick(e) {
   if (isDragging.value) return;
   if (mouseLongPress.consumeFired()) return;
   e.currentTarget?.blur();
-  if (isActive.value) return;
+  if (isActive.value) {
+    // 既にアクティブなタブ（開いているタブが1つしかない場合等）は select が
+    // 発火しない = switchTab() を経由しないため、ここで明示的にバッジをクリアする。
+    terminalStore.clearPhraseNotify(props.tab.sessionId);
+    terminalStore.clearDoneState(props.tab.sessionId);
+    return;
+  }
   // タッチ操作での選択はソフトキーボードが誤起動するため、フォーカスしない。
   const skipFocus = lastInputWasTouch;
   lastInputWasTouch = false;
