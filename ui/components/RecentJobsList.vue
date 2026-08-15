@@ -6,7 +6,7 @@
       type="button"
       class="recent-jobs-item hover-bg"
       :class="{ 'is-detached-tab': recent.jobDetached }"
-      @click="runRecentJob(recent)"
+      @click="onItemClick(recent)"
     >
       <span class="recent-jobs-item-icons">
         <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
@@ -65,6 +65,13 @@ const props = defineProps({
 
 const { recentJobs, runRecentJob, togglePin, removeRecentJob } = useRecentJobs();
 const { confirm } = useConfirm();
+
+// 編集モード中は行本体のクリックでジョブを起動しない（削除アイコンを
+// 少し外してタップしただけでジョブが走ってしまうのを防ぐ）。
+function onItemClick(recent) {
+  if (props.editMode) return;
+  runRecentJob(recent);
+}
 
 async function removeRecent(recent) {
   const label = recent.jobLabel || recent.jobName;
