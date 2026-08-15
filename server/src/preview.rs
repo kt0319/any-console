@@ -951,8 +951,18 @@ mod tests {
         assert!(should_scan_now(&state));
     }
 
+    // SSL_CERTFILE/SSL_KEYFILE はプロセス全体で共有される環境変数のため、
+    // cargo test のデフォルト並列実行では他の find_cert_pair テストと
+    // レースして誤検出しうる（実際にCIで発生した）。この4テストだけ
+    // Mutexで直列化する。
+    fn cert_pair_env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
     #[test]
     fn find_cert_pair_prefers_env_over_certs_dir() {
+        let _guard = cert_pair_env_lock().lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("env.crt"), b"cert").unwrap();
         std::fs::write(dir.path().join("env.key"), b"key").unwrap();
@@ -969,6 +979,7 @@ mod tests {
 
     #[test]
     fn find_cert_pair_falls_back_to_certs_dir() {
+        let _guard = cert_pair_env_lock().lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let certs_dir = dir.path().join("certs");
         std::fs::create_dir(&certs_dir).unwrap();
@@ -982,6 +993,7 @@ mod tests {
 
     #[test]
     fn find_cert_pair_none_when_key_missing() {
+        let _guard = cert_pair_env_lock().lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let certs_dir = dir.path().join("certs");
         std::fs::create_dir(&certs_dir).unwrap();
@@ -991,6 +1003,7 @@ mod tests {
 
     #[test]
     fn find_cert_pair_none_when_certs_dir_missing() {
+        let _guard = cert_pair_env_lock().lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(find_cert_pair(dir.path()), None);
     }
