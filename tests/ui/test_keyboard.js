@@ -41,6 +41,15 @@ describe("listenForEscape", () => {
     release();
   });
 
+  it("calls stopPropagation on Escape（ターミナルのxterm.jsハンドラ等へのESCバイト漏れを防ぐ）", () => {
+    const release = listenForEscape(() => {});
+    const event = new KeyboardEvent("keydown", { key: "Escape", cancelable: true, bubbles: true });
+    const stopPropagationSpy = vi.spyOn(event, "stopPropagation");
+    document.dispatchEvent(event);
+    expect(stopPropagationSpy).toHaveBeenCalledTimes(1);
+    release();
+  });
+
   it("release() stops further invocations", () => {
     const handler = vi.fn();
     const release = listenForEscape(handler);

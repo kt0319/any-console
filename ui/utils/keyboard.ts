@@ -17,10 +17,15 @@ export function isCaretOnLastLine(value, selectionEnd) {
 }
 
 // document に Escape キーのリスナーを capture フェーズで登録し、解除関数を返す。
+// stopPropagation も呼ぶ（preventDefaultだけだとイベントはターゲット（xterm.jsの
+// 隠しtextarea等）まで届いてしまい、モーダルを閉じたつもりのEscapeがESCバイトと
+// してそのままターミナルへ送られてしまう。シェルのZLEはESC直後の1文字を
+// メタキー結合として解釈するため、次に入力した文字が欠落する不具合になっていた）。
 export function listenForEscape(handler) {
   const onKeydown = (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       handler(e);
     }
   };
