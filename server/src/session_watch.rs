@@ -38,7 +38,7 @@ pub fn notify_session_workspace_bound(state: &AppState, session_id: &str, worksp
 
 /// 前面ジョブの argv 照合による自動ジョブタグ付け（`agent_watch::apply_job_tag`
 /// 相当）を購読中の全クライアントへ即時配信する。icon/icon_color は
-/// 未解決なら空文字（クライアント側はnullへ正規化する）。
+/// 未解決なら空文字（クライアント側は空文字を未設定として扱い上書きしない）。
 pub fn notify_session_job_bound(
     state: &AppState,
     session_id: &str,

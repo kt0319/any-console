@@ -14,7 +14,7 @@ export const INFO_PILLS = [
   {
     key: "files",
     label: "Workspace",
-    note: "Opens the files browser (with a dirty-changes dot when applicable). Shown for any terminal with an active session, Git or not.",
+    note: "Opens the files browser. Shown for any terminal with an active session, Git or not.",
     peekIcon: "mdi-folder-outline",
   },
   {
