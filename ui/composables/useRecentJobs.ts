@@ -107,6 +107,12 @@ export function useRecentJobs() {
     await _syncToServer();
   }
 
+  async function removeRecentJob(key: string) {
+    recentJobs.value = recentJobs.value.filter((j) => j.key !== key);
+    _save();
+    await _syncToServer();
+  }
+
   /** Recent Jobs 一覧から選んだジョブをターミナルとして起動する。 */
   async function runRecentJob(recent: RecentJob) {
     if (recent.jobConfirm !== false) {
@@ -128,5 +134,5 @@ export function useRecentJobs() {
     });
   }
 
-  return { recentJobs, loadRecentJobs, recordJob, runRecentJob, togglePin };
+  return { recentJobs, loadRecentJobs, recordJob, runRecentJob, togglePin, removeRecentJob };
 }

@@ -1,11 +1,37 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
+      <div class="ws-toolbar-actions">
+        <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">WS</span>
+        </button>
+        <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Group</span>
+        </button>
+        <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Job</span>
+        </button>
+        <button
+          type="button"
+          class="ws-toolbar-btn hover-bg-text"
+          :class="{ active: isEditMode }"
+          :aria-label="isEditMode ? 'Done editing' : 'Edit'"
+          :data-tooltip="isEditMode ? 'Done editing' : 'Edit'"
+          @click="isEditMode = !isEditMode"
+        >
+          <span class="mdi" :class="isEditMode ? 'mdi-check' : 'mdi-pencil-outline'"></span>
+          <span class="ws-toolbar-btn-label">{{ isEditMode ? 'Done' : 'Edit' }}</span>
+        </button>
+      </div>
+
       <template v-if="recentJobs.length">
         <div class="settings-category-head">
           <span class="settings-category-title">Recent Jobs</span>
         </div>
-        <RecentJobsList />
+        <RecentJobsList :edit-mode="isEditMode" />
       </template>
 
       <div class="settings-category-head">
@@ -14,28 +40,6 @@
         <button v-if="!isEditMode" type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
-        </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
-          <span class="mdi mdi-plus"></span>
-          <span class="ws-toolbar-btn-label">WS</span>
-        </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
-          <span class="mdi mdi-plus"></span>
-          <span class="ws-toolbar-btn-label">Group</span>
-        </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
-          <span class="mdi mdi-plus"></span>
-          <span class="ws-toolbar-btn-label">Job</span>
-        </button>
-        <button
-          type="button"
-          class="ws-toolbar-btn hover-bg-text"
-          :class="{ active: isEditMode }"
-          :aria-label="isEditMode ? 'Done editing' : 'Edit workspaces'"
-          :data-tooltip="isEditMode ? 'Done editing' : 'Edit workspaces'"
-          @click="isEditMode = !isEditMode"
-        >
-          <span class="mdi" :class="isEditMode ? 'mdi-check' : 'mdi-pencil-outline'"></span>
         </button>
       </div>
 
@@ -778,6 +782,18 @@ button.git-badge:disabled {
 }
 
 .ws-toolbar-spacer {
+  flex: 1;
+}
+
+.ws-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.ws-toolbar-actions .ws-toolbar-btn {
   flex: 1;
 }
 

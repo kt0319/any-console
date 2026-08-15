@@ -79,6 +79,25 @@ describe("useRecentJobs: サーバーとの同期", () => {
     );
   });
 
+  it("removeRecentJob で対象を除いた一覧をサーバーへ PUT する", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { recent_jobs: [job("ws1:build"), job("ws2:deploy")] },
+    });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, removeRecentJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    await removeRecentJob("ws1:build");
+
+    expect(recentJobs.value.map((j) => j.key)).toEqual(["ws2:deploy"]);
+    expect(apiPutMock).toHaveBeenCalledWith(
+      "/recent-jobs",
+      { recent_jobs: [expect.objectContaining({ key: "ws2:deploy" })] },
+      expect.objectContaining({ errorMessage: expect.any(String) }),
+    );
+  });
+
   it("サーバーの Recent Jobs 一覧を正として読み込む", async () => {
     localStorage.setItem("any_console_recent_jobs", JSON.stringify([job("stale:local")]));
     apiGetMock.mockResolvedValue({

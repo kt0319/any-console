@@ -239,7 +239,7 @@ export async function openAddWorkspace(page) {
   // Add workspaceボタンはEditモード中のみ表示される
   const addBtn = page.locator('[data-tooltip="Add workspace"]');
   if (!(await addBtn.isVisible())) {
-    await page.locator('[data-tooltip="Edit workspaces"]').click();
+    await page.locator('[data-tooltip="Edit"]').click();
   }
   await addBtn.click();
 }

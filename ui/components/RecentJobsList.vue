@@ -18,6 +18,7 @@
         <span class="recent-jobs-item-name">{{ recent.jobLabel || recent.jobName }}</span>
       </span>
       <span
+        v-if="!editMode"
         class="recent-jobs-item-pin hover-bg-text"
         :class="{ pinned: recent.pinned }"
         role="button"
@@ -27,6 +28,16 @@
         @click.stop="togglePin(recent.key)"
         @keydown.enter.space.stop.prevent="togglePin(recent.key)"
       ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
+      <span
+        v-else
+        class="recent-jobs-item-pin recent-jobs-item-delete hover-bg-text"
+        role="button"
+        tabindex="0"
+        aria-label="Remove recent job"
+        data-tooltip="Remove recent job"
+        @click.stop="removeRecent(recent)"
+        @keydown.enter.space.stop.prevent="removeRecent(recent)"
+      ><span class="mdi mdi-delete-outline"></span></span>
     </button>
     <button
       v-if="allowExpand && hasUnpinnedRecentJobs"
@@ -43,14 +54,23 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { RECENT_JOBS_MAX } from "../utils/constants.ts";
 
 const props = defineProps({
   allowExpand: { type: Boolean, default: true },
+  editMode: { type: Boolean, default: false },
 });
 
-const { recentJobs, runRecentJob, togglePin } = useRecentJobs();
+const { recentJobs, runRecentJob, togglePin, removeRecentJob } = useRecentJobs();
+const { confirm } = useConfirm();
+
+async function removeRecent(recent) {
+  const label = recent.jobLabel || recent.jobName;
+  if (!await confirm(`Remove "${recent.workspace} | ${label}" from Recent Jobs?`)) return;
+  await removeRecentJob(recent.key);
+}
 
 // 初期表示はピン留めのみ。非ピン留めは「More」で展開する。
 // allowExpand=falseの場合はMore/Lessを出さず、常に全件（上限RECENT_JOBS_MAX件）表示する。
@@ -146,6 +166,17 @@ const visibleRecentJobs = computed(() => {
 
 .recent-jobs-item-pin.pinned {
   color: var(--accent);
+}
+
+.recent-jobs-item-delete {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .recent-jobs-item-delete:hover {
+    background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
+  }
 }
 
 

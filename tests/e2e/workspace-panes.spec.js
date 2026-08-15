@@ -225,7 +225,7 @@ test.describe("workspace detail panes", () => {
     // ツールバーのAdd job（Editモード中のみ表示）からJobConfigを開き、
     // Scopeのプルダウンで対象ワークスペースを選ぶ（先頭はCommon job）
     await openWorkspaces(page);
-    await page.locator('[aria-label="Edit workspaces"]').click();
+    await page.locator('[aria-label="Edit"]').click();
     await page.locator('[aria-label="Add job"]').click();
     await expect(page.locator(".modal-title")).toHaveText("Add Job", { timeout: 5000 });
     await page.locator(".ws-settings-row", { hasText: "Scope" }).locator("select").selectOption(wsName);
