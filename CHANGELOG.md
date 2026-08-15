@@ -5,6 +5,88 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0](https://github.com/kt0319/any-console/compare/v0.12.1...v0.13.0) (2026-08-15)
+
+
+### Features
+
+* Add Workspaceページでアイコンを登録時に設定できるようにする ([26d06f7](https://github.com/kt0319/any-console/commit/26d06f729c25bca5e79d6e38b85b9f27e3d2df70))
+* Dev Server一覧のOpen/Killをpillと同じ確認フロー・共通killボタンにする ([1a69f8a](https://github.com/kt0319/any-console/commit/1a69f8a1877316aa53a1c2aac7c8a3f83970e6b3))
+* OpenモーダルでRecent Jobsを編集モードから削除できるようにする ([30c2812](https://github.com/kt0319/any-console/commit/30c28123c57004b47b9fec294d2652fdb5c519ab))
+* worktreeのdispatch履歴を元のディレクトリと共有表示する ([cd72852](https://github.com/kt0319/any-console/commit/cd728528288a4267810c4c50ac968da1bdac2547))
+* worktree削除時にdetachedセッション・dev serverプロセスの残骸も掃除する ([dfec0c7](https://github.com/kt0319/any-console/commit/dfec0c7fe63c8159c579ea12fb4c3ff75570dbe9))
+* worktree削除時にそのworktreeを開いているセッションがあれば確認の上で閉じる ([2cde41b](https://github.com/kt0319/any-console/commit/2cde41bb8940886a80c358e976c3ed49bacdf791))
+* セッションサイドバーのワークスペースアイコンにもダーティマークを付ける ([0cd650d](https://github.com/kt0319/any-console/commit/0cd650d054fc43b98b9d4be0d2840a8406e558c6))
+* セッションタブ間・タブと+ボタンの間にChrome風の区切り線を追加 ([1643bd6](https://github.com/kt0319/any-console/commit/1643bd6dc7cc946be7c0aa1a3ac6224cb0ac30b4))
+* ブランチpillをworktreeの時はworktreeアイコン(青)に変更 ([df28136](https://github.com/kt0319/any-console/commit/df2813619dcecb0bdb066cb5a6564d124050a0c1))
+
+
+### Bug Fixes
+
+* config 読み込みをマイグレーション→正規化の順に変更 ([b3e6fb5](https://github.com/kt0319/any-console/commit/b3e6fb501336da07b1b10ffa97aee6c5eeabd994))
+* detached リネームの過渡期互換(旧SPAバンドル・旧キャッシュ)を追加 ([049ee73](https://github.com/kt0319/any-console/commit/049ee73fffa85fbebe05979b3301847b903bca10))
+* Dispatch実行フォームのSession/Workspace欄とworktree作成時の不具合を修正 ([3b8242a](https://github.com/kt0319/any-console/commit/3b8242a71efc3f31e3089cecc82ec5a9e75949e2))
+* Files pill/workspace peekでワークスペースアイコン未設定時にjobアイコンへフォールバックする不具合を修正 ([a28a9fa](https://github.com/kt0319/any-console/commit/a28a9fa60a27cb96bc920f4319b4dde78e704ff2))
+* Files pillの説明文から削除済みのdirtyドット記述を除去 ([7580108](https://github.com/kt0319/any-console/commit/7580108dc3c5f1aff9ca1e8fd5a5c19cb799aa10))
+* preview::testsのSSL_CERTFILE/SSL_KEYFILE環境変数レースによるCI落ちを修正 ([5b77bff](https://github.com/kt0319/any-console/commit/5b77bff1bbe91595d67be01240b163693b24c6da))
+* Recent Jobs編集モード中は行クリックでジョブを起動しないようにする ([f937159](https://github.com/kt0319/any-console/commit/f937159ffbf48bb8d7866ad16558248d8c1f2b6f))
+* recent-jobs の detached 過渡期互換を GET 応答まで拡張 ([8b2238f](https://github.com/kt0319/any-console/commit/8b2238fb7b9c1ec09f5529b878791cfe86133398))
+* worktree削除でセッションタブが閉じないバグを修正しE2Eを追加 ([3791c4c](https://github.com/kt0319/any-console/commit/3791c4c2902874876a5923a57046e2a30522b044))
+* worktree配下のcwdをbase名でなくbracket形式で解決するよう修正 ([6a130dd](https://github.com/kt0319/any-console/commit/6a130ddc7602075d66bac6e2bc068824778ebdc1))
+* サイドバーのworktree行タイトルをベース名のみにし下段のブランチ表示との重複を解消 ([3c6a98a](https://github.com/kt0319/any-console/commit/3c6a98a1e865328f379adc8ee3a1cfa34a3989d1))
+* サイドバーの通知ベルマークの色をアクセントカラーから警告色に変更 ([36890d6](https://github.com/kt0319/any-console/commit/36890d6aecbd358a5b4a697421d312dd3b0d70e5))
+* セッションサイドバーの背景色をKeyboardBarと同じ色に揃える ([522d838](https://github.com/kt0319/any-console/commit/522d8387182870905be984fd2aefffe5ffd177f9))
+* セッション一覧パネルのヘッダーからタイトルを消し閉じるボタンをタブバーと同じ高さで左端に配置 ([abed46c](https://github.com/kt0319/any-console/commit/abed46c2d97323e0498d9ec38684cf9b150b24b8))
+* タブのworktreeアイコンをwsIcon/jobIconより後ろにして常に一番右に表示する ([fb7c19f](https://github.com/kt0319/any-console/commit/fb7c19fbbc6b9bae56b7915adc32e55fd6fede66))
+* タブ名からworktreeのブランチ名を消しベース名のみにする ([42fe4ba](https://github.com/kt0319/any-console/commit/42fe4baab4b487de56341a69181a983c957f5462))
+* ブランチ一覧のworktree削除ボタンを「Remove WT」テキストから他行と同じゴミ箱アイコンに統一 ([0d863ce](https://github.com/kt0319/any-console/commit/0d863cec8fc5b942e0fdbaf1b27424e4de7277d1))
+* モーダルをEscapeで閉じた際にターミナルへESCバイトが漏れる不具合を修正 ([17d1c47](https://github.com/kt0319/any-console/commit/17d1c472d8986c3bf940cc9a2604179c56a3c507))
+* モバイルでもタブ区切り線を表示し非アクティブタブの減光を廃止 ([7a2feff](https://github.com/kt0319/any-console/commit/7a2feff47e0b685fa5176803123ab39dac0098b6))
+* ワークスペースアイコン未設定時はデフォルトアイコンで埋めるようにする ([5ec37c0](https://github.com/kt0319/any-console/commit/5ec37c023c94d68fa61e7debc0dc08a11c8fc48d))
+* 素のターミナルでジョブが動的検出された時にアイコンが即時反映されない不具合を修正 ([e1a0dee](https://github.com/kt0319/any-console/commit/e1a0dee58b146e3c8abfb9708c0b2e5f56fd554f))
+* 通知設定のPhrase notify delayをPhrase detectedの直下に配置し無効時はdisabled表示にする ([e9aa85c](https://github.com/kt0319/any-console/commit/e9aa85cdd8538d1c721e3c16586d9113c6660ef7))
+* 長文ペースト時にPTYへの書き込みが途中で欠落する不具合を修正 ([8a7a38f](https://github.com/kt0319/any-console/commit/8a7a38f396f35337a36f5dbda693affd0618da65))
+* 開いているタブが1つだけの時に通知ベルマークが消えない不具合を修正 ([feaf6a3](https://github.com/kt0319/any-console/commit/feaf6a3bfce4ceb056cebdda49ba7e15bf407967))
+
+
+### Refactor
+
+* Files pillのアイコンをワークスペースアイコンから汎用のfilesアイコンに変更 ([935bfd3](https://github.com/kt0319/any-console/commit/935bfd3c77b035bb8da403115985b0bcac67fb87))
+* GitHub表記の統一とビュースタック実装の共通化 ([0f5168d](https://github.com/kt0319/any-console/commit/0f5168deb028eb32ea2e500c35ac80014bc5380e))
+* Icon Pickerの分かりづらさを解消しグリッドアイコンを見やすくする ([05ebaa8](https://github.com/kt0319/any-console/commit/05ebaa8832bbb7e68abee72fe8acfb89385bea91))
+* ui/composables を TypeScript 化 ([dafdea1](https://github.com/kt0319/any-console/commit/dafdea117d4f8980fc3f83e0dbeb77aed3ee0649))
+* Vue コンポーネントの script を TypeScript 化 ([f5437df](https://github.com/kt0319/any-console/commit/f5437df5699ebfe82db85932ad62d981cd2ef7f2))
+* worktreeワークスペース名の区切り文字を角カッコからコロンに変更 ([15e6fcc](https://github.com/kt0319/any-console/commit/15e6fcc4ac6afba057c61b6d60fe0bc855bf8386))
+* worktree残骸検出のマッチング条件を共通化する ([d86722c](https://github.com/kt0319/any-console/commit/d86722c6b82740d7357a418564308d5c536cc49b))
+* エントリポイントを TypeScript 化（vue-main / app-bridge） ([b5e9ca2](https://github.com/kt0319/any-console/commit/b5e9ca2bfbac03e2c7d19c99736630c72d6c614c))
+* バックエンドの重複コードを共通ヘルパーへ集約 ([53bb7d1](https://github.com/kt0319/any-console/commit/53bb7d13d76f503f2f136d96992228869258e039))
+* フロントエンドの命名修正とDRY化(第1弾) ([4180ad5](https://github.com/kt0319/any-console/commit/4180ad587c5259954d8aa6d1842397fc98b0c685))
+* 仕様統一3件(モバイル境界 / GitHub整形 / モーダルシェル共通化) ([55a4406](https://github.com/kt0319/any-console/commit/55a44067cabbfa64abc1501e88f4d21fcb95d8d4))
+* 仕様統一4件(detached / preview / gitエラー文言 / ファイル閲覧) ([668acdd](https://github.com/kt0319/any-console/commit/668acddcf658855fb15d0660164c262d26b02bf5))
+* 実装と乖離したバックエンドの命名を実態に合わせて修正 ([b9656a9](https://github.com/kt0319/any-console/commit/b9656a959493679474422fcaf836b9f6dd82e3b2))
+* 通知バッジクリア処理をterminal.tsのclearSessionNotifyBadgesに集約 ([b048b87](https://github.com/kt0319/any-console/commit/b048b871ae517584567dbf85300611e25e537a9c))
+
+
+### Documentation
+
+* session_job_boundのiconコメントを実際のクライアント挙動に合わせる ([27ceace](https://github.com/kt0319/any-console/commit/27ceace8b1d4cf91d5be602a68affe9e3d1bb0ad))
+* TypeScript 移行完了に伴いドキュメントのファイル参照を更新 ([f2b8b76](https://github.com/kt0319/any-console/commit/f2b8b769d973e0c38f66d22eeb8b89471f1af4ac))
+
+
+### Build
+
+* Cargo.lock のバージョンを 0.12.1 に同期 ([4bf9668](https://github.com/kt0319/any-console/commit/4bf966898783d9ddc67a9445052bce08226c559f))
+
+
+### CI
+
+* リリースPRのCargo.lockをバージョン変更に自動追従させる ([70fbf2e](https://github.com/kt0319/any-console/commit/70fbf2ed032281a166e39f47459a2db30d9c7b80))
+
+
+### Dependencies
+
+* npm audit fixでhigh severityの脆弱性6件を解消 ([6ddd49e](https://github.com/kt0319/any-console/commit/6ddd49edc39ae890cf1d621bf3e7bbe687808630))
+
 ## [0.12.1](https://github.com/kt0319/any-console/compare/v0.12.0...v0.12.1) (2026-08-13)
 
 
