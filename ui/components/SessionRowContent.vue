@@ -1,6 +1,9 @@
 <template>
   <span class="session-sidebar-main">
-    <span v-if="wsIconHtml" class="session-sidebar-icon" v-html="wsIconHtml"></span>
+    <span v-if="wsIconHtml" class="session-sidebar-icon session-sidebar-icon-badge-wrap">
+      <span v-html="wsIconHtml"></span>
+      <span v-if="item.dirty" class="session-sidebar-dirty-badge" aria-label="uncommitted changes"></span>
+    </span>
     <span v-if="jobIconHtml" class="session-sidebar-icon" v-html="jobIconHtml"></span>
     <span v-if="!wsIconHtml && !jobIconHtml" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
     <span v-if="item.isWorktree" class="mdi mdi-file-tree session-sidebar-worktree" aria-label="worktree"></span>
@@ -61,6 +64,21 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
 .session-sidebar-icon-default {
   color: var(--text-muted);
   font-size: 16px;
+}
+
+.session-sidebar-icon-badge-wrap {
+  position: relative;
+}
+
+.session-sidebar-dirty-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5a623;
+  border: 1px solid var(--bg-secondary);
 }
 
 .session-sidebar-worktree {
