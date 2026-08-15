@@ -143,6 +143,53 @@ describe("terminal store: setTabWorkspace", () => {
   });
 });
 
+describe("terminal store: setTabJob", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useTerminalStore();
+  });
+
+  it("jobName/jobLabelを更新するが、tab オブジェクト自体の参照は維持する", () => {
+    seedTabs(store, [{ id: 1 }]);
+    const before = store.openTabs.find((t) => t.id === 1);
+    store.setTabJob(1, "job_x", "My Job");
+    const after = store.openTabs.find((t) => t.id === 1);
+    expect(after.jobName).toBe("job_x");
+    expect(after.jobLabel).toBe("My Job");
+    expect(after).toBe(before);
+  });
+
+  it("tabWorkspaceVersion を進める（setTabWorkspaceと同じ変更通知の仕組みを使う）", () => {
+    seedTabs(store, [{ id: 1 }]);
+    const before = store.tabWorkspaceVersion;
+    store.setTabJob(1, "job_x", "My Job");
+    expect(store.tabWorkspaceVersion).toBe(before + 1);
+  });
+
+  it("存在しない tabId は何もしない", () => {
+    seedTabs(store, [{ id: 1 }]);
+    const beforeVersion = store.tabWorkspaceVersion;
+    store.setTabJob(999, "job_x", "My Job");
+    expect(store.tabWorkspaceVersion).toBe(beforeVersion);
+    expect(store.openTabs.find((t) => t.id === 1).jobName).toBeUndefined();
+  });
+
+  it("iconInfoを渡すとtab.iconも更新する（タブアイコン即時反映）", () => {
+    seedTabs(store, [{ id: 1, icon: { name: "mdi-console", color: null } }]);
+    store.setTabJob(1, "job_x", "My Job", { icon: "mdi-rocket", iconColor: "#f00" });
+    const tab = store.openTabs.find((t) => t.id === 1);
+    expect(tab.icon).toEqual({ name: "mdi-rocket", color: "#f00" });
+  });
+
+  it("iconInfo.iconが無い場合はtab.iconを変更しない", () => {
+    seedTabs(store, [{ id: 1, icon: { name: "mdi-console", color: null } }]);
+    store.setTabJob(1, "job_x", "My Job", { icon: null, iconColor: null });
+    const tab = store.openTabs.find((t) => t.id === 1);
+    expect(tab.icon).toEqual({ name: "mdi-console", color: null });
+  });
+});
+
 describe("terminal store: addTerminalTab の重複防止", () => {
   let store;
   beforeEach(() => {

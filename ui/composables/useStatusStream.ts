@@ -101,9 +101,12 @@ export function useStatusStream() {
         toast.success(`Workspace linked: ${msg.workspace}`);
       } else if (msg?.type === "session_job_bound") {
         // 前面ジョブのargv照合による自動ジョブタグ付け（cwd照合と同じ仕組みの
-        // ジョブ版）。タブのjobName/jobLabel/アイコンはこのタブが再構築される
-        // まで反映されない（workspaceのようなライブ更新は未実装）ため、まずは
-        // 気付けるようトーストのみ出す。
+        // ジョブ版）。該当タブが既に開いていれば、session_workspace_boundと同様
+        // 次のポーリングを待たずjobName/jobLabel/アイコンを即座に更新する。
+        const tab = terminalStore.openTabs.find((t) => t.sessionId === msg.session_id);
+        if (tab) {
+          terminalStore.setTabJob(tab.id, msg.job_name, msg.job_label, { icon: msg.icon, iconColor: msg.icon_color });
+        }
         toast.success(`Job detected: ${msg.job_label}`);
       }
     };

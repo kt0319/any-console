@@ -293,11 +293,22 @@ async fn apply_job_tag(
         .and_then(Value::as_str)
         .unwrap_or("");
 
+    // 素のターミナル起動時にクライアントが送る仮アイコン（ui/composables/
+    // useTerminalLifecycle.ts の `jobName ? ... : "mdi-console"` と同じ値）。
+    // 「未設定」と区別が付かないため、この値の時もジョブのアイコンで
+    // 上書きしてよい（そうしないと素のターミナルが常にこの仮アイコンのまま
+    // 固定され、動的検出されたジョブのアイコンが一切反映されなかった）。
+    const BARE_TERMINAL_ICON: &str = "mdi-console";
+
     if let Some(cached) = state.terminal_registry.get(session_id).await {
         let mut session = cached.lock().await;
         session.job_name = Some(pattern.name.clone());
         session.job_label = Some(label.clone());
-        if session.icon.as_deref().unwrap_or("").is_empty() && !icon.is_empty() {
+        let has_custom_icon = !matches!(
+            session.icon.as_deref(),
+            None | Some("") | Some(BARE_TERMINAL_ICON)
+        );
+        if !has_custom_icon && !icon.is_empty() {
             session.icon = Some(icon.to_string());
             session.icon_color = Some(icon_color.to_string());
         }
@@ -314,7 +325,14 @@ async fn apply_job_tag(
         .await;
     }
     tracing::info!("auto-tagged job session={session_id} job={}", pattern.name);
-    crate::session_watch::notify_session_job_bound(state, session_id, &pattern.name, &label);
+    crate::session_watch::notify_session_job_bound(
+        state,
+        session_id,
+        &pattern.name,
+        &label,
+        icon,
+        icon_color,
+    );
 }
 
 /// 未タグのセッションで前面ジョブがジョブ定義と一致したらタグ付けする。

@@ -175,8 +175,13 @@ describe("parseStatusStreamMessage", () => {
   });
 
   it("session_job_bound メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job", icon: "mdi-rocket", icon_color: "#f00" });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job", icon: "mdi-rocket", icon_color: "#f00" });
+  });
+
+  it("session_job_bound のicon/icon_colorが無ければnull", () => {
     const raw = JSON.stringify({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job" });
-    expect(parseStatusStreamMessage(raw)).toEqual({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job" });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "session_job_bound", session_id: "s1", job_name: "job_x", job_label: "My Job", icon: null, icon_color: null });
   });
 
   it("session_job_bound のフィールドが不足していれば null", () => {

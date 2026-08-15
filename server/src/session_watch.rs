@@ -37,18 +37,23 @@ pub fn notify_session_workspace_bound(state: &AppState, session_id: &str, worksp
 }
 
 /// 前面ジョブの argv 照合による自動ジョブタグ付け（`agent_watch::apply_job_tag`
-/// 相当）を購読中の全クライアントへ即時配信する。
+/// 相当）を購読中の全クライアントへ即時配信する。icon/icon_color は
+/// 未解決なら空文字（クライアント側はnullへ正規化する）。
 pub fn notify_session_job_bound(
     state: &AppState,
     session_id: &str,
     job_name: &str,
     job_label: &str,
+    icon: &str,
+    icon_color: &str,
 ) {
     state.status_stream.broadcast(json!({
         "type": "session_job_bound",
         "session_id": session_id,
         "job_name": job_name,
         "job_label": job_label,
+        "icon": icon,
+        "icon_color": icon_color,
     }));
 }
 
@@ -96,7 +101,7 @@ mod tests {
     async fn job_bound_payload_shape() {
         let (state, _dir) = test_state();
         let mut rx = state.status_stream.tx.subscribe();
-        notify_session_job_bound(&state, "s1", "dev", "Dev Server");
+        notify_session_job_bound(&state, "s1", "dev", "Dev Server", "mdi-server", "#f00");
         assert_eq!(
             rx.recv().await.unwrap(),
             json!({
@@ -104,6 +109,8 @@ mod tests {
                 "session_id": "s1",
                 "job_name": "dev",
                 "job_label": "Dev Server",
+                "icon": "mdi-server",
+                "icon_color": "#f00",
             })
         );
     }

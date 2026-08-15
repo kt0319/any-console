@@ -5,7 +5,7 @@
  * - Terminal resize fit 抑制
  * - layout:fitAll がフォーム送信で発火しないこと
  */
-import { defineComponent, ref } from "vue";
+import { defineComponent, ref, markRaw } from "vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
@@ -23,6 +23,7 @@ import SendSnippet from "../../ui/components/SendSnippet.vue";
 import SendHistory from "../../ui/components/SendHistory.vue";
 import SessionSidebar from "../../ui/components/SessionSidebar.vue";
 import SessionListView from "../../ui/components/SessionListView.vue";
+import TabItem from "../../ui/components/TabItem.vue";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
@@ -908,5 +909,49 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     layoutStore.isSplitMode = true;
     await flushPromises();
     expect(wrapper.find(".session-sidebar").exists()).toBe(true);
+  });
+});
+
+describe("TabItem: markRawなtabの変更がtabWorkspaceVersion経由で再描画される", () => {
+  // tabはmarkRawで保持される（xterm.Terminal等の重い実行時参照を持つため）ので
+  // tab.workspace/wsIcon/iconへの直接読み取りだけではVueの依存トラッキングに
+  // 引っかからない。setTabWorkspace/setTabJobがtabWorkspaceVersionを進める
+  // ことで再評価させる設計になっているが、label/wsIconHtml/iconHtmlの各
+  // computedがそれを読んでいないと、ワークスペース自動紐付け・ジョブ自動検知の
+  // どちらでもタブの表示が更新されない（実際にE2Eで再現した回帰）。
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("setTabWorkspaceでラベル・アイコンが即座に更新される", async () => {
+    const terminalStore = useTerminalStore();
+    const workspaceStore = useWorkspaceStore();
+    workspaceStore.allWorkspaces = [{ name: "proj", icon: "mdi-rocket", icon_color: "#f00", clean: true }];
+    const tab = markRaw({ id: 1, sessionId: "s1", workspace: null, label: "terminal", wsIcon: null, icon: null, jobName: null, jobLabel: null });
+    terminalStore.openTabs = [tab];
+
+    const wrapper = mount(TabItem, { props: { tab, activeTabId: 1 } });
+    expect(wrapper.get(".tab-extra").text()).toContain("terminal");
+    expect(wrapper.find(".mdi-rocket").exists()).toBe(false);
+
+    terminalStore.setTabWorkspace(1, "proj", { icon: "mdi-rocket", iconColor: "#f00" });
+    await flushPromises();
+
+    expect(wrapper.get(".tab-extra").text()).toContain("proj");
+    expect(wrapper.find(".mdi-rocket").exists()).toBe(true);
+  });
+
+  it("setTabJobでjobアイコンが即座に更新される", async () => {
+    const terminalStore = useTerminalStore();
+    const tab = markRaw({ id: 2, sessionId: "s2", workspace: null, label: "terminal", wsIcon: null, icon: null, jobName: null, jobLabel: null });
+    terminalStore.openTabs = [tab];
+
+    const wrapper = mount(TabItem, { props: { tab, activeTabId: 2 } });
+    expect(wrapper.find(".mdi-rocket-launch").exists()).toBe(false);
+
+    terminalStore.setTabJob(2, "job_x", "My Job", { icon: "mdi-rocket-launch", iconColor: "#f00" });
+    await flushPromises();
+
+    expect(wrapper.find(".mdi-rocket-launch").exists()).toBe(true);
   });
 });

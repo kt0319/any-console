@@ -21,7 +21,7 @@ export type StatusStreamMessage =
   | { type: "phrase_notify_clear"; session_id: string }
   | { type: "session_created" | "session_removed"; session_id: string }
   | { type: "session_workspace_bound"; session_id: string; workspace: string }
-  | { type: "session_job_bound"; session_id: string; job_name: string; job_label: string };
+  | { type: "session_job_bound"; session_id: string; job_name: string; job_label: string; icon: string | null; icon_color: string | null };
 
 /**
  * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
@@ -35,8 +35,9 @@ export type StatusStreamMessage =
  *   作成・削除。他クライアントでの変更をタブ一覧へ即時反映するためのnudge、server/src/session_watch.rs）
  * - session_workspace_bound: `{ type, session_id, workspace }`（素のターミナルが
  *   cwd照合で自動ワークスペース紐付けされた通知、server/src/agent_watch.rs apply_workspace_tag）
- * - session_job_bound: `{ type, session_id, job_name, job_label }`（素のターミナルが
- *   前面ジョブのargv照合で自動ジョブタグ付けされた通知、server/src/agent_watch.rs apply_job_tag）
+ * - session_job_bound: `{ type, session_id, job_name, job_label, icon, icon_color }`（素の
+ *   ターミナルが前面ジョブのargv照合で自動ジョブタグ付けされた通知、
+ *   server/src/agent_watch.rs apply_job_tag。icon/icon_colorは無ければnull）
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  */
 export function parseStatusStreamMessage(raw: unknown): StatusStreamMessage | null {
@@ -73,7 +74,14 @@ export function parseStatusStreamMessage(raw: unknown): StatusStreamMessage | nu
     msg.type === "session_job_bound" && typeof msg.session_id === "string"
     && typeof msg.job_name === "string" && typeof msg.job_label === "string"
   ) {
-    return { type: "session_job_bound", session_id: msg.session_id, job_name: msg.job_name, job_label: msg.job_label };
+    return {
+      type: "session_job_bound",
+      session_id: msg.session_id,
+      job_name: msg.job_name,
+      job_label: msg.job_label,
+      icon: typeof msg.icon === "string" ? msg.icon : null,
+      icon_color: typeof msg.icon_color === "string" ? msg.icon_color : null,
+    };
   }
   return null;
 }

@@ -326,6 +326,21 @@ export const useTerminalStore = defineStore("terminal", () => {
     tabWorkspaceVersion.value++;
   }
 
+  /**
+   * @param iconInfo 紐付け先ジョブのアイコン。渡すとタブのjob側アイコン
+   *   （tab.icon）も即座に切り替わる（setTabWorkspaceのworkspace版と同じ役割）。
+   */
+  function setTabJob(tabId: number, jobName: string | null, jobLabel: string | null, iconInfo: { icon?: string | null, iconColor?: string | null } | null = null) {
+    const tab = openTabs.value.find((t) => t.id === tabId);
+    if (!tab) return;
+    tab.jobName = jobName || null;
+    tab.jobLabel = jobLabel || null;
+    if (iconInfo?.icon) {
+      tab.icon = { name: iconInfo.icon, color: iconInfo.iconColor || null };
+    }
+    tabWorkspaceVersion.value++;
+  }
+
   function moveTab(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= openTabs.value.length) return;
@@ -401,6 +416,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     detachTab,
     moveTab,
     setTabWorkspace,
+    setTabJob,
     tabWorkspaceVersion,
     loadTabOrder,
     resetTerminalSettings,

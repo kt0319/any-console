@@ -96,6 +96,12 @@ const tabWorkspace = computed(() => {
 });
 
 const label = computed(() => {
+  // props.tab.workspaceがfalsyな実行では下のtabWorkspace.value（読めば
+  // tabWorkspaceVersionへ依存する）を一度も読まないまま返ってしまい、
+  // このcomputed自体の依存が空になって二度と再評価されなくなる
+  // （ベアターミナル→Add/自動紐付けでworkspaceが後から付いても
+  // ラベルが更新されなかった不具合の原因）。分岐に関係なく必ず依存させる。
+  terminalStore.tabWorkspaceVersion;
   if (props.tab.workspace) {
     const ws = tabWorkspace.value;
     // worktreeアイコン(tab-worktree-icon)で既に判別できるため、タブ名には
@@ -118,12 +124,17 @@ const isWorktree = computed(() => !!tabWorkspace.value?.worktree);
 
 const iconSize = 18;
 
+// labelと同じ理由でtabWorkspaceVersionへ明示的に依存させる
+// （setTabWorkspace/setTabJobが直接書き換えるtab.wsIcon/tab.iconは
+// markRaw越しの読み取りだけでは変更を検知できない）。
 const wsIconHtml = computed(() => {
+  terminalStore.tabWorkspaceVersion;
   if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, iconSize);
   return "";
 });
 
 const iconHtml = computed(() => {
+  terminalStore.tabWorkspaceVersion;
   if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, iconSize);
   return "";
 });
