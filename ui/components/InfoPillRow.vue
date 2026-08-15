@@ -19,10 +19,6 @@
             <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
             <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
           </span>
-          <span v-else-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
-            <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
-            <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-          </span>
           <span v-else class="mdi" :class="peekIconForKey('files')"></span>
         </button>
         <button

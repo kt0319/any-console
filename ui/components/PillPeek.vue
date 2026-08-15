@@ -10,9 +10,9 @@
     @keydown.space.stop.prevent="emits('peek-click')"
   >
     <span
-      v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
+      v-if="peekingKey === 'workspace' && tab.wsIcon"
       class="pill-peek-icon-slot"
-      v-html="renderIconStr((tab.wsIcon || tab.icon).name, (tab.wsIcon || tab.icon).color, 16)"
+      v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"
     ></span>
     <span v-else class="mdi pill-peek-icon" :class="iconClass"></span>
     <span class="pill-peek-text pill-peek-marquee" :style="{ maxWidth: maxWidth + 'px' }">
