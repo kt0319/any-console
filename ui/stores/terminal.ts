@@ -166,6 +166,12 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (sessionId) delete phraseNotifySessions[sessionId];
   }
 
+  // セッションが選択・アクティブ化された際に見た扱いでクリアするバッジをまとめて処理する。
+  function clearSessionNotifyBadges(sessionId: string | null | undefined) {
+    clearPhraseNotify(sessionId);
+    clearDoneState(sessionId);
+  }
+
   function clearTabFlags(tabId: number) {
     delete tabFlags[tabId];
   }
@@ -285,8 +291,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (tab) {
       localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
-      clearPhraseNotify(tab.sessionId);
-      clearDoneState(tab.sessionId);
+      clearSessionNotifyBadges(tab.sessionId);
     }
   }
 
@@ -403,6 +408,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     phraseNotifySessions,
     markPhraseNotify,
     clearPhraseNotify,
+    clearSessionNotifyBadges,
     setTabFlag,
     clearTabFlags,
     TERMINAL_SETTINGS_KEY,

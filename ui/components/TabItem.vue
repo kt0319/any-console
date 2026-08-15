@@ -148,8 +148,7 @@ function onClick(e) {
   if (isActive.value) {
     // 既にアクティブなタブ（開いているタブが1つしかない場合等）は select が
     // 発火しない = switchTab() を経由しないため、ここで明示的にバッジをクリアする。
-    terminalStore.clearPhraseNotify(props.tab.sessionId);
-    terminalStore.clearDoneState(props.tab.sessionId);
+    terminalStore.clearSessionNotifyBadges(props.tab.sessionId);
     return;
   }
   // タッチ操作での選択はソフトキーボードが誤起動するため、フォーカスしない。

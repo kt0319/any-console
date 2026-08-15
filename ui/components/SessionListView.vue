@@ -157,8 +157,7 @@ function onSelect(item) {
   } else {
     // 既にアクティブなタブ（タブが1つしかない場合等）は switchTab() を経由しないため、
     // ここで明示的にバッジをクリアする（そうしないと通知が消えないまま残る）。
-    terminalStore.clearPhraseNotify(item.tab.sessionId);
-    terminalStore.clearDoneState(item.tab.sessionId);
+    terminalStore.clearSessionNotifyBadges(item.tab.sessionId);
   }
   // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。
   // 閉じるのはハンバーガー/閉じるボタン・Escでの明示操作のみにする。
