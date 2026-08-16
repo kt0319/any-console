@@ -395,13 +395,14 @@ pub async fn terminal_ws(
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    if crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers)
-        .is_none()
-    {
+    let Some(auth) =
+        crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers)
+    else {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
-    }
+    };
+    let device_id = auth.device_id().map(str::to_string);
     ws.on_upgrade(move |socket| async move {
-        handle_terminal_ws(state, session_id, query.cols, query.rows, socket).await;
+        handle_terminal_ws(state, session_id, query.cols, query.rows, device_id, socket).await;
     })
 }
 
@@ -486,6 +487,7 @@ async fn handle_terminal_ws(
     session_id: String,
     cols: u16,
     rows: u16,
+    device_id: Option<String>,
     mut socket: WebSocket,
 ) {
     let session_arc = match state.terminal_session(&session_id).await {
@@ -551,6 +553,15 @@ async fn handle_terminal_ws(
                 }
             }
             _ = ping_interval.tick() => {
+                // デバイス cookie 認証の接続は、revoke 済みデバイスの WS（＝生きた
+                // シェル）を維持し続けないよう ping ごとに存続を確認する（HTTP は
+                // リクエスト毎に再認証されるが WS はハンドシェイク時のみのため）。
+                if let Some(id) = device_id.as_deref() {
+                    if crate::devices::get_device(&state.paths.data_dir, id).is_none() {
+                        close_ws(&mut socket, 1008, "Device revoked").await;
+                        break;
+                    }
+                }
                 if socket.send(Message::Binary(Vec::new().into())).await.is_err() {
                     break;
                 }

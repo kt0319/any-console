@@ -728,14 +728,13 @@ async fn dispatch_rerun_run_true_executes_immediately() {
     let new_session = body["session_id"].as_str().unwrap().to_string();
     assert_ne!(new_session, first_session);
 
-    // Python 版 `Depends(verify_token)` と同じく、実際に認証された経路のラベルが
-    // activity ログへ残ること（Codex レビュー指摘: 以前は "main" 固定だった。
-    // メイントークン認証時のラベルは生の Bearer 値そのもの — Python の
-    // `_authenticate` も同じ挙動）。
-    assert_eq!(
-        latest_activity_auth(&front.state.paths.data_dir, "proj", "dispatch_executed"),
-        TOKEN
-    );
+    // 実際に認証された経路のラベルが activity ログへ残ること。メイントークン
+    // 認証時のラベルは "main" — Python 版は生の Bearer 値そのものを記録して
+    // いたが、恒久クレデンシャルが activity ログへ平文で永続化されてしまう
+    // ため Rust 版では記録しない（POST /dispatch 本体と同じラベル）。
+    let auth_label = latest_activity_auth(&front.state.paths.data_dir, "proj", "dispatch_executed");
+    assert_eq!(auth_label, "main");
+    assert!(!auth_label.contains(TOKEN));
 
     any_console_server::subprocess::kill_tmux_by_name(&format!(
         "{}{new_session}",

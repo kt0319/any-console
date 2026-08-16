@@ -454,8 +454,12 @@ prompt_https_setup() {
 
 is_service_active() {
   if is_macos; then
-    # sudo を避けるためプロセスの有無で判定する（単一アプリ前提）。
-    pgrep -f "any-console-server" >/dev/null 2>&1
+    # launchd サービス自体の稼働で判定する（sudo 不要の gui ドメイン）。
+    # pgrep によるプロセス有無の判定だと、サービスを stop した上で手動
+    # （foreground/tmux）起動しているサーバにもマッチし、update/https-setup が
+    # 停止済みサービスを誤って起動し直してしまう（シングルトンロックとの
+    # 競合で launchd がリスポーンを繰り返すループになる）。
+    launchctl print "$(_launchd_domain)/$LAUNCHD_LABEL" 2>/dev/null | grep -q "state = running"
   else
     systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
   fi
