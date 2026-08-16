@@ -294,6 +294,25 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
         info.insert("github_url".to_string(), json!(url));
     }
 
+    // status クエリの失敗（タイムアウト等）を clean=null として配信すると、
+    // クライアント側の null ガードで古い dirty 状態が消えなくなる（clean は
+    // 一度確定した値を null で上書きしない設計のため）。ここだけ1回リトライして
+    // 極力確定値を返す。
+    let status = match status {
+        Some(s) => Some(s),
+        None => {
+            query(
+                directory,
+                &[
+                    "--no-optional-locks",
+                    "status",
+                    "--porcelain",
+                    "--untracked-files=all",
+                ],
+            )
+            .await
+        }
+    };
     if let Some(s) = status.as_deref() {
         info.insert("clean".to_string(), json!(s.trim().is_empty()));
     }
