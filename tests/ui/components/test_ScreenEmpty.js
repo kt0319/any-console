@@ -23,7 +23,7 @@ function mockApi({ authRequired, devices }) {
   apiGetMock.mockImplementation(async (url) => {
     if (url === "/settings/auth") return { ok: true, data: { auth_required: authRequired } };
     if (url === "/devices") return { ok: true, data: devices };
-    if (url === "/system/info") return { ok: true, data: null };
+    if (url === "/system/info") return { ok: true, data: { gh_authenticated: true } };
     return { ok: false, data: null };
   });
 }
@@ -79,6 +79,23 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
     expect(wrapper.text()).toContain("Open on your phone");
     expect(wrapper.find(".screen-empty-menu-item-done").exists()).toBe(true);
+  });
+
+  it("shows the GitHub CLI login item as not-done when gh is unauthenticated", async () => {
+    const layoutStore = useLayoutStore();
+    layoutStore.isPanelBottom = false;
+    apiGetMock.mockImplementation(async (url) => {
+      if (url === "/settings/auth") return { ok: true, data: { auth_required: false } };
+      if (url === "/system/info") return { ok: true, data: { gh_authenticated: false } };
+      return { ok: false, data: null };
+    });
+
+    wrapper = mount(ScreenEmpty, { attachTo: document.body });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Log in to GitHub CLI");
+    const item = wrapper.findAll("button").find((b) => b.text().includes("Log in to GitHub CLI"));
+    expect(item.find(".screen-empty-menu-item-done").exists()).toBe(false);
   });
 
   it("hides the shortcut when authentication is disabled", async () => {

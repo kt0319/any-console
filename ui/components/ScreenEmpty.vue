@@ -2,7 +2,7 @@
   <div class="screen-empty-container">
     <div class="screen-empty-content">
       <div class="screen-empty-column screen-empty-column-left">
-        <div v-if="eligiblePhonePairing || eligibleHttpsSetup || eligiblePwaInstall || eligibleEnableNotifications" class="screen-empty-section">
+        <div v-if="eligiblePhonePairing || eligibleHttpsSetup || eligiblePwaInstall || eligibleEnableNotifications || eligibleGhAuth" class="screen-empty-section">
           <button
             type="button"
             class="screen-empty-section-label screen-empty-section-toggle"
@@ -32,6 +32,11 @@
               <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
               <span class="screen-empty-menu-label">Enable notifications</span>
               <span v-if="doneEnableNotifications" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
+            </button>
+            <button v-if="eligibleGhAuth" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': doneGhAuth }" @click="showGhAuthInstructions">
+              <span class="mdi mdi-github screen-empty-menu-icon"></span>
+              <span class="screen-empty-menu-label">Log in to GitHub CLI</span>
+              <span v-if="doneGhAuth" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
             </button>
           </template>
         </div>
@@ -100,7 +105,7 @@ const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
-const serverInfo = ref<{ hostname?: string, version?: string } | null>(null);
+const serverInfo = ref<{ hostname?: string, version?: string, gh_authenticated?: boolean } | null>(null);
 
 // 「Open on your phone」導線: 認証必須な環境で出す一回きりのオンボーディング促し。
 // 完了後も項目自体は消さず、チェックマークで完了を示す（何を設定済みか後から
@@ -132,6 +137,10 @@ const eligibleEnableNotifications = computed(() =>
 );
 const doneEnableNotifications = computed(() => push.isSubscribed.value);
 
+// gh CLI未ログインの警告。ワークスペース単位の条件は設けず常に対象にする。
+const eligibleGhAuth = computed(() => true);
+const doneGhAuth = computed(() => serverInfo.value?.gh_authenticated === true);
+
 // Setup項目が全て完了していたら初期状態でトグルを閉じる。開閉状態はユーザー操作を
 // 尊重し、allSetupDoneが変化した時（=データ読み込み完了時）だけ自動で追従させる。
 const allSetupDone = computed(() => {
@@ -140,6 +149,7 @@ const allSetupDone = computed(() => {
     { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value },
     { eligible: eligiblePwaInstall.value, done: donePwaInstall.value },
     { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value },
+    { eligible: eligibleGhAuth.value, done: doneGhAuth.value },
   ].filter((item) => item.eligible);
   return items.length > 0 && items.every((item) => item.done);
 });
@@ -179,6 +189,13 @@ async function showHttpsInstructions() {
   await confirm(
     "Run \"./any-console https-setup\" on the server (via SSH) to issue a Tailscale HTTPS certificate. "
     + "HTTPS is required for installing this as an app and for push notifications.",
+    { ok: { label: "Got it" } },
+  );
+}
+
+async function showGhAuthInstructions() {
+  await confirm(
+    "Run \"gh auth login\" on the server (via SSH) so GitHub PR/Actions info can be fetched for your workspaces.",
     { ok: { label: "Got it" } },
   );
 }

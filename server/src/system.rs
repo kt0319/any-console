@@ -607,6 +607,27 @@ async fn get_tailscale_info(trust_enabled: bool) -> Option<Value> {
     }))
 }
 
+/// `gh` CLIがログイン済みならそのユーザー名（GitHubログイン名）を返す。
+/// 未インストール・未ログイン・タイムアウトはすべてNone（ScreenEmpty.vueの
+/// Setup項目・ServerInfo.vueは「未ログイン」扱いにする）。
+async fn gh_auth_user() -> Option<String> {
+    let result = run_subprocess_safe(
+        &["gh", "api", "user", "--jq", ".login"],
+        SYSTEM_CMD_TIMEOUT_SEC,
+        None,
+    )
+    .await?;
+    if !result.success() {
+        return None;
+    }
+    let login = result.stdout.trim();
+    if login.is_empty() {
+        None
+    } else {
+        Some(login.to_string())
+    }
+}
+
 pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
     let root = &state.paths.project_root;
     let mut info = Map::new();
@@ -643,6 +664,11 @@ pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Jso
     }
     if let Some(v) = get_tailscale_info(state.auth.trust_tailscale()).await {
         info.insert("tailscale".into(), v);
+    }
+    let gh_user = gh_auth_user().await;
+    info.insert("gh_authenticated".into(), Value::Bool(gh_user.is_some()));
+    if let Some(user) = gh_user {
+        info.insert("gh_user".into(), Value::String(user));
     }
     Json(Value::Object(info))
 }

@@ -206,6 +206,7 @@ async function load() {
         row("Auth", formatAuth(auth)),
         row("Install dir", srv.install_dir),
         row("User", srv.user),
+        row("GitHub CLI", srv.gh_authenticated ? `Logged in (${srv.gh_user})` : "Not logged in"),
       ].filter((r) => r.values[0]) : [],
     },
     {
