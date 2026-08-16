@@ -172,7 +172,7 @@ async fn handle_status_stream_ws(
     device_id: Option<String>,
 ) {
     let mut rx = state.status_stream.tx.subscribe();
-    let conn_id = state.status_stream.register_viewer(device_id);
+    let conn_id = state.status_stream.register_viewer(device_id.clone());
     tracing::info!("status stream connected");
     // Python 版は git_watch/agent_watch/dispatch/session_watch それぞれの
     // subscribe() を個別に呼ぶが、Rust 版は購読者集合が `StatusStreamState`
@@ -228,6 +228,14 @@ async fn handle_status_stream_ws(
                 }
             }
             _ = ping_interval.tick() => {
+                // デバイス cookie 認証の接続は revoke 済みデバイスへの配信を
+                // 続けないよう ping ごとに存続を確認する（terminal.rs の WS と
+                // 同方式 — WS はハンドシェイク時のみ認証されるため）。
+                if let Some(id) = device_id.as_deref() {
+                    if crate::devices::get_device(&state.paths.data_dir, id).is_none() {
+                        break;
+                    }
+                }
                 if socket
                     .send(Message::Text(json!({"type": "ping"}).to_string().into()))
                     .await
