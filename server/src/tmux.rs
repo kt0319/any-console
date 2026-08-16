@@ -105,22 +105,14 @@ pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
 /// tmux セッションへ注入する hook 用環境変数（失敗時は空 — そのセッションでは
 /// hooks が無効になるだけでセッション生成自体は妨げない）。
 ///
-/// URL のスキームは実際の listen 設定に合わせる（Codex レビュー指摘: 常に
-/// `http://` 固定だと、TLS 証明書が置かれておりサーバが HTTPS で listen して
-/// いる環境では平文リクエストが弾かれ、hooks からの状態更新が一切届かない）。
 fn hook_session_env(
     data_dir: &Path,
     config: &ConfigStore,
-    project_root: &Path,
+    _project_root: &Path,
     tmux_session_name: &str,
 ) -> Vec<(String, String)> {
     let (host, port) = resolve_effective_bind(config);
     let host = connect_bind_host(&host);
-    let scheme = if crate::preview::find_cert_pair(project_root).is_some() {
-        "https"
-    } else {
-        "http"
-    };
     vec![
         (
             "ANY_CONSOLE_SESSION".to_string(),
@@ -128,7 +120,7 @@ fn hook_session_env(
         ),
         (
             "ANY_CONSOLE_HOOK_URL".to_string(),
-            format!("{scheme}://{host}:{port}/agent-hooks/events"),
+            format!("http://{host}:{port}/agent-hooks/events"),
         ),
         (
             "ANY_CONSOLE_HOOK_TOKEN".to_string(),
@@ -628,21 +620,8 @@ mod tests {
         assert!(!t1.is_empty());
     }
 
-    /// project_root/certs に証明書一式が無ければ ANY_CONSOLE_HOOK_URL は
-    /// http://、有ればhttps://になる（サーバがTLSでlistenしている環境で
-    /// 平文リクエストが弾かれhooksが届かなくなる問題の回帰防止）。
-    /// find_cert_pair はSSL_CERTFILE/SSL_KEYFILE環境変数を最優先で見るため、
-    /// 開発機でこれらがexportされている場合に備え一時的に退避・復元する
-    /// （このcrateの他のテストではこの2変数を触らないため競合しない）。
     #[test]
-    fn hook_session_env_url_scheme_follows_tls_cert_presence() {
-        let saved_certfile = std::env::var("SSL_CERTFILE").ok();
-        let saved_keyfile = std::env::var("SSL_KEYFILE").ok();
-        unsafe {
-            std::env::remove_var("SSL_CERTFILE");
-            std::env::remove_var("SSL_KEYFILE");
-        }
-
+    fn hook_session_env_url_scheme_is_http() {
         let dir = tempfile::tempdir().unwrap();
         let data_dir = dir.path().join("data");
         let config = ConfigStore::new(dir.path().join("config.json"));
@@ -654,30 +633,6 @@ mod tests {
             .map(|(_, v)| v.clone())
             .unwrap();
         assert!(url.starts_with("http://"), "expected http://, got {url}");
-
-        let certs_dir = dir.path().join("certs");
-        std::fs::create_dir_all(&certs_dir).unwrap();
-        std::fs::write(certs_dir.join("host.crt"), "cert").unwrap();
-        std::fs::write(certs_dir.join("host.key"), "key").unwrap();
-
-        let env = hook_session_env(&data_dir, &config, dir.path(), "ac-sess");
-        let url = env
-            .iter()
-            .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
-            .map(|(_, v)| v.clone())
-            .unwrap();
-        assert!(url.starts_with("https://"), "expected https://, got {url}");
-
-        unsafe {
-            match saved_certfile {
-                Some(v) => std::env::set_var("SSL_CERTFILE", v),
-                None => std::env::remove_var("SSL_CERTFILE"),
-            }
-            match saved_keyfile {
-                Some(v) => std::env::set_var("SSL_KEYFILE", v),
-                None => std::env::remove_var("SSL_KEYFILE"),
-            }
-        }
     }
 
     #[tokio::test]

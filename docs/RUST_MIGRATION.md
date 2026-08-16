@@ -760,6 +760,12 @@ TLS 越しでも壊れていないことの実地検証）。証明書なしの�
 `load_tls_server_config` 自体のユニットテスト（正常系・不正 PEM・ファイル
 欠落）も `preview.rs` に追加した。
 
+**Update (2026-08)**: 本体公開ポートでの direct TLS 終端は削除し、
+`any-console-server` は常に HTTP で listen する方針に戻した。HTTPS は Tailscale
+Serve / reverse proxy に任せる。`SSL_CERTFILE` / `SSL_KEYFILE` と `certs/`
+探索は direct-port dev server preview proxy（例: `https://<device>:12001/`）
+のために `preview.rs` 側へ残す。
+
 ### ランチャーの Rust 単独起動への切替 — **完了**
 
 **背景**: 上記2節（proxy 撤去・TLS 移設）により Rust が Python 無しで全機能を
