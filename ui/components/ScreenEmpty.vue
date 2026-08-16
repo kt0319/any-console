@@ -11,7 +11,7 @@
           >
             <span class="screen-empty-section-title">
               Setup
-              <span v-if="!allSetupDone" class="mdi mdi-alert screen-empty-section-warn" aria-label="Incomplete setup items" data-tooltip="Incomplete setup items"></span>
+              <span v-if="setupChecked && !allSetupDone" class="mdi mdi-alert screen-empty-section-warn" aria-label="Incomplete setup items" data-tooltip="Incomplete setup items"></span>
             </span>
             <span class="mdi" :class="setupExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
           </button>
@@ -157,13 +157,15 @@ const allSetupDone = computed(() => {
   return items.length > 0 && items.every((item) => item.done);
 });
 const setupExpanded = ref(false);
-watch(allSetupDone, (done) => { setupExpanded.value = !done; }, { immediate: true });
+const setupChecked = ref(false);
+watch(allSetupDone, (done) => { setupExpanded.value = !done; });
 
-onMounted(() => {
+onMounted(async () => {
   loadRecentJobs();
-  loadServerInfo();
-  loadPhonePairingEligibility();
   push.init();
+  await Promise.all([loadServerInfo(), loadPhonePairingEligibility()]);
+  setupExpanded.value = !allSetupDone.value;
+  setupChecked.value = true;
 });
 
 async function loadServerInfo() {
