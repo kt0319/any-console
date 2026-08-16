@@ -2,8 +2,9 @@
 //!
 //! 外部から「workspace + job + テキスト」を1回のリクエストで投げて、既存セッション
 //! 再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、text の tmux 送信までを
-//! 行う。既定（direct: false）では承認キューへ積んで即座に 202 を返し、実行は
-//! `/dispatch/{id}/decision` からの承認だけが担う。
+//! 行う。`POST /dispatch` は承認キューへ積んで即座に 202 を返し、実行は
+//! `/dispatch/{id}/decision` からの承認だけが担う。旧 `direct: true` の即時実行は
+//! セキュリティモデルを単純にするため拒否する。
 //!
 //! **設計判断**: 新規作成セッションに予約するテキスト（`pending_text`）は Python
 //! 版がインメモリで保持していたが、Rust 版は tmux 環境変数
@@ -726,7 +727,7 @@ pub async fn dispatch(
 /// ケース）からも、メイントークン相当（`is_scoped_token=false`）で直接呼ばれる
 /// （Python 版が `dispatch(req, (auth_label, False))` と関数呼び出しで再利用
 /// していたのと同じ構造）。
-/// dispatch 実行成功時の activity 記録（direct 実行と承認後実行で共用する定型）。
+/// dispatch 実行成功時の activity 記録（承認後実行と rerun 実行で共用する定型）。
 fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
     crate::activity::log_activity(
         &state.paths.data_dir,
@@ -751,9 +752,9 @@ async fn dispatch_core(
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
 
-    if body.direct && is_scoped_token {
+    if body.direct {
         return Err(bad_request(
-            "Direct execution is not allowed for dispatch token",
+            "Direct dispatch execution is no longer supported; submit to the approval queue instead",
         ));
     }
     if is_scoped_token {
@@ -798,13 +799,6 @@ async fn dispatch_core(
             None,
         );
     };
-
-    if body.direct {
-        notify_push(state);
-        let result = launch(state, &body).await?;
-        log_dispatch_executed(state, &result, auth_label);
-        return Ok(Json(result).into_response());
-    }
 
     let (dispatch_id, retry_count, should_notify) = resolve_dedup_and_insert(
         state,
