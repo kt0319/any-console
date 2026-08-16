@@ -1,10 +1,9 @@
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { Ref } from "vue";
 
 import { useApi } from "./useApi.ts";
 import { useWorkspace } from "./useWorkspace.ts";
 import { useToast } from "./useToast.ts";
-import { useConfirm } from "./useConfirm.ts";
 import { copyText } from "../utils/clipboard.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
 import { workspaceCommitMessagePath } from "../utils/endpoints.ts";
@@ -15,7 +14,6 @@ type ToastFn = (message: string, opts?: { duration?: number, action?: string | o
 export function useDiffFileActions({ selectedCommit }: { selectedCommit: Ref<Record<string, any> | null> }) {
   const { apiGet } = useApi();
   const { getWorkspace } = useWorkspace();
-  const { confirm } = useConfirm();
   const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
 
   const isWorkingTreeDiff = computed(() => selectedCommit.value?.hash === "__dirty__");
@@ -32,28 +30,45 @@ export function useDiffFileActions({ selectedCommit }: { selectedCommit: Ref<Rec
     });
   }
 
-  async function showSelectedCommitMessage() {
+  async function copySelectedCommitHash() {
     const entry = selectedCommit.value;
-    if (!entry) return;
-    if (entry.hash === "__dirty__") return;
+    if (!entry || entry.hash === "__dirty__") return;
+    if (await copyText(entry.hash)) {
+      toast.success(`Copied ${entry.hash}`);
+    } else {
+      toast.error("Failed to copy hash");
+    }
+  }
+
+  // git log は一覧表示用に1行へ切り詰めたメッセージしか持たないため、
+  // 「More」展開時にフルメッセージ（本文含む）をハッシュ単位でキャッシュ
+  // しつつ取得する。未取得の間は一覧の1行メッセージへフォールバックする。
+  const fullMessageCache = ref<{ hash: string, message: string } | null>(null);
+
+  const selectedCommitFullMessage = computed(() => {
+    const entry = selectedCommit.value;
+    if (!entry) return "";
+    const cached = fullMessageCache.value;
+    if (cached && cached.hash === entry.fullHash) return cached.message;
+    return entry.message;
+  });
+
+  async function loadSelectedCommitFullMessage() {
+    const entry = selectedCommit.value;
+    if (!entry || entry.hash === "__dirty__") return;
+    if (fullMessageCache.value?.hash === entry.fullHash) return;
     const workspace = getWorkspace();
     if (!workspace) return;
     const { ok, data } = await apiGet(workspaceCommitMessagePath(workspace, entry.fullHash));
-    const msg = ok && data?.message ? data.message : entry.message;
-    const result = await confirm(`${entry.hash}\n\n${msg}`, {
-      extra: { label: "Copy hash", value: "copy", icon: "mdi-content-copy" },
-    });
-    if (result === "copy") {
-      if (await copyText(entry.hash)) {
-        toast.success(`Copied ${entry.hash}`);
-      } else {
-        toast.error("Failed to copy hash");
-      }
+    if (ok && data?.message) {
+      fullMessageCache.value = { hash: entry.fullHash, message: data.message };
     }
   }
 
   return {
     onDiffFileClick,
-    showSelectedCommitMessage,
+    copySelectedCommitHash,
+    selectedCommitFullMessage,
+    loadSelectedCommitFullMessage,
   };
 }

@@ -3,11 +3,23 @@
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
       <div class="git-log-entry git-log-commit diff-files-selected-commit">
-        <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
-          <span class="mdi mdi-arrow-left"></span>
-        </button>
         <span class="git-log-entry-body">
-          <span class="git-log-entry-msg">{{ selectedCommitForFiles.message }}</span>
+          <span class="git-log-entry-msg-row">
+            <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
+              <span class="mdi mdi-arrow-left"></span>
+            </button>
+            <span
+              class="git-log-entry-msg git-log-entry-msg-toggle"
+              :class="{ 'git-log-entry-msg-expanded': commitDetailExpanded }"
+              role="button"
+              tabindex="0"
+              :aria-expanded="commitDetailExpanded"
+              aria-label="Toggle full commit message"
+              data-tooltip="Show full message"
+              @click.stop="commitDetailExpanded = !commitDetailExpanded"
+              @keydown.enter.space.stop.prevent="commitDetailExpanded = !commitDetailExpanded"
+            >{{ commitDetailExpanded ? selectedCommitFullMessage : selectedCommitForFiles.message }}</span>
+          </span>
           <span class="git-log-entry-row1">
             <span class="git-log-entry-row1-left">
               <span v-if="selectedCommitForFiles.refs?.length" class="git-log-entry-refs">
@@ -19,14 +31,14 @@
               <span class="git-log-entry-time">{{ selectedCommitForFiles.time }}</span>
             </span>
           </span>
+          <CommitActionMenu
+            v-if="selectedCommitForFiles.hash !== '__dirty__'"
+            :branches="entryBranches(selectedCommitForFiles)"
+            @click.stop
+            @copy-hash="copySelectedCommitHash"
+            @exec="onCommitAction(selectedCommitForFiles, $event)"
+          />
         </span>
-        <CommitActionMenu
-          v-if="selectedCommitForFiles.hash !== '__dirty__'"
-          :branches="entryBranches(selectedCommitForFiles)"
-          @click.stop
-          @show-detail="showSelectedCommitMessage"
-          @exec="onCommitAction(selectedCommitForFiles, $event)"
-        />
       </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
@@ -86,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import FileItem from "./FileItem.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
@@ -140,7 +152,13 @@ const { onCommitAction } = useCommitActionMenu() as {
   onCommitAction: (entry: Record<string, any>, ev: { action: string, branch?: string }) => void,
 };
 
+// Moreを押すとコミットメッセージ表示を切り詰め表示からフル本文へ差し替える
+// （commit-message API からハッシュ単位で取得。GitHistory.vue側で状態を持ち、
+// コミットを切り替えたら折りたたみ直す）。
+const commitDetailExpanded = ref(false);
+
 function openDiffFiles(entry, fetchFn) {
+  commitDetailExpanded.value = false;
   emitToParent("commit:expanded", { message: entry.message });
   return openDiffFilesBase(entry, fetchFn);
 }
@@ -151,11 +169,21 @@ function openCommitDiffFiles(entry) {
 
 function closeSelectedCommitFiles() {
   closeDiffFilesState();
+  commitDetailExpanded.value = false;
   emitToParent("commit:collapsed");
 }
 
-const { onDiffFileClick, showSelectedCommitMessage } = useDiffFileActions({
+const {
+  onDiffFileClick,
+  copySelectedCommitHash,
+  selectedCommitFullMessage,
+  loadSelectedCommitFullMessage,
+} = useDiffFileActions({
   selectedCommit: selectedCommitForFiles,
+});
+
+watch(commitDetailExpanded, (expanded) => {
+  if (expanded) loadSelectedCommitFullMessage();
 });
 
 async function reloadHistory() {
@@ -247,13 +275,42 @@ defineExpose({
   flex: 1;
 }
 
+.git-log-entry-msg-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
 .git-log-entry-msg {
+  min-width: 0;
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #fff;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.git-log-entry-msg-toggle {
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .git-log-entry-msg-toggle:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  }
+}
+
+.git-log-entry-msg-expanded {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 
