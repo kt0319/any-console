@@ -16,11 +16,11 @@ function getEl() {
   return tooltipEl;
 }
 
-function show(target, text) {
+function show(target: Element, text: string | undefined) {
   if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
   const el = getEl();
   // getEl() が tooltipEl と同時に textEl も必ず生成する
-  textEl!.textContent = text;
+  textEl!.textContent = text as string;
   el.style.display = "block";
   el.style.opacity = "0";
 

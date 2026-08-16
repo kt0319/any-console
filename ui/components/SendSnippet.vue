@@ -54,11 +54,11 @@ function onAdd() {
   newCommand.value = "";
 }
 
-function onDelete(idx) {
+function onDelete(idx: number) {
   bridgeEmit("snippet:delete", { index: idx });
 }
 
-function onInsert(command) {
+function onInsert(command: string) {
   bridgeEmit("keyboard:setDraft", { command });
   closePanel();
 }

@@ -79,15 +79,15 @@ const isCommitDisabled = computed(
 );
 const isStashDisabled = computed(() => files.value.length === 0);
 
-function statusClass(status) {
-  return GIT_DIFF_STATUS_CLASSES[status] || "";
+function statusClass(status: string) {
+  return GIT_DIFF_STATUS_CLASSES[status as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
 }
 
-function fileIconHtml(file) {
+function fileIconHtml(file: DiffFileRow) {
   return renderFileIconFromPath(file.path);
 }
 
-function selectFile(file) {
+function selectFile(file: DiffFileRow) {
   selectedFile.value = file.path;
   emit("git:selectDiffFile", { path: file.path, isWorkingTree: isWorkingTree.value });
 }
@@ -125,7 +125,7 @@ async function loadWorkingTreeDiff() {
   }
 }
 
-async function loadCommitDiff(hash) {
+async function loadCommitDiff(hash: string) {
   isLoading.value = true;
   isWorkingTree.value = false;
   try {

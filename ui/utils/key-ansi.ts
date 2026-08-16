@@ -3,28 +3,35 @@
  * keyDef は { key: string, ctrl?: boolean, shift?: boolean, alt?: boolean } 形式。
  */
 
+export type KeyDef = {
+  key: string;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+};
+
 // CSI 最終文字形式のキー（矢印・Home・End）。修飾時は ESC[1;{mod}{letter}。
-const CSI_LETTER = {
+const CSI_LETTER: Record<string, string> = {
   ArrowUp: "A", ArrowDown: "B", ArrowRight: "C", ArrowLeft: "D",
   Home: "H", End: "F",
 };
 
 // CSI チルダ形式のキー。修飾時は ESC[{num};{mod}~。
-const CSI_TILDE = {
+const CSI_TILDE: Record<string, string> = {
   Insert: "2", Delete: "3", PageUp: "5", PageDown: "6",
   F5: "15", F6: "17", F7: "18", F8: "19",
   F9: "20", F10: "21", F11: "23", F12: "24",
 };
 
 // SS3 形式のファンクションキー。未修飾は ESCO{letter}、修飾時は ESC[1;{mod}{letter}。
-const SS3_FN = { F1: "P", F2: "Q", F3: "R", F4: "S" };
+const SS3_FN: Record<string, string> = { F1: "P", F2: "Q", F3: "R", F4: "S" };
 
 // xterm 準拠の修飾パラメータ: 1 + Shift(1) + Alt(2) + Ctrl(4)。1（修飾なし）は省略される。
-function modifierParam(keyDef) {
+function modifierParam(keyDef: KeyDef) {
   return 1 + (keyDef.shift ? 1 : 0) + (keyDef.alt ? 2 : 0) + (keyDef.ctrl ? 4 : 0);
 }
 
-export function keyDefToAnsi(keyDef) {
+export function keyDefToAnsi(keyDef: KeyDef) {
   // CSI/SS3 系のキーは Alt もモディファイアパラメータに畳み込む（ESC は既にシーケンス先頭にあるため
   // 二重プレフィックスにしない）。
   const mod = modifierParam(keyDef);
@@ -53,7 +60,7 @@ export function keyDefToAnsi(keyDef) {
   if (keyDef.shift && keyDef.key === "Enter") return altPrefix + "\n";
   if (keyDef.shift && keyDef.key.length === 1) return altPrefix + keyDef.key.toUpperCase();
 
-  const mapping = {
+  const mapping: Record<string, string> = {
     Backspace: "\x7f", Enter: "\r", Tab: "\t", Escape: "\x1b",
     " ": " ", "/": "/",
   };

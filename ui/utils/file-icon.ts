@@ -15,7 +15,7 @@ const ENV = ["\u{E615}", "#faf743"];
 const MD = ["\u{E73E}", "#083fa1"];
 const GITIGNORE = ["\u{E702}", "#f54d27"];
 
-const NF_EXT_MAP = {
+const NF_EXT_MAP: Record<string, string[]> = {
   js: JS,
   mjs: JS,
   ts: ["\u{E628}", "#3178c6"],
@@ -71,7 +71,7 @@ const NF_EXT_MAP = {
   eot: FONT,
 };
 
-const NF_NAME_MAP = {
+const NF_NAME_MAP: Record<string, string[]> = {
   Dockerfile: DOCKER,
   Makefile: CONFIG,
   LICENSE: ["\u{F0219}", "#d4aa00"],
@@ -86,18 +86,18 @@ const DIR_ICON = ["\u{F024B}", "#e8a735"];
 const SYMLINK_ICON = ["\u{EB15}", "#7aa2f7"];
 const DEFAULT_ICON = ["\u{F0219}", "#6d8086"];
 
-function iconSpan(code, color) {
+function iconSpan(code: string, color: string): string {
   return `<span style="color:${color}">${code}</span>`;
 }
 
-export function renderFileIcon(entry) {
+export function renderFileIcon(entry: { type?: string; name?: string } | null | undefined): string {
   if (entry?.type === "dir") return iconSpan(DIR_ICON[0], DIR_ICON[1]);
   if (entry?.type === "symlink") return iconSpan(SYMLINK_ICON[0], SYMLINK_ICON[1]);
   const name = entry?.name || "";
   return renderFileIconFromPath(name);
 }
 
-export function renderFileIconFromPath(path) {
+export function renderFileIconFromPath(path: string): string {
   const name = basename(path);
   const nameMatch = NF_NAME_MAP[name];
   if (nameMatch) return iconSpan(nameMatch[0], nameMatch[1]);

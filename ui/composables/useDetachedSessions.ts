@@ -16,6 +16,18 @@ import {
 } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
 
+// utils/detached-sessions.ts の DetachedSession 相当（非 export のためローカルに複製）。
+type DetachedSession = {
+  session_id: string | null,
+  tmux_name: string,
+  workspace: string | null,
+  icon?: string,
+  icon_color?: string,
+  job_name?: string,
+  job_label?: string,
+  external: boolean,
+};
+
 // モジュールスコープの単一状態（useRecentJobs.tsと同じパターン）。
 // WorkspaceOpen.vue（カテゴリ見出しのv-if判定用）とDetachedSessionsList.vue
 // （一覧描画）の両方から呼ばれるため、呼び出しごとに別状態にならないよう
@@ -47,19 +59,24 @@ export function useDetachedSessions() {
     detachedSessions.value = buildDetachedSessionList(all, owned, knownTabIds, prefix);
   }
 
-  function openDetached(s) {
+  function openDetached(s: DetachedSession) {
     const tab = terminalStore.addTerminalTab({
-      ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs: allJobsData.value }),
-      wsUrl: terminalWsPath(s.session_id),
+      // DetachedSession は buildSessionTabParams が要求する ws_url を持たないが、
+      // 下の wsUrl 上書きで実際には使われない（session_id は !s.external の呼び出し元でのみ非 null）。
+      ...buildSessionTabParamsWithCache(
+        s as unknown as Parameters<typeof buildSessionTabParamsWithCache>[0],
+        { workspaces: workspaceStore.allWorkspaces, allJobs: allJobsData.value },
+      ),
+      wsUrl: terminalWsPath(s.session_id!),
       jobLabel: s.job_label || (s.workspace || s.session_id),
       restored: false,
     });
-    apiPut(terminalSessionDetachedPath(s.session_id), { detached: false }).catch(() => {});
+    apiPut(terminalSessionDetachedPath(s.session_id!), { detached: false }).catch(() => {});
     emit("tab:select", { tab });
     loadDetachedSessions();
   }
 
-  async function adoptDetached(s) {
+  async function adoptDetached(s: DetachedSession) {
     // 外部 tmux セッションを ac- プレフィックスにリネームして any-console 管理化、
     // そのままタブとして開く。
     if (!await confirm(`Adopt "${s.tmux_name}" into any-console? The tmux session will be renamed.`)) return;

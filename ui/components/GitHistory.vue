@@ -117,7 +117,12 @@ const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
 const { isMobile } = useIsMobile();
 
-function abbreviateRef(r) {
+// git.ts の GitRef（type がリテラルUnion）と useGitLogPagination 経由の
+// GitGraphEntry.refs（type が string に広がったローカル型）の両方を受けるため、
+// 最小限のフィールドだけを要求する形にする。
+type RefLike = { type: string, label: string };
+
+function abbreviateRef(r: RefLike) {
   if (r.type === "tag" || !isMobile.value || r.label.length < 24) return { abbr: "", rest: r.label };
   return abbreviateBranch(r.label);
 }
@@ -138,11 +143,11 @@ const {
   close: closeDiffFilesState,
 } = useCommitDiffFiles();
 
-function statusClass(status) {
-  return GIT_DIFF_STATUS_CLASSES[status] || "";
+function statusClass(status: string) {
+  return GIT_DIFF_STATUS_CLASSES[status as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
 }
 
-function fileIconHtml(file) {
+function fileIconHtml(file: { path: string }) {
   return renderFileIconFromPath(file.path);
 }
 
@@ -157,13 +162,13 @@ const { onCommitAction } = useCommitActionMenu() as {
 // コミットを切り替えたら折りたたみ直す）。
 const commitDetailExpanded = ref(false);
 
-function openDiffFiles(entry, fetchFn) {
+function openDiffFiles(entry: Record<string, any>, fetchFn: () => Promise<any>) {
   commitDetailExpanded.value = false;
   emitToParent("commit:expanded", { message: entry.message });
   return openDiffFilesBase(entry, fetchFn);
 }
 
-function openCommitDiffFiles(entry) {
+function openCommitDiffFiles(entry: Record<string, any>) {
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }
 

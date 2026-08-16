@@ -85,12 +85,12 @@ function onPaneClick() {
   if (!isActive.value) emits("select-pane", props.paneIndex);
 }
 
-function onSelectTab(tabId) {
+function onSelectTab(tabId: number) {
   layoutStore.assignTabToPane(props.paneIndex, tabId);
   terminalStore.switchTab(tabId);
 }
 
-function onSelectMode(mode) {
+function onSelectMode(mode: string) {
   if (mode === "normal") {
     layoutStore.exitSplitMode();
     return;

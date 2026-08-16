@@ -1,4 +1,10 @@
-export function buildWebSocketUrl(proto, host, sessionId, cols, rows) {
+export function buildWebSocketUrl(
+  proto: string,
+  host: string,
+  sessionId: string,
+  cols?: number | null,
+  rows?: number | null,
+): string {
   let url = `${proto}//${host}/terminal/ws/${sessionId}`;
   if (cols && rows) {
     url += `?cols=${cols}&rows=${rows}`;

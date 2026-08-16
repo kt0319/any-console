@@ -22,13 +22,13 @@ export function useSnippetPersist() {
     await apiPut(EP_SNIPPETS, { snippets: inputStore.snippetsCache }, { errorMessage: "Failed to save snippets" });
   }
 
-  async function addSnippet(label, command) {
+  async function addSnippet(label: string, command: string) {
     const lbl = label || (command.length > 40 ? command.slice(0, 40) : command);
     inputStore.snippetsCache.push({ label: lbl, command });
     await persistSnippets();
   }
 
-  async function deleteSnippet(index) {
+  async function deleteSnippet(index: number) {
     if (index >= 0 && index < inputStore.snippetsCache.length) {
       inputStore.snippetsCache.splice(index, 1);
       await persistSnippets();

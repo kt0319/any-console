@@ -192,7 +192,7 @@ const fileBrowserDeep = ref(false);
 const terminalSessionId = computed(() => viewState!.value?.detail?.terminalSessionId || "");
 const fileBrowserRootLabel = computed(() => viewState!.value?.detail?.rootLabel || "");
 
-function onFileBrowserState({ atRoot, fileOpen }) {
+function onFileBrowserState({ atRoot, fileOpen }: { atRoot: boolean, fileOpen: boolean }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
 }
 
@@ -299,7 +299,7 @@ function handleBack() {
   return false;
 }
 
-function open(options) {
+function open(options: { pane?: string, dispatchItemId?: string } | null | undefined) {
   options = options || {};
   const paneKey = options.pane || "jobs";
   // branchピル経由（paneKey === "branch"）だけはHistoryタブを開くと同時に
@@ -384,7 +384,7 @@ async function switchPane(key: string, opts: { expandBranch?: boolean, expandSta
   }
 }
 
-function onStashCount(n) {
+function onStashCount(n: number | null) {
   stashCount.value = n;
 }
 

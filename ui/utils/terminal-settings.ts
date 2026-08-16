@@ -1,4 +1,9 @@
-export const TERMINAL_SETTINGS_META = Object.freeze({
+type TerminalSettingMeta =
+  | { type: "number", label: string, min: number, max: number, step: number, unit?: string, note?: string }
+  | { type: "select", label: string, options: { value: string, label: string }[], note?: string }
+  | { type: "boolean", label: string, note?: string };
+
+export const TERMINAL_SETTINGS_META: Record<string, TerminalSettingMeta> = Object.freeze({
   fontSize: { type: "number", label: "Font Size", min: 10, max: 24, step: 1, unit: "px", note: "Applied to new terminals." },
   cursorStyle: {
     type: "select",
@@ -17,7 +22,7 @@ export const TERMINAL_SETTINGS_META = Object.freeze({
   touchScrollSensitivity: { type: "number", label: "Touch Scroll Sensitivity", min: 0.5, max: 5, step: 0.5 },
 });
 
-export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
+export const DEFAULT_TERMINAL_SETTINGS: Record<string, string | number | boolean> = Object.freeze({
   fontSize: 12,
   cursorStyle: "block",
   cursorBlink: true,
@@ -27,7 +32,7 @@ export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
   touchScrollSensitivity: 1.5,
 });
 
-export function sanitizeTerminalSetting(key, value) {
+export function sanitizeTerminalSetting(key: string, value: unknown) {
   const schema = TERMINAL_SETTINGS_META[key];
   const fallback = DEFAULT_TERMINAL_SETTINGS[key];
   if (!schema) return fallback;
@@ -46,13 +51,13 @@ export function sanitizeTerminalSetting(key, value) {
   }
   if (schema.type === "select") {
     const allowed = schema.options.map((opt) => opt.value);
-    return allowed.includes(value) ? value : fallback;
+    return allowed.includes(value as string) ? value : fallback;
   }
   return fallback;
 }
 
-export function sanitizeTerminalSettings(raw) {
-  const source = raw && typeof raw === "object" ? raw : {};
+export function sanitizeTerminalSettings(raw: unknown) {
+  const source: Record<string, unknown> = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   const next: Record<string, any> = {};
   for (const key of Object.keys(DEFAULT_TERMINAL_SETTINGS)) {
     next[key] = sanitizeTerminalSetting(key, source[key]);

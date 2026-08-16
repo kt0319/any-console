@@ -26,7 +26,7 @@ export function createViewStackNav({ rootView, overlayKey }: {
   const currentState = computed(() => viewStack.value.at(-1)?.state ?? {});
   const canNavigateBack = computed(() => viewStack.value.length > 1);
 
-  function setPaneRef(el) {
+  function setPaneRef(el: { handleBack?: () => boolean } | null) {
     currentPaneRef.value = el;
   }
 

@@ -13,13 +13,13 @@ export function createFlickHandlers(actions: FlickActions = {}) {
   let startX = 0;
   let startY = 0;
   return {
-    onStart(e) {
-      e.currentTarget.classList.add("pressed");
+    onStart(e: TouchEvent) {
+      (e.currentTarget as HTMLElement).classList.add("pressed");
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
     },
-    onEnd(e) {
-      e.currentTarget.classList.remove("pressed");
+    onEnd(e: TouchEvent) {
+      (e.currentTarget as HTMLElement).classList.remove("pressed");
       const dx = e.changedTouches[0].clientX - startX;
       const dy = e.changedTouches[0].clientY - startY;
       const absX = Math.abs(dx);

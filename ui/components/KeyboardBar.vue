@@ -185,8 +185,8 @@ function doReload() {
   window.location.replace(window.location.pathname + "?_=" + Date.now());
 }
 
-function onQuickKeyCancel(e) {
-  e.currentTarget.classList.remove("pressed");
+function onQuickKeyCancel(e: Event) {
+  (e.currentTarget as HTMLElement).classList.remove("pressed");
 }
 
 // isFullKeyboard 中、入力フォームの代わりに表示する shift/ctrl/space（bar行）。
@@ -240,21 +240,23 @@ function onFnTabClick() {
 
 // モード切替タブの定義（並び＝表示順）。aria-label / data-tooltip は
 // 可視ラベルと同一文言。active判定・クリック時の遷移は下の2関数で揃える。
-const KEYBOARD_BAR_TABS = [
+type KeyboardBarTabId = "qwerty" | "fn" | "history" | "snippets";
+
+const KEYBOARD_BAR_TABS: { id: KeyboardBarTabId, label: string, icon: string }[] = [
   { id: "qwerty", label: "QWERTY", icon: "mdi-keyboard-outline" },
   { id: "fn", label: "Fn", icon: "mdi-function-variant" },
   { id: "history", label: "History", icon: "mdi-history" },
   { id: "snippets", label: "Snippet", icon: "mdi-bookmark-multiple" },
 ];
 
-function isTabActive(id) {
+function isTabActive(id: KeyboardBarTabId) {
   if (id === "qwerty") return isFullKeyboard.value && !showFnView.value && snippetPanelView.value === "none";
   if (id === "fn") return showFnView.value;
   if (id === "history") return snippetPanelView.value === "history";
   return snippetPanelView.value === "snippets";
 }
 
-function onTabClick(id) {
+function onTabClick(id: KeyboardBarTabId) {
   if (id === "qwerty") onQwertyTabClick();
   else if (id === "fn") onFnTabClick();
   else if (id === "history") openHistoryPanel();

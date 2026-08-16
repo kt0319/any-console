@@ -16,14 +16,14 @@ export function jobCommandPreview(command: string | null | undefined, fallbackNa
   return command ? truncateTail(command, JOB_COMMAND_PREVIEW_MAX) : fallbackName;
 }
 
-export function formatSize(bytes) {
+export function formatSize(bytes: number | null | undefined): string {
   if (bytes == null) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function formatRelativeTime(epochSeconds) {
+export function formatRelativeTime(epochSeconds: number | null | undefined): string {
   if (epochSeconds == null) return "";
   const diffSec = Math.max(0, Math.floor((Date.now() - epochSeconds * 1000) / 1000));
 

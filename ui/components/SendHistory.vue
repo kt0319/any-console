@@ -32,11 +32,11 @@ const inputStore = useInputStore();
 // 一番上（スクロール初期位置）に最新の項目が来るようにする。
 const history = computed(() => inputStore.inputHistory ?? []);
 
-function onDelete(text) {
+function onDelete(text: string) {
   inputStore.removeInputHistory(text);
 }
 
-function onInsert(command) {
+function onInsert(command: string) {
   bridgeEmit("keyboard:setDraft", { command });
   closePanel();
 }

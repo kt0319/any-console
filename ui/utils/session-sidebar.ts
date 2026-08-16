@@ -32,7 +32,7 @@ export function resolveAgentBadgeState(rawState?: string, isDone?: boolean): str
  * エージェント状態の表示メタを返す（未知・未設定の状態は null）。
  */
 export function agentStateDescriptor(state?: string | null): { icon: string; label: string; className: string } | null {
-  return (state && AGENT_STATE_META[state]) || null;
+  return (state && AGENT_STATE_META[state as keyof typeof AGENT_STATE_META]) || null;
 }
 
 /**

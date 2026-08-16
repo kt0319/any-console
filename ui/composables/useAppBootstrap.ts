@@ -54,14 +54,14 @@ export function useAppBootstrap() {
     if (healthRes?.ok) {
       const health = await healthRes.json();
       if (!health.ok) {
-        const versionError = (health.errors || []).find((e) => e.key === "__version__");
+        const versionError = (health.errors || []).find((e: { key: string, message: string }) => e.key === "__version__");
         let msg: string;
         if (versionError) {
           msg = versionError.message;
         } else if (health.source === "config.bak") {
           msg = "Config was restored from backup. Some settings may be missing.";
         } else {
-          msg = `Config has validation errors: ${health.errors.map((e) => e.key).join(", ")}`;
+          msg = `Config has validation errors: ${health.errors.map((e: { key: string }) => e.key).join(", ")}`;
         }
         toast.warning(msg);
       }

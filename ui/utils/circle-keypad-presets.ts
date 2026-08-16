@@ -96,20 +96,27 @@ export const DEFAULT_CIRCLE_KEYPAD_KEY_DEFS = [
 export const CIRCLE_KEYPAD_CORNER_LABELS = ["Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"];
 export const DEFAULT_CIRCLE_KEYPAD_SPECIALS = ["workspace", "jobs", "selcopy", "settings"];
 
-export function findModifierOption(id) {
+type CircleKeypadKeyDef = {
+  key?: string;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+};
+
+export function findModifierOption(id: string | null | undefined) {
   return CIRCLE_KEYPAD_MODIFIER_OPTIONS.find((m) => m.id === id) || CIRCLE_KEYPAD_MODIFIER_OPTIONS[0];
 }
 
-export function findBaseKey(id) {
+export function findBaseKey(id: string | null | undefined) {
   return CIRCLE_KEYPAD_BASE_KEYS.find((k) => k.id === id) || null;
 }
 
-export function findSpecialPreset(id) {
+export function findSpecialPreset(id: string | null | undefined) {
   return CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) => p.id === id) || null;
 }
 
 // keyDef の ctrl/shift/alt から一致するモディファイア id を逆引きする。
-export function modifierIdOf(keyDef) {
+export function modifierIdOf(keyDef: CircleKeypadKeyDef | null | undefined) {
   const match = CIRCLE_KEYPAD_MODIFIER_OPTIONS.find((m) =>
     !!m.ctrl === !!keyDef?.ctrl && !!m.shift === !!keyDef?.shift && !!m.alt === !!keyDef?.alt
   );
@@ -117,13 +124,13 @@ export function modifierIdOf(keyDef) {
 }
 
 // keyDef.key が既知のベースキーなら id、そうでなければ空文字。
-export function baseKeyIdOf(keyDef) {
-  return CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === keyDef?.key) ? keyDef.key : "";
+export function baseKeyIdOf(keyDef: CircleKeypadKeyDef | null | undefined) {
+  return CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === keyDef?.key) ? keyDef?.key || "" : "";
 }
 
 // サークルキーパッドのリング表示用ラベル。モディファイアは記号で短縮する
 // （ドラッグ中の表示が長い組み合わせで肥大化しないように）。
-export function circleKeypadKeyLabel(modifierId, keyId) {
+export function circleKeypadKeyLabel(modifierId: string | null | undefined, keyId: string | null | undefined) {
   const mod = findModifierOption(modifierId);
   const bk = findBaseKey(keyId);
   const keyLabel = bk?.label || keyId || "";

@@ -146,7 +146,7 @@ const sections = ref<SiSection[]>([]);
 // 表示条件に使うため、load()内のローカル値をrefとして保持する）。
 const serverInfo = ref<Record<string, any> | null>(null);
 
-function parseBrowser(ua) {
+function parseBrowser(ua: string) {
   for (const [re, name] of [
     [/Edg(?:e|A|iOS)?\/(\S+)/, "Edge"],
     [/OPR\/(\S+)|Opera\/(\S+)/, "Opera"],
@@ -160,18 +160,18 @@ function parseBrowser(ua) {
   return ua.slice(0, 50);
 }
 
-const row = (label, value) => ({ label, values: [value] });
+const row = (label: string, value: string | number | undefined | null): SiRow => ({ label, values: [value ?? ""] });
 
-function formatAuth(auth) {
+function formatAuth(auth: Record<string, any> | null) {
   if (!auth) return "-";
   if (auth.auth_method === "device") return `Device (${auth.device?.name || "unknown"})`;
   if (auth.auth_method === "token") return "Token";
   if (auth.auth_method === "disabled") return "Disabled";
   return auth.auth_method || "-";
 }
-const mapProcess = (p) => ({ label: p.name, pid: p.pid, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
+const mapProcess = (p: { name: string, pid: number, cpu: number, mem: number }): SiRow => ({ label: p.name, pid: p.pid, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
 
-function tailscaleRows(ts) {
+function tailscaleRows(ts: Record<string, any> | null | undefined) {
   if (!ts) return [];
   return [
     row("Version", ts.version),
@@ -181,7 +181,7 @@ function tailscaleRows(ts) {
 
 async function load() {
   isLoading.value = true;
-  const get = (ep) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
+  const get = (ep: string) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
   const [srv, prc, auth] = await Promise.all([
     get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_AUTH_CHECK),
   ]);
@@ -238,7 +238,7 @@ async function load() {
   isLoading.value = false;
 }
 
-function killProcessRow(pid) {
+function killProcessRow(pid: number) {
   return killProcess(pid, {
     confirmMessage: `Kill process ${pid}? This sends SIGTERM.`,
     refetch: refresh,

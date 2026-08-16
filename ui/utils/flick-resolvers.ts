@@ -1,4 +1,4 @@
-export const arrowResolver = (dx, dy, threshold) => {
+export const arrowResolver = (dx: number, dy: number, threshold: number): { key: string } | null => {
   if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold) {
     return dx < 0 ? { key: "ArrowLeft" } : { key: "ArrowRight" };
   }
@@ -7,7 +7,7 @@ export const arrowResolver = (dx, dy, threshold) => {
   return null;
 };
 
-export const enterResolver = (dx, dy, threshold) => {
+export const enterResolver = (dx: number, dy: number, threshold: number): { key: string } | null => {
   if (Math.abs(dy) > Math.abs(dx) && dy < -threshold) return { key: "Tab" };
   if (Math.abs(dy) > Math.abs(dx) && dy > threshold) return { key: " " };
   if (Math.abs(dx) > Math.abs(dy) && dx < -threshold) return { key: "Backspace" };

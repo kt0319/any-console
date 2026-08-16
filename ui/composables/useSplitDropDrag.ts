@@ -15,12 +15,12 @@ export function useSplitDropDrag() {
     getDropZones().forEach((zone) => zone.classList.remove("drag-over"));
   }
 
-  function beginDrag(tabId) {
+  function beginDrag(tabId: number) {
     layoutStore.dragTabId = tabId;
     layoutStore.isShowDropZones = true;
   }
 
-  function updateHover(clientX, clientY) {
+  function updateHover(clientX: number, clientY: number) {
     getDropZones().forEach((zone) => {
       const rect = zone.getBoundingClientRect();
       const isInside =
@@ -32,7 +32,7 @@ export function useSplitDropDrag() {
     });
   }
 
-  function detectDropZone(clientX, clientY) {
+  function detectDropZone(clientX: number, clientY: number) {
     for (const zone of getDropZones()) {
       const rect = zone.getBoundingClientRect();
       const isInside =
@@ -51,14 +51,14 @@ export function useSplitDropDrag() {
    * ドロップ確定の共通処理（ポインタ座標経由の finishSplitDrop と HTML5 DnD
    * 経由の useSplitDropZones.onDrop の両方から呼ぶ）。
    */
-  function applySplitDrop(tabId, direction) {
+  function applySplitDrop(tabId: number, direction: string) {
     layoutStore.splitWithDrop(tabId, direction, terminalStore.openTabs, terminalStore.activeTabId);
     if (direction === "center" && !layoutStore.isSplitMode) {
       terminalStore.switchTab(tabId);
     }
   }
 
-  function finishSplitDrop({ tabId, clientX, clientY }) {
+  function finishSplitDrop({ tabId, clientX, clientY }: { tabId: number, clientX: number, clientY: number }) {
     const dropDir = detectDropZone(clientX, clientY);
     layoutStore.isShowDropZones = false;
     layoutStore.dragTabId = null;

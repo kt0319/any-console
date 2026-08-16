@@ -30,7 +30,7 @@ export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector 
   let _dragDidMove = false;
 
   // e は pointerdown / touchstart の両方から呼ばれるため PointerEvent | TouchEvent 相当
-  function onDragStart(e, flatIdx: number) {
+  function onDragStart(e: PointerEvent | TouchEvent, flatIdx: number) {
     const fl = flatList.value;
     if (fl.filter((item) => item.type === "ws").length < 2) return;
     const list = listEl.value;
@@ -41,13 +41,13 @@ export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector 
     dragFlatList.value = fl.map((item) => ({ ...item }));
     const rows = list.querySelectorAll(rowSelector);
     _dragRowHeight = rows[0]?.getBoundingClientRect().height || 44;
-    _dragStartY = e.clientY ?? e.touches?.[0]?.clientY;
+    _dragStartY = (e as PointerEvent).clientY ?? (e as TouchEvent).touches?.[0]?.clientY;
     dragIdx.value = flatIdx;
     dragOffsetY.value = 0;
     _dragDidMove = false;
 
-    if (e.pointerId != null) {
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    if ((e as PointerEvent).pointerId != null) {
+      try { (e.currentTarget as Element).setPointerCapture((e as PointerEvent).pointerId); } catch { /* ignore */ }
     }
 
     document.addEventListener("pointermove", _onDragMove);

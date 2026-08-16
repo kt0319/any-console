@@ -14,19 +14,19 @@ export function useSplitDropZones() {
   const layoutStore = useLayoutStore();
   const { applySplitDrop } = useSplitDropDrag();
 
-  function onDragEnter(e) {
-    e.currentTarget.classList.add("drag-over");
+  function onDragEnter(e: DragEvent) {
+    (e.currentTarget as HTMLElement).classList.add("drag-over");
   }
 
-  function onDragLeave(e) {
-    e.currentTarget.classList.remove("drag-over");
+  function onDragLeave(e: DragEvent) {
+    (e.currentTarget as HTMLElement).classList.remove("drag-over");
   }
 
-  function onDrop(e, direction) {
+  function onDrop(e: DragEvent, direction: string) {
     e.preventDefault();
-    e.currentTarget.classList.remove("drag-over");
+    (e.currentTarget as HTMLElement).classList.remove("drag-over");
     layoutStore.isShowDropZones = false;
-    const raw = layoutStore.dragTabId || e.dataTransfer.getData("text/plain");
+    const raw = layoutStore.dragTabId || e.dataTransfer?.getData("text/plain");
     const tabId = typeof raw === "string" ? parseInt(raw, 10) : raw;
     if (tabId) {
       applySplitDrop(tabId, direction);

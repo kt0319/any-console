@@ -1,6 +1,11 @@
+import type { ComputedRef } from "vue";
 import { ref, watch } from "vue";
 import { emit } from "../app-bridge.ts";
 import { createFlickHandlers } from "../utils/flick-handlers.ts";
+import type { TerminalTab } from "../stores/terminal.ts";
+
+type ModifierState = { ctrl: boolean, shift: boolean };
+type KeyDef = { key: string, ctrl?: boolean, shift?: boolean };
 
 /**
  * QWERTY パネルの表示モード (shift / ctrl / 記号 / fn) と
@@ -14,6 +19,14 @@ export function useQwertyKeyViews({
   sendKeyToTerminal,
   getActiveTerminalTab,
   onReload,
+}: {
+  modifierState: ModifierState,
+  showSnippetView: ComputedRef<boolean>,
+  dismissSnippetView: () => void,
+  closeSnippetView: () => void,
+  sendKeyToTerminal: (keyDef: KeyDef) => void,
+  getActiveTerminalTab: () => TerminalTab | null,
+  onReload: () => void,
 }) {
   const showFnView = ref(false);
   const showSymbolView = ref(false);

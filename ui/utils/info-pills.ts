@@ -83,7 +83,7 @@ export const INFO_PILLS = [
 export const INFO_PILL_FIELDS = INFO_PILLS.map((p) => p.key);
 
 // ピル一覧に無いpeek専用キー（「検出されなくなった」通知のみで対応するピルが無い）。
-const PEEK_ONLY_ICONS = { "devserver-stop": "mdi-server-off" };
+const PEEK_ONLY_ICONS: Record<string, string> = { "devserver-stop": "mdi-server-off" };
 
 /**
  * ピル本体・peekピルに出すmdiアイコンクラス。対応するピルが無いキー
@@ -97,7 +97,7 @@ export function peekIconForKey(key: string | null | undefined): string {
 // GitHub Actionsのstatus/conclusionを4段階の色バケットへ丸める
 // （peekColorForKey専用。conclusion値の一覧はGitHub API仕様参照:
 // success/failure/neutral/cancelled/skipped/timed_out/action_required/stale）。
-const ACTIONS_STATUS_COLOR_BUCKET = {
+const ACTIONS_STATUS_COLOR_BUCKET: Record<string, string> = {
   success: "success",
   failure: "failure",
   timed_out: "failure",

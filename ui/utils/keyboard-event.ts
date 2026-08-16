@@ -15,6 +15,6 @@ export function isComposingEvent(e: KeyboardEvent, composingFlag: boolean = fals
  * KeyboardEvent.code は物理キー由来のときだけ "KeyA"/"Enter"/"Backspace" 等の
  * 値を持つ。iOS Safari のソフトキーボード由来は "" や "Unidentified" になる。
  */
-export function isHardwareKeyboardEvent(e) {
+export function isHardwareKeyboardEvent(e: KeyboardEvent | null | undefined): boolean {
   return !!e?.code && e.code !== "Unidentified";
 }

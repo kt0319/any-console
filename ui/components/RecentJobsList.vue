@@ -68,12 +68,12 @@ const { confirm } = useConfirm();
 
 // 編集モード中は行本体のクリックでジョブを起動しない（削除アイコンを
 // 少し外してタップしただけでジョブが走ってしまうのを防ぐ）。
-function onItemClick(recent) {
+function onItemClick(recent: (typeof recentJobs.value)[number]) {
   if (props.editMode) return;
   runRecentJob(recent);
 }
 
-async function removeRecent(recent) {
+async function removeRecent(recent: (typeof recentJobs.value)[number]) {
   const label = recent.jobLabel || recent.jobName;
   if (!await confirm(`Remove "${recent.workspace} | ${label}" from Recent Jobs?`)) return;
   await removeRecentJob(recent.key);

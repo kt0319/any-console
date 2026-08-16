@@ -140,11 +140,11 @@ const iconHtml = computed(() => {
 });
 
 
-function onClick(e) {
+function onClick(e: MouseEvent) {
   mouseLongPress.cancel();
   if (isDragging.value) return;
   if (mouseLongPress.consumeFired()) return;
-  e.currentTarget?.blur();
+  (e.currentTarget as HTMLElement)?.blur();
   if (isActive.value) {
     // 既にアクティブなタブ（開いているタブが1つしかない場合等）は select が
     // 発火しない = switchTab() を経由しないため、ここで明示的にバッジをクリアする。
@@ -181,29 +181,29 @@ function onMouseDown() {
 }
 
 // PC: HTML5 Drag & Drop
-function onDragStart(e) {
+function onDragStart(e: DragEvent) {
   mouseLongPress.cancel();
   if (!canDrag.value || closePending) { e.preventDefault(); return; }
-  e.dataTransfer.setData("text/plain", props.tab.id);
-  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer!.setData("text/plain", String(props.tab.id));
+  e.dataTransfer!.effectAllowed = "move";
   isDragging.value = true;
   beginDrag(props.tab.id);
 }
 
-function onDragEnd(e) {
+function onDragEnd(e: DragEvent) {
   isDragging.value = false;
   dropSide.value = "";
   cancelDrag();
-  e.currentTarget?.blur();
+  (e.currentTarget as HTMLElement)?.blur();
 }
 
-function resolveDragTabId(e) {
+function resolveDragTabId(e: DragEvent) {
   const raw = layoutStore.dragTabId || e?.dataTransfer?.getData("text/plain");
   const value = typeof raw === "string" ? parseInt(raw, 10) : Number(raw);
   return Number.isFinite(value) ? value : null;
 }
 
-function onDragOverTab(e) {
+function onDragOverTab(e: DragEvent) {
   if (!canDrag.value) return;
   const dragTabId = resolveDragTabId(e);
   if (!dragTabId || dragTabId === props.tab.id) {
@@ -217,17 +217,17 @@ function onDragOverTab(e) {
     return;
   }
   e.preventDefault();
-  const rect = e.currentTarget.getBoundingClientRect();
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const isLeft = e.clientX < rect.left + rect.width / 2;
   dropSide.value = isLeft ? "left" : "right";
 }
 
-function onDragLeaveTab(e) {
-  if (e.currentTarget?.contains(e.relatedTarget)) return;
+function onDragLeaveTab(e: DragEvent) {
+  if ((e.currentTarget as HTMLElement)?.contains(e.relatedTarget as Node | null)) return;
   dropSide.value = "";
 }
 
-function onDropOnTab(e) {
+function onDropOnTab(e: DragEvent) {
   dropSide.value = "";
   if (!canDrag.value) return;
   e.preventDefault();
@@ -238,7 +238,7 @@ function onDropOnTab(e) {
   const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
   if (fromIndex < 0 || targetIndex < 0) return;
 
-  const rect = e.currentTarget.getBoundingClientRect();
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const insertBefore = e.clientX < rect.left + rect.width / 2;
   let toIndex = insertBefore ? targetIndex : targetIndex + 1;
   if (fromIndex < toIndex) toIndex -= 1;
@@ -271,7 +271,7 @@ function clearDragOverIndicator() {
   layoutStore.dragOverSide = "";
 }
 
-function finishTouchDrag(clientX, clientY) {
+function finishTouchDrag(clientX: number, clientY: number) {
   const hit = hitTestTab(clientX, clientY);
   if (hit) {
     const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
@@ -289,13 +289,13 @@ function finishTouchDrag(clientX, clientY) {
   cancelDrag();
 }
 
-function onTouchStart(e) {
+function onTouchStart(e: TouchEvent) {
   lastInputWasTouch = true;
   touchTracker.start(e);
   isDragging.value = false;
 }
 
-function onTouchMove(e) {
+function onTouchMove(e: TouchEvent) {
   if (!canTouchDrag.value) return;
   if (!isDragging.value) {
     const { dx, dy } = touchTracker.delta(e);
@@ -311,7 +311,7 @@ function onTouchMove(e) {
   layoutStore.dragOverSide = hit?.side ?? "";
 }
 
-function onTouchEnd(e) {
+function onTouchEnd(e: TouchEvent) {
   if (isDragging.value) {
     if (e.cancelable) e.preventDefault();
     const touch = e.changedTouches[0];

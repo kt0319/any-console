@@ -138,7 +138,7 @@ function openIconPicker() {
   pushView("IconPicker", {
     currentIcon: form.value.icon,
     currentColor: form.value.icon_color,
-    onReturn: (result, parentEntry) => {
+    onReturn: (result: { icon: string, color: string }, parentEntry?: { state: Record<string, any> }) => {
       if (parentEntry) {
         parentEntry.state.initialForm = {
           ...form.value,

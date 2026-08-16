@@ -1,3 +1,5 @@
+import type { Terminal } from "@xterm/xterm";
+
 // URL 本体は非ASCII文字（全角カッコ「（）」や日本語など）でも終端する。
 // URL に生の非ASCIIは入らない前提。これがないと `http://host:3900（Tailscale直）` の
 // ように後続の全角テキストまで URL に飲み込まれる（日本語はスペースが無いため）。
@@ -11,7 +13,7 @@ export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"\u0080-\uffff]+|www\.[^
 // 正規表現がhttps://等のプレフィックスを要求するため誤検出はしにくい）。
 const URL_SEARCH_WINDOW_LINES = 6;
 
-export function findUrlInBuffer(term, clientX, clientY) {
+export function findUrlInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
   if (!term || !term.element) return null;
   const screen = term.element.querySelector(".xterm-screen") || term.element;
   const rect = screen.getBoundingClientRect();
@@ -33,7 +35,7 @@ export function findUrlInBuffer(term, clientX, clientY) {
   const endIdx = Math.min(buf.length - 1, lineIdx + URL_SEARCH_WINDOW_LINES);
 
   let text = "";
-  const lineOffsets = {};
+  const lineOffsets: Record<number, number> = {};
   for (let i = startIdx; i <= endIdx; i++) {
     const cur = buf.getLine(i);
     if (!cur) break;
@@ -59,7 +61,7 @@ export function findUrlInBuffer(term, clientX, clientY) {
   return null;
 }
 
-export function getFullBufferText(term) {
+export function getFullBufferText(term: Terminal | null | undefined): string | null {
   if (!term) return null;
   const buf = term.buffer.active;
   const lines: string[] = [];

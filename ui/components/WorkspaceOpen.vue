@@ -265,8 +265,8 @@ const { dragIdx, dragOffsetY, dragFlatList, onDragStart, cleanup: cleanupWsDrag 
   onReorder: _saveOrderAndGroups,
 });
 
-async function _saveOrderAndGroups(finalList) {
-  const { changes: groupChanges, visibleOrder } = deriveGroupChanges(finalList);
+async function _saveOrderAndGroups(finalList: ({ type: string } & Record<string, any>)[]) {
+  const { changes: groupChanges, visibleOrder } = deriveGroupChanges(finalList as Parameters<typeof deriveGroupChanges>[0]);
 
   // グループ変更を保存
   for (const { ws, newGroupId } of groupChanges) {

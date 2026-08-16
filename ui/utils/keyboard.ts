@@ -7,12 +7,12 @@ export function isTouchOnly() {
 
 // 複数行textareaでカーソルが最初の行にあるか（＝これ以上上に行移動できないか）。
 // 履歴↑を行移動と区別するために使う（KeyboardInput.vue）。
-export function isCaretOnFirstLine(value, selectionStart) {
+export function isCaretOnFirstLine(value: string, selectionStart: number | null | undefined): boolean {
   return !value.slice(0, selectionStart ?? 0).includes("\n");
 }
 
 // 複数行textareaでカーソルが最後の行にあるか（＝これ以上下に行移動できないか）。
-export function isCaretOnLastLine(value, selectionEnd) {
+export function isCaretOnLastLine(value: string, selectionEnd: number | null | undefined): boolean {
   return !value.slice(selectionEnd ?? value.length).includes("\n");
 }
 
@@ -21,8 +21,8 @@ export function isCaretOnLastLine(value, selectionEnd) {
 // 隠しtextarea等）まで届いてしまい、モーダルを閉じたつもりのEscapeがESCバイトと
 // してそのままターミナルへ送られてしまう。シェルのZLEはESC直後の1文字を
 // メタキー結合として解釈するため、次に入力した文字が欠落する不具合になっていた）。
-export function listenForEscape(handler) {
-  const onKeydown = (e) => {
+export function listenForEscape(handler: (e: KeyboardEvent) => void) {
+  const onKeydown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();

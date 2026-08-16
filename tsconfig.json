@@ -7,13 +7,23 @@
     "module": "ES2022",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictNullChecks": true,
     "skipLibCheck": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "WebWorker"
+    ],
     "baseUrl": "."
   },
-  "include": ["ui/env.d.ts", "ui/**/*.js", "ui/**/*.ts", "ui/**/*.vue"],
+  "include": [
+    "ui/env.d.ts",
+    "ui/**/*.js",
+    "ui/**/*.ts",
+    "ui/**/*.vue"
+  ],
   "exclude": [
     "node_modules",
     "dist",

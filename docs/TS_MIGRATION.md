@@ -3,8 +3,8 @@
 > **Note (2026-08)**: 本移行は P7（仕上げ）まで**完了済み**。`ui/` の実装は
 > `.ts` / `<script setup lang="ts">` に統一され、`npm run typecheck`（vue-tsc）が
 > テンプレート含めて型検査する。このドキュメントは計画・実施記録として保存している。
-> 残フォローアップ: `noImplicitAny` の有効化（試行時点で 356 件 — 元々 JSDoc 注釈が
-> 無かった箇所の暗黙 any。段階的に注釈を足してから有効化する）。
+> `noImplicitAny` も有効化済み（元々 356 件あった暗黙 any に実際の型を注釈して解消。
+> ロジック変更なし・`npm test`/`npm run build` green を確認済み）。残フォローアップは無い。
 
 フロントエンド（`ui/` 配下の Vue 3 アプリ）を JavaScript + JSDoc 型注釈から TypeScript へ移行するための計画・実施記録。
 

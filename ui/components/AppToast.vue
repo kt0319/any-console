@@ -105,7 +105,7 @@ function onPointerCancel(toast: ToastItem) {
   toast._ty = undefined;
 }
 
-function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action: ToastAction | null = null) {
+function show(message: string | { message?: string } | null | undefined, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action: ToastAction | null = null) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
   const toast: ToastItem = { id, message: text, lines: text.split("\n"), type, top: 24, action, swipeDy: 0 };

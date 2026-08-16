@@ -71,18 +71,18 @@ const { confirmOpenDevServer } = useDevServerOpen();
 const { killingPids, killProcess } = useProcessKill();
 const hostname = location.hostname;
 
-function workspaceIconHtml(name) {
+function workspaceIconHtml(name: string) {
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === name);
   return renderIconStr(ws?.icon || "mdi-console", ws?.icon_color, 14);
 }
 
 // Server pill（TerminalPane）と同じOpen/Copy選択の確認フローにする
 // （直接開かず、URLだけ確認・コピーもできるようにする）。
-async function openPreview(p) {
+async function openPreview(p: Record<string, any>) {
   await confirmOpenDevServer(p);
 }
 
-function killDevServer(p) {
+function killDevServer(p: Record<string, any>) {
   return killProcess(p.pid, {
     confirmMessage: `Kill process ${p.pid} (${p.process}, port ${p.port})? This sends SIGTERM.`,
     refetch: fetchPorts,

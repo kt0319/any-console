@@ -77,7 +77,10 @@ export function useRecentJobs() {
     }
   }
 
-  function recordJob(ws, job) {
+  function recordJob(
+    ws: Record<string, any>,
+    job: { name: string, label?: string, icon?: string, icon_color?: string, command?: string, confirm?: boolean, detached?: boolean },
+  ) {
     const key = `${ws.name}:${job.name}`;
     const existing = recentJobs.value.find((j) => j.key === key);
     const item = {

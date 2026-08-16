@@ -163,7 +163,7 @@ const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
 
-function initFromRequest(req) {
+function initFromRequest(req: Record<string, any> | null) {
   branch.value = req?.branch || "";
   baseBranch.value = req?.base_branch || "";
   text.value = req?.text || "";

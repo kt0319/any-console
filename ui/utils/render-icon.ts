@@ -1,4 +1,4 @@
-function hasFetchableFavicon(domain) {
+function hasFetchableFavicon(domain: string | null | undefined): boolean {
   if (!domain) return false;
   let host = domain;
   try {
@@ -15,19 +15,19 @@ const DATA_IMAGE_RE = /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[a-zA-Z0-9+
 const ICON_PATH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
 const MDI_ICON_RE = /^mdi-[a-z0-9-]+$/;
 
-function normalizeSize(size) {
+function normalizeSize(size: number | string | null | undefined): number {
   const n = Number(size);
   if (!Number.isFinite(n) || n <= 0) return 16;
   return Math.round(n);
 }
 
-function safeIconPath(path) {
+function safeIconPath(path: string): string | null {
   if (!ICON_PATH_RE.test(path)) return null;
   if (path.includes("..") || path.includes("//")) return null;
   return path;
 }
 
-export function renderIconStr(icon, color, size = 16) {
+export function renderIconStr(icon: string | null | undefined, color?: string | null, size: number | string = 16): string {
   if (!icon || typeof icon !== "string") return "";
   const safeSize = normalizeSize(size);
   if (icon.startsWith("data:image/")) {

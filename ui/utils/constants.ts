@@ -120,7 +120,7 @@ export const MSG_ERROR_OCCURRED = "An error occurred";
 
 export const TERMINAL_JOB_KEY = "terminal";
 
-export function extractApiError(data, fallback = MSG_ERROR_OCCURRED) {
+export function extractApiError(data: { detail?: string; message?: string } | null | undefined, fallback = MSG_ERROR_OCCURRED): string {
   return data?.detail || data?.message || fallback;
 }
 

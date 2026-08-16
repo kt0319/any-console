@@ -15,7 +15,7 @@
         <span class="drag-handle" aria-hidden="true" @pointerdown.prevent="onDragStart($event, idx)">
           <span class="mdi mdi-drag-vertical"></span>
         </span>
-        <input type="checkbox" :checked="infoPillConfig[item.field]" @change="setField(item.field, ($event.target as HTMLInputElement).checked)" />
+        <input type="checkbox" :checked="getField(item.field)" @change="setField(item.field, ($event.target as HTMLInputElement).checked)" />
         <div class="settings-toggle-copy">
           <span class="settings-item-label">{{ item.label }}</span>
           <span class="settings-note">{{ item.note }}</span>
@@ -52,6 +52,10 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   rowSelector: ".pill-toggle-row",
   onReorder: (fromIdx, toIdx) => infoPillConfig.reorder(fromIdx, toIdx),
 });
+
+function getField(field: string): boolean {
+  return (infoPillConfig as unknown as Record<string, boolean>)[field];
+}
 
 function setField(field: string, value: boolean) {
   (infoPillConfig as unknown as Record<string, boolean>)[field] = value;

@@ -51,7 +51,7 @@ function startAddGroup() {
   nextTick(() => groupInputEl.value?.focus());
 }
 
-function startRenameGroup(group) {
+function startRenameGroup(group: Record<string, any>) {
   editingGroup.value = group;
   groupInputName.value = group.name;
   groupDialogOpen.value = true;
@@ -71,7 +71,7 @@ async function submitGroupDialog() {
   }
 }
 
-async function deleteGroup(group) {
+async function deleteGroup(group: Record<string, any>) {
   groupDialogOpen.value = false;
   if (!await confirm(`Delete group "${group.name}"? Workspaces in this group will be unassigned.`)) return;
   const { ok } = await apiDelete(`${EP_GROUPS}/${group.id}`, { errorMessage: "Failed to delete group" });

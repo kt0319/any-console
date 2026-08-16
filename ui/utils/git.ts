@@ -1,10 +1,17 @@
 import { workspaceFileContentPath } from "./endpoints.ts";
 
-export function parseGitRefs(refsStr) {
+export type GitRef = {
+  label: string;
+  type: "head" | "tag" | "remote" | "branch";
+  icon: string;
+  synced?: boolean;
+};
+
+export function parseGitRefs(refsStr: string | null | undefined): GitRef[] {
   if (!refsStr) return [];
-  const parsed = refsStr.split(", ")
+  const parsed: GitRef[] = refsStr.split(", ")
     .filter((r) => r !== "HEAD" && r !== "origin/HEAD")
-    .map((r) => {
+    .map((r): GitRef => {
       if (r.startsWith("HEAD -> ")) {
         return { label: r.replace("HEAD -> ", ""), type: "head", icon: "mdi-source-branch" };
       }
@@ -40,7 +47,7 @@ export function firstCommitLine(message: string | null | undefined): string {
   return String(message || "").split("\n")[0].trim();
 }
 
-export function formatGitTime(timeText) {
+export function formatGitTime(timeText: string | null | undefined): string {
   if (!timeText) return "-";
   const d = new Date(timeText);
   if (Number.isNaN(d.getTime())) return timeText;
@@ -52,7 +59,7 @@ export function formatGitTime(timeText) {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-export function parseDiffNumstatFromChunk(diffChunk) {
+export function parseDiffNumstatFromChunk(diffChunk: string | null | undefined): { insertions: number, deletions: number } | null {
   if (!diffChunk) return null;
   let insertions = 0;
   let deletions = 0;
@@ -71,7 +78,7 @@ export function parseDiffNumstatFromChunk(diffChunk) {
   return { insertions, deletions };
 }
 
-export function buildNumstatHtml(insertions, deletions, opts: { omitZeroDeletions?: boolean; neutralText?: boolean } = {}) {
+export function buildNumstatHtml(insertions: number | null | undefined, deletions: number | null | undefined, opts: { omitZeroDeletions?: boolean; neutralText?: boolean } = {}) {
   if (insertions == null && deletions == null) return "";
   const { omitZeroDeletions = false, neutralText = false } = opts;
   const addValue = insertions == null ? 0 : insertions;
@@ -84,7 +91,7 @@ export function buildNumstatHtml(insertions, deletions, opts: { omitZeroDeletion
   return `<span class="${addClass}">+${addValue}</span> <span class="${delClass}">-${delValue}</span>`;
 }
 
-export function countContentLines(content) {
+export function countContentLines(content: string | null | undefined): number {
   const text = String(content || "");
   if (!text) return 0;
   const lines = text.split("\n").length;
@@ -92,7 +99,17 @@ export function countContentLines(content) {
   return lines;
 }
 
-export function buildFileNumstatHtml(file, diffChunk = "", opts: { neutralText?: boolean } = {}) {
+type GitFileLike = {
+  status?: string;
+  path?: string;
+  name?: string;
+  insertions?: number | null;
+  deletions?: number | null;
+  added?: number | null;
+  deleted?: number | null;
+};
+
+export function buildFileNumstatHtml(file: GitFileLike, diffChunk = "", opts: { neutralText?: boolean } = {}) {
   const status = String(file.status || "").trim();
   const omitZeroDeletions = status === "??" || status === "A";
   const { neutralText = false } = opts;
@@ -105,8 +122,12 @@ export function buildFileNumstatHtml(file, diffChunk = "", opts: { neutralText?:
   return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
 }
 
-export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
-  const pathToLines = {};
+export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {
+  workspace: string | null | undefined,
+  files: GitFileLike[] | null | undefined,
+  apiFetch: (url: string) => Promise<Response | null | undefined>,
+}): Promise<Record<string, number>> {
+  const pathToLines: Record<string, number> = {};
   if (!workspace || !Array.isArray(files) || files.length === 0) return pathToLines;
 
   const tasks = files
@@ -116,7 +137,8 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
       return (status === "??" || status === "A") && !hasNumstat && (file.path || file.name);
     })
     .map(async (file) => {
-      const path = file.path || file.name;
+      // 上のfilterで file.path || file.name が truthy であることを保証済み。
+      const path = (file.path || file.name) as string;
       const res = await apiFetch(workspaceFileContentPath(workspace, path));
       if (!res || !res.ok) return;
       const data = await res.json();
@@ -128,8 +150,8 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
   return pathToLines;
 }
 
-export function entryBranches(entry) {
-  return entry.refs
+export function entryBranches(entry: { refs?: GitRef[] }): string[] {
+  return (entry.refs || [])
     .filter((r) => r.type === "branch" || r.type === "remote")
     .map((r) => r.label);
 }
@@ -142,18 +164,18 @@ export function buildGitHubFileUrl(githubUrl: string, ref: string, path: string,
   return `${githubUrl}/${type}/${ref}/${path}`;
 }
 
-export function abbreviateBranch(branch) {
+export function abbreviateBranch(branch: string): { abbr: string, rest: string } {
   const slash = branch.indexOf("/");
   if (slash === -1) return { abbr: "", rest: branch };
   return { abbr: branch[0] + "~/", rest: branch.slice(slash + 1) };
 }
 
-export function truncateHead(str, maxLen = 14) {
+export function truncateHead(str: string, maxLen = 14): string {
   if (str.length <= maxLen) return str;
   return "…" + str.slice(str.length - (maxLen - 1));
 }
 
-export function dirtyBadgeHtml(ws) {
+export function dirtyBadgeHtml(ws: { changed_files?: number, insertions?: number, deletions?: number } | null | undefined): string {
   const files = ws?.changed_files || 0;
   const ins = ws?.insertions || 0;
   const del = ws?.deletions || 0;

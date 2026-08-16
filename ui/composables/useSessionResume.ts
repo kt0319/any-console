@@ -1,10 +1,14 @@
+import type { Ref } from "vue";
 import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useTerminal } from "./useTerminal.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { SESSION_RESUME_COALESCE_MS } from "../utils/constants.ts";
 
-export function useSessionResume({ terminalBaseView }) {
+// TerminalBase.vue の defineExpose 相当（ScreenMain.vue の terminalBaseView と同形）。
+type TerminalBaseHandle = { fitAllTerminals: (opts?: { force?: boolean, scrollToBottom?: boolean }) => void };
+
+export function useSessionResume({ terminalBaseView }: { terminalBaseView: Ref<TerminalBaseHandle | null> }) {
   const terminalStore = useTerminalStore();
   const { connectTerminalWs } = useTerminal();
   const { syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();

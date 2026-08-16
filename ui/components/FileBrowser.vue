@@ -110,7 +110,7 @@ const props = defineProps({
 // （renderFileIcon / onEntryClick 等）で必要な形をここで確定させる。
 interface FileEntry {
   name: string;
-  type: string;
+  type: "file" | "dir";
   gitignored?: boolean;
   mtime?: number;
   [key: string]: any;

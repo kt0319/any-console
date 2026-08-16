@@ -91,7 +91,7 @@ function openIconPicker() {
   pushView!("IconPicker", {
     currentIcon: addIcon.value,
     currentColor: addIconColor.value,
-    onReturn: (result, parentEntry) => {
+    onReturn: (result: { icon: string, color: string }, parentEntry?: { state: Record<string, any> }) => {
       if (parentEntry) {
         parentEntry.state.pendingIcon = result.icon;
         parentEntry.state.pendingColor = result.color;

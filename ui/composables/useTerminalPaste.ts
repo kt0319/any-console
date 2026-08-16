@@ -32,7 +32,7 @@ export function useTerminalPaste({ tab, isActive }: { tab: Ref<TerminalTab>, isA
         file: imageFile,
         apiFetch: auth.apiFetch.bind(auth),
         ws: tab.value.ws,
-        notify: (message, type) => toast.show(message, type),
+        notify: (message: string, type: string) => toast.show(message, type),
       });
       return;
     }

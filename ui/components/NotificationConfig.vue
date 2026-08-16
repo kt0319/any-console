@@ -106,7 +106,7 @@ const DEFAULT_PREFS = { dispatch: true, phrase: true, blocked: true };
 const prefs = ref({ ...DEFAULT_PREFS });
 
 function loadPrefs() {
-  const saved = safeJsonLoad(LS_KEY_NOTIF_PREFS, null);
+  const saved = safeJsonLoad<Partial<typeof DEFAULT_PREFS> | null>(LS_KEY_NOTIF_PREFS, null);
   if (saved) prefs.value = { ...DEFAULT_PREFS, ...saved };
 }
 

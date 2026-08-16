@@ -79,7 +79,7 @@
               class="commit-action-item commit-action-danger branch-delete-btn"
               aria-label="Remove worktree"
               data-tooltip="Remove worktree"
-              @click="removeWorktree(linkedWorktree(branch))"
+              @click="removeWorktree(linkedWorktree(branch)!)"
             ><span class="mdi mdi-trash-can-outline"></span></button>
             <button
               v-if="!branch.current && !worktreeByBranch[branch.name]"
@@ -144,7 +144,7 @@ import { useBranchActions } from "../composables/useBranchActions.ts";
 import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import GitActionBtn from "./GitActionBtn.vue";
-import { canPull, canPush } from "../utils/git-branch.ts";
+import { canPull, canPush, type LocalBranch, type RemoteBranch } from "../utils/git-branch.ts";
 import { emit } from "../app-bridge.ts";
 
 defineProps({
@@ -195,7 +195,7 @@ const {
 // 現在ブランチの行はセレクトボックスの先頭項目 兼 開閉トグルを兼ねる
 // （selectBranchは現在ブランチをクリックしても元々no-opだったため、
 // そのクリックをtoggleに転用しても既存挙動と衝突しない）。
-function onRowClick(branch) {
+function onRowClick(branch: LocalBranch | RemoteBranch) {
   if (branch.current) {
     branchEmit("toggle");
     return;
@@ -203,7 +203,7 @@ function onRowClick(branch) {
   selectBranch(branch);
 }
 
-function selectBranch(branch) {
+function selectBranch(branch: LocalBranch | RemoteBranch) {
   if (branch.current) return;
   const wt = linkedWorktree(branch);
   if (wt && wt.workspace) {
@@ -214,14 +214,14 @@ function selectBranch(branch) {
   emit("git:checkoutBranch", { branch: branch.name, remote: branch.remote });
 }
 
-function switchToWorkspace(name) {
+function switchToWorkspace(name: string) {
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === name);
   emit("modal:close");
   emit("terminal:launch", { workspace: name, icon: ws?.icon, iconColor: ws?.icon_color });
 }
 
-function openWorktree(wt) {
-  if (wt?.workspace) switchToWorkspace(wt.workspace);
+function openWorktree(wt: Record<string, unknown>) {
+  if (wt?.workspace) switchToWorkspace(wt.workspace as string);
 }
 
 watch(branches, (list) => {

@@ -154,35 +154,35 @@ watch(() => props.active, (active) => {
   }
 });
 
-function hasFlick(ri, ci, keyDef) {
+function hasFlick(ri: number, ci: number, keyDef: QwertyKeyDef) {
   return qwertyHasFlick(keyDef);
 }
 
-function flickUpLabel(ri, ci, keyDef) {
+function flickUpLabel(ri: number, ci: number, keyDef: QwertyKeyDef) {
   return qwertyFlickUpLabel(keyDef);
 }
 
-function symbolDisplayLabel(keyDef) {
+function symbolDisplayLabel(keyDef: QwertyKeyDef) {
   return qwertySymbolLabel(keyDef, modifierState.shift, showSymbolView.value);
 }
 
-function onQuickKeyCancel(e) {
-  e.currentTarget.classList.remove("pressed");
+function onQuickKeyCancel(e: Event) {
+  (e.currentTarget as HTMLElement).classList.remove("pressed");
 }
 
-function onModifierKeyStart(e) {
-  e.currentTarget.classList.add("pressed");
+function onModifierKeyStart(e: Event) {
+  (e.currentTarget as HTMLElement).classList.add("pressed");
 }
 
-function onModifierKeyEnd(e, fn) {
-  const el = e.currentTarget;
+function onModifierKeyEnd(e: Event, fn: () => void) {
+  const el = e.currentTarget as HTMLElement;
   el.classList.remove("pressed");
   restartTapBounce(el);
   fn();
 }
 
-function onNavKeyEnd(e, key) {
-  restartTapBounce(e.currentTarget);
+function onNavKeyEnd(e: Event, key: string) {
+  restartTapBounce(e.currentTarget as HTMLElement);
   sendKeyToTerminal({ key });
 }
 

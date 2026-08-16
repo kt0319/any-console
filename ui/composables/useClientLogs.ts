@@ -2,17 +2,18 @@ import { ref, watch } from "vue";
 import { useDebugMode } from "./useDebugMode.ts";
 
 const MAX_LOGS = 100;
-const LEVELS = ["log", "info", "warn", "error"];
+const LEVELS = ["log", "info", "warn", "error"] as const;
+type ConsoleLevel = (typeof LEVELS)[number];
 
 const logs = ref<{ level: string, time: number, msg: string }[]>([]);
 let installed = false;
-let originals: Record<string, (...args: any[]) => void> | null = null;
+let originals: Record<ConsoleLevel, (...args: any[]) => void> | null = null;
 
 function levelLabel(l: string) {
   return { log: "LOG", info: "INF", warn: "WRN", error: "ERR" }[l] || l.toUpperCase();
 }
 
-function formatArg(arg) {
+function formatArg(arg: unknown) {
   if (arg == null) return String(arg);
   if (typeof arg === "string") return arg;
   if (arg instanceof Error) return arg.message;
@@ -22,10 +23,10 @@ function formatArg(arg) {
 function install() {
   if (installed) return;
   installed = true;
-  originals = {};
+  originals = {} as Record<ConsoleLevel, (...args: any[]) => void>;
   for (const level of LEVELS) {
     originals[level] = console[level];
-    console[level] = (...args) => {
+    console[level] = (...args: any[]) => {
       originals![level].apply(console, args);
       logs.value.push({
         level,
@@ -58,6 +59,6 @@ export function useClientLogs() {
 
 // デバッグモード ON のときだけ console.log を呼ぶヘルパー。
 // useClientLogs が console.log をフックしているので、UI のデバッグ行にも流れる。
-export function debugLog(...args) {
+export function debugLog(...args: any[]) {
   if (debugMode.value) console.log(...args);
 }

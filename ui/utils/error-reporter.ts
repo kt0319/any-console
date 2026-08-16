@@ -1,25 +1,27 @@
+import type { App } from "vue";
 import { EP_CLIENT_ERRORS } from "./endpoints.ts";
 
 const DEDUP_WINDOW_MS = 5000;
 const MAX_QUEUE_DURING_OUTAGE = 20;
 
 type ErrorReport = ReturnType<typeof buildReport>;
+type AuthFetch = (endpoint: string, opts?: { method?: string, body?: unknown }) => Promise<Response | null>;
 
 const recent = new Map<string, number>();
 let posting = false;
 const pending: ErrorReport[] = [];
 
-export function pruneRecent(map, now, windowMs = DEDUP_WINDOW_MS) {
+export function pruneRecent(map: Map<string, number>, now: number, windowMs = DEDUP_WINDOW_MS) {
   for (const [key, ts] of map) {
     if (now - ts > windowMs) map.delete(key);
   }
 }
 
-export function fingerprint(report) {
+export function fingerprint(report: { type: string, message: string, source: string, lineno?: number | null }) {
   return `${report.type}|${report.message}|${report.source}|${report.lineno ?? ""}`;
 }
 
-export function truncate(value, max) {
+export function truncate(value: unknown, max: number) {
   if (typeof value !== "string") return "";
   return value.length > max ? value.slice(0, max) : value;
 }
@@ -51,7 +53,7 @@ export function buildReport(
   };
 }
 
-async function post(report, authFetch) {
+async function post(report: ErrorReport, authFetch: AuthFetch) {
   if (posting) {
     if (pending.length < MAX_QUEUE_DURING_OUTAGE) pending.push(report);
     return;
@@ -68,8 +70,8 @@ async function post(report, authFetch) {
   }
 }
 
-function reportFactory(authFetch) {
-  return (raw) => {
+function reportFactory(authFetch: AuthFetch) {
+  return (raw: Parameters<typeof buildReport>[0]) => {
     const report = buildReport(raw);
     const fp = fingerprint(report);
     const now = Date.now();
@@ -80,19 +82,19 @@ function reportFactory(authFetch) {
   };
 }
 
-export function extractStack(err) {
+export function extractStack(err: unknown) {
   if (!err) return "";
   if (typeof err === "string") return "";
-  return err.stack || "";
+  return (err as { stack?: string }).stack || "";
 }
 
-export function extractMessage(err) {
+export function extractMessage(err: unknown) {
   if (!err) return "Unknown error";
   if (typeof err === "string") return err;
-  return err.message || String(err);
+  return (err as { message?: string }).message || String(err);
 }
 
-export function installErrorReporter(app, authFetch) {
+export function installErrorReporter(app: App, authFetch: AuthFetch) {
   if (typeof window === "undefined") return () => {};
   const report = reportFactory(authFetch);
 
@@ -106,7 +108,7 @@ export function installErrorReporter(app, authFetch) {
     console.error(err);
   };
 
-  const onError = (e) => {
+  const onError = (e: ErrorEvent) => {
     report({
       type: "error",
       message: e.message || extractMessage(e.error),
@@ -116,7 +118,7 @@ export function installErrorReporter(app, authFetch) {
       colno: typeof e.colno === "number" ? e.colno : null,
     });
   };
-  const onRejection = (e) => {
+  const onRejection = (e: PromiseRejectionEvent) => {
     const reason = e.reason;
     report({
       type: "unhandledrejection",

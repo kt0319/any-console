@@ -2,7 +2,12 @@ import { EP_UPLOAD_IMAGE } from "./endpoints.ts";
 
 const encoder = new TextEncoder();
 
-export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
+export async function uploadImageToTerminal({ file, apiFetch, ws, notify }: {
+  file: File | null | undefined;
+  apiFetch: (url: string, init?: RequestInit) => Promise<Response | null | undefined>;
+  ws: WebSocket | null | undefined;
+  notify?: (message: string, kind: string) => void;
+}): Promise<boolean> {
   if (!file) return false;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     notify?.("No active terminal", "error");

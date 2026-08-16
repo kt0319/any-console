@@ -76,7 +76,7 @@ export function useLayoutPersist() {
     if (!split || !Array.isArray(split.session_ids) || split.session_ids.length < 2) return;
 
     let emptySeq = 0;
-    const tabIds = split.session_ids.map((sid) => {
+    const tabIds = split.session_ids.map((sid: string | null) => {
       if (!sid) return makeEmptyPaneId(++emptySeq);
       const tab = terminalStore.openTabs.find((t) => t.sessionId === sid);
       return tab ? tab.id : makeEmptyPaneId(++emptySeq);

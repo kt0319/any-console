@@ -78,12 +78,12 @@ function specialId(s: CircleKeypadSpecialDef) {
   )?.id || "";
 }
 
-function setEnabled(v) {
+function setEnabled(v: boolean) {
   circleKeypad.enabled = v;
   circleKeypad.save();
 }
 
-function setModifier(i, modifierId) {
+function setModifier(i: number, modifierId: string) {
   const mod = findModifierOption(modifierId);
   const k = circleKeypad.keys[i];
   const key = baseKeyIdOf(k);
@@ -91,14 +91,14 @@ function setModifier(i, modifierId) {
   circleKeypad.save();
 }
 
-function setBaseKey(i, keyId) {
+function setBaseKey(i: number, keyId: string) {
   const k = circleKeypad.keys[i];
   const modifierId = modifierIdOf(k);
   circleKeypad.keys[i] = { key: keyId, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt, label: circleKeypadKeyLabel(modifierId, keyId) };
   circleKeypad.save();
 }
 
-function setSpecial(i, id) {
+function setSpecial(i: number, id: string) {
   const p = findSpecialPreset(id);
   if (!p) return;
   circleKeypad.specials[i] = { label: p.label, action: p.action, payload: p.payload || null };

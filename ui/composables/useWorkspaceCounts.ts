@@ -51,7 +51,7 @@ export function useWorkspaceCounts() {
 
     try {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
-      if (ok) branchCount.value = (data || []).filter((b) => !b.remote).length;
+      if (ok) branchCount.value = (data || []).filter((b: { remote?: boolean }) => !b.remote).length;
     } catch {}
 
     if (!hasGitHub.value) return;

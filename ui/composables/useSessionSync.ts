@@ -44,11 +44,11 @@ export function useSessionSync() {
   const { disconnectTerminal } = useTerminal();
   const { restoreLayout } = useLayoutPersist();
 
-  function _buildTabParams(s, allJobs) {
+  function _buildTabParams(s: Parameters<typeof buildSessionTabParamsWithCache>[0], allJobs: Record<string, any>) {
     return { ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs }), restored: true };
   }
 
-  async function _safeResJson(res) {
+  async function _safeResJson(res: Response | null) {
     try {
       if (res && res.ok) return await res.json();
     } catch {}
@@ -58,20 +58,20 @@ export function useSessionSync() {
   // allJobs が空のままジョブセッションを焼き込むと、アイコンが mdi-play に固定され
   // リロードまで直らない（tab.icon は markRaw で再解決されないため）。
   // /jobs/workspaces の一時失敗を想定し、ジョブセッションがあるのに空なら 1 回だけ再取得する。
-  function _loadAllJobs(jobsRes, sessions) {
+  function _loadAllJobs(jobsRes: Response | null, sessions: { job_name?: string | null }[]) {
     return loadAllJobs(jobsRes, sessions, {
       readJson: _safeResJson,
       refetch: () => auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null),
     });
   }
 
-  function _loadSessions(sessionsRes) {
+  function _loadSessions(sessionsRes: Response | null) {
     return loadSessionsResponse(sessionsRes, {
       refetch: () => auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null),
     });
   }
 
-  async function restoreExistingSessions(sessionsRes, jobsRes) {
+  async function restoreExistingSessions(sessionsRes: Response | null, jobsRes: Response | null) {
     if (terminalStore.hasRestoredTabsFromStorage) return;
     terminalStore.restoreSessionsLoading = true;
     terminalStore.restoreSessionsError = "";

@@ -68,6 +68,9 @@ import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.ts";
 import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
 
+type SessionItem = ReturnType<typeof sessionSidebarItems>[number];
+type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number];
+
 // セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
 // ごとにワークスペース名・ブランチ・変更サマリ・エージェント状態・
 // Info Pillsを一覧表示する。行の組み立ては ui/utils/session-sidebar.ts
@@ -104,10 +107,10 @@ const pendingDispatchWorkspaces = computed(() => {
   });
 });
 
-function onOpenPendingDispatch(p) {
+function onOpenPendingDispatch(p: PendingDispatchItem) {
   workspaceStore.selectedWorkspace = p.workspace;
   // 承認待ちが1件だけなら一覧を経由せずRun Dispatchへ直接飛ぶ。
-  const dispatchItemId = p.dispatchItems.length === 1 ? p.dispatchItems[0].id : undefined;
+  const dispatchItemId = p.dispatchItems.length === 1 ? (p.dispatchItems[0] as unknown as { id: string }).id : undefined;
   emit("git:openFileModal", { pane: "dispatch", dispatchItemId });
 }
 
@@ -115,14 +118,14 @@ function onOpenPendingDispatch(p) {
 // 同じく出すため、それぞれ対応するペインへ遷移できるよう
 // useInfoPillActionsを共有する（タブが無いのでitem.tab固定でopenPaneのみ使う）。
 // dispatchキーだけはonOpenPendingDispatchと同じ1件ショートカットを使う。
-function onPendingPillOpen(p, key) {
+function onPendingPillOpen(p: PendingDispatchItem, key: string) {
   if (key === "dispatch") { onOpenPendingDispatch(p); return; }
   workspaceStore.selectedWorkspace = p.workspace;
   openPaneFor({ workspace: p.workspace }, p, key);
 }
 
 // useInfoPillActions を都度組み立てて対応ペインを開く（通常行 / pending行 共通）。
-function openPaneFor(tab, source, key) {
+function openPaneFor(tab: Record<string, any>, source: { isGitRepo: boolean; devServerEntry: Record<string, any> | null }, key: string) {
   const { openPane } = useInfoPillActions({
     tab: ref(tab),
     isGitRepo: ref(source.isGitRepo),
@@ -150,7 +153,7 @@ const items = computed(() => {
   });
 });
 
-function onSelect(item) {
+function onSelect(item: SessionItem) {
   if (item.id !== terminalStore.activeTabId) {
     // モバイルはタッチ操作前提のため、ソフトキーボードの誤起動を避けて skipFocus。
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
@@ -165,7 +168,7 @@ function onSelect(item) {
 
 // ピルタップ：そのタブへ切替えてから対応ペインを開く（TerminalPaneの
 // ピルと同じ遷移をuseInfoPillActionsで再利用する）。
-function onPillOpen(item, key) {
+function onPillOpen(item: SessionItem, key: string) {
   if (item.id !== terminalStore.activeTabId) {
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
   }
@@ -176,7 +179,7 @@ function onPillOpen(item, key) {
 }
 
 // タブを閉じる（破壊的操作のため、TerminalPaneと同じ確認ダイアログを通す）。
-async function onCloseTab(item) {
+async function onCloseTab(item: SessionItem) {
   const result = await confirmCloseTab(confirm, item.tab);
   if (result === true) emit("tab:close", { tab: item.tab });
 }
