@@ -914,7 +914,7 @@ cmd_status() {
   echo "  Version: $(get_version)"
   echo "  URL: $url"
   if [ -n "$ts_host" ]; then
-    echo "  Tailscale Serve: tailscale serve --bg / proxy http://127.0.0.1:$(get_port)"
+    echo "  Tailscale Serve: tailscale serve --bg http://127.0.0.1:$(get_port)"
   fi
   echo "  Directory: $SCRIPT_DIR"
 }
@@ -1011,7 +1011,7 @@ cmd_run() {
   info "Starting any-console in the foreground (Ctrl+C to stop)"
   echo "  URL: $url"
   if [ -n "$ts_host" ]; then
-    echo "  Tailscale Serve: tailscale serve --bg / proxy http://127.0.0.1:$(get_port)"
+    echo "  Tailscale Serve: tailscale serve --bg http://127.0.0.1:$(get_port)"
   fi
   exec "$bin"
 }

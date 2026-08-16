@@ -162,7 +162,7 @@ PWA installation and service workers require HTTPS.
 **Tailscale Serve** is the easiest option — it handles certificates automatically:
 
 ```bash
-tailscale serve --bg / proxy http://127.0.0.1:8888
+tailscale serve --bg http://127.0.0.1:8888
 ```
 
 Access the app at `https://<your-device>.ts.net/`.
