@@ -98,6 +98,8 @@ Once one device is signed in, you can add another (e.g. add your iPhone from you
 
 The QR code encodes a one-time link that expires in 90 seconds and can only be used once — if it expires or was already used, the new device falls back to the normal token entry screen. See [docs/DECISIONS.md](docs/DECISIONS.md) (ADR 28) for the security rationale.
 
+Setting up an iPhone specifically (Tailscale, PWA install, push notifications)? See [docs/IPHONE_QUICKSTART.md](docs/IPHONE_QUICKSTART.md).
+
 ### Disabling authentication for local development
 
 Authentication can be disabled only with `ANY_CONSOLE_DISABLE_AUTH=1` in the server process environment. This is intended for disposable local development and tests, not managed services or closed-network production use. For normal Tailscale deployments, keep token + device-cookie authentication enabled.

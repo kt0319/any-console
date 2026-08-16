@@ -23,8 +23,9 @@ trust** — a Tailscale tailnet, a LAN behind a firewall, or localhost.
   for HTTPS inside your tailnet, or plain HTTP on a trusted LAN.
 - Be careful with *any* other tunnel or proxy on the same host (`ssh -L`,
   nginx, cloudflared): they can make external requests appear to come from
-  loopback. This is exactly why Tailscale header auto-auth is opt-in — see
-  the security note in [README &gt; Authentication](README.md#authentication).
+  loopback. any-console always requires token / device-cookie authentication
+  regardless of transport — there is no header-based auto-auth to worry
+  about here.
 
 ## Authentication model
 
@@ -43,11 +44,10 @@ no user separation):
   See `docs/DECISIONS.md` #28.
 - There are no user accounts or roles. One token means full access.
 - Request rate limiting and security headers are enabled by default.
-- **Tailscale header auto-auth** (`trust_tailscale_auth`) is **off by
-  default** and should stay off unless requests reach any-console
-  exclusively via Tailscale Serve / tailnet peers.
-- **`auth_disabled` removes authentication entirely.** Only enable it on a
-  network where every reachable peer is allowed to own the host.
+- Authentication cannot be disabled for a managed (`start`/`setup`) service.
+  `ANY_CONSOLE_DISABLE_AUTH=1` only works for `./any-console run` in the
+  foreground — intended for disposable local development, never for a
+  reachable deployment.
 
 ## If the token leaks
 
