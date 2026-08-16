@@ -7,6 +7,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
+import { CIRCLE_KEYPAD_SCROLL_LINES, CIRCLE_KEYPAD_WHEEL_LINES } from "../utils/constants.ts";
 import {
   CIRCLE_KEYPAD_ANGLES,
   SPECIAL_POSITIONS,
@@ -85,14 +86,6 @@ export function useCircleKeyPad() {
       window.location.reload();
       return;
     }
-    if (s.action === "terminal:scrollToBottom") {
-      tab?.term?.scrollToBottom?.();
-      return;
-    }
-    if (s.action === "terminal:scrollToTop") {
-      tab?.term?.scrollToTop?.();
-      return;
-    }
     if (s.action === "terminal:clear") {
       dispatchTextToTab(tab, "\x0c"); // Ctrl+L 相当
       return;
@@ -101,6 +94,20 @@ export function useCircleKeyPad() {
       navigator.clipboard?.readText?.().then((text) => {
         if (text) dispatchTextToTab(tab, text);
       }).catch(() => { /* permission denied */ });
+      return;
+    }
+    if (s.action === "terminal:wheelUp" || s.action === "terminal:wheelDown") {
+      const deltaY = s.action === "terminal:wheelUp" ? -CIRCLE_KEYPAD_WHEEL_LINES : CIRCLE_KEYPAD_WHEEL_LINES;
+      tab?.term?.element?.dispatchEvent?.(new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaMode: WheelEvent.DOM_DELTA_LINE,
+        deltaY,
+      }));
+      return;
+    }
+    if (s.action === "terminal:scrollUp" || s.action === "terminal:scrollDown") {
+      tab?.term?.scrollLines?.(s.action === "terminal:scrollUp" ? -CIRCLE_KEYPAD_SCROLL_LINES : CIRCLE_KEYPAD_SCROLL_LINES);
       return;
     }
     if (s.action === "tab:refresh") {

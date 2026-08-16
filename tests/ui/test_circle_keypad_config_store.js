@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.ts";
 import { useAuthStore } from "../../ui/stores/auth.ts";
-import { defaultKeyDefs } from "../../ui/utils/circle-keypad-presets.ts";
+import { defaultKeyDefs, defaultSpecialDefs } from "../../ui/utils/circle-keypad-presets.ts";
 
 const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
@@ -55,5 +55,28 @@ describe("circle-keypad-config store: load 堅牢化", () => {
     expect(auth.apiFetch).toHaveBeenCalledTimes(1);
     expect(store.loaded).toBe(true);
     expect(store.keys).toEqual(defaultKeyDefs());
+    expect(store.specials).toEqual(defaultSpecialDefs());
+  });
+
+  it("廃止済みの corner action は読み込み時に None へ落とす", async () => {
+    auth.apiFetch = vi.fn().mockResolvedValue(okRes({
+      keys: customKeys(),
+      specials: [
+        { label: "To Top", action: "terminal:scrollToTop", payload: null },
+        { label: "To Bottom", action: "terminal:scrollToBottom", payload: null },
+        { label: "Wheel Up", action: "terminal:wheelUp", payload: null },
+        { label: "Jobs", action: "git:openFileModal", payload: { pane: "jobs" } },
+      ],
+      enabled: true,
+    }));
+
+    await store.load();
+
+    expect(store.specials).toEqual([
+      { label: "", action: "", payload: null },
+      { label: "", action: "", payload: null },
+      { label: "Wheel Up", action: "terminal:wheelUp", payload: null },
+      { label: "Jobs", action: "git:openFileModal", payload: { pane: "jobs" } },
+    ]);
   });
 });

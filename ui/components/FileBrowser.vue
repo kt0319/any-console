@@ -259,9 +259,9 @@ const headerActions = computed<HeaderAction[]>(() => {
     },
     ...(showEditorButton.value ? [editorAction(openDirInEditor)] : []),
     { icon: "mdi-upload", label: "Upload", ariaLabel: "Upload files", onClick: () => uploadInputEl.value?.click() },
+    { icon: "mdi-download", label: "Download", ariaLabel: "Download folder", tooltip: "Download folder as zip", onClick: () => downloadFile(currentPath.value) },
     ...(currentPath.value
       ? [
-          { icon: "mdi-download", label: "Download", ariaLabel: "Download folder", tooltip: "Download folder as zip", onClick: () => downloadFile(currentPath.value) },
           moveAction(),
           deleteAction(deleteCurrentPath),
         ]

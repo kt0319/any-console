@@ -239,13 +239,13 @@
 
 ### 20. Tailscale ヘッダ自動認証を opt-in（デフォルト無効）にする
 
-- **Status**: Accepted
+- **Status**: Superseded
 - **Date**: 2026-07
 - **Context**: `Tailscale-User-Login` ヘッダによる自動認証は、接続元が loopback または Tailscale CGNAT 帯（100.64.0.0/10）であることを条件に無条件で有効だった。しかしこの接続元判定だけでは防げない構成がある。(1) Tailscale 以外のトンネル・リバースプロキシ（`ssh -L`・cloudflared・X-Forwarded-For を付けない nginx 等）を同ホストに立てると、外部からのリクエストが loopback 発として届き、偽装ヘッダだけで認証を素通しできる。(2) tailnet 上の他端末は Tailscale Serve を経由せず直接ヘッダを付けられる（共有 tailnet・node sharing では他人になり得る）。さらに `/auth/check` はヘッダ認証成功時にデバイス cookie を自動発行するため、一度の偽装で永続クレデンシャルが手に入る。本ツールは任意コマンド実行を提供するため、認証バイパスの被害はホスト全体に及ぶ。
 - **Decision**: Tailscale ヘッダの信頼を opt-in にする。環境変数 `ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1` または `__global__.trust_tailscale_auth: true` で明示的に有効化した場合のみ、従来どおり接続元判定＋ヘッダで認証する。デフォルトでは Tailscale 経由でも token / デバイス cookie 認証に落ちる（初回に token を1度入力すれば cookie で継続するため UX 低下は最小）。判定結果は認証がリクエストごとに通るためプロセス内にキャッシュし、変更の反映は再起動とする。あわせて (a) 初回起動時のトークン表示を `?token=` 入り URL からトークン単体の表示に変更（UI はクエリの token を消費しておらず、ブラウザ履歴・プロキシログへ漏れるだけだった）、(b) 全レスポンスにセキュリティヘッダ（`X-Frame-Options: DENY` / `X-Content-Type-Options: nosniff` / `Referrer-Policy: no-referrer`）を付与するミドルウェアを追加した（`api/security_headers.py`。プロキシ先アプリを壊さないよう `/preview/` 配下は対象外）。
 - **Consequences**: loopback 上の非 Tailscale プロキシや tailnet 他端末からのヘッダ偽装による認証バイパスが、デフォルト構成では成立しなくなる。従来ヘッダ自動認証に依存していた利用者は、フラグを立てるか、各デバイスで token を1度入力する移行が必要（README にリスクと併せて明記）。有効化の変更に再起動が要る非対称性は、認証パスに毎リクエストのファイル I/O を入れないための意図的な代償。
 - **Alternatives considered**: **従来どおりデフォルト有効のまま README で警告** — 「よくある構成変更が静かに認証を無効化する」footgun が残り、警告は読まれない前提に立つべき。**`tailscale whois` API で接続元を照合** — 偽装耐性は上がるが tailscaled への依存・レイテンシ・障害モードが増え、個人ツールには過剰。**loopback を信頼ソースから外し CGNAT のみ信頼** — Tailscale Serve は loopback 経由で届くため XFF の解釈に依存することになり、構成による挙動差が読みにくい。opt-in の方が判断が単純で説明可能。
-- **Update (2026-08)**: 逆方向の絞り込みとして、接続元判定から CGNAT 帯（100.64.0.0/10）を除外し loopback のみを信頼するよう変更した（`server/src/auth.rs` `is_trusted_proxy_source`）。ヘッダを正当に付与する Tailscale Serve は同一ホストの loopback 経由で転送するため、CGNAT 帯の信頼は Context (2)（tailnet 他端末が Serve を経由せず直接ヘッダを付けられる）の穴を opt-in 後も残すだけだった。別ホストの Serve からこのプロセスへ転送する構成はヘッダ自動認証の対象外となる（token / デバイス cookie 認証は従来どおり使える）。
+- **Update (2026-08)**: Tailscale ヘッダ自動認証は削除した。Tailscale Serve 経由でも通常の token / device cookie 認証だけを使う。これにより認証 bypass 経路と設定フラグをなくし、Tailscale は到達経路と HTTPS 終端に責務を限定する。
 
 ---
 
@@ -321,8 +321,8 @@
 - **Status**: Accepted
 - **Date**: 2026-07
 - **Context**: GitHub Actions の CI 失敗時に `/dispatch` を自動で叩く連携（dispatch-on-ci-failure.yml）を追加するにあたり、`Authorization` ヘッダに何を渡すかが問題になった。ADR 3（認証は単一 Bearer Token、ユーザー分離なし）の通り、any-console のメイントークンは Web ターミナルを含む全 API を解錠する唯一の鍵であり、GitHub Secrets のようなリポジトリ外部のストアに置くにはスコープが広すぎる。Secrets が漏洩・誤ってログに出力された場合、攻撃者は任意のワークスペースで任意コマンドを実行できてしまう。一方でユーザー・ロール管理を持ち込むのは ADR 3 の「個人ツールとしてシンプルに保つ」方針に反し、過剰設計になる。
-- **Decision**: `data/auth.json` にメイントークンとは別のリスト `api_tokens` を追加し、各要素を `{id, name, scope, secret_hash, created_at, last_used}` として保存する。v1 の `scope` は `"dispatch"` の1種類のみとし、汎用的な RBAC は作らない。保存は raw トークンではなく `api/devices.py` の Trusted Device と全く同じ HMAC-SHA256（`data/server_key`）ハッシュのみで、raw トークンは発行時のレスポンスで一度だけ返す。新設の依存関数 `verify_dispatch_token` は `POST /dispatch` にのみ適用し、通常認証（メイントークン / デバイス cookie / Tailscale ヘッダ）に加えて dispatch scope のトークンも受け付ける。dispatch トークンで認証した場合は `direct: true`（即時実行）を 400 で拒否し、承認キューへ積むことしかできないようにする。`/dispatch/{id}/decision`・ステータスストリーム WS・その他全 API は引き続きメイントークンのみで、dispatch トークンでは一切通らない。
-- **Consequences**: GitHub Secrets に置く鍵の権限が「dispatch のキュー登録のみ」に絞られ、漏洩時の被害が限定される（承認・実行には依然としてメイントークンが要るため、盗まれたトークンだけで自己承認はできない）。ユーザーは Settings > Auth から用途ごとに複数のトークンを発行・失効できる。反面、認証の分岐が増え（メイントークン / デバイス cookie / Tailscale ヘッダ / dispatch トークン）、`verify_token` と `verify_dispatch_token` のどちらを使うべきかをエンドポイント追加のたびに意識する必要がある。scope が1種類のみのため、将来別用途のトークンが要る場合は再検討が要る。
+- **Decision**: `data/auth.json` にメイントークンとは別のリスト `api_tokens` を追加し、各要素を `{id, name, scope, secret_hash, created_at, last_used}` として保存する。v1 の `scope` は `"dispatch"` の1種類のみとし、汎用的な RBAC は作らない。保存は raw トークンではなく `api/devices.py` の Trusted Device と全く同じ HMAC-SHA256（`data/server_key`）ハッシュのみで、raw トークンは発行時のレスポンスで一度だけ返す。新設の依存関数 `verify_dispatch_token` は `POST /dispatch` にのみ適用し、通常認証（メイントークン / デバイス cookie）に加えて dispatch scope のトークンも受け付ける。`POST /dispatch` はメイントークンでも dispatch トークンでも承認キューへ積むことだけを許可し、`direct: true`（即時実行）は 400 で拒否する。`/dispatch/{id}/decision`・ステータスストリーム WS・その他全 API は引き続きメイントークンのみで、dispatch トークンでは一切通らない。
+- **Consequences**: GitHub Secrets に置く鍵の権限が「dispatch のキュー登録のみ」に絞られ、漏洩時の被害が限定される（承認・実行には依然としてメイントークンが要るため、盗まれたトークンだけで自己承認はできない）。ユーザーは Settings > Auth から用途ごとに複数のトークンを発行・失効できる。反面、認証の分岐が増え（メイントークン / デバイス cookie / dispatch トークン）、`verify_token` と `verify_dispatch_token` のどちらを使うべきかをエンドポイント追加のたびに意識する必要がある。scope が1種類のみのため、将来別用途のトークンが要る場合は再検討が要る。
 - **Alternatives considered**: **メイントークンをそのまま GitHub Secrets に使う** — 実装は最小だが ADR 3 の「単一トークンが全 API を解錠する」設計上、外部連携用の鍵が漏れた場合の被害が全API・全ワークスペースに及ぶため却下。**ユーザー/ロール管理を導入し RBAC で絞る** — 個人ツールの規模に対して過剰設計であり ADR 3 の方針と衝突する。**scope を複数種類（例: "read", "dispatch", "admin"）用意する** — v1 では dispatch 連携以外に外部トークンを使う用途が無く、投機的な一般化になるため見送り、必要になった時点で追加する。
 
 ---

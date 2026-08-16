@@ -59,11 +59,11 @@ async fn main() {
     }
 
     // rustls 0.23 は複数の crypto backend（ring/aws-lc-rs）がビルドに含まれうる
-    // ため、プロセス起動時に明示的に選ばないと初回 TLS 利用時（preview proxy
-    // または本サーバの HTTPS bind）で panic する。
-    tokio_rustls::rustls::crypto::ring::default_provider()
+    // ため、プロセス起動時に明示的に選ばないと初回 TLS 利用時（preview proxy）
+    // で panic する。
+    tokio_rustls::rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
-        .expect("failed to install rustls ring crypto provider");
+        .expect("failed to install rustls aws-lc crypto provider");
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -87,15 +87,7 @@ async fn main() {
             paths.frontend_dir.display()
         );
     }
-    let auth = Auth::load(paths.data_dir.clone(), config.trust_tailscale_auth());
-
-    // TLS 証明書は AppState 構築前に読み込む — hook URL のスキーム等が
-    // 「証明書ファイルの有無」ではなく「実際に TLS で listen するか」を参照
-    // できるよう、読み込み結果を tls_active として AppState に持たせる
-    // （証明書はあるが読み込みに失敗した場合は平文 bind へフォールバックする
-    // ため、ファイルの有無だけを見ると実際のスキームと食い違う）。
-    let tls_config = any_console_server::preview::find_cert_pair(&paths.project_root)
-        .and_then(|(cert, key)| any_console_server::preview::load_tls_server_config(&cert, &key));
+    let auth = Auth::load(paths.data_dir.clone());
 
     let state = Arc::new(AppState {
         paths: paths.clone(),
@@ -121,7 +113,6 @@ async fn main() {
         auth,
         rate_counter: FixedWindowCounter::new(),
         rate_limit: rate_limit_from_env(),
-        tls_active: tls_config.is_some(),
     });
 
     // 永続化済み dispatch キュー/履歴を読み込み、status stream 購読者へ
@@ -141,47 +132,17 @@ async fn main() {
     let app = build_router(state);
     let addr = format!("{host}:{port}");
 
-    match tls_config {
-        Some(cfg) => {
-            // 平文経路の `TcpListener::bind` はホスト名（`localhost` 等）も名前
-            // 解決するため、TLS 経路も同様に受け付ける — parse のみだと証明書を
-            // 置いた途端にホスト名 bind 設定で起動不能になる非対称が生じる。
-            use std::net::ToSocketAddrs;
-            let socket_addr: SocketAddr = addr
-                .to_socket_addrs()
-                .unwrap_or_else(|e| panic!("bind address {addr} invalid: {e}"))
-                .next()
-                .unwrap_or_else(|| panic!("bind address {addr} did not resolve"));
-            tracing::info!("any-console-server listening on {addr} (TLS)");
-            let handle = axum_server::Handle::new();
-            let shutdown_handle = handle.clone();
-            tokio::spawn(async move {
-                let _ = tokio::signal::ctrl_c().await;
-                shutdown_handle.graceful_shutdown(None);
-            });
-            axum_server::bind_rustls(
-                socket_addr,
-                axum_server::tls_rustls::RustlsConfig::from_config(cfg),
-            )
-            .handle(handle)
-            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-            .await
-            .expect("server error");
-        }
-        None => {
-            let listener = tokio::net::TcpListener::bind(&addr)
-                .await
-                .unwrap_or_else(|e| panic!("bind {addr} failed: {e}"));
-            tracing::info!("any-console-server listening on {addr}");
-            axum::serve(
-                listener,
-                app.into_make_service_with_connect_info::<SocketAddr>(),
-            )
-            .with_graceful_shutdown(async {
-                let _ = tokio::signal::ctrl_c().await;
-            })
-            .await
-            .expect("server error");
-        }
-    }
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .unwrap_or_else(|e| panic!("bind {addr} failed: {e}"));
+    tracing::info!("any-console-server listening on {addr}");
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await
+    .expect("server error");
 }

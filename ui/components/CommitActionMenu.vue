@@ -1,6 +1,6 @@
 <template>
   <span class="file-browser-header-actions">
-    <button type="button" class="file-browser-header-btn" aria-label="Show Detail" data-tooltip="Show Detail" @click="$emit('show-detail')"><span class="mdi mdi-information-outline" aria-hidden="true"></span> Show Detail</button>
+    <button type="button" class="file-browser-header-btn" aria-label="Copy hash" data-tooltip="Copy hash" @click="$emit('copy-hash')"><span class="mdi mdi-content-copy" aria-hidden="true"></span> Copy hash</button>
     <button type="button" class="file-browser-header-btn" aria-label="Cherry-pick" data-tooltip="Cherry-pick" @click="$emit('exec', { action: 'cherry-pick' })"><span class="mdi mdi-content-duplicate" aria-hidden="true"></span> Cherry-pick</button>
     <button type="button" class="file-browser-header-btn" aria-label="Revert" data-tooltip="Revert" @click="$emit('exec', { action: 'revert' })"><span class="mdi mdi-undo" aria-hidden="true"></span> Revert</button>
     <button type="button" class="file-browser-header-btn" aria-label="Create branch" data-tooltip="Create branch" @click="$emit('exec', { action: 'branch' })"><span class="mdi mdi-source-branch-plus" aria-hidden="true"></span> Branch</button>
@@ -33,7 +33,7 @@ defineProps({
   branches: { type: Array as PropType<string[]>, default: () => [] },
 });
 
-defineEmits(["exec", "show-detail"]);
+defineEmits(["exec", "copy-hash"]);
 </script>
 
 <style scoped>

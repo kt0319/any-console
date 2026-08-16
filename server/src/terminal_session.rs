@@ -337,7 +337,7 @@ impl TerminalRegistry {
         &self,
         data_dir: &std::path::Path,
         config: &ConfigStore,
-        tls_active: bool,
+        project_root: &std::path::Path,
         tmux_prefix: &str,
         workspace_path: Option<&str>,
         workspace: Option<String>,
@@ -361,7 +361,7 @@ impl TerminalRegistry {
             None => short_id,
         };
         let tmux_name = format!("{tmux_prefix}{session_id}");
-        tmux::create_tmux_session(data_dir, config, tls_active, workspace_path, &tmux_name)
+        tmux::create_tmux_session(data_dir, config, project_root, workspace_path, &tmux_name)
             .await
             .map_err(|e| server_error(format!("Failed to create terminal: {e}")))?;
 
@@ -442,7 +442,7 @@ mod tests {
             .create_registered_session(
                 dir.path(),
                 &config,
-                false,
+                dir.path(),
                 &prefix,
                 None,
                 Some("myws".to_string()),
@@ -518,7 +518,7 @@ mod tests {
             .create_registered_session(
                 dir.path(),
                 &config,
-                false,
+                dir.path(),
                 "ac-",
                 None,
                 None,

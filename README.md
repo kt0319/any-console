@@ -71,7 +71,7 @@ cd ~/.any-console && ./any-console setup
 
 For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
 
-To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. `./any-console update` does the same thing: it downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
+To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/` (including `certs/`) and `config.json` untouched. `./any-console update` does the same thing: it downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
 
 ### Requirements
 
@@ -98,29 +98,9 @@ Once one device is signed in, you can add another (e.g. add your iPhone from you
 
 The QR code encodes a one-time link that expires in 90 seconds and can only be used once — if it expires or was already used, the new device falls back to the normal token entry screen. See [docs/DECISIONS.md](docs/DECISIONS.md) (ADR 28) for the security rationale.
 
-### Tailscale header auto-auth (opt-in)
+### Disabling authentication for local development
 
-When any-console is served through [Tailscale Serve](https://tailscale.com/kb/1312/serve), Tailscale adds an authenticated `Tailscale-User-Login` header. any-console can use it to skip token entry, but this is **disabled by default** and must be opted into via `config.json`:
-
-```jsonc
-// config.json
-"__global__": { "trust_tailscale_auth": true }
-```
-
-The `ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1` environment variable also enables it, but only where the environment actually reaches the server process — foreground runs (`ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1 ./any-console run`) or a service unit you edited yourself. `./any-console start` delegates to systemd/launchd, which does **not** inherit your shell environment, so prefer `config.json` for the managed service.
-
-> **Security note:** only enable this if requests reach any-console *exclusively* via Tailscale Serve. The header check trusts loopback source addresses only (where Tailscale Serve forwards from), so tailnet peers connecting directly cannot forge the header — but any *other* tunnel or reverse proxy on the same host (`ssh -L`, `cloudflared`, nginx, etc.) would let its clients forge the header and bypass authentication entirely. If you use any non-Tailscale proxy in front of any-console, leave this off — token + device-cookie auth works fine over Tailscale too.
-
-A restart is required for changes to take effect.
-
-### Disabling authentication (for closed networks like Tailscale)
-
-```jsonc
-// config.json
-"__global__": { "auth_disabled": true }
-```
-
-As above, the `ANY_CONSOLE_DISABLE_AUTH=1` environment variable works only for foreground runs (`./any-console run`) or a custom service environment — not with `./any-console start`, which does not pass your shell environment to the systemd/launchd service.
+Authentication can be disabled only with `ANY_CONSOLE_DISABLE_AUTH=1` in the server process environment. This is intended for disposable local development and tests, not managed services or closed-network production use. For normal Tailscale deployments, keep token + device-cookie authentication enabled.
 
 ## Agent hooks (optional)
 
@@ -161,7 +141,7 @@ curl -X POST https://<your-device>.ts.net/dispatch \
   }'
 ```
 
-By default (`direct: false`), the request waits in an approval queue — open it from Settings > Dispatches, or via a push notification if enabled. Only after a human approves does the text actually get sent. Set `"direct": true` to skip the queue and run immediately (not allowed for scoped dispatch tokens, see below).
+The request always waits in an approval queue — open it from Settings > Dispatches, or via a push notification if enabled. Only after a human approves does the text actually get sent. The old `"direct": true` immediate-execution mode is no longer supported.
 
 Key fields on the request body (`server/src/dispatch.rs`):
 
@@ -171,10 +151,9 @@ Key fields on the request body (`server/src/dispatch.rs`):
 | `job` | Job key to launch (default: `terminal`) |
 | `text` | Text to send to the session (e.g. a shell command) |
 | `branch` | Checkout this branch before running (rejected with 400 if the workspace has uncommitted changes and the branch differs from the current one) |
-| `direct` | `true` = run immediately, skip the approval queue (default: `false`) |
 | `dedup_key` | Opaque string; a new request with the same key replaces the still-pending one instead of queuing a duplicate (useful for repeated CI-failure dispatches) |
 
-For CI/automation, use a **scoped dispatch token** instead of your main token — create one from Settings > Auth > API Tokens. It can only queue dispatch requests (`direct: true` is rejected) and cannot approve queue items or access anything else, so a leaked CI secret can't be used to run arbitrary commands on its own.
+For CI/automation, use a **scoped dispatch token** instead of your main token — create one from Settings > Auth > API Tokens. It can only queue dispatch requests and cannot approve queue items or access anything else, so a leaked CI secret can't be used to run arbitrary commands on its own.
 
 ## HTTPS
 
@@ -183,20 +162,20 @@ PWA installation and service workers require HTTPS.
 **Tailscale Serve** is the easiest option — it handles certificates automatically:
 
 ```bash
-tailscale serve --bg / proxy http://127.0.0.1:8888
+tailscale serve --bg http://127.0.0.1:8888
 ```
 
 Access the app at `https://<your-device>.ts.net/`.
 
-**Direct TLS** (the server terminates HTTPS itself) is also supported:
+The any-console server itself listens over HTTP. If you need another HTTPS setup, put a reverse proxy such as Caddy or nginx in front of `http://127.0.0.1:8888`.
+
+Direct-port dev server previews can still use HTTPS. `./any-console https-setup` issues a Tailscale certificate and stores it for the preview proxy, so URLs such as `https://<device>:12001/` can work even when the main app is served through Tailscale Serve:
 
 ```bash
 ./any-console https-setup
 ```
 
-This issues a certificate for your tailnet hostname via `tailscale cert`, saves it under `certs/`, records the paths in `config.json`, and refreshes the registered service. Tailscale certificates expire after ~90 days — re-run the command to renew.
-
-Without Tailscale, place a `<name>.crt` + `<name>.key` pair under `certs/` (auto-discovered at startup), or set the `SSL_CERTFILE` / `SSL_KEYFILE` environment variables. As with the auth variables above, environment variables only work where they reach the server process — foreground runs (`./any-console run`) or a service unit you edited yourself, not `./any-console start`.
+This does not make the main any-console port HTTPS. It only provides certificates to the preview proxy. Tailscale certificates expire after ~90 days — re-run the command to renew.
 
 The default port is 8888. To change it, set `__global__.port` in `config.json`.
 
@@ -213,7 +192,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console status       Show status (service state, URL, version)
 ./any-console logs         Show service logs          (journalctl / log file)
 ./any-console run          Run in foreground (no service; any OS)
-./any-console https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)
+./any-console https-setup  Issue / renew a Tailscale cert for direct-port dev previews
 ./any-console uninstall    Remove the service registration, optionally clean up files
 ./any-console version      Show version
 ```

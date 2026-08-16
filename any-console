@@ -369,10 +369,12 @@ do_https_setup() {
   fi
 
   info "  Hostname: $hostname"
-  mkdir -p certs
+  local data_dir
+  data_dir="$("$RUST_BIN" paths data-dir)"
+  mkdir -p "$data_dir/certs"
   local cert_path key_path
-  cert_path="$SCRIPT_DIR/certs/$hostname.crt"
-  key_path="$SCRIPT_DIR/certs/$hostname.key"
+  cert_path="$data_dir/certs/$hostname.crt"
+  key_path="$data_dir/certs/$hostname.key"
 
   info "  Issuing certificate via Tailscale (sudo required)..."
   if ! sudo tailscale cert --cert-file "$cert_path" --key-file "$key_path" "$hostname"; then
@@ -382,7 +384,7 @@ do_https_setup() {
   sudo chown "$USER" "$cert_path" "$key_path" 2>/dev/null || true
 
   "$RUST_BIN" config set-ssl "$cert_path" "$key_path"
-  info "  HTTPS configured: https://${hostname}:$(get_port)"
+  info "  Preview HTTPS certificate configured for $hostname"
 
   if is_service_installed; then
     info "  Updating service with SSL env vars..."
@@ -390,12 +392,12 @@ do_https_setup() {
   fi
 
   echo ""
-  warn "  Note: cert expires in ~90 days. Re-run './any-console https-setup' to renew."
+  warn "  Note: cert expires in ~90 days. Re-run './any-console https-setup' to renew preview HTTPS."
 }
 
 # 登録済みサービスのユニット定義（ExecStart 等）を作り直す。ExecStart の
-# バイナリパスや env が変わった（例: Rust バイナリの再ビルド、SSL 証明書の
-# 更新）だけでは既存のユニット定義は自動更新されないため、update/https-setup
+# バイナリパスや env が変わった（例: Rust バイナリの再ビルド、preview用SSL
+# 証明書の更新）だけでは既存のユニット定義は自動更新されないため、update/https-setup
 # から明示的に呼ぶ。呼び出し前に稼働中だった場合のみ再起動する
 # （明示的に stop されているサービスを勝手に起動し直さない）。
 reinstall_service_and_restart_if_active() {
@@ -428,22 +430,23 @@ prompt_https_setup() {
   if ! command -v tailscale >/dev/null 2>&1; then
     echo "  Tailscale not detected — HTTPS setup will be skipped."
     echo "  HTTP works fine for trying any-console out from a browser."
-    echo "  Install Tailscale and run './any-console https-setup' later to enable PWA install."
+    echo "  Install Tailscale and use Tailscale Serve to enable PWA install."
     return 0
   fi
 
   if [ -z "$(tailscale_hostname)" ]; then
     echo "  Tailscale daemon not reachable — skipping HTTPS setup."
-    echo "  Run 'tailscale up' first, then './any-console https-setup'."
+    echo "  Run 'tailscale up' first, then configure Tailscale Serve."
     return 0
   fi
 
-  echo "  HTTPS is only required if you want to install any-console as a PWA on phones."
-  echo "  HTTP works fine from any browser including phones — feel free to skip and try first."
+  echo "  Tailscale Serve is the recommended way to expose any-console over HTTPS."
+  echo "  The local any-console server itself listens over HTTP."
+  echo "  './any-console https-setup' only prepares certificates for direct-port dev previews."
   echo ""
-  read -rp "Set up HTTPS via Tailscale now? [Y/n] " answer
-  if [[ "$answer" =~ ^[Nn]$ ]]; then
-    info "  Skipped (run './any-console https-setup' anytime to enable)"
+  read -rp "Set up preview HTTPS certificates via Tailscale now? [y/N] " answer
+  if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+    info "  Skipped (run './any-console https-setup' anytime to enable preview HTTPS)"
     return 0
   fi
   do_https_setup
@@ -616,9 +619,9 @@ cmd_setup() {
   fi
 
   echo ""
-  info "Optional: HTTPS via Tailscale"
+  info "Optional: preview HTTPS certificates"
   if [ "$non_interactive" -eq 1 ]; then
-    info "  Non-interactive: skipped (run './any-console https-setup' later)"
+    info "  Non-interactive: skipped (run './any-console https-setup' later if needed)"
   else
     prompt_https_setup
   fi
@@ -912,15 +915,13 @@ cmd_status() {
   fi
 
   local proto="http" ts_host url
-  has_https && proto="https"
   ts_host=$(tailscale_hostname 2>/dev/null || echo "")
-  if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
-    url="${proto}://${ts_host}:$(get_port)"
-  else
-    url="${proto}://localhost:$(get_port)"
-  fi
+  url="${proto}://localhost:$(get_port)"
   echo "  Version: $(get_version)"
   echo "  URL: $url"
+  if [ -n "$ts_host" ]; then
+    echo "  Tailscale Serve: tailscale serve --bg http://127.0.0.1:$(get_port)"
+  fi
   echo "  Directory: $SCRIPT_DIR"
 }
 
@@ -1006,25 +1007,23 @@ cmd_run() {
   check_deps
   local bin
   bin="$(rust_binary)"
-  local proto="http" ts_host url
   if has_https; then
     export SSL_CERTFILE="$(get_ssl_certfile)"
     export SSL_KEYFILE="$(get_ssl_keyfile)"
-    proto="https"
   fi
+  local proto="http" ts_host url
   ts_host=$(tailscale_hostname 2>/dev/null || echo "")
-  if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
-    url="${proto}://${ts_host}:$(get_port)"
-  else
-    url="${proto}://localhost:$(get_port)"
-  fi
+  url="${proto}://localhost:$(get_port)"
   info "Starting any-console in the foreground (Ctrl+C to stop)"
   echo "  URL: $url"
+  if [ -n "$ts_host" ]; then
+    echo "  Tailscale Serve: tailscale serve --bg http://127.0.0.1:$(get_port)"
+  fi
   exec "$bin"
 }
 
 cmd_https_setup() {
-  info "=== HTTPS setup ==="
+  info "=== Preview HTTPS certificate setup ==="
   do_https_setup
 }
 
@@ -1066,7 +1065,7 @@ usage() {
   echo "  status       Show service state, URL, version"
   echo "  logs         Tail service logs (journalctl / log file)"
   echo "  run          Run in foreground (no service; any OS)"
-  echo "  https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)"
+  echo "  https-setup  Issue / renew a Tailscale cert for direct-port dev previews"
   echo "  hooks-setup  Register Claude Code hooks (~/.claude/settings.json) for accurate/instant status"
   echo "  uninstall    Remove service registration and optionally clean up files"
   echo "  version      Print version"

@@ -136,7 +136,7 @@ pub async fn run_terminal_job(
         .create_registered_session(
             &state.paths.data_dir,
             &state.config,
-            state.tls_active,
+            &state.paths.project_root,
             &state.paths.tmux_prefix,
             ws_path.as_ref().map(|p| p.to_string_lossy()).as_deref(),
             body.workspace.clone(),

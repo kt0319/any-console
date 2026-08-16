@@ -105,21 +105,14 @@ pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
 /// tmux セッションへ注入する hook 用環境変数（失敗時は空 — そのセッションでは
 /// hooks が無効になるだけでセッション生成自体は妨げない）。
 ///
-/// URL のスキームは実際の listen 状態（`AppState::tls_active`）に合わせる
-/// （Codex レビュー指摘: 常に `http://` 固定だと、サーバが HTTPS で listen して
-/// いる環境では平文リクエストが弾かれ、hooks からの状態更新が一切届かない）。
-/// 証明書ファイルの有無で判定してはならない — 証明書はあるが読み込みに失敗
-/// した場合、サーバは平文 bind へフォールバックするため、ファイル基準だと
-/// hook URL だけが https になり同じ「hooks が届かない」状態が再発する。
 fn hook_session_env(
     data_dir: &Path,
     config: &ConfigStore,
-    tls_active: bool,
+    _project_root: &Path,
     tmux_session_name: &str,
 ) -> Vec<(String, String)> {
     let (host, port) = resolve_effective_bind(config);
     let host = connect_bind_host(&host);
-    let scheme = if tls_active { "https" } else { "http" };
     vec![
         (
             "ANY_CONSOLE_SESSION".to_string(),
@@ -127,7 +120,7 @@ fn hook_session_env(
         ),
         (
             "ANY_CONSOLE_HOOK_URL".to_string(),
-            format!("{scheme}://{host}:{port}/agent-hooks/events"),
+            format!("http://{host}:{port}/agent-hooks/events"),
         ),
         (
             "ANY_CONSOLE_HOOK_TOKEN".to_string(),
@@ -179,7 +172,7 @@ async fn run_session_cmd(
 pub async fn create_tmux_session(
     data_dir: &Path,
     config: &ConfigStore,
-    tls_active: bool,
+    project_root: &Path,
     workspace_path: Option<&str>,
     session_name: &str,
 ) -> std::io::Result<()> {
@@ -198,7 +191,12 @@ pub async fn create_tmux_session(
     if let Some(ws) = workspace_path {
         env.push(("WORKSPACE".to_string(), ws.to_string()));
     }
-    env.extend(hook_session_env(data_dir, config, tls_active, session_name));
+    env.extend(hook_session_env(
+        data_dir,
+        config,
+        project_root,
+        session_name,
+    ));
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();
@@ -622,26 +620,19 @@ mod tests {
         assert!(!t1.is_empty());
     }
 
-    /// ANY_CONSOLE_HOOK_URL のスキームは実際の listen 状態（tls_active）に
-    /// 従って http:// / https:// が切り替わる（サーバがTLSでlistenしている
-    /// 環境で平文リクエストが弾かれhooksが届かなくなる問題の回帰防止）。
     #[test]
-    fn hook_session_env_url_scheme_follows_tls_active() {
+    fn hook_session_env_url_scheme_is_http() {
         let dir = tempfile::tempdir().unwrap();
         let data_dir = dir.path().join("data");
         let config = ConfigStore::new(dir.path().join("config.json"));
 
-        let hook_url = |tls_active: bool| {
-            hook_session_env(&data_dir, &config, tls_active, "ac-sess")
-                .into_iter()
-                .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
-                .map(|(_, v)| v)
-                .unwrap()
-        };
-        let url = hook_url(false);
+        let env = hook_session_env(&data_dir, &config, dir.path(), "ac-sess");
+        let url = env
+            .iter()
+            .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
+            .map(|(_, v)| v.clone())
+            .unwrap();
         assert!(url.starts_with("http://"), "expected http://, got {url}");
-        let url = hook_url(true);
-        assert!(url.starts_with("https://"), "expected https://, got {url}");
     }
 
     #[tokio::test]
@@ -653,7 +644,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let name = format!("ac-test-{}", crate::util::token_hex(4));
 
-        create_tmux_session(dir.path(), &config, false, None, &name)
+        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
             .await
             .expect("session should be created");
         assert!(crate::subprocess::tmux_session_exists(&name).await);
@@ -700,7 +691,7 @@ mod tests {
         let session_id = "s1";
         let name = format!("{prefix}{session_id}");
 
-        create_tmux_session(dir.path(), &config, false, None, &name)
+        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
             .await
             .expect("session should be created");
         assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);

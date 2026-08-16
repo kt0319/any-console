@@ -79,4 +79,37 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
 
     expect(sent).toEqual(["\x1b[5~", "\x1b[6~"]);
   });
+
+  it("Wheel / Scroll の特殊操作は別経路で xterm scrollback を動かす", () => {
+    const config = useCircleKeyPadConfigStore();
+    config.specials = [
+      { label: "Wheel Up", action: "terminal:wheelUp", payload: null },
+      { label: "Wheel Down", action: "terminal:wheelDown", payload: null },
+      { label: "Scroll Up", action: "terminal:scrollUp", payload: null },
+      { label: "Scroll Down", action: "terminal:scrollDown", payload: null },
+    ];
+    const scrollLines = vi.fn();
+    const wheelEvents = [];
+    const element = document.createElement("div");
+    element.addEventListener("wheel", (event) => {
+      wheelEvents.push({
+        deltaMode: event.deltaMode,
+        deltaY: event.deltaY,
+      });
+    });
+    const tab = { term: { element, scrollLines } };
+
+    const pad = useCircleKeyPad();
+    for (const idx of [0, 1, 2, 3]) {
+      pad.open(0, 0);
+      pad.state.activeId = `special:${idx}`;
+      pad.commitAndClose(tab);
+    }
+
+    expect(wheelEvents).toEqual([
+      { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY: -80 },
+      { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY: 80 },
+    ]);
+    expect(scrollLines.mock.calls).toEqual([[-20], [20]]);
+  });
 });

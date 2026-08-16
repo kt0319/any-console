@@ -192,8 +192,8 @@ function openPhonePairing() {
 
 async function showHttpsInstructions() {
   await confirm(
-    "Run \"./any-console https-setup\" on the server (via SSH) to issue a Tailscale HTTPS certificate. "
-    + "HTTPS is required for installing this as an app and for push notifications.",
+    "Run \"tailscale serve --bg / proxy http://127.0.0.1:8888\" on the server to expose any-console over HTTPS. "
+    + "Use your configured port if you changed it. HTTPS is required for installing this as an app and for push notifications.",
     { ok: { label: "Got it" } },
   );
 }

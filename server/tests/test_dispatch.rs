@@ -280,12 +280,8 @@ async fn dispatch_requires_auth() {
 }
 
 #[tokio::test]
-async fn direct_dispatch_creates_session_and_sends_push() {
-    if common::skip_if_no_tmux() {
-        return;
-    }
+async fn direct_dispatch_is_rejected() {
     let front = spawn_front().await;
-    let mut rx = front.state.status_stream.tx.subscribe();
     let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
@@ -293,29 +289,12 @@ async fn direct_dispatch_creates_session_and_sends_push() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.status(), 400);
     let body: Value = resp.json().await.unwrap();
-    assert_eq!(body["status"], "ok");
-    assert_eq!(body["created"], true);
-    let session_id = body["session_id"].as_str().unwrap().to_string();
-
-    assert!(wait_for(|| !front.push_calls.lock().unwrap().is_empty()).await);
-    let received = front.push_calls.lock().unwrap()[0].clone();
-    assert_eq!(received.content_encoding, "aes128gcm");
-    assert!(received.authorization.starts_with("vapid t="));
-    assert!(
-        received.body_len > 16 + 4 + 1 + 65,
-        "should include ECE header + ciphertext"
+    assert_eq!(
+        body["detail"],
+        "Direct dispatch execution is no longer supported; submit to the approval queue instead"
     );
-
-    // session_created が status stream 購読者へネイティブ配信される
-    // （session_watch::notify_session_created）。
-    let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "session_created").await;
-    assert_eq!(broadcast["session_id"], session_id);
-
-    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
-    assert!(any_console_server::subprocess::tmux_session_exists(&full_name).await);
-    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }
 
 #[tokio::test]
@@ -332,7 +311,7 @@ async fn scoped_token_direct_dispatch_rejected() {
     let body: Value = resp.json().await.unwrap();
     assert_eq!(
         body["detail"],
-        "Direct execution is not allowed for dispatch token"
+        "Direct dispatch execution is no longer supported; submit to the approval queue instead"
     );
 }
 
@@ -372,6 +351,15 @@ async fn queued_dispatch_then_decision_approve_launches_session() {
     // キューへの挿入が status stream 購読者へネイティブ配信される。
     let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "dispatch_queue").await;
     assert_eq!(broadcast["items"][0]["id"], dispatch_id);
+
+    assert!(wait_for(|| !front.push_calls.lock().unwrap().is_empty()).await);
+    let received = front.push_calls.lock().unwrap()[0].clone();
+    assert_eq!(received.content_encoding, "aes128gcm");
+    assert!(received.authorization.starts_with("vapid t="));
+    assert!(
+        received.body_len > 16 + 4 + 1 + 65,
+        "should include ECE header + ciphertext"
+    );
 
     let resp = common::client()
         .post(format!(
@@ -765,7 +753,19 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
     let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
-        .json(&json!({"workspace": "proj", "direct": true}))
+        .json(&json!({"workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"approved": true}))
         .send()
         .await
         .unwrap();
@@ -776,7 +776,19 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
     let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
-        .json(&json!({"workspace": "proj", "direct": true, "text": "echo direct-reuse-text"}))
+        .json(&json!({"workspace": "proj", "text": "echo direct-reuse-text"}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"approved": true}))
         .send()
         .await
         .unwrap();
@@ -812,7 +824,19 @@ async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
     let resp = common::client()
         .post(format!("http://{}/dispatch", front.addr))
         .bearer_auth(TOKEN)
-        .json(&json!({"workspace": "proj", "direct": true}))
+        .json(&json!({"workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"approved": true}))
         .send()
         .await
         .unwrap();
@@ -833,10 +857,21 @@ async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
         .bearer_auth(TOKEN)
         .json(&json!({
             "workspace": "proj",
-            "direct": true,
             "session_id": session_id,
             "text": "echo cold-session-reuse",
         }))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"approved": true}))
         .send()
         .await
         .unwrap();

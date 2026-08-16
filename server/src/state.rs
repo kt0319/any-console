@@ -43,10 +43,6 @@ pub struct AppState {
     pub auth: Auth,
     pub rate_counter: FixedWindowCounter,
     pub rate_limit: u32,
-    /// 本体 bind が実際に TLS 終端しているか（起動時に証明書の読み込みまで
-    /// 成功した場合のみ true）。hook URL のスキームなど「実際に listen して
-    /// いるスキーム」に合わせたい箇所はファイルの有無でなくこれを参照する。
-    pub tls_active: bool,
 }
 
 /// テスト用の AppState を tempdir 配下の隔離パスで組み立てる（各モジュールの
@@ -80,10 +76,9 @@ pub fn test_app_state(dir: &std::path::Path, tmux_prefix: &str, rate_limit: u32)
         pairing: PairingState::new(),
         push: PushState::new(),
         static_ctx: None,
-        auth: Auth::load(data_dir, false),
+        auth: Auth::load(data_dir),
         rate_counter: FixedWindowCounter::new(),
         rate_limit,
-        tls_active: false,
     }
 }
 

@@ -145,18 +145,17 @@ fn should_scan_now(state: &PreviewState) -> bool {
 
 // ─── TLS 証明書探索 ──────────────────────────────────────────────────────────
 //
-// `main.rs` の本体 bind（HTTPS 終端）と preview proxy（dev server への TLS
-// 終端）の両方から共有される。証明書探索規則は Python 版 `SSL_CERTFILE`/
-// `SSL_KEYFILE` env var → `certs/*.crt`+`.key` の優先順位と同一。
+// preview proxy（dev server への TLS 終端）で使う証明書探索。`SSL_CERTFILE`/
+// `SSL_KEYFILE` env var → `data/certs/*.crt`+`.key` の優先順位で探す。
 
-pub fn find_cert_pair(project_root: &Path) -> Option<(PathBuf, PathBuf)> {
+pub fn find_cert_pair(data_dir: &Path) -> Option<(PathBuf, PathBuf)> {
     if let (Ok(cert), Ok(key)) = (std::env::var("SSL_CERTFILE"), std::env::var("SSL_KEYFILE")) {
         let (cert, key) = (PathBuf::from(cert), PathBuf::from(key));
         if cert.is_file() && key.is_file() {
             return Some((cert, key));
         }
     }
-    let cert_dir = project_root.join("certs");
+    let cert_dir = data_dir.join("certs");
     let Ok(entries) = std::fs::read_dir(&cert_dir) else {
         return None;
     };
@@ -180,23 +179,9 @@ pub fn load_tls_server_config(
     key: &Path,
 ) -> Option<Arc<tokio_rustls::rustls::ServerConfig>> {
     use tokio_rustls::rustls;
-    // 失敗パスは必ず warn を出す — 無警告で None（= 平文 bind へのフォール
-    // バック）になると、証明書一式は存在するのに HTTPS が有効化されない
-    // 原因をログから追えなくなる。
-    let cert_pem = match std::fs::read(cert) {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::warn!("TLS disabled: cert read failed {}: {e}", cert.display());
-            return None;
-        }
-    };
-    let key_pem = match std::fs::read(key) {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::warn!("TLS disabled: key read failed {}: {e}", key.display());
-            return None;
-        }
-    };
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let cert_pem = std::fs::read(cert).ok()?;
+    let key_pem = std::fs::read(key).ok()?;
     let certs: Vec<_> = rustls_pemfile::certs(&mut cert_pem.as_slice())
         .filter_map(|r| r.ok())
         .collect();
@@ -205,13 +190,12 @@ pub fn load_tls_server_config(
         return None;
     }
     let private_key = match rustls_pemfile::private_key(&mut key_pem.as_slice()) {
-        Ok(Some(k)) => k,
+        Ok(Some(key)) => key,
         Ok(None) => {
-            tracing::warn!("TLS disabled: no private key found in {}", key.display());
             return None;
         }
         Err(e) => {
-            tracing::warn!("TLS disabled: key parse failed {}: {e}", key.display());
+            tracing::warn!("TLS disabled: key load failed: {e}");
             return None;
         }
     };
@@ -235,18 +219,18 @@ pub fn load_tls_server_config(
     }
 }
 
-fn preview_tls_config(state: &PreviewState, project_root: &Path) -> TlsConfig {
+fn preview_tls_config(state: &PreviewState, data_dir: &Path) -> TlsConfig {
     state
         .tls
         .get_or_init(|| {
-            let (cert, key) = find_cert_pair(project_root)?;
+            let (cert, key) = find_cert_pair(data_dir)?;
             load_tls_server_config(&cert, &key)
         })
         .clone()
 }
 
-fn preview_scheme(state: &PreviewState, project_root: &Path) -> &'static str {
-    if preview_tls_config(state, project_root).is_some() {
+fn preview_scheme(state: &PreviewState, data_dir: &Path) -> &'static str {
+    if preview_tls_config(state, data_dir).is_some() {
         "https"
     } else {
         "http"
@@ -513,7 +497,7 @@ pub async fn scan_once(state: &Arc<AppState>) {
         lookups.insert(port, (cwd, workspace, worktree_base, worktree_branch));
     }
 
-    let scheme_now = preview_scheme(preview, &state.paths.project_root);
+    let scheme_now = preview_scheme(preview, &state.paths.data_dir);
     {
         let mut detected = preview.detected.lock().expect("detected lock poisoned");
         for (port, (proc, pid)) in &live {
@@ -716,7 +700,7 @@ async fn handle_proxy_conn(client: TcpStream, target_port: u16, tls: TlsConfig) 
 /// 次回の reconcile で再試行される）。listen は 0.0.0.0（全インターフェース。
 /// Tailscale IP 経由でも開ける）。
 async fn start_proxy(state: &Arc<AppState>, target_port: u16, proxy_port: u16) {
-    let tls = preview_tls_config(&state.preview, &state.paths.project_root);
+    let tls = preview_tls_config(&state.preview, &state.paths.data_dir);
     let listener = match TcpListener::bind((PROXY_BIND_HOST, proxy_port)).await {
         Ok(l) => l,
         Err(e) => {
@@ -983,17 +967,54 @@ mod tests {
         LOCK.get_or_init(|| Mutex::new(()))
     }
 
+    struct CertEnvGuard {
+        cert: Option<String>,
+        key: Option<String>,
+    }
+
+    impl CertEnvGuard {
+        fn clear() -> Self {
+            let guard = Self {
+                cert: std::env::var("SSL_CERTFILE").ok(),
+                key: std::env::var("SSL_KEYFILE").ok(),
+            };
+            unsafe {
+                std::env::remove_var("SSL_CERTFILE");
+                std::env::remove_var("SSL_KEYFILE");
+            }
+            guard
+        }
+    }
+
+    impl Drop for CertEnvGuard {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.cert {
+                    Some(v) => std::env::set_var("SSL_CERTFILE", v),
+                    None => std::env::remove_var("SSL_CERTFILE"),
+                }
+                match &self.key {
+                    Some(v) => std::env::set_var("SSL_KEYFILE", v),
+                    None => std::env::remove_var("SSL_KEYFILE"),
+                }
+            }
+        }
+    }
+
     #[test]
     fn find_cert_pair_prefers_env_over_certs_dir() {
-        let _guard = cert_pair_env_lock().lock().unwrap();
+        let _guard = cert_pair_env_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let _env = CertEnvGuard::clear();
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("env.crt"), b"cert").unwrap();
         std::fs::write(dir.path().join("env.key"), b"key").unwrap();
-        std::env::set_var("SSL_CERTFILE", dir.path().join("env.crt"));
-        std::env::set_var("SSL_KEYFILE", dir.path().join("env.key"));
+        unsafe {
+            std::env::set_var("SSL_CERTFILE", dir.path().join("env.crt"));
+            std::env::set_var("SSL_KEYFILE", dir.path().join("env.key"));
+        }
         let found = find_cert_pair(dir.path());
-        std::env::remove_var("SSL_CERTFILE");
-        std::env::remove_var("SSL_KEYFILE");
         assert_eq!(
             found,
             Some((dir.path().join("env.crt"), dir.path().join("env.key")))
@@ -1002,7 +1023,10 @@ mod tests {
 
     #[test]
     fn find_cert_pair_falls_back_to_certs_dir() {
-        let _guard = cert_pair_env_lock().lock().unwrap();
+        let _guard = cert_pair_env_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let _env = CertEnvGuard::clear();
         let dir = tempfile::tempdir().unwrap();
         let certs_dir = dir.path().join("certs");
         std::fs::create_dir(&certs_dir).unwrap();
@@ -1016,7 +1040,10 @@ mod tests {
 
     #[test]
     fn find_cert_pair_none_when_key_missing() {
-        let _guard = cert_pair_env_lock().lock().unwrap();
+        let _guard = cert_pair_env_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let _env = CertEnvGuard::clear();
         let dir = tempfile::tempdir().unwrap();
         let certs_dir = dir.path().join("certs");
         std::fs::create_dir(&certs_dir).unwrap();
@@ -1026,7 +1053,10 @@ mod tests {
 
     #[test]
     fn find_cert_pair_none_when_certs_dir_missing() {
-        let _guard = cert_pair_env_lock().lock().unwrap();
+        let _guard = cert_pair_env_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let _env = CertEnvGuard::clear();
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(find_cert_pair(dir.path()), None);
     }
@@ -1038,13 +1068,28 @@ mod tests {
 
     /// openssl が無い実行環境ではスキップする（CI/開発機には通常入っている）。
     fn generate_self_signed_cert(cert: &Path, key: &Path) -> bool {
+        let key_ok = std::process::Command::new("openssl")
+            .args([
+                "ecparam",
+                "-name",
+                "prime256v1",
+                "-genkey",
+                "-noout",
+                "-out",
+                key.to_str().unwrap(),
+            ])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if !key_ok {
+            return false;
+        }
         std::process::Command::new("openssl")
             .args([
                 "req",
                 "-x509",
-                "-newkey",
-                "rsa:2048",
-                "-keyout",
+                "-new",
+                "-key",
                 key.to_str().unwrap(),
                 "-out",
                 cert.to_str().unwrap(),
@@ -1053,6 +1098,8 @@ mod tests {
                 "-nodes",
                 "-subj",
                 "/CN=localhost",
+                "-addext",
+                "subjectAltName=DNS:localhost",
             ])
             .output()
             .map(|o| o.status.success())
@@ -1066,7 +1113,7 @@ mod tests {
         // （本番は main.rs の起動直後に一度だけ実行 — ここではテスト用に模する）。
         static INIT: std::sync::Once = std::sync::Once::new();
         INIT.call_once(|| {
-            let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
+            let _ = tokio_rustls::rustls::crypto::aws_lc_rs::default_provider().install_default();
         });
         let dir = tempfile::tempdir().unwrap();
         let cert = dir.path().join("test.crt");
@@ -1313,6 +1360,7 @@ mod tests {
     #[tokio::test]
     async fn start_proxy_pipes_data_bidirectionally() {
         let (state, _dir) = test_state();
+        let _ = state.preview.tls.set(None);
         let up_port = free_port();
         let up_listener = tokio::net::TcpListener::bind(("127.0.0.1", up_port))
             .await

@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.ts";
+import { CIRCLE_KEYPAD_SPECIAL_PRESETS, defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.ts";
 import { EP_SETTINGS_CIRCLE_KEYPAD } from "../utils/endpoints.ts";
 import { createServerSettings } from "../utils/server-settings.ts";
 
@@ -31,11 +31,17 @@ function sanitizeKeys(keys: any): CircleKeypadKeyDef[] {
 
 function sanitizeSpecials(specials: any): CircleKeypadSpecialDef[] {
   if (!Array.isArray(specials) || specials.length !== 4) return defaultSpecialDefs();
-  return specials.map((s: any) => ({
-    label: typeof s?.label === "string" ? s.label : "",
-    action: typeof s?.action === "string" ? s.action : "",
-    payload: s?.payload && typeof s.payload === "object" ? s.payload : null,
-  }));
+  return specials.map((s: any) => {
+    const action = typeof s?.action === "string" ? s.action : "";
+    const payload = s?.payload && typeof s.payload === "object" ? s.payload : null;
+    const preset = CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) =>
+      p.action === action
+      && JSON.stringify(p.payload || null) === JSON.stringify(payload)
+    );
+    return preset
+      ? { label: preset.label, action: preset.action, payload: preset.payload || null }
+      : { label: "", action: "", payload: null };
+  });
 }
 
 export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", () => {

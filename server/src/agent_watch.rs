@@ -1015,7 +1015,7 @@ mod collect_agent_states_tests {
             .create_registered_session(
                 &state.paths.data_dir,
                 &state.config,
-                state.tls_active,
+                &state.paths.project_root,
                 &state.paths.tmux_prefix,
                 workspace_path,
                 workspace.map(str::to_string),
@@ -1383,10 +1383,13 @@ mod collect_agent_states_tests {
         let mut tracker = PhraseNotifyTracker::new();
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
         // 固定sleep + 単発pollは、CI等の低速環境ではtmuxのpane_current_command
-        // がまだ旧シェルのままのタイミングに引っかかり稀に落ちていた
-        // （flaky）。foregroundがsleepへ実際に切り替わるまでポーリングする。
+        // がまだ旧シェルのままのタイミングに引っかかり稀に落ちていた（flaky）。
+        // foregroundがsleepへ実際に切り替わるまでポーリングする。新規シェルの
+        // プロンプト初期化（同期的な外部コマンド呼び出しを含むテーマ等）が
+        // 遅い環境では切り替わりに数秒かかることがあるため、20回=2秒では
+        // 足りず稀に落ちていた。150回=15秒まで許容する。
         let mut tagged = false;
-        for i in 0..20 {
+        for i in 0..150 {
             collect_agent_states(
                 &state,
                 &store,

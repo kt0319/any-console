@@ -574,7 +574,7 @@ fn get_disk() -> Option<String> {
     ))
 }
 
-async fn get_tailscale_info(trust_enabled: bool, tls_active: bool) -> Option<Value> {
+async fn get_tailscale_info() -> Option<Value> {
     let version_out = run_cmd_safe(&["tailscale", "version"], SYSTEM_CMD_TIMEOUT_SEC, None).await?;
     let version = version_out.lines().next().map(str::trim).unwrap_or("");
     if version.is_empty() {
@@ -588,23 +588,9 @@ async fn get_tailscale_info(trust_enabled: bool, tls_active: bool) -> Option<Val
             };
             truthy(d.get("TCP")) || truthy(d.get("Web"))
         });
-    // 本体 bind が実際に TLS 終端しているか（SSL_CERTFILE/SSL_KEYFILE 環境変数
-    // 経由に加え certs/ 自動探索で有効化された場合も反映する）。
-    let https_enabled = tls_active;
-    // 自動認証は「Tailscale経由の接続元だけ信頼する」判定が本体（auth.rs 参照）。
-    // Serve が動いていない状態で有効化されていると偽装経路を防げているか確認
-    // しづらいため要確認。無効ならこのリスク自体が無いため安全。
-    let auth_config_safe = if !trust_enabled {
-        true
-    } else {
-        serve_running.unwrap_or(false) && https_enabled
-    };
     Some(json!({
         "version": version,
         "serve_running": serve_running,
-        "https_enabled": https_enabled,
-        "trust_auth_enabled": trust_enabled,
-        "auth_config_safe": auth_config_safe,
     }))
 }
 
@@ -663,7 +649,7 @@ pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Jso
     if let Some(v) = get_disk() {
         info.insert("disk".into(), Value::String(v));
     }
-    if let Some(v) = get_tailscale_info(state.auth.trust_tailscale(), state.tls_active).await {
+    if let Some(v) = get_tailscale_info().await {
         info.insert("tailscale".into(), v);
     }
     let gh_user = gh_auth_user().await;

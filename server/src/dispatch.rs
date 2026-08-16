@@ -2,8 +2,9 @@
 //!
 //! 外部から「workspace + job + テキスト」を1回のリクエストで投げて、既存セッション
 //! 再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、text の tmux 送信までを
-//! 行う。既定（direct: false）では承認キューへ積んで即座に 202 を返し、実行は
-//! `/dispatch/{id}/decision` からの承認だけが担う。
+//! 行う。`POST /dispatch` は承認キューへ積んで即座に 202 を返し、実行は
+//! `/dispatch/{id}/decision` からの承認だけが担う。旧 `direct: true` の即時実行は
+//! セキュリティモデルを単純にするため拒否する。
 //!
 //! **設計判断**: 新規作成セッションに予約するテキスト（`pending_text`）は Python
 //! 版がインメモリで保持していたが、Rust 版は tmux 環境変数
@@ -62,17 +63,8 @@ impl DispatchState {
     }
 }
 
-/// Python の legacy パス規則: `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下、
-/// 指定時は隔離ディレクトリ配下（`common.py` の `DISPATCH_QUEUE_FILE`/`_RECENT_FILE`）。
 fn dispatch_state_file(paths: &Paths, filename: &str) -> PathBuf {
-    let isolated = std::env::var("ANY_CONSOLE_DATA_DIR")
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false);
-    if isolated {
-        paths.data_dir.join(filename)
-    } else {
-        paths.project_root.join(filename)
-    }
+    paths.data_dir.join(filename)
 }
 
 fn queue_file(paths: &Paths) -> PathBuf {
@@ -457,7 +449,7 @@ async fn create_session(
         .create_registered_session(
             &state.paths.data_dir,
             &state.config,
-            state.tls_active,
+            &state.paths.project_root,
             &state.paths.tmux_prefix,
             ws_path.map(|p| p.to_string_lossy()).as_deref(),
             Some(workspace.to_string()),
@@ -668,7 +660,7 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
     }
 }
 
-// ─── 認証（POST /dispatch 専用: メイン/Tailscale/デバイス + dispatch scope token）─
+// ─── 認証（POST /dispatch 専用: メイン/デバイス + dispatch scope token）─
 
 /// (auth_label, is_scoped_token)。
 async fn verify_dispatch_auth(
@@ -685,7 +677,7 @@ async fn verify_dispatch_auth(
         return Ok(match result.kind {
             AuthKind::Disabled => ("disabled".to_string(), false),
             AuthKind::Main => ("main".to_string(), false),
-            AuthKind::Tailscale | AuthKind::Device => (result.label, false),
+            AuthKind::Device => (result.label, false),
         });
     }
     if let Some(entry) = state.auth.verify_and_touch_api_token(bearer) {
@@ -726,7 +718,7 @@ pub async fn dispatch(
 /// ケース）からも、メイントークン相当（`is_scoped_token=false`）で直接呼ばれる
 /// （Python 版が `dispatch(req, (auth_label, False))` と関数呼び出しで再利用
 /// していたのと同じ構造）。
-/// dispatch 実行成功時の activity 記録（direct 実行と承認後実行で共用する定型）。
+/// dispatch 実行成功時の activity 記録（承認後実行と rerun 実行で共用する定型）。
 fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
     crate::activity::log_activity(
         &state.paths.data_dir,
@@ -751,9 +743,9 @@ async fn dispatch_core(
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
 
-    if body.direct && is_scoped_token {
+    if body.direct {
         return Err(bad_request(
-            "Direct execution is not allowed for dispatch token",
+            "Direct dispatch execution is no longer supported; submit to the approval queue instead",
         ));
     }
     if is_scoped_token {
@@ -798,13 +790,6 @@ async fn dispatch_core(
             None,
         );
     };
-
-    if body.direct {
-        notify_push(state);
-        let result = launch(state, &body).await?;
-        log_dispatch_executed(state, &result, auth_label);
-        return Ok(Json(result).into_response());
-    }
 
     let (dispatch_id, retry_count, should_notify) = resolve_dedup_and_insert(
         state,

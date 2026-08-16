@@ -10,10 +10,6 @@ dist/
 # Coverage
 coverage/
 
-# vitest happy-dom 環境で globalThis.localStorage を有効化するための Node ネイティブ
-# localStorage バッキングファイル（--localstorage-file、tests/ui/test_workspace_store.js 等が使う）
-.vitest-localstorage*
-
 # Playwright E2E artifacts
 playwright-report/
 test-results/
@@ -26,8 +22,6 @@ logs/
 config.json
 config.bak
 config.lock
-dispatch_queue.json
-dispatch_recent.json
 /data/
 
 # Environment

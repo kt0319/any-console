@@ -378,12 +378,7 @@ pub async fn claim_pairing(
         "ok": true, "device_id": device_id, "name": name, "auth_required": true,
     }))
     .into_response();
-    crate::devices::set_device_cookies(
-        response.headers_mut(),
-        state.tls_active,
-        &device_id,
-        &raw_secret,
-    );
+    crate::devices::set_device_cookies(response.headers_mut(), &headers, &device_id, &raw_secret);
     Ok(response)
 }
 

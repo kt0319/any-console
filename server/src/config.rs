@@ -532,35 +532,6 @@ impl ConfigStore {
         };
         (host, port)
     }
-
-    /// 認証無効化フラグ（環境変数が優先）。
-    #[allow(dead_code)]
-    pub fn auth_disabled(&self) -> bool {
-        if std::env::var("ANY_CONSOLE_DISABLE_AUTH")
-            .map(|v| v.trim() == "1")
-            .unwrap_or(false)
-        {
-            return true;
-        }
-        matches!(
-            self.load_global_section("auth_disabled"),
-            Some(Value::Bool(true))
-        )
-    }
-
-    /// Tailscale ヘッダ信頼の opt-in（環境変数が優先）。
-    pub fn trust_tailscale_auth(&self) -> bool {
-        if std::env::var("ANY_CONSOLE_TRUST_TAILSCALE_AUTH")
-            .map(|v| v.trim() == "1")
-            .unwrap_or(false)
-        {
-            return true;
-        }
-        matches!(
-            self.load_global_section("trust_tailscale_auth"),
-            Some(Value::Bool(true))
-        )
-    }
 }
 
 #[cfg(test)]

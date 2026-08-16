@@ -8,7 +8,6 @@
 //! ライターになった。
 
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
 use axum::extract::{ConnectInfo, State};
@@ -21,7 +20,6 @@ use crate::util::now_epoch;
 
 pub const COOKIE_DEVICE_ID: &str = "any_console_device";
 pub const COOKIE_DEVICE_SECRET: &str = "any_console_secret";
-pub const TAILSCALE_HEADER_USER: &str = "tailscale-user-login";
 
 /// スコープ付き API トークン（v1: "dispatch" のみ）。将来 GitHub Actions 等の外部
 /// 連携から /dispatch を呼ぶ際、全 API を解錠するメイントークンをそのまま渡さない
@@ -38,7 +36,6 @@ const API_TOKEN_LAST_USED_THROTTLE_SEC: i64 = 60;
 pub enum AuthKind {
     Disabled,
     Main,
-    Tailscale,
     Device,
 }
 
@@ -101,28 +98,6 @@ pub(crate) fn constant_time_eq(a: &str, b: &str) -> bool {
     a.ct_eq(b).into()
 }
 
-/// Tailscale ヘッダを信頼してよい接続元か（loopback のみ）。
-///
-/// `tailscale-user-login` ヘッダを正当に付与するのは同一ホストの Tailscale
-/// Serve だけで、Serve は loopback 経由でこのプロセスへ転送する。かつては
-/// CGNAT 帯（100.64.0.0/10）も信頼していたが、その範囲は tailnet の他端末の
-/// アドレス空間そのものであり、`0.0.0.0` bind（既定）で tailnet IP へ直接
-/// 到達できる構成では、共有 tailnet 上の他端末が任意のヘッダを付けるだけで
-/// 認証をバイパスできてしまう（ADR 20 の Context (2)）ため loopback に限定
-/// した。192.168.x や public IP は従来どおり信頼しない。
-pub fn is_trusted_proxy_source(client_host: &str) -> bool {
-    if client_host.is_empty() {
-        return false;
-    }
-    if matches!(client_host, "127.0.0.1" | "::1" | "localhost") {
-        return true;
-    }
-    match client_host.parse::<IpAddr>() {
-        Ok(ip) => ip.is_loopback(),
-        Err(_) => false,
-    }
-}
-
 #[derive(Debug, Default)]
 struct TokenCache {
     token: String,
@@ -132,12 +107,12 @@ struct TokenCache {
 
 pub struct Auth {
     data_dir: PathBuf,
+    disable_auth: bool,
     /// メイントークンのキャッシュ。auth.json の mtime が変わったら読み直す —
     /// トークンのローテーションや CLI 等の別プロセスによる書き換えがあっても
     /// 古いトークンで固まらないようにする。空文字は認証無効化
     /// （auth.json 不在 or token 未設定）。
     cache: std::sync::Mutex<TokenCache>,
-    trust_tailscale: bool,
     /// devices.json の排他制御（`devices.rs` の関数群と共有する）。
     devices: crate::devices::DevicesState,
     /// auth.json への書き込み（メイントークンのローテーション・api_tokens の
@@ -147,20 +122,17 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn load(data_dir: PathBuf, trust_tailscale: bool) -> Self {
+    pub fn load(data_dir: PathBuf) -> Self {
+        let disable_auth = std::env::var("ANY_CONSOLE_DISABLE_AUTH")
+            .map(|v| v.trim() == "1")
+            .unwrap_or(false);
         Self {
             data_dir,
+            disable_auth,
             cache: std::sync::Mutex::new(TokenCache::default()),
-            trust_tailscale,
             devices: crate::devices::DevicesState::new(),
             auth_file_lock: std::sync::Mutex::new(()),
         }
-    }
-
-    /// Tailscale ヘッダ信頼の opt-in 状態（起動時に確定 — Python 側のキャッシュと同じ
-    /// く、変更の反映には再起動が必要）。
-    pub fn trust_tailscale(&self) -> bool {
-        self.trust_tailscale
     }
 
     /// 現在のメイントークン。auth.json の mtime を毎回 stat し、変化時のみ再読込する。
@@ -172,6 +144,9 @@ impl Auth {
     /// リグレッションになる）。起動直後の初回ロード自体が失敗する場合のみ、
     /// Python 版と同じくファイル不在時と同様の「無効化」扱いにする。
     pub(crate) fn current_token(&self) -> String {
+        if self.disable_auth {
+            return String::new();
+        }
         let path = self.data_dir.join("auth.json");
         let mtime = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
         let mut cache = self.cache.lock().expect("auth cache lock poisoned");
@@ -210,7 +185,7 @@ impl Auth {
     }
 
     /// 認証判定のコア（HTTP / WS 共通）。判定順は Python `_authenticate` と同一:
-    /// 無効化 → Tailscale ヘッダ → デバイス cookie → Bearer token。
+    /// 無効化 → デバイス cookie → Bearer token。
     ///
     /// デバイス cookie 認証は `devices::verify_and_touch_device` に委譲する
     /// （devices.json の read-modify-write を `DevicesState` の Mutex で
@@ -230,21 +205,7 @@ impl Auth {
                 label: String::new(),
             });
         }
-        if let Some(headers) = headers {
-            if self.trust_tailscale && is_trusted_proxy_source(client_host) {
-                let user = headers
-                    .get(TAILSCALE_HEADER_USER)
-                    .and_then(|v| v.to_str().ok())
-                    .map(str::trim)
-                    .unwrap_or("");
-                if !user.is_empty() {
-                    return Some(AuthResult {
-                        kind: AuthKind::Tailscale,
-                        label: format!("tailscale:{user}"),
-                    });
-                }
-            }
-        }
+        let _ = (client_host, headers);
         if let Some(cookies) = cookies {
             let id = cookies
                 .get(COOKIE_DEVICE_ID)
@@ -566,10 +527,10 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
 }
 
 /// WebSocket 接続用の認証チェック（Python `verify_ws_token` 相当）。
-/// クエリパラメータの token・Tailscale ヘッダ・デバイス cookie のいずれかで
-/// 認証できれば `Some(AuthResult)`（`terminal.rs`/`status_stream.rs` の
-/// WS ハンドシェイクで使う）。`status_stream.rs` は `AuthResult::device_id()`
-/// で「どの端末からの接続か」を push 通知の抑制判定に使う。
+/// クエリパラメータの token・デバイス cookie のいずれかで認証できれば
+/// `Some(AuthResult)`（`terminal.rs`/`status_stream.rs` の WS ハンドシェイクで使う）。
+/// `status_stream.rs` は `AuthResult::device_id()` で「どの端末からの接続か」を
+/// push 通知の抑制判定に使う。
 pub fn verify_ws_token(
     state: &crate::state::AppState,
     token: &str,
@@ -598,55 +559,8 @@ pub fn parse_cookies(headers: &http::HeaderMap) -> HashMap<String, String> {
 
 // ─── /auth/check・/auth/logout（`api/main.py` の同名ハンドラの移植）───────────
 
-/// device cookie が無ければデバイスを登録して cookie を発行する
-/// （`api/main.py` `_autoregister_device`）。cookie に既に有効な device が
-/// あればそれを再利用する（`authenticate` の Tailscale 分岐は device cookie を
-/// 見ないため、ここで別途チェックしないと Tailscale ログインのたびに新規
-/// デバイスが増殖してしまう）。
-fn autoregister_device(
-    state: &crate::state::AppState,
-    request_headers: &http::HeaderMap,
-    cookies: &HashMap<String, String>,
-    response_headers: &mut http::HeaderMap,
-    source: &str,
-) -> Option<Value> {
-    let id = cookies
-        .get(COOKIE_DEVICE_ID)
-        .map(String::as_str)
-        .unwrap_or("");
-    let secret = cookies
-        .get(COOKIE_DEVICE_SECRET)
-        .map(String::as_str)
-        .unwrap_or("");
-    if let Some(existing) = crate::devices::verify_and_touch_device(
-        &state.paths.data_dir,
-        state.auth.devices(),
-        id,
-        secret,
-    ) {
-        return Some(crate::devices::strip_secret_hash(existing));
-    }
-    let ua = request_headers
-        .get(http::header::USER_AGENT)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    let name = crate::devices::autoname_from_user_agent(ua);
-    let (device_id, raw_secret) = crate::devices::find_or_register_device(
-        &state.paths.data_dir,
-        state.auth.devices(),
-        &name,
-        ua,
-        source,
-    );
-    crate::devices::set_device_cookies(response_headers, state.tls_active, &device_id, &raw_secret);
-    crate::devices::get_device(&state.paths.data_dir, &device_id)
-}
-
 /// `GET /auth/check`。フロントエンドの起動時セッション確認（トークン/デバイス
-/// cookie/Tailscale ヘッダのいずれかで認証できればログイン状態とみなす）。
-///
-/// 注意: GET だが冪等ではない — Tailscale 経路では `autoregister_device` により
-/// devices.json への新規デバイス登録と Set-Cookie を行う。
+/// cookie のいずれかで認証できればログイン状態とみなす）。
 pub async fn auth_check(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
@@ -664,38 +578,25 @@ pub async fn auth_check(
         .authenticate(bearer, &client_ip, Some(&headers), Some(&cookies))
         .ok_or_else(|| crate::errors::unauthorized("Invalid token"))?;
 
-    let mut extra_headers = http::HeaderMap::new();
-    let (auth_method, tailscale_user, device) = match result.kind {
-        AuthKind::Tailscale => {
-            let user = result
-                .label
-                .strip_prefix("tailscale:")
-                .unwrap_or("")
-                .to_string();
-            let device =
-                autoregister_device(&state, &headers, &cookies, &mut extra_headers, "tailscale");
-            ("tailscale", Some(user), device)
-        }
+    let (auth_method, device) = match result.kind {
         AuthKind::Device => {
             let device_id = result.device_id().unwrap_or("");
             let device = crate::devices::get_device(&state.paths.data_dir, device_id);
-            ("device", None, device)
+            ("device", device)
         }
-        AuthKind::Main => ("token", None, None),
-        AuthKind::Disabled => ("disabled", None, None),
+        AuthKind::Main => ("token", None),
+        AuthKind::Disabled => ("disabled", None),
     };
 
     let commit_date = crate::system::get_app_commit_date(&state.paths.project_root).await;
-    let mut response = Json(json!({
+    let response = Json(json!({
         "status": "ok",
         "hostname": crate::system::hostname(),
         "commit_date": commit_date,
         "auth_method": auth_method,
-        "tailscale_user": tailscale_user,
         "device": device,
     }))
     .into_response();
-    response.headers_mut().extend(extra_headers);
     Ok(response)
 }
 
@@ -727,13 +628,13 @@ mod tests {
 
     fn setup(dir: &tempfile::TempDir, token: &str) -> Auth {
         save_json_file(&dir.path().join("auth.json"), &json!({"token": token})).unwrap();
-        Auth::load(dir.path().to_path_buf(), false)
+        Auth::load(dir.path().to_path_buf())
     }
 
     #[test]
     fn no_token_means_disabled() {
         let dir = tempfile::tempdir().unwrap();
-        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let auth = Auth::load(dir.path().to_path_buf());
         let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
@@ -758,7 +659,7 @@ mod tests {
         // 認証全体が無効化されてしまう回帰があった。
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 123})).unwrap();
-        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let auth = Auth::load(dir.path().to_path_buf());
         let r = auth.authenticate("123", "1.2.3.4", None, None).unwrap();
         assert_eq!(r.kind, AuthKind::Main);
         // 無関係な bearer や空文字では通らない（無認証化していないことの確認）。
@@ -808,7 +709,7 @@ mod tests {
         // 後退ではない）。
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
-        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let auth = Auth::load(dir.path().to_path_buf());
         let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
@@ -829,7 +730,7 @@ mod tests {
         // Python 側は 0 のような falsy な数値は "" 扱いになる（token 未設定と同じ）。
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 0})).unwrap();
-        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let auth = Auth::load(dir.path().to_path_buf());
         let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
@@ -857,50 +758,16 @@ mod tests {
     }
 
     #[test]
-    fn tailscale_header_requires_optin_and_trusted_source() {
+    fn tailscale_header_is_ignored() {
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": "t"})).unwrap();
         let mut headers = http::HeaderMap::new();
-        headers.insert(TAILSCALE_HEADER_USER, "alice@example.com".parse().unwrap());
+        headers.insert("tailscale-user-login", "alice@example.com".parse().unwrap());
 
-        // opt-in 無し → ヘッダは無視され認証失敗
-        let auth = Auth::load(dir.path().to_path_buf(), false);
+        let auth = Auth::load(dir.path().to_path_buf());
         assert!(auth
             .authenticate("", "127.0.0.1", Some(&headers), None)
             .is_none());
-
-        // opt-in 有り + loopback → tailscale 認証
-        let auth = Auth::load(dir.path().to_path_buf(), true);
-        let r = auth
-            .authenticate("", "127.0.0.1", Some(&headers), None)
-            .unwrap();
-        assert_eq!(r.kind, AuthKind::Tailscale);
-        assert_eq!(r.label, "tailscale:alice@example.com");
-
-        // opt-in 有りでも信頼できない接続元 → 失敗
-        assert!(auth
-            .authenticate("", "192.168.1.5", Some(&headers), None)
-            .is_none());
-        // CGNAT 帯（tailnet 他端末）もヘッダを偽装できるため失敗
-        assert!(auth
-            .authenticate("", "100.100.1.2", Some(&headers), None)
-            .is_none());
-    }
-
-    #[test]
-    fn trusted_source_ranges() {
-        assert!(is_trusted_proxy_source("127.0.0.1"));
-        assert!(is_trusted_proxy_source("::1"));
-        assert!(is_trusted_proxy_source("localhost"));
-        // CGNAT 帯（tailnet 他端末のアドレス空間）はヘッダを偽装できるため
-        // 信頼しない — Serve の転送は必ず loopback から届く。
-        assert!(!is_trusted_proxy_source("100.64.0.1"));
-        assert!(!is_trusted_proxy_source("100.127.255.254"));
-        assert!(!is_trusted_proxy_source("100.128.0.1"));
-        assert!(!is_trusted_proxy_source("100.63.255.255"));
-        assert!(!is_trusted_proxy_source("192.168.1.1"));
-        assert!(!is_trusted_proxy_source(""));
-        assert!(!is_trusted_proxy_source("not-an-ip"));
     }
 
     #[test]

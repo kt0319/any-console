@@ -427,8 +427,9 @@ Rust front に向けた Playwright 全 E2E スペックで検証済み。
   シェルクォート含む・コメント行除去・NUL 拒否・自動実行コマンドの send-keys）を移行
 - `dispatch.rs`: `POST /dispatch`・`/dispatch/{id}/decision`・`/dispatch/{id}/rerun`
   を移行。承認待ちキュー（`_PENDING`/`_RECENT` 相当）は `DispatchState`（`AppState`
-  に保持）で管理し、`dispatch_queue.json`/`dispatch_recent.json`（Python と同一の
-  legacy パス規則 — `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下）へ永続化。
+  に保持）で管理し、`dispatch_queue.json`/`dispatch_recent.json`
+  （2026-08 に `data_dir` 直下へ統一。旧 Python legacy パス規則 —
+  `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下 — は廃止）へ永続化。
   起動時に読み込んで Python 側 status stream（ブリッジ経由・Phase 4 完了後は
   実際には到達しない）へ初期スナップショットを送る
   （`load_persisted_and_seed_bridge`、`main.rs` から起動時に一度だけ呼ぶ）。
@@ -759,6 +760,19 @@ TLS 越しでも壊れていないことの実地検証）。証明書なしの�
 全 E2E 53 スペック中 52 成功（ss 制限のみ既知失敗）で回帰無しを確認。
 `load_tls_server_config` 自体のユニットテスト（正常系・不正 PEM・ファイル
 欠落）も `preview.rs` に追加した。
+
+**Update (2026-08)**: 本体公開ポートでの direct TLS 終端は削除し、
+`any-console-server` は常に HTTP で listen する方針に戻した。HTTPS は Tailscale
+Serve / reverse proxy に任せる。`SSL_CERTFILE` / `SSL_KEYFILE` と `certs/`
+探索は direct-port dev server preview proxy（例: `https://<device>:12001/`）
+のために `preview.rs` 側へ残す。
+
+**Update (2026-08)**: `certs/` はリポジトリ直下から `data/certs/` へ移した。
+サーバが読み書きする永続ファイルは `paths.rs` の `data_dir` 経由で組み立てる
+という既存ルール（`ANY_CONSOLE_DATA_DIR` による E2E 隔離を効かせるため）に
+証明書探索だけが従っていなかったための整理。`find_cert_pair` は
+`project_root` ではなく `data_dir` を受け取るようになり、`./any-console
+https-setup` も `"$RUST_BIN" paths data-dir` で解決した先へ証明書を書き出す。
 
 ### ランチャーの Rust 単独起動への切替 — **完了**
 
