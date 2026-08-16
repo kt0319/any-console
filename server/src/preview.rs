@@ -146,16 +146,16 @@ fn should_scan_now(state: &PreviewState) -> bool {
 // ─── TLS 証明書探索 ──────────────────────────────────────────────────────────
 //
 // preview proxy（dev server への TLS 終端）で使う証明書探索。`SSL_CERTFILE`/
-// `SSL_KEYFILE` env var → `certs/*.crt`+`.key` の優先順位で探す。
+// `SSL_KEYFILE` env var → `data/certs/*.crt`+`.key` の優先順位で探す。
 
-pub fn find_cert_pair(project_root: &Path) -> Option<(PathBuf, PathBuf)> {
+pub fn find_cert_pair(data_dir: &Path) -> Option<(PathBuf, PathBuf)> {
     if let (Ok(cert), Ok(key)) = (std::env::var("SSL_CERTFILE"), std::env::var("SSL_KEYFILE")) {
         let (cert, key) = (PathBuf::from(cert), PathBuf::from(key));
         if cert.is_file() && key.is_file() {
             return Some((cert, key));
         }
     }
-    let cert_dir = project_root.join("certs");
+    let cert_dir = data_dir.join("certs");
     let Ok(entries) = std::fs::read_dir(&cert_dir) else {
         return None;
     };
@@ -219,18 +219,18 @@ pub fn load_tls_server_config(
     }
 }
 
-fn preview_tls_config(state: &PreviewState, project_root: &Path) -> TlsConfig {
+fn preview_tls_config(state: &PreviewState, data_dir: &Path) -> TlsConfig {
     state
         .tls
         .get_or_init(|| {
-            let (cert, key) = find_cert_pair(project_root)?;
+            let (cert, key) = find_cert_pair(data_dir)?;
             load_tls_server_config(&cert, &key)
         })
         .clone()
 }
 
-fn preview_scheme(state: &PreviewState, project_root: &Path) -> &'static str {
-    if preview_tls_config(state, project_root).is_some() {
+fn preview_scheme(state: &PreviewState, data_dir: &Path) -> &'static str {
+    if preview_tls_config(state, data_dir).is_some() {
         "https"
     } else {
         "http"
@@ -497,7 +497,7 @@ pub async fn scan_once(state: &Arc<AppState>) {
         lookups.insert(port, (cwd, workspace, worktree_base, worktree_branch));
     }
 
-    let scheme_now = preview_scheme(preview, &state.paths.project_root);
+    let scheme_now = preview_scheme(preview, &state.paths.data_dir);
     {
         let mut detected = preview.detected.lock().expect("detected lock poisoned");
         for (port, (proc, pid)) in &live {
@@ -700,7 +700,7 @@ async fn handle_proxy_conn(client: TcpStream, target_port: u16, tls: TlsConfig) 
 /// 次回の reconcile で再試行される）。listen は 0.0.0.0（全インターフェース。
 /// Tailscale IP 経由でも開ける）。
 async fn start_proxy(state: &Arc<AppState>, target_port: u16, proxy_port: u16) {
-    let tls = preview_tls_config(&state.preview, &state.paths.project_root);
+    let tls = preview_tls_config(&state.preview, &state.paths.data_dir);
     let listener = match TcpListener::bind((PROXY_BIND_HOST, proxy_port)).await {
         Ok(l) => l,
         Err(e) => {

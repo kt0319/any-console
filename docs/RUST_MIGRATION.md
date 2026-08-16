@@ -766,6 +766,13 @@ Serve / reverse proxy に任せる。`SSL_CERTFILE` / `SSL_KEYFILE` と `certs/`
 探索は direct-port dev server preview proxy（例: `https://<device>:12001/`）
 のために `preview.rs` 側へ残す。
 
+**Update (2026-08)**: `certs/` はリポジトリ直下から `data/certs/` へ移した。
+サーバが読み書きする永続ファイルは `paths.rs` の `data_dir` 経由で組み立てる
+という既存ルール（`ANY_CONSOLE_DATA_DIR` による E2E 隔離を効かせるため）に
+証明書探索だけが従っていなかったための整理。`find_cert_pair` は
+`project_root` ではなく `data_dir` を受け取るようになり、`./any-console
+https-setup` も `"$RUST_BIN" paths data-dir` で解決した先へ証明書を書き出す。
+
 ### ランチャーの Rust 単独起動への切替 — **完了**
 
 **背景**: 上記2節（proxy 撤去・TLS 移設）により Rust が Python 無しで全機能を

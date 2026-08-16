@@ -71,7 +71,7 @@ cd ~/.any-console && ./any-console setup
 
 For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
 
-To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/`, `config.json`, and `certs/` untouched. `./any-console update` does the same thing: it downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
+To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/` (including `certs/`) and `config.json` untouched. `./any-console update` does the same thing: it downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
 
 ### Requirements
 

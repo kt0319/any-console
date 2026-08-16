@@ -369,10 +369,12 @@ do_https_setup() {
   fi
 
   info "  Hostname: $hostname"
-  mkdir -p certs
+  local data_dir
+  data_dir="$("$RUST_BIN" paths data-dir)"
+  mkdir -p "$data_dir/certs"
   local cert_path key_path
-  cert_path="$SCRIPT_DIR/certs/$hostname.crt"
-  key_path="$SCRIPT_DIR/certs/$hostname.key"
+  cert_path="$data_dir/certs/$hostname.crt"
+  key_path="$data_dir/certs/$hostname.key"
 
   info "  Issuing certificate via Tailscale (sudo required)..."
   if ! sudo tailscale cert --cert-file "$cert_path" --key-file "$key_path" "$hostname"; then
