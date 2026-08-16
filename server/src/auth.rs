@@ -101,10 +101,15 @@ pub(crate) fn constant_time_eq(a: &str, b: &str) -> bool {
     a.ct_eq(b).into()
 }
 
-/// Tailscale ヘッダを信頼してよい接続元か（loopback または CGNAT 100.64.0.0/10）。
+/// Tailscale ヘッダを信頼してよい接続元か（loopback のみ）。
 ///
-/// 192.168.x や public IP は Tailscale 経由ではない経路なので、これらの接続元から
-/// 送られたヘッダは偽装の可能性があり信頼してはならない。
+/// `tailscale-user-login` ヘッダを正当に付与するのは同一ホストの Tailscale
+/// Serve だけで、Serve は loopback 経由でこのプロセスへ転送する。かつては
+/// CGNAT 帯（100.64.0.0/10）も信頼していたが、その範囲は tailnet の他端末の
+/// アドレス空間そのものであり、`0.0.0.0` bind（既定）で tailnet IP へ直接
+/// 到達できる構成では、共有 tailnet 上の他端末が任意のヘッダを付けるだけで
+/// 認証をバイパスできてしまう（ADR 20 の Context (2)）ため loopback に限定
+/// した。192.168.x や public IP は従来どおり信頼しない。
 pub fn is_trusted_proxy_source(client_host: &str) -> bool {
     if client_host.is_empty() {
         return false;
@@ -113,15 +118,7 @@ pub fn is_trusted_proxy_source(client_host: &str) -> bool {
         return true;
     }
     match client_host.parse::<IpAddr>() {
-        Ok(IpAddr::V4(v4)) => {
-            let o = v4.octets();
-            if v4.is_loopback() {
-                return true;
-            }
-            // 100.64.0.0/10: 第1オクテット 100、第2オクテット 64..=127
-            o[0] == 100 && (64..=127).contains(&o[1])
-        }
-        Ok(IpAddr::V6(v6)) => v6.is_loopback(),
+        Ok(ip) => ip.is_loopback(),
         Err(_) => false,
     }
 }
@@ -641,7 +638,7 @@ fn autoregister_device(
         ua,
         source,
     );
-    crate::devices::set_device_cookies(response_headers, request_headers, &device_id, &raw_secret);
+    crate::devices::set_device_cookies(response_headers, state.tls_active, &device_id, &raw_secret);
     crate::devices::get_device(&state.paths.data_dir, &device_id)
 }
 
@@ -884,10 +881,10 @@ mod tests {
         assert!(auth
             .authenticate("", "192.168.1.5", Some(&headers), None)
             .is_none());
-        // CGNAT 帯は信頼
+        // CGNAT 帯（tailnet 他端末）もヘッダを偽装できるため失敗
         assert!(auth
             .authenticate("", "100.100.1.2", Some(&headers), None)
-            .is_some());
+            .is_none());
     }
 
     #[test]
@@ -895,8 +892,10 @@ mod tests {
         assert!(is_trusted_proxy_source("127.0.0.1"));
         assert!(is_trusted_proxy_source("::1"));
         assert!(is_trusted_proxy_source("localhost"));
-        assert!(is_trusted_proxy_source("100.64.0.1"));
-        assert!(is_trusted_proxy_source("100.127.255.254"));
+        // CGNAT 帯（tailnet 他端末のアドレス空間）はヘッダを偽装できるため
+        // 信頼しない — Serve の転送は必ず loopback から届く。
+        assert!(!is_trusted_proxy_source("100.64.0.1"));
+        assert!(!is_trusted_proxy_source("100.127.255.254"));
         assert!(!is_trusted_proxy_source("100.128.0.1"));
         assert!(!is_trusted_proxy_source("100.63.255.255"));
         assert!(!is_trusted_proxy_source("192.168.1.1"));

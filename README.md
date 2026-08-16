@@ -109,7 +109,7 @@ When any-console is served through [Tailscale Serve](https://tailscale.com/kb/13
 
 The `ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1` environment variable also enables it, but only where the environment actually reaches the server process — foreground runs (`ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1 ./any-console run`) or a service unit you edited yourself. `./any-console start` delegates to systemd/launchd, which does **not** inherit your shell environment, so prefer `config.json` for the managed service.
 
-> **Security note:** only enable this if requests reach any-console *exclusively* via Tailscale Serve / tailnet peers. The header check trusts loopback and tailnet (CGNAT) source addresses, so any *other* tunnel or reverse proxy on the same host (`ssh -L`, `cloudflared`, nginx, etc.) would let its clients forge the header and bypass authentication entirely. If you use any non-Tailscale proxy in front of any-console, leave this off — token + device-cookie auth works fine over Tailscale too.
+> **Security note:** only enable this if requests reach any-console *exclusively* via Tailscale Serve. The header check trusts loopback source addresses only (where Tailscale Serve forwards from), so tailnet peers connecting directly cannot forge the header — but any *other* tunnel or reverse proxy on the same host (`ssh -L`, `cloudflared`, nginx, etc.) would let its clients forge the header and bypass authentication entirely. If you use any non-Tailscale proxy in front of any-console, leave this off — token + device-cookie auth works fine over Tailscale too.
 
 A restart is required for changes to take effect.
 
