@@ -361,15 +361,6 @@ pub fn get_device(data_dir: &Path, device_id: &str) -> Option<Value> {
 
 // ─── cookie ヘルパー ─────────────────────────────────────────────────────────
 
-/// 本番運用では Tailscale Serve が TLS を終端して plain HTTP でこのプロセスへ
-/// 転送するため（README の HTTPS セットアップ参照）、Python 版が
-/// `request.url.scheme` で判定していたのと同じく、アプリ自身が直接 TLS を
-/// 終端しない限り常に non-secure 扱いになる（Python 版も本番では
-/// `--proxy-headers` を使わないため同じ挙動）。
-fn cookie_is_secure(_headers: &HeaderMap) -> bool {
-    false
-}
-
 fn set_cookie_header(name: &str, value: &str, max_age_sec: i64, secure: bool) -> HeaderValue {
     let mut cookie =
         format!("{name}={value}; Max-Age={max_age_sec}; Path=/; HttpOnly; SameSite=Strict");
@@ -379,13 +370,17 @@ fn set_cookie_header(name: &str, value: &str, max_age_sec: i64, secure: bool) ->
     HeaderValue::from_str(&cookie).unwrap_or_else(|_| HeaderValue::from_static(""))
 }
 
+/// `secure` は本体 bind が直接 TLS 終端しているか（`AppState::tls_active`）。
+/// Tailscale Serve 構成では Serve が TLS を終端して plain HTTP でこのプロセスへ
+/// 転送するため non-secure のままになる（Python 版が `request.url.scheme` で
+/// 判定していたのと同じ挙動）。自前 TLS 終端時のみ Secure を付与し、平文
+/// 経路への cookie 送出を防ぐ。
 pub fn set_device_cookies(
     headers: &mut HeaderMap,
-    request_headers: &HeaderMap,
+    secure: bool,
     device_id: &str,
     raw_secret: &str,
 ) {
-    let secure = cookie_is_secure(request_headers);
     headers.append(
         header::SET_COOKIE,
         set_cookie_header(COOKIE_DEVICE_ID, device_id, COOKIE_MAX_AGE_SEC, secure),
@@ -462,7 +457,12 @@ pub async fn register(
         "ok": true, "device_id": device_id, "name": name, "auth_required": true,
     }))
     .into_response();
-    set_device_cookies(response.headers_mut(), &headers, &device_id, &raw_secret);
+    set_device_cookies(
+        response.headers_mut(),
+        state.tls_active,
+        &device_id,
+        &raw_secret,
+    );
     Ok(response)
 }
 
@@ -725,8 +725,7 @@ mod tests {
     #[test]
     fn set_and_clear_device_cookies_produce_expected_headers() {
         let mut headers = HeaderMap::new();
-        let request_headers = HeaderMap::new();
-        set_device_cookies(&mut headers, &request_headers, "dev_1", "raw-secret");
+        set_device_cookies(&mut headers, false, "dev_1", "raw-secret");
         let cookies: Vec<&str> = headers
             .get_all(header::SET_COOKIE)
             .iter()
@@ -738,6 +737,13 @@ mod tests {
         ));
         assert!(!cookies[0].contains("Secure"));
         assert!(cookies[1].starts_with("any_console_secret=raw-secret;"));
+
+        // 直接 TLS 終端時（tls_active）は両 cookie に Secure が付く。
+        let mut secure_headers = HeaderMap::new();
+        set_device_cookies(&mut secure_headers, true, "dev_1", "raw-secret");
+        for v in secure_headers.get_all(header::SET_COOKIE) {
+            assert!(v.to_str().unwrap().ends_with("; Secure"));
+        }
 
         let mut clear_headers = HeaderMap::new();
         clear_device_cookies(&mut clear_headers);
