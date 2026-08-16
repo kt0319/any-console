@@ -668,7 +668,7 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
     }
 }
 
-// ─── 認証（POST /dispatch 専用: メイン/Tailscale/デバイス + dispatch scope token）─
+// ─── 認証（POST /dispatch 専用: メイン/デバイス + dispatch scope token）─
 
 /// (auth_label, is_scoped_token)。
 async fn verify_dispatch_auth(
@@ -685,7 +685,7 @@ async fn verify_dispatch_auth(
         return Ok(match result.kind {
             AuthKind::Disabled => ("disabled".to_string(), false),
             AuthKind::Main => ("main".to_string(), false),
-            AuthKind::Tailscale | AuthKind::Device => (result.label, false),
+            AuthKind::Device => (result.label, false),
         });
     }
     if let Some(entry) = state.auth.verify_and_touch_api_token(bearer) {

@@ -87,7 +87,7 @@ async fn main() {
             paths.frontend_dir.display()
         );
     }
-    let auth = Auth::load(paths.data_dir.clone(), config.trust_tailscale_auth());
+    let auth = Auth::load(paths.data_dir.clone());
 
     let state = Arc::new(AppState {
         paths: paths.clone(),

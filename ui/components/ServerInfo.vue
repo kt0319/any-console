@@ -164,7 +164,6 @@ const row = (label, value) => ({ label, values: [value] });
 
 function formatAuth(auth) {
   if (!auth) return "-";
-  if (auth.auth_method === "tailscale") return `Tailscale (${auth.tailscale_user})`;
   if (auth.auth_method === "device") return `Device (${auth.device?.name || "unknown"})`;
   if (auth.auth_method === "token") return "Token";
   if (auth.auth_method === "disabled") return "Disabled";
@@ -172,19 +171,11 @@ function formatAuth(auth) {
 }
 const mapProcess = (p) => ({ label: p.name, pid: p.pid, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
 
-function yesNoUnknown(v) {
-  if (v === null || v === undefined) return "Unknown";
-  return v ? "Yes" : "No";
-}
-
 function tailscaleRows(ts) {
   if (!ts) return [];
   return [
     row("Version", ts.version),
     row("Serve", ts.serve_running === null ? "Unknown" : (ts.serve_running ? "Running" : "Not running")),
-    row("HTTPS", yesNoUnknown(ts.https_enabled)),
-    row("Auto-auth", ts.trust_auth_enabled ? "Enabled" : "Disabled"),
-    row("Auth config", !ts.trust_auth_enabled ? "N/A" : (ts.auth_config_safe ? "Safe" : "Review needed")),
   ];
 }
 

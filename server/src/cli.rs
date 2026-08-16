@@ -575,7 +575,7 @@ fn cmd_auth_ensure_token() {
         return;
     }
     let token = crate::util::token_urlsafe(24);
-    crate::auth::Auth::load(data_dir, false).update_token(&token);
+    crate::auth::Auth::load(data_dir).update_token(&token);
     println!("{token}");
 }
 

@@ -76,7 +76,7 @@ pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
         pairing: any_console_server::pairing::PairingState::new(),
         push: any_console_server::push::PushState::new(),
         static_ctx: opts.static_ctx,
-        auth: Auth::load(data_dir, false),
+        auth: Auth::load(data_dir),
         rate_counter: FixedWindowCounter::new(),
         rate_limit: opts.rate_limit,
     })

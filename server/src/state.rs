@@ -76,7 +76,7 @@ pub fn test_app_state(dir: &std::path::Path, tmux_prefix: &str, rate_limit: u32)
         pairing: PairingState::new(),
         push: PushState::new(),
         static_ctx: None,
-        auth: Auth::load(data_dir, false),
+        auth: Auth::load(data_dir),
         rate_counter: FixedWindowCounter::new(),
         rate_limit,
     }

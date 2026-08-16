@@ -317,11 +317,6 @@ fn global_specs() -> Vec<FieldSpec> {
             default: Value::Number(0.into()),
             kind: FieldKind::Int,
         },
-        FieldSpec {
-            key: "trust_tailscale_auth",
-            default: Value::Bool(false),
-            kind: FieldKind::Bool,
-        },
     ]
 }
 

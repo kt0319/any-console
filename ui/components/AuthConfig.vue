@@ -18,7 +18,7 @@
         <div class="settings-toggle-copy">
           <span class="settings-item-label">Require token authentication</span>
           <span class="settings-note">
-            Protect access with a Bearer token. Tailscale can skip it only if trust_tailscale_auth is enabled in config.json.
+            Protect access with a Bearer token. Signed-in devices can continue with their device cookie.
           </span>
         </div>
       </label>
