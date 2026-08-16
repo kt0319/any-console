@@ -43,22 +43,34 @@ detail=$(printf '%s' "$stdin_json" | sed -n 's/.*"message"[[:space:]]*:[[:space:
 body="{\"session\":\"$ANY_CONSOLE_SESSION\",\"event\":\"$event\",\"detail\":\"$detail\"}"
 
 (
-  # ANY_CONSOLE_HOOK_URL は常に http:// で組み立てられる（server/src/tmux.rs
-  # hook_session_env）が、サーバがTLSを有効化している環境では素のHTTPは
-  # 弾かれて繋がらない。まずそのまま試し、失敗したらhttpsへ切り替えて
-  # 同じloopback宛てに再試行する（loopback接続なので証明書のホスト名検証は
-  # -kでスキップする）。
-  https_url=$(printf '%s' "$ANY_CONSOLE_HOOK_URL" | sed 's#^http:#https:#')
-  curl -s -m 3 -X POST "$ANY_CONSOLE_HOOK_URL" \
-    -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "$body" \
-    >/dev/null 2>&1 ||
-    curl -sk -m 3 -X POST "$https_url" \
-      -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d "$body" \
-      >/dev/null 2>&1
+  # ANY_CONSOLE_HOOK_URL のスキームはサーバの実際の listen 状態に合わせて
+  # 組み立てられる（server/src/tmux.rs hook_session_env）。https の場合は
+  # loopback 宛てのため証明書のホスト名検証（SAN は ts.net の FQDN）が通らず、
+  # 最初から -k で検証をスキップして1発で送る。http の場合は、セッション作成後に
+  # サーバが証明書を得てTLSで再起動された環境で素のHTTPが弾かれることがある
+  # ため、失敗時のみ https + -k で同じ loopback 宛てに再試行する。
+  case "$ANY_CONSOLE_HOOK_URL" in
+    https:*)
+      curl -sk -m 3 -X POST "$ANY_CONSOLE_HOOK_URL" \
+        -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$body" \
+        >/dev/null 2>&1
+      ;;
+    *)
+      https_url=$(printf '%s' "$ANY_CONSOLE_HOOK_URL" | sed 's#^http:#https:#')
+      curl -s -m 3 -X POST "$ANY_CONSOLE_HOOK_URL" \
+        -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "$body" \
+        >/dev/null 2>&1 ||
+        curl -sk -m 3 -X POST "$https_url" \
+          -H "X-Hook-Token: $ANY_CONSOLE_HOOK_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "$body" \
+          >/dev/null 2>&1
+      ;;
+  esac
 ) &
 
 exit 0
