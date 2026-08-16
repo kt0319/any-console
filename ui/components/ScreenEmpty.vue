@@ -9,7 +9,10 @@
             :aria-expanded="setupExpanded"
             @click="setupExpanded = !setupExpanded"
           >
-            Setup
+            <span class="screen-empty-section-title">
+              Setup
+              <span v-if="!allSetupDone" class="mdi mdi-alert screen-empty-section-warn" aria-label="Incomplete setup items" data-tooltip="Incomplete setup items"></span>
+            </span>
             <span class="mdi" :class="setupExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
           </button>
           <template v-if="setupExpanded">
@@ -295,6 +298,16 @@ function openTerminal() {
 
 .screen-empty-section-toggle .mdi {
   font-size: 14px;
+}
+
+.screen-empty-section-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.screen-empty-section-warn {
+  color: var(--warning, #ffaa00);
 }
 
 .screen-empty-menu-item {
