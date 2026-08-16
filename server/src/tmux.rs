@@ -105,22 +105,21 @@ pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
 /// tmux セッションへ注入する hook 用環境変数（失敗時は空 — そのセッションでは
 /// hooks が無効になるだけでセッション生成自体は妨げない）。
 ///
-/// URL のスキームは実際の listen 設定に合わせる（Codex レビュー指摘: 常に
-/// `http://` 固定だと、TLS 証明書が置かれておりサーバが HTTPS で listen して
+/// URL のスキームは実際の listen 状態（`AppState::tls_active`）に合わせる
+/// （Codex レビュー指摘: 常に `http://` 固定だと、サーバが HTTPS で listen して
 /// いる環境では平文リクエストが弾かれ、hooks からの状態更新が一切届かない）。
+/// 証明書ファイルの有無で判定してはならない — 証明書はあるが読み込みに失敗
+/// した場合、サーバは平文 bind へフォールバックするため、ファイル基準だと
+/// hook URL だけが https になり同じ「hooks が届かない」状態が再発する。
 fn hook_session_env(
     data_dir: &Path,
     config: &ConfigStore,
-    project_root: &Path,
+    tls_active: bool,
     tmux_session_name: &str,
 ) -> Vec<(String, String)> {
     let (host, port) = resolve_effective_bind(config);
     let host = connect_bind_host(&host);
-    let scheme = if crate::preview::find_cert_pair(project_root).is_some() {
-        "https"
-    } else {
-        "http"
-    };
+    let scheme = if tls_active { "https" } else { "http" };
     vec![
         (
             "ANY_CONSOLE_SESSION".to_string(),
@@ -180,7 +179,7 @@ async fn run_session_cmd(
 pub async fn create_tmux_session(
     data_dir: &Path,
     config: &ConfigStore,
-    project_root: &Path,
+    tls_active: bool,
     workspace_path: Option<&str>,
     session_name: &str,
 ) -> std::io::Result<()> {
@@ -199,12 +198,7 @@ pub async fn create_tmux_session(
     if let Some(ws) = workspace_path {
         env.push(("WORKSPACE".to_string(), ws.to_string()));
     }
-    env.extend(hook_session_env(
-        data_dir,
-        config,
-        project_root,
-        session_name,
-    ));
+    env.extend(hook_session_env(data_dir, config, tls_active, session_name));
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();
@@ -628,56 +622,26 @@ mod tests {
         assert!(!t1.is_empty());
     }
 
-    /// project_root/certs に証明書一式が無ければ ANY_CONSOLE_HOOK_URL は
-    /// http://、有ればhttps://になる（サーバがTLSでlistenしている環境で
-    /// 平文リクエストが弾かれhooksが届かなくなる問題の回帰防止）。
-    /// find_cert_pair はSSL_CERTFILE/SSL_KEYFILE環境変数を最優先で見るため、
-    /// 開発機でこれらがexportされている場合に備え一時的に退避・復元する
-    /// （このcrateの他のテストではこの2変数を触らないため競合しない）。
+    /// ANY_CONSOLE_HOOK_URL のスキームは実際の listen 状態（tls_active）に
+    /// 従って http:// / https:// が切り替わる（サーバがTLSでlistenしている
+    /// 環境で平文リクエストが弾かれhooksが届かなくなる問題の回帰防止）。
     #[test]
-    fn hook_session_env_url_scheme_follows_tls_cert_presence() {
-        let saved_certfile = std::env::var("SSL_CERTFILE").ok();
-        let saved_keyfile = std::env::var("SSL_KEYFILE").ok();
-        unsafe {
-            std::env::remove_var("SSL_CERTFILE");
-            std::env::remove_var("SSL_KEYFILE");
-        }
-
+    fn hook_session_env_url_scheme_follows_tls_active() {
         let dir = tempfile::tempdir().unwrap();
         let data_dir = dir.path().join("data");
         let config = ConfigStore::new(dir.path().join("config.json"));
 
-        let env = hook_session_env(&data_dir, &config, dir.path(), "ac-sess");
-        let url = env
-            .iter()
-            .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
-            .map(|(_, v)| v.clone())
-            .unwrap();
+        let hook_url = |tls_active: bool| {
+            hook_session_env(&data_dir, &config, tls_active, "ac-sess")
+                .into_iter()
+                .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
+                .map(|(_, v)| v)
+                .unwrap()
+        };
+        let url = hook_url(false);
         assert!(url.starts_with("http://"), "expected http://, got {url}");
-
-        let certs_dir = dir.path().join("certs");
-        std::fs::create_dir_all(&certs_dir).unwrap();
-        std::fs::write(certs_dir.join("host.crt"), "cert").unwrap();
-        std::fs::write(certs_dir.join("host.key"), "key").unwrap();
-
-        let env = hook_session_env(&data_dir, &config, dir.path(), "ac-sess");
-        let url = env
-            .iter()
-            .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
-            .map(|(_, v)| v.clone())
-            .unwrap();
+        let url = hook_url(true);
         assert!(url.starts_with("https://"), "expected https://, got {url}");
-
-        unsafe {
-            match saved_certfile {
-                Some(v) => std::env::set_var("SSL_CERTFILE", v),
-                None => std::env::remove_var("SSL_CERTFILE"),
-            }
-            match saved_keyfile {
-                Some(v) => std::env::set_var("SSL_KEYFILE", v),
-                None => std::env::remove_var("SSL_KEYFILE"),
-            }
-        }
     }
 
     #[tokio::test]
@@ -689,7 +653,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let name = format!("ac-test-{}", crate::util::token_hex(4));
 
-        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
+        create_tmux_session(dir.path(), &config, false, None, &name)
             .await
             .expect("session should be created");
         assert!(crate::subprocess::tmux_session_exists(&name).await);
@@ -736,7 +700,7 @@ mod tests {
         let session_id = "s1";
         let name = format!("{prefix}{session_id}");
 
-        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
+        create_tmux_session(dir.path(), &config, false, None, &name)
             .await
             .expect("session should be created");
         assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);

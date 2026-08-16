@@ -180,8 +180,23 @@ pub fn load_tls_server_config(
     key: &Path,
 ) -> Option<Arc<tokio_rustls::rustls::ServerConfig>> {
     use tokio_rustls::rustls;
-    let cert_pem = std::fs::read(cert).ok()?;
-    let key_pem = std::fs::read(key).ok()?;
+    // 失敗パスは必ず warn を出す — 無警告で None（= 平文 bind へのフォール
+    // バック）になると、証明書一式は存在するのに HTTPS が有効化されない
+    // 原因をログから追えなくなる。
+    let cert_pem = match std::fs::read(cert) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("TLS disabled: cert read failed {}: {e}", cert.display());
+            return None;
+        }
+    };
+    let key_pem = match std::fs::read(key) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("TLS disabled: key read failed {}: {e}", key.display());
+            return None;
+        }
+    };
     let certs: Vec<_> = rustls_pemfile::certs(&mut cert_pem.as_slice())
         .filter_map(|r| r.ok())
         .collect();
@@ -189,9 +204,17 @@ pub fn load_tls_server_config(
         tracing::warn!("TLS disabled: no certificate found in {}", cert.display());
         return None;
     }
-    let private_key = rustls_pemfile::private_key(&mut key_pem.as_slice())
-        .ok()
-        .flatten()?;
+    let private_key = match rustls_pemfile::private_key(&mut key_pem.as_slice()) {
+        Ok(Some(k)) => k,
+        Ok(None) => {
+            tracing::warn!("TLS disabled: no private key found in {}", key.display());
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!("TLS disabled: key parse failed {}: {e}", key.display());
+            return None;
+        }
+    };
     match rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(certs, private_key)

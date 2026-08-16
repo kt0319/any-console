@@ -79,6 +79,7 @@ pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
         auth: Auth::load(data_dir, false),
         rate_counter: FixedWindowCounter::new(),
         rate_limit: opts.rate_limit,
+        tls_active: false,
     })
 }
 

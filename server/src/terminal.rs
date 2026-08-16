@@ -436,7 +436,7 @@ async fn ensure_tmux_session(
     match tmux::create_tmux_session(
         &state.paths.data_dir,
         &state.config,
-        &state.paths.project_root,
+        state.tls_active,
         workspace_path.as_deref(),
         &full_name,
     )

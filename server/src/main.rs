@@ -89,6 +89,14 @@ async fn main() {
     }
     let auth = Auth::load(paths.data_dir.clone(), config.trust_tailscale_auth());
 
+    // TLS 証明書は AppState 構築前に読み込む — hook URL のスキーム等が
+    // 「証明書ファイルの有無」ではなく「実際に TLS で listen するか」を参照
+    // できるよう、読み込み結果を tls_active として AppState に持たせる
+    // （証明書はあるが読み込みに失敗した場合は平文 bind へフォールバックする
+    // ため、ファイルの有無だけを見ると実際のスキームと食い違う）。
+    let tls_config = any_console_server::preview::find_cert_pair(&paths.project_root)
+        .and_then(|(cert, key)| any_console_server::preview::load_tls_server_config(&cert, &key));
+
     let state = Arc::new(AppState {
         paths: paths.clone(),
         config,
@@ -113,6 +121,7 @@ async fn main() {
         auth,
         rate_counter: FixedWindowCounter::new(),
         rate_limit: rate_limit_from_env(),
+        tls_active: tls_config.is_some(),
     });
 
     // 永続化済み dispatch キュー/履歴を読み込み、status stream 購読者へ
@@ -128,9 +137,6 @@ async fn main() {
     tokio::spawn(any_console_server::manifest_update::run_update_loop(
         state.clone(),
     ));
-
-    let tls_config = any_console_server::preview::find_cert_pair(&paths.project_root)
-        .and_then(|(cert, key)| any_console_server::preview::load_tls_server_config(&cert, &key));
 
     let app = build_router(state);
     let addr = format!("{host}:{port}");
