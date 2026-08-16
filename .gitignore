@@ -26,8 +26,6 @@ logs/
 config.json
 config.bak
 config.lock
-dispatch_queue.json
-dispatch_recent.json
 /data/
 
 # Environment

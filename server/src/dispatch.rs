@@ -63,17 +63,8 @@ impl DispatchState {
     }
 }
 
-/// Python の legacy パス規則: `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下、
-/// 指定時は隔離ディレクトリ配下（`common.py` の `DISPATCH_QUEUE_FILE`/`_RECENT_FILE`）。
 fn dispatch_state_file(paths: &Paths, filename: &str) -> PathBuf {
-    let isolated = std::env::var("ANY_CONSOLE_DATA_DIR")
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false);
-    if isolated {
-        paths.data_dir.join(filename)
-    } else {
-        paths.project_root.join(filename)
-    }
+    paths.data_dir.join(filename)
 }
 
 fn queue_file(paths: &Paths) -> PathBuf {

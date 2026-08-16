@@ -427,8 +427,9 @@ Rust front に向けた Playwright 全 E2E スペックで検証済み。
   シェルクォート含む・コメント行除去・NUL 拒否・自動実行コマンドの send-keys）を移行
 - `dispatch.rs`: `POST /dispatch`・`/dispatch/{id}/decision`・`/dispatch/{id}/rerun`
   を移行。承認待ちキュー（`_PENDING`/`_RECENT` 相当）は `DispatchState`（`AppState`
-  に保持）で管理し、`dispatch_queue.json`/`dispatch_recent.json`（Python と同一の
-  legacy パス規則 — `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下）へ永続化。
+  に保持）で管理し、`dispatch_queue.json`/`dispatch_recent.json`
+  （2026-08 に `data_dir` 直下へ統一。旧 Python legacy パス規則 —
+  `ANY_CONSOLE_DATA_DIR` 未指定時は `PROJECT_ROOT` 直下 — は廃止）へ永続化。
   起動時に読み込んで Python 側 status stream（ブリッジ経由・Phase 4 完了後は
   実際には到達しない）へ初期スナップショットを送る
   （`load_persisted_and_seed_bridge`、`main.rs` から起動時に一度だけ呼ぶ）。
