@@ -143,9 +143,15 @@ async fn main() {
 
     match tls_config {
         Some(cfg) => {
+            // 平文経路の `TcpListener::bind` はホスト名（`localhost` 等）も名前
+            // 解決するため、TLS 経路も同様に受け付ける — parse のみだと証明書を
+            // 置いた途端にホスト名 bind 設定で起動不能になる非対称が生じる。
+            use std::net::ToSocketAddrs;
             let socket_addr: SocketAddr = addr
-                .parse()
-                .unwrap_or_else(|e| panic!("bind address {addr} invalid: {e}"));
+                .to_socket_addrs()
+                .unwrap_or_else(|e| panic!("bind address {addr} invalid: {e}"))
+                .next()
+                .unwrap_or_else(|| panic!("bind address {addr} did not resolve"));
             tracing::info!("any-console-server listening on {addr} (TLS)");
             let handle = axum_server::Handle::new();
             let shutdown_handle = handle.clone();
