@@ -157,4 +157,18 @@ describe("CIRCLE_KEYPAD_SPECIAL_PRESETS entries", () => {
     expect(none).not.toBeNull();
     expect(none.action).toBe("");
   });
+
+  it("does not expose terminal top/bottom scroll actions", () => {
+    expect(findSpecialPreset("totop")).toBeNull();
+    expect(findSpecialPreset("tobottom")).toBeNull();
+    expect(CIRCLE_KEYPAD_SPECIAL_PRESETS.some((p) => p.action === "terminal:scrollToTop")).toBe(false);
+    expect(CIRCLE_KEYPAD_SPECIAL_PRESETS.some((p) => p.action === "terminal:scrollToBottom")).toBe(false);
+  });
+
+  it("exposes wheel and scroll actions for terminal scrollback", () => {
+    expect(findSpecialPreset("wheelup")?.action).toBe("terminal:wheelUp");
+    expect(findSpecialPreset("wheeldown")?.action).toBe("terminal:wheelDown");
+    expect(findSpecialPreset("scrollup")?.action).toBe("terminal:scrollUp");
+    expect(findSpecialPreset("scrolldown")?.action).toBe("terminal:scrollDown");
+  });
 });
