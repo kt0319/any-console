@@ -111,11 +111,7 @@ fn dispatch_router(state: Arc<AppState>) -> Router {
         .route("/dispatch", post(dispatch::dispatch))
         .route(
             "/dispatch/{dispatch_id}/decision",
-            post(dispatch::dispatch_decision),
-        )
-        .route(
-            "/dispatch/{dispatch_id}/rerun",
-            post(dispatch::dispatch_rerun),
+            post(dispatch::dispatch_execute),
         )
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
         .route(
@@ -367,7 +363,7 @@ async fn queued_dispatch_then_decision_approve_launches_session() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -400,24 +396,33 @@ async fn decision_reject_removes_from_pending() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": false}))
+        .json(&json!({"executed": false}))
         .send()
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
 
-    // 二度目の decision は 404（既に消えている）
+    // pendingからは消えているが、破棄済みでも履歴（recent）からは同じidで
+    // 再実行できる（「Recently executed」のrejected項目もUIから再実行可能な
+    // 仕様と一致させる）。
     let resp = common::client()
         .post(format!(
             "http://{}/dispatch/{dispatch_id}/decision",
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 404);
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    let session_id = body["session_id"].as_str().unwrap().to_string();
+    any_console_server::subprocess::kill_tmux_by_name(&format!(
+        "{}{session_id}",
+        front.state.paths.tmux_prefix
+    ))
+    .await;
 }
 
 #[tokio::test]
@@ -517,7 +522,7 @@ async fn concurrent_decision_approvals_launch_session_only_once() {
             common::client()
                 .post(format!("http://{addr}/dispatch/{dispatch_id}/decision"))
                 .bearer_auth(TOKEN)
-                .json(&json!({"approved": true}))
+                .json(&json!({"executed": true}))
                 .send()
                 .await
                 .unwrap()
@@ -570,7 +575,7 @@ async fn approved_new_session_flushes_pending_text_over_ws() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -635,7 +640,7 @@ async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -676,7 +681,7 @@ async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
 }
 
 #[tokio::test]
-async fn dispatch_rerun_run_true_executes_immediately() {
+async fn decided_dispatch_re_executed_from_history() {
     if common::skip_if_no_tmux() {
         return;
     }
@@ -697,7 +702,7 @@ async fn dispatch_rerun_run_true_executes_immediately() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -710,15 +715,18 @@ async fn dispatch_rerun_run_true_executes_immediately() {
     .await;
 
     // 履歴に残った dispatch_id（decision 側で record_recent された新しい ID とは
-    // 別）を使い、match="none" にして必ず新規セッションを作らせて rerun を検証する。
+    // 別）を使い、match="none" にして必ず新規セッションを作らせて再実行を検証する。
     let recent_id = {
         let recent = front.state.dispatch.recent.lock().await;
         recent[0]["id"].as_str().unwrap().to_string()
     };
     let resp = common::client()
-        .post(format!("http://{}/dispatch/{recent_id}/rerun", front.addr))
+        .post(format!(
+            "http://{}/dispatch/{recent_id}/decision",
+            front.addr
+        ))
         .bearer_auth(TOKEN)
-        .json(&json!({"run": true, "match": "none"}))
+        .json(&json!({"executed": true, "match": "none"}))
         .send()
         .await
         .unwrap();
@@ -765,7 +773,7 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -788,7 +796,7 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -836,7 +844,7 @@ async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();
@@ -871,7 +879,7 @@ async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
             front.addr
         ))
         .bearer_auth(TOKEN)
-        .json(&json!({"approved": true}))
+        .json(&json!({"executed": true}))
         .send()
         .await
         .unwrap();

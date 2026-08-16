@@ -226,7 +226,7 @@ impl Auth {
             }
         }
         if constant_time_eq(bearer, &token) {
-            // label は activity ログ（dispatch rerun の auth フィールド等）へ
+            // label は activity ログ（dispatch実行のauthフィールド等）へ
             // そのまま永続記録されるため、生の Bearer トークンを入れてはならない。
             return Some(AuthResult {
                 kind: AuthKind::Main,

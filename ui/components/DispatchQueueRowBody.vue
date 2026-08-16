@@ -1,6 +1,6 @@
 <template>
-  <span v-if="decision" class="dispatch-queue-recent-head">
-    <span class="mdi" :class="decision === 'approved' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
+  <span v-if="outcome" class="dispatch-queue-recent-head">
+    <span class="mdi" :class="outcome === 'executed' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
     <span class="dispatch-queue-ws">{{ dispatchWorkspaceLabel(request) }}</span>
   </span>
   <span v-else class="dispatch-queue-ws">{{ dispatchWorkspaceLabel(request) }}</span>
@@ -16,11 +16,11 @@ import { dispatchWorkspaceLabel, dispatchJobLabel } from "../utils/dispatch-requ
 
 // Dispatch Queue 一覧の1行分の本文（ワークスペース名・ジョブ/ブランチ・テキスト）。
 // pending 行と Recently executed 行で同じ表示ルールを共有する。
-// decision（approved/rejected）がある時だけ先頭に決定アイコンを付ける。
+// outcome（executed/discarded）がある時だけ先頭に結果アイコンを付ける。
 
 defineProps({
   request: { type: Object, required: true },
-  decision: { type: String, default: "" },
+  outcome: { type: String, default: "" },
 });
 </script>
 
@@ -54,12 +54,12 @@ defineProps({
   gap: 6px;
 }
 
-/* 承認/却下の色は親（DispatchWorkspacePane.vue）の行クラスに応じて変える。 */
-.dispatch-queue-recent-approved .dispatch-queue-recent-head .mdi {
+/* 実行/破棄の色は親（DispatchWorkspacePane.vue）の行クラスに応じて変える。 */
+.dispatch-queue-recent-executed .dispatch-queue-recent-head .mdi {
   color: var(--success);
 }
 
-.dispatch-queue-recent-rejected .dispatch-queue-recent-head .mdi {
+.dispatch-queue-recent-discarded .dispatch-queue-recent-head .mdi {
   color: var(--text-muted);
 }
 </style>

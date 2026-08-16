@@ -20,10 +20,10 @@
             <button
               type="button"
               class="dispatch-queue-row-main dispatch-queue-recent-row"
-              :class="item.decision === 'approved' ? 'dispatch-queue-recent-approved' : 'dispatch-queue-recent-rejected'"
+              :class="item.outcome === 'executed' ? 'dispatch-queue-recent-executed' : 'dispatch-queue-recent-discarded'"
               @click="emits('select', item.id)"
             >
-              <DispatchQueueRowBody :request="item.request" :decision="item.decision" />
+              <DispatchQueueRowBody :request="item.request" :outcome="item.outcome" />
             </button>
           </li>
         </ul>

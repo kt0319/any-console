@@ -49,10 +49,6 @@ export function dispatchDecisionPath(dispatchId: string): string {
   return `/dispatch/${encodeURIComponent(dispatchId)}/decision`;
 }
 
-export function dispatchRerunPath(dispatchId: string): string {
-  return `/dispatch/${encodeURIComponent(dispatchId)}/rerun`;
-}
-
 export function pairingStatusPath(pairingId: string): string {
   return `/auth/pairing/${encodeURIComponent(pairingId)}/status`;
 }

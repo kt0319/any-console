@@ -359,11 +359,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/dispatch", post(dispatch::dispatch))
         .route(
             "/dispatch/{dispatch_id}/decision",
-            post(dispatch::dispatch_decision),
-        )
-        .route(
-            "/dispatch/{dispatch_id}/rerun",
-            post(dispatch::dispatch_rerun),
+            post(dispatch::dispatch_execute),
         )
         .route(
             "/agent-hooks/events",

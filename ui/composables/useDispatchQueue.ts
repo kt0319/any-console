@@ -5,7 +5,6 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import {
   dispatchDecisionPath,
-  dispatchRerunPath,
   EP_JOBS_WORKSPACES,
   EP_TERMINAL_SESSIONS,
 } from "../utils/endpoints.ts";
@@ -13,7 +12,7 @@ import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
 import { emit } from "../app-bridge.ts";
 
 type DispatchQueueItem = { id: string, request: Record<string, any> };
-type DispatchRecentItem = DispatchQueueItem & { decision: string };
+type DispatchRecentItem = DispatchQueueItem & { outcome: string };
 
 // Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。
 // サーバがステータスストリーム WS（type="dispatch_queue"）で配信する全量スナップ
@@ -21,9 +20,9 @@ type DispatchRecentItem = DispatchQueueItem & { decision: string };
 // 決定された項目が残り続けることはない。
 const queue = ref<DispatchQueueItem[]>([]);
 
-// 承認/却下が決定された直近の項目（新しい順）。承認しても実行されたことが
-// 分からずすぐ消えてしまう問題への対応で、サーバ側が直近N件だけ一時的に
-// 残して配信する（decision: "approved" | "rejected"）。
+// 実行/破棄が決定された直近の項目（新しい順）。実行しても結果がすぐ
+// 消えてしまう問題への対応で、サーバ側が直近N件だけ一時的に
+// 残して配信する（outcome: "executed" | "discarded"）。
 const recent = ref<DispatchRecentItem[]>([]);
 
 function removeFromQueue(id: string) {
@@ -72,15 +71,17 @@ export function useDispatchQueue() {
   }
 
   /**
-   * DispatchRunView の Run から呼ぶ。決定APIのレスポンスが起動結果を返すため、
-   * 成功時はそのままセッションへ移動する。
+   * DispatchRunView の Run から呼ぶ。pendingのitemでも、既に決定済みで履歴
+   * （recent）に残っているだけのitemでも同じエンドポイントで実行できる
+   * （サーバ側 dispatch_execute が dispatch_id の所在を見て振り分ける）。
+   * レスポンスが起動結果を返すため、成功時はそのままセッションへ移動する。
    * @returns 実行できたか
    */
   async function runItem(id: string, overrides: Record<string, any>): Promise<boolean> {
     const { ok, data } = await apiPost(dispatchDecisionPath(id), {
-      approved: true,
+      executed: true,
       ...overrides,
-    }, { errorMessage: "Failed to run dispatch (it may have already been decided elsewhere)" });
+    }, { errorMessage: "Failed to run dispatch" });
     if (!ok) return false;
     // WS ブロードキャストでも消えるが、切断中でも一覧へ即時反映する。
     removeFromQueue(id);
@@ -93,32 +94,16 @@ export function useDispatchQueue() {
   }
 
   /**
-   * DispatchRunView / 一覧の×ボタンから呼ぶ。
+   * DispatchRunView / 一覧の×ボタンから呼ぶ。pendingのitemのみ対象
+   * （既に決定済みのitemを破棄することはできない）。
    * @returns 破棄できたか
    */
   async function rejectItem(id: string): Promise<boolean> {
-    const { ok } = await apiPost(dispatchDecisionPath(id), { approved: false },
+    const { ok } = await apiPost(dispatchDecisionPath(id), { executed: false },
       { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });
     if (ok) removeFromQueue(id);
     return ok;
   }
 
-  /**
-   * DispatchRunView（Recently executedから開いた場合）のRunから呼ぶ。
-   * モーダルで内容を確認・編集済みのため、承認キューを経由せず上書き後の
-   * 内容でその場で再実行する（run: true）。レスポンスが起動結果を返すため、
-   * 成功時はそのままセッションへ移動する。
-   * @returns 実行できたか
-   */
-  async function rerunNow(id: string, overrides: Record<string, any>): Promise<boolean> {
-    const { ok, data } = await apiPost(dispatchRerunPath(id), { run: true, ...overrides }, {
-      errorMessage: "Failed to rerun dispatch (it may no longer be in recent history)",
-    });
-    if (!ok) return false;
-    // runItemと同じ理由でawait必須（コメント参照）。
-    await focusSession(data?.session_id, data?.workspace);
-    return true;
-  }
-
-  return { queue, recent, runItem, rejectItem, rerunNow };
+  return { queue, recent, runItem, rejectItem };
 }

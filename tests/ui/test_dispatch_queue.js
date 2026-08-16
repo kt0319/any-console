@@ -11,7 +11,7 @@ vi.mock("../../ui/composables/useApi.ts", () => ({
 }));
 
 const item = (id) => ({ id, request: { workspace: "ws1" } });
-const recentItem = (id, decision) => ({ id, request: { workspace: "ws1" }, decision });
+const recentItem = (id, outcome) => ({ id, request: { workspace: "ws1" }, outcome });
 
 describe("applyDispatchQueue", () => {
   let queue, recent;
@@ -59,41 +59,44 @@ describe("applyDispatchQueue", () => {
   });
 
   it("recentItems をそのまま recent に反映する", () => {
-    applyDispatchQueue([], [recentItem("r1", "approved"), recentItem("r2", "rejected")]);
-    expect(recent.value.map((r) => [r.id, r.decision])).toEqual([
-      ["r1", "approved"],
-      ["r2", "rejected"],
+    applyDispatchQueue([], [recentItem("r1", "executed"), recentItem("r2", "discarded")]);
+    expect(recent.value.map((r) => [r.id, r.outcome])).toEqual([
+      ["r1", "executed"],
+      ["r2", "discarded"],
     ]);
   });
 
   it("recentItems省略時は recent を空にする", () => {
-    applyDispatchQueue([], [recentItem("r1", "approved")]);
+    applyDispatchQueue([], [recentItem("r1", "executed")]);
     applyDispatchQueue([]);
     expect(recent.value).toEqual([]);
   });
 });
 
-describe("rerunNow", () => {
+describe("runItem", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     apiPostMock.mockReset();
   });
 
-  it("run:trueと上書き値を付けてrerun APIを呼び、成功でtrueを返す", async () => {
+  // pendingのitemでも、既に決定済みで履歴に残っているだけのitemでも同じ
+  // decision APIを叩く（サーバ側 dispatch_execute が dispatch_id の所在を
+  // 見て振り分けるため、フロント側でpending/recentを区別する必要が無い）。
+  it("executed:trueと上書き値を付けてdecision APIを呼び、成功でtrueを返す", async () => {
     apiPostMock.mockResolvedValue({ ok: true, data: {} });
-    const { rerunNow } = useDispatchQueue();
-    const ok = await rerunNow("d1", { text: "echo edited" });
+    const { runItem } = useDispatchQueue();
+    const ok = await runItem("d1", { text: "echo edited" });
     expect(ok).toBe(true);
     expect(apiPostMock).toHaveBeenCalledWith(
-      "/dispatch/d1/rerun",
-      { run: true, text: "echo edited" },
+      "/dispatch/d1/decision",
+      { executed: true, text: "echo edited" },
       expect.anything(),
     );
   });
 
   it("失敗時はfalseを返す", async () => {
     apiPostMock.mockResolvedValue({ ok: false, data: null });
-    const { rerunNow } = useDispatchQueue();
-    expect(await rerunNow("d1", {})).toBe(false);
+    const { runItem } = useDispatchQueue();
+    expect(await runItem("d1", {})).toBe(false);
   });
 });

@@ -118,7 +118,7 @@ const emits = defineEmits(["back", "done"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
-const { queue, recent, runItem, rejectItem, rerunNow } = useDispatchQueue();
+const { queue, recent, runItem, rejectItem } = useDispatchQueue();
 const workspaceStore = useWorkspaceStore();
 
 const itemId = props.itemId;
@@ -362,13 +362,13 @@ async function run() {
       // worktree自体の作成に成功した時点でモーダルを閉じる。以降のdispatch実行
       // （新規セッション起動＋Input欄の送信）は結果を待たずバックグラウンドで
       // 継続する（作成〜実行の2段階の完了待ちでモーダルが開いたままになるのを
-      // 避けるため）。実行自体が失敗した場合はrunItem/rerunNow内のapiPostが
-      // 通常のエラートースト（errorMessage）で通知する。
+      // 避けるため）。実行自体が失敗した場合はrunItem内のapiPostが通常の
+      // エラートースト（errorMessage）で通知する。
       emits("done");
-      (isRerun.value ? rerunNow(itemId, overrides) : runItem(itemId, overrides)).catch(() => {});
+      runItem(itemId, overrides).catch(() => {});
       return;
     }
-    const ok = isRerun.value ? await rerunNow(itemId, overrides) : await runItem(itemId, overrides);
+    const ok = await runItem(itemId, overrides);
     // Run 成功後はそのままセッションを見せたいので、一覧へ戻さずワークスペース
     // 詳細ごと閉じる（emits("done")、WorkspaceDetail.vue参照）。
     if (ok) emits("done");

@@ -16,7 +16,7 @@ export function buildStatusStreamUrl(proto: string, host: string): string {
 export type StatusStreamMessage =
   | { type: "statuses"; statuses: Record<string, any>[] }
   | { type: "agent_states"; states: { session_id: string; state: string }[] }
-  | { type: "dispatch_queue"; items: { id: string; request: Record<string, any> }[]; recent: { id: string; request: Record<string, any>; decision: string }[] }
+  | { type: "dispatch_queue"; items: { id: string; request: Record<string, any> }[]; recent: { id: string; request: Record<string, any>; outcome: string }[] }
   | { type: "phrase_notify"; session_id: string; phrase: string; workspace: string | null }
   | { type: "phrase_notify_clear"; session_id: string }
   | { type: "session_created" | "session_removed"; session_id: string }
@@ -27,8 +27,8 @@ export type StatusStreamMessage =
  * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
  * - statuses: `{ type: "statuses", statuses: [...] }`
  * - agent_states: `{ type: "agent_states", states: [{ session_id, state }] }`
- * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }], recent: [{ id, request, decision }] }`
- *   （items: 承認待ちの全量スナップショット、recent: 直近に承認/却下された項目。新しい順）
+ * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }], recent: [{ id, request, outcome }] }`
+ *   （items: pendingの全量スナップショット、recent: 直近に実行/破棄された項目。新しい順）
  * - phrase_notify: `{ type: "phrase_notify", session_id, phrase, workspace }`
  * - phrase_notify_clear: `{ type: "phrase_notify_clear", session_id }`
  * - session_created / session_removed: `{ type, session_id }`（ターミナルセッションの

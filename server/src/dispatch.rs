@@ -2,9 +2,11 @@
 //!
 //! 外部から「workspace + job + テキスト」を1回のリクエストで投げて、既存セッション
 //! 再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、text の tmux 送信までを
-//! 行う。`POST /dispatch` は承認キューへ積んで即座に 202 を返し、実行は
-//! `/dispatch/{id}/decision` からの承認だけが担う。旧 `direct: true` の即時実行は
-//! セキュリティモデルを単純にするため拒否する。
+//! 行う。`POST /dispatch` はpendingキューへ積んで即座に 202 を返し、実行は
+//! `/dispatch/{id}/decision`（`executed: true`=実行 / `false`=破棄の二択）だけが
+//! 担う。同じエンドポイントは決定済み（pendingから外れた）itemに対しても働き、
+//! recent履歴から元のリクエストを復元して再送する（旧 `/rerun` 相当）。
+//! 旧 `direct: true` の即時実行はセキュリティモデルを単純にするため拒否する。
 //!
 //! **設計判断**: 新規作成セッションに予約するテキスト（`pending_text`）は Python
 //! 版がインメモリで保持していたが、Rust 版は tmux 環境変数
@@ -53,7 +55,7 @@ pub struct DispatchState {
     /// dispatch_id -> リクエスト payload（挿入順を保持 — `serde_json::Map` は
     /// `preserve_order` 機能により IndexMap ベース）。
     pub pending: Mutex<Map<String, Value>>,
-    /// 承認/却下が決定された直近の項目（新しい順、最大 `RECENT_LIMIT` 件）。
+    /// run/discardが決定された直近の項目（新しい順、最大 `RECENT_LIMIT` 件）。
     pub recent: Mutex<Vec<Value>>,
 }
 
@@ -142,10 +144,10 @@ async fn record_recent(
     state: &Arc<AppState>,
     dispatch_id: &str,
     mut request: Value,
-    decision: &str,
+    outcome: &str,
 ) {
-    // DispatchRequest のフィールドへ正規化してから格納する（承認時は model_dump 済み、
-    // 却下時は _PENDING の生 payload — branch_status 等の実行時メタが混ざるため）。
+    // DispatchRequest のフィールドへ正規化してから格納する（実行時は model_dump 済み、
+    // 破棄時は _PENDING の生 payload — branch_status 等の実行時メタが混ざるため）。
     if let Value::Object(map) = &mut request {
         map.retain(|k, _| DISPATCH_REQUEST_FIELDS.contains(&k.as_str()));
     }
@@ -164,7 +166,7 @@ async fn record_recent(
     let mut recent = state.dispatch.recent.lock().await;
     recent.insert(
         0,
-        json!({"id": dispatch_id, "request": request, "decision": decision}),
+        json!({"id": dispatch_id, "request": request, "outcome": outcome}),
     );
     recent.truncate(RECENT_LIMIT);
     drop(recent);
@@ -233,7 +235,7 @@ impl DispatchRequest {
         }
     }
 
-    fn apply_overrides(&mut self, overrides: &DecisionOverrides) {
+    fn apply_overrides(&mut self, overrides: &DispatchOverrides) {
         if let Some(ws) = overrides.workspace.as_deref().filter(|s| !s.is_empty()) {
             self.workspace = ws.to_string();
             self.worktree = None;
@@ -262,11 +264,10 @@ impl DispatchRequest {
     }
 }
 
-/// `DispatchDecision`/`DispatchRerun` に共通の上書きフィールド集合
-/// （両構造体は `#[serde(flatten)]` でこれをそのまま埋め込む — 同じ8フィールドを
-/// 二重定義して `From` で詰め替えていた重複の解消。ワイヤ形式は不変）。
+/// `DispatchExecute` の上書きフィールド集合（`#[serde(flatten)]` でそのまま
+/// 埋め込む）。
 #[derive(Default, Deserialize)]
-struct DecisionOverrides {
+struct DispatchOverrides {
     #[serde(default)]
     workspace: Option<String>,
     #[serde(default)]
@@ -285,19 +286,13 @@ struct DecisionOverrides {
     session_id: Option<String>,
 }
 
+/// `POST /dispatch/{id}/decision` のリクエストボディ。`executed: true` で実行、
+/// `false` で破棄（pendingのitemのみ。決定済みのitemに対してfalseは無効）。
 #[derive(Deserialize)]
-pub struct DispatchDecision {
-    approved: bool,
+pub struct DispatchExecute {
+    executed: bool,
     #[serde(flatten)]
-    overrides: DecisionOverrides,
-}
-
-#[derive(Deserialize, Default)]
-pub struct DispatchRerun {
-    #[serde(default)]
-    run: bool,
-    #[serde(flatten)]
-    overrides: DecisionOverrides,
+    overrides: DispatchOverrides,
 }
 
 // ─── ジョブ定義解決 ──────────────────────────────────────────────────────────
@@ -713,12 +708,9 @@ pub async fn dispatch(
     dispatch_core(&state, body, &auth_label, is_scoped_token).await
 }
 
-/// `POST /dispatch` の本体（認証確定後）。`dispatch_rerun` の「承認キューを経由
-/// せずその場で実行」以外の分岐（＝通常の POST /dispatch と同じ経路へ乗せ直す
-/// ケース）からも、メイントークン相当（`is_scoped_token=false`）で直接呼ばれる
-/// （Python 版が `dispatch(req, (auth_label, False))` と関数呼び出しで再利用
-/// していたのと同じ構造）。
-/// dispatch 実行成功時の activity 記録（承認後実行と rerun 実行で共用する定型）。
+/// `POST /dispatch` の本体（認証確定後）。
+/// dispatch 実行成功時の activity 記録（`dispatch_execute`のpending実行・履歴からの
+/// 再送実行の両方で共用する定型）。
 fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
     crate::activity::log_activity(
         &state.paths.data_dir,
@@ -828,96 +820,16 @@ async fn dispatch_core(
         .into_response())
 }
 
-pub async fn dispatch_decision(
-    State(state): State<Arc<AppState>>,
-    Path(dispatch_id): Path<String>,
-    _auth: RequireAuth,
-    JsonBody(body): JsonBody<DispatchDecision>,
-) -> Result<Json<Value>, ApiError> {
-    // 検索(get)と削除(shift_remove)を1回のロック区間で行う（Codex レビュー指摘:
-    // 別ロックに分かれていると、同じ dispatch_id への decision が並行到着した
-    // とき両方とも Some を引き当て、承認なら launch を二重実行してしまう）。
-    let payload = state
-        .dispatch
-        .pending
-        .lock()
-        .await
-        .shift_remove(&dispatch_id);
-    let Some(payload) = payload else {
-        return Err(not_found("Pending dispatch not found"));
-    };
-
-    if !body.approved {
-        crate::activity::log_activity(
-            &state.paths.data_dir,
-            payload.get("workspace").and_then(Value::as_str),
-            "dispatch_rejected",
-            Map::new(),
-        );
-        record_recent(&state, &dispatch_id, payload, "rejected").await;
-        persist_pending(&state).await;
-        broadcast_queue(&state).await;
-        return Ok(Json(json!({"status": "ok"})));
-    }
-
-    let mut dispatch_body: DispatchRequest =
-        serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
-    dispatch_body.apply_overrides(&body.overrides);
-
-    let result = match launch(&state, &dispatch_body).await {
-        Ok(r) => r,
-        Err(e) => {
-            crate::activity::log_activity(
-                &state.paths.data_dir,
-                Some(&dispatch_body.workspace),
-                "dispatch_failed",
-                [("detail".to_string(), json!(e.detail))]
-                    .into_iter()
-                    .collect(),
-            );
-            // 失敗した項目はキューに残し、値を修正しての再承認・却下をやり直せる
-            // ようにする（Python 版と同じ挙動）。上でクレーム済みのため戻す。
-            state
-                .dispatch
-                .pending
-                .lock()
-                .await
-                .insert(dispatch_id.clone(), payload);
-            persist_pending(&state).await;
-            broadcast_queue(&state).await;
-            return Err(e);
-        }
-    };
-    crate::activity::log_activity(
-        &state.paths.data_dir,
-        result["workspace"].as_str(),
-        "dispatch_approved",
-        [
-            ("job".to_string(), result["job"].clone()),
-            ("session_id".to_string(), result["session_id"].clone()),
-            ("created".to_string(), result["created"].clone()),
-        ]
-        .into_iter()
-        .collect(),
-    );
-    let mut approved_payload = serde_json::to_value(&dispatch_body).unwrap_or_else(|_| json!({}));
-    if let Value::Object(map) = &mut approved_payload {
-        map.insert(
-            "effective_workspace".to_string(),
-            json!(dispatch_body.effective_workspace()),
-        );
-    }
-    record_recent(&state, &dispatch_id, approved_payload, "approved").await;
-    persist_pending(&state).await;
-    broadcast_queue(&state).await;
-    Ok(Json(result))
-}
-
-pub async fn dispatch_rerun(
+/// `POST /dispatch/{id}/decision`。まだpendingキューにあるitemはその場で実行/破棄、
+/// 既にpendingから外れた（=決定済みの）itemはrecent履歴から元のリクエストを
+/// 復元して再送する。「pendingか履歴か」でデータの取得元が違うだけで、
+/// dispatch_idを渡して`executed: true/false`を決めるという操作自体は1つに
+/// 統一している（旧 `dispatch_rerun` はこの関数へ統合済み）。
+pub async fn dispatch_execute(
     State(state): State<Arc<AppState>>,
     Path(dispatch_id): Path<String>,
     auth: RequireAuth,
-    raw_body: axum::body::Bytes,
+    JsonBody(body): JsonBody<DispatchExecute>,
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
     // Python 版は `Depends(verify_token)` の戻り値（実際に認証された経路の
@@ -925,26 +837,93 @@ pub async fn dispatch_rerun(
     // "main" 固定だと Tailscale/デバイス cookie 経由の認証で誤ったラベルになる）。
     let auth_label = auth.0.label.as_str();
 
-    // Python 版は `body: DispatchRerun | None = None` でリクエストボディ自体の省略を
-    // 許容する。axum の `Option<JsonBody<T>>` は自作抽出子に対して自動導出されない
-    // ため、生バイト列を見て空なら既定値にフォールバックする。
-    let body: DispatchRerun = if raw_body.is_empty() {
-        DispatchRerun::default()
-    } else {
-        serde_json::from_slice(&raw_body).map_err(|e| {
-            ApiError::new(axum::http::StatusCode::UNPROCESSABLE_ENTITY, e.to_string())
-        })?
-    };
+    // 検索(get)と削除(shift_remove)を1回のロック区間で行う（Codex レビュー指摘:
+    // 別ロックに分かれていると、同じ dispatch_id への decision が並行到着した
+    // とき両方ともSomeを引き当て、executedなら launch を二重実行してしまう）。
+    let pending_payload = state
+        .dispatch
+        .pending
+        .lock()
+        .await
+        .shift_remove(&dispatch_id);
 
+    if let Some(payload) = pending_payload {
+        if !body.executed {
+            crate::activity::log_activity(
+                &state.paths.data_dir,
+                payload.get("workspace").and_then(Value::as_str),
+                "dispatch_discarded",
+                Map::new(),
+            );
+            record_recent(&state, &dispatch_id, payload, "discarded").await;
+            persist_pending(&state).await;
+            broadcast_queue(&state).await;
+            return Ok(Json(json!({"status": "ok"})).into_response());
+        }
+
+        let mut dispatch_body: DispatchRequest =
+            serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
+        dispatch_body.apply_overrides(&body.overrides);
+
+        let result = match launch(&state, &dispatch_body).await {
+            Ok(r) => r,
+            Err(e) => {
+                crate::activity::log_activity(
+                    &state.paths.data_dir,
+                    Some(&dispatch_body.workspace),
+                    "dispatch_failed",
+                    [("detail".to_string(), json!(e.detail))]
+                        .into_iter()
+                        .collect(),
+                );
+                // 失敗した項目はキューに残し、値を修正して再度executed/discardを
+                // やり直せるようにする（Python 版と同じ挙動）。上でクレーム済み
+                // のため戻す。
+                state
+                    .dispatch
+                    .pending
+                    .lock()
+                    .await
+                    .insert(dispatch_id.clone(), payload);
+                persist_pending(&state).await;
+                broadcast_queue(&state).await;
+                return Err(e);
+            }
+        };
+        log_dispatch_executed(&state, &result, auth_label);
+        let mut executed_payload =
+            serde_json::to_value(&dispatch_body).unwrap_or_else(|_| json!({}));
+        if let Value::Object(map) = &mut executed_payload {
+            map.insert(
+                "effective_workspace".to_string(),
+                json!(dispatch_body.effective_workspace()),
+            );
+        }
+        record_recent(&state, &dispatch_id, executed_payload, "executed").await;
+        persist_pending(&state).await;
+        broadcast_queue(&state).await;
+        return Ok(Json(result).into_response());
+    }
+
+    // pendingに無ければ、決定済みの履歴（recent）から元のリクエストを復元して
+    // 再送する（旧 dispatch_rerun）。
     let item = {
         let recent = state.dispatch.recent.lock().await;
         recent.iter().find(|r| r["id"] == dispatch_id).cloned()
     };
     let Some(item) = item else {
         return Err(not_found(format!(
-            "Dispatch item not found (only the most recent {RECENT_LIMIT} can be rerun)"
+            "Dispatch item not found (only the most recent {RECENT_LIMIT} can be re-executed)"
         )));
     };
+
+    if !body.executed {
+        // 履歴のitemは既に決定済みで、pendingのように破棄できる対象が無い。
+        return Err(bad_request(
+            "Dispatch item already decided; nothing to discard",
+        ));
+    }
+
     let mut req: DispatchRequest =
         serde_json::from_value(item["request"].clone()).map_err(|e| server_error(e.to_string()))?;
     req.direct = false;
@@ -952,36 +931,26 @@ pub async fn dispatch_rerun(
     req.session_id = None;
     req.apply_overrides(&body.overrides);
 
-    if body.run {
-        let result = match launch(&state, &req).await {
-            Ok(r) => r,
-            Err(e) => {
-                crate::activity::log_activity(
-                    &state.paths.data_dir,
-                    Some(&req.workspace),
-                    "dispatch_failed",
-                    [("detail".to_string(), json!(e.detail))]
-                        .into_iter()
-                        .collect(),
-                );
-                return Err(e);
-            }
-        };
-        log_dispatch_executed(&state, &result, auth_label);
-        let new_id = crate::util::token_urlsafe(8);
-        let request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
-        record_recent(&state, &new_id, request_value, "approved").await;
-        broadcast_queue(&state).await;
-        return Ok(Json(result).into_response());
-    }
-
-    // Python版の `return await dispatch(req, (auth_label, False))` と同じく、
-    // 既にメイントークンで認証済み（RequireAuth）の結果をそのまま dispatch_core へ
-    // 渡して通常の POST /dispatch と同じ経路（既存セッション探索・dedup 判定・
-    // push 通知）へ乗せ直す（is_scoped_token=false のためセキュリティ境界に影響しない）。
-    dispatch_core(&state, req, auth_label, false)
-        .await
-        .map(IntoResponse::into_response)
+    let result = match launch(&state, &req).await {
+        Ok(r) => r,
+        Err(e) => {
+            crate::activity::log_activity(
+                &state.paths.data_dir,
+                Some(&req.workspace),
+                "dispatch_failed",
+                [("detail".to_string(), json!(e.detail))]
+                    .into_iter()
+                    .collect(),
+            );
+            return Err(e);
+        }
+    };
+    log_dispatch_executed(&state, &result, auth_label);
+    let new_id = crate::util::token_urlsafe(8);
+    let request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
+    record_recent(&state, &new_id, request_value, "executed").await;
+    broadcast_queue(&state).await;
+    Ok(Json(result).into_response())
 }
 
 #[cfg(test)]
@@ -1020,7 +989,7 @@ mod tests {
         let mut req = base_request();
         req.branch = Some("main".to_string());
         req.worktree = Some("wt".to_string());
-        let overrides = DecisionOverrides {
+        let overrides = DispatchOverrides {
             workspace: Some("other".to_string()),
             branch: None,
             base_branch: None,
@@ -1044,7 +1013,7 @@ mod tests {
         let mut req = base_request();
         req.branch = Some("main".to_string());
         req.base_branch = Some("develop".to_string());
-        let overrides = DecisionOverrides {
+        let overrides = DispatchOverrides {
             branch: Some(String::new()),
             base_branch: Some(String::new()),
             ..Default::default()
@@ -1115,7 +1084,7 @@ mod tests {
             "worktree": "feat/x",
             "branch_status": "exists",
         });
-        record_recent(&state, "d1", payload, "rejected").await;
+        record_recent(&state, "d1", payload, "discarded").await;
         let recent = state.dispatch.recent.lock().await;
         assert_eq!(recent[0]["request"]["effective_workspace"], "proj:feat/x");
         assert!(
@@ -1192,7 +1161,7 @@ mod tests {
             .await
             .insert("d1".to_string(), json!({"workspace": "proj"}));
         persist_pending(&state).await;
-        record_recent(&state, "d0", json!({"workspace": "proj"}), "approved").await;
+        record_recent(&state, "d0", json!({"workspace": "proj"}), "executed").await;
 
         let state2 = test_state(&dir).await;
         load_persisted_and_seed_bridge(&state2).await;
