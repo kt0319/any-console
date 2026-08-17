@@ -52,6 +52,11 @@
         </button>
       </div>
     </div>
+
+    <button v-if="!isLoading" type="button" class="si-copy-btn" @click="copyAll">
+      <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>
+      {{ copied ? "Copied!" : "Copy" }}
+    </button>
   </div>
 </template>
 
@@ -63,6 +68,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "System Info";
@@ -70,6 +76,7 @@ modalTitle!.value = "System Info";
 const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
+const { copied, copy } = useCopyFeedback();
 
 const upd = reactive({
   checking: false,
@@ -206,6 +213,17 @@ async function load() {
   isLoading.value = false;
 }
 
+function buildSummaryText() {
+  return sections.value
+    .filter((s) => !s.error && s.rows.length)
+    .map((s) => `${s.label}\n${s.rows.map((r) => `${r.label}: ${r.values.join(" ")}`).join("\n")}`)
+    .join("\n\n");
+}
+
+async function copyAll() {
+  await copy(buildSummaryText());
+}
+
 onMounted(() => { load(); updCheck(); });
 defineExpose({ load });
 </script>
@@ -225,4 +243,18 @@ defineExpose({ load });
 .si-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
+.si-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 16px 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
 </style>
