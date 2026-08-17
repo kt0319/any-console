@@ -12,7 +12,7 @@
         @click="switchPane(tab.key)"
       >
         <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null" aria-hidden="true"></span>
-        <span class="workspace-tab-label" :class="{ 'workspace-tab-label-active': activePane === tab.key }" aria-hidden="true">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
+        <span class="workspace-tab-label" :class="{ 'workspace-tab-label-active': activePane === tab.key }" aria-hidden="true">{{ tab.label }}<span v-if="tab.count && tab.showCount !== false"> ({{ tab.count }})</span></span>
       </button>
     </div>
 
@@ -127,6 +127,8 @@ const {
   stashCount,
   changesCount,
   hasGitHub,
+  hasBranchPR,
+  hasRunningAction,
   primeFromCache,
   loadCounts,
 } = useWorkspaceCounts();
@@ -201,7 +203,8 @@ const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile
 const isGitWorkspace = computed(() => !terminalSessionId.value && !!workspaceStore.currentWorkspace?.is_git_repo);
 
 // タブ定義。count / iconColor / hidden はタブによって持たないものがあるため optional。
-type WorkspaceTabDef = { key: string, icon: string, label: string, count?: number, iconColor?: string, hidden?: boolean };
+// showCount: false のタブはラベル右の "(件数)" 表示を出さない（アイコンの色だけで知らせる）。
+type WorkspaceTabDef = { key: string, icon: string, label: string, count?: number, showCount?: boolean, iconColor?: string, hidden?: boolean };
 
 const tabs = computed(() => {
   const isGit = isGitWorkspace.value;
@@ -213,11 +216,11 @@ const tabs = computed(() => {
       label: "Files",
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--accent)", hidden: !isGit },
-    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, showCount: false, iconColor: changesCount.value ? "#f5a623" : undefined, hidden: !isGit },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
-    { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGitHub.value || !prsCount.value },
-    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: "#8c6c50", hidden: !isGit || !hasGitHub.value },
-    { key: "dispatch", icon: "mdi-inbox-arrow-down-outline", label: "Dispatch", iconColor: "var(--pink)", count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
+    { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, showCount: false, iconColor: hasBranchPR.value ? "var(--purple)" : undefined, hidden: !isGit || !hasGitHub.value || !prsCount.value },
+    { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: hasRunningAction.value ? "#8c6c50" : undefined, hidden: !isGit || !hasGitHub.value },
+    { key: "dispatch", icon: "mdi-inbox-arrow-down-outline", label: "Dispatch", iconColor: dispatchPendingCount.value ? "var(--pink)" : undefined, count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);

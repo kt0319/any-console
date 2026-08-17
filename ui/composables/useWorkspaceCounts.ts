@@ -3,6 +3,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.ts";
 import { getCachedCount, useGitHub } from "./useGitHub.ts";
 import { getStashCachedCount, setStashCache } from "./useStashCache.ts";
+import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
 
 /**
  * ワークスペース詳細のタブに表示するバッジ件数（changes / stash / branch /
@@ -16,12 +17,14 @@ export function useWorkspaceCounts() {
     apiGet: (endpoint: string, opts?: { errorMessage?: string }) => Promise<{ ok: boolean, data: any }>,
     wsEndpoint: (workspace: string, path: string) => string,
   } = useApi();
-  const { loadWorkspaceGitHubUrl, loadIssues, loadPRs } = useGitHub();
+  const { loadWorkspaceGitHubUrl, loadIssues, loadPRs, loadActions } = useGitHub();
 
   const issuesCount = ref<number | null>(null);
   const prsCount = ref<number | null>(null);
   const stashCount = ref<number | null>(null);
   const branchCount = ref<number | null>(null);
+  const prItems = ref<{ headRefName?: string }[]>([]);
+  const actionItems = ref<{ headBranch?: string, status?: string, conclusion?: string }[]>([]);
 
   const changesCount = computed(() => {
     const ws = workspaceStore.currentWorkspace;
@@ -30,6 +33,12 @@ export function useWorkspaceCounts() {
   });
 
   const hasGitHub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
+
+  const currentBranch = computed(() => workspaceStore.currentWorkspace?.branch || "");
+  // PR/ActionsタブアイコンはInfoPillRowの branchPR/branchAction と同じ基準
+  // （現在のブランチに対応するPR・実行中/失敗中のrunがあるか）で色を付ける。
+  const hasBranchPR = computed(() => !!findPRForBranch(prItems.value, currentBranch.value));
+  const hasRunningAction = computed(() => isNoticeableRun(findRunForBranch(actionItems.value, currentBranch.value) as { status?: string, conclusion?: string } | null));
 
   /** キャッシュ済みの件数で即座に初期表示する。 */
   function primeFromCache(workspace: string) {
@@ -57,13 +66,16 @@ export function useWorkspaceCounts() {
     if (!hasGitHub.value) return;
     loadWorkspaceGitHubUrl();
     const issueItems = ref([]), issueLoading = ref(false), issueError = ref("");
-    const prItems = ref([]), prLoading = ref(false), prError = ref("");
+    const prLoadItems = ref([]), prLoading = ref(false), prError = ref("");
+    const actionLoadItems = ref([]), actionLoading = ref(false), actionError = ref("");
     await Promise.all([
       loadIssues(issueItems, issueLoading, issueError),
-      loadPRs(prItems, prLoading, prError),
+      loadPRs(prLoadItems, prLoading, prError),
+      loadActions(actionLoadItems, actionLoading, actionError),
     ]);
     if (!issueError.value) issuesCount.value = issueItems.value.length;
-    if (!prError.value) prsCount.value = prItems.value.length;
+    if (!prError.value) { prsCount.value = prLoadItems.value.length; prItems.value = prLoadItems.value; }
+    if (!actionError.value) actionItems.value = actionLoadItems.value;
   }
 
   return {
@@ -73,6 +85,8 @@ export function useWorkspaceCounts() {
     branchCount,
     changesCount,
     hasGitHub,
+    hasBranchPR,
+    hasRunningAction,
     primeFromCache,
     loadCounts,
   };
