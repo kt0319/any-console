@@ -10,7 +10,6 @@
     :data-tooltip="tabAriaLabel"
     role="tab"
     :tabindex="isActive ? 0 : -1"
-    @mousedown="onMouseDown"
     @click="onClick"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
@@ -18,7 +17,6 @@
     @dragleave="onDragLeaveTab"
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
-    @contextmenu.prevent
   >
     <span v-if="wsIconHtml" class="tab-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
@@ -51,9 +49,8 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { emit } from "../app-bridge.ts";
-import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.ts";
+import { DRAG_THRESHOLD } from "../utils/constants.ts";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
-import { useLongPress } from "../composables/useLongPress.ts";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
 const props = defineProps({
@@ -68,7 +65,6 @@ const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
-const mouseLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 const dropSide = ref("");
@@ -142,9 +138,7 @@ const iconHtml = computed(() => {
 
 
 function onClick(e: MouseEvent) {
-  mouseLongPress.cancel();
   if (isDragging.value) return;
-  if (mouseLongPress.consumeFired()) return;
   (e.currentTarget as HTMLElement)?.blur();
   if (isActive.value) {
     // 既にアクティブなタブ（開いているタブが1つしかない場合等）は select が
@@ -172,18 +166,11 @@ function onCloseUp() {
 }
 
 function onClosePress() {
-  mouseLongPress.cancel();
   closePending = true;
-}
-
-function onMouseDown() {
-  if (layoutStore.isTouchDevice) return;
-  mouseLongPress.start(onClose);
 }
 
 // PC: HTML5 Drag & Drop
 function onDragStart(e: DragEvent) {
-  mouseLongPress.cancel();
   if (!canDrag.value || closePending) { e.preventDefault(); return; }
   e.dataTransfer!.setData("text/plain", String(props.tab.id));
   e.dataTransfer!.effectAllowed = "move";
