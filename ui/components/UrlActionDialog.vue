@@ -57,9 +57,7 @@ onMounted(() => {
 .url-action-url {
   font-size: 11px;
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
   word-break: break-all;
 }
 
