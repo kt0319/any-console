@@ -1,5 +1,6 @@
 <template>
   <div class="modal-scroll-body">
+    <pre class="config-file-code"><code ref="codeEl" class="language-json">{{ jsonText }}</code></pre>
     <div class="config-file-toolbar">
       <button type="button" class="config-file-btn" @click="download">
         <span class="mdi mdi-download"></span> Download
@@ -9,7 +10,6 @@
       </button>
       <input ref="fileInput" type="file" accept=".json" style="display:none" @change="upload" />
     </div>
-    <pre class="config-file-code"><code ref="codeEl" class="language-json">{{ jsonText }}</code></pre>
   </div>
 </template>
 
@@ -90,7 +90,7 @@ onMounted(loadConfigFile);
 .config-file-toolbar {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
+  margin: 8px 0 16px;
 }
 
 .config-file-btn {
