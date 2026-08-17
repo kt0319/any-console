@@ -4,12 +4,6 @@
     <div v-else v-for="section in sections" :key="section.label" class="si-card">
       <div class="si-card-head">
         <span class="si-card-title">{{ section.label }}</span>
-        <span v-if="section.rightValues" class="si-col-heads">
-          <span v-for="v in section.rightValues" :key="v">{{ v }}</span>
-        </span>
-        <button v-if="section.refreshable" type="button" class="si-refresh" :disabled="isRefreshing" @click="refresh">
-          <span class="mdi mdi-refresh" :class="{ spinning: isRefreshing }"></span>
-        </button>
       </div>
       <div v-if="section.error" class="status-message error">{{ section.error }}</div>
       <div v-else>
@@ -18,18 +12,6 @@
           <span class="si-vals">
             <span v-for="v in row.values" :key="v">{{ v }}</span>
           </span>
-          <button
-            v-if="row.pid"
-            type="button"
-            class="si-kill-btn commit-action-danger"
-            :class="{ running: killingPids.has(row.pid) }"
-            :disabled="killingPids.has(row.pid)"
-            aria-label="Kill process"
-            data-tooltip="Kill process"
-            @click="killProcessRow(row.pid)"
-          >
-            <span class="mdi mdi-close"></span>
-          </button>
         </div>
       </div>
     </div>
@@ -79,9 +61,8 @@ import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
-import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.ts";
+import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.ts";
 import { useModalView } from "../composables/useModalView.ts";
-import { useProcessKill } from "../composables/useProcessKill.ts";
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "System Info";
@@ -89,7 +70,6 @@ modalTitle!.value = "System Info";
 const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
-const { killingPids, killProcess } = useProcessKill();
 
 const upd = reactive({
   checking: false,
@@ -128,19 +108,15 @@ async function updApply() {
   }
   upd.applying = false;
 }
-// 1カードの1行分（Processes 行だけ pid を持ち、kill ボタンを出す）。
-type SiRow = { label: string, values: (string | number)[], pid?: number };
-// 1カード分。refreshable は Processes カードのみ true。
+// 1カードの1行分。
+type SiRow = { label: string, values: (string | number)[] };
 type SiSection = {
   label: string,
   rows: SiRow[],
   error?: string | null,
-  refreshable?: boolean,
-  rightValues?: string[],
 };
 
 const isLoading = ref(true);
-const isRefreshing = ref(false);
 const sections = ref<SiSection[]>([]);
 // /system/info のレスポンス（updatableフラグをテンプレート側のUpdateカード
 // 表示条件に使うため、load()内のローカル値をrefとして保持する）。
@@ -169,7 +145,6 @@ function formatAuth(auth: Record<string, any> | null) {
   if (auth.auth_method === "disabled") return "Disabled";
   return auth.auth_method || "-";
 }
-const mapProcess = (p: { name: string, pid: number, cpu: number, mem: number }): SiRow => ({ label: p.name, pid: p.pid, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
 
 function tailscaleRows(ts: Record<string, any> | null | undefined) {
   if (!ts) return [];
@@ -182,8 +157,8 @@ function tailscaleRows(ts: Record<string, any> | null | undefined) {
 async function load() {
   isLoading.value = true;
   const get = (ep: string) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
-  const [srv, prc, auth] = await Promise.all([
-    get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_AUTH_CHECK),
+  const [srv, auth] = await Promise.all([
+    get(EP_SYSTEM_INFO), get(EP_AUTH_CHECK),
   ]);
   serverInfo.value = srv;
 
@@ -227,37 +202,8 @@ async function load() {
         row("Language", navigator.language),
       ],
     },
-    {
-      label: "Processes",
-      error: prc ? null : "Failed to load",
-      refreshable: true,
-      rightValues: ["CPU", "MEM"],
-      rows: prc ? prc.map(mapProcess) : [],
-    },
   ];
   isLoading.value = false;
-}
-
-function killProcessRow(pid: number) {
-  return killProcess(pid, {
-    confirmMessage: `Kill process ${pid}? This sends SIGTERM.`,
-    refetch: refresh,
-    isGone: () => !sections.value.find((s) => s.refreshable)?.rows.some((r) => r.pid === pid),
-  });
-}
-
-async function refresh() {
-  if (isRefreshing.value) return;
-  isRefreshing.value = true;
-  try {
-    const { ok, data } = await apiGet(EP_SYSTEM_PROCESSES);
-    if (ok) {
-      const idx = sections.value.findIndex((s) => s.refreshable);
-      if (idx >= 0) sections.value[idx] = { ...sections.value[idx], rows: data.map(mapProcess) };
-    }
-  } finally {
-    isRefreshing.value = false;
-  }
 }
 
 onMounted(() => { load(); updCheck(); });
@@ -270,7 +216,6 @@ defineExpose({ load });
 .si-card + .si-card { margin-top: 16px; }
 .si-card-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent); border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border); }
 .si-card-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.02em; }
-.si-col-heads { display: flex; gap: 16px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .si-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .si-row:last-child { border-bottom: none; }
 .si-label { flex: 1; color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -280,27 +225,4 @@ defineExpose({ load });
 .si-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
-/* color/border-colorは.commit-action-danger（base.css）が担う。 */
-.si-kill-btn { position: relative; background: none; border: none; padding: 0 0 0 8px; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; }
-
-/* GitActionBtn.vueのrunning状態と同じ表現（アイコンを隠しスピナーを出す）。 */
-.si-kill-btn.running {
-  pointer-events: none;
-  color: transparent;
-}
-.si-kill-btn.running > * {
-  visibility: hidden;
-}
-.si-kill-btn.running::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--error-bg-20);
-  border-top-color: var(--error);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
 </style>

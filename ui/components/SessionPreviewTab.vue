@@ -1,70 +1,87 @@
 <template>
   <div class="preview-tab">
-    <div class="settings-item-desc">
-      Detected local dev servers on <code>{{ hostname }}</code>.
+    <div class="proc-card-head">
+      <span class="proc-card-title">Processes on <code>{{ hostname }}</code></span>
+      <span class="proc-col-heads">
+        <span>CPU</span>
+        <span>MEM</span>
+      </span>
+      <button type="button" class="proc-refresh" :disabled="isRefreshing" @click="refreshAll">
+        <span class="mdi mdi-refresh" :class="{ spinning: isRefreshing }"></span>
+      </button>
     </div>
-    <div v-if="!ports.length" class="settings-item-desc">
-      No ports detected yet. Start a dev server (e.g. <code>npm run dev</code>) in a terminal.
+    <div v-if="!hasDevServer" class="settings-item-desc">
+      No dev servers detected yet. Start one (e.g. <code>npm run dev</code>) in a terminal — it'll show up here automatically.
     </div>
-    <div v-for="p in ports" :key="p.port" class="preview-row">
-      <div class="preview-meta">
-        <div class="preview-top-row">
-          <span v-if="p.workspace" class="preview-label">
-            <span v-html="workspaceIconHtml(p.workspace)"></span>{{ p.workspace }}
-          </span>
-          <span v-else class="preview-label preview-label-none">No workspace</span>
-          <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
-        </div>
-        <div class="preview-port-row">
-          <span class="preview-port">
-            :{{ p.port }}
-            <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
-          </span>
-          <span v-if="p.is_self" class="preview-self">this console</span>
-        </div>
-      </div>
-      <template v-if="!p.is_self">
-        <button type="button" class="preview-open" @click="openPreview(p)">
-          <span class="mdi mdi-open-in-new"></span> Open
-        </button>
+    <div v-if="processError" class="status-message error">{{ processError }}</div>
+    <template v-else>
+      <div v-for="row in rows" :key="row.key" class="proc-row">
+        <span class="proc-icon">
+          <span v-if="row.workspace" v-html="workspaceIconHtml(row.workspace)"></span>
+          <span v-else class="mdi mdi-application-outline"></span>
+        </span>
         <button
-          v-if="p.pid"
+          v-if="row.isDevServer && !row.isSelf"
           type="button"
-          class="preview-kill commit-action-danger"
-          :class="{ running: killingPids.has(p.pid) }"
-          :disabled="killingPids.has(p.pid)"
+          class="proc-open"
+          aria-label="Open"
+          data-tooltip="Open"
+          @click="openPreview(row)"
+        >
+          <span class="mdi mdi-server"></span>
+        </button>
+        <span class="proc-main">
+          <span class="proc-name">
+            {{ row.name }}<span v-if="row.pid" class="proc-pid"> [pid {{ row.pid }}]</span>
+            <span v-if="row.isSelf" class="proc-self">this console</span>
+          </span>
+          <span v-if="row.isDevServer" class="proc-sub">
+            :{{ row.port }}<span v-if="row.proxyPort"> → :{{ row.proxyPort }}</span>
+          </span>
+        </span>
+        <span class="proc-vals">
+          <span>{{ row.cpu !== undefined ? `${row.cpu.toFixed(1)}%` : "—" }}</span>
+          <span>{{ row.mem !== undefined ? `${row.mem.toFixed(1)}%` : "—" }}</span>
+        </span>
+        <button
+          type="button"
+          class="proc-kill-btn commit-action-danger"
+          :class="{ running: !!row.pid && killingPids.has(row.pid), 'proc-btn-hidden': !(row.pid && !row.isSelf) }"
+          :disabled="!row.pid || (!!row.pid && killingPids.has(row.pid))"
           aria-label="Kill process"
           data-tooltip="Kill process"
-          @click="killDevServer(p)"
+          @click="row.pid && (row.isDevServer ? killDevServer(row) : killProcessRow(row.pid))"
         >
           <span class="mdi mdi-close"></span>
         </button>
-      </template>
-    </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDevServerOpen } from "../composables/useDevServerOpen.ts";
 import { useProcessKill } from "../composables/useProcessKill.ts";
+import { useApi } from "../composables/useApi.ts";
+import { EP_SYSTEM_PROCESSES } from "../utils/endpoints.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
-// Settings（ModalMenu）の「Dev Server」項目から開くcurrentView
-// （'SessionPreview'）。旧PreviewPorts.vue（ModalMenu配下の独立画面）から
-// 移植したもの。ポーリングはこのコンポーネント自身のマウント/アンマウントに
-// 紐付ける（usePreviewPortsはref-counted共有composableのため、TerminalPaneの
-// 他の利用と重複起動にはならない）。
+// Settings（ModalMenu）の「Server Processes」項目から開くcurrentView（'SessionPreview'）。
+// dev server（ワークスペース紐付きのポート検出）とOSプロセス一覧（Kill含む）を
+// 1つの一覧に統合する。dev serverはOS上でも1つのプロセスであり、分けて出すと
+// 同じプロセスが両方に重複して載ってしまうため、dev serverに該当するpidは
+// Port/Workspace/Open付きの行としてprocesses（CPU順）の中の元の位置に混ぜて
+// 出す（先頭に固定しない）。
 
 const { modalTitle } = useModalView();
-modalTitle!.value = "Dev Server";
+modalTitle!.value = "Server Processes";
 
 const { ports, start: startPolling, stop: stopPolling, fetchPorts } = usePreviewPorts();
-onMounted(startPolling);
-onBeforeUnmount(stopPolling);
+const hasDevServer = computed(() => ports.value.some((p) => !p.is_self));
 
 const workspaceStore = useWorkspaceStore();
 const { confirmOpenDevServer } = useDevServerOpen();
@@ -78,17 +95,109 @@ function workspaceIconHtml(name: string) {
 
 // Server pill（TerminalPane）と同じOpen/Copy選択の確認フローにする
 // （直接開かず、URLだけ確認・コピーもできるようにする）。
-async function openPreview(p: Record<string, any>) {
-  await confirmOpenDevServer(p);
+async function openPreview(row: CombinedRow) {
+  await confirmOpenDevServer({ port: row.port, proxy_port: row.proxyPort });
 }
 
-function killDevServer(p: Record<string, any>) {
-  return killProcess(p.pid, {
-    confirmMessage: `Kill process ${p.pid} (${p.process}, port ${p.port})? This sends SIGTERM.`,
-    refetch: fetchPorts,
-    isGone: () => !ports.value.some((port) => port.pid === p.pid),
+function killDevServer(row: CombinedRow) {
+  return killProcess(row.pid!, {
+    confirmMessage: `Kill process ${row.pid} (${row.name}, port ${row.port})? This sends SIGTERM.`,
+    refetch: refreshAll,
+    isGone: () => !ports.value.some((port) => port.pid === row.pid),
   });
 }
+
+type ProcessEntry = { name: string, pid: number, cpu: number, mem: number };
+
+const { apiGet } = useApi();
+const processes = ref<ProcessEntry[]>([]);
+const processError = ref("");
+const isRefreshing = ref(false);
+
+async function loadProcesses() {
+  const { ok, data } = await apiGet(EP_SYSTEM_PROCESSES, { errorMessage: "Failed to load processes" });
+  if (ok) { processes.value = data; processError.value = ""; }
+  else processError.value = "Failed to load";
+}
+
+async function refreshAll() {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+  try {
+    await Promise.all([loadProcesses(), fetchPorts()]);
+  } finally {
+    isRefreshing.value = false;
+  }
+}
+
+function killProcessRow(pid: number) {
+  return killProcess(pid, {
+    confirmMessage: `Kill process ${pid}? This sends SIGTERM.`,
+    refetch: refreshAll,
+    isGone: () => !processes.value.some((p) => p.pid === pid),
+  });
+}
+
+// 1行分（dev server行 / 通常プロセス行を共通の形にまとめたもの）。
+type CombinedRow = {
+  key: string,
+  pid?: number,
+  name: string,
+  isDevServer: boolean,
+  isSelf?: boolean,
+  workspace?: string,
+  port?: number,
+  proxyPort?: number,
+  cpu?: number,
+  mem?: number,
+};
+
+function toDevServerRow(p: Record<string, any>, cpu?: number, mem?: number): CombinedRow {
+  return {
+    key: `port-${p.port}`,
+    pid: p.pid,
+    name: p.process,
+    isDevServer: true,
+    isSelf: !!p.is_self,
+    workspace: p.workspace,
+    port: p.port,
+    proxyPort: p.proxy_port,
+    cpu,
+    mem,
+  };
+}
+
+// dev serverをヘッダのように先頭固定にせず、processes（ps aux --sort=-%cpu）の
+// 並び順にそのまま混ぜる。一致するpidが見つかった位置にdev server行を差し込み、
+// pidが取れていない/まだprocessesに現れていないportはリスト末尾に回す。
+const rows = computed<CombinedRow[]>(() => {
+  const portsByPid = new Map<number, Record<string, any>[]>();
+  for (const p of ports.value) {
+    if (!p.pid) continue;
+    const list = portsByPid.get(p.pid) || [];
+    list.push(p);
+    portsByPid.set(p.pid, list);
+  }
+  const matchedPids = new Set<number>();
+  const result: CombinedRow[] = [];
+  for (const proc of processes.value) {
+    const matched = portsByPid.get(proc.pid);
+    if (matched) {
+      matchedPids.add(proc.pid);
+      for (const p of matched) result.push(toDevServerRow(p, proc.cpu, proc.mem));
+    } else {
+      result.push({ key: `pid-${proc.pid}`, pid: proc.pid, name: proc.name, isDevServer: false, cpu: proc.cpu, mem: proc.mem });
+    }
+  }
+  for (const p of ports.value) {
+    if (p.pid && matchedPids.has(p.pid)) continue;
+    result.push(toDevServerRow(p));
+  }
+  return result;
+});
+
+onMounted(() => { startPolling(); loadProcesses(); });
+onBeforeUnmount(stopPolling);
 </script>
 
 <style scoped>
@@ -101,103 +210,105 @@ function killDevServer(p: Record<string, any>) {
   padding: 8px;
 }
 
-.preview-row {
+.proc-card-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent); border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border); }
+.proc-card-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.02em; }
+.proc-col-heads { display: flex; gap: 16px; width: 88px; justify-content: flex-end; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.proc-refresh { background: none; border: none; color: var(--text-muted); padding: 0; cursor: pointer; font-size: 20px; line-height: 1; }
+.proc-refresh:disabled { opacity: 0.4; cursor: default; }
+.proc-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
+
+/* dev server行・通常プロセス行を同じ列構成（アイコン/名称+補足/CPU・MEM/Open?/Kill）
+   で揃え、1つの表として見えるようにする。 */
+.proc-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 4px;
+  gap: 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
 }
-.preview-meta {
+.proc-row:last-child { border-bottom: none; }
+.proc-icon {
+  flex-shrink: 0;
+  width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+.proc-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
   flex: 1;
   min-width: 0;
 }
-.preview-port {
-  font-size: 14px;
-  font-family: monospace;
+.proc-name {
+  font-size: 13px;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.preview-port-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.preview-top-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-.preview-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
+.proc-pid { color: var(--text-muted); font-family: monospace; font-size: 11px; }
+.proc-self {
+  margin-left: 6px;
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 8px;
   background: var(--bg-tertiary);
-  color: var(--accent);
-}
-.preview-label-none {
   color: var(--text-muted);
-  opacity: 0.7;
 }
-.preview-sub {
+.proc-sub {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--accent);
   font-family: monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
 }
-.preview-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 12px;
-  height: 36px;
-  background: var(--accent);
-  color: var(--bg-primary);
-  border: none;
-  border-radius: var(--radius);
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: none;
-}
-/* color/border-colorは.commit-action-danger（base.css）が担う。ここでは
-   border style/widthのみ指定し、色は指定しない（currentColorでcolorに追従）。 */
-.preview-kill {
-  position: relative;
+/* Server pill（.pill-server-btn、InfoPillRow.vue）と同じ色をアイコンだけに使う。 */
+.proc-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   background: transparent;
-  border: 1px solid;
-  border-radius: var(--radius);
-  font-size: 16px;
+  border: none;
+  color: var(--lime);
+  font-size: 18px;
   cursor: pointer;
+  flex-shrink: 0;
+}
+/* Killが無い行（this console自身）でも右端の位置が揃うよう、無い時も
+   DOM上は残しvisibility:hiddenで幅だけ確保する。Open（.proc-open）は
+   dev server行の左アイコン直後にしか出さないボタンで、通常プロセス行には
+   そもそも表示しないため対象外（v-ifでDOMごと消す）。 */
+.proc-btn-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+code {
+  font-family: monospace;
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
-/* GitActionBtn.vueのrunning状態と同じ表現（アイコンを隠しスピナーを出す）。 */
-.preview-kill.running {
+.proc-vals { display: flex; gap: 16px; width: 88px; justify-content: flex-end; color: var(--text-primary); font-variant-numeric: tabular-nums; font-size: 12px; flex-shrink: 0; }
+/* color/border-colorは.commit-action-danger（base.css）が担う。 */
+.proc-kill-btn { position: relative; background: none; border: none; padding: 0; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; }
+
+.proc-kill-btn.running {
   pointer-events: none;
   color: transparent;
 }
-
-.preview-kill.running > * {
+.proc-kill-btn.running > * {
   visibility: hidden;
 }
-
-.preview-kill.running::after {
+.proc-kill-btn.running::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -208,23 +319,5 @@ function killDevServer(p: Record<string, any>) {
   border-top-color: var(--error);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
-}
-.preview-proxy {
-  color: var(--accent);
-}
-.preview-self {
-  flex-shrink: 0;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-code {
-  font-family: monospace;
-  background: var(--bg-tertiary);
-  padding: 1px 4px;
-  border-radius: 4px;
-  font-size: 12px;
 }
 </style>

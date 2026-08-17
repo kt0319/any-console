@@ -41,8 +41,7 @@
           <span class="mdi mdi-file-cog"></span> Config File
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('SessionPreview')">
-          <span class="mdi mdi-server"></span> Dev Server
-          <span v-if="previewPortCount" class="settings-menu-version">{{ previewPortCount }}</span>
+          <span class="mdi mdi-server"></span> Server Processes
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
           <span class="mdi mdi-information-outline"></span> System Info
@@ -54,12 +53,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
 import { usePushNotification } from "../composables/usePushNotification.ts";
-import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 // useModalView の各値は inject（default null はテスト用）。実行時は常に
@@ -73,10 +71,6 @@ const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
 const { isSubscribed: isPushSubscribed, init: initPush } = usePushNotification();
-// Dev Server項目のバッジ件数（旧SessionListView.vueの「Server」メニュー項目と
-// 同じ「自分自身は除く」ロジック）。
-const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
-const previewPortCount = computed(() => previewPorts.value.filter((p) => !p.is_self).length);
 
 onMounted(async () => {
   const auth = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
@@ -87,11 +81,6 @@ onMounted(async () => {
   // ref）をここでも初期化する。NotificationConfig.vueを一度も開いていないと
   // subscription.valueが未確定のまま（常にOffに見える）ため。
   await initPush();
-  startPreviewPolling();
-});
-
-onBeforeUnmount(() => {
-  stopPreviewPolling();
 });
 </script>
 
