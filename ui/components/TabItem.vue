@@ -18,6 +18,7 @@
     @dragleave="onDragLeaveTab"
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
+    @contextmenu.prevent
   >
     <span v-if="wsIconHtml" class="tab-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
