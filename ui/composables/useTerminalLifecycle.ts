@@ -79,13 +79,20 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       // タブがまだ存在しない間、現在のアクティブタブを操作できてしまわないよう
       // タブ作成完了までブロックする。
       isLaunching.value = true;
+      // セッションに紐付ける（=TMUX_ICONとして永続化され、他デバイスやServer
+      // Processes等サーバ側の情報からも見える）アイコンは、ジョブ固有のものが
+      // 設定されていればそちらを優先する。タブ表示側（wsIcon/addTerminalTab）は
+      // 従来通りワークスペースアイコンとジョブアイコンを両方使うため、ここでの
+      // 変更はタブの見た目には影響しない。
+      const sessionIcon = jobName && jobIcon ? jobIcon : icon;
+      const sessionIconColor = jobName && jobIcon ? jobIconColor : iconColor;
       const res = await auth.apiFetch(EP_RUN, {
         method: "POST",
         body: {
           job: TERMINAL_JOB_KEY,
           workspace: workspace || null,
-          icon: icon || null,
-          icon_color: iconColor || null,
+          icon: sessionIcon || null,
+          icon_color: sessionIconColor || null,
           job_name: jobName || null,
           job_label: jobLabel || null,
           // コマンドはサーバ側で tmux に送り込む（ブラウザ未接続でも実行が走る）。

@@ -38,6 +38,7 @@ async fn session_list_entry(
     state: &Arc<AppState>,
     session_id: &str,
     full_tmux_name: &str,
+    pane_meta: &std::collections::HashMap<String, tmux::PaneMeta>,
 ) -> Value {
     let (
         workspace,
@@ -80,6 +81,9 @@ async fn session_list_entry(
         }
     };
     let created_at = tmux::get_tmux_created(full_tmux_name).await;
+    // pane_pid はSystem Info > Server ProcessesでJobのプロセス行を判別するために使う
+    // （tmuxペインの実行中コマンドのpid。`ps aux`のpidと突き合わせる）。
+    let pid = pane_meta.get(full_tmux_name).map(|m| m.2);
     json!({
         "session_id": session_id,
         "workspace": workspace,
@@ -93,6 +97,7 @@ async fn session_list_entry(
         "created_at": created_at,
         "detached": detached,
         "interactive": interactive,
+        "pid": pid,
     })
 }
 
@@ -115,10 +120,11 @@ pub async fn list_terminal_sessions(
             (id, name)
         })
         .collect();
+    let pane_meta = tmux::list_pane_meta().await;
     let mut sessions: Vec<Value> = join_all(
         entries
             .iter()
-            .map(|(session_id, name)| session_list_entry(&state, session_id, name)),
+            .map(|(session_id, name)| session_list_entry(&state, session_id, name, &pane_meta)),
     )
     .await;
     sessions.sort_by_key(|s| s["created_at"].as_i64().unwrap_or(0));

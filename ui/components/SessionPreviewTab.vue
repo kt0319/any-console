@@ -16,8 +16,9 @@
     <div v-if="processError" class="status-message error">{{ processError }}</div>
     <template v-else>
       <div v-for="row in rows" :key="row.key" class="proc-row">
-        <span class="proc-icon">
-          <span v-if="row.workspace" v-html="workspaceIconHtml(row.workspace)"></span>
+        <span v-if="!(row.isDevServer && !row.isSelf)" class="proc-icon">
+          <span v-if="row.isJob && row.icon" v-html="renderIconStr(row.icon, row.iconColor, 20)"></span>
+          <span v-else-if="row.workspace" v-html="workspaceIconHtml(row.workspace)"></span>
           <span v-else class="mdi mdi-application-outline"></span>
         </span>
         <button
@@ -32,12 +33,14 @@
         </button>
         <span class="proc-main">
           <span class="proc-name">
-            {{ row.name }}<span v-if="row.pid" class="proc-pid"> [pid {{ row.pid }}]</span>
+            {{ row.name }}<span v-if="row.pid" class="proc-pid"> ({{ row.pid }})</span>
             <span v-if="row.isSelf" class="proc-self">this console</span>
           </span>
-          <span v-if="row.isDevServer" class="proc-sub">
-            :{{ row.port }}<span v-if="row.proxyPort"> → :{{ row.proxyPort }}</span>
-          </span>
+          <template v-if="row.isDevServer">
+            <span v-if="row.workspace" class="proc-sub">{{ row.workspace }}</span>
+            <span class="proc-sub">:{{ row.port }}<span v-if="row.proxyPort"> → :{{ row.proxyPort }}</span></span>
+          </template>
+          <span v-else-if="row.isJob && row.workspace" class="proc-sub">{{ row.workspace }}</span>
         </span>
         <span class="proc-vals">
           <span>{{ row.cpu !== undefined ? `${row.cpu.toFixed(1)}%` : "—" }}</span>
@@ -66,7 +69,7 @@ import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDevServerOpen } from "../composables/useDevServerOpen.ts";
 import { useProcessKill } from "../composables/useProcessKill.ts";
 import { useApi } from "../composables/useApi.ts";
-import { EP_SYSTEM_PROCESSES } from "../utils/endpoints.ts";
+import { EP_SYSTEM_PROCESSES, EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
@@ -75,7 +78,9 @@ import { useModalView } from "../composables/useModalView.ts";
 // 1つの一覧に統合する。dev serverはOS上でも1つのプロセスであり、分けて出すと
 // 同じプロセスが両方に重複して載ってしまうため、dev serverに該当するpidは
 // Port/Workspace/Open付きの行としてprocesses（CPU順）の中の元の位置に混ぜて
-// 出す（先頭に固定しない）。
+// 出す（先頭に固定しない）。job（tmuxペインで実行中のジョブ）に該当するpidも
+// 同様にワークスペース/ジョブ名を添えて表示する（/terminal/sessionsのpane_pid
+// と突き合わせる）。
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "Server Processes";
@@ -90,7 +95,7 @@ const hostname = location.hostname;
 
 function workspaceIconHtml(name: string) {
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === name);
-  return renderIconStr(ws?.icon || "mdi-console", ws?.icon_color, 14);
+  return renderIconStr(ws?.icon || "mdi-console", ws?.icon_color, 20);
 }
 
 // Server pill（TerminalPane）と同じOpen/Copy選択の確認フローにする
@@ -108,9 +113,11 @@ function killDevServer(row: CombinedRow) {
 }
 
 type ProcessEntry = { name: string, pid: number, cpu: number, mem: number };
+type JobEntry = { pid: number, workspace?: string, jobLabel: string, icon?: string, iconColor?: string };
 
 const { apiGet } = useApi();
 const processes = ref<ProcessEntry[]>([]);
+const jobs = ref<JobEntry[]>([]);
 const processError = ref("");
 const isRefreshing = ref(false);
 
@@ -120,11 +127,27 @@ async function loadProcesses() {
   else processError.value = "Failed to load";
 }
 
+// 実行中のジョブ（tmuxペインで動くプロセス）もProcessesで判別できるよう、
+// job_nameが付いたterminalセッションのpid（tmuxペインのpane_pid）を拾う。
+async function loadJobs() {
+  const { ok, data } = await apiGet(EP_TERMINAL_SESSIONS, { errorMessage: "Failed to load jobs" });
+  if (!ok || !Array.isArray(data)) return;
+  jobs.value = data
+    .filter((s: Record<string, any>) => s.job_name && s.pid)
+    .map((s: Record<string, any>) => ({
+      pid: s.pid,
+      workspace: s.workspace,
+      jobLabel: s.job_label || s.job_name,
+      icon: s.icon,
+      iconColor: s.icon_color,
+    }));
+}
+
 async function refreshAll() {
   if (isRefreshing.value) return;
   isRefreshing.value = true;
   try {
-    await Promise.all([loadProcesses(), fetchPorts()]);
+    await Promise.all([loadProcesses(), fetchPorts(), loadJobs()]);
   } finally {
     isRefreshing.value = false;
   }
@@ -138,16 +161,20 @@ function killProcessRow(pid: number) {
   });
 }
 
-// 1行分（dev server行 / 通常プロセス行を共通の形にまとめたもの）。
+// 1行分（dev server行 / job行 / 通常プロセス行を共通の形にまとめたもの）。
 type CombinedRow = {
   key: string,
   pid?: number,
   name: string,
   isDevServer: boolean,
+  isJob?: boolean,
   isSelf?: boolean,
   workspace?: string,
   port?: number,
   proxyPort?: number,
+  jobLabel?: string,
+  icon?: string,
+  iconColor?: string,
   cpu?: number,
   mem?: number,
 };
@@ -167,9 +194,27 @@ function toDevServerRow(p: Record<string, any>, cpu?: number, mem?: number): Com
   };
 }
 
-// dev serverをヘッダのように先頭固定にせず、processes（ps aux --sort=-%cpu）の
-// 並び順にそのまま混ぜる。一致するpidが見つかった位置にdev server行を差し込み、
-// pidが取れていない/まだprocessesに現れていないportはリスト末尾に回す。
+function toJobRow(job: JobEntry, name: string, cpu?: number, mem?: number): CombinedRow {
+  return {
+    key: `job-${job.pid}`,
+    pid: job.pid,
+    name,
+    isDevServer: false,
+    isJob: true,
+    workspace: job.workspace,
+    jobLabel: job.jobLabel,
+    icon: job.icon,
+    iconColor: job.iconColor,
+    cpu,
+    mem,
+  };
+}
+
+// dev server/jobをヘッダのように先頭固定にせず、processes（ps aux --sort=-%cpu、
+// 上位PROCESS_LIST_LIMIT件のみ）の並び順にそのまま混ぜる。一致するpidが
+// 見つかった位置にdev server/job行を差し込み、processesの上位に入らない
+// （CPU使用率が低い）pidはリスト末尾に回す — devServer/jobともに、上位に
+// 入らなければ一切表示されない、ということが無いようにするため。
 const rows = computed<CombinedRow[]>(() => {
   const portsByPid = new Map<number, Record<string, any>[]>();
   for (const p of ports.value) {
@@ -178,6 +223,7 @@ const rows = computed<CombinedRow[]>(() => {
     list.push(p);
     portsByPid.set(p.pid, list);
   }
+  const jobsByPid = new Map(jobs.value.map((j) => [j.pid, j]));
   const matchedPids = new Set<number>();
   const result: CombinedRow[] = [];
   for (const proc of processes.value) {
@@ -185,6 +231,12 @@ const rows = computed<CombinedRow[]>(() => {
     if (matched) {
       matchedPids.add(proc.pid);
       for (const p of matched) result.push(toDevServerRow(p, proc.cpu, proc.mem));
+      continue;
+    }
+    const job = jobsByPid.get(proc.pid);
+    if (job) {
+      matchedPids.add(proc.pid);
+      result.push(toJobRow(job, proc.name, proc.cpu, proc.mem));
     } else {
       result.push({ key: `pid-${proc.pid}`, pid: proc.pid, name: proc.name, isDevServer: false, cpu: proc.cpu, mem: proc.mem });
     }
@@ -193,10 +245,14 @@ const rows = computed<CombinedRow[]>(() => {
     if (p.pid && matchedPids.has(p.pid)) continue;
     result.push(toDevServerRow(p));
   }
+  for (const job of jobs.value) {
+    if (matchedPids.has(job.pid)) continue;
+    result.push(toJobRow(job, job.jobLabel));
+  }
   return result;
 });
 
-onMounted(() => { startPolling(); loadProcesses(); });
+onMounted(() => { startPolling(); loadProcesses(); loadJobs(); });
 onBeforeUnmount(stopPolling);
 </script>
 
@@ -229,12 +285,13 @@ onBeforeUnmount(stopPolling);
 .proc-row:last-child { border-bottom: none; }
 .proc-icon {
   flex-shrink: 0;
-  width: 18px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 20px;
 }
 .proc-main {
   display: flex;
@@ -267,7 +324,6 @@ onBeforeUnmount(stopPolling);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Server pill（.pill-server-btn、InfoPillRow.vue）と同じ色をアイコンだけに使う。 */
 .proc-open {
   display: inline-flex;
   align-items: center;
@@ -275,16 +331,17 @@ onBeforeUnmount(stopPolling);
   width: 32px;
   height: 32px;
   background: transparent;
-  border: none;
+  border: 1px solid var(--lime);
+  border-radius: var(--radius);
   color: var(--lime);
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   flex-shrink: 0;
 }
 /* Killが無い行（this console自身）でも右端の位置が揃うよう、無い時も
    DOM上は残しvisibility:hiddenで幅だけ確保する。Open（.proc-open）は
-   dev server行の左アイコン直後にしか出さないボタンで、通常プロセス行には
-   そもそも表示しないため対象外（v-ifでDOMごと消す）。 */
+   dev server行にしか出さないボタンで、通常プロセス行にはそもそも
+   表示しないため対象外（v-ifでDOMごと消す）。 */
 .proc-btn-hidden {
   visibility: hidden;
   pointer-events: none;

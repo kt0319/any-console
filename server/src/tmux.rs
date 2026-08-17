@@ -461,8 +461,11 @@ pub async fn list_session_ids(tmux_prefix: &str) -> Option<Vec<String>> {
     Some(ids)
 }
 
-/// 全 tmux セッションの (pane_current_command, pane_title, pane_pid,
-/// pane_current_path, (pane_width, pane_height)) を一括で返す（`agent_watch` の
+/// `list_pane_meta` の1エントリ: (pane_current_command, pane_title, pane_pid,
+/// pane_current_path, (pane_width, pane_height))。
+pub type PaneMeta = (String, String, i64, String, (i64, i64));
+
+/// 全 tmux セッションの pane メタ情報を一括で返す（`agent_watch` の
 /// `list_pane_meta` 相当）。
 ///
 /// キーはセッション名。ポーリング1周期につき1回だけ呼び、セッション数に
@@ -473,7 +476,7 @@ pub async fn list_session_ids(tmux_prefix: &str) -> Option<Vec<String>> {
 /// pane_width/height は agent_watch のリサイズ検知用（アタッチ中クライアントの
 /// 端末幅に合わせて tmux がペイン内容を再フローするため、出力に変化が無くても
 /// capture-pane の全文がリサイズだけで変わってしまう問題への対策）。
-pub async fn list_pane_meta() -> HashMap<String, (String, String, i64, String, (i64, i64))> {
+pub async fn list_pane_meta() -> HashMap<String, PaneMeta> {
     let Some(r) = run_tmux_cmd(&[
         "list-panes",
         "-a",
