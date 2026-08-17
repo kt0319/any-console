@@ -154,6 +154,15 @@ defineExpose({ show });
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* エラーは原因調査に文言そのものが要ることが多いため、省略せず折り返して
+   全文を出す（成功/情報トーストは短い定型文が多いので従来どおり1行省略）。 */
+.toast-error .toast-line {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-word;
+}
 .toast-error {
   background: color-mix(in srgb, var(--error) 85%, transparent);
   color: #fff;

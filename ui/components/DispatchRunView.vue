@@ -100,6 +100,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
+import { useToast } from "../composables/useToast.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.ts";
@@ -120,6 +121,7 @@ const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { queue, recent, runItem, rejectItem } = useDispatchQueue();
 const workspaceStore = useWorkspaceStore();
+const toast = useToast();
 
 const itemId = props.itemId;
 // 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
@@ -384,7 +386,10 @@ async function discard() {
   discarding.value = true;
   try {
     const ok = await rejectItem(itemId);
-    if (ok) emits("back");
+    if (ok) {
+      toast.success(`Dispatch discarded (${label})`);
+      emits("back");
+    }
   } finally {
     discarding.value = false;
   }
