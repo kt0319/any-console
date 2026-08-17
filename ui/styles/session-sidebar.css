@@ -4,14 +4,12 @@
    を使うため、どちらか一方のscoped styleに置くと他方に効かない。scopedを
    跨いで共有する必要があるスタイルはここ（グローバル）に集約する。 */
 
-/* セッション（タブ）ごとに罫線で区切る。 */
+/* セッション（タブ）ごとに罫線で区切る。通常セッションリストとpending
+   dispatchリストが隣接して並ぶ（SessionListView.vue）ため、最後の行だけ
+   罫線を消すと2つのリストが境界なく繋がって見えてしまう。常に表示する。 */
 .session-sidebar-li {
   border-bottom: 1px solid var(--border);
   position: relative;
-}
-
-.session-sidebar-li:last-child {
-  border-bottom: none;
 }
 
 /* ピル行 + 閉じるボタンのコンテナ。activeタブの背景・左ボーダーは
