@@ -104,7 +104,18 @@ export function useRecentJobs() {
   }
 
   async function togglePin(key: string) {
-    const jobs = recentJobs.value.map((j) => (j.key === key ? { ...j, pinned: !j.pinned } : j));
+    const target = recentJobs.value.find((j) => j.key === key);
+    if (!target) return;
+    const pinned = !target.pinned;
+    const updated = { ...target, pinned };
+    let jobs;
+    if (pinned) {
+      // ピン留め時はピン留めグループの先頭に来るよう配列の先頭へ移動する。
+      jobs = [updated, ...recentJobs.value.filter((j) => j.key !== key)];
+    } else {
+      // ピン解除時は位置を変えない。
+      jobs = recentJobs.value.map((j) => (j.key === key ? updated : j));
+    }
     recentJobs.value = _sortAndTrim(jobs);
     _save();
     await _syncToServer();
