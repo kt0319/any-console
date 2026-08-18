@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0](https://github.com/kt0319/any-console/compare/v0.13.0...v0.14.0) (2026-08-18)
+
+
+### Features
+
+* Circle Keypadにスクロール操作を追加 ([ed157b1](https://github.com/kt0319/any-console/commit/ed157b1b9fa9805ed92722612e01b6e982638df1))
+* gh CLIのログイン状態をSetupチェックリストとSystem Infoに表示 ([ceb0fb9](https://github.com/kt0319/any-console/commit/ceb0fb95c90498b696507dda45e4066535cd6cea))
+* Recent Jobsのピン留め時にピン留めグループの先頭へ配置する ([d280ba1](https://github.com/kt0319/any-console/commit/d280ba1074e29c87027abc986a647726dc3e2a50))
+* Server ProcessesでジョブのpidをOSプロセスと突き合わせて表示する ([2f12821](https://github.com/kt0319/any-console/commit/2f1282132adae4cb4ce6ac182822a34f8f078e26))
+* Setup項目に未対応があればカテゴリ見出しに警告アイコンを表示 ([96a58ef](https://github.com/kt0319/any-console/commit/96a58efaa3dd7b4f1f7102047d3a644cf52e833b))
+* System Infoの一番下にCopyボタンを追加する ([1579b66](https://github.com/kt0319/any-console/commit/1579b6668c2991c98eb86f13ee21170dc75aa6f4))
+* コミット詳細ヘッダーにCopy hash追加とフルメッセージ展開機能を追加 ([4942eb4](https://github.com/kt0319/any-console/commit/4942eb41768bdb8962cfe269c18446b9693cfdae))
+
+
+### Bug Fixes
+
+* dispatchの即時実行を廃止する ([ec85335](https://github.com/kt0319/any-console/commit/ec8533573312819982d5779f9e05c14286d253fa))
+* git status取得失敗時にChangesピルが古いdirty表示のまま残る不具合を修正 ([5b5ac6f](https://github.com/kt0319/any-console/commit/5b5ac6f9ed7b1ed78a1913d94b761192bf53ac7f))
+* hook URLのスキームを実際のTLS listen状態に合わせて決定する ([2147581](https://github.com/kt0319/any-console/commit/214758158b437dbf55bbed6af09ae3f33713d0f7))
+* hookスクリプトがhttps環境で毎回無駄な初回curlを撃つのを解消 ([0a55322](https://github.com/kt0319/any-console/commit/0a55322eaf560e673127f973ce8a06389a9ab0b9))
+* macOSのサービス稼働判定をlaunchctlベースに変更する ([fe414e7](https://github.com/kt0319/any-console/commit/fe414e7a871ab97ade265feef56590d646503749))
+* revoke済みデバイスのWebSocket接続をping時に切断する ([e2dfceb](https://github.com/kt0319/any-console/commit/e2dfceb11d03b72c0bf8f940c77ee9f1bc8ec6c9))
+* Setupチェックリストの展開・警告アイコンが起動直後にちらつく問題を修正 ([f39b094](https://github.com/kt0319/any-console/commit/f39b094bbd05178f31f5d6fb228d6bfa3cd6ed9d))
+* Tailscaleヘッダ自動認証の信頼範囲をloopback発のみに限定する ([e2b29c3](https://github.com/kt0319/any-console/commit/e2b29c328232058fa054cc0db477f16374a72b2a))
+* TLS bindでホスト名指定時に起動できない非対称を解消する ([e27a764](https://github.com/kt0319/any-console/commit/e27a76456d22cb955e6fded9f1f10c2030745ff7))
+* エラートーストを省略せず折り返し表示し、dispatch破棄時にトーストを出す ([7f3250f](https://github.com/kt0319/any-console/commit/7f3250f29f198fb00e004ad8ce18ce00cdd550c2))
+* サイドバーのピル行にカーソルをpointerで表示する ([893f4f7](https://github.com/kt0319/any-console/commit/893f4f7e60d0ed3be499c4d45183d0024841378f))
+* セッションサイドバーのアクティブ行背景を幅いっぱいに表示する ([e6820a2](https://github.com/kt0319/any-console/commit/e6820a2f5e5fb09146c248afbed49488f10574db))
+* セッションサイドバー最後の項目にも罫線を表示する ([f2e38b6](https://github.com/kt0319/any-console/commit/f2e38b6979820f9673d5dc9a769502fb875c257e))
+* ターミナルURLダイアログでURLを省略せず折り返し表示する ([6a50175](https://github.com/kt0319/any-console/commit/6a501753d68dd53fbb31c0e87bb64808e2a652d4))
+* タブの右クリックでブラウザのコンテキストメニューを出さないようにする ([d08a964](https://github.com/kt0319/any-console/commit/d08a9646d3fc084e535d4283740ebf723c155bd6))
+* メイントークンがdispatch rerunのactivityログへ平文で記録される問題を修正 ([d72b5c6](https://github.com/kt0319/any-console/commit/d72b5c65257847b821b1fc82a4d34936d071f6a1))
+* ワークスペースモーダルのタブアイコンをピル・ブランチ対応時のみ着色する ([0b18ef7](https://github.com/kt0319/any-console/commit/0b18ef74bddd0447cdc2111c2af6d04fc368d985))
+* ワークスペースルートでもFile BrowserのDownloadボタンを表示する ([1723461](https://github.com/kt0319/any-console/commit/1723461ff1e6d9a19b288bdc255aa0382710e879))
+* 直接TLS終端時にデバイスcookieへSecure属性を付与する ([5f57dce](https://github.com/kt0319/any-console/commit/5f57dce8996e564024cc7852aeb20d6b2a75c6b5))
+
+
+### Refactor
+
+* Config FileのDownload/Uploadボタンを一番下に移動する ([edbcf71](https://github.com/kt0319/any-console/commit/edbcf7134c2236fec0ff916e3a917c815d1e4dbf))
+* dispatchキューの永続化先をdata/へ統一する ([77e2d93](https://github.com/kt0319/any-console/commit/77e2d93e496c602dd5e1cab309ac14b616af9d79))
+* dispatchを「実行するか破棄するか」だけのモデルに単純化する ([d85b47d](https://github.com/kt0319/any-console/commit/d85b47db02b5c460ec20dccfee92a2cfe6605bbe))
+* hookスクリプトのhttpsフォールバックを削除する ([513c5d3](https://github.com/kt0319/any-console/commit/513c5d35b0d367c0b13a54f36bb253d41094ee36))
+* noImplicitAnyを有効化し暗黙anyに型注釈を追加する ([1205f1d](https://github.com/kt0319/any-console/commit/1205f1d0f29428e703c71174e6192cd1e57c20a4))
+* preview proxy用証明書ディレクトリをdata/certsへ移動 ([b042c66](https://github.com/kt0319/any-console/commit/b042c66125152372ca11cc0d23fc4f33c822e775))
+* System InfoのProcessesとDev Server画面を統合しServer Processesページにする ([744ead2](https://github.com/kt0319/any-console/commit/744ead29987221bf6efd893b67ee6524136443ff))
+* vitestのlocalStorageバッキングファイルをnode_modules配下に移す ([785ca5a](https://github.com/kt0319/any-console/commit/785ca5a085689b1114dd41eff49a53dd76087fd4))
+* タブの長押しクローズを削除しシンプルにする ([e901554](https://github.com/kt0319/any-console/commit/e9015546526226143bd9d128de86084c48e2e385))
+* 本体のTLS終端を削除する ([85cc500](https://github.com/kt0319/any-console/commit/85cc500d8a0515e9059164bcfe951284d949fa43))
+* 認証設定を簡素化する ([5b84408](https://github.com/kt0319/any-console/commit/5b8440865ef330d58a9bb309ec9032dabfcb8270))
+
+
+### Documentation
+
+* iPhoneから始めるガイドを新規作成する ([04fca87](https://github.com/kt0319/any-console/commit/04fca87cae1692b0d855eb3ee94b8fa7d83e27e6))
+* tailscale serveコマンド例をCLI新構文に修正 ([265a3ea](https://github.com/kt0319/any-console/commit/265a3ea058bdc2e23f8249d35f8ae2e0bf42f1a3))
+* 簡素化後の運用手順を更新する ([fc966d6](https://github.com/kt0319/any-console/commit/fc966d6500e8ba984789e94975c7af241bfc7f10))
+
+
+### Tests
+
+* job_auto_tag_via_foreground_argvのポーリング上限を15秒に延長 ([34c2205](https://github.com/kt0319/any-console/commit/34c2205f6ba021c936989284ff401c2188a7e2a0))
+
 ## [0.13.0](https://github.com/kt0319/any-console/compare/v0.12.1...v0.13.0) (2026-08-15)
 
 
