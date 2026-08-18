@@ -25,6 +25,13 @@ UIは **モバイルファースト** で設計しつつ、**PCでもシーム�
 
 OS固有機能の追加は最小限にする（クロスプラットフォームで動く方を優先する）。本番運用は tmux を前提とし、常駐サービスは Linux = systemd / macOS = launchd の二系統を一級でサポートする（`./any-console` が `uname` で分岐）。
 
+## 構成の要点
+
+- **Backend**: Rust (axum)、`server/`。単一プロセス前提（singleton lock。セッション・レートリミッタ・キャッシュはプロセスメモリ）。ターミナルは tmux × PTY × WebSocket ブリッジ。Git はライブラリを使わず subprocess のみ。認証は単一共有トークン + デバイスクッキー
+- **Frontend**: Vue 3 + Pinia (Vite ビルド)、`ui/`。サーバが `ui/dist` を静的配信する。実装は TypeScript に統一済み（`npm run typecheck` = vue-tsc がテンプレート含めて型検査）
+- **`agent_manifests/`**: エージェント状態検出マニフェスト（TOML）。release バイナリには `ui/dist` とともに embed-assets feature で同梱される
+- モジュール単位の詳細は `docs/ARCHITECTURE.md` を参照
+
 ---
 
 # 参照ドキュメント
@@ -35,6 +42,7 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 | `docs/ARCHITECTURE.md` | モジュール一覧と設計判断の概要 |
 | `docs/DECISIONS.md` | 主要な設計判断（ADRスタイル）の背景と代替案 |
 | `docs/A11Y_AUDIT.md` | アクセシビリティ監査結果と TODO |
+| `docs/RUST_MIGRATION.md` / `docs/TS_MIGRATION.md` | バックエンド Rust 移行・フロントエンド TypeScript 移行の記録（どちらも完了済み） |
 | `package.json` / `server/Cargo.toml` | 依存関係（ランタイム・開発） |
 
 ---
@@ -70,6 +78,7 @@ npm test               # Frontend
 npm run test:coverage  # Frontend coverage
 npm run test:e2e       # E2E 全スペック（CI では PR・main への push・手動実行で実行）
 npm run test:e2e:smoke # E2E スモークサブセット（ローカルでの素早い確認用）
+npm run test:stress    # 実 CLI（claude / codex）を複数同時起動するローカル専用ストレステスト（CI では実行しない）
 npm run typecheck      # 型チェック（フロントエンド）
 ```
 
@@ -108,6 +117,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（テスト用 git リポジトリを一時領域に作成。Stash は独立タブではなく Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへのコミット反映（bare リモート + 2 クローンを一時領域に作成し、片方から push して「他者の新規コミット」を模す）
   - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること（テスト用 git リポジトリ + API で worktree 作成後、UI から削除して検証）
+  - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（Job detected トースト・タブアイコンの即時切替え）。前面検出が agent_watch のポーリング（2秒間隔）依存のため待ち時間を長めに取っている
   - `split.spec.js`: タブドラッグによるターミナル分割と SplitModeSelector での軸切替え（ピル群の上下位置はドラッグ切替えを廃止し、デバイスに応じて自動決定される）
   - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログ（Open / Copy）からの proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
@@ -129,6 +139,12 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   npm run test:e2e                                     # 使い捨てサーバで実行（推奨）
   ANY_CONSOLE_URL=http://localhost:8888 npm run test:e2e  # 起動済みサーバに対して実行
   ```
+
+## ストレステスト（ローカル専用）
+
+- `tests/stress/concurrent-agents.mjs`（`npm run test:stress`）: claude / codex の実 CLI を複数セッション同時起動し、セッション間の状態混線が無いこと（hook 用環境変数の隔離 — `server/src/tmux.rs` の regression チェック）・サーバの安定性・UI 表示を検証する
+- 実 CLI を叩くため API コスト・実行時間がかかる。`npm run test:e2e` / CI には含めない。前提: `cargo build --release`・`npm run build` 済み、`claude` / `codex` が PATH 上にありログイン済み
+- E2E と同じ使い捨てサーバモードで動くため、実運用の `data/`・`config.json`・tmux セッションには触れない
 
 ---
 
@@ -272,21 +288,29 @@ apiGet(..., {
 
 300行超のコンポーネントは責務分離を検討する (**SHOULD** — composables 抽出を優先。ただし単純な template 増加や明確にまとまった責務による増加は許容)
 
+## リストの並べ替え
+
+並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。Tabs / Snippets / workspace Groups が既存例)
+
 ---
 
 # Backend APIルール
 
 ## Error field
 
-エラーフィールドは `detail` を使用 (**MUST** — `message` は使わない)。
-
-## Exception
-
-具体的例外を指定する (**MUST NOT** 裸の `except Exception`)。
+エラーフィールドは `detail` を使用 (**MUST** — `message` は使わない)。ハンドラのエラー応答は `server/src/errors.rs` の `ApiError`（`{"detail": ...}` を返す）を使う。ワイヤフォーマットは `tests/e2e/api-contract.spec.js` が回帰検証している。
 
 ## subprocess
 
-失敗時は `OSError` も捕捉する (**MUST**)。
+外部コマンドは `std::process::Command` を直接叩かず、ヘルパー経由で実行する (**MUST** — タイムアウト・コマンド不在・OS エラーの扱いを統一するため):
+
+- 一般コマンド: `server/src/subprocess.rs`
+- git: `server/src/git_utils.rs`（ワークスペースロックは `git_lock.rs`）
+- tmux: `server/src/tmux.rs`
+
+## エラー処理
+
+エラーを握りつぶさない (**MUST NOT** — `Result` を `let _ =` や `.ok()` で無条件に捨てない)。無視してよいケースはコメントで理由を残す。
 
 ---
 
