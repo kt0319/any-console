@@ -228,6 +228,11 @@ onBeforeUnmount(() => {
    詳細度で負けないよう!importantで上書きする。 */
 .session-list-view {
   overflow-y: hidden !important;
+  /* ui/styles/modal-shell.css の .settings-panel-body .modal-scroll-body は
+     GitHistory/GitStash等の共通ガター(左右8px)だが、セッション行はactive背景
+     を左右の端いっぱいまで敷きたいためこのビューだけ0にする。行内テキストの
+     余白は .session-sidebar-item 自身のpadding(8px 12px)で確保する。 */
+  padding: 0 !important;
 }
 
 .session-list-scroll {
@@ -239,7 +244,7 @@ onBeforeUnmount(() => {
 .session-sidebar-list {
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+  padding: 0 0 4px;
 }
 
 /* pending行の一覧は見出しを出さず、開いているセッション一覧との罫線だけで

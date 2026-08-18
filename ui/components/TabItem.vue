@@ -73,10 +73,12 @@ let lastInputWasTouch = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
-// タッチでのドラッグはアクティブタブのみ許可する（非アクティブタブは横スワイプで
-// タブバーをスクロールする操作と誤認識しやすいため）。アクティブタブは長押し
-// 不要で、閾値を超えて動かした瞬間にすぐドラッグを開始する。
-const canTouchDrag = computed(() => isActive.value && terminalStore.openTabs.length >= 1);
+// タッチでのドラッグ処理そのものは全タブで有効にする。閾値を超えた時点の
+// 移動方向（縦/横）で分岐する: 横方向はアクティブタブの並び替え専用（非アクティブ
+// タブの横移動はタブバーのネイティブスクロールに委ねる）、縦方向はアクティブ/
+// 非アクティブ問わず分割ドラッグとして扱う。長押しは不要で、閾値を超えて
+// 動かした瞬間にすぐ開始する。
+const canTouchDrag = computed(() => terminalStore.openTabs.length >= 1);
 const effectiveDropSide = computed(() => {
   if (layoutStore.dragOverTabId === props.tab.id) return layoutStore.dragOverSide;
   return dropSide.value;
@@ -236,12 +238,15 @@ function onDropOnTab(e: DragEvent) {
   cancelDrag();
 }
 
-// Mobile: アクティブタブのみ、長押し無しで閾値を超えた瞬間にドラッグ開始
-// （横移動で並び替え、タブバー外へドラッグでスプリット）。非アクティブタブは
-// canTouchDrag が false になりドラッグ自体が始まらない（横スワイプでの
-// タブバースクロールと誤認識しないようにするため）。
+// Mobile: 長押し無しで閾値を超えた瞬間にドラッグ開始し、その時点の移動方向で
+// 分岐する。横移動はアクティブタブの並び替え専用（非アクティブタブの横移動は
+// preventDefaultせず touch-action:pan-x のネイティブスクロールに委ねる）、
+// 縦移動はアクティブ/非アクティブ問わずスプリットドラッグになる。
 // クローズはタブ本体のタップ/クリックでは行わず、常に tab-close ボタン経由。
 const touchTracker = createTouchTracker();
+// 閾値超え時点の移動方向で確定する軸。"horizontal" = 並び替え（アクティブ
+// タブのみ）、"vertical" = 分割ドラッグ（全タブ）。
+const touchDragAxis = ref<"horizontal" | "vertical" | null>(null);
 
 function hitTestTab(clientX: number, clientY: number) {
   const el = document.elementFromPoint(clientX, clientY);
@@ -260,6 +265,12 @@ function clearDragOverIndicator() {
 }
 
 function finishTouchDrag(clientX: number, clientY: number) {
+  if (touchDragAxis.value === "vertical") {
+    finishSplitDrop({ tabId: props.tab.id, clientX, clientY });
+    clearDragOverIndicator();
+    cancelDrag();
+    return;
+  }
   const hit = hitTestTab(clientX, clientY);
   if (hit) {
     const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
@@ -281,6 +292,7 @@ function onTouchStart(e: TouchEvent) {
   lastInputWasTouch = true;
   touchTracker.start(e);
   isDragging.value = false;
+  touchDragAxis.value = null;
 }
 
 function onTouchMove(e: TouchEvent) {
@@ -288,12 +300,19 @@ function onTouchMove(e: TouchEvent) {
   if (!isDragging.value) {
     const { dx, dy } = touchTracker.delta(e);
     if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) return;
+    const axis = Math.abs(dy) > Math.abs(dx) ? "vertical" : "horizontal";
+    // 横方向はアクティブタブの並び替え専用。非アクティブタブの横移動は
+    // ここで何もせず、touch-action:pan-x によるネイティブのタブバー
+    // スクロールに委ねる（preventDefaultしない）。
+    if (axis === "horizontal" && !isActive.value) return;
+    touchDragAxis.value = axis;
     isDragging.value = true;
     beginDrag(props.tab.id);
   }
   if (e.cancelable) e.preventDefault();
   const touch = e.touches[0];
   updateHover(touch.clientX, touch.clientY);
+  if (touchDragAxis.value === "vertical") return;
   const hit = hitTestTab(touch.clientX, touch.clientY);
   layoutStore.dragOverTabId = hit?.tabId ?? null;
   layoutStore.dragOverSide = hit?.side ?? "";
@@ -306,6 +325,7 @@ function onTouchEnd(e: TouchEvent) {
     finishTouchDrag(touch.clientX, touch.clientY);
     isDragging.value = false;
   }
+  touchDragAxis.value = null;
   // 長押し→そのまま離す＝クローズは廃止。クローズは tab-close ボタン経由のみ。
 }
 
@@ -315,6 +335,7 @@ function onTouchCancel() {
     clearDragOverIndicator();
     cancelDrag();
   }
+  touchDragAxis.value = null;
 }
 
 onMounted(() => {
@@ -355,6 +376,15 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: pan-x;
+}
+
+/* アクティブタブは横移動も並び替え用にJSで制御するため、pan-x（ネイティブの
+   横スクロール）を許可しない。pan-xのままだと、ドラッグ閾値を超えて
+   preventDefaultする前にブラウザ側が横スクロールを開始してしまい、
+   並び替えが発火しなくなる（縦方向はpan-xと同様どちらにせよJS制御に
+   委ねられるため、noneにしても既存の分割ドラッグに影響しない）。 */
+.tab-btn.active {
+  touch-action: none;
 }
 
 .tab-btn img,
