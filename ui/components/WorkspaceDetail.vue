@@ -106,6 +106,7 @@ import DispatchRunView from "./DispatchRunView.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
 import { on } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useToast } from "../composables/useToast.ts";
 import { useModalView } from "../composables/useModalView.ts";
@@ -148,12 +149,20 @@ const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(n
 // をローカルに切り替えるための状態。Settings側のpushViewには乗せない
 // （別レイヤーとして開いてしまい、ワークスペース詳細の外に見えてしまうため）。
 const selectedDispatchId = ref<string | null>(null);
+// このWorkspaceDetailインスタンスが開かれた時点のアクティブタブID
+// （このコンポーネントはWorkspaceDetailModal.vueで:key="activeTabId"により
+// タブ切替のたびに再マウントされるため、mount時点のIDがこのインスタンスの
+// 所属タブと一致する）。Dispatch RunでpendingワークスペースのDispatchを
+// 実行すると新規セッションが作られてアクティブタブが切り替わるため、close側で
+// 「今アクティブなタブ」を使うと切り替わった後の新タブを誤って閉じてしまう
+// （useWorkspaceDetailNav.ts参照）。
+const openedForTabId = useTerminalStore().activeTabId;
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
 // （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.tsのcloseをprovideする）。
-const closeWorkspaceDetail = inject<(() => void) | undefined>("closeWorkspaceDetail");
+const closeWorkspaceDetail = inject<((tabId?: number | null) => void) | undefined>("closeWorkspaceDetail");
 function onDispatchRunDone() {
   selectedDispatchId.value = null;
-  closeWorkspaceDetail?.();
+  closeWorkspaceDetail?.(openedForTabId);
 }
 
 const activePane = ref("jobs");

@@ -49,14 +49,17 @@ function currentTabId() {
   return useTerminalStore().activeTabId;
 }
 
-function entry(): TabDetailState {
-  const id = currentTabId();
+function entryFor(id: number | null): TabDetailState {
   let e = stateByTab.get(id);
   if (!e) {
     e = defaultState();
     stateByTab.set(id, e);
   }
   return e;
+}
+
+function entry(): TabDetailState {
+  return entryFor(currentTabId());
 }
 
 function makeField<K extends keyof TabDetailState>(key: K) {
@@ -96,8 +99,15 @@ function setPaneRef(el: any) {
   entry().currentPaneRef = el;
 }
 
-function close() {
-  const e = entry();
+// tabId省略時は現在アクティブなタブを閉じる。DispatchRunView経由のRun成功時
+// （WorkspaceDetail.vue）は、Runで新規セッションが作られてアクティブタブが
+// 切り替わった後に呼ばれるため、tabIdを明示しないと「今アクティブな
+// （切り替わった後の新しい）タブ」のエントリを誤って閉じてしまい、実際に
+// 開いていた元タブのエントリが isOpen: true のまま残ってしまう
+// （WorkspaceDetail.vueのonMountedが :key="activeTabId" の再マウント時に
+// open()を呼ぶため、意図せず再度開いて見えることがあった）。
+function close(tabId?: number | null) {
+  const e = tabId !== undefined && tabId !== null ? entryFor(tabId) : entry();
   e.isOpen = false;
   e.modalTitle = "";
   e.modalBranch = "";
