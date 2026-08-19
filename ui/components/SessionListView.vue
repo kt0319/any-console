@@ -247,11 +247,10 @@ onBeforeUnmount(() => {
   padding: 0 0 4px;
 }
 
-/* pending行の一覧は見出しを出さず、開いているセッション一覧との罫線だけで
-   区切る。 */
-.session-sidebar-list-pending {
-  border-top: 1px solid var(--border);
-}
+/* pending行の一覧は見出しを出さず、開いているセッション一覧との区切りは
+   session-sidebar.css の .session-sidebar-li が最後の行にも border-bottom を
+   出す設計に委ねる（ここで border-top も足すと隣接して二重線に見えるため
+   持たない）。 */
 
 /* .session-sidebar-li/.session-sidebar-item/.session-sidebar-pills-row の
    共通見た目（罫線・ホバー・active色・working/blocked/phrase-notify演出）は
