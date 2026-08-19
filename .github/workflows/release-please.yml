@@ -96,6 +96,7 @@ jobs:
           cp "server/target/${{ matrix.target }}/release/any-console-server" "$stage/"
           cp any-console "$stage/"
           cp -R agent_manifests "$stage/"
+          cp -R scripts "$stage/"
           echo "$version" > "$stage/VERSION"
           tar czf "${stage}.tar.gz" "$stage"
           shasum -a 256 "${stage}.tar.gz" > "${stage}.tar.gz.sha256"

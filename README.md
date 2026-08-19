@@ -113,8 +113,9 @@ script only acts inside sessions created by any-console and never interferes
 with Claude Code itself; if hook reports stop, detection falls back to screen
 analysis automatically.
 
-Note: the script is not included in the prebuilt release archive yet, so
-`hooks-setup` currently requires a source checkout of the repository.
+The script ships in both source checkouts and prebuilt release archives
+(`scripts/`). If your binary install predates `scripts/` bundling, re-run
+the installer once a newer release is available.
 
 ## Dispatch API
 
