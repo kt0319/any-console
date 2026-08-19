@@ -1,6 +1,6 @@
-//! ui/dist の静的配信（Python 側 `main.py` の StaticFiles 相当）。
+//! dist/ の静的配信（Python 側 `main.py` の StaticFiles 相当）。
 //!
-//! ビルド済み `ui/dist` の配信のみサポートする。dist が無い場合は静的配信を
+//! ビルド済み `dist/` の配信のみサポートする。dist が無い場合は静的配信を
 //! 無効化し、全リクエストがフォールバック（`fallback.rs` = 404）へ落ちる
 //! （旧 Python のソースモード = ui/ 直接配信 + キャッシュバスト書き換えは
 //! 移植していない）。

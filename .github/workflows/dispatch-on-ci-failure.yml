@@ -2,7 +2,7 @@ name: Dispatch on CI failure
 
 # CI（ci.yml の name: と一致させること）が失敗した時、any-console の /dispatch
 # エンドポイントへ承認キュー登録を投げる。実行はしない（direct は送らない）。
-# キューに積まれた項目は Settings > Dispatch Queue から人間が承認するまで実行されない。
+# キューに積まれた項目はワークスペース詳細の Dispatch タブから人間が承認するまで実行されない。
 #
 # マージ後にユーザーが手動で行う必要がある設定:
 #   - Tailscale ACL で tag:ci をこの any-console ホストの該当ポートだけに絞る

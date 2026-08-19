@@ -97,9 +97,8 @@
 
 監査後に CLAUDE.md（UIルール → アクセシビリティ）に追記したルール:
 
-- アイコンのみのボタンには `aria-label` に加え、**`title` も併設**して PC では hover でヒント表示する（**SHOULD**）
-- `title` と `aria-label` は同じ文言を使う
-- FileBrowser のアイコン4本、Modal の閉じるボタンに反映済み
+- アイコンのみのボタンには `aria-label` に加え、**`data-tooltip` も併設**して PC では hover でヒント表示する（**SHOULD**）
+- `data-tooltip` と `aria-label` は同じ文言を使う（ネイティブ `title` は表示が小さく遅いため使わず、`ui/utils/tooltip.ts` の共通ツールチップを使う — 当初は `title` 併設ルールだったが後日変更）
 
 ---
 
@@ -112,7 +111,7 @@ CI（`npm run test:coverage`）で毎回実行され、構造的な a11y 違反�
 - テスト: `tests/ui/components/test_a11y.js` / `test_WorkspaceJobsPane.js`
 - 対象ルール: WCAG 2.0 / 2.1 の A・AA タグ
 - **除外**: `color-contrast`（happy-dom はレイアウト/描画を持たず計測不能）
-- **検査済みコンポーネント**: ConfirmDialog / PromptDialog / GitActionBtn / AppToast / FileItem / SplitModeSelector / WorkspaceJobsPane
+- **検査済みコンポーネント**: `tests/ui/components/test_a11y.js` の `describe` 一覧を参照（個別列挙は陳腐化するためやめた。導入時は 7 件、以後順次拡張）
 
 自動検査で新たに検出・修正した違反:
 
@@ -134,9 +133,9 @@ CI（`npm run test:coverage`）で毎回実行され、構造的な a11y 違反�
 
 ---
 
-## 監査の限界
+## 当初監査（2026-05）時点の限界
 
-- **自動ツール未使用**: 色コントラスト比は数値計測なし（目視のみ）
+- **自動ツール未使用**: 色コントラスト比は数値計測なし（→ 後日数値計測し `--text-muted` を調整済み。上記 TODO 参照。axe-core では引き続き計測不可）
 - **スクリーンリーダー実機テスト未実施**: VoiceOver / TalkBack / NVDA での動作確認なし
 - **キーボード実機テスト未実施**: Tab 順序は静的解析のみ
-- **カバレッジ**: 主要コンポーネント（Modal, ConfirmDialog, FileBrowser, AppToast, WorkspaceJobsPane, GitActionBtn）のみ。全コンポーネント（約40件）の網羅的な検査は未実施
+- **カバレッジ**: 主要コンポーネントのみ。全コンポーネントの網羅的な検査は未実施（自動検査の対象は `test_a11y.js` で順次拡張中）

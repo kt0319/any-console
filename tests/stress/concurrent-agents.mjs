@@ -14,7 +14,7 @@
 //
 // 前提:
 //   - cargo build --release 済み（server/target/release/any-console-server）
-//   - npm run build 済み（サーバが配信する ui/dist が最新であること。UIチェック用）
+//   - npm run build 済み（サーバが配信する dist/ が最新であること。UIチェック用）
 //   - claude / codex コマンドがPATH上にあり、ログイン済みであること
 //
 // 実行: node tests/stress/concurrent-agents.mjs [--count=10]

@@ -11,9 +11,9 @@
 
 - **MUST / MUST NOT** — 破ったら不具合・事故に直結する。例外を作らない。
 - **SHOULD / SHOULD NOT** — 原則やらない。明確な根拠があれば例外を許容する。
-- **PREFER / PREFER NOT** — 推奨しない。状況により選択可能。
+- **PREFER / PREFER NOT** — 推奨 / 非推奨。状況により選択可能。
 
-既存ルールは段階的にこの体系に移行する。明示ラベルが無い項目は文意から判断する。
+明示ラベルが無い項目は文意から判断する。
 
 ---
 
@@ -42,6 +42,7 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 | `docs/ARCHITECTURE.md` | モジュール一覧と設計判断の概要 |
 | `docs/DECISIONS.md` | 主要な設計判断（ADRスタイル）の背景と代替案 |
 | `docs/A11Y_AUDIT.md` | アクセシビリティ監査結果と TODO |
+| `docs/IPHONE_QUICKSTART.md` | iPhone からの利用手順（Tailscale 経由の接続・ホーム画面追加・プッシュ通知） |
 | `docs/RUST_MIGRATION.md` / `docs/TS_MIGRATION.md` | バックエンド Rust 移行・フロントエンド TypeScript 移行の記録（どちらも完了済み） |
 | `package.json` / `server/Cargo.toml` | 依存関係（ランタイム・開発） |
 
@@ -76,9 +77,9 @@ cd server && cargo clippy --all-targets -- -D warnings  # Backend lint
 cd server && cargo fmt --check       # Backend フォーマット確認
 npm test               # Frontend
 npm run test:coverage  # Frontend coverage
-npm run test:e2e       # E2E 全スペック（CI では PR・main への push・手動実行で実行）
-npm run test:e2e:smoke # E2E スモークサブセット（ローカルでの素早い確認用）
-npm run test:stress    # 実 CLI（claude / codex）を複数同時起動するローカル専用ストレステスト（CI では実行しない）
+npm run test:e2e       # E2E 全スペック
+npm run test:e2e:smoke # E2E スモークサブセット
+npm run test:stress    # ローカル専用ストレステスト（CI では実行しない）
 npm run typecheck      # 型チェック（フロントエンド）
 ```
 
@@ -88,7 +89,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 - テスト対象の純粋関数は `ui/utils/` に切り出して実装する
 - テストは実ファイルを `import` して検証する（**MUST NOT** インラインコピー — 実コードと乖離するため）
-- コンポーネント単体テストは原則行わない。ただし統合テストで担保する
+- コンポーネント単体テストは最小限にする（書く場合は `tests/ui/components/test_<Component>.js` に置く）。挙動は原則統合テストで担保する
   - DOM 操作を含む統合テストは `tests/ui/test_integration.js` に追記する
   - ファイル先頭に `// @vitest-environment happy-dom` を記載すること
   - 環境: Vitest + happy-dom + @vue/test-utils（すべて導入済み）
@@ -99,32 +100,32 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 ## E2E スモーク
 
 - `tests/e2e/*.spec.js` に Playwright スモークを置く（CI の `e2e` ジョブで実行。ローカル手動実行も可）
-- CI は PR・main への push・workflow_dispatch で**全スペック**を実行する（`npm run test:e2e`）。PR ブランチへの push は `pull_request` イベントの 1 回のみ実行され、PR を開く前のブランチ push と docs/Markdown のみの変更では CI は走らない
+- CI は PR・main への push・workflow_dispatch で**全スペック**を実行する（`npm run test:e2e`。トリガ条件の詳細は `.github/workflows/ci.yml` 冒頭コメントを参照）
   - **smoke サブセット**（`smoke` / `terminal` / `mobile` / `api-contract` — 認証・ターミナル・モバイル主要フロー・API ワイヤ契約の壊れたら即死する経路）はローカルでの素早い確認用（`npm run test:e2e:smoke`）
   - smoke サブセットに spec を足す・外す時は `package.json` の `test:e2e:smoke` を更新する（パターンは `e2e/<name>.spec.js` 形式で書く — 部分一致のため `terminal` だけだと `mobile-terminal` にも一致する）
-  - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・認証維持）
-  - `api-contract.spec.js`: API ワイヤ契約（`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・/auth/check /pair 応答形・WS 認証拒否・ログアウト）。UI を介さず request/WS で検証する。バックエンド Rust 移行（`docs/RUST_MIGRATION.md`・完了済み）の互換性回帰網として整備した経緯があり、実装を差し替える変更では必ずこのスペックを差し替え前後の両方に通すこと
+  - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・メイン画面遷移・認証維持）
+  - `api-contract.spec.js`: API ワイヤ契約（`detail` エラー形式・セキュリティヘッダ・静的配信キャッシュ規則・/auth/check /pair 応答形・WS 認証拒否・ログアウト）。UI を介さず request/WS で検証する。実装を差し替える変更では必ずこのスペックを差し替え前後の両方に通すこと
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
   - `auth-devices.spec.js`: Auth ビューでのデバイス Revoke・API トークンの作成 / 失効（確認ダイアログ経由。テスト作成分のみ操作し API で後始末）
   - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
-  - `session-menu.spec.js`: Sessionsページ下部メニュー（Open / Settings）遷移とタイトル連動、ページを離れるとメニューが消えること
-  - `detached-sessions.spec.js`: Detached sessions（タブに紐付かないtmuxセッション）のOpen/Adopt/Close
+  - `session-menu.spec.js`: タブバーの +（Open Session）/ 歯車（Settings）オーバーレイの開閉・排他・設定ビューの掘り下げと復帰
+  - `detached-sessions.spec.js`: Detached sessions（タブの閉じるダイアログから Detach したセッション）の Detach → Open タブでの一覧表示 → 再アタッチ
   - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
   - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）
   - `keyboard-history.spec.js`: Send History（モバイルの KeyboardBar History タブ）— 入力バーからの送信 → 履歴への記録 → 挿入 → 削除（履歴は localStorage のみのためサーバ側の後始末は不要）
-  - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
-  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（テスト用 git リポジトリを一時領域に作成。Stash は独立タブではなく Changes ペイン内の折りたたみ、Branches は History ペイン内）
-  - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへのコミット反映（bare リモート + 2 クローンを一時領域に作成し、片方から push して「他者の新規コミット」を模す）
-  - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること（テスト用 git リポジトリ + API で worktree 作成後、UI から削除して検証）
-  - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（Job detected トースト・タブアイコンの即時切替え）。前面検出が agent_watch のポーリング（2秒間隔）依存のため待ち時間を長めに取っている
-  - `split.spec.js`: タブドラッグによるターミナル分割と SplitModeSelector での軸切替え（ピル群の上下位置はドラッグ切替えを廃止し、デバイスに応じて自動決定される）
-  - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログ（Open / Copy）からの proxy 経由アクセス
+  - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・Jobs のインライン展開 / 折りたたみ・削除（確認ダイアログ）
+  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（Stash は Changes ペイン内の折りたたみ、Branches は History ペイン内）
+  - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへの他者コミットの反映
+  - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること
+  - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（Job detected トースト・タブアイコンの即時切替え）
+  - `split.spec.js`: タブドラッグによるターミナル分割（SplitModeSelector での軸切替えは `tests/ui/components/test_SplitModeSelector.js` で担保）
+  - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログの Open からの proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
   - `mobile-terminal.spec.js`: モバイルでのターミナル + KeyboardBar 表示
   - 共通ヘルパー（ログイン・セッション後始末・設定モーダル操作・Bearer ヘッダ）は `helpers.js`
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
-- **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が、一時ディレクトリを data 領域にしたサーバをランごとの空きポートで自動起動する（`ANY_CONSOLE_DATA_DIR` による隔離。実運用の `data/`・`config.json` には一切触れない。ポート自動割り当てなので並行実行や既存プロセスと衝突しない）。レート制限引き上げ（`ANY_CONSOLE_RATE_LIMIT=2000`）とテスト用トークンも自動設定される。サーバ実行にビルド済み Rust バイナリ（`server/target/release/any-console-server`。`cargo build --release`）と tmux が必要。CI（`.github/workflows/ci.yml`）も同じ仕組みで動く
+- **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が `ANY_CONSOLE_DATA_DIR` で隔離したサーバをランごとの空きポートで自動起動する（実運用の `data/`・`config.json` には一切触れない。詳細は `playwright.config.js` 冒頭コメントを参照）。前提: ビルド済み Rust バイナリ（`cargo build --release`）と tmux。CI も同じ仕組みで動く
 - 起動済みの外部サーバに対して実行する場合のみ `ANY_CONSOLE_URL` を指定する。このときは対象サーバをレート制限を引き上げて起動しておく（既定 200req/60s のままだと連続実行で 429 になる）
 - テストがサーバ状態を汚さないこと (**MUST**): セッション等を作るテストは自分が作った分だけを必ず後始末する（`helpers.js` の `cleanupNewSessions` を使う。既存セッションには触れない）。使い捨てサーバモードでは tmux セッション名もランごとのユニークプレフィックス（`ANY_CONSOLE_TMUX_PREFIX`）で分離され、中断時の残りは global-teardown が自ラン分のみ一掃するが、この後始末は保険であり各テストの後始末は省略しない
 - ローカル初回セットアップ:
@@ -143,8 +144,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 ## ストレステスト（ローカル専用）
 
 - `tests/stress/concurrent-agents.mjs`（`npm run test:stress`）: claude / codex の実 CLI を複数セッション同時起動し、セッション間の状態混線が無いこと（hook 用環境変数の隔離 — `server/src/tmux.rs` の regression チェック）・サーバの安定性・UI 表示を検証する
-- 実 CLI を叩くため API コスト・実行時間がかかる。`npm run test:e2e` / CI には含めない。前提: `cargo build --release`・`npm run build` 済み、`claude` / `codex` が PATH 上にありログイン済み
-- E2E と同じ使い捨てサーバモードで動くため、実運用の `data/`・`config.json`・tmux セッションには触れない
+- 実 CLI を叩くため API コスト・実行時間がかかり、CI には含めない。E2E と同じ使い捨てサーバモードで動くため実運用の状態には触れない（前提・詳細はスクリプト冒頭コメントを参照）
 
 ---
 
@@ -255,7 +255,7 @@ JS class 切替で表現。
 - すべての操作にキーボードで到達可能であること (**MUST**)
 - モーダルはフォーカストラップを実装し、Esc で閉じられること (**MUST**)
 - アイコンのみのボタンには `aria-label` を付けること (**SHOULD**)
-- アイコンのみのボタンには `data-tooltip` 属性で hover ヒントを併設すること（`aria-label` と同じ文言）(**SHOULD** — ネイティブ `title` は表示が小さく遅いため、`ui/styles/a11y.css` 内のカスタムCSSツールチップを使う)
+- アイコンのみのボタンには `data-tooltip` 属性で hover ヒントを併設すること（`aria-label` と同じ文言）(**SHOULD** — ネイティブ `title` は表示が小さく遅いため、`ui/utils/tooltip.ts` が `data-tooltip` 属性から body 直下に描画する共通ツールチップを使う)
 - 色のみで状態を示さないこと（アイコン・テキストを併用）(**SHOULD**)
 - WCAG AA 相当のコントラストを目安にする (**PREFER**)
 - 詳細は `docs/A11Y_AUDIT.md` を参照
@@ -290,7 +290,7 @@ apiGet(..., {
 
 ## リストの並べ替え
 
-並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。Tabs / Snippets / workspace Groups が既存例)
+並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。InfoPill 設定（`InfoPillConfig.vue`）/ workspace Groups（`WorkspaceOpen.vue`）が既存例。Tabs はネイティブ HTML5 DnD の別実装)
 
 ---
 

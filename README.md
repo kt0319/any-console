@@ -36,14 +36,7 @@ Website: <https://any-console.highedge.net/>
 
 **Client side: any OS, any device with a modern browser.** This is the whole point of any-console — open `https://<your-host>/` from your phone, laptop, or any browser and you get the full UI.
 
-**Host (server) side: Linux or macOS for real use.** The runtime is POSIX-portable. Service management is platform-native — `systemd` on Linux, `launchd` on macOS — and `tmux` provides persistent sessions on both. The `./any-console` helper detects the OS and drives the right service manager.
-
-| Host setup | Platforms | Status |
-|------------|-----------|--------|
-| **systemd** (first-class) | Linux | Supported. Daily-use target. |
-| **launchd** (first-class) | macOS | Supported. Ideal for an always-on Mac (e.g. a Mac mini server). |
-
-A first-class host needs Linux or macOS. Browser access from any OS (macOS / Windows / iOS / Android) is fully supported and is the intended client experience.
+**Host (server) side: Linux or macOS.** The runtime is POSIX-portable. Service management is platform-native — `systemd` on Linux, `launchd` on macOS (ideal for an always-on Mac mini) — and `tmux` provides persistent sessions on both. The `./any-console` helper detects the OS and drives the right service manager.
 
 > **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a user `LaunchAgent`, so it starts at login — enable automatic login (System Settings → Users & Groups) if the Mac runs headless. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
 >
@@ -69,30 +62,28 @@ Then finish service registration interactively — this registers a systemd (Lin
 cd ~/.any-console && ./any-console setup
 ```
 
-For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
-
-To update later, just re-run the `curl | bash` command above — it's idempotent and leaves `data/` (including `certs/`) and `config.json` untouched. `./any-console update` does the same thing: it downloads the latest release with checksum verification, replaces the binary atomically, and restarts the service if one is registered.
+After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)). To update later, see [Updating](#updating).
 
 ### Requirements
 
 - `git` — used by the Git UI
 - `tmux` — required for terminal session management
+- `curl` / `tar` — used by `install.sh` and `./any-console update`
 - `gh` (GitHub CLI, optional) — for fetching GitHub repos, issues, PRs, and Actions
 
 ## Authentication
 
 > **Read [SECURITY.md](SECURITY.md) before deploying.** any-console gives the browser full shell access to the host — the token must be treated like an SSH key, and the app must never be exposed to the public internet.
 
-- On first start, if `data/auth.json` does not exist, a random 32-character token is generated and saved automatically.
-- The token is printed to the startup log once (stdout / journalctl / `logs/any-console.log`). Open the app URL on your device and sign in with it — the device gets a revocable cookie, so you only enter the token once per device.
-- On subsequent starts, `data/auth.json` is never overwritten.
-- The token can be changed from the "Security" settings in the UI.
+- During setup (`install.sh` / `./any-console setup`), if `data/auth.json` does not exist, a random 32-character token is generated, saved, and printed once in the setup output. Open the app URL on your device and sign in with it — the device gets a revocable cookie, so you only enter the token once per device.
+- An existing `data/auth.json` is never overwritten.
+- The token can be changed from Settings > Auth in the UI.
 
 ### Adding a new device with a QR code
 
 Once one device is signed in, you can add another (e.g. add your iPhone from your already-authenticated laptop) without typing the token:
 
-1. On the signed-in device, open Settings > Auth and tap "Add new device" (on a desktop-sized screen with no phone paired yet, a one-time "Open on your phone" shortcut also appears on the empty-state screen).
+1. On the signed-in device, open Settings > Auth and tap "Add new device" (an "Open on your phone" shortcut is also available in the empty-state Setup checklist).
 2. Scan the QR code with the new device's camera app.
 3. The new device opens the link, signs in automatically, and lands on the normal app screen.
 
@@ -102,7 +93,7 @@ Setting up an iPhone specifically (Tailscale, PWA install, push notifications)? 
 
 ### Disabling authentication for local development
 
-Authentication can be disabled only with `ANY_CONSOLE_DISABLE_AUTH=1` in the server process environment. This is intended for disposable local development and tests, not managed services or closed-network production use. For normal Tailscale deployments, keep token + device-cookie authentication enabled.
+Authentication can be disabled with `ANY_CONSOLE_DISABLE_AUTH=1` in the server process environment, or from the UI by turning off "Require token authentication" in Settings > Auth. Both are intended for disposable local development and tests — for normal deployments, keep token + device-cookie authentication enabled.
 
 ## Agent hooks (optional)
 
@@ -115,22 +106,21 @@ accurate and instant (no polling delay, no dependency on screen rendering).
 ./any-console hooks-setup
 ```
 
-This registers the shipped `scripts/claude-code-hook.sh` in `~/.claude/settings.json`
-for all relevant events (PreToolUse / PostToolUse / UserPromptSubmit / PreCompact /
-Notification / Stop / SessionEnd). It merges into your existing hooks config —
-other hooks you already have are left untouched — and re-running it is a no-op
-if already installed. A `.bak` copy of the previous `settings.json` is kept.
+This registers `scripts/claude-code-hook.sh` in `~/.claude/settings.json`. It
+merges into your existing hooks config without touching other hooks, re-running
+it is a no-op, and a `.bak` copy of the previous `settings.json` is kept. The
+script only acts inside sessions created by any-console and never interferes
+with Claude Code itself; if hook reports stop, detection falls back to screen
+analysis automatically.
 
-The script only acts inside sessions created by any-console (connection info is
-injected as environment variables) and always exits 0, so it never interferes
-with Claude Code itself. Hook-reported state expires after a few minutes of
-silence and detection falls back to screen analysis automatically.
+Note: the script is not included in the prebuilt release archive yet, so
+`hooks-setup` currently requires a source checkout of the repository.
 
 ## Dispatch API
 
 `POST /dispatch` lets external tools (CI, automation, scripts) launch or send text to a workspace session over HTTP, without opening the UI.
 
-If any-console is only reachable via its `.ts.net` address (the default with Tailscale Serve, see [HTTPS](#https) below), the caller must be on the same tailnet — a hosted CI runner isn't by default. For GitHub Actions, add a step with [`tailscale/github-action`](https://github.com/tailscale/tailscale-github-action) (OAuth client credentials in Secrets, scoped via a Tailscale ACL tag) before the `curl` step. See `.github/workflows/dispatch-on-ci-failure.yml` for a working example.
+If any-console is only reachable via its `.ts.net` address (the default with Tailscale Serve, see [HTTPS](#https) below), the caller must be on the same tailnet — a hosted CI runner isn't by default. For GitHub Actions, add a step with [`tailscale/github-action`](https://github.com/tailscale/github-action) (OAuth client credentials in Secrets, scoped via a Tailscale ACL tag) before the `curl` step. See `.github/workflows/dispatch-on-ci-failure.yml` for a working example.
 
 ```bash
 curl -X POST https://<your-device>.ts.net/dispatch \
@@ -143,7 +133,7 @@ curl -X POST https://<your-device>.ts.net/dispatch \
   }'
 ```
 
-The request always waits in an approval queue — open it from Settings > Dispatches, or via a push notification if enabled. Only after a human approves does the text actually get sent. The old `"direct": true` immediate-execution mode is no longer supported.
+The request always waits in an approval queue — open it from the workspace detail's Dispatch tab, or via a push notification if enabled. Only after a human approves does the text actually get sent (immediate execution is not supported; `"direct": true` is rejected with 400).
 
 Key fields on the request body (`server/src/dispatch.rs`):
 
@@ -179,7 +169,7 @@ Direct-port dev server previews can still use HTTPS. `./any-console https-setup`
 ./any-console https-setup
 ```
 
-This does not make the main any-console port HTTPS. It only provides certificates to the preview proxy. Tailscale certificates expire after ~90 days — re-run the command to renew.
+Tailscale certificates expire after ~90 days — re-run the command to renew.
 
 The default port is 8888. To change it, set `__global__.port` in `config.json`.
 
@@ -196,6 +186,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console status       Show status (service state, URL, version)
 ./any-console logs         Show service logs          (journalctl / log file)
 ./any-console run          Run in foreground (no service; any OS)
+./any-console hooks-setup  Register Claude Code hooks for accurate agent state detection
 ./any-console https-setup  Issue / renew a Tailscale cert for direct-port dev previews
 ./any-console uninstall    Remove the service registration, optionally clean up files
 ./any-console version      Show version
@@ -209,9 +200,9 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console update
 ```
 
-Delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered. It's a no-op when you're already on the latest release.
+For a binary install, this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered — the same as re-running the `curl | bash` command, and idempotent (`data/`, including `certs/`, and `config.json` are left untouched). For a source checkout, `update` instead fetches the latest release tag and rebuilds (`cargo build --release` + `npm run build`).
 
-Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed — `config.json` files keyed by workspace display name are no longer rewritten to ID keys (they still load, but new installs always use ID keys), and leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) from the pre-2026-06 terminal architecture are no longer cleaned up at startup. When upgrading from such an old version, kill those stale tmux sessions manually (`tmux kill-session -t <name>`) if any remain.
+Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed. When upgrading from such an old version, kill leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) manually if any remain (see `docs/DECISIONS.md`, ADR 16).
 
 ## Repository layout
 

@@ -38,7 +38,7 @@ Browser ──▶ Rust (axum) ──┬─▶ 移行済みルート: Rust が直
 
 **更新（Phase 1〜5 完了時点）**: 上記の「未移行ルートへの HTTP/WS プロキシ」は
 Phase 5 完了をもって撤去済み。全ルートが Rust ネイティブへ移行し、`fallback()`
-（`server/src/proxy.rs`）は静的ファイル配信 → ネイティブ 404 の二段のみを行う
+（現行は `server/src/fallback.rs`）は静的ファイル配信 → ネイティブ 404 の二段のみを行う
 （詳細は「Phase 6 準備: ストラングラー完了の検証」節を参照）。図は歴史的経緯として
 残す。
 
@@ -57,6 +57,8 @@ Phase 5 完了をもって撤去済み。全ルートが Rust ネイティブへ
 ---
 
 ## 3. 技術スタック対応表
+
+注: この表は計画時点の想定。最終実装が異なる箇所は本文の各節を参照（Web Push は crate 不採用で自前実装、静的配信は tower-http ではなく自前の `static_files.rs`、QR はフロント側の `qrcode-generator` で描画、validator crate は未使用）。
 
 | Python | Rust | 備考 |
 |--------|------|------|
@@ -567,7 +569,7 @@ Python 側の対応コードパスを配線と同時に永久に到達不能に�
   Python 版と同一のロジックで再現した
 - dispatch scope API トークンの検証（`POST /dispatch` 専用）は、それまで
   Python 側 `_verify_api_token` への loopback ブリッジ
-  （`/internal/verify-dispatch-api-token`）経由だったが、`Auth::verify_api_token`
+  （`/internal/verify-dispatch-api-token`）経由だったが、API トークン検証（現 `Auth::verify_and_touch_api_token`）
   がネイティブに使えるようになったため `dispatch.rs` の呼び出し先を差し替え、
   ブリッジ自体（`migration_bridge.py` 側のエンドポイントと
   `Proxy::verify_dispatch_api_token`/`Proxy::touch_device`）を削除した
@@ -658,7 +660,7 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
    `cmd_run`/systemd unit/launchd plist はすべて `python3 -m api.main` を直接
    execする。Rust front は Phase 0 の手動2プロセス検証手順と CI の
    `e2e-rust-front` ジョブでしか動いていなかった（本ドキュメントの節「本番
-   プロセス管理」も参照 — 実際の切替はまだ行っていない）。
+   プロセス管理」も参照 — この監査時点では未切替。後述「ランチャーの Rust 単独起動への切替」で完了済み）。
 3. **未知パスの 404 が Python 依存だった** — `fallback()` は静的ファイルにも
    ルート表にも当たらないパスを無条件で Python upstream へ HTTP プロキシして
    いた。全ルートがネイティブ移行済みの現在、これは実質「本当に存在しない
@@ -695,7 +697,7 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
 - `migration_bridge.py`（自身のモジュール docstring に「ターミナルサブシステムの
   移行が完了した時点でこのルーターごと削除する」と明記されていた）を
   `api/main.py` の登録ごと削除。`tests/test_migration_bridge.py` も削除。
-- Rust 側のテスト（`test_dispatch.rs`・`test_proxy.rs`）はフェイクの upstream
+- Rust 側のテスト（`test_dispatch.rs`・現 `test_fallback.rs`）はフェイクの upstream
   サーバへの到達を検証していた箇所を、`state.status_stream` のネイティブ
   broadcast channel を直接購読して検証する形に書き換えた。
 
@@ -709,7 +711,7 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
 依存とは無関係。cargo test 全件・pytest 全件（1508件、移行ブリッジ
 テスト12件削除後）・ruff・mypy もすべて green。
 
-**まだ残っている作業（Phase 6 本体）**:
+**この時点で残っていた作業（Phase 6 本体。いずれも後述の各節で完了済み）**:
 
 - 上記2番の通り、`./any-console` ランチャーは実際には切り替えていない
   （systemd unit / launchd plist の生成ロジック、`venv`/`requirements*.txt`
@@ -722,7 +724,7 @@ RustCrypto ファミリ（`p256` / `aes-gcm` / `hkdf` / `hmac` / `sha2`）で
   行っていない（ロールバック安全網として意図的に残置 — 本ドキュメント既存
   方針通り）
 
-### TLS 終端の Rust 側移設 — **完了**
+### TLS 終端の Rust 側移設 — **完了 → その後撤去（下記 Update 参照。現行は常に平文 HTTP で listen し、HTTPS は Tailscale Serve / reverse proxy に委譲）**
 
 **背景**: `./any-console` ランチャーを Rust 単独稼働へ切り替えるための前提
 条件のひとつ。Python 版は uvicorn の `ssl_certfile`/`ssl_keyfile` で公開ポート
@@ -748,9 +750,7 @@ feature は無効化。`cargo add --dry-run` で `- openssl`/`- openssl-sys` に
 `rustls::ServerConfig::builder()` が「どちらか自動選択できない」と実行時
 panic する。`main()` の最初で
 `tokio_rustls::rustls::crypto::ring::default_provider().install_default()`
-を明示的に1回呼ぶ必要がある（`ring` を選んだ理由: `aws-lc-rs` は cmake 等の
-ネイティブビルドツールを要求し、Phase 6 で予定しているクロスコンパイル
-（Linux x86_64/aarch64、macOS arm64/x86_64）と相性が悪いため）。
+を明示的に1回呼ぶ必要がある（当時は `ring` を選択。その後 direct TLS 終端の撤去と同時に `aws-lc-rs` の install へ変更され、現行の用途は preview proxy の TLS のみ — `main.rs` 参照）。
 
 **検証**: openssl でその場生成した自己署名証明書を `certs/` に配置し、実バイナリ
 起動 → `curl -k https://...`（ネイティブルート・404 とも正しい応答）→
@@ -851,11 +851,11 @@ unit/plist ファイル自体は書き換えないため、古い定義のまま
 
 - proxy 層を削除し、Rust 単独バイナリ化 — **完了**（前々々節参照。HTTP/WS プロキシは
   撤去済み、全 E2E スペックが Python 無しの Rust 単独で通過することを確認済み）
-- TLS 終端の Rust 側移設 — **完了**（前々節参照）
+- TLS 終端の Rust 側移設 — **完了**（前々節参照。その後撤去され、現行は Tailscale Serve / reverse proxy に委譲 — 同節の Update 参照）
 - `./any-console` を「venv セットアップ」から「バイナリ取得 or cargo build」へ変更（systemd / launchd 両対応は維持） — **完了**（前節参照）
 - requirements*.txt / pyproject.toml / pytest 一式の削除、CI から Python ジョブ撤去 — **完了**
 - README / ARCHITECTURE.md / DECISIONS.md 更新（本移行の ADR 追記） — **完了**
-- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — **完了**（`.github/workflows/release-please.yml` がリリース時に 4 ターゲットを `--features embed-assets`（ui/dist・agent_manifests をバイナリへ同梱）でビルドし、tar.gz + sha256 checksum をリリースへ添付する。`install.sh` が checksum 検証付きダウンロード・原子的更新を行い、`./any-console update` もバイナリ配布レイアウトでは install.sh へ委譲する。バージョンは release-please と同期した `CARGO_PKG_VERSION` のビルド時埋め込みで、`--version` フラグも追加）
+- release-please の対象調整、バイナリリリース（Linux x86_64 / aarch64、macOS arm64 / x86_64） — **完了**（`.github/workflows/release-please.yml` がリリース時に 4 ターゲットを `--features embed-assets`（dist/・agent_manifests をバイナリへ同梱）でビルドし、tar.gz + sha256 checksum をリリースへ添付する。`install.sh` が checksum 検証付きダウンロード・原子的更新を行い、`./any-console update` もバイナリ配布レイアウトでは install.sh へ委譲する。バージョンは release-please と同期した `CARGO_PKG_VERSION` のビルド時埋め込みで、`--version` フラグも追加）
 
 **Python 撤去の実施内容**: `api/`（Python FastAPI バックエンド一式、61 ファイル）・
 `requirements.txt`・`requirements-optional.txt`・`pyproject.toml`（ruff/pytest/

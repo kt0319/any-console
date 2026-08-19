@@ -1,5 +1,6 @@
 {
-  "my-project": {
+  "ws_000000000001": {
+    "name": "my-project",
     "path": "/path/to/your-project",
     "icon": "mdi-folder",
     "icon_color": "#1e88e5",
@@ -22,18 +23,18 @@
         "command": "npm run e2e",
         "label": "E2E Test",
         "icon": "mdi-test-tube",
-        "confirm": false,
-        "timeout_sec": 1800
+        "confirm": false
       }
     }
   },
-  "dotfiles": {
+  "ws_000000000002": {
+    "name": "dotfiles",
     "path": "/path/to/your-dotfiles",
     "icon": "mdi-cog",
     "icon_color": "#8e24aa"
   },
   "__global__": {
-    "config_version": 1,
+    "config_version": 4,
     "snippets": [
       {
         "label": "git status",
@@ -45,8 +46,8 @@
       }
     ],
     "workspace_order": [
-      "my-project",
-      "dotfiles"
+      "ws_000000000001",
+      "ws_000000000002"
     ],
     "editor": {
       "url_template": "vscode://vscode-remote/ssh-remote+{user}@{host}{workspace_path}"
