@@ -323,7 +323,14 @@ watch(baseBranchWorkspace, async (ws) => {
 
 function buildOverrides() {
   const orig = request.value || {};
-  const origIsNew = !orig.existing_session_id;
+  // 元リクエストの新規セッション判定は existing_session_id の有無ではなく
+  // match（サーバー既定は "any" = 既存セッションがあれば流用）で見る。
+  // existing_session_id が無いことは「新規確定」を意味しない（match: "any"
+  // で既存セッションに解決されたケースも existing_session_id は記録されない）。
+  // ここを existing_session_id 基準にすると、「+ New session」を選んでも元と
+  // 見かけ上「変化なし」と誤判定されて override が送られず、サーバー側で
+  // match: "any" のまま既存セッションへ流用されてしまう。
+  const origIsNew = (orig.match || "any") === "none";
   const origCreateBranch = !!orig.create_branch;
   return {
     workspace: selectedWorkspace.value !== (orig.workspace || "") ? selectedWorkspace.value : null,
