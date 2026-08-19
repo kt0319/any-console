@@ -657,18 +657,16 @@ cmd_setup() {
     echo "    $RUST_BIN"
     echo "  Then: ./any-console restart"
   fi
-  local bind_host bind_port proto ts_host
-  bind_host=$(get_host)
+  # 本体の待受は常に平文 HTTP（has_https は preview proxy 用証明書の有無で
+  # あって本体ポートの HTTPS 化ではない — run / status と同じ案内に揃える）
+  local bind_port ts_host
   bind_port=$(get_port)
-  proto="http"
-  has_https && proto="https"
   ts_host=$(tailscale_hostname 2>/dev/null || echo "")
   echo ""
   echo "Open:"
-  if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
-    echo "  https://${ts_host}:${bind_port}"
-  else
-    echo "  http://localhost:${bind_port}"
+  echo "  http://localhost:${bind_port}"
+  if [ -n "$ts_host" ]; then
+    echo "  Tailscale Serve (HTTPS): tailscale serve --bg http://127.0.0.1:${bind_port}"
   fi
   echo ""
   local auth_token
