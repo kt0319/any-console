@@ -151,8 +151,14 @@ export const useTerminalStore = defineStore("terminal", () => {
     delete doneSessions[sessionId];
   }
 
+  // sessionId → true の「見たら消えるバッジ」フラグ共通の解除処理
+  // （doneSessions/phraseNotifySessionsで重複していたロジックを共通化）。
+  function clearNotifyFlag(flags: Record<string, boolean>, sessionId: string | null | undefined) {
+    if (sessionId) delete flags[sessionId];
+  }
+
   function clearDoneState(sessionId: string | null | undefined) {
-    if (sessionId) delete doneSessions[sessionId];
+    clearNotifyFlag(doneSessions, sessionId);
   }
 
   // sessionId → notify_phrase 検知フラグ。タブが選択されたら見た扱いでクリアする。
@@ -163,7 +169,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   function clearPhraseNotify(sessionId: string | null | undefined) {
-    if (sessionId) delete phraseNotifySessions[sessionId];
+    clearNotifyFlag(phraseNotifySessions, sessionId);
   }
 
   // セッションが選択・アクティブ化された際に見た扱いでクリアするバッジをまとめて処理する。

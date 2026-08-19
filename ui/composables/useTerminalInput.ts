@@ -37,11 +37,13 @@ export function bindTerminalInput(tab: TerminalTab) {
   const encoder = new TextEncoder();
 
   const sendInput = (bytes: Uint8Array) => sendTabInput(tab, bytes);
-  // ユーザー操作由来の入力は、送信に加えてdoneバッジも解除する
-  // （onResizeの機械的な送信では解除しない）。
+  // ユーザー操作由来の入力は、送信に加えてdone/phrase通知バッジも解除する
+  // （onResizeの機械的な送信では解除しない）。タブ切替時のclearSessionNotifyBadges
+  // だけでは、既にアクティブなタブに通知が届いた場合（タブ切替が発生しない）に
+  // バッジが残り続けてしまうため、そのタブで実際に操作した瞬間にも解除する。
   const sendUserInput = (bytes: Uint8Array) => {
     sendInput(bytes);
-    terminalStore.clearDoneState(tab.sessionId);
+    terminalStore.clearSessionNotifyBadges(tab.sessionId);
   };
 
   function sendAppPageKey(e: KeyboardEvent) {
