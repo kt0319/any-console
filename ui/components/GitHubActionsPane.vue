@@ -6,18 +6,20 @@
         <div class="github-section-body">
           <div v-if="isLoading" class="github-loading">Loading...</div>
           <div v-else-if="error" class="github-error">{{ error }}</div>
-          <div
+          <a
             v-for="run in items"
             :key="run.id"
             class="github-item"
-            @click="openUrl(run.url)"
+            :href="run.url"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             <span :class="['github-run-status', runStatusClass(run.conclusion || run.status)]">
               {{ runStatusIcon(run.conclusion || run.status) }}
             </span>
             <span class="github-item-title">{{ run.name }}</span>
             <span class="github-item-meta">{{ run.headBranch }}</span>
-          </div>
+          </a>
         </div>
       </template>
     </div>
@@ -26,7 +28,7 @@
 
 <script setup lang="ts">
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
-import { useGitHub, runStatusIcon, runStatusClass, openUrl } from "../composables/useGitHub.ts";
+import { useGitHub, runStatusIcon, runStatusClass } from "../composables/useGitHub.ts";
 
 const { loadActions } = useGitHub();
 const { githubUrl, items, isLoading, error, reload } = useGitHubPane(loadActions);

@@ -2,7 +2,6 @@ import { ref, computed, type Ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { openExternal } from "../utils/open-external.ts";
 import { mapGitHubPR, mapGitHubRun } from "../utils/github-runs.ts";
 
 const _countCache: Record<string, number> = {};
@@ -41,10 +40,6 @@ export function labelStyle(color: string | null | undefined) {
     color: `#${c}`,
     border: `1px solid #${c}66`,
   };
-}
-
-export function openUrl(url: string) {
-  openExternal(url);
 }
 
 export function useGitHub() {

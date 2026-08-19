@@ -13,6 +13,7 @@
   border-bottom: 1px solid var(--border);
   font-size: 13px;
   color: var(--text-primary);
+  text-decoration: none;
   cursor: pointer;
   display: flex;
   flex-wrap: wrap;

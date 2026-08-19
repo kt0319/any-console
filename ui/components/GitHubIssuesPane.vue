@@ -6,11 +6,13 @@
         <div class="github-section-body">
           <div v-if="isLoading" class="github-loading">Loading...</div>
           <div v-else-if="error" class="github-error">{{ error }}</div>
-          <div
+          <a
             v-for="item in items"
             :key="item.number"
             class="github-item"
-            @click="openUrl(githubUrl + '/issues/' + item.number)"
+            :href="githubUrl + '/issues/' + item.number"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             <span class="github-item-number">#{{ item.number }}</span>
             <span class="github-item-title">{{ item.title }}</span>
@@ -23,7 +25,7 @@
                 :style="labelStyle(label.color)"
               >{{ label.name }}</span>
             </span>
-          </div>
+          </a>
         </div>
       </template>
     </div>
@@ -32,7 +34,7 @@
 
 <script setup lang="ts">
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
-import { useGitHub, labelStyle, openUrl } from "../composables/useGitHub.ts";
+import { useGitHub, labelStyle } from "../composables/useGitHub.ts";
 
 const emit = defineEmits(["count"]);
 const { loadIssues } = useGitHub();
