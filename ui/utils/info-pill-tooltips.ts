@@ -7,14 +7,16 @@ import { firstCommitLine } from "./git.ts";
 import { devServerOrigin } from "./preview-url.ts";
 import { dispatchJobLabel } from "./dispatch-request.ts";
 
-export function branchTooltip({ branch = "", ahead = 0, behind = 0, hasUpstream = true }: {
-  branch?: string; ahead?: number; behind?: number; hasUpstream?: boolean;
+export function branchTooltip({ branch = "", ahead = 0, behind = 0, hasUpstream = true, lastCommitMessage = null }: {
+  branch?: string; ahead?: number; behind?: number; hasUpstream?: boolean; lastCommitMessage?: string | null;
 }): string {
   const parts: string[] = [];
   if (ahead > 0) parts.push(`${ahead} to push`);
   if (behind > 0) parts.push(`${behind} to pull`);
   if (!hasUpstream) parts.push("no upstream");
-  return parts.length ? `Branches: ${branch} (${parts.join(", ")})` : `Branches: ${branch}`;
+  const head = parts.length ? `Branches: ${branch} (${parts.join(", ")})` : `Branches: ${branch}`;
+  const commit = firstCommitLine(lastCommitMessage);
+  return commit ? `${head}  ·  ${commit}` : head;
 }
 
 /**
@@ -29,11 +31,6 @@ export function changesTooltip({ changedFiles = 0, insertions = 0, deletions = 0
   changedFiles?: number; insertions?: number; deletions?: number;
 }): string {
   return `Changes: ${changedFiles}F +${insertions} -${deletions}`;
-}
-
-export function historyTooltip(lastCommitMessage: string | null | undefined): string {
-  const msg = firstCommitLine(lastCommitMessage);
-  return msg ? `History: ${msg}` : "History";
 }
 
 export function devServerTooltip(entry: { scheme?: string; proxy_port?: number } | null | undefined, hostname: string): string {
@@ -82,9 +79,8 @@ export function buildInfoPillTooltips({
 }): Record<string, string> {
   return {
     files: filesTooltip({ name, isGitRepo }),
-    history: historyTooltip(lastCommitMessage),
     changes: changesTooltip({ changedFiles, insertions, deletions }),
-    branch: branchTooltip({ branch, ahead, behind, hasUpstream }),
+    branch: branchTooltip({ branch, ahead, behind, hasUpstream, lastCommitMessage }),
     devserver: devServerTooltip(devServerEntry, hostname),
     dispatch: dispatchTooltip(dispatchItems),
     prs: prsTooltip(branchPR),

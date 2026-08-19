@@ -120,7 +120,7 @@
   color: var(--text-muted);
 }
 
-/* history/branchは状態をアイコンだけで示し、テキストは通常色（白）のまま
+/* branchは状態をアイコンだけで示し、テキストは通常色（白）のまま
    読みやすく保つ（changes/prsはテキストごと色付けするため対象外。actionsは
    上で専用のname/statusスタイルを個別定義済みのため対象外）。
    上の .pill-peek-xxx .pill-peek-text ルールより詳細度を上げて上書きする。 */
@@ -273,10 +273,6 @@
 
 .pill-server-btn .mdi {
   color: var(--lime);
-}
-
-.pill-history-btn .mdi {
-  color: var(--accent);
 }
 
 .pill-files-btn .mdi {

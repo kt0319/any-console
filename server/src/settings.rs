@@ -212,7 +212,6 @@ pub async fn put_notifications(
 
 const INFO_PILL_FIELDS: &[&str] = &[
     "files",
-    "history",
     "changes",
     "branch",
     "prs",
@@ -242,8 +241,6 @@ fn normalize_pill_order(order: &[String]) -> Vec<String> {
 pub struct InfoPillSettings {
     #[serde(default = "yes")]
     branch: bool,
-    #[serde(default = "yes")]
-    history: bool,
     #[serde(default = "yes")]
     prs: bool,
     #[serde(default = "yes")]
@@ -275,7 +272,6 @@ pub async fn get_info_pills(State(state): State<Arc<AppState>>, _auth: RequireAu
     let mut result = Map::new();
     for field in [
         "branch",
-        "history",
         "prs",
         "actions",
         "changes",
@@ -319,7 +315,6 @@ pub async fn put_info_pills(
     let mut data = Map::new();
     for (key, v) in [
         ("branch", body.branch),
-        ("history", body.history),
         ("prs", body.prs),
         ("actions", body.actions),
         ("changes", body.changes),

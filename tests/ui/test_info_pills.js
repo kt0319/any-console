@@ -3,7 +3,6 @@ import { INFO_PILLS, INFO_PILL_FIELDS, peekIconForKey, peekColorForKey } from ".
 
 describe("peekColorForKey", () => {
   it("キーごとの静的な色クラスを返す", () => {
-    expect(peekColorForKey("history")).toBe("pill-peek-accent");
     expect(peekColorForKey("changes")).toBe("pill-peek-warning");
     expect(peekColorForKey("prs")).toBe("pill-peek-purple");
     expect(peekColorForKey("branch")).toEqual(["pill-peek-success", "pill-peek-icon-only"]);
@@ -66,7 +65,7 @@ describe("INFO_PILLS", () => {
     // バックエンド server/src/settings.rs の INFO_PILL_FIELDS と同じキー集合を
     // 保つこと（あちらは settings.rs 内のユニットテストで検証）。
     expect(INFO_PILL_FIELDS).toEqual([
-      "files", "history", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch",
+      "files", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch",
     ]);
   });
 });

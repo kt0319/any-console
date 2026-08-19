@@ -92,7 +92,6 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry }: {
       case "workspace":
       case "files":
         return openFiles();
-      case "history":
       case "changes":
       case "branch":
       case "prs":

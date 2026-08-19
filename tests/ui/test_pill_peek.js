@@ -12,7 +12,6 @@ const ALL_ON = {
   files: true,
   changes: true,
   branch: true,
-  history: true,
   prs: true,
   actions: true,
   devserver: true,
@@ -133,8 +132,6 @@ describe("buildTrailingPeekItems", () => {
 describe("buildPeekText", () => {
   it("キーごとに固定/派生テキストを返す", () => {
     expect(buildPeekText("files", {})).toBe("Files");
-    expect(buildPeekText("history", { lastCommitMessage: "fix: 直近の修正\n詳細" })).toBe("fix: 直近の修正");
-    expect(buildPeekText("history", { lastCommitMessage: "" })).toBe("History");
     expect(buildPeekText("prs", { branchPR: { number: 5, title: "Add feature" } })).toBe("#5 Add feature");
     expect(buildPeekText("prs", {})).toBe("");
     expect(buildPeekText("actions", { branchAction: { name: "CI", status: "completed", conclusion: "success" } })).toBe("[CI] success");

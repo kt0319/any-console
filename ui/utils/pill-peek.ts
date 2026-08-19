@@ -3,8 +3,6 @@
 // ここでは変化検出に必要な最小限の値（key + 見た目に影響する text）だけを扱う。
 // TerminalPane（浮遊ピル）とセッションサイドバー行の両方から共用する。
 
-import { firstCommitLine } from "./git.ts";
-
 /**
  * @returns key -> text のシグネチャ
  */
@@ -30,8 +28,6 @@ export function findChangedTrailingItems(
  * 各キーはInfoPillRowの対応ボタンのv-if条件（infoPillConfig含む）と揃える
  * 必要がある（揃えないと、非表示ピルの変化がfindChangedTrailingItemsに
  * 拾われ、実際に表示されている別ピルの変化が枠を奪われてpeekされない）。
- * historyをbranchより後ろに置く理由: ブランチ切替え時は最終コミット
- * メッセージも同時に変わるため、branch側の変化を優先してpeekしたい。
  */
 export function buildTrailingPeekItems(
   fields: {
@@ -46,7 +42,6 @@ export function buildTrailingPeekItems(
     branch?: string;
     ahead?: number;
     behind?: number;
-    lastCommitMessage?: string | null;
     branchPR?: { number: number; title: string } | null;
     branchAction?: { id: string | number; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
@@ -66,7 +61,6 @@ export function buildTrailingPeekItems(
     branch = "",
     ahead = 0,
     behind = 0,
-    lastCommitMessage = "",
     branchPR = null,
     branchAction = null,
     devServerEntry = null,
@@ -82,9 +76,6 @@ export function buildTrailingPeekItems(
   }
   if (isGitRepo && infoPillConfig.branch) {
     items.push({ key: "branch", text: `${branch}:${ahead}:${behind}` });
-  }
-  if (isGitRepo && infoPillConfig.history) {
-    items.push({ key: "history", text: lastCommitMessage || "" });
   }
   if (branchPR && infoPillConfig.prs) {
     items.push({ key: "prs", text: `${branchPR.number}:${branchPR.title}` });
@@ -112,7 +103,6 @@ export function buildPeekText(
   peekingKey: string | null,
   fields: {
     workspaceLabel?: string;
-    lastCommitMessage?: string | null;
     branchPR?: { number: number; title: string } | null;
     branchAction?: { name?: string; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
@@ -121,7 +111,6 @@ export function buildPeekText(
 ): string {
   const {
     workspaceLabel = "",
-    lastCommitMessage = "",
     branchPR = null,
     branchAction = null,
     devServerEntry = null,
@@ -129,7 +118,6 @@ export function buildPeekText(
   } = fields || {};
   switch (peekingKey) {
     case "files": return "Files";
-    case "history": return firstCommitLine(lastCommitMessage) || "History";
     case "prs": return branchPR ? `#${branchPR.number} ${branchPR.title}` : "";
     case "actions": return branchAction
       ? `[${branchAction.name}] ${branchAction.conclusion || branchAction.status}`

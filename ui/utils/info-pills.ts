@@ -18,13 +18,6 @@ export const INFO_PILLS = [
     peekIcon: "mdi-folder-outline",
   },
   {
-    key: "history",
-    label: "History",
-    note: "Browse commit history. Only shown for Git workspaces. Hovering shows the last commit message.",
-    peekIcon: "mdi-history",
-    peekColor: "pill-peek-accent",
-  },
-  {
     key: "changes",
     label: "Changes",
     note: "Uncommitted file/insertion/deletion counts. Only shown while the workspace has uncommitted changes.",
@@ -34,7 +27,7 @@ export const INFO_PILLS = [
   {
     key: "branch",
     label: "Branches",
-    note: "Current branch name, with push/pull counts badged on top when the branch has commits to push or pull.",
+    note: "Current branch name, with push/pull counts badged on top when the branch has commits to push or pull. Also opens commit history for the workspace.",
     peekIcon: "mdi-source-branch",
     // 状態をアイコンだけで示し、テキスト（ブランチ名）は通常色のまま保つ。
     peekColor: ["pill-peek-success", "pill-peek-icon-only"],
@@ -110,7 +103,7 @@ const ACTIONS_STATUS_COLOR_BUCKET: Record<string, string> = {
 
 /**
  * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
- * history/branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
+ * branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
  * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
  * actionsはアイコンを常にブラウン固定にし（pill-peek-brownを常に含める）、
  * 名前部分は白、ステータス部分だけをpush/pullのPushed/Pulled表示と同様に

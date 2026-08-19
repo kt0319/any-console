@@ -11,7 +11,6 @@ const DEFAULT_ORDER = INFO_PILL_FIELDS;
 
 export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const branch = ref(true);
-  const history = ref(true);
   const prs = ref(true);
   const actions = ref(true);
   const changes = ref(true);
@@ -22,7 +21,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const order = ref<string[]>([...DEFAULT_ORDER]);
   const loaded = ref(false);
 
-  const fieldRefs: Record<string, Ref<boolean>> = { branch, history, prs, actions, changes, devserver, files, add, dispatch };
+  const fieldRefs: Record<string, Ref<boolean>> = { branch, prs, actions, changes, devserver, files, add, dispatch };
 
   // load のリトライ・loaded 確定の方針は createServerSettings 参照。
   const { load, save } = createServerSettings(EP_SETTINGS_INFO_PILLS, {
@@ -53,5 +52,5 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     save();
   }
 
-  return { branch, history, prs, actions, changes, devserver, files, add, dispatch, order, loaded, load, save, reorder };
+  return { branch, prs, actions, changes, devserver, files, add, dispatch, order, loaded, load, save, reorder };
 });

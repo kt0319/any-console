@@ -224,7 +224,7 @@ const tabs = computed(() => {
       iconColor: "#14b8a6",
       label: "Files",
     },
-    { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--accent)", hidden: !isGit },
+    { key: "history", icon: "mdi-source-branch", label: "History", iconColor: "var(--success)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, showCount: false, iconColor: changesCount.value ? "#f5a623" : undefined, hidden: !isGit },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, showCount: false, iconColor: hasBranchPR.value ? "var(--purple)" : undefined, hidden: !isGit || !hasGitHub.value || !prsCount.value },

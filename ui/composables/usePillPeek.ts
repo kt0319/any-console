@@ -53,12 +53,6 @@ export function usePillPeek({
   // 解決するまでは変化検出を行わず、解決した最初の1回はベースラインの
   // 更新だけ行って peek はスキップする。
   let workspaceEverResolved = paneWorkspace.value !== undefined;
-  // last_commit_message は paneWorkspace 自体が解決した後もさらに遅れて
-  // 非同期ロードされる（workspaceStore のステータス取得参照）。
-  // これを "history" の変化検出にそのまま使うと、通常のロード完了時にも
-  // 「新しくコミットされた」と誤検知してpeekが発火してしまうため、
-  // 初めて値が解決した1回だけベースラインを更新して変化扱いにしない。
-  let historyMessageEverResolved = paneWorkspace.value?.last_commit_message !== undefined;
   // PR一覧もfetchPRsによる非同期取得のため、初回のロード完了を
   // 「新しくPRが作られた」と誤検知しないよう同様のガードをかける。
   function prsResolvedFor(workspace: string | null | undefined) {
@@ -114,11 +108,6 @@ export function usePillPeek({
 
   watch(trailingPeekItems, (items) => {
     const nextSignature = trailingItemsSignature(items);
-    const historyJustResolved = !historyMessageEverResolved && paneWorkspace.value?.last_commit_message !== undefined;
-    if (historyJustResolved) {
-      historyMessageEverResolved = true;
-      carryBaseline("history", nextSignature);
-    }
     const prsJustResolved = !prsEverResolved && prsResolvedFor(workspaceKey());
     if (prsJustResolved) {
       prsEverResolved = true;

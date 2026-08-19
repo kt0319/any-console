@@ -18,18 +18,6 @@
           <span class="mdi" :class="peekIconForKey('files')"></span>
         </button>
         <button
-          v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
-          type="button"
-          class="pill-chip pill-devserver-btn pill-history-btn"
-          :class="pillActivityClass"
-          :aria-label="tooltips.history"
-          :data-tooltip="tooltips.history"
-          @pointerdown.stop
-          @click.stop="emits('open', 'history')"
-        >
-          <span class="mdi" :class="peekIconForKey('history')"></span>
-        </button>
-        <button
           v-else-if="key === 'changes' && isGitRepo && isDirty && infoPillConfig.changes"
           type="button"
           class="pill-chip pill-numstat-btn"
