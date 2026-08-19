@@ -311,15 +311,18 @@ function handleBack() {
   return false;
 }
 
-function open(options: { pane?: string, dispatchItemId?: string } | null | undefined) {
+function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean } | null | undefined) {
   options = options || {};
   const paneKey = options.pane || "jobs";
-  // branchピル経由（paneKey === "branch"）だけはHistoryタブを開くと同時に
-  // Branch一覧セクションも展開する。History タブ自体を直接開いた場合は
-  // 従来通り畳んだ状態で開始する。stashも同様（旧Stashesタブへの外部リンク・
-  // 通知経由の遷移との互換のため、paneKey === "stash" はChangesタブを開いて
-  // Stashセクションを展開する）。
-  const wantBranchExpanded = paneKey === "branch";
+  // branchピル経由（paneKey === "branch"）はHistoryタブを開くと同時に
+  // Branch一覧セクションを展開する—ただしPush/Pull件数（expandBranch）が
+  // 表示されている時だけ。件数が無ければコミット履歴を主役にして畳んだ状態
+  // で開く。expandBranch省略時（deep link等、useInfoPillActions経由でない
+  // 呼び出し）は従来通りpaneKey==="branch"を展開条件にする。
+  // History タブ自体を直接開いた場合は従来通り畳んだ状態で開始する。stashも
+  // 同様（旧Stashesタブへの外部リンク・通知経由の遷移との互換のため、
+  // paneKey === "stash" はChangesタブを開いてStashセクションを展開する）。
+  const wantBranchExpanded = options.expandBranch ?? (paneKey === "branch");
   const wantStashExpanded = paneKey === "stash";
   let resolvedPane = paneKey === "browser" ? "history" : paneKey;
   // 非 git ワークスペースで git 専用ペインが指定された場合は files にフォールバック

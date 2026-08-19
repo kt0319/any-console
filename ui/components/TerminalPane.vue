@@ -215,6 +215,8 @@ const { openPane } = useInfoPillActions({
   tab: tabRef as Ref<Record<string, any>>,
   isGitRepo,
   devServerEntry,
+  ahead,
+  behind,
 });
 
 // peekピル（値が変化した時に一時表示する長いピル）自体をクリック/タップした時、

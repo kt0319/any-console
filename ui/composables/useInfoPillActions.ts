@@ -8,10 +8,12 @@ import { useDevServerOpen } from "./useDevServerOpen.ts";
 
 // Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が
 // 同じopenPane(key)を使う。
-export function useInfoPillActions({ tab, isGitRepo, devServerEntry }: {
+export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behind }: {
   tab: Ref<Record<string, any>>,
   isGitRepo: Ref<boolean> | ComputedRef<boolean>,
   devServerEntry: Ref<Record<string, any> | null> | ComputedRef<Record<string, any> | null>,
+  ahead?: Ref<number> | ComputedRef<number>,
+  behind?: Ref<number> | ComputedRef<number>,
 }) {
   const workspaceStore = useWorkspaceStore();
   const { apiGet } = useApi() as {
@@ -21,10 +23,18 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry }: {
 
   // history/changes/branch/prs/actions はワークスペース詳細の同名ペインを開く
   // （pane名＝ピルのキー）。
-  function openWorkspacePane(pane: string) {
+  function openWorkspacePane(pane: string, extra: Record<string, any> = {}) {
     if (!tab.value.workspace) return;
     workspaceStore.selectedWorkspace = tab.value.workspace;
-    emit("git:openFileModal", { pane });
+    emit("git:openFileModal", { pane, ...extra });
+  }
+
+  // branchピルはPush/Pull件数（ahead/behind）を表示している時だけBranch一覧を
+  // 展開して開く。件数が無い時（ブランチ名だけの表示）はHistoryを畳んだ状態で
+  // 開き、コミット履歴を主役にする。
+  function openBranch() {
+    const hasPushPull = (ahead?.value || 0) > 0 || (behind?.value || 0) > 0;
+    openWorkspacePane("branch", { expandBranch: hasPushPull });
   }
 
   // git 未登録（ワークスペース未紐付け）のベアターミナルでは、cwd を都度取得して
@@ -92,8 +102,9 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry }: {
       case "workspace":
       case "files":
         return openFiles();
-      case "changes":
       case "branch":
+        return openBranch();
+      case "changes":
       case "prs":
       case "actions":
         return openWorkspacePane(key);

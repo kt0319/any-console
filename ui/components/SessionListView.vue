@@ -125,11 +125,17 @@ function onPendingPillOpen(p: PendingDispatchItem, key: string) {
 }
 
 // useInfoPillActions を都度組み立てて対応ペインを開く（通常行 / pending行 共通）。
-function openPaneFor(tab: Record<string, any>, source: { isGitRepo: boolean; devServerEntry: Record<string, any> | null }, key: string) {
+function openPaneFor(
+  tab: Record<string, any>,
+  source: { isGitRepo: boolean; devServerEntry: Record<string, any> | null; ahead?: number; behind?: number },
+  key: string,
+) {
   const { openPane } = useInfoPillActions({
     tab: ref(tab),
     isGitRepo: ref(source.isGitRepo),
     devServerEntry: ref(source.devServerEntry),
+    ahead: ref(source.ahead || 0),
+    behind: ref(source.behind || 0),
   });
   openPane(key);
 }
