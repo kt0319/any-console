@@ -174,7 +174,7 @@ async fn info_pills_normalize_order() {
     let front = spawn_front().await;
     let got = get_json(&front, "/settings/info-pills").await;
     assert_eq!(got["branch"], true);
-    assert_eq!(got["order"].as_array().unwrap().len(), 9);
+    assert_eq!(got["order"].as_array().unwrap().len(), 8);
 
     let resp = put_json(
         &front,
@@ -188,7 +188,7 @@ async fn info_pills_normalize_order() {
     let order = got["order"].as_array().unwrap();
     assert_eq!(order[0], "dispatch");
     assert_eq!(order[1], "branch");
-    assert_eq!(order.len(), 9, "未知キー除去・欠けキー補完");
+    assert_eq!(order.len(), 8, "未知キー除去・欠けキー補完");
 }
 
 #[tokio::test]
