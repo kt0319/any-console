@@ -13,7 +13,7 @@ export function dispatchKeyToTab(
   const seq = keyDefToAnsi(keyDef);
   if (seq == null) return false;
   tab.ws.send(new TextEncoder().encode(seq));
-  useTerminalStore().clearDoneState(tab.sessionId);
+  useTerminalStore().clearSessionNotifyBadges(tab.sessionId);
   return true;
 }
 
@@ -26,6 +26,6 @@ export function dispatchTextToTab(
 ): boolean {
   if (!tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return false;
   tab.ws.send(new TextEncoder().encode(text));
-  useTerminalStore().clearDoneState(tab.sessionId);
+  useTerminalStore().clearSessionNotifyBadges(tab.sessionId);
   return true;
 }
