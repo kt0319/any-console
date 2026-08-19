@@ -37,6 +37,33 @@ describe("findRunForBranch", () => {
     expect(findRunForBranch(null, "main")).toBeNull();
     expect(findRunForBranch(runs, null)).toBeNull();
   });
+
+  it("同一ブランチに複数workflowのrunがある場合、実行中/失敗のrunを先頭一致より優先する", () => {
+    const multi = [
+      { id: 1, headBranch: "main", status: "completed", conclusion: "success" },
+      { id: 2, headBranch: "main", status: "in_progress", conclusion: "" },
+      { id: 3, headBranch: "main", status: "completed", conclusion: "skipped" },
+    ];
+    expect(findRunForBranch(multi, "main")).toEqual({
+      id: 2,
+      headBranch: "main",
+      status: "in_progress",
+      conclusion: "",
+    });
+  });
+
+  it("noticeableなrunが無ければ先頭一致を返す", () => {
+    const allDone = [
+      { id: 1, headBranch: "main", status: "completed", conclusion: "success" },
+      { id: 2, headBranch: "main", status: "completed", conclusion: "skipped" },
+    ];
+    expect(findRunForBranch(allDone, "main")).toEqual({
+      id: 1,
+      headBranch: "main",
+      status: "completed",
+      conclusion: "success",
+    });
+  });
 });
 
 describe("isNoticeableRun", () => {

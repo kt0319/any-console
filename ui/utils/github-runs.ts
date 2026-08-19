@@ -37,12 +37,20 @@ export function findPRForBranch(
   return prs.find((pr) => pr.headRefName === branch) || null;
 }
 
+/**
+ * 同一ブランチには CI / Release Please / Dispatch on CI failure 等、複数の
+ * workflow run が同時に載りうる。単純な先頭一致だと、たまたま先に完了した
+ * run の陰で他の run が実行中でもピルに気づけない。noticeable な run（実行
+ * 中・失敗）があればそれを優先し、無ければ先頭の一致を返す。
+ */
 export function findRunForBranch(
-  runs: { headBranch?: string }[] | null | undefined,
+  runs: { headBranch?: string; status?: string; conclusion?: string }[] | null | undefined,
   branch: string | null | undefined,
-): { headBranch?: string } | null {
+): { headBranch?: string; status?: string; conclusion?: string } | null {
   if (!Array.isArray(runs) || !branch) return null;
-  return runs.find((run) => run.headBranch === branch) || null;
+  const matches = runs.filter((run) => run.headBranch === branch);
+  if (matches.length === 0) return null;
+  return matches.find(isNoticeableRun) || matches[0];
 }
 
 /**
