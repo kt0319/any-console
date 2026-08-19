@@ -21,6 +21,12 @@ trust** — a Tailscale tailnet, a LAN behind a firewall, or localhost.
   internet-wide credential stuffing or token brute force.
 - The recommended setup is [Tailscale Serve](https://tailscale.com/kb/1312/serve)
   for HTTPS inside your tailnet, or plain HTTP on a trusted LAN.
+- The server itself listens over plain HTTP (`0.0.0.0` by default) and does
+  not infer trust from where a connection appears to come from — anything
+  that can reach the port can attempt authentication. If the app is reached
+  exclusively through Tailscale Serve (which proxies to `127.0.0.1`), bind
+  the server to loopback (`__global__.host: "127.0.0.1"` in `config.json`)
+  so the plain-HTTP port is not also reachable over the LAN.
 - Be careful with *any* other tunnel or proxy on the same host (`ssh -L`,
   nginx, cloudflared): they can make external requests appear to come from
   loopback. any-console always requires token / device-cookie authentication

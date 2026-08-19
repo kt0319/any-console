@@ -171,6 +171,8 @@ Access the app at `https://<your-device>.ts.net/`.
 
 The any-console server itself listens over HTTP. If you need another HTTPS setup, put a reverse proxy such as Caddy or nginx in front of `http://127.0.0.1:8888`.
 
+The default bind address is `0.0.0.0` (all interfaces). When the app is reached exclusively through Tailscale Serve — which proxies to `127.0.0.1` — you can set `__global__.host` to `"127.0.0.1"` in `config.json` so the plain-HTTP port is not also reachable over the LAN.
+
 Direct-port dev server previews can still use HTTPS. `./any-console https-setup` issues a Tailscale certificate and stores it for the preview proxy, so URLs such as `https://<device>:12001/` can work even when the main app is served through Tailscale Serve:
 
 ```bash

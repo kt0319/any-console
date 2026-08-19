@@ -314,6 +314,8 @@
 
 - **追記 2026-07**: CI 等の外部連携から `/dispatch` を叩く用途を見据えて 3 点追加した。(1) `confirm: bool = True` を `direct: bool = False` に改名（承認キュー行きが既定という現行仕様はそのまま、フィールド名を「即時実行を明示オプトインする」意味に揃えた。破壊的変更だが呼び出し元はスクリプトのみのため移行期間は設けていない）。(2) `dedup_key`（任意）を指定すると、同じキーの承認待ちが既にあれば新しいリクエストで置き換える。CI の連続失敗など同一要件の dispatch が繰り返し来てもキューが積み上がらないようにするためで、置き換え時は `retry_count` を引き継いで +1 し、push 通知は初回のみ送る。(3) ブランチを切り替える dispatch（`branch != 現在ブランチ`）はワークスペースに未コミット変更（`git status --porcelain` が非空）があると 400 で拒否する。`git checkout` は衝突しない限り黙って変更を持ち越すため、外部起点の承認フローでは意図しない混入を明示的に弾く必要がある。自動 stash は選ばず、Confirm Rules の思想に合わせて止めて見せる（失敗した項目はキューに残り、手元を片付けてからの再承認・却下をやり直せる）。
 
+- **追記 2026-08**: `/dispatch/{id}/rerun` を `/dispatch/{id}/decision`（`dispatch_execute`）へ統合し、「承認(approved)/却下(rejected)/decision」の語彙を pending（キュー内）/ executed（実行済み）/ discarded（破棄済み）に置き換えた（recent 項目のフィールドは `decision` → `outcome`、decision ボディは `approved` → `executed`）。dispatch_id が pending に無い場合は recent 履歴から元リクエストを復元して再実行する（旧 rerun 相当。`executed: false` は pending のみ有効で、履歴項目には 400）。この統合により「他端末で決定済みの項目への stale な `executed: true`」は旧来の 404 ではなく履歴からの再実行として成立する。同一項目への同時到着は、1ロック区間での pending クレームと「recent への記録が実行完了後」である性質により従来どおり一方が 404 になる（`concurrent_decision_approvals_launch_session_only_once` で検証）が、実行完了後の遅延クリックは意図的な再実行と区別できない。UI は WS スナップショットで対象が pending から消えるとダイアログを「Rerun Dispatch」表示へ切り替えて（閉じずに）区別を明示するため、この曖昧さは個人ツールの利用規模では許容する判断。
+
 ---
 
 ### 27. dispatch 専用のスコープ付き API トークンを導入する
