@@ -346,6 +346,18 @@ export const useTerminalStore = defineStore("terminal", () => {
     tabWorkspaceVersion.value++;
   }
 
+  /**
+   * ワークスペース・ジョブいずれにも紐付かないベアターミナルのタブ名を
+   * 差し替える（cwd照合で自動紐付けされる前提の setTabWorkspace/setTabJob と
+   * 異なり、呼び出し側が用意した文字列をそのまま入れるだけ）。
+   */
+  function setTabLabel(tabId: number, label: string) {
+    const tab = openTabs.value.find((t) => t.id === tabId);
+    if (!tab || !label || tab.label === label) return;
+    tab.label = label;
+    tabWorkspaceVersion.value++;
+  }
+
   function moveTab(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= openTabs.value.length) return;
@@ -423,6 +435,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     moveTab,
     setTabWorkspace,
     setTabJob,
+    setTabLabel,
     tabWorkspaceVersion,
     loadTabOrder,
     resetTerminalSettings,

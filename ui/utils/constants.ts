@@ -73,6 +73,9 @@ export const FIT_MAX_WAIT_MS = 1000;
 export const ACTIVE_FIT_DELAY_MS = 50;
 export const DOUBLE_TAP_ZOOM_PREVENT_MS = 300;
 export const SESSION_SYNC_INTERVAL_MS = 3000;
+// アクティブタブがベアターミナル（ワークスペース・ジョブいずれにも紐付かない）
+// の間、タブ名をカレントディレクトリ名に追従させるためのcwd再取得間隔。
+export const BARE_TERMINAL_CWD_POLL_INTERVAL_MS = 3000;
 export const PAIRING_STATUS_POLL_MS = 2000;
 export const PAIRING_COUNTDOWN_TICK_MS = 1000;
 export const PAIRING_SUCCESS_CLOSE_DELAY_MS = 1200;

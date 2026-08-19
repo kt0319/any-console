@@ -1,4 +1,4 @@
-import { nextTick, ref } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import type { Ref } from "vue";
 import { useAuthStore } from "../stores/auth.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
@@ -8,10 +8,12 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminal } from "./useTerminal.ts";
 import { useToast } from "./useToast.ts";
 import { usePrompt } from "./usePrompt.ts";
-import { EP_RUN, terminalSessionDetachedPath } from "../utils/endpoints.ts";
-import { TERMINAL_JOB_KEY } from "../utils/constants.ts";
+import { EP_RUN, terminalSessionDetachedPath, terminalSessionCwdPath } from "../utils/endpoints.ts";
+import { TERMINAL_JOB_KEY, BARE_TERMINAL_CWD_POLL_INTERVAL_MS } from "../utils/constants.ts";
 import { collectCommandVars } from "../utils/command-vars.ts";
 import { rememberJobIcon } from "./useSessionSync.ts";
+import { useApi } from "./useApi.ts";
+import { basename } from "../utils/path.ts";
 
 // TerminalBase.vue が defineExpose する形のうち、ここで使う部分。
 interface TerminalBaseViewRef {
@@ -32,6 +34,7 @@ interface LaunchTerminalOptions {
 
 export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: Ref<TerminalBaseViewRef | null> }) {
   const auth = useAuthStore();
+  const { apiGet } = useApi();
   const terminalStore = useTerminalStore();
   const layoutStore = useLayoutStore();
   const workspaceStore = useWorkspaceStore();
@@ -71,6 +74,41 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       }
     }
   }
+
+  // ワークスペース・ジョブいずれにも紐付かないベアターミナルはタブ名が常に
+  // 固定文字列"terminal"になり、複数開くと見分けが付かない。起動直後の実cwd
+  // （tmuxセッションの実際のカレントディレクトリ）からディレクトリ名を取得し、
+  // タブ名に反映する（errorMessage未指定でベストエフォート。失敗時は
+  // "terminal"のまま）。
+  async function applyBareTerminalCwdLabel(tabId: number, sessionId: string) {
+    const { ok, data } = await apiGet(terminalSessionCwdPath(sessionId));
+    const dirName = ok ? basename(data?.cwd) : "";
+    if (dirName) terminalStore.setTabLabel(tabId, dirName);
+  }
+
+  // cd で移動してもタブ名を追従させるため、アクティブタブがベアターミナルの間
+  // だけ軽く定期取得する（バックグラウンドタブ・他タブは対象外にして、常に
+  // 全タブ分ポーリングするコストを避ける）。setTabLabelは同じ値なら
+  // 何もしないので、無駄な再描画は起きない。
+  let bareTerminalCwdPollId: ReturnType<typeof setInterval> | null = null;
+
+  function pollActiveBareTerminalCwd() {
+    if (document.hidden) return;
+    const tab = terminalStore.activeTab;
+    if (!tab || tab.workspace || tab.jobName) return;
+    applyBareTerminalCwdLabel(tab.id, tab.sessionId);
+  }
+
+  onMounted(() => {
+    bareTerminalCwdPollId = setInterval(pollActiveBareTerminalCwd, BARE_TERMINAL_CWD_POLL_INTERVAL_MS);
+  });
+
+  onBeforeUnmount(() => {
+    if (bareTerminalCwdPollId != null) {
+      clearInterval(bareTerminalCwdPollId);
+      bareTerminalCwdPollId = null;
+    }
+  });
 
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, detached }: LaunchTerminalOptions) {
     try {
@@ -138,6 +176,9 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       });
       activateTerminalTab(tab.id, { focus: false });
       if (workspace) workspaceStore.selectedWorkspace = workspace;
+      // ベアターミナル（ワークスペース・ジョブどちらにも紐付かない）のみ対象。
+      // ワークスペース/ジョブに紐付く場合はラベルが既に意味を持つため上書きしない。
+      if (!workspace && !jobName && !jobLabel) applyBareTerminalCwdLabel(tab.id, data.session_id);
       await nextTick();
       terminalBaseView.value?.fitAllTerminals();
       activateTerminalTab(tab.id);
