@@ -147,6 +147,15 @@ const selectedCreateBranch = computed(() => createMode.value === "branch");
 const selectedCreateWorktree = computed(() => createMode.value === "worktree");
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
 
+// Create branch/worktree で入力していた「New branch」の値（branch ref）が、
+// Change branch へ戻した際にそのまま「切替先ブランチ」として読まれてしまい、
+// 一覧に存在しない自由入力テキストが Branch select の未選択（空欄）表示や
+// missingBranchBlockReason の誤ブロックを引き起こしていた。Create branch/
+// worktree → Change branch への切替時のみ、その残留値をクリアする。
+watch(createMode, (mode, prevMode) => {
+  if (mode === "" && prevMode !== "") branch.value = "";
+});
+
 // Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
 // 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
 const branchSelectValue = computed({

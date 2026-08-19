@@ -528,6 +528,38 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
     }
   });
 
+  it("Create branchで入力した新規ブランチ名がChange branchへ戻した際に残らない", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("/branches")) {
+        return { ok: true, json: async () => [{ name: "main" }, { name: "feature/existing" }] };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", create_branch: false, retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
+
+      const radios = wrapper.findAll("input[type=radio]");
+      await radios[1].setValue(); // Create branch
+      await wrapper.find("input[type=text]").setValue("my-new-feature"); // New branch name
+      await radios[0].setValue(); // Change branch へ戻す
+      await flushPromises();
+
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      expect(wrapper.text()).not.toContain("does not exist");
+      wrapper.unmount();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it("ブランチ未指定（現在ブランチのまま）ならdirtyでもブロックしない", async () => {
     applyDispatchQueue([
       { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
