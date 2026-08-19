@@ -28,8 +28,8 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 ## 構成の要点
 
 - **Backend**: Rust (axum)、`server/`。単一プロセス前提（singleton lock。セッション・レートリミッタ・キャッシュはプロセスメモリ）。ターミナルは tmux × PTY × WebSocket ブリッジ。Git はライブラリを使わず subprocess のみ。認証は単一共有トークン + デバイスクッキー
-- **Frontend**: Vue 3 + Pinia (Vite ビルド)、`ui/`。サーバが `ui/dist` を静的配信する。実装は TypeScript に統一済み（`npm run typecheck` = vue-tsc がテンプレート含めて型検査）
-- **`agent_manifests/`**: エージェント状態検出マニフェスト（TOML）。release バイナリには `ui/dist` とともに embed-assets feature で同梱される
+- **Frontend**: Vue 3 + Pinia (Vite ビルド)、`ui/`。ビルド成果物はリポジトリ直下の `dist/`（`vite.config.js` の `outDir: "../dist"`）で、サーバが `dist/` を静的配信する。実装は TypeScript に統一済み（`npm run typecheck` = vue-tsc がテンプレート含めて型検査）
+- **`agent_manifests/`**: エージェント状態検出マニフェスト（TOML）。release バイナリには `dist/` とともに embed-assets feature で同梱される
 - モジュール単位の詳細は `docs/ARCHITECTURE.md` を参照
 
 ---
@@ -133,7 +133,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   npx playwright install chromium
   (cd server && cargo build --release)   # 使い捨てサーバモードでサーバを起動するため
   ```
-- 実行前に `npm run build` で `ui/dist` を最新化する（サーバは `ui/dist` を配信する。未ビルド・古いままだと E2E が現行フロントを検証できない。CI は毎回ビルドしてから実行する）
+- 実行前に `npm run build` で `dist/` を最新化する（サーバは `dist/` を配信する。未ビルド・古いままだと E2E が現行フロントを検証できない。CI は毎回ビルドしてから実行する）
 - ローカル実行:
   ```bash
   npm run test:e2e                                     # 使い捨てサーバで実行（推奨）
