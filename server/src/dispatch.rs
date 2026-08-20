@@ -42,7 +42,7 @@ use crate::paths::Paths;
 use crate::state::AppState;
 use crate::terminal_session::TerminalSession;
 use crate::tmux;
-use crate::util::JsonBody;
+use crate::util::{now_epoch, JsonBody};
 
 const RECENT_LIMIT: usize = 10;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
@@ -163,6 +163,12 @@ async fn record_recent(
             );
         }
     }
+    // 決定（実行/破棄）が確定した時刻。受付時刻（received_at）と合わせて、
+    // フロントのDispatch履歴で「受付からどれだけ待たされたか」を計算できる
+    // ようにする。
+    if let Value::Object(map) = &mut request {
+        map.insert("decided_at".to_string(), json!(now_epoch()));
+    }
     let mut recent = state.dispatch.recent.lock().await;
     recent.insert(
         0,
@@ -186,6 +192,7 @@ const DISPATCH_REQUEST_FIELDS: &[&str] = &[
     "base_branch",
     "direct",
     "dedup_key",
+    "received_at",
 ];
 
 // ─── リクエストモデル ────────────────────────────────────────────────────────
@@ -753,6 +760,7 @@ async fn dispatch_core(
     let mut payload = serde_json::to_value(&body).unwrap_or_else(|_| json!({}));
     if let Value::Object(map) = &mut payload {
         map.insert("effective_workspace".to_string(), json!(effective_ws));
+        map.insert("received_at".to_string(), json!(now_epoch()));
         if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
             map.insert(
                 "branch_status".to_string(),
@@ -898,6 +906,12 @@ pub async fn dispatch_execute(
                 "effective_workspace".to_string(),
                 json!(dispatch_body.effective_workspace()),
             );
+            // received_atはDispatchRequestのフィールドではないため
+            // serde_json::to_value(&dispatch_body)では失われる。pending時点の
+            // payloadから引き継ぐ。
+            if let Some(received_at) = payload.get("received_at") {
+                map.insert("received_at".to_string(), received_at.clone());
+            }
         }
         record_recent(&state, &dispatch_id, executed_payload, "executed").await;
         persist_pending(&state).await;
@@ -947,7 +961,11 @@ pub async fn dispatch_execute(
     };
     log_dispatch_executed(&state, &result, auth_label);
     let new_id = crate::util::token_urlsafe(8);
-    let request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
+    let mut request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
+    // 履歴からの再実行は新規dispatchとして扱い、受付時刻も再送された「今」にする。
+    if let Value::Object(map) = &mut request_value {
+        map.insert("received_at".to_string(), json!(now_epoch()));
+    }
     record_recent(&state, &new_id, request_value, "executed").await;
     broadcast_queue(&state).await;
     Ok(Json(result).into_response())
@@ -1091,6 +1109,22 @@ mod tests {
             recent[0]["request"].get("branch_status").is_none(),
             "実行時メタは除去される"
         );
+    }
+
+    /// record_recentは決定時刻（decided_at）を必ず積む。受付時刻（received_at、
+    /// pending時点で積まれる）はDISPATCH_REQUEST_FIELDSに含まれるためretainで
+    /// 残る。
+    #[tokio::test]
+    async fn record_recent_stamps_decided_at_and_keeps_received_at() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let before = now_epoch();
+        let payload = json!({"workspace": "proj", "received_at": before});
+        record_recent(&state, "d1", payload, "executed").await;
+        let recent = state.dispatch.recent.lock().await;
+        assert_eq!(recent[0]["request"]["received_at"], before);
+        let decided_at = recent[0]["request"]["decided_at"].as_i64().unwrap();
+        assert!(decided_at >= before);
     }
 
     #[tokio::test]

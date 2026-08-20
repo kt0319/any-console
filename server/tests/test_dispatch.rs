@@ -923,3 +923,82 @@ async fn queue_snapshot_is_resent_on_new_subscription() {
     let broadcast = recv_broadcast_matching(&mut rx, |m| m["type"] == "dispatch_queue").await;
     assert_eq!(broadcast["items"][0]["id"], "d1");
 }
+
+/// pendingへの登録時にreceived_atが積まれ、decision（executed）で
+/// recent履歴に受け継がれ、decided_atが追加で積まれること（受付〜決定の
+/// 所要時間をフロントで計算できるようにするための土台）。
+#[tokio::test]
+async fn dispatch_stamps_received_at_and_decided_at() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let resp = common::client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 202);
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+
+    let received_at = {
+        let pending = front.state.dispatch.pending.lock().await;
+        pending[&dispatch_id]["received_at"].as_i64().unwrap()
+    };
+
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"executed": true}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let recent = front.state.dispatch.recent.lock().await;
+    assert_eq!(recent[0]["request"]["received_at"], received_at);
+    let decided_at = recent[0]["request"]["decided_at"].as_i64().unwrap();
+    assert!(decided_at >= received_at);
+}
+
+/// 破棄（discarded）でもreceived_at/decided_atがrecent履歴へ残ること。
+#[tokio::test]
+async fn discarded_dispatch_keeps_received_at_and_stamps_decided_at() {
+    let front = spawn_front().await;
+    let resp = common::client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+
+    let received_at = {
+        let pending = front.state.dispatch.pending.lock().await;
+        pending[&dispatch_id]["received_at"].as_i64().unwrap()
+    };
+
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"executed": false}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let recent = front.state.dispatch.recent.lock().await;
+    assert_eq!(recent[0]["request"]["received_at"], received_at);
+    assert!(recent[0]["request"]["decided_at"].as_i64().unwrap() >= received_at);
+}

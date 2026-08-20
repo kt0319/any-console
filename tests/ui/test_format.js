@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { formatSize, formatRelativeTime, truncateTail, jobCommandPreview } from "../../ui/utils/format.ts";
+import { formatSize, formatRelativeTime, formatClockTime, formatDuration, truncateTail, jobCommandPreview } from "../../ui/utils/format.ts";
 import { JOB_COMMAND_PREVIEW_MAX } from "../../ui/utils/constants.ts";
 
 describe("truncateTail", () => {
@@ -96,5 +96,41 @@ describe("formatRelativeTime", () => {
   it("treats future timestamps as now", () => {
     const future = Math.floor(Date.now() / 1000) + 600;
     expect(formatRelativeTime(future)).toBe("now");
+  });
+});
+
+describe("formatClockTime", () => {
+  it("returns empty string for null/undefined", () => {
+    expect(formatClockTime(null)).toBe("");
+    expect(formatClockTime(undefined)).toBe("");
+  });
+
+  it("returns a HH:MM:SS shaped local time string", () => {
+    const epoch = Math.floor(Date.now() / 1000);
+    expect(formatClockTime(epoch)).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  });
+});
+
+describe("formatDuration", () => {
+  it("returns empty string for null/undefined/negative", () => {
+    expect(formatDuration(null)).toBe("");
+    expect(formatDuration(undefined)).toBe("");
+    expect(formatDuration(-1)).toBe("");
+  });
+
+  it("formats seconds under a minute", () => {
+    expect(formatDuration(0)).toBe("0s");
+    expect(formatDuration(3)).toBe("3s");
+    expect(formatDuration(59)).toBe("59s");
+  });
+
+  it("formats minutes under an hour as m + s", () => {
+    expect(formatDuration(60)).toBe("1m 0s");
+    expect(formatDuration(125)).toBe("2m 5s");
+  });
+
+  it("formats hours as h + m", () => {
+    expect(formatDuration(3600)).toBe("1h 0m");
+    expect(formatDuration(3723)).toBe("1h 2m");
   });
 });

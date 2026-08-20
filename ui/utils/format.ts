@@ -34,3 +34,31 @@ export function formatRelativeTime(epochSeconds: number | null | undefined): str
   if (diffSec < 86400 * 365) return `${Math.floor(diffSec / (86400 * 30))}m ago`;
   return `${Math.floor(diffSec / (86400 * 365))}y ago`;
 }
+
+/**
+ * ローカル時刻の HH:MM:SS 表示（Dispatch Queue の受付/決定時刻など、
+ * 秒単位の精度で「いつ」を確認したい場面向け。formatRelativeTime は
+ * 1時間未満を"now"に丸めるため秒単位の用途には使えない）。
+ */
+export function formatClockTime(epochSeconds: number | null | undefined): string {
+  if (epochSeconds == null) return "";
+  return new Date(epochSeconds * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/**
+ * 秒数を "3s" / "2m 5s" / "1h 3m" のような簡潔な経過時間表示にする
+ * （Dispatch Queue の受付〜決定までの待ち時間表示向け）。
+ */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || seconds < 0) return "";
+  const s = Math.floor(seconds);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
