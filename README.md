@@ -40,7 +40,7 @@ Website: <https://any-console.highedge.net/>
 
 > **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a user `LaunchAgent`, so it starts at login — enable automatic login (System Settings → Users & Groups) if the Mac runs headless. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
 >
-> **Keep the Mac awake.** macOS sleeps by default, and the burst of timeouts right after wake-up causes flaky sessions and reconnect storms. On a server Mac, disable system sleep:
+> **Keep the Mac awake.** macOS sleeps by default — on a server Mac, disable system sleep:
 >
 > ```bash
 > sudo pmset -a sleep 0 disksleep 0
