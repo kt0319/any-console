@@ -265,6 +265,71 @@ fn hooks_install_claude_quotes_script_path_with_spaces() {
     );
 }
 
+/// 旧版が登録した引用なしコマンドが残っている場合は引用済みコマンドへ
+/// 置き換え、二重登録にしない（無関係の既存フックは保持する）。
+#[test]
+fn hooks_install_claude_replaces_legacy_unquoted_command() {
+    let base = tempfile::tempdir().unwrap();
+    let project_root = base.path().join("any console");
+    std::fs::create_dir_all(&project_root).unwrap();
+    let home = tempfile::tempdir().unwrap();
+    write_dummy_hook_script(&project_root);
+
+    let legacy = format!(
+        "{} Stop",
+        project_root
+            .join("scripts")
+            .join("claude-code-hook.sh")
+            .display()
+    );
+    let claude_dir = home.path().join(".claude");
+    std::fs::create_dir_all(&claude_dir).unwrap();
+    std::fs::write(
+        claude_dir.join("settings.json"),
+        serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {"hooks": [{"type": "command", "command": legacy}]},
+                    {"hooks": [{"type": "command", "command": "echo my-own-hook"}]}
+                ]
+            }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let out = run_hooks(&project_root, home.path(), &["hooks", "install-claude"]);
+    assert!(out.status.success());
+    assert!(stdout(&out).contains("Replaced legacy unquoted command for: Stop"));
+
+    let settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(claude_dir.join("settings.json")).unwrap())
+            .unwrap();
+    let commands: Vec<&str> = settings["hooks"]["Stop"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|g| g["hooks"].as_array().unwrap())
+        .map(|h| h["command"].as_str().unwrap())
+        .collect();
+    assert!(
+        !commands.contains(&legacy.as_str()),
+        "legacy unquoted command must be removed: {commands:?}"
+    );
+    assert!(
+        commands.contains(&"echo my-own-hook"),
+        "unrelated hooks must be kept: {commands:?}"
+    );
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|c| c.ends_with("claude-code-hook.sh' Stop"))
+            .count(),
+        1,
+        "exactly one quoted command must remain: {commands:?}"
+    );
+}
+
 #[test]
 fn hooks_install_claude_merges_without_clobbering_existing_settings() {
     let project_root = tempfile::tempdir().unwrap();
