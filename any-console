@@ -1110,5 +1110,12 @@ case "$command" in
   uninstall)   cmd_uninstall ;;
   version|--version|-V) cmd_version ;;
   is-registered) cmd_is_registered ;;
-  *)       usage ;;
+  ""|help|-h|--help) usage ;;
+  *)
+    # typo をスクリプトから握りつぶさないよう、未知のコマンドは exit 1 にする
+    echo -e "${RED}Unknown command: ${command}${NC}" >&2
+    echo ""
+    usage
+    exit 1
+    ;;
 esac
