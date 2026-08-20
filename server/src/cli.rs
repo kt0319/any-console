@@ -428,6 +428,21 @@ fn claude_settings_path() -> Option<PathBuf> {
     Some(PathBuf::from(home).join(".claude").join("settings.json"))
 }
 
+/// シェルの単語分割・展開で壊れる文字を含む文字列だけを単一引用符で括る。
+/// 素のパスはそのまま返し、既存インストールで登録済みの引用なしコマンド行と
+/// 文字列一致し続けるようにする（重複追加ガードが引き続き効く）。
+fn shell_quote_if_needed(s: &str) -> String {
+    let is_safe = !s.is_empty()
+        && s.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '/' | '.' | '-' | '_' | '+' | ':' | ',' | '@')
+        });
+    if is_safe {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', r"'\''"))
+    }
+}
+
 /// `~/.claude/settings.json` へ `scripts/claude-code-hook.sh` の hooks 登録を
 /// マージする（`./any-console hooks-setup` から呼ばれる）。既存の hooks
 /// 設定（他のフック含む）は壊さず、同じコマンドが既に登録済みのイベントは
@@ -442,7 +457,9 @@ fn cmd_hooks_install_claude() -> i32 {
     if !hook_script.is_file() {
         return usage_error(&format!("hook script not found: {}", hook_script.display()));
     }
-    let hook_script_str = hook_script.to_string_lossy().to_string();
+    // hooks の command はシェルとして実行されるため、空白等を含むパスは
+    // 引用符で括らないと `hooks-setup` は成功するのに実行が全て失敗する
+    let hook_script_str = shell_quote_if_needed(&hook_script.to_string_lossy());
 
     let mut settings: Map<String, Value> = if settings_path.is_file() {
         let text = match std::fs::read_to_string(&settings_path) {
@@ -614,5 +631,26 @@ mod tests {
     async fn version_flags_are_handled() {
         assert_eq!(run_subcommand(&["--version".to_string()]).await, Some(0));
         assert_eq!(run_subcommand(&["-V".to_string()]).await, Some(0));
+    }
+
+    #[test]
+    fn shell_quote_leaves_plain_paths_unchanged() {
+        assert_eq!(
+            shell_quote_if_needed("/opt/any-console/scripts/hook.sh"),
+            "/opt/any-console/scripts/hook.sh"
+        );
+    }
+
+    #[test]
+    fn shell_quote_wraps_paths_with_spaces() {
+        assert_eq!(
+            shell_quote_if_needed("/opt/any console/hook.sh"),
+            "'/opt/any console/hook.sh'"
+        );
+    }
+
+    #[test]
+    fn shell_quote_escapes_embedded_single_quotes() {
+        assert_eq!(shell_quote_if_needed("/a'b/h.sh"), r"'/a'\''b/h.sh'");
     }
 }

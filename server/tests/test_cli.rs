@@ -240,6 +240,31 @@ fn hooks_install_claude_creates_settings_and_is_idempotent() {
     assert_eq!(settings_after["hooks"]["Stop"].as_array().unwrap().len(), 1);
 }
 
+/// 空白を含むインストールパスでは hook コマンドのスクリプトパスが引用符で
+/// 括られること（未クオートだとシェルの単語分割で実行が全て失敗する）。
+#[test]
+fn hooks_install_claude_quotes_script_path_with_spaces() {
+    let base = tempfile::tempdir().unwrap();
+    let project_root = base.path().join("any console");
+    std::fs::create_dir_all(&project_root).unwrap();
+    let home = tempfile::tempdir().unwrap();
+    write_dummy_hook_script(&project_root);
+
+    let out = run_hooks(&project_root, home.path(), &["hooks", "install-claude"]);
+    assert!(out.status.success());
+
+    let settings_path = home.path().join(".claude").join("settings.json");
+    let settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path).unwrap()).unwrap();
+    let command = settings["hooks"]["Stop"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap();
+    assert!(
+        command.starts_with('\'') && command.ends_with("claude-code-hook.sh' Stop"),
+        "path with spaces must be single-quoted: {command}"
+    );
+}
+
 #[test]
 fn hooks_install_claude_merges_without_clobbering_existing_settings() {
     let project_root = tempfile::tempdir().unwrap();
