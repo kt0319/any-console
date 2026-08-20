@@ -39,14 +39,6 @@ Website: <https://any-console.highedge.net/>
 **Host (server) side: Linux or macOS.** The runtime is POSIX-portable. Service management is platform-native — `systemd` on Linux, `launchd` on macOS (ideal for an always-on Mac mini) — and `tmux` provides persistent sessions on both. The `./any-console` helper detects the OS and drives the right service manager.
 
 > **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a user `LaunchAgent`, so it starts at login — enable automatic login (System Settings → Users & Groups) if the Mac runs headless. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
->
-> **Keep the Mac awake.** macOS sleeps by default — on a server Mac, disable system sleep:
->
-> ```bash
-> sudo pmset -a sleep 0 disksleep 0
-> ```
->
-> (Display sleep is fine to keep. Verify with `pmset -g` — `sleep` should be `0`.)
 
 ## Setup
 
