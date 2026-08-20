@@ -100,7 +100,4 @@ app open.
 - **QR code says expired or already used** — go back to Settings → Auth
   and generate a new one.
 - **Host unreachable** — check that both devices are connected to
-  Tailscale and on the same tailnet (`tailscale status` on the host), and
-  that the host Mac hasn't gone to sleep (see the macOS note in the
-  [README &gt; Platform support](../README.md#platform-support) — Tailscale
-  cannot wake a sleeping Mac).
+  Tailscale and on the same tailnet (`tailscale status` on the host).
