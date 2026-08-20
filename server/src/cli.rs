@@ -428,6 +428,21 @@ fn claude_settings_path() -> Option<PathBuf> {
     Some(PathBuf::from(home).join(".claude").join("settings.json"))
 }
 
+/// シェルの単語分割・展開で壊れる文字を含む文字列だけを単一引用符で括る。
+/// 素のパスはそのまま返し、既存インストールで登録済みの引用なしコマンド行と
+/// 文字列一致し続けるようにする（重複追加ガードが引き続き効く）。
+fn shell_quote_if_needed(s: &str) -> String {
+    let is_safe = !s.is_empty()
+        && s.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '/' | '.' | '-' | '_' | '+' | ':' | ',' | '@')
+        });
+    if is_safe {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', r"'\''"))
+    }
+}
+
 /// `~/.claude/settings.json` へ `scripts/claude-code-hook.sh` の hooks 登録を
 /// マージする（`./any-console hooks-setup` から呼ばれる）。既存の hooks
 /// 設定（他のフック含む）は壊さず、同じコマンドが既に登録済みのイベントは
@@ -442,7 +457,10 @@ fn cmd_hooks_install_claude() -> i32 {
     if !hook_script.is_file() {
         return usage_error(&format!("hook script not found: {}", hook_script.display()));
     }
-    let hook_script_str = hook_script.to_string_lossy().to_string();
+    // hooks の command はシェルとして実行されるため、空白等を含むパスは
+    // 引用符で括らないと `hooks-setup` は成功するのに実行が全て失敗する
+    let hook_script_raw = hook_script.to_string_lossy().to_string();
+    let hook_script_str = shell_quote_if_needed(&hook_script_raw);
 
     let mut settings: Map<String, Value> = if settings_path.is_file() {
         let text = match std::fs::read_to_string(&settings_path) {
@@ -471,6 +489,7 @@ fn cmd_hooks_install_claude() -> i32 {
 
     let mut added = Vec::new();
     let mut already = Vec::new();
+    let mut migrated = Vec::new();
     for event in CLAUDE_HOOK_EVENTS {
         let command = format!("{hook_script_str} {event}");
         let entries_value = hooks_map
@@ -479,6 +498,28 @@ fn cmd_hooks_install_claude() -> i32 {
         let Value::Array(entries) = entries_value else {
             continue;
         };
+        // 引用符が必要なパスでは、旧版が登録した引用なしの壊れたコマンドが
+        // 残っていることがある。放置すると引用済みの行と二重登録になり、
+        // 壊れた側も毎回実行され続けるため、先に取り除いて置き換える
+        let mut removed_legacy = false;
+        if hook_script_str != hook_script_raw {
+            let legacy_command = format!("{hook_script_raw} {event}");
+            for group in entries.iter_mut() {
+                if let Some(Value::Array(hs)) = group.get_mut("hooks") {
+                    let before = hs.len();
+                    hs.retain(|h| {
+                        h.get("command").and_then(Value::as_str) != Some(legacy_command.as_str())
+                    });
+                    removed_legacy = removed_legacy || hs.len() != before;
+                }
+            }
+            entries.retain(|group| {
+                group
+                    .get("hooks")
+                    .and_then(Value::as_array)
+                    .is_none_or(|hs| !hs.is_empty())
+            });
+        }
         let already_present = entries.iter().any(|group| {
             group
                 .get("hooks")
@@ -489,14 +530,22 @@ fn cmd_hooks_install_claude() -> i32 {
                 })
         });
         if already_present {
-            already.push(*event);
+            if removed_legacy {
+                migrated.push(*event);
+            } else {
+                already.push(*event);
+            }
             continue;
         }
         entries.push(json!({"hooks": [{"type": "command", "command": command}]}));
-        added.push(*event);
+        if removed_legacy {
+            migrated.push(*event);
+        } else {
+            added.push(*event);
+        }
     }
 
-    if added.is_empty() {
+    if added.is_empty() && migrated.is_empty() {
         println!("Already installed for all events: {}", already.join(", "));
         return 0;
     }
@@ -524,7 +573,15 @@ fn cmd_hooks_install_claude() -> i32 {
         return usage_error(&e.to_string());
     }
 
-    println!("Installed hooks for: {}", added.join(", "));
+    if !added.is_empty() {
+        println!("Installed hooks for: {}", added.join(", "));
+    }
+    if !migrated.is_empty() {
+        println!(
+            "Replaced legacy unquoted command for: {}",
+            migrated.join(", ")
+        );
+    }
     if !already.is_empty() {
         println!("Already installed: {}", already.join(", "));
     }
@@ -614,5 +671,26 @@ mod tests {
     async fn version_flags_are_handled() {
         assert_eq!(run_subcommand(&["--version".to_string()]).await, Some(0));
         assert_eq!(run_subcommand(&["-V".to_string()]).await, Some(0));
+    }
+
+    #[test]
+    fn shell_quote_leaves_plain_paths_unchanged() {
+        assert_eq!(
+            shell_quote_if_needed("/opt/any-console/scripts/hook.sh"),
+            "/opt/any-console/scripts/hook.sh"
+        );
+    }
+
+    #[test]
+    fn shell_quote_wraps_paths_with_spaces() {
+        assert_eq!(
+            shell_quote_if_needed("/opt/any console/hook.sh"),
+            "'/opt/any console/hook.sh'"
+        );
+    }
+
+    #[test]
+    fn shell_quote_escapes_embedded_single_quotes() {
+        assert_eq!(shell_quote_if_needed("/a'b/h.sh"), r"'/a'\''b/h.sh'");
     }
 }

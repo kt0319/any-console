@@ -96,7 +96,12 @@ jobs:
           cp "server/target/${{ matrix.target }}/release/any-console-server" "$stage/"
           cp any-console "$stage/"
           cp -R agent_manifests "$stage/"
+          cp -R scripts "$stage/"
           echo "$version" > "$stage/VERSION"
+          # 同梱物が静かに欠けるとバイナリ配布でだけ壊れる（例: hooks-setup が
+          # 必須とする hook スクリプト）ため、tar 前に存在を検証する
+          test -f "$stage/scripts/claude-code-hook.sh"
+          test -f "$stage/agent_manifests/claude.toml"
           tar czf "${stage}.tar.gz" "$stage"
           shasum -a 256 "${stage}.tar.gz" > "${stage}.tar.gz.sha256"
           echo "ASSET_PATH=${stage}.tar.gz" >> "$GITHUB_ENV"

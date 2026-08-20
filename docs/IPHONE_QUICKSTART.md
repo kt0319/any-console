@@ -35,15 +35,15 @@ Open `https://<your-host>.ts.net/` in Safari. How you sign in depends on
 whether this is your first device or you already have one signed in
 elsewhere:
 
-**First device ever** — type the token. It was printed once to the
-server's startup log (stdout / `journalctl` / `logs/any-console.log`); see
+**First device ever** — type the token. It was printed once in the output
+of `./any-console setup` on the host; see
 [README &gt; Authentication](../README.md#authentication).
 
 **Already have a signed-in laptop/PC** — skip typing the token entirely:
 
 1. On the already-signed-in device, open **Settings → Auth** and tap **Add
-   new device** (or, if no phone is paired yet, tap the **Open on your
-   phone** shortcut that shows up right on the empty-state screen).
+   new device** (an **Open on your phone** shortcut is also available in
+   the empty-state Setup checklist).
 2. Scan the QR code with the iPhone's Camera app and open the link it
    detects.
 3. The iPhone signs in automatically — no token entry needed.
@@ -75,10 +75,11 @@ Once installed as an app (step 2 is required first — push notifications
 don't work from a regular Safari tab on iOS), the Setup checklist shows
 **Enable notifications**. Tap it and accept the system permission prompt.
 
-You'll now get a push notification when a session is waiting for
-confirmation (a permission prompt, a blocked command) or an agent finishes
-what it was doing — useful for checking in from your phone without keeping
-the app open.
+You'll now get a push notification when an agent session is waiting for
+your input (a permission prompt, a blocked command), when a dispatch
+request needs approval, or when a job's configured "Notify phrase" appears
+in its output — useful for checking in from your phone without keeping the
+app open.
 
 ## Using it day to day
 
@@ -96,10 +97,7 @@ the app open.
 - **"Install as app" / notifications don't show up** — confirm you're on
   `https://` (not `http://`) and that `tailscale serve` is running on the
   host (`tailscale serve status`).
-- **QR code says expired or already used** — it's single-use and expires
-  in 90 seconds; go back to Settings → Auth and generate a new one.
+- **QR code says expired or already used** — go back to Settings → Auth
+  and generate a new one.
 - **Host unreachable** — check that both devices are connected to
-  Tailscale and on the same tailnet (`tailscale status` on the host), and
-  that the host Mac hasn't gone to sleep (see the macOS note in the
-  [README &gt; Platform support](../README.md#platform-support) — Tailscale
-  cannot wake a sleeping Mac).
+  Tailscale and on the same tailnet (`tailscale status` on the host).

@@ -145,6 +145,12 @@ main() {
   atomic_install_file "$stage/any-console" "$INSTALL_DIR/any-console"
   atomic_install_file "$stage/VERSION" "$INSTALL_DIR/VERSION"
   atomic_install_dir "$stage/agent_manifests" "$INSTALL_DIR/agent_manifests"
+  # scripts/（Claude Code hooks 用）は同梱を始めた版から入る。古い tarball
+  # には無いため存在チェック付きで反映する。
+  if [ -d "$stage/scripts" ]; then
+    atomic_install_dir "$stage/scripts" "$INSTALL_DIR/scripts"
+    chmod +x "$INSTALL_DIR/scripts/"*.sh
+  fi
   chmod +x "$INSTALL_DIR/any-console-server" "$INSTALL_DIR/any-console"
 
   info "Installed to $INSTALL_DIR"
