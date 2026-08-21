@@ -17,6 +17,13 @@ fn run(root: &Path, args: &[&str]) -> std::process::Output {
         .args(args)
         .env("ANY_CONSOLE_PROJECT_ROOT", root)
         .env_remove("ANY_CONSOLE_DATA_DIR")
+        // `workspaces discover` は $HOME を直接読んで ~/work 等を走査する
+        // （`cli.rs` の `discover_git_repos`）。HOME を隔離しないと開発機の
+        // 実ホームディレクトリ（多数のリポジトリを含みうる）を毎回スキャン
+        // してしまい、テストが実環境依存で極端に遅く・不安定になる。root は
+        // 呼び出しごとに空の一時ディレクトリのため、HOMEとして流用しても
+        // 走査対象のルート名（work/src/ghq等）は存在せず、即座に完了する。
+        .env("HOME", root)
         .output()
         .expect("binary should run")
 }
