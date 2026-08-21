@@ -117,6 +117,78 @@ async fn unrecognized_event_is_not_an_error_but_not_recognized() {
     assert!(hook_state(&front.state, "s1").is_none());
 }
 
+/// `scripts/claude-code-hook.sh` の実体を子プロセスとして実行し、実サーバへ
+/// 実際に届いてstateが更新されることを検証する。`reqwest`でハンドラを直叩き
+/// する他のテストと違い、スクリプト自体のクオート処理・環境変数名・payload
+/// 組み立て（sed抽出等）にリグレッションが無いことを担保する（過去の
+/// hooks-setupクオート不具合・release tarballへのscripts/同梱漏れの再発防止）。
+/// スクリプトは curl をバックグラウンドサブシェルで起動して即0終了するため、
+/// 送信完了は `wait_for` でポーリングする。
+async fn wait_for(cond: impl Fn() -> bool) -> bool {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while tokio::time::Instant::now() < deadline {
+        if cond() {
+            return true;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    false
+}
+
+fn hook_script_path() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/claude-code-hook.sh")
+}
+
+#[tokio::test]
+async fn real_hook_script_delivers_event_to_running_server() {
+    let front = spawn_front().await;
+    let url = format!("http://{}/agent-hooks/events", front.addr);
+    let script = hook_script_path();
+    assert!(
+        script.exists(),
+        "scripts/claude-code-hook.sh not found at {script:?}"
+    );
+
+    let output = std::process::Command::new(&script)
+        .arg("Stop")
+        .env("ANY_CONSOLE_HOOK_URL", &url)
+        .env("ANY_CONSOLE_HOOK_TOKEN", HOOK_TOKEN)
+        .env("ANY_CONSOLE_SESSION", "s1")
+        .output()
+        .expect("failed to spawn claude-code-hook.sh");
+    assert!(
+        output.status.success(),
+        "claude-code-hook.sh exited non-zero: {:?}",
+        output
+    );
+
+    assert!(
+        wait_for(|| hook_state(&front.state, "s1").is_some()).await,
+        "hook_state was not updated by the real hook script within the timeout"
+    );
+}
+
+/// hookスクリプトの必須環境変数が欠けている場合は何も送らず0終了する
+/// （any-console外のtmuxセッションで誤ってhookが有効化されていても無害である
+/// ことの担保）。
+#[tokio::test]
+async fn real_hook_script_is_noop_without_env_vars() {
+    let front = spawn_front().await;
+    let script = hook_script_path();
+
+    let output = std::process::Command::new(&script)
+        .arg("Stop")
+        .env_remove("ANY_CONSOLE_HOOK_URL")
+        .env_remove("ANY_CONSOLE_HOOK_TOKEN")
+        .env_remove("ANY_CONSOLE_SESSION")
+        .output()
+        .expect("failed to spawn claude-code-hook.sh");
+    assert!(output.status.success());
+
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert!(hook_state(&front.state, "s1").is_none());
+}
+
 #[tokio::test]
 async fn out_of_range_fields_are_rejected() {
     let front = spawn_front().await;
