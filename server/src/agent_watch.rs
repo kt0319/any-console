@@ -47,6 +47,28 @@ pub fn classify_agent_state(capture: &str, prev_capture: Option<&str>) -> &'stat
     }
 }
 
+/// エージェント状態の判定元。デバッグ表示用に「どの経路で決まったか」を
+/// 状態そのものとは別に保持する（`docs/DECISIONS.md` 参照）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentStateSource {
+    /// Claude Code 等のhookから明示的にレポートされた状態（`agent_hooks`）。
+    Hook,
+    /// `agent_manifests/` のTOMLルールで判定された状態。
+    Manifest,
+    /// manifestが無い/確定しない場合の画面差分フォールバック。
+    ScreenDiff,
+}
+
+impl AgentStateSource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AgentStateSource::Hook => "hook",
+            AgentStateSource::Manifest => "manifest",
+            AgentStateSource::ScreenDiff => "screen",
+        }
+    }
+}
+
 /// 画面差分と screen manifest を統合してセッション状態を決める。
 ///
 /// 既知エージェント（manifest が特定済み）は manifest 判定
@@ -57,18 +79,18 @@ pub fn resolve_session_state(
     prev_capture: Option<&str>,
     manifest: Option<&Manifest>,
     pane_title: &str,
-) -> String {
+) -> (String, AgentStateSource) {
     let diff_state = classify_agent_state(capture, prev_capture).to_string();
     if let Some(manifest) = manifest {
         if let Some(manifest_state) =
             crate::screen_manifest::evaluate_state(manifest, capture, pane_title, "")
         {
             if ADOPTED_STATES.contains(&manifest_state.as_str()) {
-                return manifest_state;
+                return (manifest_state, AgentStateSource::Manifest);
             }
         }
     }
-    diff_state
+    (diff_state, AgentStateSource::ScreenDiff)
 }
 
 /// blocked（許可待ち）への遷移かどうかを判定する純関数。直前が既に blocked
@@ -90,10 +112,22 @@ pub fn diff_states(
         .collect()
 }
 
-pub fn states_payload(states: &HashMap<String, String>) -> Value {
+/// `sources` は session_id → 判定元文字列（"hook"/"manifest"/"screen"）。
+/// `states` に無いキーは無視し、`states` にあって `sources` に無いキーは
+/// 空文字を送る（デバッグ表示側は空文字を「不明」として扱えばよい）。
+pub fn states_payload(
+    states: &HashMap<String, String>,
+    sources: &HashMap<String, String>,
+) -> Value {
     let entries: Vec<Value> = states
         .iter()
-        .map(|(session_id, state)| json!({"session_id": session_id, "state": state}))
+        .map(|(session_id, state)| {
+            json!({
+                "session_id": session_id,
+                "state": state,
+                "source": sources.get(session_id).cloned().unwrap_or_default(),
+            })
+        })
         .collect();
     json!({"type": "agent_states", "states": entries})
 }
@@ -204,6 +238,10 @@ pub struct CollectedStates {
     /// session_id → state。tmux コマンド自体が失敗した場合は None
     /// （呼び出し元は直前のスナップショットを保持し、空で上書きしない）。
     pub states: Option<HashMap<String, String>>,
+    /// session_id → 判定元（"hook"/"manifest"/"screen"）。`states` と同じ
+    /// タイミングでNone/Someが揃う（デバッグ表示専用、フォールバック時の
+    /// スナップショット保持ロジックはstatesと共用する）。
+    pub state_sources: Option<HashMap<String, String>>,
     /// プッシュ通知すべき (session_id, phrase, workspace) のリスト（猶予あり）。
     pub notifications: Vec<(String, String, Option<String>)>,
     /// タブの通知マーク配信用の同形式のリスト（猶予なし・即時）。
@@ -425,6 +463,7 @@ pub async fn collect_agent_states(
     let Some(session_ids) = crate::tmux::list_session_ids(&state.paths.tmux_prefix).await else {
         return CollectedStates {
             states: None,
+            state_sources: None,
             notifications: Vec::new(),
             ws_notifications: Vec::new(),
             ws_clear_session_ids: Vec::new(),
@@ -433,6 +472,7 @@ pub async fn collect_agent_states(
     };
 
     let mut states = HashMap::new();
+    let mut state_sources = HashMap::new();
     let mut notifications = Vec::new();
     let mut ws_notifications = Vec::new();
     let mut ws_clear_session_ids = Vec::new();
@@ -476,8 +516,8 @@ pub async fn collect_agent_states(
         // hooks 由来の状態が新鮮ならそれを最優先し、manifest 評価は省略する
         // （エージェント特定・argv 取得はジョブ照合が必要になれば遅延実行される）。
         let mut argvs: Option<Vec<Vec<String>>> = None;
-        let new_state = match crate::agent_hooks::hook_state(state, session_id) {
-            Some(hooked) => hooked,
+        let (new_state, source) = match crate::agent_hooks::hook_state(state, session_id) {
+            Some(hooked) => (hooked, AgentStateSource::Hook),
             None => {
                 let (manifest, a) =
                     detect_manifest(manifest_store, &pane_command, pane_pid, &mut inspector).await;
@@ -494,6 +534,7 @@ pub async fn collect_agent_states(
             blocked_notifications.push((session_id.clone(), workspace.clone()));
         }
         states.insert(session_id.clone(), new_state);
+        state_sources.insert(session_id.clone(), source.as_str().to_string());
 
         maybe_autotag_job(
             state,
@@ -535,6 +576,7 @@ pub async fn collect_agent_states(
 
     CollectedStates {
         states: Some(states),
+        state_sources: Some(state_sources),
         notifications,
         ws_notifications,
         ws_clear_session_ids,
@@ -555,6 +597,9 @@ pub struct AgentWatchState {
     /// 前回配信した状態一式（`states_payload` の差分計算・新規接続への
     /// 即時スナップショット送信に使う — Python `_last_states` 相当）。
     last_states: AsyncMutex<HashMap<String, String>>,
+    /// 前回配信した判定元一式（`last_states` と同じキー集合を保つ。
+    /// デバッグ表示専用でPython版に対応は無い）。
+    last_state_sources: AsyncMutex<HashMap<String, String>>,
 }
 
 impl AgentWatchState {
@@ -565,6 +610,7 @@ impl AgentWatchState {
             last_pane_size: AsyncMutex::new(HashMap::new()),
             tracker: AsyncMutex::new(PhraseNotifyTracker::new()),
             last_states: AsyncMutex::new(HashMap::new()),
+            last_state_sources: AsyncMutex::new(HashMap::new()),
         }
     }
 }
@@ -617,6 +663,7 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
         *state.agent_watch.last_pane_size.lock().await = HashMap::new();
         *state.agent_watch.tracker.lock().await = PhraseNotifyTracker::new();
         *state.agent_watch.last_states.lock().await = HashMap::new();
+        *state.agent_watch.last_state_sources.lock().await = HashMap::new();
     });
 }
 
@@ -628,7 +675,8 @@ pub async fn initial_snapshot(state: &Arc<AppState>) -> Option<Value> {
     if last_states.is_empty() {
         None
     } else {
-        Some(states_payload(&last_states))
+        let last_state_sources = state.agent_watch.last_state_sources.lock().await;
+        Some(states_payload(&last_states, &last_state_sources))
     }
 }
 
@@ -643,6 +691,7 @@ async fn poll_loop(state: Arc<AppState>) {
             .unwrap_or_default()
             .as_secs_f64();
         let mut last_states = state.agent_watch.last_states.lock().await;
+        let mut last_state_sources = state.agent_watch.last_state_sources.lock().await;
         let collected = {
             let mut last_capture = state.agent_watch.last_capture.lock().await;
             let mut last_pane_size = state.agent_watch.last_pane_size.lock().await;
@@ -663,11 +712,17 @@ async fn poll_loop(state: Arc<AppState>) {
             // 次の周期に委ね、状態を空で上書きしない。
             continue;
         };
+        let sources = collected.state_sources.unwrap_or_default();
         let changed = diff_states(&last_states, &states);
         *last_states = states;
+        *last_state_sources = sources;
+        let sources_snapshot = last_state_sources.clone();
         drop(last_states);
+        drop(last_state_sources);
         if !changed.is_empty() {
-            state.status_stream.broadcast(states_payload(&changed));
+            state
+                .status_stream
+                .broadcast(states_payload(&changed, &sources_snapshot));
         }
         // タブの通知マークは見れば消える表示なので、push の猶予を待たず検出即時に配信する。
         for (session_id, phrase, workspace) in &collected.ws_notifications {
@@ -799,11 +854,18 @@ mod tests {
 
     #[test]
     fn states_payload_shape() {
-        let payload = states_payload(&map(&[("s1", "idle")]));
+        let payload = states_payload(&map(&[("s1", "idle")]), &map(&[("s1", "hook")]));
         assert_eq!(
             payload,
-            json!({"type": "agent_states", "states": [{"session_id": "s1", "state": "idle"}]})
+            json!({"type": "agent_states", "states": [{"session_id": "s1", "state": "idle", "source": "hook"}]})
         );
+    }
+
+    /// statesにあってsourcesに無いキーは空文字（"不明"）で送る。
+    #[test]
+    fn states_payload_missing_source_falls_back_to_empty_string() {
+        let payload = states_payload(&map(&[("s1", "idle")]), &HashMap::new());
+        assert_eq!(payload["states"][0]["source"], "");
     }
 
     #[test]
@@ -848,7 +910,7 @@ mod tests {
              ❯ 1. Yes\n  2. No\nesc to cancel\n";
         assert_eq!(
             resolve_session_state(screen, None, Some(&claude), ""),
-            "blocked"
+            ("blocked".to_string(), AgentStateSource::Manifest)
         );
     }
 
@@ -860,14 +922,17 @@ mod tests {
         let next = format!("{base}tick\n");
         assert_eq!(
             resolve_session_state(&next, Some(base), Some(&claude), ""),
-            "blocked"
+            ("blocked".to_string(), AgentStateSource::Manifest)
         );
     }
 
     #[test]
     fn unknown_agent_keeps_diff_based_state() {
         let screen = "Do you want to proceed?\n❯ 1. Yes\n  2. No\nesc to cancel\n";
-        assert_eq!(resolve_session_state(screen, None, None, ""), "idle");
+        assert_eq!(
+            resolve_session_state(screen, None, None, ""),
+            ("idle".to_string(), AgentStateSource::ScreenDiff)
+        );
     }
 
     #[test]
@@ -879,7 +944,7 @@ mod tests {
         let cur = format!("output tick 2\n{box_}");
         assert_eq!(
             resolve_session_state(&cur, Some(&prev), Some(&claude), ""),
-            "idle"
+            ("idle".to_string(), AgentStateSource::Manifest)
         );
     }
 
@@ -890,7 +955,7 @@ mod tests {
         let screen = "static output";
         assert_eq!(
             resolve_session_state(screen, Some(screen), Some(&claude), "⠋ Thinking…"),
-            "working"
+            ("working".to_string(), AgentStateSource::Manifest)
         );
     }
 

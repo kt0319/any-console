@@ -233,6 +233,22 @@ describe("terminal store: agentStates", () => {
     expect(store.agentStates.s2).toBe("working");
   });
 
+  it("applyAgentStates でsourceも一緒にマージする（デバッグ表示用）", () => {
+    store.applyAgentStates([{ session_id: "s1", state: "working", source: "hook" }]);
+    expect(store.agentStates.s1).toBe("working");
+    expect(store.agentStateSources.s1).toBe("hook");
+
+    store.applyAgentStates([{ session_id: "s1", state: "idle", source: "manifest" }]);
+    expect(store.agentStateSources.s1).toBe("manifest");
+  });
+
+  it("sourceが無いエントリはagentStateSourcesを変更しない", () => {
+    store.applyAgentStates([{ session_id: "s1", state: "working", source: "hook" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    expect(store.agentStates.s1).toBe("idle");
+    expect(store.agentStateSources.s1).toBe("hook");
+  });
+
   it("不正なエントリと配列以外は無視する", () => {
     store.applyAgentStates([
       null,
@@ -313,14 +329,15 @@ describe("terminal store: agentStates", () => {
     expect(store.doneSessions.s1).toBeUndefined();
   });
 
-  it("clearAgentState で agentStates と doneSessions を両方消す", () => {
+  it("clearAgentState で agentStates と agentStateSources と doneSessions を消す", () => {
     vi.useFakeTimers();
-    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "working", source: "hook" }]);
     vi.advanceTimersByTime(WORKING_MIN_DURATION_MS);
-    store.applyAgentStates([{ session_id: "s1", state: "idle" }]);
+    store.applyAgentStates([{ session_id: "s1", state: "idle", source: "hook" }]);
     vi.useRealTimers();
     store.clearAgentState("s1");
     expect(store.agentStates.s1).toBeUndefined();
+    expect(store.agentStateSources.s1).toBeUndefined();
     expect(store.doneSessions.s1).toBeUndefined();
   });
 });

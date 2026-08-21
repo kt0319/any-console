@@ -99,6 +99,9 @@ export const useTerminalStore = defineStore("terminal", () => {
   // sessionId → エージェント状態（backendはblocked/working/idleのみを送る）。
   // status stream WS が更新する。
   const agentStates = reactive<Record<string, string>>({});
+  // sessionId → 判定元（"hook"/"manifest"/"screen"、デバッグ表示専用）。
+  // agentStatesと同じタイミングでWSから届く（agent_watch.rsのstates_payload）。
+  const agentStateSources = reactive<Record<string, string>>({});
   // sessionId → true。working から idle への遷移（=作業完了）を検知した
   // セッション。idle自体はバッジ非表示にするため、タブを見る（switchTab）
   // までは「done」として表示し続けるための別レイヤー。
@@ -116,7 +119,7 @@ export const useTerminalStore = defineStore("terminal", () => {
    * doneSessions はクリアする（新しい作業の開始、またはblockedでの入力待ちが
    * doneより優先されるため）。
    */
-  function applyAgentStates(states: Array<{ session_id: string, state: string }>) {
+  function applyAgentStates(states: Array<{ session_id: string, state: string, source?: string }>) {
     if (!Array.isArray(states)) return;
     for (const entry of states) {
       if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
@@ -135,6 +138,7 @@ export const useTerminalStore = defineStore("terminal", () => {
           delete doneSessions[sessionId];
         }
         agentStates[sessionId] = entry.state;
+        if (typeof entry.source === "string") agentStateSources[sessionId] = entry.source;
       }
     }
   }
@@ -148,6 +152,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (!sessionId) return;
     delete workingStartedAt[sessionId];
     delete agentStates[sessionId];
+    delete agentStateSources[sessionId];
     delete doneSessions[sessionId];
   }
 
@@ -419,6 +424,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     markPendingClose,
     clearPendingClose,
     agentStates,
+    agentStateSources,
     applyAgentStates,
     clearAgentState,
     doneSessions,

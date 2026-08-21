@@ -7,7 +7,7 @@
     :data-tab-id="tab.id"
     :aria-label="tabAriaLabel"
     :aria-selected="isActive ? 'true' : 'false'"
-    :data-tooltip="tabAriaLabel"
+    :data-tooltip="tabTooltip"
     role="tab"
     :tabindex="isActive ? 0 : -1"
     @click="onClick"
@@ -114,10 +114,20 @@ const label = computed(() => {
 const isDirty = computed(() => tabWorkspace.value?.clean === false);
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
+const agentStateSource = computed(() => terminalStore.agentStateSources[props.tab.sessionId] || "");
 
 const hasPhraseNotify = computed(() => !!terminalStore.phraseNotifySessions[props.tab.sessionId]);
 
 const tabAriaLabel = computed(() => (hasPhraseNotify.value ? `${label.value} (phrase detected)` : label.value));
+
+// data-tooltip限定でagent detectionの判定元を追記する（デバッグ用途。
+// aria-labelには含めない — スクリーンリーダー利用者に無関係な内部情報の
+// 読み上げを増やさないため）。
+const tabTooltip = computed(() => (
+  agentState.value && agentStateSource.value
+    ? `${tabAriaLabel.value} · ${agentState.value} (${agentStateSource.value})`
+    : tabAriaLabel.value
+));
 
 const isWorktree = computed(() => !!tabWorkspace.value?.worktree);
 
