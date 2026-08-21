@@ -322,6 +322,7 @@ pub async fn set_terminal_session_workspace(
         "terminal session workspace set session={session_id} workspace={}",
         body.workspace
     );
+    crate::session_watch::notify_session_workspace_bound(&state, &session_id, &body.workspace);
     Ok(Json(json!({"status": "ok", "workspace": body.workspace})))
 }
 

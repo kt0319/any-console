@@ -386,6 +386,66 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
     assert_eq!(resp.status(), 404);
 }
 
+/// 手動でのワークスペース紐付け（Add/Open。`WorkspaceAddView.vue`が叩く
+/// `PUT /terminal/sessions/{id}/workspace`）が status stream WS へ
+/// `session_workspace_bound` をブロードキャストすること。発火元クライアントは
+/// APIレスポンス直後にローカルで楽観更新するため気付かないが、これが無いと
+/// 同じセッションを見ている別クライアントには紐付けが一切反映されない
+/// （agent_watchのcwd自動紐付け経由の`apply_workspace_tag`だけが配線されており、
+/// 手動紐付け経路に配線が漏れていたリグレッション）。
+#[tokio::test]
+async fn set_workspace_broadcasts_session_workspace_bound() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let (session_id, _session_arc) = front
+        .state
+        .terminal_registry
+        .create_registered_session(
+            &front.state.paths.data_dir,
+            &front.state.config,
+            &front.state.paths.project_root,
+            &front.state.paths.tmux_prefix,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            true,
+        )
+        .await
+        .expect("session should be created");
+
+    let mut rx = front.state.status_stream.tx.subscribe();
+
+    let resp = common::client()
+        .put(format!(
+            "http://{}/terminal/sessions/{session_id}/workspace",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "my-ws"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+
+    let msg = tokio::time::timeout(Duration::from_secs(3), rx.recv())
+        .await
+        .expect("broadcast should arrive")
+        .unwrap();
+    assert_eq!(
+        msg,
+        json!({
+            "type": "session_workspace_bound",
+            "session_id": session_id,
+            "workspace": "my-ws",
+        })
+    );
+}
+
 #[tokio::test]
 async fn ws_missing_session_closes_with_1008() {
     if common::skip_if_no_tmux() {
