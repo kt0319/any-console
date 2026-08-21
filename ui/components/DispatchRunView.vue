@@ -47,7 +47,7 @@
         <div v-if="createMode" class="ws-settings-row">
           <span class="ws-settings-label">New branch</span>
           <input
-            v-model="branch"
+            v-model="newBranchName"
             type="text"
             class="form-input"
             placeholder="New branch name"
@@ -76,7 +76,7 @@
         <button
           type="button"
           class="primary"
-          :disabled="running || !!dirtyBlockReason || !!missingBranchBlockReason || (selectedCreateWorktree && !branch.trim())"
+          :disabled="running || !!dirtyBlockReason || !!missingBranchBlockReason || (selectedCreateWorktree && !newBranchName.trim())"
           @click="run"
         >
           <span class="mdi mdi-play"></span> {{ running ? "Running..." : "Run" }}
@@ -135,6 +135,12 @@ const request = computed(() => item.value?.request || null);
 const isRerun = computed(() => !queueItem.value && !!recentItem.value);
 
 const branch = ref("");
+// Create branch/worktree で入力する新規ブランチ名。Change branch側のbranch
+// （実在ブランチへの切替先、select由来）とは意味が異なるため別refに分離する
+// （分離前はbranch refを共用しており、Change branchへ戻ると自由入力の文字列が
+// 「切替先ブランチ」として誤読される不具合があった。分離後は逆にモード切替を
+// またいでもnewBranchNameは消えず、入力し直しの手間が無い）。
+const newBranchName = ref("");
 const baseBranch = ref("");
 const text = ref("");
 const selectedWorkspace = ref("");
@@ -147,15 +153,6 @@ const selectedCreateBranch = computed(() => createMode.value === "branch");
 const selectedCreateWorktree = computed(() => createMode.value === "worktree");
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
 
-// Create branch/worktree で入力していた「New branch」の値（branch ref）が、
-// Change branch へ戻した際にそのまま「切替先ブランチ」として読まれてしまい、
-// 一覧に存在しない自由入力テキストが Branch select の未選択（空欄）表示や
-// missingBranchBlockReason の誤ブロックを引き起こしていた。Create branch/
-// worktree → Change branch への切替時のみ、その残留値をクリアする。
-watch(createMode, (mode, prevMode) => {
-  if (mode === "" && prevMode !== "") branch.value = "";
-});
-
 // Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
 // 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
 const branchSelectValue = computed({
@@ -166,6 +163,11 @@ const branchSelectValue = computed({
   },
 });
 
+// dispatchリクエストへ実際に送るbranch値。Create branch/worktreeでは
+// newBranchName（自由入力の新規ブランチ名）、Change branchではbranch
+// （select由来の切替先ブランチ）を使う。
+const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
+
 const jobs = ref<{ key: string, label: string }[]>([]);
 const sessions = ref<Record<string, any>[]>([]);
 const localBranches = ref<string[]>([]);
@@ -175,7 +177,15 @@ const discarding = ref(false);
 const runError = ref("");
 
 function initFromRequest(req: Record<string, any> | null) {
-  branch.value = req?.branch || "";
+  // create_branch時の元リクエストのbranchは「新規ブランチ名」（newBranchName側）、
+  // それ以外は「切替先ブランチ」（branch側）を意味する。
+  if (req?.create_branch) {
+    newBranchName.value = req?.branch || "";
+    branch.value = "";
+  } else {
+    branch.value = req?.branch || "";
+    newBranchName.value = "";
+  }
   baseBranch.value = req?.base_branch || "";
   text.value = req?.text || "";
   selectedWorkspace.value = req?.workspace || "";
@@ -231,7 +241,7 @@ const targetWorkspaceEntry = computed(() =>
 );
 const isSwitchingBranch = computed(() => {
   if (!hasBranchField.value || !selectedCreateBranch.value) return false;
-  const target = branch.value.trim();
+  const target = newBranchName.value.trim();
   if (!target) return false;
   const current = targetWorkspaceEntry.value?.branch || "";
   return target !== current;
@@ -343,7 +353,7 @@ function buildOverrides() {
   const origCreateBranch = !!orig.create_branch;
   return {
     workspace: selectedWorkspace.value !== (orig.workspace || "") ? selectedWorkspace.value : null,
-    branch: branch.value !== (orig.branch || "") ? branch.value : null,
+    branch: effectiveBranch.value !== (orig.branch || "") ? effectiveBranch.value : null,
     base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
     text: text.value !== (orig.text || "") ? text.value : null,
     job: selectedJob.value !== (orig.job || "terminal") ? selectedJob.value : null,
@@ -366,7 +376,7 @@ async function run() {
       // 検索専用で新規作成はしないため、作成自体はここで済ませる）。
       const { ok, data } = await apiCommand(
         wsEndpoint(selectedWorkspace.value, "worktrees"),
-        { branch: branch.value.trim(), base: baseBranch.value || null },
+        { branch: newBranchName.value.trim(), base: baseBranch.value || null },
         { errorMessage: "Failed to create worktree" },
       );
       if (!ok) return;

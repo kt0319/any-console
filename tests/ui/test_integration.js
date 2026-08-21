@@ -528,7 +528,7 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
     }
   });
 
-  it("Create branchで入力した新規ブランチ名がChange branchへ戻した際に残らない", async () => {
+  it("Create branchで入力した新規ブランチ名はChange branchのBranch selectには影響しない", async () => {
     const originalFetch = global.fetch;
     global.fetch = vi.fn(async (url) => {
       if (String(url).includes("/branches")) {
@@ -558,6 +558,27 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
     } finally {
       global.fetch = originalFetch;
     }
+  });
+
+  it("Create branchで入力した新規ブランチ名はChange branchを経由して戻っても消えない", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", create_branch: false, retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    const radios = wrapper.findAll("input[type=radio]");
+    await radios[1].setValue(); // Create branch
+    await wrapper.find("input[type=text]").setValue("my-new-feature");
+    await radios[0].setValue(); // Change branch へ戻す
+    await flushPromises();
+    await radios[1].setValue(); // Create branch へ再度切替
+    await flushPromises();
+
+    expect(wrapper.find("input[type=text]").element.value).toBe("my-new-feature");
+    wrapper.unmount();
   });
 
   it("ブランチ未指定（現在ブランチのまま）ならdirtyでもブロックしない", async () => {
