@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/kt0319/any-console/compare/v0.14.0...v0.15.0) (2026-08-21)
+
+
+### Features
+
+* branchピルはPush/Pull件数がある時だけBranch一覧を展開して開く ([7aa1232](https://github.com/kt0319/any-console/commit/7aa1232f0625dce3fb2b675b2ebfc818c1af0766))
+* dispatchの受付時刻・決定時刻を記録しDispatch Queue一覧に表示する ([e179462](https://github.com/kt0319/any-console/commit/e17946271a86dc7af0e0410bce4c159237227518))
+* エージェント状態の判定元（hook/manifest/screen）をタブのツールチップにデバッグ表示する ([639099b](https://github.com/kt0319/any-console/commit/639099b30a511d64f38ac28adec175f9ecd61850))
+* ベアターミナルのタブ名をカレントディレクトリ名に追従させる ([63f41a3](https://github.com/kt0319/any-console/commit/63f41a32c77806b15f6543ab8ab9903b9b802dde))
+
+
+### Bug Fixes
+
+* any-consoleの未知のコマンドをexit 1にしhelpエイリアスを追加 ([41dacf1](https://github.com/kt0319/any-console/commit/41dacf1055a827cbefad93f8005d30f94e5ef8c3))
+* Create branchからChange branchへ戻した際に新規ブランチ名の残留値をクリアする ([08d13e6](https://github.com/kt0319/any-console/commit/08d13e64215900888e08944471eed2bbdc396440))
+* Dispatch Rerunでmatch判定をexisting_session_idではなく元のmatch値で行う ([e1e8ceb](https://github.com/kt0319/any-console/commit/e1e8cebc13cdc1beac5a5edaf51dfc40a978f9d7))
+* dispatchのCreate branchで入力した新規ブランチ名がChange branchへの切替後も消えないようにする ([36befdd](https://github.com/kt0319/any-console/commit/36befdd657c9418f698ecbd79fe9cdb680470f85))
+* GitHub連携一覧のタップでGitHubアプリとブラウザが同時に開く不具合を修正 ([1e29a07](https://github.com/kt0319/any-console/commit/1e29a0783ddcfe71182ba93b72606ad8862d1175))
+* historyピル廃止に伴いinfo_pillsのフィールド数を9から8へ修正 ([6b0a134](https://github.com/kt0319/any-console/commit/6b0a134a767e76deb83258308e7a678e7047833d))
+* hooks登録のスクリプトパスを空白等を含む場合に引用符で括る ([59126f0](https://github.com/kt0319/any-console/commit/59126f0b8df95f533fa4814088d49f9f12bfe02f))
+* hooks登録時に旧版の引用なしコマンドを引用済みコマンドへ置き換える ([47496ec](https://github.com/kt0319/any-console/commit/47496ec01f9894f5275a1d707e6c966974184add))
+* pendingワークスペースのDispatch実行後にWorkspaceDetailモーダルが閉じない不具合を修正 ([5df50c6](https://github.com/kt0319/any-console/commit/5df50c65f03f3e2955e8bf5702cdf294a358caf0))
+* setup完了時の案内URLが接続できないhttps URLになる問題を修正 ([de343db](https://github.com/kt0319/any-console/commit/de343db7f3c0770d1cc943c9f12dfcc031110d4d))
+* workspaces discoverテストがHOME未隔離のため実ホームディレクトリを走査してハングする問題を修正 ([f3d61e9](https://github.com/kt0319/any-console/commit/f3d61e9004e818d72e8ded3e6b55b1ab9c4bcf76))
+* アクティブなタブで通知が届いた場合も操作時にベルバッジを解除する ([8a7bef6](https://github.com/kt0319/any-console/commit/8a7bef69362203b100b568f4ce2aea0d22b6fa80))
+* キーボードバー経由の操作でもベル通知バッジを解除する ([79383f6](https://github.com/kt0319/any-console/commit/79383f6cb023136a103aeb9ef9746a3b76f5c04c))
+* サイドバーのpendingワークスペース一覧で罫線が二重に見える不具合を修正 ([6488a5d](https://github.com/kt0319/any-console/commit/6488a5d8465594ba0eed172875b81dda2b49e44e))
+* 同一ブランチに複数workflowのrunがある場合、実行中/失敗のrunを優先してActionsピルに反映する ([8fe9b56](https://github.com/kt0319/any-console/commit/8fe9b56706ecdda5ec682973dfd49e6da7a083d3))
+* 手動でのワークスペース紐付けが他クライアントへリアルタイム同期されない不具合を修正 ([459247f](https://github.com/kt0319/any-console/commit/459247f0552916f81176f275014581527cc9fcbb))
+
+
+### Refactor
+
+* historyピルをbranchピルへ統合し、Historyタブのアイコンをbranchピルと同色に揃える ([c959cb2](https://github.com/kt0319/any-console/commit/c959cb251df26e328eb26cf63446d6d7fcfeb7a6))
+
+
+### Documentation
+
+* CLAUDE.mdのフロントエンドビルド成果物パスをui/distからdist/へ修正 ([9bf7995](https://github.com/kt0319/any-console/commit/9bf7995b3bc7599955ac31b57d25daf047921998))
+* CLAUDE.mdを最新のリポジトリ状態に合わせて更新 ([186e73c](https://github.com/kt0319/any-console/commit/186e73c29bd7aa4715065f17e53d46d447f0d46c))
+* macOSのシステムスリープ無効化（pmset）の推奨ブロックを削除 ([468a4e8](https://github.com/kt0319/any-console/commit/468a4e8dd11b816c38ed9f1da26f7b9625319bc8))
+* スリープ中のMacにTailscale経由で到達できないという誤った記述を削除 ([206ab0b](https://github.com/kt0319/any-console/commit/206ab0b48ac57c17ba68f04c1cee6ac8871b2e73))
+* スリープ復帰直後のタイムアウトでセッションが不安定になるという記述を削除 ([6eccbe1](https://github.com/kt0319/any-console/commit/6eccbe153e6215dcce47811947d29cdf048f3e84))
+* 実装とずれたドキュメント記述を修正し重複説明を整理 ([57ed13d](https://github.com/kt0319/any-console/commit/57ed13de7984abca1965bcee5520ee4323b03402))
+* 平文HTTP待受・0.0.0.0既定バインドの注意とdispatch decision統合のADR追記を反映 ([64aab6f](https://github.com/kt0319/any-console/commit/64aab6febae02cf85ab26a7661e9f7341c9a832c))
+
+
+### Tests
+
+* config.json.exampleのスキーマ乖離とリリースtarballの同梱漏れを検知するガードを追加 ([3237bc8](https://github.com/kt0319/any-console/commit/3237bc84de498c46aef6598aa8c0a0214215f205))
+* release hookのクオート処理・scripts同梱を実スクリプト実行で回帰検知する統合テストを追加 ([4af7e7b](https://github.com/kt0319/any-console/commit/4af7e7b844d601d24d06a3b46f50fa15b82daa21))
+
+
+### Build
+
+* Cargo.lockのバージョンをリリースバージョンに追従 ([b8bd4c4](https://github.com/kt0319/any-console/commit/b8bd4c4f0d90e4266130c55ec051acd3b47b2789))
+* リリースtarballにscripts/を同梱しhooks-setupをバイナリ配布でも動くようにする ([2de264b](https://github.com/kt0319/any-console/commit/2de264b25a940522c056486acb985102af716cf3))
+
+
+### CI
+
+* release-pleaseのPR作成にPATを使い後続ワークフローを自動発火させる ([badf0ad](https://github.com/kt0319/any-console/commit/badf0ad406dccb3618e738fac21946c1c69ab28d))
+* 各jobにtimeout-minutesを設定してハング時の早期打ち切りを可能にする ([8e185d4](https://github.com/kt0319/any-console/commit/8e185d4efd93131ba9648543a8674f81e67ca618))
+
 ## [0.14.0](https://github.com/kt0319/any-console/compare/v0.13.0...v0.14.0) (2026-08-18)
 
 
