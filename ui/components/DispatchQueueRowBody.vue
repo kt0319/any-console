@@ -1,12 +1,10 @@
 <template>
-  <span v-if="outcome" class="dispatch-queue-recent-head">
-    <span class="mdi" :class="outcome === 'executed' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
-    <span class="dispatch-queue-ws">{{ dispatchWorkspaceLabel(request) }}</span>
-  </span>
-  <span v-else class="dispatch-queue-ws">{{ dispatchWorkspaceLabel(request) }}</span>
-  <span class="dispatch-queue-meta">
-    <span v-if="dispatchJobLabel(request)">{{ dispatchJobLabel(request) }}</span>
-    <span v-if="request.branch">{{ request.branch }}</span>
+  <span class="dispatch-queue-head-row">
+    <span v-if="outcome" class="dispatch-queue-recent-head">
+      <span class="mdi" :class="outcome === 'executed' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
+      <span v-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
+    </span>
+    <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
     <span v-if="timeLabel" class="dispatch-queue-time" :data-tooltip="timeTooltip">
       <span class="mdi mdi-clock-outline"></span>{{ timeLabel }}
     </span>
@@ -16,10 +14,11 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { dispatchWorkspaceLabel, dispatchJobLabel } from "../utils/dispatch-request.ts";
-import { formatClockTime, formatDuration } from "../utils/format.ts";
+import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 
-// Dispatch Queue 一覧の1行分の本文（ワークスペース名・ジョブ/ブランチ・テキスト）。
+// Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
+// のタブ（DispatchWorkspacePane.vue）で既にワークスペースが絞られているため、
+// ワークスペース名・ジョブ名は表示しない。
 // pending 行と Recently executed 行で同じ表示ルールを共有する。
 // outcome（executed/decided）がある時だけ先頭に結果アイコンを付ける。
 
@@ -28,42 +27,47 @@ const props = defineProps({
   outcome: { type: String, default: "" },
 });
 
-// pending行は受付時刻（受付からの経過は待ち時間として実行/破棄後に確定する
-// ため、pending中は時刻のみ表示）。決定済み行は決定時刻＋受付からの
-// 待ち時間（実行/破棄までにキューで待たされた時間）を表示する。
-const timeLabel = computed(() => {
-  const receivedAt = props.request.received_at;
+// pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
+// hoverしたときだけ絶対時刻（日付込み）をtooltipで確認できるようにする。
+const relevantAt = computed(() => {
   const decidedAt = props.request.decided_at;
-  if (props.outcome && decidedAt != null) {
-    const waited = receivedAt != null ? formatDuration(decidedAt - receivedAt) : "";
-    return waited ? `${formatClockTime(decidedAt)} (waited ${waited})` : formatClockTime(decidedAt);
-  }
-  return formatClockTime(receivedAt);
+  if (props.outcome && decidedAt != null) return decidedAt;
+  return props.request.received_at;
 });
 
-const timeTooltip = computed(() => (props.outcome ? "Decided at" : "Received at"));
+const timeLabel = computed(() => formatMinutesAgo(relevantAt.value));
+
+const timeTooltip = computed(() => {
+  const label = props.outcome ? "Decided at" : "Received at";
+  const absolute = formatClockDateTime(relevantAt.value);
+  return absolute ? `${label}: ${absolute}` : label;
+});
 </script>
 
 <style scoped>
+.dispatch-queue-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .dispatch-queue-ws {
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.dispatch-queue-meta {
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
+  min-width: 0;
 }
 
 .dispatch-queue-time {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .dispatch-queue-time .mdi {
@@ -73,15 +77,15 @@ const timeTooltip = computed(() => (props.outcome ? "Decided at" : "Received at"
 .dispatch-queue-text {
   font-size: 12px;
   color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .dispatch-queue-recent-head {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 /* 実行/破棄の色は親（DispatchWorkspacePane.vue）の行クラスに応じて変える。 */

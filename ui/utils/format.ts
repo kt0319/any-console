@@ -50,6 +50,31 @@ export function formatClockTime(epochSeconds: number | null | undefined): string
 }
 
 /**
+ * ローカル日時の "M/D HH:MM:SS" 表示（Dispatch Queue の受付/決定時刻など、
+ * 日をまたぐ履歴でも「いつ」を一意に確認したい場面向け）。
+ */
+export function formatClockDateTime(epochSeconds: number | null | undefined): string {
+  if (epochSeconds == null) return "";
+  const date = new Date(epochSeconds * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" });
+  return `${date} ${formatClockTime(epochSeconds)}`;
+}
+
+/**
+ * 分単位の相対時刻表示（Dispatch Queue向け）。formatRelativeTimeは
+ * 1時間未満を"now"に丸めるため、直近の受付/決定時刻を「何分前」で
+ * 確認したい場面には粗すぎる。
+ */
+export function formatMinutesAgo(epochSeconds: number | null | undefined): string {
+  if (epochSeconds == null) return "";
+  const diffMin = Math.max(0, Math.floor((Date.now() - epochSeconds * 1000) / 60000));
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  return `${Math.floor(diffHour / 24)}d ago`;
+}
+
+/**
  * 秒数を "3s" / "2m 5s" / "1h 3m" のような簡潔な経過時間表示にする
  * （Dispatch Queue の受付〜決定までの待ち時間表示向け）。
  */

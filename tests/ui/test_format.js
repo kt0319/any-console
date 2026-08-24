@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { formatSize, formatRelativeTime, formatClockTime, formatDuration, truncateTail, jobCommandPreview } from "../../ui/utils/format.ts";
+import { formatSize, formatRelativeTime, formatClockTime, formatClockDateTime, formatMinutesAgo, formatDuration, truncateTail, jobCommandPreview } from "../../ui/utils/format.ts";
 import { JOB_COMMAND_PREVIEW_MAX } from "../../ui/utils/constants.ts";
 
 describe("truncateTail", () => {
@@ -108,6 +108,48 @@ describe("formatClockTime", () => {
   it("returns a HH:MM:SS shaped local time string", () => {
     const epoch = Math.floor(Date.now() / 1000);
     expect(formatClockTime(epoch)).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  });
+});
+
+describe("formatClockDateTime", () => {
+  it("returns empty string for null/undefined", () => {
+    expect(formatClockDateTime(null)).toBe("");
+    expect(formatClockDateTime(undefined)).toBe("");
+  });
+
+  it("returns a M/D HH:MM:SS shaped local date-time string", () => {
+    const epoch = Math.floor(Date.now() / 1000);
+    expect(formatClockDateTime(epoch)).toMatch(/\d{1,2}\/\d{1,2} \d{1,2}:\d{2}:\d{2}/);
+  });
+});
+
+describe("formatMinutesAgo", () => {
+  it("returns empty string for null/undefined", () => {
+    expect(formatMinutesAgo(null)).toBe("");
+    expect(formatMinutesAgo(undefined)).toBe("");
+  });
+
+  it("returns 'just now' for under 1 minute", () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(formatMinutesAgo(now)).toBe("just now");
+    expect(formatMinutesAgo(now - 30)).toBe("just now");
+  });
+
+  it("formats minutes under an hour", () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(formatMinutesAgo(now - 60)).toBe("1m ago");
+    expect(formatMinutesAgo(now - 60 * 45)).toBe("45m ago");
+  });
+
+  it("formats hours under a day", () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(formatMinutesAgo(now - 3600 * 2)).toBe("2h ago");
+    expect(formatMinutesAgo(now - 3600 * 23)).toBe("23h ago");
+  });
+
+  it("formats days for 1 day or more", () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(formatMinutesAgo(now - 86400 * 3)).toBe("3d ago");
   });
 });
 
