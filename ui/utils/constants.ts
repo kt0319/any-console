@@ -36,8 +36,6 @@ export const MOBILE_BREAKPOINT_PX = 768;
 export const INPUT_HISTORY_MAX = 100;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 export const RECENT_JOBS_MAX = 10;
-export const KEYBOARD_INPUT_MIN_HEIGHT_PX = 44;
-export const KEYBOARD_INPUT_MAX_HEIGHT_PX = 120;
 export const CIRCLE_KEYPAD_WHEEL_LINES = 80;
 export const CIRCLE_KEYPAD_SCROLL_LINES = 20;
 

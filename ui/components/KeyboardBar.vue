@@ -100,11 +100,11 @@
           </div>
         </div>
         <div class="quick-key quick-flick-arrow quick-key-toggle" :class="{ active: isFullKeyboard || inputFocused }" ref="barArrowFlickEl">
-          <span class="flick-hint-top">&uarr;</span>
-          <span class="flick-hint-left">&larr;</span>
+          <span class="flick-hint-top">&uarr;<span v-if="inputFocused" class="mdi mdi-history"></span></span>
+          <span class="flick-hint-left">&larr;<span v-if="inputFocused" class="mdi mdi-bookmark-multiple"></span></span>
           <span class="flick-main"><span :class="['mdi', (isFullKeyboard || inputFocused) ? 'mdi-close' : 'mdi-keyboard']"></span></span>
-          <span class="flick-hint-right">&rarr;</span>
-          <span class="flick-hint-bottom">&darr;</span>
+          <span class="flick-hint-right">&rarr;<span v-if="inputFocused" class="mdi mdi-bookmark-multiple"></span></span>
+          <span class="flick-hint-bottom">&darr;<span v-if="inputFocused" class="mdi mdi-history"></span></span>
         </div>
         <div
           class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
@@ -113,6 +113,7 @@
         >
           <template v-if="hasDraft">
             <span class="flick-hint-left" style="font-size:8px">clear</span>
+            <span class="flick-hint-bottom">&crarr;</span>
             <span class="flick-main"><span class="mdi mdi-send"></span></span>
           </template>
           <template v-else>
@@ -144,6 +145,7 @@
 import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.ts";
+import { useSnippetCycle } from "../composables/useSnippetCycle.ts";
 import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.ts";
 import { useKeyboardBarState } from "../composables/useKeyboardBarState.ts";
 import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.ts";
@@ -180,6 +182,7 @@ const {
 // 片方で辿った履歴位置をもう片方が知らず、混ぜて使った時に履歴が正しく
 // 辿れなくなる）。
 const { historyPrev, historyNext } = useInputDraftHistory(draft);
+const { snippetPrev, snippetNext } = useSnippetCycle(draft);
 
 function doReload() {
   window.location.replace(window.location.pathname + "?_=" + Date.now());
@@ -267,6 +270,7 @@ useKeyboardBarFlicks({
   arrowEl: barArrowFlickEl, enterEl: barEnterFlickEl,
   inputFocused, hasDraft, draft, keyboardInput,
   historyPrev, historyNext,
+  snippetPrev, snippetNext,
   setupFlickRepeat, sendKeyToTerminal, dismissKeyboard,
 });
 </script>

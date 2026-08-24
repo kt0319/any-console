@@ -329,8 +329,7 @@
 .keyboard-input {
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  max-height: 120px;
+  height: 44px;
   padding: 10px 12px;
   border: 1px solid rgba(255,255,255,0.25);
   border-radius: var(--radius);
@@ -342,6 +341,7 @@
   box-sizing: border-box;
   outline: none;
   resize: none;
+  overflow-y: auto;
   overflow-y: auto;
 }
 

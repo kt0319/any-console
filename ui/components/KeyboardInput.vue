@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, type PropType, type Ref } from "vue";
+import { ref, computed, type PropType, type Ref } from "vue";
 import { useInputStore } from "../stores/input.ts";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.ts";
@@ -38,7 +38,6 @@ import { useSuppressedBlur } from "../composables/useSuppressedBlur.ts";
 import { isComposingEvent } from "../utils/keyboard-event.ts";
 import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
-import { KEYBOARD_INPUT_MIN_HEIGHT_PX, KEYBOARD_INPUT_MAX_HEIGHT_PX } from "../utils/constants.ts";
 
 const emit = defineEmits(["focused", "submitted"]);
 // フリックバーの矢印キーと同じ履歴↑↓状態を物理キーボードの矢印キーでも
@@ -123,17 +122,6 @@ function onInput(e: Event) {
   const value = (e.target as HTMLTextAreaElement).value;
   if (draft.value !== value) draft.value = value;
 }
-
-function resizeTextarea() {
-  const el = inputEl.value;
-  if (!el) return;
-  el.style.height = "auto";
-  const next = Math.min(el.scrollHeight, KEYBOARD_INPUT_MAX_HEIGHT_PX);
-  el.style.height = `${Math.max(next, KEYBOARD_INPUT_MIN_HEIGHT_PX)}px`;
-}
-
-watch(draft, () => nextTick(resizeTextarea));
-onMounted(resizeTextarea);
 
 function moveCursor(delta: number) {
   const el = inputEl.value;
