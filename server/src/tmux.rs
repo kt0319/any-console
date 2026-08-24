@@ -14,6 +14,14 @@ use crate::subprocess::{run_tmux_cmd, CmdResult};
 
 pub const TMUX_PANE_READY_TIMEOUT_SEC: f64 = 2.0;
 pub const TMUX_PANE_POLL_INTERVAL_SEC: f64 = 0.05;
+/// `wait_pane_ready` はシェルプロセスが立ち上がった時点（`pane_current_command`
+/// が非空になった時点）で true を返すが、そこから実際にプロンプトが
+/// キー入力を受け付けられる状態（rc ファイル読み込み・direnv 等の起動処理）
+/// まではもう少しかかることがある。worktree 配下（.envrc 等が重い/初回の
+/// direnv allow待ちが挟まる等）でこの差が顕著になり、pane ready 直後に
+/// send-keys したジョブ起動コマンドがシェルの起動処理に飲み込まれて
+/// ターミナルに反映されない不具合があったため、送信前に一呼吸置く。
+pub const TMUX_JOB_LAUNCH_SETTLE_SEC: f64 = 0.3;
 pub const TERMINAL_DEFAULT_COLS: u16 = 80;
 pub const TERMINAL_DEFAULT_ROWS: u16 = 24;
 pub const TERMINAL_TERM_TYPE: &str = "xterm-256color";

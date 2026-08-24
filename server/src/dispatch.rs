@@ -546,6 +546,10 @@ async fn resolve_and_launch_session(
                 create_session(state, effective_ws, Some(ws_path), &body.job, job_def).await?;
             let tmux_name = { sess.lock().await.tmux_session_name.clone() };
             tmux::wait_pane_ready(&tmux_name, tmux::TMUX_PANE_READY_TIMEOUT_SEC).await;
+            tokio::time::sleep(std::time::Duration::from_secs_f64(
+                tmux::TMUX_JOB_LAUNCH_SETTLE_SEC,
+            ))
+            .await;
             if !job_def.command.is_empty()
                 && !tmux::send_keys_to_tmux(&tmux_name, &job_def.command, true).await
             {
