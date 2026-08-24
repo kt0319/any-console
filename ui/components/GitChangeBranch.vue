@@ -38,7 +38,7 @@
           v-for="branch in localBranches"
           :key="'local-' + branch.name"
           v-show="branch.current || expanded"
-          :class="['branch-item', { current: branch.current }]"
+          :class="['branch-item', { current: branch.current, 'branch-item-no-border': branch.current && !expanded }]"
           :aria-expanded="branch.current ? expanded : undefined"
           @click="onRowClick(branch)"
         >
@@ -145,6 +145,7 @@ import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush, type LocalBranch, type RemoteBranch } from "../utils/git-branch.ts";
+import { worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 
 defineProps({
@@ -206,7 +207,7 @@ function onRowClick(branch: LocalBranch | RemoteBranch) {
 function selectBranch(branch: LocalBranch | RemoteBranch) {
   if (branch.current) return;
   const wt = linkedWorktree(branch);
-  if (wt && wt.workspace) {
+  if (wt) {
     openWorktree(wt);
     return;
   }
@@ -221,7 +222,11 @@ function switchToWorkspace(name: string) {
 }
 
 function openWorktree(wt: Record<string, unknown>) {
-  if (wt?.workspace) switchToWorkspace(wt.workspace as string);
+  // /worktrees API由来のwtは、config.jsonに明示登録されたworktreeでしか
+  // workspaceが埋まらない（useBranchActions.tsのremoveWorktreeと同じ理由）。
+  // 未登録でも base+branch から動的worktreeワークスペース名を組み立てて開く。
+  const wsName = (wt.workspace as string) || worktreeWorkspaceName(workspaceStore.selectedWorkspace, wt.branch as string);
+  if (wsName) switchToWorkspace(wsName);
 }
 
 watch(branches, (list) => {
@@ -313,6 +318,13 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 }
 
 .branch-item:last-child {
+  border-bottom: none;
+}
+
+/* 折りたたみ時はv-showで非表示の行がDOM上に残ったままのため:last-childが
+   効かず、唯一表示される現在ブランチ行にborder-bottomが残ってしまう
+   （外枠 .branch-summary-body の下枠と二重線に見える）。明示的に消す。 */
+.branch-item.branch-item-no-border {
   border-bottom: none;
 }
 
