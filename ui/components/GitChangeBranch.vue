@@ -142,6 +142,7 @@ import { ref, computed, watch } from "vue";
 import { useBranchList } from "../composables/useBranchList.ts";
 import { useBranchActions } from "../composables/useBranchActions.ts";
 import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush, type LocalBranch, type RemoteBranch } from "../utils/git-branch.ts";
@@ -154,6 +155,7 @@ defineProps({
 const branchEmit = defineEmits(["count", "toggle"]);
 
 const workspaceStore = useWorkspaceStore();
+const { confirm } = useConfirm();
 
 const branchList = useBranchList();
 const {
@@ -204,10 +206,11 @@ function onRowClick(branch: LocalBranch | RemoteBranch) {
   selectBranch(branch);
 }
 
-function selectBranch(branch: LocalBranch | RemoteBranch) {
+async function selectBranch(branch: LocalBranch | RemoteBranch) {
   if (branch.current) return;
   const wt = linkedWorktree(branch);
   if (wt) {
+    if (!await confirm(`Open worktree "${branch.name}"? This opens a new tab.`)) return;
     openWorktree(wt);
     return;
   }
