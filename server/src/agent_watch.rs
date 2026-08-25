@@ -23,7 +23,6 @@ use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 use tokio::sync::Mutex as AsyncMutex;
-use tokio::task::JoinHandle;
 
 use crate::foreground::ForegroundInspector;
 use crate::job_match::JobPattern;
@@ -31,7 +30,6 @@ use crate::screen_manifest::{
     Manifest, ManifestStore, ADOPTED_STATES, STATE_BLOCKED, STATE_IDLE, STATE_WORKING,
 };
 use crate::state::AppState;
-use crate::util::task_running;
 
 /// Python `common.py` の同名定数と同じ値。
 const AGENT_WATCH_POLL_INTERVAL_SEC: u64 = 2;
@@ -589,7 +587,7 @@ pub async fn collect_agent_states(
 
 /// agent_watch の常駐ポーリングタスクとポーリング間で持ち越す状態を保持する。
 pub struct AgentWatchState {
-    poll_task: std::sync::Mutex<Option<JoinHandle<()>>>,
+    poll_task: crate::util::SupervisedTask,
     last_capture: AsyncMutex<HashMap<String, String>>,
     /// リサイズ検知用の前回ペインサイズ（`collect_agent_states` 参照）。
     last_pane_size: AsyncMutex<HashMap<String, (i64, i64)>>,
@@ -605,7 +603,7 @@ pub struct AgentWatchState {
 impl AgentWatchState {
     pub fn new() -> Self {
         Self {
-            poll_task: std::sync::Mutex::new(None),
+            poll_task: crate::util::SupervisedTask::new(),
             last_capture: AsyncMutex::new(HashMap::new()),
             last_pane_size: AsyncMutex::new(HashMap::new()),
             tracker: AsyncMutex::new(PhraseNotifyTracker::new()),
@@ -630,14 +628,10 @@ fn has_push_subscriptions(state: &AppState) -> bool {
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。ポーリングタスクが
 /// 動いていなければ起動する（Python `ensure_phrase_task` 相当）。
 pub fn ensure_tasks(state: &Arc<AppState>) {
-    let mut task = state
+    state
         .agent_watch
         .poll_task
-        .lock()
-        .expect("agent_watch state poisoned");
-    if !task_running(&task) {
-        *task = Some(tokio::spawn(poll_loop(state.clone())));
-    }
+        .ensure(|| tokio::spawn(poll_loop(state.clone())));
 }
 
 /// 購読解除時に呼ぶ。全体の購読者（`StatusStreamState`）・push subscription が
@@ -646,15 +640,7 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     if state.status_stream.subscriber_count() > 0 || has_push_subscriptions(state) {
         return;
     }
-    if let Some(h) = state
-        .agent_watch
-        .poll_task
-        .lock()
-        .expect("agent_watch state poisoned")
-        .take()
-    {
-        h.abort();
-    }
+    state.agent_watch.poll_task.stop();
     // Python `_stop_task` と同じく、タスク停止時にポーリング間の持ち越し状態も
     // 破棄する（次回起動時はまっさらな状態から再構築する）。
     let state = state.clone();

@@ -100,7 +100,7 @@ pub struct PreviewState {
     last_access: Mutex<Option<Instant>>,
     probing: Mutex<HashSet<u16>>,
     proxies: Mutex<HashMap<u16, JoinHandle<()>>>,
-    scan_task: Mutex<Option<JoinHandle<()>>>,
+    scan_task: crate::util::SupervisedTask,
     tls: OnceLock<TlsConfig>,
 }
 
@@ -112,7 +112,7 @@ impl Default for PreviewState {
             last_access: Mutex::new(None),
             probing: Mutex::new(HashSet::new()),
             proxies: Mutex::new(HashMap::new()),
-            scan_task: Mutex::new(None),
+            scan_task: crate::util::SupervisedTask::new(),
             tls: OnceLock::new(),
         }
     }
@@ -789,15 +789,10 @@ async fn scan_loop(state: Arc<AppState>) {
 /// preview のバックグラウンドスキャンタスクを起動する（冪等 — 既に動作中なら
 /// 何もしない）。`main.rs` から起動時に一度呼ぶ。
 pub fn start_scanner(state: &Arc<AppState>) {
-    let mut task = state
+    state
         .preview
         .scan_task
-        .lock()
-        .expect("scan_task lock poisoned");
-    let running = crate::util::task_running(&task);
-    if !running {
-        *task = Some(tokio::spawn(scan_loop(state.clone())));
-    }
+        .ensure(|| tokio::spawn(scan_loop(state.clone())));
 }
 
 // ─── HTTP エンドポイント（`GET /preview/ports`）─────────────────────────────
@@ -1536,13 +1531,8 @@ mod tests {
     async fn scanner_start_spawns_task() {
         let (state, _dir) = test_state();
         start_scanner(&state);
-        let handle = state
-            .preview
-            .scan_task
-            .lock()
-            .unwrap()
-            .take()
-            .expect("scanner task spawned");
-        handle.abort();
+        assert!(state.preview.scan_task.is_running());
+        assert!(state.preview.scan_task.stop());
+        assert!(!state.preview.scan_task.is_running());
     }
 }

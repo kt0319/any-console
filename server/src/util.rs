@@ -75,9 +75,45 @@ pub fn sanitize_session_segment(name: &str) -> String {
 pub const IS_MACOS: bool = cfg!(target_os = "macos");
 
 /// バックグラウンドタスクが起動済みかつ未終了かを判定する
-/// （git_watch / agent_watch / preview のタスク管理で共用）。
+/// （`SupervisedTask` 内部と一部テストで共用）。
 pub fn task_running(task: &Option<tokio::task::JoinHandle<()>>) -> bool {
     task.as_ref().is_some_and(|h| !h.is_finished())
+}
+
+/// 「動いていなければ spawn / 停止時は take + abort」のバックグラウンド
+/// タスク管理イディオム（git_watch / agent_watch / preview で共用）。
+#[derive(Default)]
+pub struct SupervisedTask(std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>);
+
+impl SupervisedTask {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 動いていなければ `spawn` で起動する（冪等）。
+    pub fn ensure(&self, spawn: impl FnOnce() -> tokio::task::JoinHandle<()>) {
+        let mut task = self.0.lock().expect("supervised task lock poisoned");
+        if !task_running(&task) {
+            *task = Some(spawn());
+        }
+    }
+
+    /// タスクを停止（abort）する。ハンドルを保持していたかを返す。
+    pub fn stop(&self) -> bool {
+        let handle = self.0.lock().expect("supervised task lock poisoned").take();
+        match handle {
+            Some(h) => {
+                h.abort();
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// 起動済みかつ未終了か（テスト・冪等性確認用）。
+    pub fn is_running(&self) -> bool {
+        task_running(&self.0.lock().expect("supervised task lock poisoned"))
+    }
 }
 
 /// アップロード共通の上限サイズ（/upload-image・ワークスペースのファイル
