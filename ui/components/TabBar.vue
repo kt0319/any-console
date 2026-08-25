@@ -22,7 +22,7 @@
       class="tab-bar"
       @keydown="onTabListKeydown"
     >
-      <div class="tab-bar-tabs" role="tablist" aria-label="Open terminal tabs">
+      <div class="tab-bar-tabs" role="tablist" aria-label="Open tabs">
         <TabItem
           v-for="item in sortedItems"
           :key="item.tab.id || item.tab.wsUrl"
@@ -33,6 +33,14 @@
           @close="onClose"
           @refresh="onRefresh"
           @detach="onDetach"
+        />
+        <BrowserTabItem
+          v-for="tab in browserTabStore.tabs"
+          :key="'browser-' + tab.id"
+          :tab="tab"
+          :active-browser-tab-id="browserTabStore.activeBrowserTabId"
+          :is-panel-bottom="isPanelBottom"
+          @select="onSelectBrowserTab"
         />
       </div>
       <button
@@ -64,7 +72,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, type PropType } from "vue";
 import TabItem from "./TabItem.vue";
+import BrowserTabItem from "./BrowserTabItem.vue";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useBrowserTabStore, type BrowserTab } from "../stores/browserTabs.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
@@ -73,6 +83,7 @@ import { emit } from "../app-bridge.ts";
 import { nextTabIndex } from "../utils/tab-nav.ts";
 
 const terminalStore = useTerminalStore();
+const browserTabStore = useBrowserTabStore();
 const layoutStore = useLayoutStore();
 
 const props = defineProps({
@@ -80,7 +91,11 @@ const props = defineProps({
 });
 
 const tabListEl = ref<HTMLElement | null>(null);
-const activeTabId = computed(() => terminalStore.activeTabId);
+// ブラウザタブが前面の間はどのターミナルタブも「アクティブ」表示にしない
+// （terminalStore.activeTabIdは最後にアクティブだったターミナルタブを保持
+// し続けるため、そのままTabItemへ渡すとブラウザタブと同時にハイライトが
+// 点いてしまう）。
+const activeTabId = computed(() => (browserTabStore.activeBrowserTabId != null ? null : terminalStore.activeTabId));
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Close session list" : "Open session list"));
@@ -91,7 +106,14 @@ const sortedItems = computed(() => {
 });
 
 function onSelect(tab: TerminalTab, { skipFocus = false } = {}) {
+  // ターミナルタブへ切り替える時は前面に出ているブラウザタブを退避させる
+  // （ScreenMain.vueはactiveBrowserTabId!=nullの間BrowserTabsViewを前面表示する）。
+  browserTabStore.activeBrowserTabId = null;
   emit("tab:select", { tab, skipFocus });
+}
+
+function onSelectBrowserTab(tab: BrowserTab) {
+  browserTabStore.selectBrowserTab(tab.id);
 }
 
 function focusTab(tab: TerminalTab) {

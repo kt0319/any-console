@@ -585,6 +585,92 @@ pub async fn put_snippets(
     Ok(Json(json!({"status": "ok", "snippets": snippets})))
 }
 
+// ─── /settings/browser-tabs ─────────────────────────────────────────────────
+//
+// ブラウザタブ（dev serverプレビュー用のiframeタブ、ui/stores/browserTabs.ts）
+// はターミナルタブと違いtmuxセッションを持たずサーバ側に実体が無いため、
+// 一覧自体をここへ永続化する（config.json の browser_tabs セクション）。
+// snippetsと同じ「配列を丸ごとPUTで上書き」方式。activeUrlは再読込のたびに
+// タブidが振り直されるためURLで持つ（terminal側のsession_idに相当）。
+
+const MAX_URL_LENGTH: usize = 2000;
+
+#[derive(Deserialize, serde::Serialize, Clone)]
+pub struct BrowserTabItem {
+    url: String,
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    icon: Option<String>,
+    #[serde(default, rename = "iconColor")]
+    icon_color: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateBrowserTabsRequest {
+    #[serde(default)]
+    tabs: Vec<BrowserTabItem>,
+    #[serde(default, rename = "activeUrl")]
+    active_url: Option<String>,
+}
+
+pub async fn get_browser_tabs(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Json<Value> {
+    let raw = state
+        .config
+        .load_global_section("browser_tabs")
+        .unwrap_or(json!({}));
+    let obj = raw.as_object();
+    let tabs = obj
+        .and_then(|o| o.get("tabs"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let active_url = obj
+        .and_then(|o| o.get("activeUrl"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    Json(json!({"tabs": tabs, "activeUrl": active_url}))
+}
+
+pub async fn put_browser_tabs(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<UpdateBrowserTabsRequest>,
+) -> Result<Json<Value>, ApiError> {
+    for item in &body.tabs {
+        check_max_len("url", &item.url, MAX_URL_LENGTH)?;
+        check_max_len("label", &item.label, MAX_LABEL_LENGTH)?;
+        if let Some(icon) = &item.icon {
+            check_max_len("icon", icon, MAX_LABEL_LENGTH)?;
+        }
+        if let Some(color) = &item.icon_color {
+            check_max_len("iconColor", color, MAX_LABEL_LENGTH)?;
+        }
+    }
+    if let Some(url) = &body.active_url {
+        check_max_len("activeUrl", url, MAX_URL_LENGTH)?;
+    }
+    let tabs: Vec<Value> = body
+        .tabs
+        .iter()
+        .filter(|t| !t.url.trim().is_empty())
+        .map(|t| serde_json::to_value(t).expect("serializable"))
+        .collect();
+    // activeUrlが実在するタブを指していなければ持たない（保存後の状態不整合を防ぐ）。
+    let active_url = body
+        .active_url
+        .filter(|u| body.tabs.iter().any(|t| &t.url == u));
+    save_global(
+        &state.config,
+        "browser_tabs",
+        json!({"tabs": tabs, "activeUrl": active_url}),
+    )?;
+    Ok(Json(json!({"status": "ok"})))
+}
+
 // ─── /recent-jobs ───────────────────────────────────────────────────────────
 //
 // Phase 1 では jobs 解決に依存するため保留していたが、jobs_common の移行

@@ -6,6 +6,7 @@ import "highlight.js/styles/tokyo-night-dark.css";
 import "./styles/a11y.css";
 import "./styles/drag-utils.css";
 import "./styles/base.css";
+import "./styles/tab-item.css";
 import "./styles/dialog.css";
 import "./styles/modal-shell.css";
 import "./styles/command-list.css";

@@ -22,6 +22,8 @@ import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vu
 import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
+import BrowserPane from "../../../ui/components/BrowserPane.vue";
+import BrowserTabItem from "../../../ui/components/BrowserTabItem.vue";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
 import InfoPillConfig from "../../../ui/components/InfoPillConfig.vue";
 import InfoPillRow from "../../../ui/components/InfoPillRow.vue";
@@ -166,6 +168,35 @@ describe("a11y: SplitEmptyPane", () => {
       props: { paneIndex: 1 },
       attachTo: document.body,
     });
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: BrowserPane", () => {
+  it("ブラウザタブの中身（Reload/Open in new tabボタン+iframe）に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(BrowserPane, {
+      props: { url: "http://localhost:3000/", tabId: 1 },
+      attachTo: document.body,
+    });
+    // iframes: false — happy-domにはpostMessageによる実フレーム間通信が無く、
+    // axe-coreがiframeの中身へ走査しようとするとタイムアウト/エラーになる。
+    await expectNoA11yViolations(wrapper.element, { iframes: false });
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: BrowserTabItem", () => {
+  it("タブバー上のブラウザタブピル（tab role + Closeボタン）に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const tab = { id: 1, url: "http://localhost:3000/", label: "My App" };
+    // role="tab" は role="tablist" の子である必要がある（実際の利用箇所である
+    // TabBar.vue と同じ構造にする）ため、単体マウントでもtablistで包む。
+    const wrapper = mount(
+      { components: { BrowserTabItem }, template: '<div role="tablist"><BrowserTabItem :tab="tab" :active-browser-tab-id="1" /></div>', data: () => ({ tab }) },
+      { attachTo: document.body },
+    );
     await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });
@@ -402,6 +433,36 @@ describe("a11y: TabBar", () => {
     expect(movedTabs[1].attributes("tabindex")).toBe("0");
 
     cleanup();
+    wrapper.unmount();
+  });
+
+  it("ブラウザタブがアクティブな間、ターミナルタブはどれもaria-selectedにならない", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
+    const { useBrowserTabStore } = await import("../../../ui/stores/browserTabs.ts");
+    const terminalStore = useTerminalStore();
+    const browserTabStore = useBrowserTabStore();
+    const tabs = [
+      { id: 1, sessionId: "s1", workspace: null, label: "one", wsIcon: null, icon: null },
+    ];
+    terminalStore.openTabs = tabs;
+    terminalStore.activeTabId = 1;
+    browserTabStore.openBrowserTab("http://localhost:3000/");
+
+    const wrapper = mount(TabBar, {
+      props: { tabs },
+      attachTo: document.body,
+    });
+    await nextTick();
+
+    const tabsEls = wrapper.findAll('[role="tab"]');
+    expect(tabsEls).toHaveLength(2); // ターミナルタブ1 + ブラウザタブ1
+    // terminalStore.activeTabIdは1のままだが、ブラウザタブが前面のため
+    // ターミナルタブ側はハイライトされない。
+    expect(tabsEls[0].attributes("aria-selected")).toBe("false");
+    expect(tabsEls[1].attributes("aria-selected")).toBe("true");
+
     wrapper.unmount();
   });
 });

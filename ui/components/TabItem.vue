@@ -366,33 +366,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.tab-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 6px;
-  padding: 9px 16px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  touch-action: pan-x;
-}
+/* タブピルの基本の見た目（.tab-btn / .tab-icon-slot / .tab-extra / .tab-close /
+   モバイルでの justify-content）は BrowserTabItem.vue と共有するため
+   ui/styles/tab-item.css（グローバル）にある。ここには DnD 並び替え・
+   agent状態・dirtyバッジ等 TabItem.vue 固有の装飾だけを置く。 */
 
 /* アクティブタブは横移動も並び替え用にJSで制御するため、pan-x（ネイティブの
    横スクロール）を許可しない。pan-xのままだと、ドラッグ閾値を超えて
    preventDefaultする前にブラウザ側が横スクロールを開始してしまい、
    並び替えが発火しなくなる（縦方向はpan-xと同様どちらにせよJS制御に
    委ねられるため、noneにしても既存の分割ドラッグに影響しない）。 */
+.tab-btn {
+  -webkit-touch-callout: none;
+  touch-action: pan-x;
+}
+
 .tab-btn.active {
   touch-action: none;
 }
@@ -403,19 +391,6 @@ onBeforeUnmount(() => {
   -webkit-user-drag: none;
 }
 
-.tab-btn.active {
-  color: var(--text-primary);
-  background: var(--accent-bg-12);
-}
-
-/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブタブは
-   ホバーでもアクティブ強調色を維持する。 */
-@media (hover: hover) and (pointer: fine) {
-  .tab-btn.active:hover {
-    background: var(--accent-bg-12);
-  }
-}
-
 .tab-btn.tab-activity {
   animation: tab-activity-glow 3s ease-in-out 1;
 }
@@ -424,19 +399,6 @@ onBeforeUnmount(() => {
   opacity: 0.5;
   cursor: grabbing;
   touch-action: none;
-}
-
-/* Chromeのタブと同じく、隣り合う2つの非アクティブタブの間に縦線を出す
-   （アクティブタブに隣接する側は出さない）。gap（.tab-bar-tabsで7px）の
-   中央に来るよう -(gap+線幅)/2 = -4px ずらす。 */
-.tab-btn:not(.active) + .tab-btn:not(.active)::before {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: 10px;
-  bottom: 10px;
-  width: 1px;
-  background: var(--border);
 }
 
 .tab-btn.drag-over-left {
@@ -473,49 +435,6 @@ onBeforeUnmount(() => {
   color: var(--accent);
   flex-shrink: 0;
 }
-
-.tab-panel-bottom { justify-content: center; }
-
-.tab-icon-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  flex-shrink: 0;
-}
-
-.tab-extra {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-/* モバイル(パネル下部)はアイコンのみ表示にするため、ラベルは常に畳む。 */
-.tab-btn.tab-panel-bottom .tab-extra {
-  max-width: 0;
-  margin-left: -6px;
-  opacity: 0;
-}
-
-.tab-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-}
-
 
 .tab-btn :deep(.favicon-icon) {
   width: 18px;

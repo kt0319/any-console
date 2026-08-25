@@ -99,6 +99,56 @@ async fn snippets_roundtrip_and_sanitize() {
 }
 
 #[tokio::test]
+async fn browser_tabs_roundtrip_and_sanitize() {
+    let front = spawn_front().await;
+    let resp = put_json(
+        &front,
+        "/settings/browser-tabs",
+        &json!({
+            "tabs": [
+                {"url": "http://localhost:3000/", "label": "App", "icon": "mdi-rocket", "iconColor": "#ff0000"},
+                {"url": ""},
+            ],
+            "activeUrl": "http://localhost:3000/",
+        }),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    let got = get_json(&front, "/settings/browser-tabs").await;
+    // 空urlのタブは除去される
+    assert_eq!(
+        got["tabs"],
+        json!([{"url": "http://localhost:3000/", "label": "App", "icon": "mdi-rocket", "iconColor": "#ff0000"}])
+    );
+    assert_eq!(got["activeUrl"], "http://localhost:3000/");
+
+    // config.json が Python 互換フォーマットで書かれている
+    let text = std::fs::read_to_string(front.dir.path().join("config.json")).unwrap();
+    assert!(text.ends_with('\n'));
+    assert!(text.contains("\"browser_tabs\""));
+
+    // activeUrlがtabs内に無ければ保存されない
+    put_json(
+        &front,
+        "/settings/browser-tabs",
+        &json!({"tabs": [{"url": "http://localhost:3000/"}], "activeUrl": "http://localhost:9999/"}),
+    )
+    .await;
+    let got = get_json(&front, "/settings/browser-tabs").await;
+    assert_eq!(got["activeUrl"], Value::Null);
+
+    // 上限超過は 422
+    let resp = put_json(
+        &front,
+        "/settings/browser-tabs",
+        &json!({"tabs": [{"url": "x".repeat(2001)}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 422);
+}
+
+#[tokio::test]
 async fn editor_notifications_and_layout_roundtrip() {
     let front = spawn_front().await;
     assert_eq!(

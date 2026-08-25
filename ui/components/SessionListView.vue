@@ -14,7 +14,41 @@
           @close-tab="onCloseTab(item)"
         />
       </ul>
-      <div v-else class="session-sidebar-empty">No sessions</div>
+      <div v-else-if="browserTabItems.length === 0" class="session-sidebar-empty">No sessions</div>
+
+      <!-- ブラウザタブ（BrowserPane.vue、dev serverプレビュー）。tmuxセッションを
+           持たないためInfoPill（Branch/Changes等）は無く、アイコン+ラベル+閉じる
+           ボタンだけのシンプルな行にする。 -->
+      <ul v-if="browserTabItems.length > 0" class="session-sidebar-list">
+        <li
+          v-for="bt in browserTabItems"
+          :key="'browser-' + bt.tab.id"
+          class="session-sidebar-li browser-tab-sidebar-li"
+          :class="{ active: bt.isActive, 'session-working': bt.tab.loading }"
+        >
+          <button
+            type="button"
+            class="session-sidebar-item hover-bg"
+            :class="{ active: bt.isActive }"
+            :aria-current="bt.isActive ? 'true' : undefined"
+            @click="onSelectBrowserTab(bt.tab)"
+          >
+            <SessionRowContent :item="bt.item" />
+          </button>
+          <span class="session-sidebar-pills-row" :class="{ active: bt.isActive }" @click="onSelectBrowserTab(bt.tab)">
+            <span class="session-sidebar-pills" @click.stop>
+              <BrowserTabActionPills :id="bt.tab.id" :url="bt.tab.url" />
+            </span>
+            <button
+              type="button"
+              class="pill-close-btn pill-tab-close-btn"
+              aria-label="Close tab"
+              data-tooltip="Close tab"
+              @click.stop="browserTabStore.closeBrowserTab(bt.tab.id)"
+            ><span class="mdi mdi-close"></span></button>
+          </span>
+        </li>
+      </ul>
 
       <!-- タブがまだ無いワークスペースの承認待ちdispatch。通常のセッション行と
            同じ見た目（SessionRowContent + InfoPillRow）で出す。見出しは出さず、
@@ -55,13 +89,15 @@ import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
+import { useBrowserTabStore, type BrowserTab } from "../stores/browserTabs.ts";
+import { sessionSidebarItems, pendingDispatchSidebarItems, browserTabSidebarItems } from "../utils/session-sidebar.ts";
 import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import BrowserTabActionPills from "./BrowserTabActionPills.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
@@ -82,7 +118,14 @@ type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
+const browserTabStore = useBrowserTabStore();
 const { confirm } = useConfirm();
+
+const browserTabItems = computed(() => browserTabSidebarItems(browserTabStore.tabs, browserTabStore.activeBrowserTabId));
+
+function onSelectBrowserTab(tab: BrowserTab) {
+  browserTabStore.selectBrowserTab(tab.id);
+}
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
@@ -160,6 +203,9 @@ const items = computed(() => {
 });
 
 function onSelect(item: SessionItem) {
+  // ターミナルタブへ切り替える時は前面に出ているブラウザタブを退避させる
+  // （TabBar.vue の onSelect と同じ理由）。
+  browserTabStore.activeBrowserTabId = null;
   if (item.id !== terminalStore.activeTabId) {
     // モバイルはタッチ操作前提のため、ソフトキーボードの誤起動を避けて skipFocus。
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });

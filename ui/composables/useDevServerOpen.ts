@@ -1,13 +1,17 @@
 import { useConfirm } from "./useConfirm.ts";
+import { useBrowserTabStore } from "../stores/browserTabs.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { devServerUrl } from "../utils/preview-url.ts";
 import { openExternal } from "../utils/open-external.ts";
 import { copyText } from "../utils/clipboard.ts";
 
-// Dev serverプレビューを開く前の確認（Open/Copy選択式）。TerminalPaneの
+// Dev serverプレビューを開く前の確認（Open/Copy/Tab選択式）。TerminalPaneの
 // Server pill（useInfoPillActions.ts）とDev Server設定一覧（SessionPreviewTab.vue）
 // の両方から同じ挙動で使う。
 export function useDevServerOpen() {
   const { confirm } = useConfirm();
+  const browserTabStore = useBrowserTabStore();
+  const workspaceStore = useWorkspaceStore();
 
   async function confirmOpenDevServer(p: Record<string, any>) {
     const url = devServerUrl(p, location.hostname);
@@ -15,9 +19,18 @@ export function useDevServerOpen() {
     const result = await confirm(`Open dev server preview at "${url}"?`, {
       ok: { label: "Open" },
       extra: { label: "Copy", value: "copy", icon: "mdi-content-copy" },
+      extra2: { label: "Tab", value: "tab", icon: "mdi-tab-plus", desc: "Open as a browser tab" },
     });
     if (result === "copy") {
       await copyText(url);
+      return;
+    }
+    if (result === "tab") {
+      // ブラウザタブのラベル/アイコンは開いた元のdev serverのワークスペースに
+      // 揃える（見つからなければBrowserTabItem.vue側でserverアイコン、
+      // browserTabs.ts側でホスト名にフォールバック）。
+      const ws = p.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === p.workspace) : null;
+      browserTabStore.openBrowserTab(url, { label: ws?.name, icon: ws?.icon, iconColor: ws?.icon_color });
       return;
     }
     if (!result) return;

@@ -9,6 +9,7 @@ import {
   resolveAgentBadgeState,
   sessionSidebarItems,
   pendingDispatchSidebarItems,
+  browserTabSidebarItems,
 } from "../../ui/utils/session-sidebar.ts";
 
 describe("agentStateDescriptor", () => {
@@ -261,5 +262,33 @@ describe("pendingDispatchSidebarItems", () => {
     });
     expect(items[0].label).toBe("unknown-ws");
     expect(items[0].wsIcon).toBeNull();
+  });
+});
+
+describe("browserTabSidebarItems", () => {
+  it("wsIconの有無に関わらずserverアイコンを常にjobIconとして併記する", () => {
+    const tabs = [
+      { id: 1, url: "http://localhost:3000/", label: "App", icon: "mdi-rocket", iconColor: "#ff0000" },
+      { id: 2, url: "http://localhost:4000/", label: "localhost" },
+    ];
+    const items = browserTabSidebarItems(tabs, null);
+    expect(items[0].item.wsIcon).toEqual({ name: "mdi-rocket", color: "#ff0000" });
+    expect(items[0].item.jobIcon).toEqual({ name: "mdi-server", color: null });
+    expect(items[1].item.wsIcon).toBeNull();
+    expect(items[1].item.jobIcon).toEqual({ name: "mdi-server", color: null });
+  });
+
+  it("activeBrowserTabIdに一致するタブだけisActiveがtrue", () => {
+    const tabs = [
+      { id: 1, url: "http://localhost:3000/", label: "a" },
+      { id: 2, url: "http://localhost:4000/", label: "b" },
+    ];
+    const items = browserTabSidebarItems(tabs, 2);
+    expect(items[0].isActive).toBe(false);
+    expect(items[1].isActive).toBe(true);
+  });
+
+  it("空配列は空配列を返す", () => {
+    expect(browserTabSidebarItems([], null)).toEqual([]);
   });
 });

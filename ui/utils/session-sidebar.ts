@@ -1,6 +1,7 @@
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "./github-runs.ts";
 import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
 import { buildInfoPillTooltips } from "./info-pill-tooltips.ts";
+import type { BrowserTab } from "../stores/browserTabs.ts";
 
 // セッションサイドバー（TabBar のハンバーガーから開く一覧）の表示行を
 // 組み立てる純粋関数群。SessionListView.vue から使う。
@@ -199,4 +200,28 @@ export function pendingDispatchSidebarItems(
       ...pill,
     };
   });
+}
+
+/**
+ * ブラウザタブ（useBrowserTabStore、dev serverプレビュー）のサイドバー行データ。
+ * tmuxセッションを持たないためInfoPill系フィールドは持たず、アイコン・ラベル
+ * だけの最小限の item（SessionRowContent.vueの表示に必要な形）にする。
+ * BrowserTabItem.vue（タブバー）と同じく、ワークスペースアイコンの有無に
+ * 関わらずserverアイコンを常に併記する（wsIconがある時も隠さない）。
+ * @param tabs browserTabStore.tabs
+ * @param activeBrowserTabId browserTabStore.activeBrowserTabId
+ */
+export function browserTabSidebarItems(tabs: BrowserTab[], activeBrowserTabId: number | null) {
+  return (tabs || []).map((tab) => ({
+    tab,
+    isActive: tab.id === activeBrowserTabId,
+    item: {
+      label: tab.label,
+      wsIcon: tab.icon ? { name: tab.icon, color: tab.iconColor } : null,
+      jobIcon: { name: "mdi-server", color: null },
+      isWorktree: false,
+      agent: null,
+      phraseNotify: false,
+    },
+  }));
 }

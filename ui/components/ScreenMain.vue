@@ -19,12 +19,13 @@
       </div>
       <TerminalBase
         v-if="hasAnyTab && !booting"
-        v-show="!isEmptyScreenVisible"
+        v-show="!isEmptyScreenVisible && !isBrowserTabActive"
         ref="terminalBaseView"
         :is-panel-bottom="isPanelBottom"
       >
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
+      <BrowserTabsView v-if="isBrowserTabActive" />
       <Modal />
       <SessionOpenModal />
       <TerminalSettingsModal />
@@ -40,6 +41,7 @@
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
+import BrowserTabsView from "./BrowserTabsView.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
@@ -51,6 +53,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
+import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminal } from "../composables/useTerminal.ts";
 import { useViewport } from "../composables/useViewport.ts";
@@ -68,11 +71,14 @@ import { useSessionResume } from "../composables/useSessionResume.ts";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
+import { useBrowserTabsPersist } from "../composables/useBrowserTabsPersist.ts";
 import { on, emit } from "../app-bridge.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
+import { displayUrl } from "../utils/format.ts";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
+const browserTabStore = useBrowserTabStore();
 const { isOffline } = useConnectivityMonitor();
 const workspaceStore = useWorkspaceStore();
 const { connectDeferredTabs } = useTerminal();
@@ -90,6 +96,7 @@ const terminalBaseView = ref<{ fitAllTerminals: (opts?: { force?: boolean, scrol
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink, attachSessionTab } = useDeepLink();
 const { startWatching: startLayoutPersist } = useLayoutPersist();
+const { startWatching: startBrowserTabsPersist, restoreBrowserTabs } = useBrowserTabsPersist();
 const {
   activateTerminalTab,
   launchTerminal,
@@ -103,7 +110,9 @@ useGlobalShortcuts({ closeTab });
 
 const openTabs = computed(() => terminalStore.openTabs);
 const hasAnyTab = computed(() => openTabs.value.length > 0);
+const isBrowserTabActive = computed(() => browserTabStore.activeBrowserTabId != null);
 const isEmptyScreenVisible = computed(() => {
+  if (isBrowserTabActive.value) return false;
   if (layoutStore.isSplitMode) return false;
   if (openTabs.value.length > 0) return false;
   return !openTabs.value.some(t => t.id === terminalStore.activeTabId);
@@ -122,6 +131,12 @@ const activeTabLabel = computed(() => {
   // tabWorkspaceVersion を読んで依存に含める。
   terminalStore.tabWorkspaceVersion;
   if (isEmptyScreenVisible.value) return "";
+  if (isBrowserTabActive.value) {
+    const browserTab = browserTabStore.tabs.find((t) => t.id === browserTabStore.activeBrowserTabId);
+    if (!browserTab) return "";
+    const url = displayUrl(browserTab.url);
+    return browserTab.label ? `${browserTab.label} | ${url}` : url;
+  }
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {
     const paneId = layoutStore.splitPaneTabIds[layoutStore.activePaneIndex];
@@ -243,6 +258,8 @@ onMounted(async () => {
     applyDeepLink();
     startSyncPolling();
     startLayoutPersist();
+    await restoreBrowserTabs();
+    startBrowserTabsPersist();
   } finally {
     booting.value = false;
     bootMessage.value = "Loading...";

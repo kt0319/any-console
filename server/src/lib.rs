@@ -154,6 +154,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/snippets",
             get(settings::get_snippets).put(settings::put_snippets),
         )
+        .route(
+            "/settings/browser-tabs",
+            get(settings::get_browser_tabs).put(settings::put_browser_tabs),
+        )
         .route("/workspace-order", put(settings::put_workspace_order))
         .route(
             "/groups",

@@ -41,6 +41,12 @@
   display: flex;
   flex: 1;
   justify-content: flex-end;
+  align-items: center;
+  /* InfoPillRow経由の行は子（.pill-trailing）が1つだけのためgapは効かないが、
+     ブラウザタブ行（SessionListView.vue）は素のピルボタンを直接複数並べる
+     ため、InfoPillRowの内側コンテナ（.pill-trailing-inner）と同じ6pxを
+     ここでも持たせてボタン間の間隔を揃える。 */
+  gap: 6px;
   min-width: 0;
 }
 
@@ -187,4 +193,10 @@
 @keyframes session-sidebar-notify-blink {
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
+}
+
+/* ブラウザタブ行のserverアイコンは、タブバー（BrowserTabItem.vue）や
+   InfoPillの.pill-server-btnと同じlime色に揃える。 */
+.browser-tab-sidebar-li .session-sidebar-icon .mdi-server {
+  color: var(--lime);
 }
