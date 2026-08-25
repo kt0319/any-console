@@ -169,7 +169,7 @@ pub(crate) fn notification_grace_sec(store: &ConfigStore) -> i64 {
         return PHRASE_NOTIFY_IDLE_GRACE_SEC;
     };
     match obj.get("phrase_notify_grace_sec") {
-        Some(Value::Number(n)) if !obj["phrase_notify_grace_sec"].is_boolean() => n
+        Some(Value::Number(n)) => n
             .as_i64()
             .filter(|&v| v >= 0)
             .unwrap_or(PHRASE_NOTIFY_IDLE_GRACE_SEC),
@@ -255,6 +255,24 @@ pub struct InfoPillSettings {
     order: Vec<String>,
 }
 
+impl InfoPillSettings {
+    /// フィールド名（`INFO_PILL_FIELDS` のキー）から表示フラグを引く。
+    /// フィールドを追加したら `INFO_PILL_FIELDS`・構造体とここを揃えること。
+    fn flag(&self, key: &str) -> bool {
+        match key {
+            "branch" => self.branch,
+            "prs" => self.prs,
+            "actions" => self.actions,
+            "changes" => self.changes,
+            "devserver" => self.devserver,
+            "files" => self.files,
+            "add" => self.add,
+            "dispatch" => self.dispatch,
+            _ => unreachable!("unknown info pill field: {key}"),
+        }
+    }
+}
+
 fn yes() -> bool {
     true
 }
@@ -266,16 +284,7 @@ pub async fn get_info_pills(State(state): State<Arc<AppState>>, _auth: RequireAu
         .unwrap_or(json!({}));
     let raw = raw.as_object().cloned().unwrap_or_default();
     let mut result = Map::new();
-    for field in [
-        "branch",
-        "prs",
-        "actions",
-        "changes",
-        "devserver",
-        "files",
-        "add",
-        "dispatch",
-    ] {
+    for &field in INFO_PILL_FIELDS {
         let v = raw
             .get(field)
             .map(|v| v.as_bool().unwrap_or(true) || v.as_i64().is_some_and(|n| n != 0))
@@ -309,17 +318,8 @@ pub async fn put_info_pills(
     JsonBody(body): JsonBody<InfoPillSettings>,
 ) -> Result<Json<Value>, ApiError> {
     let mut data = Map::new();
-    for (key, v) in [
-        ("branch", body.branch),
-        ("prs", body.prs),
-        ("actions", body.actions),
-        ("changes", body.changes),
-        ("devserver", body.devserver),
-        ("files", body.files),
-        ("add", body.add),
-        ("dispatch", body.dispatch),
-    ] {
-        data.insert(key.to_string(), Value::Bool(v));
+    for &key in INFO_PILL_FIELDS {
+        data.insert(key.to_string(), Value::Bool(body.flag(key)));
     }
     data.insert(
         "order".to_string(),
