@@ -6,11 +6,23 @@
  * ここはEdit URL入力・サーバーからの復元値に対するクライアント側のガード。
  */
 export function isAllowedBrowserTabUrl(url: unknown): url is string {
-  if (typeof url !== "string") return false;
+  return normalizeBrowserTabUrl(url) != null;
+}
+
+/**
+ * ブラウザタブとして保存するURLを正規化して返す（許可外・不正はnull）。
+ * `new URL()` は `https:example.com` のような省略形も受理するが、その生文字列
+ * をそのまま保存するとサーバー側の literal な `https://` prefix 検証（422）と
+ * 食い違い、保存だけが黙って失敗する。必ず `parsed.href`（`scheme://` 形式が
+ * 保証される）に揃えてからストアへ入れること。
+ */
+export function normalizeBrowserTabUrl(url: unknown): string | null {
+  if (typeof url !== "string") return null;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.href;
   } catch {
-    return false;
+    return null;
   }
 }

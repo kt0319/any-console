@@ -15,7 +15,7 @@ import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { usePrompt } from "../composables/usePrompt.ts";
 import { useToast } from "../composables/useToast.ts";
 import { openExternal } from "../utils/open-external.ts";
-import { isAllowedBrowserTabUrl } from "../utils/browser-tab-url.ts";
+import { normalizeBrowserTabUrl } from "../utils/browser-tab-url.ts";
 
 // ブラウザタブ（dev serverプレビュー）共通のEdit URL/Reload/Open in new tab
 // ピル群。BrowserPane.vue（フロートするInfo Pill風ツールバー）と
@@ -42,12 +42,16 @@ async function onEditUrl() {
   });
   if (!next || next === props.url) return;
   // iframeのsrcへそのまま入れるため http/https 以外は受け付けない
-  // （サーバー側 put_browser_tabs も同じ規則で422を返す）。
-  if (!isAllowedBrowserTabUrl(next)) {
+  // （サーバー側 put_browser_tabs も同じ規則で422を返す）。保存する値は
+  // 正規化済みhref（`https:example.com` → `https://example.com/`）に揃える —
+  // 生文字列のままだとサーバーのprefix検証と食い違い保存だけが失敗する。
+  const normalized = normalizeBrowserTabUrl(next);
+  if (!normalized) {
     toast.error("Invalid URL: must start with http:// or https://");
     return;
   }
-  browserTabStore.updateBrowserTabUrl(props.id, next);
+  if (normalized === props.url) return;
+  browserTabStore.updateBrowserTabUrl(props.id, normalized);
 }
 
 // 外部の通常ブラウザで開くと同時に、このブラウザタブもアクティブにする

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isAllowedBrowserTabUrl } from "../../ui/utils/browser-tab-url.ts";
+import { isAllowedBrowserTabUrl, normalizeBrowserTabUrl } from "../../ui/utils/browser-tab-url.ts";
 
 describe("isAllowedBrowserTabUrl", () => {
   it("http / https のURLを許可する", () => {
@@ -22,5 +22,25 @@ describe("isAllowedBrowserTabUrl", () => {
     expect(isAllowedBrowserTabUrl(null)).toBe(false);
     expect(isAllowedBrowserTabUrl(undefined)).toBe(false);
     expect(isAllowedBrowserTabUrl(123)).toBe(false);
+  });
+});
+
+describe("normalizeBrowserTabUrl", () => {
+  it("正規のURLはhref（scheme://形式）のまま返す", () => {
+    expect(normalizeBrowserTabUrl("http://localhost:3000/")).toBe("http://localhost:3000/");
+    expect(normalizeBrowserTabUrl("https://example.com/path?x=1")).toBe("https://example.com/path?x=1");
+  });
+
+  it("new URL()が受理する省略形をscheme://形式へ正規化する（サーバーのprefix検証と揃える）", () => {
+    expect(normalizeBrowserTabUrl("https:example.com")).toBe("https://example.com/");
+    expect(normalizeBrowserTabUrl("HTTP://EXAMPLE.COM")).toBe("http://example.com/");
+  });
+
+  it("許可外スキーム・不正な文字列はnullを返す", () => {
+    expect(normalizeBrowserTabUrl("javascript:alert(1)")).toBe(null);
+    expect(normalizeBrowserTabUrl("file:///etc/passwd")).toBe(null);
+    expect(normalizeBrowserTabUrl("not a url")).toBe(null);
+    expect(normalizeBrowserTabUrl("")).toBe(null);
+    expect(normalizeBrowserTabUrl(null)).toBe(null);
   });
 });
