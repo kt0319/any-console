@@ -339,20 +339,23 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
   }
 }
 
-async function switchPane(key: string, opts: { expandBranch?: boolean, expandStash?: boolean } = {}) {
-  // 後方互換: "github" → "issues"、"browser"/"branch" → "history"、"stash" → "changes"
-  // （Branch/StashはそれぞれHistory/Changesタブへ統合。一覧は通常畳んだ状態で
-  // 開始するが、branch/stashピル経由（opts.expandBranch/opts.expandStash）の
-  // 場合だけ展開する）
-  if (key === "github") key = "issues";
-  if (key === "browser" || key === "branch") key = "history";
-  if (key === "stash") key = "changes";
+type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
 
-  activePane.value = key;
-  updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
-  updateViewTitle();
+// 後方互換のペイン名: "github" → "issues"、"browser"/"branch" → "history"、
+// "stash" → "changes"（Branch/StashはそれぞれHistory/Changesタブへ統合）。
+const PANE_ALIASES: Record<string, string> = {
+  github: "issues",
+  browser: "history",
+  branch: "history",
+  stash: "changes",
+};
 
-  if (key === "history") {
+// ペイン切替時の初期化処理（issues/actions/prs は v-if + onMounted で
+// 自動ロードするためエントリ無し）。タブを追加する時は tabs のエントリと
+// あわせてここへ足す。opts はピル経由の展開指定（一覧は通常畳んだ状態で
+// 開始するが、branch/stashピル経由の場合だけ展開する）。
+const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
+  history: (opts) => {
     nextTick(() => {
       // commit:expanded/collapsedの取りこぼし（タブ切替等で経由せず離脱した
       // 場合）でBranchヘッダーが隠れたまま復帰しなくなるのを防ぐため、
@@ -364,21 +367,31 @@ async function switchPane(key: string, opts: { expandBranch?: boolean, expandSta
       loadBranchSection();
       if (opts.expandBranch) expandBranchSection();
     });
-  } else if (key === "changes") {
+  },
+  changes: (opts) => {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
     if (opts.expandStash) expandStashSection();
-  } else if (key === "jobs") {
+  },
+  jobs: () => {
     nextTick(() => jobsPane.value?.load());
-  } else if (key === "files") {
+  },
+  files: () => {
     nextTick(() => {
       const filesKey = terminalSessionId.value || workspaceStore.selectedWorkspace;
       paneLoader.ensure("files", filesKey, () => fileBrowser.value?.load());
     });
-  }
-  // issues/actions/prs は v-if + onMounted で自動ロード
-  if (key === "select") {
+  },
+  select: () => {
     nextTick(() => terminalSelectPane.value?.refresh());
-  }
+  },
+};
+
+function switchPane(rawKey: string, opts: SwitchPaneOpts = {}) {
+  const key = PANE_ALIASES[rawKey] ?? rawKey;
+  activePane.value = key;
+  updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
+  updateViewTitle();
+  paneEnterHandlers[key]?.(opts);
 }
 
 function onStashCount(n: number | null) {
