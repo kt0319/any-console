@@ -74,67 +74,23 @@
             </button>
           </div>
           <!-- ワークスペース行 -->
-          <div
+          <WorkspaceListRow
             v-else
-            class="picker-ws-group"
-            :class="{ dragging: dragIdx === flatIdx, 'picker-ws-group-inset': item.groupId !== null }"
-            :style="dragIdx === flatIdx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
-          >
-            <div class="picker-ws-row picker-ws-row-top hover-bg">
-              <span
-                v-if="isEditMode"
-                class="drag-handle picker-ws-drag-handle"
-                aria-hidden="true"
-                @pointerdown.prevent="onDragStart($event, flatIdx)"
-              >
-                <span class="mdi mdi-drag-vertical"></span>
-              </span>
-              <button type="button" class="picker-ws-header-label" @click="toggleJobs(item.ws)">
-                <span v-html="renderIconStr(item.ws.icon || 'mdi-console', item.ws.icon_color, 18)"></span>
-                <span class="picker-ws-header-text">
-                  <span class="picker-ws-name">
-                    <span v-if="item.ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
-                    {{ item.ws.worktree ? workspaceDisplayName(item.ws) : item.ws.name }}
-                  </span>
-                  <span class="picker-ws-branch">{{ item.ws.branch || '-' }}</span>
-                </span>
-              </button>
-              <div class="picker-ws-top-meta" @click.stop>
-                <button v-if="item.ws.is_git_repo && item.ws.clean === false && !isEditMode" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
-                <template v-if="item.ws.is_git_repo && !isEditMode">
-                  <GitActionBtn v-if="item.ws.behind > 0" icon="pull" title="Pull" :count="item.ws.behind" :running="isRunning(item.ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(item.ws, 'pull')" />
-                  <GitActionBtn v-if="item.ws.ahead > 0" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, pushActionFor(item.ws))" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, pushActionFor(item.ws))" />
-                </template>
-                <template v-if="isEditMode">
-                  <button type="button" class="picker-ws-edit-btn hover-bg-text" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
-                    <span class="mdi mdi-pencil-outline"></span>
-                  </button>
-                </template>
-              </div>
-              <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === item.ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
-            </div>
-            <div v-if="expandedWorkspace === item.ws.name" class="picker-ws-jobs-inline">
-              <WorkspaceJobsPane :workspace="item.ws.name" :edit-mode="isEditMode" />
-            </div>
-            <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
-              <template v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name">
-                <div class="picker-ws-worktree-item">
-                  <button type="button" class="picker-ws-worktree-open hover-bg" @click="toggleJobs(wt)">
-                    <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-                    <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-                    <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-                  </button>
-                  <button v-if="isEditMode" type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
-                    <span class="mdi mdi-delete-outline"></span>
-                  </button>
-                  <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
-                </div>
-                <div v-if="expandedWorkspace === wt.name" class="picker-ws-jobs-inline">
-                  <WorkspaceJobsPane :workspace="wt.name" :edit-mode="isEditMode" />
-                </div>
-              </template>
-            </div>
-          </div>
+            :ws="item.ws"
+            :inset="item.groupId !== null"
+            :edit-mode="isEditMode"
+            :expanded-workspace="expandedWorkspace"
+            :worktrees="worktreesByBase[item.ws.name] || []"
+            :dragging="dragIdx === flatIdx"
+            :drag-offset-y="dragOffsetY"
+            :is-running="isRunning"
+            @toggle-jobs="toggleJobs"
+            @open-changes="openChanges"
+            @git-action="doAction"
+            @edit="openEditWs"
+            @remove-worktree="removeWorktree"
+            @drag-start="(e: PointerEvent) => onDragStart(e, flatIdx)"
+          />
         </template>
 
         <div v-if="workspaceStore.allWorkspaces.length === 0" class="clone-repo-empty">
@@ -171,22 +127,17 @@ import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useToast } from "../composables/useToast.ts";
-import { renderIconStr } from "../utils/render-icon.ts";
-import { dirtyBadgeHtml } from "../utils/git.ts";
-import { worktreeBranchLabel, workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
+import { workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
 import { useWorktreeRemove } from "../composables/useWorktreeRemove.ts";
 import { useWorktreeCleanup } from "../composables/useWorktreeCleanup.ts";
-import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
 import DetachedSessionsList from "./DetachedSessionsList.vue";
-import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
-import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.ts";
+import WorkspaceListRow from "./WorkspaceListRow.vue";
 import { emit as bridgeEmit } from "../app-bridge.ts";
-import { useListDragSort } from "../composables/useListDragSort.ts";
-import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.ts";
-import { buildFlatList, deriveGroupChanges, workspacesInGroup } from "../utils/workspace-groups.ts";
+import { buildFlatList, workspacesInGroup } from "../utils/workspace-groups.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import { useWorkspaceOrdering } from "../composables/useWorkspaceOrdering.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 
 // useModalView の各値は inject（default null はテスト用）。実行時は常に
@@ -242,49 +193,17 @@ const worktreesByBase = computed(() => {
   return map;
 });
 
-// ---- グループドラッグ ----
-const { dragFromIdx, dragOverIdx: groupDragOver, onDragStart: onGroupDragStart } = useListDragSort({
-  rowSelector: ".picker-group-header",
-  onReorder: async (from, to) => {
-    const groups = [...workspaceStore.groups];
-    const [moved] = groups.splice(from, 1);
-    groups.splice(to, 0, moved);
-    await apiPut(EP_GROUP_ORDER, { order: groups.map((g) => g.id) }, { errorMessage: "Failed to save group order" });
-    await workspaceStore.fetchGroups();
-  },
-});
-// null は「非ドラッグ中」（テンプレートの数値比較は常に false になる）。
-// 比較式の型エラーを避けるため number として扱う（実行時の値・挙動は不変）。
-const groupDragFrom = computed(() => dragFromIdx.value as number);
-
-// ---- ワークスペースドラッグ ----
-const { dragIdx, dragOffsetY, dragFlatList, onDragStart, cleanup: cleanupWsDrag } = useWorkspaceListDrag({
-  flatList,
-  listEl: wsListEl,
-  onReorder: _saveOrderAndGroups,
-});
-
-async function _saveOrderAndGroups(finalList: ({ type: string } & Record<string, any>)[]) {
-  const { changes: groupChanges, visibleOrder } = deriveGroupChanges(finalList as Parameters<typeof deriveGroupChanges>[0]);
-
-  // グループ変更を保存
-  for (const { ws, newGroupId } of groupChanges) {
-    await apiPut(wsEndpoint(ws.name, "config"), {
-      icon: ws.icon || "",
-      icon_color: ws.icon_color || "",
-      group_id: newGroupId,
-    }, { errorMessage: "Failed to update group" });
-  }
-
-  // 非表示(折りたたみ)のワークスペースを末尾に温存してフル順序を構築
-  const allWsIds = workspaceStore.allWorkspaces.map((ws) => ws.id || ws.name);
-  const visibleSet = new Set(visibleOrder);
-  const hiddenOrder = allWsIds.filter((id) => !visibleSet.has(id));
-  const fullOrder = [...visibleOrder, ...hiddenOrder];
-
-  await apiPut(EP_WORKSPACE_ORDER, { order: fullOrder }, { errorMessage: "Failed to save workspace order" });
-  await workspaceStore.fetchWorkspaces();
-}
+// ---- 並べ替え（グループ + ワークスペース。永続化は useWorkspaceOrdering に集約）----
+const {
+  groupDragFrom,
+  groupDragOver,
+  onGroupDragStart,
+  dragIdx,
+  dragOffsetY,
+  dragFlatList,
+  onDragStart,
+  cleanupWsDrag,
+} = useWorkspaceOrdering({ flatList, listEl: wsListEl });
 
 function toggleGroup(groupId: string) {
   if (collapsedGroups.has(groupId)) {
@@ -296,10 +215,6 @@ function toggleGroup(groupId: string) {
 
 function doAction(ws: Record<string, any>, action: string) {
   gitAction(ws.name, action, { branch: ws.branch });
-}
-
-function pushActionFor(ws: Record<string, any>) {
-  return ws.has_upstream === false ? "push-upstream" : "push";
 }
 
 const isLoading = ref(false);
@@ -429,215 +344,13 @@ onBeforeUnmount(() => {
   padding: 4px 0;
 }
 
-.picker-ws-group {
-  overflow: hidden;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-}
-
-.picker-ws-group.dragging {
-  opacity: 0.72;
-  background: var(--bg-tertiary);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  z-index: 10;
-}
-
-.picker-ws-group-inset {
-  border-bottom: none;
-}
-
-.picker-ws-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.picker-ws-drag-handle {
-  height: 100%;
-}
-
 .picker-group-drag-handle {
   width: 20px;
   height: 28px;
   font-size: 14px;
 }
 
-.picker-ws-row-top {
-  min-height: 44px;
-  padding-bottom: 4px;
-  box-sizing: border-box;
-}
-
-.picker-ws-header-label {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
-}
-
-.picker-ws-header-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  flex: 1;
-}
-
-.picker-ws-name {
-  min-width: 0;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
-.picker-ws-wt-icon {
-  font-size: 13px;
-  color: var(--accent);
-  margin-right: 2px;
-}
-
-.picker-ws-worktrees {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0 12px 8px 28px;
-}
-
-.picker-ws-jobs-chevron {
-  flex-shrink: 0;
-  margin-left: auto;
-  font-size: 16px;
-  color: var(--text-muted);
-}
-
-.picker-ws-jobs-inline {
-  margin: 0 12px 8px 28px;
-  border-left: 2px solid var(--border);
-  overflow: hidden;
-}
-
-.picker-ws-worktree-item {
-  display: flex;
-  align-items: center;
-  border-left: 2px solid var(--border);
-}
-
-.picker-ws-worktree-open {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.picker-ws-worktree-del {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  flex-shrink: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: var(--error);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.picker-ws-wt-child-icon {
-  font-size: 13px;
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.picker-ws-worktree-branch {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.picker-ws-wt-dirty {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #f5a623;
-  flex-shrink: 0;
-}
-
-/* 行・ボタンの通常ホバー（背景/文字色）は base.css の .hover-bg /
-   .hover-bg-text ユーティリティをテンプレート側で付ける。 */
-@media (hover: hover) and (pointer: fine) {
-  .picker-ws-worktree-del:hover {
-    background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
-  }
-}
-
-.picker-ws-branch {
-  max-width: 100%;
-  color: var(--text-muted);
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.picker-ws-top-meta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
-}
-
-.picker-ws-top-meta :deep(.git-badge) {
-  height: 22px;
-  min-height: 22px;
-  max-height: 22px;
-  min-width: auto;
-  padding: 0 6px;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.picker-ws-top-meta :deep(.picker-ws-mini-btn),
-.picker-ws-top-meta :deep(.git-action-btn) {
-  height: 26px;
-  min-height: 26px;
-  max-height: 26px;
-  min-width: 26px;
-  padding: 0 6px;
-  font-size: 11px;
-  line-height: 1;
-}
-
+/* グループヘッダーの編集ボタン（WorkspaceListRow.vue と同一スタイル — scoped のため両方で定義）。 */
 .picker-ws-edit-btn {
   display: flex;
   align-items: center;
@@ -653,47 +366,6 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
   font-size: 14px;
   cursor: pointer;
-}
-
-
-.picker-ws-mini-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.git-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  padding: 0 10px;
-  border: none;
-  border-radius: var(--radius);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button.git-badge:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.git-badge.dirty {
-  color: var(--warning);
-  background: var(--warning-bg-20);
-  gap: 4px;
-  font-size: 12px;
 }
 
 /* グループ */
