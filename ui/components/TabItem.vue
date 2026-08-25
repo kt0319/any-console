@@ -41,16 +41,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, type PropType } from "vue";
-import { resolveDropIndex } from "../utils/tab-nav.ts";
+import { ref, computed, type PropType } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
-import { useLayoutStore } from "../stores/layout.ts";
+import { useTabDrag } from "../composables/useTabDrag.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { DRAG_THRESHOLD } from "../utils/constants.ts";
-import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
-import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
 const props = defineProps({
   tab: { type: Object as PropType<TerminalTab>, required: true },
@@ -59,28 +56,31 @@ const props = defineProps({
 });
 
 const emits = defineEmits(["select"]);
-const layoutStore = useLayoutStore();
 const { confirmAndCloseTab } = useTabClose();
 const terminalStore = useTerminalStore();
+const agentStateStore = useAgentStateStore();
 const workspaceStore = useWorkspaceStore();
-const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const pillEl = ref<HTMLElement | null>(null);
-const isDragging = ref(false);
-const dropSide = ref("");
 let closePending = false;
-let lastInputWasTouch = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
-const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
-// タッチでのドラッグ処理そのものは全タブで有効にする。閾値を超えた時点の
-// 移動方向（縦/横）で分岐する: 横方向はアクティブタブの並び替え専用（非アクティブ
-// タブの横移動はタブバーのネイティブスクロールに委ねる）、縦方向はアクティブ/
-// 非アクティブ問わず分割ドラッグとして扱う。長押しは不要で、閾値を超えて
-// 動かした瞬間にすぐ開始する。
-const canTouchDrag = computed(() => terminalStore.openTabs.length >= 1);
-const effectiveDropSide = computed(() => {
-  if (layoutStore.dragOverTabId === props.tab.id) return layoutStore.dragOverSide;
-  return dropSide.value;
+// ドラッグ操作（PC DnD + タッチ）は useTabDrag に集約。
+const {
+  canDrag,
+  isDragging,
+  effectiveDropSide,
+  onDragStart,
+  onDragEnd,
+  onDragOverTab,
+  onDragLeaveTab,
+  onDropOnTab,
+  onTouchStart,
+  consumeLastInputWasTouch,
+} = useTabDrag({
+  tabId: () => props.tab.id,
+  isActive,
+  pillEl,
+  isClosePending: () => closePending,
 });
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
@@ -112,10 +112,10 @@ const label = computed(() => {
 
 const isDirty = computed(() => tabWorkspace.value?.clean === false);
 
-const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
-const agentStateSource = computed(() => terminalStore.agentStateSources[props.tab.sessionId] || "");
+const agentState = computed(() => agentStateStore.agentStates[props.tab.sessionId] || "");
+const agentStateSource = computed(() => agentStateStore.agentStateSources[props.tab.sessionId] || "");
 
-const hasPhraseNotify = computed(() => !!terminalStore.phraseNotifySessions[props.tab.sessionId]);
+const hasPhraseNotify = computed(() => !!agentStateStore.phraseNotifySessions[props.tab.sessionId]);
 
 const tabAriaLabel = computed(() => (hasPhraseNotify.value ? `${label.value} (phrase detected)` : label.value));
 
@@ -154,13 +154,11 @@ function onClick(e: MouseEvent) {
   if (isActive.value) {
     // 既にアクティブなタブ（開いているタブが1つしかない場合等）は select が
     // 発火しない = switchTab() を経由しないため、ここで明示的にバッジをクリアする。
-    terminalStore.clearSessionNotifyBadges(props.tab.sessionId);
+    agentStateStore.clearSessionNotifyBadges(props.tab.sessionId);
     return;
   }
   // タッチ操作での選択はソフトキーボードが誤起動するため、フォーカスしない。
-  const skipFocus = lastInputWasTouch;
-  lastInputWasTouch = false;
-  emits("select", props.tab, { skipFocus });
+  emits("select", props.tab, { skipFocus: consumeLastInputWasTouch() });
 }
 
 async function onClose() {
@@ -177,188 +175,6 @@ function onClosePress() {
   closePending = true;
 }
 
-// PC: HTML5 Drag & Drop
-function onDragStart(e: DragEvent) {
-  if (!canDrag.value || closePending) { e.preventDefault(); return; }
-  e.dataTransfer!.setData("text/plain", String(props.tab.id));
-  e.dataTransfer!.effectAllowed = "move";
-  isDragging.value = true;
-  beginDrag(props.tab.id);
-}
-
-function onDragEnd(e: DragEvent) {
-  isDragging.value = false;
-  dropSide.value = "";
-  cancelDrag();
-  (e.currentTarget as HTMLElement)?.blur();
-}
-
-function resolveDragTabId(e: DragEvent) {
-  const raw = layoutStore.dragTabId || e?.dataTransfer?.getData("text/plain");
-  const value = typeof raw === "string" ? parseInt(raw, 10) : Number(raw);
-  return Number.isFinite(value) ? value : null;
-}
-
-function onDragOverTab(e: DragEvent) {
-  if (!canDrag.value) return;
-  const dragTabId = resolveDragTabId(e);
-  if (!dragTabId || dragTabId === props.tab.id) {
-    dropSide.value = "";
-    return;
-  }
-  const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === dragTabId);
-  const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
-  if (fromIndex < 0 || targetIndex < 0) {
-    dropSide.value = "";
-    return;
-  }
-  e.preventDefault();
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  const isLeft = e.clientX < rect.left + rect.width / 2;
-  dropSide.value = isLeft ? "left" : "right";
-}
-
-function onDragLeaveTab(e: DragEvent) {
-  if ((e.currentTarget as HTMLElement)?.contains(e.relatedTarget as Node | null)) return;
-  dropSide.value = "";
-}
-
-function onDropOnTab(e: DragEvent) {
-  dropSide.value = "";
-  if (!canDrag.value) return;
-  e.preventDefault();
-  const dragTabId = resolveDragTabId(e);
-  if (!dragTabId || dragTabId === props.tab.id) return;
-
-  const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === dragTabId);
-  const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
-  if (fromIndex < 0 || targetIndex < 0) return;
-
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  const insertBefore = e.clientX < rect.left + rect.width / 2;
-  terminalStore.moveTab(
-    fromIndex,
-    resolveDropIndex(fromIndex, targetIndex, insertBefore, terminalStore.openTabs.length),
-  );
-
-  cancelDrag();
-}
-
-// Mobile: 長押し無しで閾値を超えた瞬間にドラッグ開始し、その時点の移動方向で
-// 分岐する。横移動はアクティブタブの並び替え専用（非アクティブタブの横移動は
-// preventDefaultせず touch-action:pan-x のネイティブスクロールに委ねる）、
-// 縦移動はアクティブ/非アクティブ問わずスプリットドラッグになる。
-// クローズはタブ本体のタップ/クリックでは行わず、常に tab-close ボタン経由。
-const touchTracker = createTouchTracker();
-// 閾値超え時点の移動方向で確定する軸。"horizontal" = 並び替え（アクティブ
-// タブのみ）、"vertical" = 分割ドラッグ（全タブ）。
-const touchDragAxis = ref<"horizontal" | "vertical" | null>(null);
-
-function hitTestTab(clientX: number, clientY: number) {
-  const el = document.elementFromPoint(clientX, clientY);
-  const btn = el?.closest?.<HTMLElement>(".tab-btn[data-tab-id]");
-  if (!btn) return null;
-  const tabId = Number(btn.dataset.tabId);
-  if (!Number.isFinite(tabId) || tabId === props.tab.id) return null;
-  const rect = btn.getBoundingClientRect();
-  const side = clientX < rect.left + rect.width / 2 ? "left" : "right";
-  return { tabId, side };
-}
-
-function clearDragOverIndicator() {
-  layoutStore.dragOverTabId = null;
-  layoutStore.dragOverSide = "";
-}
-
-function finishTouchDrag(clientX: number, clientY: number) {
-  if (touchDragAxis.value === "vertical") {
-    finishSplitDrop({ tabId: props.tab.id, clientX, clientY });
-    clearDragOverIndicator();
-    cancelDrag();
-    return;
-  }
-  const hit = hitTestTab(clientX, clientY);
-  if (hit) {
-    const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
-    const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === hit.tabId);
-    if (fromIndex >= 0 && targetIndex >= 0) {
-      terminalStore.moveTab(
-        fromIndex,
-        resolveDropIndex(fromIndex, targetIndex, hit.side === "left", terminalStore.openTabs.length),
-      );
-    }
-  } else {
-    finishSplitDrop({ tabId: props.tab.id, clientX, clientY });
-  }
-  clearDragOverIndicator();
-  cancelDrag();
-}
-
-function onTouchStart(e: TouchEvent) {
-  lastInputWasTouch = true;
-  touchTracker.start(e);
-  isDragging.value = false;
-  touchDragAxis.value = null;
-}
-
-function onTouchMove(e: TouchEvent) {
-  if (!canTouchDrag.value) return;
-  if (!isDragging.value) {
-    const { dx, dy } = touchTracker.delta(e);
-    if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) return;
-    const axis = Math.abs(dy) > Math.abs(dx) ? "vertical" : "horizontal";
-    // 横方向はアクティブタブの並び替え専用。非アクティブタブの横移動は
-    // ここで何もせず、touch-action:pan-x によるネイティブのタブバー
-    // スクロールに委ねる（preventDefaultしない）。
-    if (axis === "horizontal" && !isActive.value) return;
-    touchDragAxis.value = axis;
-    isDragging.value = true;
-    beginDrag(props.tab.id);
-  }
-  if (e.cancelable) e.preventDefault();
-  const touch = e.touches[0];
-  updateHover(touch.clientX, touch.clientY);
-  if (touchDragAxis.value === "vertical") return;
-  const hit = hitTestTab(touch.clientX, touch.clientY);
-  layoutStore.dragOverTabId = hit?.tabId ?? null;
-  layoutStore.dragOverSide = hit?.side ?? "";
-}
-
-function onTouchEnd(e: TouchEvent) {
-  if (isDragging.value) {
-    if (e.cancelable) e.preventDefault();
-    const touch = e.changedTouches[0];
-    finishTouchDrag(touch.clientX, touch.clientY);
-    isDragging.value = false;
-  }
-  touchDragAxis.value = null;
-  // 長押し→そのまま離す＝クローズは廃止。クローズは tab-close ボタン経由のみ。
-}
-
-function onTouchCancel() {
-  if (isDragging.value) {
-    isDragging.value = false;
-    clearDragOverIndicator();
-    cancelDrag();
-  }
-  touchDragAxis.value = null;
-}
-
-onMounted(() => {
-  const el = pillEl.value;
-  if (!el) return;
-  el.addEventListener("touchmove", onTouchMove, { passive: false });
-  el.addEventListener("touchend", onTouchEnd, { passive: false });
-  el.addEventListener("touchcancel", onTouchCancel);
-});
-
-onBeforeUnmount(() => {
-  const el = pillEl.value;
-  if (!el) return;
-  el.removeEventListener("touchmove", onTouchMove);
-  el.removeEventListener("touchend", onTouchEnd);
-  el.removeEventListener("touchcancel", onTouchCancel);
-});
 </script>
 
 <style scoped>
