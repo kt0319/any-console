@@ -24,9 +24,20 @@
         class="form-input icon-picker-search"
         placeholder="Search icons..."
         autocomplete="off"
-        @input="onSearchInput"
       />
-      <div ref="gridRef" class="icon-picker-grid">
+      <div class="icon-picker-grid">
+        <button
+          v-for="name in gridModel.items"
+          :key="name"
+          type="button"
+          class="icon-picker-item"
+          :class="{ selected: selectedIcon === `mdi-${name}` }"
+          :aria-label="name"
+          :data-tooltip="name"
+          @click="selectMdiIcon(`mdi-${name}`)"
+        ><span :class="`mdi mdi-${name}`"></span></button>
+        <div v-if="gridModel.remaining > 0" class="icon-picker-more">and {{ gridModel.remaining }} more... use search to filter</div>
+        <div v-if="gridModel.items.length === 0" class="icon-picker-more">No matching icons</div>
       </div>
 
       <div class="icon-picker-section-label">Color</div>
@@ -85,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useModalView } from "../composables/useModalView.ts";
 import { useIconUpload } from "../composables/useIconUpload.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
@@ -93,36 +104,15 @@ import { looksLikeUrl, extractDomain } from "../utils/icon-url.ts";
 import { buildIconGridModel } from "../utils/icon-grid.ts";
 import { ICON_GRID_MAX_DISPLAY } from "../utils/constants.ts";
 import MDI_ICONS from "../data/mdi-icons.ts";
+import { ICON_PRESET_COLORS } from "../data/icon-preset-colors.ts";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle!.value = "Icon Picker";
 
 const { readIconFile } = useIconUpload();
 
-const ICON_PRESET_COLORS = [
-  { label: "Default", value: "" },
-  { label: "Red", value: "#e53935" },
-  { label: "Pink", value: "#d81b60" },
-  { label: "Rose", value: "#ec407a" },
-  { label: "Purple", value: "#8e24aa" },
-  { label: "Deep Purple", value: "#5e35b1" },
-  { label: "Indigo", value: "#3949ab" },
-  { label: "Blue", value: "#1e88e5" },
-  { label: "Cyan", value: "#00acc1" },
-  { label: "Teal", value: "#00897b" },
-  { label: "Green", value: "#43a047" },
-  { label: "Lime", value: "#7cb342" },
-  { label: "Yellow", value: "#fdd835" },
-  { label: "Amber", value: "#ffb300" },
-  { label: "Orange", value: "#fb8c00" },
-  { label: "Brown", value: "#6d4c41" },
-  { label: "Gray", value: "#757575" },
-  { label: "White", value: "#ffffff" },
-];
-
 const searchRef = ref<HTMLInputElement | null>(null);
 const uploadRef = ref<HTMLInputElement | null>(null);
-const gridRef = ref<HTMLDivElement | null>(null);
 const mode = ref<"mdi" | "favicon" | "image">("mdi");
 const searchQuery = ref("");
 const faviconUrl = ref("");
@@ -133,41 +123,9 @@ const selectedColor = ref("");
 const previewHtml = ref("");
 const canSubmit = ref(false);
 
-function renderGrid(icons: string[], query: string) {
-  const el = gridRef.value;
-  if (!el) return;
-  el.innerHTML = "";
-  const { items, remaining } = buildIconGridModel(icons, query, ICON_GRID_MAX_DISPLAY);
-  for (const name of items) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "icon-picker-item";
-    btn.innerHTML = `<span class="mdi mdi-${name}"></span>`;
-    btn.title = name;
-    btn.addEventListener("click", () => selectMdiIcon(`mdi-${name}`));
-    el.appendChild(btn);
-  }
-  if (remaining > 0) {
-    const more = document.createElement("div");
-    more.className = "icon-picker-more";
-    more.textContent = `and ${remaining} more... use search to filter`;
-    el.appendChild(more);
-  }
-  if (items.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "icon-picker-more";
-    empty.textContent = "No matching icons";
-    el.appendChild(empty);
-  }
-}
-
-function highlightGridSelection(iconName: string | null) {
-  const el = gridRef.value;
-  if (!el) return;
-  el.querySelectorAll<HTMLButtonElement>(".icon-picker-item").forEach((item) => {
-    item.classList.toggle("selected", !!iconName && item.title === iconName.replace("mdi-", ""));
-  });
-}
+// グリッドは検索クエリからの純粋な導出（選択状態は :class で宣言的に反映）。
+const gridModel = computed(() =>
+  buildIconGridModel(MDI_ICONS, searchQuery.value.trim().toLowerCase(), ICON_GRID_MAX_DISPLAY));
 
 // 現在のmode・入力内容からプレビューとcanSubmitを再計算する。
 function updatePreview() {
@@ -204,7 +162,6 @@ function updatePreview() {
 function selectMdiIcon(iconName: string) {
   selectedIcon.value = iconName;
   updatePreview();
-  highlightGridSelection(iconName);
 }
 
 function selectColor(color: string) {
@@ -212,22 +169,12 @@ function selectColor(color: string) {
   updatePreview();
 }
 
-function onSearchInput() {
-  renderGrid(MDI_ICONS, searchQuery.value.trim().toLowerCase());
-  highlightGridSelection(selectedIcon.value);
-}
-
 function onFaviconInput() {
   updatePreview();
 }
 
-async function onModeChange() {
+function onModeChange() {
   updatePreview();
-  if (mode.value === "mdi") {
-    await nextTick();
-    renderGrid(MDI_ICONS, searchQuery.value.trim().toLowerCase());
-    highlightGridSelection(selectedIcon.value);
-  }
 }
 
 function clearAndClose() {
@@ -266,7 +213,7 @@ function submit() {
   if (uploadedIcon.value) popView!({ icon: uploadedIcon.value, color: "" });
 }
 
-onMounted(async () => {
+onMounted(() => {
   const currentIcon = viewState!.value?.currentIcon || null;
   const currentColor = viewState!.value?.currentColor || "";
   selectedColor.value = currentColor;
@@ -285,20 +232,11 @@ onMounted(async () => {
     selectedIcon.value = currentIcon;
   }
   updatePreview();
-
-  if (mode.value === "mdi") {
-    await nextTick();
-    renderGrid(MDI_ICONS, "");
-    highlightGridSelection(selectedIcon.value);
-  }
 });
 </script>
 
-<style>
-/* icon-picker-item/-more は renderGrid() が document.createElement で
-   動的生成するため、scoped CSS の data-v-xxxx 属性が付かずscoped側の
-   セレクタが一切マッチしない。ここだけ非scopedにして確実に当てる。 */
-.icon-picker-grid .icon-picker-item {
+<style scoped>
+.icon-picker-item {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -314,21 +252,19 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.icon-picker-grid .icon-picker-item.selected {
+.icon-picker-item.selected {
   border-color: var(--accent);
   background: var(--accent-muted, rgba(33, 150, 243, 0.15));
 }
 
-.icon-picker-grid .icon-picker-more {
+.icon-picker-more {
   width: 100%;
   text-align: center;
   font-size: 12px;
   color: var(--text-muted);
   padding: 12px 0;
 }
-</style>
 
-<style scoped>
 .icon-picker-section-label {
   font-size: 12px;
   font-weight: 600;
