@@ -206,16 +206,6 @@ async function deleteJob() {
   border-top: 1px solid var(--border);
 }
 
-.ws-settings-row-stack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-}
-
-.ws-settings-row-stack .ws-settings-label {
-  min-width: 0;
-}
-
 .job-command-input {
   width: 100%;
   font-family: ui-monospace, "Menlo", "Consolas", monospace;
@@ -258,21 +248,5 @@ async function deleteJob() {
   color: var(--text-muted);
   margin-top: 2px;
   line-height: 1.6;
-}
-
-
-.ws-delete-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 12px;
-  font-size: 13px;
-  color: var(--error);
-  background: transparent;
-  border: 1px solid var(--error);
-  border-radius: var(--radius);
-  cursor: pointer;
-  justify-content: center;
 }
 </style>

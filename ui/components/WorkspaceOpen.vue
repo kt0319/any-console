@@ -721,11 +721,6 @@ button.git-badge:disabled {
   cursor: default;
 }
 
-.git-badge.clean {
-  color: var(--success);
-  background: var(--success-bg-20);
-}
-
 .git-badge.dirty {
   color: var(--warning);
   background: var(--warning-bg-20);
@@ -776,9 +771,6 @@ button.git-badge:disabled {
   .picker-group-toggle:hover {
     color: var(--text-primary);
   }
-}
-
-.picker-ws-group-inset {
 }
 
 .ws-toolbar-spacer {
