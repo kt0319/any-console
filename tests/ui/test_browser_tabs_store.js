@@ -257,6 +257,24 @@ describe("browserTabs store: beginRestore / applyServerState（useBrowserTabsPer
     expect(changed).toBe(true);
   });
 
+  it("未同期中に明示的にターミナルへ戻った場合、復元成功時にサーバーのactiveUrlで前面を奪わない", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }], "http://localhost:3000/");
+    store.beginRestore();
+    store.showTerminal();
+    store.applyServerState([{ url: "http://localhost:3000/" }], "http://localhost:3000/");
+    expect(store.activeBrowserTabId).toBe(null);
+    expect(store.tabs).toHaveLength(1);
+  });
+
+  it("ターミナルへ戻った後でもブラウザタブを選び直せば、復元成功時にアクティブが維持される", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    store.beginRestore();
+    store.showTerminal();
+    store.selectBrowserTab(store.tabs[0].id);
+    store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:3000/");
+  });
+
   it("synced中の操作は記録されない（保存はwatcher経由で行われるため、次の復元に持ち越さない）", () => {
     store.applyServerState([{ url: "http://localhost:3000/" }], null);
     // synced中に開閉（watcherが保存する経路）

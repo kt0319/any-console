@@ -261,7 +261,10 @@ onMounted(async () => {
     startSyncPolling();
     startLayoutPersist();
     await restoreBrowserTabs();
-    startBrowserTabsPersist();
+    // 返り値のクリーンアップを必ず登録する — 捨てるとログアウト（アンマウント）
+    // 後も復元リトライのタイマーが /settings/browser-tabs を叩き続け、
+    // ログイン毎に watcher と connectivity:back リスナーが積み上がる。
+    bridgeCleanups.push(startBrowserTabsPersist());
   } finally {
     booting.value = false;
     bootMessage.value = "Loading...";

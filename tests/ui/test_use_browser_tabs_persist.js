@@ -234,6 +234,33 @@ describe("useBrowserTabsPersist", () => {
     expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:5000/");
   });
 
+  it("debounce待ちの保存は再復元の開始時に破棄され、古い一覧でサーバーを上書きしない", async () => {
+    apiFetchMock.mockResolvedValueOnce(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: null }),
+    );
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+    cleanups.push(startWatching());
+
+    // 変更（保存はdebounce待ちのままキューに残る）→ 窓が閉じる前に再復元が始まる
+    store.openBrowserTab("http://localhost:4000/");
+    await nextTick();
+    apiFetchMock.mockResolvedValue(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: null }),
+    );
+    const p = restoreBrowserTabs();
+    await vi.advanceTimersByTimeAsync(LAYOUT_SAVE_DEBOUNCE_MS + 10);
+    await p;
+    await flushSave();
+
+    // 破棄されなかった場合に飛ぶはずの「4000を含む古い一覧」のPUTが無いこと
+    // （synced後のwatcher再発火によるサーバー状態と同一内容のPUTは許容する）
+    const stale = putCalls().filter(([, opts]) => JSON.stringify(opts.body).includes("4000"));
+    expect(stale.length).toBe(0);
+    // 未保存だった変更はサーバー状態が正となる
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+  });
+
   it("復元GETの並行実行はin-flightのPromiseを共有して1本にまとめる", async () => {
     let resolveFetch;
     apiFetchMock.mockReturnValue(new Promise((r) => { resolveFetch = r; }));

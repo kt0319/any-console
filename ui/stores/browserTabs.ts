@@ -53,6 +53,11 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   // 使い、成功時にクリアする。reactive にする必要は無い（表示には使わない）。
   const openedWhileUnsynced = new Set<string>();
   const removedWhileUnsynced = new Set<string>();
+  // 未同期中にユーザーが明示的にターミナル側へ戻ったか。true のまま復元が
+  // 成功した場合、サーバーの activeUrl ではターミナル前面を奪わない（遅れた
+  // 復元がブラウザタブを勝手に前面へ出さないため）。ブラウザタブを開く/選ぶ
+  // 操作で解除され、復元成功でクリアされる。
+  let terminalChosenWhileUnsynced = false;
 
   function _recordOpen(url: string) {
     if (syncState.value === "synced") return;
@@ -74,6 +79,7 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
    */
   function showTerminal() {
     activeBrowserTabId.value = null;
+    if (syncState.value !== "synced") terminalChosenWhileUnsynced = true;
   }
 
   /**
@@ -101,11 +107,14 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
     tabs.value.push(tab);
     activeBrowserTabId.value = tab.id;
     _recordOpen(url);
+    terminalChosenWhileUnsynced = false;
     return tab.id;
   }
 
   function selectBrowserTab(id: number) {
-    if (tabs.value.some((t) => t.id === id)) activeBrowserTabId.value = id;
+    if (!tabs.value.some((t) => t.id === id)) return;
+    activeBrowserTabId.value = id;
+    terminalChosenWhileUnsynced = false;
   }
 
   /**
@@ -168,13 +177,19 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
       idCounter += 1;
       return { id: idCounter, url, label: browserTabLabelFromUrl(url) };
     });
+    // 今見ているタブが結果にも残るならアクティブ維持。未同期中にユーザーが
+    // 明示的にターミナルへ戻っていた場合は、サーバーの activeUrl で前面を
+    // 奪い返さない（遅れた復元によるフォーカスの横取り防止）。
     const preferredUrl =
       currentActive && tabs.value.some((t) => t.url === currentActive.url)
         ? currentActive.url
-        : activeUrl;
+        : terminalChosenWhileUnsynced
+          ? null
+          : activeUrl;
     activeBrowserTabId.value = tabs.value.find((t) => t.url === preferredUrl)?.id ?? null;
     openedWhileUnsynced.clear();
     removedWhileUnsynced.clear();
+    terminalChosenWhileUnsynced = false;
     syncState.value = "synced";
     return changedLocally;
   }

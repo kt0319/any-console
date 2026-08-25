@@ -38,6 +38,9 @@ export function useBrowserTabsPersist() {
   const auth = useAuthStore();
 
   async function _saveNow() {
+    // debounce中に beginRestore された場合の最終ガード（キューは restore 開始時に
+    // cancel されるが、実行順の隙間で発火しても未同期の一覧をPUTしない）。
+    if (!browserTabStore.isRestored) return;
     const activeTab = browserTabStore.tabs.find((t) => t.id === browserTabStore.activeBrowserTabId);
     try {
       await auth.apiFetch(EP_SETTINGS_BROWSER_TABS, {
@@ -112,8 +115,11 @@ export function useBrowserTabsPersist() {
   async function _restoreNow() {
     // 成功（applyServerState）まで保存を止める。再マウント（ログアウト→再
     // ログイン等）でストアが synced のまま残っている場合もここで unsynced に
-    // 戻り、失敗時に前回マウントの残骸一覧がPUTされることはない。
+    // 戻り、失敗時に前回マウントの残骸一覧がPUTされることはない。直前の
+    // debounce窓に積まれたままの保存も、古い一覧でサーバーを上書きしないよう
+    // ここで破棄する（未保存だったその変更はサーバー状態が正となり失われる）。
     browserTabStore.beginRestore();
+    _saver.cancel();
     try {
       const res = await auth.apiFetch(EP_SETTINGS_BROWSER_TABS);
       if (!res || !res.ok) {
