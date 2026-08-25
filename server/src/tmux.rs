@@ -154,6 +154,8 @@ fn systemd_user_env_defaults() -> Vec<(String, String)> {
     extra
 }
 
+/// 実体は `subprocess::run_subprocess_with_env` — C ロケール強制を共有する
+/// （tmux はクライアントのロケールが UTF-8 でないと出力を壊す。subprocess.rs 参照）。
 async fn run_session_cmd(
     program: &str,
     args: &[String],
@@ -161,16 +163,12 @@ async fn run_session_cmd(
     env: &[(String, String)],
     timeout_sec: f64,
 ) -> bool {
-    let mut command = tokio::process::Command::new(program);
-    command.args(args).kill_on_drop(true).current_dir(cwd);
-    for (k, v) in env {
-        command.env(k, v);
-    }
-    let fut = command.status();
-    matches!(
-        tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await,
-        Ok(Ok(status)) if status.success()
-    )
+    let mut cmd: Vec<&str> = Vec::with_capacity(args.len() + 1);
+    cmd.push(program);
+    cmd.extend(args.iter().map(String::as_str));
+    crate::subprocess::run_subprocess_with_env(&cmd, timeout_sec, Some(cwd), env)
+        .await
+        .is_some_and(|r| r.success())
 }
 
 /// tmux ベースセッションを作成する（Python `create_tmux_session` 相当）。

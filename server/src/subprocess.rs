@@ -49,12 +49,26 @@ pub async fn run_subprocess_safe(
     timeout_sec: f64,
     cwd: Option<&Path>,
 ) -> Option<CmdResult> {
+    run_subprocess_with_env(cmd, timeout_sec, cwd, &[]).await
+}
+
+/// 追加の環境変数付きで実行する variant（tmux セッション作成等）。
+/// `run_subprocess_safe` と同じく C ロケール強制・kill_on_drop を適用する。
+pub async fn run_subprocess_with_env(
+    cmd: &[&str],
+    timeout_sec: f64,
+    cwd: Option<&Path>,
+    env: &[(String, String)],
+) -> Option<CmdResult> {
     let (program, args) = cmd.split_first()?;
     let mut command = tokio::process::Command::new(program);
     command.args(args).kill_on_drop(true);
     coerce_c_locale(&mut command);
     if let Some(dir) = cwd {
         command.current_dir(dir);
+    }
+    for (k, v) in env {
+        command.env(k, v);
     }
     let fut = command.output();
     let output = match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await {
