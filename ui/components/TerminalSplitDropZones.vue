@@ -1,51 +1,31 @@
 <template>
   <div class="split-drop-overlay">
-    <div class="split-drop-zone drop-top-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top-left')">
-      <span class="drop-zone-grid-icon" aria-hidden="true">
+    <div
+      v-for="zone in visibleZones"
+      :key="zone.dir"
+      :class="`split-drop-zone drop-${zone.dir}`"
+      @dragover.prevent
+      @dragenter.prevent="onDragEnter"
+      @dragleave="onDragLeave"
+      @drop="onDrop($event, zone.dir)"
+    >
+      <span v-if="zone.icon === 'grid'" class="drop-zone-grid-icon" aria-hidden="true">
         <span class="cell tl"></span>
         <span class="cell tr"></span>
         <span class="cell bl"></span>
         <span class="cell br"></span>
       </span>
-    </div>
-    <div class="split-drop-zone drop-top-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top-right')">
-      <span class="drop-zone-grid-icon" aria-hidden="true">
-        <span class="cell tl"></span>
-        <span class="cell tr"></span>
-        <span class="cell bl"></span>
-        <span class="cell br"></span>
+      <span v-else-if="zone.icon === 'rect'" :class="`drop-zone-rect-icon rect-${zone.dir}`" aria-hidden="true">
+        <span class="rect r1"></span>
+        <span class="rect r2"></span>
       </span>
+      <template v-else>
+        <span class="mdi mdi-fullscreen drop-zone-icon"></span>
+        <span class="drop-zone-label">Exit split mode</span>
+      </template>
     </div>
-    <div class="split-drop-zone drop-bottom-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom-left')">
-      <span class="drop-zone-grid-icon" aria-hidden="true">
-        <span class="cell tl"></span>
-        <span class="cell tr"></span>
-        <span class="cell bl"></span>
-        <span class="cell br"></span>
-      </span>
-    </div>
-    <div class="split-drop-zone drop-bottom-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom-right')">
-      <span class="drop-zone-grid-icon" aria-hidden="true">
-        <span class="cell tl"></span>
-        <span class="cell tr"></span>
-        <span class="cell bl"></span>
-        <span class="cell br"></span>
-      </span>
-    </div>
-    <template v-if="!isPanelBottom">
-      <div class="split-drop-zone drop-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'left')">
-        <span class="drop-zone-rect-icon rect-left" aria-hidden="true">
-          <span class="rect r1"></span>
-          <span class="rect r2"></span>
-        </span>
-      </div>
-      <div class="split-drop-zone drop-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'right')">
-        <span class="drop-zone-rect-icon rect-right" aria-hidden="true">
-          <span class="rect r1"></span>
-          <span class="rect r2"></span>
-        </span>
-      </div>
-    </template>
+  </div>
+</template>
     <div class="split-drop-zone drop-top" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top')">
       <span class="drop-zone-rect-icon rect-top" aria-hidden="true">
         <span class="rect r1"></span>
@@ -72,8 +52,25 @@ import { useSplitDropZones } from "../composables/useSplitDropZones.ts";
 
 const layoutStore = useLayoutStore();
 
-const isSplitMode = computed(() => layoutStore.isSplitMode);
-const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+// ゾーン一覧（角4 = grid アイコン / 辺4 = rect アイコン / 中央 = 分割解除）。
+// left/right はキーボードバーが下端にあるモバイル縦持ちでは出さない。
+const ZONES = [
+  { dir: "top-left", icon: "grid" },
+  { dir: "top-right", icon: "grid" },
+  { dir: "bottom-left", icon: "grid" },
+  { dir: "bottom-right", icon: "grid" },
+  { dir: "left", icon: "rect", hideWhenPanelBottom: true },
+  { dir: "right", icon: "rect", hideWhenPanelBottom: true },
+  { dir: "top", icon: "rect" },
+  { dir: "bottom", icon: "rect" },
+  { dir: "center", icon: "exit", splitModeOnly: true },
+] as const;
+
+const visibleZones = computed(() => ZONES.filter((zone) => {
+  if ("hideWhenPanelBottom" in zone && zone.hideWhenPanelBottom && layoutStore.isPanelBottom) return false;
+  if ("splitModeOnly" in zone && zone.splitModeOnly && !layoutStore.isSplitMode) return false;
+  return true;
+}));
 
 const { onDragEnter, onDragLeave, onDrop } = useSplitDropZones();
 </script>
