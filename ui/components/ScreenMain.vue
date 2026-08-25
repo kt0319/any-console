@@ -197,6 +197,10 @@ onMounted(() => {
   }));
 
   bridgeCleanups.push(on("tab:select", ({ tab, skipFocus }) => {
+    // どの経路（タブバー・サイドバー・ディープリンク・dispatch・circle keypad）
+    // からのターミナルタブ選択でも、前面に出ているブラウザタブを退避させる。
+    // emit側それぞれで退避させると漏れるため、唯一の消費側であるここで行う。
+    browserTabStore.showTerminal();
     activateTerminalTab(tab.id, { focus: !skipFocus });
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;

@@ -1,6 +1,10 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isAllowedBrowserTabUrl, normalizeBrowserTabUrl } from "../../ui/utils/browser-tab-url.ts";
+import {
+  browserTabLabelFromUrl,
+  isAllowedBrowserTabUrl,
+  normalizeBrowserTabUrl,
+} from "../../ui/utils/browser-tab-url.ts";
 
 describe("isAllowedBrowserTabUrl", () => {
   it("http / https のURLを許可する", () => {
@@ -42,5 +46,16 @@ describe("normalizeBrowserTabUrl", () => {
     expect(normalizeBrowserTabUrl("not a url")).toBe(null);
     expect(normalizeBrowserTabUrl("")).toBe(null);
     expect(normalizeBrowserTabUrl(null)).toBe(null);
+  });
+});
+
+describe("browserTabLabelFromUrl", () => {
+  it("ホスト名（ポート番号込み）だけに短縮する", () => {
+    expect(browserTabLabelFromUrl("http://localhost:3000/foo?x=1")).toBe("localhost:3000");
+    expect(browserTabLabelFromUrl("https://example.com/path")).toBe("example.com");
+  });
+
+  it("URLとして不正な文字列はそのまま返す（表示が空になるよりまし）", () => {
+    expect(browserTabLabelFromUrl("not a url")).toBe("not a url");
   });
 });

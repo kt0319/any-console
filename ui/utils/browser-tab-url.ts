@@ -26,3 +26,16 @@ export function normalizeBrowserTabUrl(url: unknown): string | null {
     return null;
   }
 }
+
+/**
+ * ブラウザタブの表示ラベルをURLから導出する。フルURLはタブ幅に対して長すぎ、
+ * クエリ文字列等のノイズも含むため、ホスト名（ポート番号込み）だけに短縮する。
+ * URLとして不正な文字列はそのまま返す（表示が空になるよりまし）。
+ */
+export function browserTabLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}

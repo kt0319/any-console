@@ -4,16 +4,10 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useAuthStore } from "../stores/auth.ts";
 import { isEmptyPaneId, makeEmptyPaneId } from "../utils/empty-pane.ts";
 import { EP_SETTINGS_LAYOUT } from "../utils/endpoints.ts";
+import { createSaveScheduler } from "../utils/save-scheduler.ts";
 import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.ts";
 
-let _saveTimer: ReturnType<typeof setTimeout> | null = null;
-
-function cancelSaveTimer() {
-  if (_saveTimer != null) {
-    clearTimeout(_saveTimer);
-    _saveTimer = null;
-  }
-}
+const _saver = createSaveScheduler(SAVE_DEBOUNCE_MS);
 
 /**
  * 分割モードの状態をサーバーに保存・復元するコンポーザブル。
@@ -52,11 +46,7 @@ export function useLayoutPersist() {
   }
 
   function _scheduleSave() {
-    cancelSaveTimer();
-    _saveTimer = setTimeout(() => {
-      _saveTimer = null;
-      _saveNow();
-    }, SAVE_DEBOUNCE_MS);
+    _saver.schedule(_saveNow);
   }
 
   /**

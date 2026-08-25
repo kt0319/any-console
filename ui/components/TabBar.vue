@@ -106,9 +106,7 @@ const sortedItems = computed(() => {
 });
 
 function onSelect(tab: TerminalTab, { skipFocus = false } = {}) {
-  // ターミナルタブへ切り替える時は前面に出ているブラウザタブを退避させる
-  // （ScreenMain.vueはactiveBrowserTabId!=nullの間BrowserTabsViewを前面表示する）。
-  browserTabStore.activeBrowserTabId = null;
+  // 前面のブラウザタブの退避は tab:select の消費側（ScreenMain.vue）が行う。
   emit("tab:select", { tab, skipFocus });
 }
 

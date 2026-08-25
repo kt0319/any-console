@@ -129,30 +129,24 @@ describe("browserTabs store: updateBrowserTabUrl", () => {
   });
 });
 
-describe("browserTabs store: reloadBrowserTab", () => {
+describe("browserTabs store: showTerminal", () => {
   let store;
   beforeEach(() => {
     setActivePinia(createPinia());
     store = useBrowserTabStore();
   });
 
-  it("登録済みハンドラを呼び出す", () => {
-    const handler = vi.fn();
-    store.registerReloadHandler(1, handler);
-    store.reloadBrowserTab(1);
-    expect(handler).toHaveBeenCalledTimes(1);
+  it("前面のブラウザタブを退避してターミナル側へ戻す（タブ自体は残る）", () => {
+    const id = store.openBrowserTab("http://localhost:3000/");
+    expect(store.activeBrowserTabId).toBe(id);
+    store.showTerminal();
+    expect(store.activeBrowserTabId).toBe(null);
+    expect(store.tabs.length).toBe(1);
   });
 
-  it("未登録のIDは何もしない", () => {
-    expect(() => store.reloadBrowserTab(9999)).not.toThrow();
-  });
-
-  it("unregisterReloadHandler後は呼び出されない", () => {
-    const handler = vi.fn();
-    store.registerReloadHandler(1, handler);
-    store.unregisterReloadHandler(1);
-    store.reloadBrowserTab(1);
-    expect(handler).not.toHaveBeenCalled();
+  it("ブラウザタブが前面でなくても安全に呼べる", () => {
+    store.showTerminal();
+    expect(store.activeBrowserTabId).toBe(null);
   });
 });
 

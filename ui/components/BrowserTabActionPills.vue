@@ -2,7 +2,7 @@
   <button type="button" class="pill-chip pill-devserver-btn browser-tab-edit-url-btn" aria-label="Edit URL" data-tooltip="Edit URL" @click="onEditUrl">
     <span class="mdi mdi-web"></span>
   </button>
-  <button type="button" class="pill-chip pill-devserver-btn" aria-label="Reload" data-tooltip="Reload" @click="browserTabStore.reloadBrowserTab(id)">
+  <button type="button" class="pill-chip pill-devserver-btn" aria-label="Reload" data-tooltip="Reload" @click="emit('browser-tab:reload', { id })">
     <span class="mdi mdi-refresh"></span>
   </button>
   <button type="button" class="pill-chip pill-devserver-btn" aria-label="Open in new tab" data-tooltip="Open in new tab" @click="onOpenExternal">
@@ -14,6 +14,7 @@
 import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { usePrompt } from "../composables/usePrompt.ts";
 import { useToast } from "../composables/useToast.ts";
+import { emit } from "../app-bridge.ts";
 import { openExternal } from "../utils/open-external.ts";
 import { normalizeBrowserTabUrl } from "../utils/browser-tab-url.ts";
 

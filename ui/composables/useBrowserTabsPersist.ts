@@ -3,9 +3,10 @@ import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { useAuthStore } from "../stores/auth.ts";
 import { EP_SETTINGS_BROWSER_TABS } from "../utils/endpoints.ts";
 import { isAllowedBrowserTabUrl } from "../utils/browser-tab-url.ts";
+import { createSaveScheduler } from "../utils/save-scheduler.ts";
 import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.ts";
 
-let _saveTimer: ReturnType<typeof setTimeout> | null = null;
+const _saver = createSaveScheduler(SAVE_DEBOUNCE_MS);
 
 /**
  * ブラウザタブ一覧をサーバー（/settings/browser-tabs）へ保存・復元する
@@ -31,11 +32,7 @@ export function useBrowserTabsPersist() {
   }
 
   function _scheduleSave() {
-    if (_saveTimer != null) { clearTimeout(_saveTimer); _saveTimer = null; }
-    _saveTimer = setTimeout(() => {
-      _saveTimer = null;
-      _saveNow();
-    }, SAVE_DEBOUNCE_MS);
+    _saver.schedule(_saveNow);
   }
 
   /**

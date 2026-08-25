@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { browserTabLabelFromUrl } from "../utils/browser-tab-url.ts";
 
 export interface BrowserTab {
   id: number;
@@ -15,16 +16,6 @@ export interface BrowserTab {
 // タブIDはterminalStoreのterminalIdCounterとは独立した別名前空間（衝突しても
 // 実害は無い — 参照先はopenTabs/browserTabsそれぞれ別配列のため）。
 let idCounter = 0;
-
-// labelが指定されなかった時のフォールバック。フルURLはタブ幅に対して長すぎ、
-// クエリ文字列等のノイズも含むため、ホスト名（ポート番号込み）だけに短縮する。
-function shortLabelFromUrl(url: string): string {
-  try {
-    return new URL(url).host || url;
-  } catch {
-    return url;
-  }
-}
 
 /**
  * dev serverプレビュー用の「ブラウザタブ」。タブバーに通常のターミナルタブと
@@ -44,23 +35,14 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   // （空配列で上書きしてしまうため）。
   const isRestored = ref(false);
 
-  // BrowserPane.vueが自身のiframeを再読み込みする関数をタブIDごとに登録する
-  // レジストリ（DOM操作を伴う命令的な処理のためreactive stateには乗せない）。
-  // SessionListView.vueのサイドバー行など、対象タブが非アクティブでもiframe
-  // 自体は v-show でマウントされ続けているため、reloadBrowserTab はどのタブに
-  // 対しても呼べる。
-  const reloadHandlers = new Map<number, () => void>();
-
-  function registerReloadHandler(id: number, handler: () => void) {
-    reloadHandlers.set(id, handler);
-  }
-
-  function unregisterReloadHandler(id: number) {
-    reloadHandlers.delete(id);
-  }
-
-  function reloadBrowserTab(id: number) {
-    reloadHandlers.get(id)?.();
+  /**
+   * ターミナル側を前面に戻す（前面に出ているブラウザタブを退避させる）。
+   * ScreenMain.vue の tab:select ハンドラが呼ぶため、どの経路（タブバー・
+   * サイドバー・ディープリンク・dispatch等）でターミナルタブを選択しても
+   * ブラウザタブが被ったままにならない。
+   */
+  function showTerminal() {
+    activeBrowserTabId.value = null;
   }
 
   /**
@@ -84,7 +66,7 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
       return existing.id;
     }
     idCounter += 1;
-    const tab: BrowserTab = { id: idCounter, url, label: shortLabelFromUrl(url) };
+    const tab: BrowserTab = { id: idCounter, url, label: browserTabLabelFromUrl(url) };
     tabs.value.push(tab);
     activeBrowserTabId.value = tab.id;
     return tab.id;
@@ -104,7 +86,7 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
     const idx = tabs.value.findIndex((t) => t.id === id);
     if (idx === -1) return;
     const tab = tabs.value[idx];
-    tabs.value.splice(idx, 1, { ...tab, url, label: shortLabelFromUrl(url) });
+    tabs.value.splice(idx, 1, { ...tab, url, label: browserTabLabelFromUrl(url) });
   }
 
   /**
@@ -129,7 +111,7 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   function restoreFromServer(persisted: { url: string }[], activeUrl: string | null) {
     tabs.value = persisted.map((p) => {
       idCounter += 1;
-      return { id: idCounter, url: p.url, label: shortLabelFromUrl(p.url) };
+      return { id: idCounter, url: p.url, label: browserTabLabelFromUrl(p.url) };
     });
     activeBrowserTabId.value = tabs.value.find((t) => t.url === activeUrl)?.id ?? null;
     isRestored.value = true;
@@ -138,6 +120,6 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   return {
     tabs, activeBrowserTabId, isRestored,
     openBrowserTab, selectBrowserTab, closeBrowserTab, updateBrowserTabUrl, restoreFromServer,
-    registerReloadHandler, unregisterReloadHandler, reloadBrowserTab, setBrowserTabLoading,
+    showTerminal, setBrowserTabLoading,
   };
 });

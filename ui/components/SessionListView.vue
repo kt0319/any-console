@@ -39,13 +39,7 @@
             <span class="session-sidebar-pills" @click.stop>
               <BrowserTabActionPills :id="bt.tab.id" :url="bt.tab.url" />
             </span>
-            <button
-              type="button"
-              class="pill-close-btn pill-tab-close-btn"
-              aria-label="Close tab"
-              data-tooltip="Close tab"
-              @click.stop="onCloseBrowserTab(bt.tab)"
-            ><span class="mdi mdi-close"></span></button>
+            <BrowserTabCloseButton :tab-id="bt.tab.id" :label="bt.tab.label" />
           </span>
         </li>
       </ul>
@@ -96,8 +90,9 @@ import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
-import { confirmCloseTab, confirmCloseBrowserTab } from "../utils/tab-close-confirm.ts";
+import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
 import BrowserTabActionPills from "./BrowserTabActionPills.vue";
+import BrowserTabCloseButton from "./BrowserTabCloseButton.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
@@ -125,12 +120,6 @@ const browserTabItems = computed(() => browserTabSidebarItems(browserTabStore.ta
 
 function onSelectBrowserTab(tab: BrowserTab) {
   browserTabStore.selectBrowserTab(tab.id);
-}
-
-async function onCloseBrowserTab(tab: BrowserTab) {
-  const result = await confirmCloseBrowserTab(confirm, tab);
-  if (result !== true) return;
-  browserTabStore.closeBrowserTab(tab.id);
 }
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
@@ -209,15 +198,15 @@ const items = computed(() => {
 });
 
 function onSelect(item: SessionItem) {
-  // ターミナルタブへ切り替える時は前面に出ているブラウザタブを退避させる
-  // （TabBar.vue の onSelect と同じ理由）。
-  browserTabStore.activeBrowserTabId = null;
   if (item.id !== terminalStore.activeTabId) {
+    // 前面のブラウザタブの退避は tab:select の消費側（ScreenMain.vue）が行う。
     // モバイルはタッチ操作前提のため、ソフトキーボードの誤起動を避けて skipFocus。
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
   } else {
-    // 既にアクティブなタブ（タブが1つしかない場合等）は switchTab() を経由しないため、
-    // ここで明示的にバッジをクリアする（そうしないと通知が消えないまま残る）。
+    // 既にアクティブなタブ（タブが1つしかない場合等）は tab:select を発火しない
+    // ため、ブラウザタブの退避とバッジのクリアをここで明示的に行う
+    // （そうしないとブラウザタブ前面時にターミナルへ戻れず、通知も残る）。
+    browserTabStore.showTerminal();
     terminalStore.clearSessionNotifyBadges(item.tab.sessionId);
   }
   // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。

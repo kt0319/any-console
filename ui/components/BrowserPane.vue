@@ -3,9 +3,7 @@
     <div class="browser-pane-body">
       <div class="pill-group" :class="{ 'pill-group-bottom': layoutStore.isPanelBottom }">
         <BrowserTabActionPills :id="tabId" :url="url" />
-        <button type="button" class="pill-close-btn pill-tab-close-btn" aria-label="Close tab" data-tooltip="Close tab" @click="onClose">
-          <span class="mdi mdi-close"></span>
-        </button>
+        <BrowserTabCloseButton :tab-id="tabId" :label="label" />
       </div>
       <iframe
         :key="reloadKey"
@@ -24,9 +22,9 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
-import { confirmCloseBrowserTab } from "../utils/tab-close-confirm.ts";
+import { on } from "../app-bridge.ts";
 import BrowserTabActionPills from "./BrowserTabActionPills.vue";
+import BrowserTabCloseButton from "./BrowserTabCloseButton.vue";
 
 const props = defineProps({
   url: { type: String, required: true },
@@ -36,7 +34,6 @@ const props = defineProps({
 
 const browserTabStore = useBrowserTabStore();
 const layoutStore = useLayoutStore();
-const { confirm } = useConfirm();
 
 // :key に使い、値を変えるとiframe要素ごと作り直して強制的に再読み込みさせる。
 const reloadKey = ref(0);
@@ -58,17 +55,17 @@ function onLoad() {
   browserTabStore.setBrowserTabLoading(props.tabId, false);
 }
 
-async function onClose() {
-  const result = await confirmCloseBrowserTab(confirm, { label: props.label });
-  if (result !== true) return;
-  browserTabStore.closeBrowserTab(props.tabId);
-}
-
 // v-show でパネル自体は非アクティブ時も常時マウントされたままのため、
 // サイドバー（SessionListView.vue）等、このコンポーネント外からでも
-// reloadBrowserTab(tabId) 経由で同じReloadを呼べるよう登録しておく。
-onMounted(() => browserTabStore.registerReloadHandler(props.tabId, onReload));
-onBeforeUnmount(() => browserTabStore.unregisterReloadHandler(props.tabId));
+// browser-tab:reload イベント（app-bridge）で同じReloadを呼べるよう購読する。
+// 自分のタブ宛て（id一致）のイベントだけに反応する。
+let offReload: (() => void) | null = null;
+onMounted(() => {
+  offReload = on("browser-tab:reload", ({ id }) => {
+    if (id === props.tabId) onReload();
+  });
+});
+onBeforeUnmount(() => offReload?.());
 
 // urlが変わるたび（Edit URLでの書き換え含む、マウント直後の初回ナビゲーション
 // も含む）working演出を開始する。onLoadで完了に戻す。
