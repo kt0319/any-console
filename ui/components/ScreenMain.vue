@@ -69,6 +69,7 @@ import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
 import { on, emit } from "../app-bridge.ts";
+import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const layoutStore = useLayoutStore();
@@ -124,7 +125,7 @@ const activeTabLabel = computed(() => {
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {
     const paneId = layoutStore.splitPaneTabIds[layoutStore.activePaneIndex];
-    if (paneId != null && !layoutStore.isEmptyPaneId(paneId)) tabId = paneId;
+    if (paneId != null && !isEmptyPaneId(paneId)) tabId = paneId;
   }
   const tab = terminalStore.openTabs.find((t) => t.id === tabId);
   const label = tabTitleLabel(tab, workspaceStore.allWorkspaces);

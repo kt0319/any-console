@@ -272,7 +272,5 @@ export const useLayoutStore = defineStore("layout", () => {
     replaceTabWithEmpty,
     addPane,
     removeEmptyPane,
-    isEmptyPaneId,
-    countRealPanes,
   };
 });

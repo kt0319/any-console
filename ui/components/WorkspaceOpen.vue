@@ -137,7 +137,7 @@
           </div>
         </template>
 
-        <div v-if="displayWorkspaces.length === 0" class="clone-repo-empty">
+        <div v-if="workspaceStore.allWorkspaces.length === 0" class="clone-repo-empty">
           No workspaces to display
         </div>
         </template>
@@ -223,7 +223,6 @@ function groupedWorkspaces(groupId: string) {
   return workspacesInGroup(workspaceStore.allWorkspaces, groupId);
 }
 
-const displayWorkspaces = computed(() => workspaceStore.allWorkspaces);
 
 // グループヘッダーとワークスペースを1本のリストに統合
 // type:'header' はグループ見出し、type:'ws' はワークスペース行

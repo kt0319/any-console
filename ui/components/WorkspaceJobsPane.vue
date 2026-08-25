@@ -7,38 +7,25 @@
           <span class="job-item-label">Terminal</span>
         </button>
       </div>
-      <div
-        v-for="job in commonJobs"
-        :key="'c-' + job.name"
-        class="job-item-row hover-bg"
-        :class="{ 'job-item-detached': job.detached }"
-      >
-        <button type="button" class="job-item" @click="runJob(job)">
-          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-          <span class="job-item-label">{{ job.label || job.name }}</span>
-        </button>
-        <button v-if="props.editMode" type="button" class="job-item-edit-btn" data-tooltip="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
-          <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
-        </button>
-      </div>
-
-      <div v-if="localJobs.length" class="job-section-header job-section-subheader">
-        <span>Workspace jobs</span>
-      </div>
-      <div
-        v-for="job in localJobs"
-        :key="'l-' + job.name"
-        class="job-item-row hover-bg"
-        :class="{ 'job-item-detached': job.detached }"
-      >
-        <button type="button" class="job-item" @click="runJob(job)">
-          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-          <span class="job-item-label">{{ job.label || job.name }}</span>
-        </button>
-        <button v-if="props.editMode" type="button" class="job-item-edit-btn" data-tooltip="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
-          <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
-        </button>
-      </div>
+      <template v-for="section in jobSections" :key="section.keyPrefix">
+        <div v-if="section.header && section.jobs.length" class="job-section-header job-section-subheader">
+          <span>{{ section.header }}</span>
+        </div>
+        <div
+          v-for="job in section.jobs"
+          :key="section.keyPrefix + job.name"
+          class="job-item-row hover-bg"
+          :class="{ 'job-item-detached': job.detached }"
+        >
+          <button type="button" class="job-item" @click="runJob(job)">
+            <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+            <span class="job-item-label">{{ job.label || job.name }}</span>
+          </button>
+          <button v-if="props.editMode" type="button" class="job-item-edit-btn" data-tooltip="Edit" aria-label="Edit" @click.stop="startEditJob(job, section.isCommon)">
+            <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
+          </button>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -89,6 +76,13 @@ const { confirm } = useConfirm();
 
 const commonJobs = ref<Job[]>([]);
 const localJobs = ref<Job[]>([]);
+
+// 共通ジョブ → ワークスペースジョブの順に同一マークアップで描画する
+//（編集時の isCommon と「Workspace jobs」小見出しだけが異なる）。
+const jobSections = computed(() => [
+  { keyPrefix: "c-", jobs: commonJobs.value, isCommon: true, header: "" },
+  { keyPrefix: "l-", jobs: localJobs.value, isCommon: false, header: "Workspace jobs" },
+]);
 
 const workspace = computed(() => props.workspace || workspaceStore.selectedWorkspace);
 const ws = computed(() =>
