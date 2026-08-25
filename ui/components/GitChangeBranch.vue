@@ -1,6 +1,6 @@
 <template>
   <div class="git-branch-pane-wrapper pane-fill">
-    <BaseDialog :visible="addModalOpen" :z-index="210" initial-focus="none" @dismiss="closeAddModal">
+    <BaseDialog :visible="addModalOpen" :z-index="210" @dismiss="closeAddModal">
       <div class="branch-add-dialog dialog-box" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
         <div class="dialog-title">Add</div>
         <div class="branch-add-radio-group">
