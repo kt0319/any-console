@@ -23,7 +23,7 @@
           <template v-for="(keyDef, ci) in row" :key="ci">
             <div
               class="quick-key"
-              :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
+              :class="{ 'quick-flick-arrow': qwertyHasFlick(keyDef) }"
               @touchstart.prevent="onQwertyTouchStart($event)"
               @touchend.prevent="onQwertyTouchEnd($event, keyDef)"
               @touchcancel="onQuickKeyCancel($event)"
@@ -32,12 +32,12 @@
               <template v-if="keyDef.key === '_camera'">
                 <span class="flick-main"><span class="mdi mdi-camera"></span></span>
               </template>
-              <template v-else-if="hasFlick(ri, ci, keyDef)">
-                <span v-if="(!showSymbolView || keyDef.noSymbol) && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
-                <span :class="['flick-main', { 'flick-main-text': symbolDisplayLabel(keyDef).length > 1 }]">{{ symbolDisplayLabel(keyDef) }}</span>
-                <span v-if="(!showSymbolView || keyDef.noSymbol) && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
+              <template v-else-if="qwertyHasFlick(keyDef)">
+                <span v-if="qwertyFlickUpLabel(keyDef)" class="flick-hint-top">{{ qwertyFlickUpLabel(keyDef) }}</span>
+                <span :class="['flick-main', { 'flick-main-text': displayLabel(keyDef).length > 1 }]">{{ displayLabel(keyDef) }}</span>
+                <span v-if="keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
               </template>
-              <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
+              <template v-else>{{ displayLabel(keyDef) }}</template>
             </div>
           </template>
           <!-- カメラキーの右にBSキーを追加する
@@ -80,13 +80,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useInputStore } from "../stores/input.ts";
 import { useAuthStore } from "../stores/auth.ts";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.ts";
 import { useQwertyCamera } from "../composables/useQwertyCamera.ts";
-import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.ts";
+import { qwertyHasFlick, qwertyFlickUpLabel, qwertyDisplayLabel } from "../utils/qwerty-key.ts";
 import { restartTapBounce } from "../utils/dom.ts";
 
 // KeyboardBar.vue専用の部品（単独では使わない）。入力欄・矢印/Enterキーなどの
@@ -109,19 +109,14 @@ const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, modifierState, clearModifiers, getActiveTerminalTab } = useKeyboard();
 
-// キーレイアウト（data/keyboard-layout.ts）の1キー分。flickUp/flickDown/noSymbol は
+// キーレイアウト（data/keyboard-layout.ts）の1キー分。flickUp/flickDown は
 // 一部のキーのみ持つ。
 interface QwertyKeyDef {
   label: string;
   key: string;
   flickUp?: string;
   flickDown?: string;
-  noSymbol?: boolean;
 }
-
-const keyboardInput = ref(null);
-const draft = ref("");
-const hasDraft = computed(() => draft.value.trim().length > 0);
 
 const inputFocused = computed(() => props.externalInputFocused);
 const panelView = computed(() => props.panelView);
@@ -130,8 +125,6 @@ const qwertyRows = computed<QwertyKeyDef[][]>(() => inputStore.QWERTY_ROWS || []
 const numberKeys = computed<QwertyKeyDef[]>(() => inputStore.NUMBER_KEYS || []);
 
 const showFnView = computed(() => props.externalFnView);
-// 記号ロック機能は撤去済み。symbolDisplayLabel 等の分岐を壊さないための常時 false の無害な状態。
-const showSymbolView = ref(false);
 
 const { cameraInputEl, openCamera, onCameraFileChange } = useQwertyCamera({
   apiFetch: auth.apiFetch.bind(auth),
@@ -140,30 +133,18 @@ const { cameraInputEl, openCamera, onCameraFileChange } = useQwertyCamera({
 });
 
 const {
-  sendOrType,
   onQwertyTouchStart, onQwertyTouchEnd, onQwertyTap,
   onFnNumberTouchStart, onFnNumberTouchEnd,
 } = useQwertyKeyPress({
-  keyboardInput, hasDraft, modifierState, showSymbolView, sendKeyToTerminal, openCamera,
+  modifierState, sendKeyToTerminal, openCamera,
 });
 
 watch(() => props.active, (active) => {
-  if (!active) {
-    clearModifiers();
-    showSymbolView.value = false;
-  }
+  if (!active) clearModifiers();
 });
 
-function hasFlick(ri: number, ci: number, keyDef: QwertyKeyDef) {
-  return qwertyHasFlick(keyDef);
-}
-
-function flickUpLabel(ri: number, ci: number, keyDef: QwertyKeyDef) {
-  return qwertyFlickUpLabel(keyDef);
-}
-
-function symbolDisplayLabel(keyDef: QwertyKeyDef) {
-  return qwertySymbolLabel(keyDef, modifierState.shift, showSymbolView.value);
+function displayLabel(keyDef: QwertyKeyDef) {
+  return qwertyDisplayLabel(keyDef, modifierState.shift);
 }
 
 function onQuickKeyCancel(e: Event) {

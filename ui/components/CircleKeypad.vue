@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import type { PropType } from "vue";
-import { SPECIAL_BUTTON_SIZE } from "../composables/useCircleKeypad.ts";
+import { SPECIAL_BUTTON_SIZE } from "../utils/circle-keypad-geometry.ts";
 
 // useCircleKeypad.ts の state / keys / specials（表示用に整形済み）を受け取る。
 interface KeyPadState { visible: boolean; originX: number; originY: number; activeId: string | null }

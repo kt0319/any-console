@@ -6,7 +6,8 @@
 
 <script setup lang="ts">
 import type { PropType } from "vue";
-import { useIsMobile } from "../composables/useIsMobile.ts";
+import { storeToRefs } from "pinia";
+import { useLayoutStore } from "../stores/layout.ts";
 import { abbreviateBranch } from "../utils/git.ts";
 
 // コミット行の refs バッジ列（HEAD / ブランチ / リモート / タグ）。
@@ -21,7 +22,8 @@ defineProps({
   refs: { type: Array as PropType<RefLike[]>, default: () => [] },
 });
 
-const { isMobile } = useIsMobile();
+// モバイル判定は layout store の isPanelBottom に一本化する（境界幅の食い違い防止）。
+const { isPanelBottom: isMobile } = storeToRefs(useLayoutStore());
 
 function abbreviateRef(r: RefLike) {
   if (r.type === "tag" || !isMobile.value || r.label.length < 24) return { abbr: "", rest: r.label };

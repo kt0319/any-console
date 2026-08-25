@@ -40,22 +40,14 @@ function registerListeners() {
 
   on("settings:open", (detail) => {
     if (detail?.view) {
-      // 保存済み circle keypad 設定・通知タップ等には旧 view 名が残っている
-      // 可能性があるため読み替える（TabConfigは旧Tabs & Sessions画面＝現在の
-      // セッション一覧。PreviewPorts/PreviewConfigはSessionPreview=Dev Server
-      // としてSettings配下の項目に統合済み）。
-      let view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
-      if (view === "TabConfig") view = "SessionList";
+      // circle keypad の Preview プリセット（circle-keypad-presets.ts）は
+      // PreviewPorts の view 名で発火するため、Settings 配下に統合された
+      // SessionPreview（Dev Server）へ読み替える。
+      let view = detail.view;
       if (view === "PreviewPorts") view = "SessionPreview";
-      // 旧DispatchQueueConfig/SessionDispatches（グローバルなDispatch一覧）は
-      // ワークスペース詳細のDispatchタブへ統合され廃止済みのため読み替え先が無く、
-      // Settingsメニューへフォールバックする。
-      if (view === "DispatchQueueConfig" || view === "SessionDispatches") {
-        openView(ROOT_VIEW);
-        return;
-      }
-      // SessionListは今回のSettings/Open Session分離でセッション一覧
-      // オーバーレイ側の管轄になったため、このスタックには積まずリダイレクトする。
+      // SessionListはSettings/Open Session分離でセッション一覧
+      // オーバーレイ側の管轄になったため、このスタックには積まずリダイレクトする
+      //（circle keypad の Tabs プリセットがこの view 名で発火する）。
       if (view === "SessionList") {
         useSessionListOverlay().open();
         return;

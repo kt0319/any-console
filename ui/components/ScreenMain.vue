@@ -1,5 +1,5 @@
 <template>
-  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': keyboardOpen }">
+  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
     <!-- PCのサイドバーはTabBarの行と同じ高さにヘッダー（Sessions/設定タイトル）を
          揃えたいため、.content-area配下ではなく.main-panel直下に置く。
@@ -78,9 +78,8 @@ const { isOffline } = useConnectivityMonitor();
 const workspaceStore = useWorkspaceStore();
 const { connectDeferredTabs } = useTerminal();
 const { initViewport } = useViewport();
-const keyboardOpen = ref(false);
 const { startSyncPolling, stopSyncPolling } = useSessionSync();
-const { loadSnippetCache, addSnippet, deleteSnippet } = useSnippetPersist();
+const { loadSnippetCache } = useSnippetPersist();
 
 const tabBarView = ref<InstanceType<typeof TabBar> | null>(null);
 // TerminalBase.vue が defineExpose する形のうち、ここで使う部分
@@ -202,9 +201,6 @@ onMounted(() => {
     launchTerminal(detail);
   }));
 
-  bridgeCleanups.push(on("snippet:add", ({ label, command }) => addSnippet(label, command)));
-  bridgeCleanups.push(on("snippet:delete", ({ index }) => deleteSnippet(index)));
-
   loadSnippetCache();
 
   bridgeCleanups.push(on("connectivity:back", () => {
@@ -218,8 +214,6 @@ onMounted(() => {
     }
   }));
 
-  bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));
-  bridgeCleanups.push(on("oskeyboard:hide", () => { keyboardOpen.value = false; }));
   bridgeCleanups.push(on("notification:open-session", ({ sessionId }) => { attachSessionTab(sessionId); }));
 
   initViewport((opts) => {

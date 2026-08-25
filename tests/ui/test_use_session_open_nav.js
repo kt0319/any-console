@@ -11,12 +11,12 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 // （useBranchActions系テストと同じ対策）。
 async function freshModules() {
   vi.resetModules();
-  const [{ useSessionOpenNav }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([
+  const [{ useSessionOpenNav, openWorkspaceAdd }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([
     import("../../ui/composables/useSessionOpenNav.ts"),
     import("../../ui/composables/useExclusiveMobileOverlay.ts"),
     import("../../ui/app-bridge.ts"),
   ]);
-  return { useSessionOpenNav, useExclusiveMobileOverlay, emit: bridge.emit };
+  return { useSessionOpenNav, openWorkspaceAdd, useExclusiveMobileOverlay, emit: bridge.emit };
 }
 
 beforeEach(() => {
@@ -72,11 +72,11 @@ describe("useSessionOpenNav", () => {
     expect(currentView.value).toBe("WorkspaceOpen");
   });
 
-  it("workspace:openAddイベントでWorkspaceOpen→WorkspaceAddの順に積まれる", async () => {
-    const { useSessionOpenNav, emit } = await freshModules();
+  it("openWorkspaceAddでWorkspaceOpen→WorkspaceAddの順に積まれる", async () => {
+    const { useSessionOpenNav, openWorkspaceAdd } = await freshModules();
     const { viewStack, currentView } = useSessionOpenNav();
 
-    emit("workspace:openAdd", { path: "/x" });
+    openWorkspaceAdd({ path: "/x" });
 
     expect(viewStack.value.map((e) => e.view)).toEqual(["WorkspaceOpen", "WorkspaceAdd"]);
     expect(currentView.value).toBe("WorkspaceAdd");

@@ -7,19 +7,12 @@ type QwertyKeyDef = {
   flickUp?: string;
   flickUpLabel?: string;
   flickDown?: string;
-  noSymbol?: boolean;
 };
 
 // shift 中は 1 文字キーを大文字で表示する。
 export function qwertyDisplayLabel(keyDef: QwertyKeyDef, shift: boolean) {
   if (shift && keyDef.key?.length === 1) return keyDef.key.toUpperCase();
   return keyDef.label || keyDef.key;
-}
-
-// 記号ビュー中は flickUp の記号を表示する (noSymbol キーは除く)。
-export function qwertySymbolLabel(keyDef: QwertyKeyDef, shift: boolean, symbolView: boolean) {
-  if (symbolView && keyDef.flickUp && !keyDef.noSymbol) return keyDef.flickUp;
-  return qwertyDisplayLabel(keyDef, shift);
 }
 
 export function qwertyHasFlick(keyDef: QwertyKeyDef) {

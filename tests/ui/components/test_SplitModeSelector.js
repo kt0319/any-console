@@ -1,10 +1,15 @@
 // @vitest-environment happy-dom
 // @ts-check
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 
 describe("SplitModeSelector", () => {
+  // isPanelBottom（モバイル判定）を layout store から読むため
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
   it("4つのモードボタンを描画する", () => {
     const wrapper = mount(SplitModeSelector, {
       props: { currentMode: "normal", tabCount: 2 },

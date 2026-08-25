@@ -306,7 +306,7 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
   // paneKey === "stash" はChangesタブを開いてStashセクションを展開する）。
   const wantBranchExpanded = options.expandBranch ?? (paneKey === "branch");
   const wantStashExpanded = paneKey === "stash";
-  let resolvedPane = paneKey === "browser" ? "history" : paneKey;
+  let resolvedPane = paneKey;
   // 非 git ワークスペースで git 専用ペインが指定された場合は files にフォールバック
   const gitOnlyPanes = new Set(["jobs", "history", "changes", "branch", "stash", "issues", "actions", "prs"]);
   if (gitOnlyPanes.has(resolvedPane) && !workspaceStore.currentWorkspace?.is_git_repo) {
@@ -341,14 +341,20 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
 
 type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
 
-// 後方互換のペイン名: "github" → "issues"、"browser"/"branch" → "history"、
-// "stash" → "changes"（Branch/StashはそれぞれHistory/Changesタブへ統合）。
+// ペイン名の読み替え: "branch" → "history"、"stash" → "changes"
+// （Branch/StashはそれぞれHistory/Changesタブへ統合。branchピル・
+// ?pane= ディープリンクが今もこの名前で発火する）。
 const PANE_ALIASES: Record<string, string> = {
-  github: "issues",
-  browser: "history",
   branch: "history",
   stash: "changes",
 };
+
+// activePane に入りうる正当なペイン名。未知のキー（廃止済みエイリアス等）を
+// そのまま代入すると、どの v-if/v-show にも一致せず本文が空になるため、
+// switchPane でここに無いキーは jobs へフォールバックする。
+const VALID_PANE_KEYS = new Set([
+  "jobs", "files", "history", "changes", "issues", "actions", "prs", "dispatch", "select",
+]);
 
 // ペイン切替時の初期化処理（issues/actions/prs は v-if + onMounted で
 // 自動ロードするためエントリ無し）。タブを追加する時は tabs のエントリと
@@ -387,7 +393,8 @@ const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
 };
 
 function switchPane(rawKey: string, opts: SwitchPaneOpts = {}) {
-  const key = PANE_ALIASES[rawKey] ?? rawKey;
+  const resolved = PANE_ALIASES[rawKey] ?? rawKey;
+  const key = VALID_PANE_KEYS.has(resolved) ? resolved : "jobs";
   activePane.value = key;
   updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
   updateViewTitle();

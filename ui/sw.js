@@ -1,21 +1,9 @@
-const CACHE_NAME = 'any-console-__BUILD_HASH__';
-// precache 対象はビルド時に vite.config.js が dist/ を走査して注入する
-// （__PRECACHE_ASSETS__ を JSON 配列へ置換）。手で一覧を保守しない。
-// dev（未ビルドの素の sw.js を直接読む経路）では置換が走らないため空配列にフォールバックする。
-const ASSETS_TO_CACHE = (() => {
-  const injected = '__PRECACHE_ASSETS__';
-  try {
-    const list = JSON.parse(injected);
-    return Array.isArray(list) ? list : [];
-  } catch (_e) {
-    return [];
-  }
-})();
+// このSWはプッシュ通知（受信・表示・クリック遷移）専用。
+// オフラインキャッシュ（precache + fetchハンドラ）は廃止した — any-console は
+// 自前サーバに繋いで使うツールで、サーバに届かなければ静的アセットだけ表示できても
+// 意味がないため（docs/DECISIONS.md ADR 10 の Update 参照）。
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
-  );
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -24,45 +12,15 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((names) =>
       Promise.all(
         names.map((name) => {
-          // 通知設定の永続化キャッシュはSWのバージョン更新に紐付かないため残す。
-          if (name !== CACHE_NAME && name !== NOTIF_PREFS_CACHE) return caches.delete(name);
+          // 旧バージョンのSWが作ったオフラインキャッシュ（any-console-<hash>）の掃除。
+          // 通知設定の永続化キャッシュだけはSWのバージョンに紐付かないため残す。
+          if (name !== NOTIF_PREFS_CACHE) return caches.delete(name);
         })
       )
     )
   );
   self.clients.claim();
 });
-
-// 同一オリジンでキャッシュ対象にする静的アセットの allowlist。
-// ここに該当しないリクエスト（API ルート・動的リソース）はネットワークへ素通しし、
-// SW では一切キャッシュしない。つまり API ルートを追加・変更してもデフォルトで
-// 安全側（非キャッシュ）に倒れる。allowlist の更新漏れで起きうるのは「キャッシュ
-// されず素通し（＝正しい挙動）」だけで、API レスポンスが stale になる事故は起きない。
-// 新しい静的アセットの配信パスを増やしたときだけ、この一覧を更新する。
-const STATIC_ASSET_PREFIXES = ['/assets/', '/vendor/', '/fonts/'];
-const STATIC_ASSET_PATHS = new Set([
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/favicon.png',
-  '/apple-touch-icon.png',
-  '/icon-192.png',
-  '/icon-512.png',
-]);
-
-function isCacheableAsset(request, url) {
-  if (request.method !== 'GET') return false;
-  // /pair/{id}?t=... はQRペアリングの使い切りトークンをクエリに含む
-  // ナビゲーション。他のnavigateと同様に無条件でキャッシュすると、
-  // location.replace() で履歴から消しても Cache Storage には
-  // トークン付きURLがそのまま残り続けてしまう(次のSWバージョンで
-  // キャッシュ自体が入れ替わるまで消えない)。ここだけはキャッシュ対象から除外し
-  // 素通しする。
-  if (url.pathname.startsWith('/pair/')) return false;
-  if (request.mode === 'navigate') return true;
-  if (STATIC_ASSET_PATHS.has(url.pathname)) return true;
-  return STATIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
-}
 
 // 通知タイプごとの表示設定。ページから sync-notif-prefs メッセージで同期する。
 // SWはアイドルで停止されpush受信のたびに再起動されるため、メモリ変数だけだと
@@ -188,45 +146,4 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil(handle());
-});
-
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // WebSocket アップグレードは SW では扱わない。
-  if (event.request.headers.get('Upgrade') === 'websocket') return;
-
-  // クロスオリジンはピン留めした CDN だけ cache-first、それ以外は素通し。
-  if (url.origin !== self.location.origin) {
-    if (url.hostname !== 'cdn.jsdelivr.net') return;
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response && response.status === 200 && response.type === 'cors') {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        });
-      })
-    );
-    return;
-  }
-
-  // 同一オリジンは「既知の静的アセットだけ」を network-first でキャッシュする。
-  // それ以外（API ルート・動的リソース）は素通しし、SW のキャッシュ対象にしない。
-  if (!isCacheableAsset(event.request, url)) return;
-
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
 });

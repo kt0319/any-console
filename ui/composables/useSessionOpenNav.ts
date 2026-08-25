@@ -24,11 +24,18 @@ function registerListeners() {
   registerOverlay("sessionOpen", closeNav);
 
   on("workspace:openModal", () => openView([{ view: "WorkspaceOpen", state: {} }]));
+}
 
-  on("workspace:openAdd", (detail) => openView([
+/**
+ * WorkspaceAdd を（WorkspaceOpen をルートに積んだ状態で）直接開く。
+ * 呼び出し元が1箇所（InfoPill の Add ピル）だけの経路のため、
+ * バスイベントではなく直接呼び出しにしている。
+ */
+export function openWorkspaceAdd(detail: Record<string, unknown> = {}) {
+  openView([
     { view: "WorkspaceOpen", state: {} },
     { view: "WorkspaceAdd", state: { ...detail } },
-  ]));
+  ]);
 }
 
 export function useSessionOpenNav() {

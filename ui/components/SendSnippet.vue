@@ -29,6 +29,7 @@ import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
 import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.ts";
+import { useSnippetPersist } from "../composables/useSnippetPersist.ts";
 
 // embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.ts 参照
 // （SendHistory.vue と共通。circle keypadの"snippets"プリセット経由も
@@ -40,6 +41,7 @@ const emit = defineEmits(["close"]);
 
 const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send Snippet", emit });
 const inputStore = useInputStore();
+const { addSnippet, deleteSnippet } = useSnippetPersist();
 
 // snippetsCache は追加順（先頭が一番最初に追加＝最初に使ったもの）。
 // 使用しても並び替えない（addSnippet が末尾へ push するだけ）。
@@ -50,12 +52,12 @@ const newCommand = ref("");
 function onAdd() {
   const command = newCommand.value.trim();
   if (!command) return;
-  bridgeEmit("snippet:add", { command });
+  addSnippet("", command);
   newCommand.value = "";
 }
 
 function onDelete(idx: number) {
-  bridgeEmit("snippet:delete", { index: idx });
+  deleteSnippet(idx);
 }
 
 function onInsert(command: string) {

@@ -41,7 +41,7 @@ if (!infoPillConfig.loaded) infoPillConfig.load();
 // ラベル・説明はinfo-pills.tsのディスクリプタテーブルから導出する
 // （文言はピル本体のツールチップに揃えてテーブル側で管理）。
 // 表示順は infoPillConfig.order（ドラッグハンドルで並び替え可能。
-// ワークスペース一覧・Sessions編集モードと同じuseListDragSort）に従う。
+// workspace Groups（useWorkspaceOrdering.ts）と同じuseListDragSort）に従う。
 const TOGGLES = INFO_PILLS.map(({ key, label, note }) => ({ field: key, label, note }));
 
 const orderedToggles = computed(() =>

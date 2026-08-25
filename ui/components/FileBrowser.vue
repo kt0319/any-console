@@ -90,7 +90,8 @@ import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.ts";
 import { useFileEntryMenu } from "../composables/useFileEntryMenu.ts";
 import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.ts";
 import { useShowGitignored } from "../composables/useShowGitignored.ts";
-import { useIsMobile } from "../composables/useIsMobile.ts";
+import { storeToRefs } from "pinia";
+import { useLayoutStore } from "../stores/layout.ts";
 import { renderFileIcon } from "../utils/file-icon.ts";
 import { formatRelativeTime } from "../utils/format.ts";
 import { entrySizeText } from "../utils/file-browser.ts";
@@ -142,7 +143,7 @@ const {
 // エディタ連携（vscode://等のカスタムURLスキーム）はローカルのデスクトップ
 // エディタを起動する前提のため、モバイルでは対応するアプリが無く実質使えない
 // （useEditorIntegration.openInEditor参照）。ボタン自体を出さない。
-const { isMobile } = useIsMobile();
+const { isPanelBottom: isMobile } = storeToRefs(useLayoutStore());
 const showEditorButton = computed(() => !!editorUrlTemplate.value && !isMobile.value);
 
 const {
