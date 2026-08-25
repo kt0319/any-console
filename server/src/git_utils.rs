@@ -477,8 +477,7 @@ pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathB
         let p =
             crate::paths::expand_user_path(entry.get("path").and_then(Value::as_str).unwrap_or(""));
         if p.is_dir() && git_is_repo(&p).await {
-            let name =
-                crate::config::workspace_display_name(entry.get("name"), &ws_id).to_string();
+            let name = crate::config::workspace_display_name(entry.get("name"), &ws_id).to_string();
             result.push((name, p));
         }
     }
