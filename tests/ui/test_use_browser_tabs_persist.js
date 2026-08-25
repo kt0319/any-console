@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { nextTick } from "vue";
-import { LAYOUT_SAVE_DEBOUNCE_MS } from "../../ui/utils/constants.ts";
+import { BROWSER_TABS_RESTORE_RETRY_MS, LAYOUT_SAVE_DEBOUNCE_MS } from "../../ui/utils/constants.ts";
 import { emit } from "../../ui/app-bridge.ts";
 
 const apiFetchMock = vi.fn();
@@ -182,6 +182,56 @@ describe("useBrowserTabsPersist", () => {
     // マージしていないので保存も走らない
     await vi.advanceTimersByTimeAsync(LAYOUT_SAVE_DEBOUNCE_MS + 10);
     expect(putCalls().length).toBe(0);
+  });
+
+  it("再マウント相当の再復元が失敗したら、成功するまで保存を止める（残骸一覧のPUTによる上書き防止）", async () => {
+    apiFetchMock.mockResolvedValueOnce(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: null }),
+    );
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+    expect(store.isRestored).toBe(true);
+    cleanups.push(startWatching());
+
+    // 再マウント相当: 復元済みストアのまま再復元が失敗（429/500等）
+    apiFetchMock.mockResolvedValueOnce({ ok: false });
+    await restoreBrowserTabs();
+    expect(store.isRestored).toBe(false);
+
+    // 復元が成功するまで、タブ操作しても前回マウントの残骸一覧をPUTしない
+    store.openBrowserTab("http://localhost:5000/");
+    await flushSave();
+    expect(putCalls().length).toBe(0);
+  });
+
+  it("connectivity:backが来ない失敗（429等）でも一定間隔で復元をリトライし、再マウントの残骸はマージしない", async () => {
+    // 復元済みストア（3000/4000が残骸として残る）で再復元が失敗
+    apiFetchMock.mockResolvedValueOnce(
+      okResponse({
+        tabs: [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
+        activeUrl: null,
+      }),
+    );
+    const { restoreBrowserTabs } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+
+    apiFetchMock.mockResolvedValueOnce({ ok: false });
+    await restoreBrowserTabs();
+    expect(store.isRestored).toBe(false);
+
+    // 失敗中にローカルで開いた新規タブ（残骸ではない）
+    store.openBrowserTab("http://localhost:5000/");
+
+    // 他クライアントが4000を閉じた状態で、タイマーによる自動リトライが成功する
+    apiFetchMock.mockResolvedValue(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: "http://localhost:3000/" }),
+    );
+    await vi.advanceTimersByTimeAsync(BROWSER_TABS_RESTORE_RETRY_MS + 10);
+
+    expect(store.isRestored).toBe(true);
+    // 4000（残骸）は復活せず、5000（失敗中のローカル操作）はマージされて残る
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/", "http://localhost:5000/"]);
+    expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:5000/");
   });
 
   it("復元GETの並行実行はin-flightのPromiseを共有して1本にまとめる", async () => {

@@ -59,6 +59,10 @@ export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
 export const NOTIFY_GRACE_DEBOUNCE_MS = 500;
 export const DIRECTORY_SUGGEST_DEBOUNCE_MS = 150;
 export const LAYOUT_SAVE_DEBOUNCE_MS = 800;
+// ブラウザタブ復元GETの失敗後（429/500等 — 接続断ではないため connectivity:back
+// が発火しない失敗）の再試行間隔。レートリミット（既定 200req/60s 窓）明けを
+// 拾えるよう、WS再接続バックオフ（上限5秒）より長めにする
+export const BROWSER_TABS_RESTORE_RETRY_MS = 30000;
 // 短時間に連続する復帰トリガー（visibilitychange / focus / online）を1回にまとめる窓
 export const SESSION_RESUME_COALESCE_MS = 100;
 export const TOOLTIP_HIDE_DELAY_MS = 100;
