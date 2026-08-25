@@ -1,6 +1,5 @@
 import { useConfirm } from "./useConfirm.ts";
 import { useBrowserTabStore } from "../stores/browserTabs.ts";
-import { useWorkspaceStore } from "../stores/workspace.ts";
 import { devServerUrl } from "../utils/preview-url.ts";
 import { openExternal } from "../utils/open-external.ts";
 import { copyText } from "../utils/clipboard.ts";
@@ -11,7 +10,6 @@ import { copyText } from "../utils/clipboard.ts";
 export function useDevServerOpen() {
   const { confirm } = useConfirm();
   const browserTabStore = useBrowserTabStore();
-  const workspaceStore = useWorkspaceStore();
 
   async function confirmOpenDevServer(p: Record<string, any>) {
     const url = devServerUrl(p, location.hostname);
@@ -26,11 +24,7 @@ export function useDevServerOpen() {
       return;
     }
     if (result === "tab") {
-      // ブラウザタブのラベル/アイコンは開いた元のdev serverのワークスペースに
-      // 揃える（見つからなければBrowserTabItem.vue側でserverアイコン、
-      // browserTabs.ts側でホスト名にフォールバック）。
-      const ws = p.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === p.workspace) : null;
-      browserTabStore.openBrowserTab(url, { label: ws?.name, icon: ws?.icon, iconColor: ws?.icon_color });
+      browserTabStore.openBrowserTab(url);
       return;
     }
     if (!result) return;

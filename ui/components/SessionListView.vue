@@ -44,7 +44,7 @@
               class="pill-close-btn pill-tab-close-btn"
               aria-label="Close tab"
               data-tooltip="Close tab"
-              @click.stop="browserTabStore.closeBrowserTab(bt.tab.id)"
+              @click.stop="onCloseBrowserTab(bt.tab)"
             ><span class="mdi mdi-close"></span></button>
           </span>
         </li>
@@ -96,7 +96,7 @@ import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
-import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import { confirmCloseTab, confirmCloseBrowserTab } from "../utils/tab-close-confirm.ts";
 import BrowserTabActionPills from "./BrowserTabActionPills.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
@@ -125,6 +125,12 @@ const browserTabItems = computed(() => browserTabSidebarItems(browserTabStore.ta
 
 function onSelectBrowserTab(tab: BrowserTab) {
   browserTabStore.selectBrowserTab(tab.id);
+}
+
+async function onCloseBrowserTab(tab: BrowserTab) {
+  const result = await confirmCloseBrowserTab(confirm, tab);
+  if (result !== true) return;
+  browserTabStore.closeBrowserTab(tab.id);
 }
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・

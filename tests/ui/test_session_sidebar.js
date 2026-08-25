@@ -266,16 +266,16 @@ describe("pendingDispatchSidebarItems", () => {
 });
 
 describe("browserTabSidebarItems", () => {
-  it("wsIconの有無に関わらずserverアイコンを常にjobIconとして併記する", () => {
+  it("wsIconは持たず、jobIconは常に地球儀固定", () => {
     const tabs = [
-      { id: 1, url: "http://localhost:3000/", label: "App", icon: "mdi-rocket", iconColor: "#ff0000" },
+      { id: 1, url: "http://localhost:3000/", label: "App" },
       { id: 2, url: "http://localhost:4000/", label: "localhost" },
     ];
     const items = browserTabSidebarItems(tabs, null);
-    expect(items[0].item.wsIcon).toEqual({ name: "mdi-rocket", color: "#ff0000" });
-    expect(items[0].item.jobIcon).toEqual({ name: "mdi-server", color: null });
+    expect(items[0].item.wsIcon).toBeNull();
+    expect(items[0].item.jobIcon).toEqual({ name: "mdi-web", color: null });
     expect(items[1].item.wsIcon).toBeNull();
-    expect(items[1].item.jobIcon).toEqual({ name: "mdi-server", color: null });
+    expect(items[1].item.jobIcon).toEqual({ name: "mdi-web", color: null });
   });
 
   it("activeBrowserTabIdに一致するタブだけisActiveがtrue", () => {

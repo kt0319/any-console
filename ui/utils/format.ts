@@ -16,14 +16,6 @@ export function jobCommandPreview(command: string | null | undefined, fallbackNa
   return command ? truncateTail(command, JOB_COMMAND_PREVIEW_MAX) : fallbackName;
 }
 
-/**
- * URL表示用に "https://" / "http://" を省く（ブラウザタブのタイトル表示など）。
- * 編集用の値（プロンプト初期値等）には使わない — 表記の簡略化のみが目的。
- */
-export function displayUrl(url: string | null | undefined): string {
-  return String(url || "").replace(/^https?:\/\//, "");
-}
-
 export function formatSize(bytes: number | null | undefined): string {
   if (bytes == null) return "";
   if (bytes < 1024) return `${bytes} B`;

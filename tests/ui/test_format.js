@@ -1,26 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { formatSize, formatRelativeTime, formatClockTime, formatClockDateTime, formatMinutesAgo, formatDuration, truncateTail, jobCommandPreview, displayUrl } from "../../ui/utils/format.ts";
+import { formatSize, formatRelativeTime, formatClockTime, formatClockDateTime, formatMinutesAgo, formatDuration, truncateTail, jobCommandPreview } from "../../ui/utils/format.ts";
 import { JOB_COMMAND_PREVIEW_MAX } from "../../ui/utils/constants.ts";
-
-describe("displayUrl", () => {
-  it("https://を省く", () => {
-    expect(displayUrl("https://example.com/foo")).toBe("example.com/foo");
-  });
-
-  it("http://を省く", () => {
-    expect(displayUrl("http://localhost:3000/")).toBe("localhost:3000/");
-  });
-
-  it("スキームが無ければそのまま", () => {
-    expect(displayUrl("example.com")).toBe("example.com");
-  });
-
-  it("null/undefinedは空文字", () => {
-    expect(displayUrl(null)).toBe("");
-    expect(displayUrl(undefined)).toBe("");
-  });
-});
 
 describe("truncateTail", () => {
   it("上限以内はそのまま返す", () => {

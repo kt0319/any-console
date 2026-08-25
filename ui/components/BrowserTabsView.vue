@@ -6,6 +6,7 @@
       :key="tab.id"
       :url="tab.url"
       :tab-id="tab.id"
+      :label="tab.label"
     />
   </div>
 </template>

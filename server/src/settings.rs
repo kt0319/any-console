@@ -600,10 +600,6 @@ pub struct BrowserTabItem {
     url: String,
     #[serde(default)]
     label: String,
-    #[serde(default)]
-    icon: Option<String>,
-    #[serde(default, rename = "iconColor")]
-    icon_color: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -643,12 +639,6 @@ pub async fn put_browser_tabs(
     for item in &body.tabs {
         check_max_len("url", &item.url, MAX_URL_LENGTH)?;
         check_max_len("label", &item.label, MAX_LABEL_LENGTH)?;
-        if let Some(icon) = &item.icon {
-            check_max_len("icon", icon, MAX_LABEL_LENGTH)?;
-        }
-        if let Some(color) = &item.icon_color {
-            check_max_len("iconColor", color, MAX_LABEL_LENGTH)?;
-        }
     }
     if let Some(url) = &body.active_url {
         check_max_len("activeUrl", url, MAX_URL_LENGTH)?;

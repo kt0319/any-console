@@ -106,7 +106,7 @@ async fn browser_tabs_roundtrip_and_sanitize() {
         "/settings/browser-tabs",
         &json!({
             "tabs": [
-                {"url": "http://localhost:3000/", "label": "App", "icon": "mdi-rocket", "iconColor": "#ff0000"},
+                {"url": "http://localhost:3000/", "label": "App"},
                 {"url": ""},
             ],
             "activeUrl": "http://localhost:3000/",
@@ -119,7 +119,7 @@ async fn browser_tabs_roundtrip_and_sanitize() {
     // 空urlのタブは除去される
     assert_eq!(
         got["tabs"],
-        json!([{"url": "http://localhost:3000/", "label": "App", "icon": "mdi-rocket", "iconColor": "#ff0000"}])
+        json!([{"url": "http://localhost:3000/", "label": "App"}])
     );
     assert_eq!(got["activeUrl"], "http://localhost:3000/");
 

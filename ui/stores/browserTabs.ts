@@ -5,10 +5,6 @@ export interface BrowserTab {
   id: number;
   url: string;
   label: string;
-  // 開いた元のdev serverが紐づくワークスペースのアイコン。無ければ
-  // BrowserTabItem.vue側でserverアイコン（mdi-server）にフォールバックする。
-  icon?: string | null;
-  iconColor?: string | null;
   // iframeがナビゲーション中かどうか（BrowserPane.vueがload/reloadに合わせて
   // 更新する一時的な状態）。ターミナルタブのagentState==="working"と同じ
   // tab-working演出に使うだけで、永続化はしない
@@ -21,10 +17,10 @@ export interface BrowserTab {
 let idCounter = 0;
 
 // labelが指定されなかった時のフォールバック。フルURLはタブ幅に対して長すぎ、
-// クエリ文字列等のノイズも含むため、ホスト名だけに短縮する。
+// クエリ文字列等のノイズも含むため、ホスト名（ポート番号込み）だけに短縮する。
 function shortLabelFromUrl(url: string): string {
   try {
-    return new URL(url).hostname || url;
+    return new URL(url).host || url;
   } catch {
     return url;
   }
@@ -81,14 +77,14 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   /**
    * 同じURLのタブが既にあればそれをアクティブにするだけ（重複して開かない）。
    */
-  function openBrowserTab(url: string, opts: { label?: string, icon?: string | null, iconColor?: string | null } = {}): number {
+  function openBrowserTab(url: string): number {
     const existing = tabs.value.find((t) => t.url === url);
     if (existing) {
       activeBrowserTabId.value = existing.id;
       return existing.id;
     }
     idCounter += 1;
-    const tab: BrowserTab = { id: idCounter, url, label: opts.label || shortLabelFromUrl(url), icon: opts.icon, iconColor: opts.iconColor };
+    const tab: BrowserTab = { id: idCounter, url, label: shortLabelFromUrl(url) };
     tabs.value.push(tab);
     activeBrowserTabId.value = tab.id;
     return tab.id;
@@ -100,17 +96,15 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
 
   /**
    * URL編集（BrowserPane.vueの地球儀アイコン→usePrompt）でタブのURLを書き換える。
-   * ラベルが元のURLのホスト名フォールバックのまま（ワークスペース名等の
-   * 明示ラベルが無い）場合は、新URLのホスト名に追従させる。splice で配列を
-   * 置き換えることで useBrowserTabsPersist.ts の shallow watch（tabs.slice()）
-   * にも変化を検知させる（プロパティの直接書き換えでは検知されない）。
+   * ラベルは常にURLのホスト名から導出するため、新URLに合わせて再計算する。
+   * splice で配列を置き換えることで useBrowserTabsPersist.ts の shallow watch
+   * （tabs.slice()）にも変化を検知させる（プロパティの直接書き換えでは検知されない）。
    */
   function updateBrowserTabUrl(id: number, url: string) {
     const idx = tabs.value.findIndex((t) => t.id === id);
     if (idx === -1) return;
     const tab = tabs.value[idx];
-    const label = tab.label === shortLabelFromUrl(tab.url) ? shortLabelFromUrl(url) : tab.label;
-    tabs.value.splice(idx, 1, { ...tab, url, label });
+    tabs.value.splice(idx, 1, { ...tab, url, label: shortLabelFromUrl(url) });
   }
 
   /**
@@ -130,10 +124,10 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
    * サーバーから復元したタブ一覧を反映する（useBrowserTabsPersist.restoreBrowserTabsから
    * のみ呼ぶ）。idは再読込のたびに振り直すため、アクティブタブはURLで突き合わせる。
    */
-  function restoreFromServer(persisted: { url: string, label: string, icon?: string | null, iconColor?: string | null }[], activeUrl: string | null) {
+  function restoreFromServer(persisted: { url: string, label: string }[], activeUrl: string | null) {
     tabs.value = persisted.map((p) => {
       idCounter += 1;
-      return { id: idCounter, url: p.url, label: p.label, icon: p.icon, iconColor: p.iconColor };
+      return { id: idCounter, url: p.url, label: p.label };
     });
     activeBrowserTabId.value = tabs.value.find((t) => t.url === activeUrl)?.id ?? null;
     isRestored.value = true;

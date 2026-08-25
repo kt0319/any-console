@@ -9,8 +9,7 @@
     :tabindex="isActive ? 0 : -1"
     @click="onClick"
   >
-    <span v-if="wsIconHtml" class="tab-icon-slot" v-html="wsIconHtml"></span>
-    <span class="tab-icon-slot browser-tab-server-icon" v-html="serverIconHtml"></span>
+    <span class="tab-icon-slot browser-tab-icon" v-html="iconHtml"></span>
     <span class="tab-extra">{{ tab.label }}</span>
   </button>
 </template>
@@ -29,11 +28,9 @@ const props = defineProps({
 const emits = defineEmits(["select"]);
 
 const isActive = computed(() => props.activeBrowserTabId === props.tab.id);
-// 開いた元のdev serverのワークスペースアイコンと、devserver InfoPillと同じ
-// serverアイコン（mdi-server）を並べて表示する。ワークスペースが無ければ
-// serverアイコンだけになる。
-const wsIconHtml = computed(() => (props.tab.icon ? renderIconStr(props.tab.icon, props.tab.iconColor, 18) : ""));
-const serverIconHtml = computed(() => renderIconStr("mdi-server", null, 18));
+// ワークスペースとは紐付けない（dev serverプレビュー用の単なるURLタブ）ため、
+// アイコンは常に地球儀固定。
+const iconHtml = computed(() => renderIconStr("mdi-web", null, 18));
 
 function onClick() {
   if (!isActive.value) emits("select", props.tab);
@@ -45,10 +42,10 @@ function onClick() {
    モバイルでの畳み方）は TabItem.vue と共有するため ui/styles/tab-item.css
    （グローバル）にある。ここにはブラウザタブ固有の分だけを置く。 */
 
-/* InfoPillのDev Serverピル（.pill-server-btn .mdi）と同じ色に揃える。
-   renderIconStrの色指定はhexのみ対応（CSS変数は正規表現で弾かれる）ため、
-   ここでクラス経由であてる。 */
-.browser-tab-server-icon :deep(.mdi) {
-  color: var(--lime);
+/* renderIconStrの色指定はhexのみ対応（CSS変数は正規表現で弾かれる）ため、
+   ここでクラス経由であてる。ブラウザタブ関連のアイコンは濃い青
+   （BrowserTabActionPills.vueのEdit URLアイコンと同じ）に揃える。 */
+.browser-tab-icon :deep(.mdi) {
+  color: var(--blue);
 }
 </style>

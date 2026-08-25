@@ -195,8 +195,8 @@
   50% { opacity: 1; }
 }
 
-/* ブラウザタブ行のserverアイコンは、タブバー（BrowserTabItem.vue）や
-   InfoPillの.pill-server-btnと同じlime色に揃える。 */
-.browser-tab-sidebar-li .session-sidebar-icon .mdi-server {
-  color: var(--lime);
+/* ブラウザタブ行の地球儀アイコンは、タブバー（BrowserTabItem.vue）や
+   BrowserTabActionPills.vueのEdit URLアイコンと同じ濃い青に揃える。 */
+.browser-tab-sidebar-li .session-sidebar-icon .mdi-web {
+  color: var(--blue);
 }

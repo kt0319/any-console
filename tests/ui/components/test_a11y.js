@@ -177,7 +177,7 @@ describe("a11y: BrowserPane", () => {
   it("ブラウザタブの中身（Reload/Open in new tabボタン+iframe）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const wrapper = mount(BrowserPane, {
-      props: { url: "http://localhost:3000/", tabId: 1 },
+      props: { url: "http://localhost:3000/", tabId: 1, label: "localhost" },
       attachTo: document.body,
     });
     // iframes: false — happy-domにはpostMessageによる実フレーム間通信が無く、

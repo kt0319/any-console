@@ -204,10 +204,9 @@ export function pendingDispatchSidebarItems(
 
 /**
  * ブラウザタブ（useBrowserTabStore、dev serverプレビュー）のサイドバー行データ。
- * tmuxセッションを持たないためInfoPill系フィールドは持たず、アイコン・ラベル
- * だけの最小限の item（SessionRowContent.vueの表示に必要な形）にする。
- * BrowserTabItem.vue（タブバー）と同じく、ワークスペースアイコンの有無に
- * 関わらずserverアイコンを常に併記する（wsIconがある時も隠さない）。
+ * ワークスペースとは紐付けないため、アイコンはBrowserTabItem.vue（タブバー）
+ * と同じく常に地球儀（mdi-web）固定・ラベルのみのシンプルな item
+ * （SessionRowContent.vueの表示に必要な形）にする。
  * @param tabs browserTabStore.tabs
  * @param activeBrowserTabId browserTabStore.activeBrowserTabId
  */
@@ -217,8 +216,8 @@ export function browserTabSidebarItems(tabs: BrowserTab[], activeBrowserTabId: n
     isActive: tab.id === activeBrowserTabId,
     item: {
       label: tab.label,
-      wsIcon: tab.icon ? { name: tab.icon, color: tab.iconColor } : null,
-      jobIcon: { name: "mdi-server", color: null },
+      wsIcon: null,
+      jobIcon: { name: "mdi-web", color: null },
       isWorktree: false,
       agent: null,
       phraseNotify: false,

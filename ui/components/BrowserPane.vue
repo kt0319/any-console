@@ -24,15 +24,19 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { useLayoutStore } from "../stores/layout.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { confirmCloseBrowserTab } from "../utils/tab-close-confirm.ts";
 import BrowserTabActionPills from "./BrowserTabActionPills.vue";
 
 const props = defineProps({
   url: { type: String, required: true },
   tabId: { type: Number, required: true },
+  label: { type: String, required: true },
 });
 
 const browserTabStore = useBrowserTabStore();
 const layoutStore = useLayoutStore();
+const { confirm } = useConfirm();
 
 // :key に使い、値を変えるとiframe要素ごと作り直して強制的に再読み込みさせる。
 const reloadKey = ref(0);
@@ -54,7 +58,9 @@ function onLoad() {
   browserTabStore.setBrowserTabLoading(props.tabId, false);
 }
 
-function onClose() {
+async function onClose() {
+  const result = await confirmCloseBrowserTab(confirm, { label: props.label });
+  if (result !== true) return;
   browserTabStore.closeBrowserTab(props.tabId);
 }
 

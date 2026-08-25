@@ -18,20 +18,9 @@ describe("browserTabs store: openBrowserTab", () => {
     expect(store.activeBrowserTabId).toBe(id);
   });
 
-  it("labelを省略するとホスト名をlabelにする（フルURLは長すぎるため表示しない）", () => {
+  it("labelはホスト名(ポート番号込み)にする（フルURLは長すぎるため表示しない）", () => {
     store.openBrowserTab("http://localhost:3000/foo?x=1");
-    expect(store.tabs[0].label).toBe("localhost");
-  });
-
-  it("labelを指定できる", () => {
-    store.openBrowserTab("http://localhost:3000/", { label: "My App" });
-    expect(store.tabs[0].label).toBe("My App");
-  });
-
-  it("icon/iconColorを指定できる", () => {
-    store.openBrowserTab("http://localhost:3000/", { icon: "mdi-rocket", iconColor: "#ff0000" });
-    expect(store.tabs[0].icon).toBe("mdi-rocket");
-    expect(store.tabs[0].iconColor).toBe("#ff0000");
+    expect(store.tabs[0].label).toBe("localhost:3000");
   });
 
   it("同じURLを2回開いても重複せず既存タブをアクティブにする", () => {
@@ -93,7 +82,7 @@ describe("browserTabs store: closeBrowserTab", () => {
 
     store.closeBrowserTab(id2);
 
-    expect(store.tabs).toEqual([{ id: id1, url: "http://localhost:3000/", label: "localhost" }]);
+    expect(store.tabs).toEqual([{ id: id1, url: "http://localhost:3000/", label: "localhost:3000" }]);
     expect(store.activeBrowserTabId).toBe(id1);
   });
 
@@ -127,16 +116,10 @@ describe("browserTabs store: updateBrowserTabUrl", () => {
     expect(store.tabs[0].url).toBe("http://localhost:4000/");
   });
 
-  it("labelがホスト名フォールバックのままなら新URLのホスト名に追従する", () => {
+  it("labelは新URLのホスト名に追従する", () => {
     const id = store.openBrowserTab("http://localhost:3000/");
     store.updateBrowserTabUrl(id, "http://example.com/");
     expect(store.tabs[0].label).toBe("example.com");
-  });
-
-  it("明示的なlabelは書き換えない", () => {
-    const id = store.openBrowserTab("http://localhost:3000/", { label: "My App" });
-    store.updateBrowserTabUrl(id, "http://example.com/");
-    expect(store.tabs[0].label).toBe("My App");
   });
 
   it("存在しないIDは無視する", () => {
@@ -203,12 +186,9 @@ describe("browserTabs store: restoreFromServer（useBrowserTabsPersist.restoreBr
 
   it("サーバーから受け取ったタブ一覧を反映し、isRestoredをtrueにする", () => {
     expect(store.isRestored).toBe(false);
-    store.restoreFromServer(
-      [{ url: "http://localhost:3000/", label: "App", icon: "mdi-rocket", iconColor: "#ff0000" }],
-      null,
-    );
+    store.restoreFromServer([{ url: "http://localhost:3000/", label: "App" }], null);
     expect(store.tabs).toHaveLength(1);
-    expect(store.tabs[0]).toMatchObject({ url: "http://localhost:3000/", label: "App", icon: "mdi-rocket", iconColor: "#ff0000" });
+    expect(store.tabs[0]).toMatchObject({ url: "http://localhost:3000/", label: "App" });
     expect(store.isRestored).toBe(true);
   });
 

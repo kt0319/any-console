@@ -74,7 +74,6 @@ import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
 import { useBrowserTabsPersist } from "../composables/useBrowserTabsPersist.ts";
 import { on, emit } from "../app-bridge.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
-import { displayUrl } from "../utils/format.ts";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -134,8 +133,7 @@ const activeTabLabel = computed(() => {
   if (isBrowserTabActive.value) {
     const browserTab = browserTabStore.tabs.find((t) => t.id === browserTabStore.activeBrowserTabId);
     if (!browserTab) return "";
-    const url = displayUrl(browserTab.url);
-    return browserTab.label ? `${browserTab.label} | ${url}` : url;
+    return `browser | ${browserTab.label}`;
   }
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {

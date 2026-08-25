@@ -25,3 +25,20 @@ export function confirmCloseTab(
     ok: { label: "Close", icon: "mdi-close", danger: true },
   });
 }
+
+/**
+ * ブラウザタブ（dev serverプレビュー用のiframeタブ）を閉じる前の確認。
+ * ターミナルタブと違いRefresh/Detachに相当する選択肢は無い（tmuxセッション
+ * を持たず、閉じる＝そのままタブが消えるだけのため）。
+ *
+ * @param confirm `useConfirm()` から取得した confirm 関数。
+ */
+export function confirmCloseBrowserTab(
+  confirm: (msg: string, opts?: object) => Promise<boolean | string>,
+  tab: { label?: string },
+): Promise<boolean | string> {
+  const label = tab?.label || "browser";
+  return confirm(`Close "${label}" tab?`, {
+    ok: { label: "Close", icon: "mdi-close", danger: true },
+  });
+}

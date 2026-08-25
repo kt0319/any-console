@@ -1,5 +1,5 @@
 <template>
-  <button type="button" class="pill-chip pill-devserver-btn" aria-label="Edit URL" data-tooltip="Edit URL" @click="onEditUrl">
+  <button type="button" class="pill-chip pill-devserver-btn browser-tab-edit-url-btn" aria-label="Edit URL" data-tooltip="Edit URL" @click="onEditUrl">
     <span class="mdi mdi-web"></span>
   </button>
   <button type="button" class="pill-chip pill-devserver-btn" aria-label="Reload" data-tooltip="Reload" @click="browserTabStore.reloadBrowserTab(id)">
@@ -49,3 +49,11 @@ function onOpenExternal() {
   browserTabStore.selectBrowserTab(props.id);
 }
 </script>
+
+<style scoped>
+/* タブバー・サイドバーの地球儀アイコン（BrowserTabItem.vue / session-sidebar.css）
+   と同じ濃い青に揃える。Reload/Open in new tabは既定色のまま。 */
+.browser-tab-edit-url-btn .mdi {
+  color: var(--blue);
+}
+</style>
