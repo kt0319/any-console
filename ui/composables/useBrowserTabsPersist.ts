@@ -14,24 +14,24 @@ const _saver = createSaveScheduler(SAVE_DEBOUNCE_MS);
 
 // 実行中の復元GET（無ければnull）。接続復帰イベントは短時間に複数回発火しうる
 // （useConnectivityMonitorはonline即時とヘルスチェック後の2回emitすることが
-// ある）ため、並行GETを許すと先に復元が完了した後のユーザー操作を、遅れて
-// 返ってきた2本目の応答が上書きしてしまう。実行中があればそれを共有する。
+// ある）ため、並行GETを1本にまとめる。仮に競合しても store 側の操作記録で
+// 突き合わせされるが、無駄なGET自体を避ける。
 let _restoreInFlight: Promise<void> | null = null;
 
 // 失敗した復元の再試行タイマー。connectivity:back が発火しない失敗
 // （429/500等 — 接続自体は生きている）でも復元を諦めないための保険。
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-// 「復元済みストアへの再復元」開始時点のタブURL集合（ストアごと）。
-// 再マウント（ログアウト→再ログイン等）でストアに残った前回マウントの残骸を、
-// 復元成功時のマージ対象から除外するための記録。復元が成功したら消す。
-const _staleUrlsByStore = new WeakMap<object, Set<string>>();
-
 /**
  * ブラウザタブ一覧をサーバー（/settings/browser-tabs）へ保存・復元する
  * コンポーザブル。ターミナルタブの useLayoutPersist.ts と同じ形（変化を
  * watch して debounce PUT、起動時に GET で復元）に揃える。tmuxセッションの
  * ようなサーバー側の実体を持たないため、一覧自体をここで永続化する。
+ *
+ * 同期の整合性（保存の可否・未同期中のローカル操作とサーバー一覧の突き合わせ）
+ * はストア側の状態機械（browserTabs.ts の beginRestore / applyServerState /
+ * isRestored）が担う。ここが持つのはHTTPまわりだけ: GET/PUT・URLの正規化・
+ * 失敗時の再試行（connectivity:back + 定期タイマー）・並行GETの抑制。
  */
 export function useBrowserTabsPersist() {
   const browserTabStore = useBrowserTabStore();
@@ -57,14 +57,14 @@ export function useBrowserTabsPersist() {
   /**
    * restoreBrowserTabs() 完了後に呼ぶこと。復元前に変化を監視すると、
    * 空配列の初期状態でサーバーの保存済みタブを上書きしてしまう。
-   * 呼び出し順に加えて isRestored でもガードする — 復元に失敗したセッション
-   * （isRestored が false のまま）で保存を許すと、その後タブを1つ開いた時点で
-   * サーバーの保存済みタブ一覧を新しい一覧で上書き消去してしまうため。
+   * 呼び出し順に加えて isRestored（ストアが synced の間だけ true）でも
+   * ガードする — 復元に失敗したまま保存を許すと、突き合わせ前の一覧のPUTが
+   * サーバーの保存済み一覧や他クライアントの変更を上書きするため。
    *
    * 復元が失敗したままのセッションは、接続復帰（connectivity:back — useStatusStream
    * と同じ復帰シグナル）と _scheduleRestoreRetry() の定期再試行の両方で復元を
-   * やり直して永続化を復活させる。restoreBrowserTabs() はローカルで既に開かれた
-   * タブをサーバー分とマージするため、遅れて成功してもどちらの状態も失われない。
+   * やり直して永続化を復活させる。未同期中のローカル操作はストアが記録し、
+   * 遅れて成功した復元で失われない（applyServerState が突き合わせる）。
    *
    * @returns watch と connectivity:back 購読を解除するクリーンアップ関数
    *   （実運用ではアプリと同寿命のため未使用。テスト間の分離用）。
@@ -110,17 +110,10 @@ export function useBrowserTabsPersist() {
   }
 
   async function _restoreNow() {
-    // 復元済みストアへの再復元（ログアウト→再ログイン等でScreenMainが再マウント
-    // された時）: この時点のタブ一覧は前回マウントの残骸なので、(1)復元が成功する
-    // まで保存を止め（isRestored=false — 失敗したまま保存を許すと残骸一覧のPUTが
-    // 他クライアントの変更を上書きする）、(2)成功時のマージ対象からも除外する
-    // （残骸を「ローカル新規」と誤認してマージすると、他クライアントが意図して
-    // 閉じたタブを復活させてしまう）。
-    if (browserTabStore.isRestored) {
-      _staleUrlsByStore.set(browserTabStore, new Set(browserTabStore.tabs.map((t) => t.url)));
-      browserTabStore.isRestored = false;
-    }
-    const staleUrls = _staleUrlsByStore.get(browserTabStore);
+    // 成功（applyServerState）まで保存を止める。再マウント（ログアウト→再
+    // ログイン等）でストアが synced のまま残っている場合もここで unsynced に
+    // 戻り、失敗時に前回マウントの残骸一覧がPUTされることはない。
+    browserTabStore.beginRestore();
     try {
       const res = await auth.apiFetch(EP_SETTINGS_BROWSER_TABS);
       if (!res || !res.ok) {
@@ -136,29 +129,15 @@ export function useBrowserTabsPersist() {
         .map((t: { url?: unknown }) => normalizeBrowserTabUrl(t?.url))
         .filter((u: string | null): u is string => u != null)
         .map((url: string) => ({ url }));
-      // 復元GETの失敗後にローカルで開かれたタブはサーバー分の後ろへマージして
-      // 残す（遅れて成功した復元がローカル操作を消さないため）。再マウントの
-      // 残骸（staleUrls）はマージしない。
-      const localUrls = browserTabStore.tabs
-        .map((t) => t.url)
-        .filter((u) => !serverTabs.some((s) => s.url === u) && !staleUrls?.has(u));
-      const merged = [...serverTabs, ...localUrls.map((url) => ({ url }))];
-      // 今見ているタブがマージ後も存在するならアクティブを維持し、無ければ
-      // サーバーの activeUrl（正規化済み）へフォールバックする。
-      const localActive = browserTabStore.tabs.find((t) => t.id === browserTabStore.activeBrowserTabId);
-      const activeUrl =
-        localActive && merged.some((m) => m.url === localActive.url)
-          ? localActive.url
-          : normalizeBrowserTabUrl(data?.activeUrl);
-      browserTabStore.restoreFromServer(merged, activeUrl);
-      _staleUrlsByStore.delete(browserTabStore);
+      const changedLocally = browserTabStore.applyServerState(
+        serverTabs,
+        normalizeBrowserTabUrl(data?.activeUrl),
+      );
       _clearRetryTimer();
-      // ローカル分をマージした場合はサーバーがまだ知らないので反映しておく。
-      if (localUrls.length > 0) _scheduleSave();
+      // 未同期中のローカル操作が結果を変えた場合、サーバーはまだその差分を
+      // 知らないので反映しておく。
+      if (changedLocally) _scheduleSave();
     } catch {
-      // 復元に失敗した場合は isRestored を立てず、このセッションでは保存を
-      // 走らせない（空の一覧でサーバーの保存済みタブを上書きしないため）。
-      // connectivity:back と下のタイマーの両方が復元をやり直す。
       _scheduleRestoreRetry();
     }
   }

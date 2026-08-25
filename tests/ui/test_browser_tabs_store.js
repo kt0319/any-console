@@ -171,7 +171,7 @@ describe("browserTabs store: setBrowserTabLoading", () => {
   });
 });
 
-describe("browserTabs store: restoreFromServer（useBrowserTabsPersist.restoreBrowserTabsから呼ばれる）", () => {
+describe("browserTabs store: beginRestore / applyServerState（useBrowserTabsPersistから呼ばれる同期状態機械）", () => {
   let store;
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -180,14 +180,15 @@ describe("browserTabs store: restoreFromServer（useBrowserTabsPersist.restoreBr
 
   it("サーバーから受け取ったタブ一覧を反映し、isRestoredをtrueにする。labelはURLから導出する（永続化された値は無い）", () => {
     expect(store.isRestored).toBe(false);
-    store.restoreFromServer([{ url: "http://localhost:3000/" }], null);
+    const changed = store.applyServerState([{ url: "http://localhost:3000/" }], null);
     expect(store.tabs).toHaveLength(1);
     expect(store.tabs[0]).toMatchObject({ url: "http://localhost:3000/", label: "localhost:3000" });
     expect(store.isRestored).toBe(true);
+    expect(changed).toBe(false);
   });
 
   it("activeUrlに一致するタブをアクティブにする（idは復元のたびに振り直されるためURLで突き合わせる）", () => {
-    store.restoreFromServer(
+    store.applyServerState(
       [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
       "http://localhost:3000/",
     );
@@ -196,14 +197,75 @@ describe("browserTabs store: restoreFromServer（useBrowserTabsPersist.restoreBr
   });
 
   it("activeUrlがtabs内に無ければactiveBrowserTabIdはnull", () => {
-    store.restoreFromServer([{ url: "http://localhost:3000/" }], "http://localhost:9999/");
+    store.applyServerState([{ url: "http://localhost:3000/" }], "http://localhost:9999/");
     expect(store.activeBrowserTabId).toBeNull();
   });
 
-  it("空配列を渡せばタブ無し・非アクティブになる", () => {
+  it("未同期中に開いたタブはサーバー一覧の後ろへマージされて残り、changed=trueを返す", () => {
+    store.openBrowserTab("http://localhost:5000/");
+    const changed = store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/", "http://localhost:5000/"]);
+    // 今見ているタブが結果にも残るのでアクティブ維持
+    expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:5000/");
+    expect(changed).toBe(true);
+  });
+
+  it("synced後のbeginRestore→applyServerStateは操作記録が無いので置き換えになる（再マウントの残骸を復活させない）", () => {
+    store.applyServerState(
+      [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
+      "http://localhost:4000/",
+    );
+    // 再マウント相当: 他クライアントが4000を閉じた後に再復元
+    store.beginRestore();
+    const changed = store.applyServerState([{ url: "http://localhost:3000/" }], "http://localhost:3000/");
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+    expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:3000/");
+    expect(changed).toBe(false);
+  });
+
+  it("未同期中に閉じたタブはサーバーに残っていても復活しない（changed=true）", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }], null);
+    store.beginRestore();
+    const target = store.tabs.find((t) => t.url === "http://localhost:4000/");
+    store.closeBrowserTab(target.id);
+    const changed = store.applyServerState(
+      [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
+      null,
+    );
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+    expect(changed).toBe(true);
+  });
+
+  it("未同期中に閉じて開き直したタブは記録が相殺され、そのまま残る（changed=false）", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    store.beginRestore();
+    const target = store.tabs.find((t) => t.url === "http://localhost:3000/");
+    store.closeBrowserTab(target.id);
     store.openBrowserTab("http://localhost:3000/");
-    store.restoreFromServer([], null);
-    expect(store.tabs).toEqual([]);
-    expect(store.activeBrowserTabId).toBeNull();
+    const changed = store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+    expect(changed).toBe(false);
+  });
+
+  it("未同期中のURL変更は「旧URLを閉じて新URLを開いた」として突き合わされる", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    store.beginRestore();
+    const target = store.tabs.find((t) => t.url === "http://localhost:3000/");
+    store.updateBrowserTabUrl(target.id, "http://localhost:4000/");
+    const changed = store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:4000/"]);
+    expect(changed).toBe(true);
+  });
+
+  it("synced中の操作は記録されない（保存はwatcher経由で行われるため、次の復元に持ち越さない）", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    // synced中に開閉（watcherが保存する経路）
+    const id = store.openBrowserTab("http://localhost:5000/");
+    store.closeBrowserTab(id);
+    // 再復元: 記録が無いのでサーバー状態そのまま
+    store.beginRestore();
+    const changed = store.applyServerState([{ url: "http://localhost:3000/" }], null);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+    expect(changed).toBe(false);
   });
 });
