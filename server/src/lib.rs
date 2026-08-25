@@ -46,6 +46,7 @@ pub mod push;
 pub mod rate_limit;
 pub mod screen_manifest;
 pub mod screen_regions;
+pub mod session_autotag;
 pub mod session_watch;
 pub mod settings;
 pub mod state;
