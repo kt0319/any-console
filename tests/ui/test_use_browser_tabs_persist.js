@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { nextTick } from "vue";
 import { LAYOUT_SAVE_DEBOUNCE_MS } from "../../ui/utils/constants.ts";
+import { emit } from "../../ui/app-bridge.ts";
 
 const apiFetchMock = vi.fn();
 
@@ -24,17 +25,32 @@ async function flushSave() {
   await vi.advanceTimersByTimeAsync(LAYOUT_SAVE_DEBOUNCE_MS + 10);
 }
 
+/** async ハンドラ（apiFetch → res.json のチェーン）のマイクロタスクを消化する。 */
+async function flushMicrotasks() {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+}
+
+function putCalls() {
+  return apiFetchMock.mock.calls.filter(([, opts]) => opts?.method === "PUT");
+}
+
 describe("useBrowserTabsPersist", () => {
   let store;
+  // startWatching は watch と connectivity:back 購読を登録する。テスト間で
+  // 古いストアに紐付いたリスナーが残らないよう、返り値のクリーンアップを
+  // 必ず afterEach で呼ぶ。
+  let cleanups;
 
   beforeEach(() => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
     store = useBrowserTabStore();
     apiFetchMock.mockReset();
+    cleanups = [];
   });
 
   afterEach(() => {
+    for (const fn of cleanups) fn();
     vi.useRealTimers();
   });
 
@@ -48,14 +64,13 @@ describe("useBrowserTabsPersist", () => {
     expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
     expect(store.activeBrowserTabId).toBe(store.tabs[0].id);
 
-    startWatching();
+    cleanups.push(startWatching());
     apiFetchMock.mockResolvedValue(okResponse({ status: "ok" }));
     store.openBrowserTab("http://localhost:4000/");
     await flushSave();
 
-    const putCalls = apiFetchMock.mock.calls.filter(([, opts]) => opts?.method === "PUT");
-    expect(putCalls.length).toBe(1);
-    expect(putCalls[0][1].body).toEqual({
+    expect(putCalls().length).toBe(1);
+    expect(putCalls()[0][1].body).toEqual({
       tabs: [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
       activeUrl: "http://localhost:4000/",
     });
@@ -67,12 +82,11 @@ describe("useBrowserTabsPersist", () => {
     await restoreBrowserTabs();
     expect(store.isRestored).toBe(false);
 
-    startWatching();
+    cleanups.push(startWatching());
     store.openBrowserTab("http://localhost:3000/");
     await flushSave();
 
-    const putCalls = apiFetchMock.mock.calls.filter(([, opts]) => opts?.method === "PUT");
-    expect(putCalls.length).toBe(0);
+    expect(putCalls().length).toBe(0);
   });
 
   it("復元GETが例外を投げた場合も isRestored は立たず保存しない", async () => {
@@ -81,12 +95,11 @@ describe("useBrowserTabsPersist", () => {
     await restoreBrowserTabs();
     expect(store.isRestored).toBe(false);
 
-    startWatching();
+    cleanups.push(startWatching());
     store.openBrowserTab("http://localhost:3000/");
     await flushSave();
 
-    const putCalls = apiFetchMock.mock.calls.filter(([, opts]) => opts?.method === "PUT");
-    expect(putCalls.length).toBe(0);
+    expect(putCalls().length).toBe(0);
   });
 
   it("復元時に http/https 以外のURL（手編集されたconfig等）を除外する", async () => {
@@ -103,5 +116,78 @@ describe("useBrowserTabsPersist", () => {
     // 除外されたURLがactiveUrlでも、突き合わせに失敗してnullへ落ちるだけで壊れない
     expect(store.activeBrowserTabId).toBe(null);
     expect(store.isRestored).toBe(true);
+  });
+
+  it("復元時に旧形式のURL（https:example.com 等）を正規化して保持する — 生のまま残すと次の保存PUTが422で全滅する", async () => {
+    apiFetchMock.mockResolvedValueOnce(
+      okResponse({
+        tabs: [{ url: "https:example.com" }, { url: "http://localhost:3000/" }],
+        activeUrl: "https:example.com",
+      }),
+    );
+    const { restoreBrowserTabs } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+
+    expect(store.tabs.map((t) => t.url)).toEqual(["https://example.com/", "http://localhost:3000/"]);
+    // activeUrl も正規化してから突き合わせるため、正規化後のタブと一致する
+    expect(store.activeBrowserTabId).toBe(store.tabs[0].id);
+  });
+
+  it("復元失敗後にローカルで開いたタブは、リトライ成功時にサーバー分とマージされて残り、サーバーへも反映される", async () => {
+    apiFetchMock.mockResolvedValueOnce({ ok: false });
+    const { restoreBrowserTabs } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+    expect(store.isRestored).toBe(false);
+
+    const localId = store.openBrowserTab("http://localhost:5000/");
+    expect(store.activeBrowserTabId).toBe(localId);
+
+    apiFetchMock.mockResolvedValue(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: "http://localhost:3000/" }),
+    );
+    await restoreBrowserTabs();
+
+    expect(store.isRestored).toBe(true);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/", "http://localhost:5000/"]);
+    // アクティブタブはローカル優先
+    expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:5000/");
+
+    // マージ結果（サーバーがまだ知らないローカル分）が保存される
+    await vi.advanceTimersByTimeAsync(LAYOUT_SAVE_DEBOUNCE_MS + 10);
+    expect(putCalls().length).toBe(1);
+    expect(putCalls()[0][1].body).toEqual({
+      tabs: [{ url: "http://localhost:3000/" }, { url: "http://localhost:5000/" }],
+      activeUrl: "http://localhost:5000/",
+    });
+  });
+
+  it("復元失敗のまま接続が復帰（connectivity:back）したら復元をリトライして永続化を復活させる", async () => {
+    apiFetchMock.mockRejectedValueOnce(new Error("network"));
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+    expect(store.isRestored).toBe(false);
+
+    cleanups.push(startWatching());
+    apiFetchMock.mockResolvedValue(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: null }),
+    );
+    emit("connectivity:back");
+    await flushMicrotasks();
+
+    expect(store.isRestored).toBe(true);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+  });
+
+  it("復元済みなら connectivity:back で復元をやり直さない", async () => {
+    apiFetchMock.mockResolvedValueOnce(okResponse({ tabs: [], activeUrl: null }));
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+    expect(store.isRestored).toBe(true);
+
+    cleanups.push(startWatching());
+    const callsBefore = apiFetchMock.mock.calls.length;
+    emit("connectivity:back");
+    await flushMicrotasks();
+    expect(apiFetchMock.mock.calls.length).toBe(callsBefore);
   });
 });
