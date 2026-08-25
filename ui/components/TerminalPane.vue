@@ -167,10 +167,12 @@ const devServerEntry = computed(() => {
   return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
 });
 
+const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
+
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
 // （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
-// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
+// PR/Actionsのポーリング開始・停止は useGitHubPollingFor に集約。
 const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(
   computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
 const branchPR = computed<Record<string, any> | null>(() => {
@@ -190,8 +192,6 @@ const branchAction = computed<Record<string, any> | null>(() => {
 const visibleBranchAction = computed(() =>
   isNoticeableRun(branchAction.value) ? branchAction.value : null,
 );
-
-const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 
 const { queue: dispatchQueue } = useDispatchQueue();
 const tabDispatchItems = computed(() => {
