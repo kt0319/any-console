@@ -28,7 +28,7 @@ use futures_util::StreamExt;
 use serde_json::{json, Map, Value};
 
 use crate::config::ConfigStore;
-use crate::json_store::{load_json_file, save_json_file};
+use crate::json_store::load_json_file;
 use crate::screen_manifest::{
     compare_manifest_versions, parse_manifest_text, parse_manifest_version, value_to_string,
     ManifestStore,
@@ -222,9 +222,11 @@ pub fn load_status(store: &ManifestStore) -> Map<String, Value> {
 }
 
 fn save_status(store: &ManifestStore, status: &Map<String, Value>) {
-    if let Err(e) = save_json_file(&status_path(store), &Value::Object(status.clone())) {
-        tracing::warn!("failed to save manifest update status: {e}");
-    }
+    crate::json_store::save_or_warn(
+        &status_path(store),
+        &Value::Object(status.clone()),
+        "agent-detection status.json",
+    );
 }
 
 fn now_unix() -> i64 {

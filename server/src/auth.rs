@@ -249,9 +249,7 @@ impl Auth {
     }
 
     fn save_auth_file_raw(&self, data: &Value) {
-        if let Err(e) = crate::json_store::save_json_file(&self.auth_file_path(), data) {
-            tracing::warn!("auth.json write failed: {e}");
-        }
+        crate::json_store::save_or_warn(&self.auth_file_path(), data, "auth.json");
     }
 
     /// メイントークンをローテーションする（`api_tokens` 等の他フィールドは保持）。

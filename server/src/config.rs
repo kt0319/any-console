@@ -444,8 +444,23 @@ impl ConfigStore {
             .cloned()
     }
 
-    /// Python `save_global_config_section` と同一（EX ロック下で read-modify-write）。
-    pub fn save_global_section(&self, key: &str, data: Value) -> Result<(), String> {
+    /// global セクションを object として読む（欠如・非 object は空 Map）。
+    pub fn load_global_object(&self, key: &str) -> Map<String, Value> {
+        crate::json_store::section_as_map(self.load_global_section(key))
+    }
+
+    /// global セクションを array として読む（欠如・非 array は空 Vec）。
+    pub fn load_global_array(&self, key: &str) -> Vec<Value> {
+        crate::json_store::section_as_array(self.load_global_section(key))
+    }
+
+    /// EX ロック下で global セクション map を編集して書き戻す共通経路
+    /// （`save_global_section` / `compare_and_update_global_section` が共有）。
+    /// `mutate` が false を返したら書き込みをスキップする。
+    fn update_global_map(
+        &self,
+        mutate: impl FnOnce(&mut Map<String, Value>) -> bool,
+    ) -> Result<(), String> {
         let _lock = self
             .file_lock(true)
             .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
@@ -455,11 +470,21 @@ impl ConfigStore {
             .and_then(Value::as_object)
             .cloned()
             .unwrap_or_default();
-        global.insert(key.to_string(), data);
+        if !mutate(&mut global) {
+            return Ok(());
+        }
         let validated =
             validate_config_entry(GLOBAL_CONFIG_KEY, &Value::Object(global), GLOBAL_CONFIG_KEY)?;
         all.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(validated));
         self.write_unlocked(&all)
+    }
+
+    /// Python `save_global_config_section` と同一（EX ロック下で read-modify-write）。
+    pub fn save_global_section(&self, key: &str, data: Value) -> Result<(), String> {
+        self.update_global_map(|global| {
+            global.insert(key.to_string(), data);
+            true
+        })
     }
 
     /// expected_current を前提に算出した new_value を、排他ロック下で再検証してから
@@ -472,33 +497,23 @@ impl ConfigStore {
         expected_current: &Value,
         new_value: Value,
     ) -> Result<Value, String> {
-        let _lock = self
-            .file_lock(true)
-            .ok_or_else(|| "Failed to acquire config.lock".to_string())?;
-        let mut all = self.read_unlocked();
-        let mut global = all
-            .get(GLOBAL_CONFIG_KEY)
-            .and_then(Value::as_object)
-            .cloned()
-            .unwrap_or_default();
-        let current = global
-            .get(key)
-            .cloned()
-            .unwrap_or(Value::Object(Map::new()));
-        if &current != expected_current {
-            return Ok(current);
-        }
-        if new_value != current {
+        let mut result = new_value.clone();
+        self.update_global_map(|global| {
+            let current = global
+                .get(key)
+                .cloned()
+                .unwrap_or(Value::Object(Map::new()));
+            if &current != expected_current {
+                result = current;
+                return false;
+            }
+            if new_value == current {
+                return false;
+            }
             global.insert(key.to_string(), new_value.clone());
-            let validated = validate_config_entry(
-                GLOBAL_CONFIG_KEY,
-                &Value::Object(global),
-                GLOBAL_CONFIG_KEY,
-            )?;
-            all.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(validated));
-            self.write_unlocked(&all)?;
-        }
-        Ok(new_value)
+            true
+        })?;
+        Ok(result)
     }
 
     /// Python `check_config_health` と同一の判定。

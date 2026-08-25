@@ -180,9 +180,11 @@ fn load_subscriptions(data_dir: &Path) -> Vec<Value> {
 }
 
 fn save_subscriptions(data_dir: &Path, subs: &[Value]) {
-    if let Err(e) = crate::json_store::save_json_file(&subscriptions_path(data_dir), &json!(subs)) {
-        tracing::warn!("push_subscriptions.json write failed: {e}");
-    }
+    crate::json_store::save_or_warn(
+        &subscriptions_path(data_dir),
+        &json!(subs),
+        "push_subscriptions.json",
+    );
 }
 
 pub fn has_subscriptions(data_dir: &Path) -> bool {

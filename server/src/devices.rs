@@ -32,7 +32,7 @@ use sha2::Sha256;
 
 use crate::auth::{constant_time_eq, RequireAuth, COOKIE_DEVICE_ID, COOKIE_DEVICE_SECRET};
 use crate::errors::{bad_request, not_found, ApiError};
-use crate::json_store::{load_json_file, save_json_file};
+use crate::json_store::load_json_file;
 use crate::state::AppState;
 use crate::util::{now_epoch, truncate_chars, JsonBody};
 
@@ -140,9 +140,7 @@ fn devices_array(data: &Value) -> Vec<Value> {
 }
 
 fn save_unlocked(data_dir: &Path, data: &Value) {
-    if let Err(e) = save_json_file(&devices_path(data_dir), data) {
-        tracing::warn!("devices.json write failed: {e}");
-    }
+    crate::json_store::save_or_warn(&devices_path(data_dir), data, "devices.json");
 }
 
 /// User-Agent から `Chrome on macOS` のような簡潔な名前を生成する

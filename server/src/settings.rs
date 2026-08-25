@@ -123,13 +123,9 @@ pub struct EditorSettings {
 }
 
 pub async fn get_editor(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
-    let editor = state
-        .config
-        .load_global_section("editor")
-        .unwrap_or(json!({}));
+    let editor = state.config.load_global_object("editor");
     let url_template = editor
-        .as_object()
-        .and_then(|o| o.get("url_template"))
+        .get("url_template")
         .and_then(Value::as_str)
         .unwrap_or("");
     Json(json!({"url_template": url_template}))
@@ -278,11 +274,7 @@ fn yes() -> bool {
 }
 
 pub async fn get_info_pills(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
-    let raw = state
-        .config
-        .load_global_section("info_pills")
-        .unwrap_or(json!({}));
-    let raw = raw.as_object().cloned().unwrap_or_default();
+    let raw = state.config.load_global_object("info_pills");
     let mut result = Map::new();
     for &field in INFO_PILL_FIELDS {
         let v = raw
@@ -380,11 +372,7 @@ pub async fn get_circle_keypad(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
 ) -> Json<Value> {
-    let raw = state
-        .config
-        .load_global_section("circle_keypad")
-        .unwrap_or(json!({}));
-    let raw = raw.as_object().cloned().unwrap_or_default();
+    let raw = state.config.load_global_object("circle_keypad");
     let keys = raw
         .get("keys")
         .filter(|v| v.is_array())
@@ -454,13 +442,9 @@ fn default_layout() -> String {
 }
 
 pub async fn get_layout(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
-    let raw = state
-        .config
-        .load_global_section("layout")
-        .unwrap_or(json!({}));
+    let raw = state.config.load_global_object("layout");
     let split = raw
-        .as_object()
-        .and_then(|o| o.get("split"))
+        .get("split")
         .filter(|v| v.is_object())
         .cloned()
         .unwrap_or(Value::Null);
@@ -546,11 +530,7 @@ fn normalize_snippet(label: &str, command: &str) -> Option<Value> {
 }
 
 pub async fn get_snippets(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
-    let raw = state
-        .config
-        .load_global_section("snippets")
-        .unwrap_or(json!([]));
-    let items = raw.as_array().cloned().unwrap_or_default();
+    let items = state.config.load_global_array("snippets");
     let sanitized: Vec<Value> = items
         .iter()
         .filter_map(Value::as_object)

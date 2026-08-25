@@ -115,15 +115,11 @@ impl JobsCache {
     }
 }
 
-fn section_as_map(v: Option<Value>) -> Map<String, Value> {
-    v.and_then(|x| x.as_object().cloned()).unwrap_or_default()
-}
-
 pub fn load_common_jobs_data(state: &AppState) -> Map<String, Value> {
     if let Some(cached) = state.jobs_cache.get(COMMON_JOBS_CACHE_KEY) {
         return cached;
     }
-    let data = section_as_map(state.config.load_global_section("jobs"));
+    let data = crate::json_store::section_as_map(state.config.load_global_section("jobs"));
     state.jobs_cache.set(COMMON_JOBS_CACHE_KEY, data.clone());
     data
 }
@@ -145,7 +141,7 @@ pub fn save_common_jobs_data(state: &AppState, data: Map<String, Value>) -> Resu
 /// の中で毎回読み直す設計にしている）。
 pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), ApiError> {
     state.config.with_exclusive(|all| {
-        let mut jobs = section_as_map(
+        let mut jobs = crate::json_store::section_as_map(
             all.get(crate::config::GLOBAL_CONFIG_KEY)
                 .and_then(Value::as_object)
                 .and_then(|g| g.get("jobs"))

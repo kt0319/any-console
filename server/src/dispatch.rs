@@ -101,20 +101,20 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
 
 async fn persist_pending(state: &Arc<AppState>) {
     let pending = state.dispatch.pending.lock().await.clone();
-    if let Err(e) =
-        crate::json_store::save_json_file(&queue_file(&state.paths), &json!({"items": pending}))
-    {
-        tracing::warn!("dispatch queue persist failed: {e}");
-    }
+    crate::json_store::save_or_warn(
+        &queue_file(&state.paths),
+        &json!({"items": pending}),
+        "dispatch queue",
+    );
 }
 
 async fn persist_recent(state: &Arc<AppState>) {
     let recent = state.dispatch.recent.lock().await.clone();
-    if let Err(e) =
-        crate::json_store::save_json_file(&recent_file(&state.paths), &json!({"items": recent}))
-    {
-        tracing::warn!("dispatch recent persist failed: {e}");
-    }
+    crate::json_store::save_or_warn(
+        &recent_file(&state.paths),
+        &json!({"items": recent}),
+        "dispatch recent",
+    );
 }
 
 async fn queue_payload(state: &Arc<AppState>) -> Value {
