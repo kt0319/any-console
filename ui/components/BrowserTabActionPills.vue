@@ -13,7 +13,9 @@
 <script setup lang="ts">
 import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { usePrompt } from "../composables/usePrompt.ts";
+import { useToast } from "../composables/useToast.ts";
 import { openExternal } from "../utils/open-external.ts";
+import { isAllowedBrowserTabUrl } from "../utils/browser-tab-url.ts";
 
 // ブラウザタブ（dev serverプレビュー）共通のEdit URL/Reload/Open in new tab
 // ピル群。BrowserPane.vue（フロートするInfo Pill風ツールバー）と
@@ -29,6 +31,7 @@ const props = defineProps({
 
 const browserTabStore = useBrowserTabStore();
 const { prompt } = usePrompt();
+const toast = useToast();
 
 async function onEditUrl() {
   const next = await prompt({
@@ -38,6 +41,12 @@ async function onEditUrl() {
     confirmLabel: "Go",
   });
   if (!next || next === props.url) return;
+  // iframeのsrcへそのまま入れるため http/https 以外は受け付けない
+  // （サーバー側 put_browser_tabs も同じ規則で422を返す）。
+  if (!isAllowedBrowserTabUrl(next)) {
+    toast.error("Invalid URL: must start with http:// or https://");
+    return;
+  }
   browserTabStore.updateBrowserTabUrl(props.id, next);
 }
 

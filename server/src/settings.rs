@@ -15,7 +15,7 @@ use serde_json::{json, Map, Value};
 
 use crate::auth::RequireAuth;
 use crate::config::{ConfigStore, GLOBAL_CONFIG_KEY};
-use crate::errors::{bad_request, too_large, ApiError};
+use crate::errors::{bad_request, too_large, unprocessable, ApiError};
 use crate::jobs_common::{check_max_len, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH};
 use crate::state::AppState;
 use crate::util::{truncate_chars, JsonBody};
@@ -595,6 +595,14 @@ pub async fn put_snippets(
 
 const MAX_URL_LENGTH: usize = 2000;
 
+/// ブラウザタブとして保存を許すURLか（http/https のみ）。復元値はフロントが
+/// そのまま iframe の src へ入れるため、javascript: 等のスキームを保存段階で
+/// 弾く（ui/utils/browser-tab-url.ts のクライアント側ガードと同じ規則）。
+fn is_allowed_browser_tab_url(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
 #[derive(Deserialize, serde::Serialize, Clone)]
 pub struct BrowserTabItem {
     url: String,
@@ -636,20 +644,29 @@ pub async fn put_browser_tabs(
 ) -> Result<Json<Value>, ApiError> {
     for item in &body.tabs {
         check_max_len("url", &item.url, MAX_URL_LENGTH)?;
+        // 空urlは後段で黙って除去する（フロントの防御的な空要素）。それ以外で
+        // スキームが不正なものは保存せずエラーにして呼び出し側の不具合を早期に露見させる。
+        if !item.url.trim().is_empty() && !is_allowed_browser_tab_url(&item.url) {
+            return Err(unprocessable("url must start with http:// or https://"));
+        }
     }
     if let Some(url) = &body.active_url {
         check_max_len("activeUrl", url, MAX_URL_LENGTH)?;
     }
-    let tabs: Vec<Value> = body
+    let tabs: Vec<BrowserTabItem> = body
         .tabs
         .iter()
         .filter(|t| !t.url.trim().is_empty())
+        .cloned()
+        .collect();
+    // activeUrlが保存後も実在するタブを指していなければ持たない（保存後の状態
+    // 不整合を防ぐ）。空urlで除去されたタブと突き合わないよう、フィルタ後の
+    // 一覧に対して判定する。
+    let active_url = body.active_url.filter(|u| tabs.iter().any(|t| &t.url == u));
+    let tabs: Vec<Value> = tabs
+        .iter()
         .map(|t| serde_json::to_value(t).expect("serializable"))
         .collect();
-    // activeUrlが実在するタブを指していなければ持たない（保存後の状態不整合を防ぐ）。
-    let active_url = body
-        .active_url
-        .filter(|u| body.tabs.iter().any(|t| &t.url == u));
     save_global(
         &state.config,
         "browser_tabs",

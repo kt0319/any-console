@@ -135,6 +135,17 @@ async fn browser_tabs_roundtrip_and_sanitize() {
     let got = get_json(&front, "/settings/browser-tabs").await;
     assert_eq!(got["activeUrl"], Value::Null);
 
+    // activeUrlが「空urlで除去されるタブ」を指している場合も保存されない
+    // （フィルタ後の一覧に対して突き合わせる）
+    put_json(
+        &front,
+        "/settings/browser-tabs",
+        &json!({"tabs": [{"url": "http://localhost:3000/"}, {"url": "  "}], "activeUrl": "  "}),
+    )
+    .await;
+    let got = get_json(&front, "/settings/browser-tabs").await;
+    assert_eq!(got["activeUrl"], Value::Null);
+
     // 上限超過は 422
     let resp = put_json(
         &front,
@@ -143,6 +154,18 @@ async fn browser_tabs_roundtrip_and_sanitize() {
     )
     .await;
     assert_eq!(resp.status(), 422);
+
+    // http/https 以外のスキームは 422（復元値はフロントがそのままiframeの
+    // srcへ入れるため保存段階で弾く）
+    for bad in ["javascript:alert(1)", "file:///etc/passwd", "not a url"] {
+        let resp = put_json(
+            &front,
+            "/settings/browser-tabs",
+            &json!({"tabs": [{"url": bad}]}),
+        )
+        .await;
+        assert_eq!(resp.status(), 422, "url {bad:?} should be rejected");
+    }
 }
 
 #[tokio::test]

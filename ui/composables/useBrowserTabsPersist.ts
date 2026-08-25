@@ -2,6 +2,7 @@ import { watch } from "vue";
 import { useBrowserTabStore } from "../stores/browserTabs.ts";
 import { useAuthStore } from "../stores/auth.ts";
 import { EP_SETTINGS_BROWSER_TABS } from "../utils/endpoints.ts";
+import { isAllowedBrowserTabUrl } from "../utils/browser-tab-url.ts";
 import { LAYOUT_SAVE_DEBOUNCE_MS as SAVE_DEBOUNCE_MS } from "../utils/constants.ts";
 
 let _saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,11 +41,17 @@ export function useBrowserTabsPersist() {
   /**
    * restoreBrowserTabs() 完了後に呼ぶこと。復元前に変化を監視すると、
    * 空配列の初期状態でサーバーの保存済みタブを上書きしてしまう。
+   * 呼び出し順に加えて isRestored でもガードする — 復元に失敗したセッション
+   * （isRestored が false のまま）で保存を許すと、その後タブを1つ開いた時点で
+   * サーバーの保存済みタブ一覧を新しい一覧で上書き消去してしまうため。
    */
   function startWatching() {
     watch(
       () => [browserTabStore.tabs.slice(), browserTabStore.activeBrowserTabId],
-      () => _scheduleSave(),
+      () => {
+        if (!browserTabStore.isRestored) return;
+        _scheduleSave();
+      },
       { deep: false },
     );
   }
@@ -54,9 +61,14 @@ export function useBrowserTabsPersist() {
       const res = await auth.apiFetch(EP_SETTINGS_BROWSER_TABS);
       if (!res || !res.ok) return;
       const data = await res.json();
-      browserTabStore.restoreFromServer(Array.isArray(data?.tabs) ? data.tabs : [], data?.activeUrl ?? null);
+      // http/https 以外（手編集されたconfig.json等）はiframeへ渡さない。
+      const tabs = (Array.isArray(data?.tabs) ? data.tabs : []).filter(
+        (t: { url?: unknown }) => isAllowedBrowserTabUrl(t?.url),
+      );
+      browserTabStore.restoreFromServer(tabs, data?.activeUrl ?? null);
     } catch {
-      browserTabStore.isRestored = true;
+      // 復元に失敗した場合は isRestored を立てず、このセッションでは保存を
+      // 走らせない（空の一覧でサーバーの保存済みタブを上書きしないため）。
     }
   }
 
