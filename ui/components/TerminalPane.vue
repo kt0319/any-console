@@ -91,6 +91,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef, type
 import type { Terminal } from "@xterm/xterm";
 import { useTerminal } from "../composables/useTerminal.ts";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useTerminalSettingsStore } from "../stores/terminal-settings.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
@@ -426,7 +427,7 @@ function applyFocusGuard(term: Terminal | null | undefined) {
 
 onMounted(() => {
   if (frameEl.value) {
-    const fs = terminalStore.terminalSettings?.fontSize || 12;
+    const fs = useTerminalSettingsStore().terminalSettings?.fontSize || 12;
     frameEl.value.style.setProperty("--terminal-font-size", `${fs}px`);
   }
   if (props.tab._pendingOpen && frameEl.value) {

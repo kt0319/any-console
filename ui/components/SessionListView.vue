@@ -53,6 +53,7 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
@@ -79,6 +80,7 @@ type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number
 // useSettingsNav.ts）から独立して開くため、このビューからは直接遷移しない。
 
 const terminalStore = useTerminalStore();
+const agentStateStore = useAgentStateStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirmAndCloseTab } = useTabClose();
@@ -159,9 +161,9 @@ const items = computed(() => {
   terminalStore.tabWorkspaceVersion;
   return sessionSidebarItems(terminalStore.openTabs, workspaceStore.allWorkspaces, {
     tabFlags: terminalStore.tabFlags,
-    agentStates: terminalStore.agentStates,
-    doneSessions: terminalStore.doneSessions,
-    phraseNotifySessions: terminalStore.phraseNotifySessions,
+    agentStates: agentStateStore.agentStates,
+    doneSessions: agentStateStore.doneSessions,
+    phraseNotifySessions: agentStateStore.phraseNotifySessions,
     prsByWorkspace: prsByWorkspace.value,
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
@@ -177,7 +179,7 @@ function onSelect(item: SessionItem) {
   } else {
     // 既にアクティブなタブ（タブが1つしかない場合等）は switchTab() を経由しないため、
     // ここで明示的にバッジをクリアする（そうしないと通知が消えないまま残る）。
-    terminalStore.clearSessionNotifyBadges(item.tab.sessionId);
+    agentStateStore.clearSessionNotifyBadges(item.tab.sessionId);
   }
   // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。
   // 閉じるのはハンバーガー/閉じるボタン・Escでの明示操作のみにする。

@@ -26,6 +26,7 @@ import SessionListView from "../../ui/components/SessionListView.vue";
 import TabItem from "../../ui/components/TabItem.vue";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
+import { useAgentStateStore } from "../../ui/stores/agent-state.ts";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 import { useInputStore } from "../../ui/stores/input.ts";
 import { applyDispatchQueue } from "../../ui/composables/useDispatchQueue.ts";
@@ -905,7 +906,7 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
 
   it("行にブランチ名・変更サマリ・エージェント状態が表示される", async () => {
     const { terminalStore } = seedSidebar();
-    terminalStore.agentStates.s1 = "working";
+    useAgentStateStore().agentStates.s1 = "working";
     await flushPromises();
     const rows = wrapper.findAll(".session-sidebar-item");
     expect(rows).toHaveLength(2);

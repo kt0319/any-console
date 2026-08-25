@@ -338,6 +338,7 @@ describe("a11y: SessionSidebar", () => {
     setActivePinia(createPinia());
     const { useLayoutStore } = await import("../../../ui/stores/layout.ts");
     const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
+    const { useAgentStateStore } = await import("../../../ui/stores/agent-state.ts");
     const layoutStore = useLayoutStore();
     const terminalStore = useTerminalStore();
     layoutStore.isSessionSidebarOpen = true;
@@ -346,8 +347,8 @@ describe("a11y: SessionSidebar", () => {
       { id: 2, sessionId: "s2", workspace: null, label: "bare", wsIcon: null, icon: null },
     ];
     terminalStore.activeTabId = 1;
-    terminalStore.agentStates.s1 = "working";
-    terminalStore.agentStates.s2 = "blocked";
+    useAgentStateStore().agentStates.s1 = "working";
+    useAgentStateStore().agentStates.s2 = "blocked";
     useWorkspaceStore().allWorkspaces = [
       { name: "app", branch: "main", clean: false, ahead: 1, behind: 2, changed_files: 1, insertions: 2, deletions: 3 },
     ];
@@ -366,6 +367,7 @@ describe("a11y: TabBar", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
+    const { useAgentStateStore } = await import("../../../ui/stores/agent-state.ts");
     const terminalStore = useTerminalStore();
     const tabs = [
       { id: 1, sessionId: "s1", workspace: null, label: "one", wsIcon: null, icon: null },

@@ -3,23 +3,17 @@ import { ref, reactive, computed, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION, WORKING_MIN_DURATION_MS } from "../utils/constants.ts";
+import { LS_KEY_ACTIVE_SESSION } from "../utils/constants.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
-import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.ts";
-import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 import { isTouchInput } from "../utils/device.ts";
 import { findUrlInBuffer, TERMINAL_URL_REGEX } from "../utils/terminal-buffer-text.ts";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.ts";
 import { useAuthStore } from "./auth.ts";
-
-const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
+import { useAgentStateStore } from "./agent-state.ts";
+import { useTerminalSettingsStore } from "./terminal-settings.ts";
 
 let _longPressActive = false;
 export function setLongPressActive(v: boolean) { _longPressActive = !!v; }
-
-function loadTerminalSettingsFromStorage() {
-  return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
-}
 
 export interface TerminalTab {
   id: number;
@@ -69,7 +63,6 @@ export const useTerminalStore = defineStore("terminal", () => {
   const hasRestoredTabsFromStorage = ref(false);
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
-  const terminalSettings = ref(loadTerminalSettingsFromStorage());
   const tabFlags = reactive<Record<number, Record<string, unknown>>>({});
   // tab は markRaw（xterm.Terminal/WebSocket等の重い実行時参照を保持するため
   // 意図的に非リアクティブ）なので、tab.workspace のようなフィールドの変更は
@@ -96,113 +89,13 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (!sessionId) return;
     pendingCloseSessionIds.value.delete(sessionId);
   }
-  // sessionId → エージェント状態（backendはblocked/working/idleのみを送る）。
-  // status stream WS が更新する。
-  const agentStates = reactive<Record<string, string>>({});
-  // sessionId → 判定元（"hook"/"manifest"/"screen"、デバッグ表示専用）。
-  // agentStatesと同じタイミングでWSから届く（agent_watch.rsのstates_payload）。
-  const agentStateSources = reactive<Record<string, string>>({});
-  // sessionId → true。working から idle への遷移（=作業完了）を検知した
-  // セッション。idle自体はバッジ非表示にするため、タブを見る（switchTab）
-  // までは「done」として表示し続けるための別レイヤー。
-  const doneSessions = reactive<Record<string, boolean>>({});
-  // sessionId → working状態に入った時刻(ms)。working→idle遷移時にここからの
-  // 経過が WORKING_MIN_DURATION_MS 未満なら done化しない（backendのagent_watchが
-  // 実際には何も作業していないセッションを、画面のちらつき等で一瞬working扱いに
-  // してしまうことがあり、それを「作業完了」と誤認するのを防ぐため）。
-  const workingStartedAt: Record<string, number> = {};
-
-  /**
-   * status stream WS から届いたエージェント状態をマージする。
-   * working が WORKING_MIN_DURATION_MS 以上継続してから idle に遷移した場合のみ
-   * 「done」として doneSessions に記録する。idle以外（working/blocked）が届いたら
-   * doneSessions はクリアする（新しい作業の開始、またはblockedでの入力待ちが
-   * doneより優先されるため）。
-   */
-  function applyAgentStates(states: Array<{ session_id: string, state: string, source?: string }>) {
-    if (!Array.isArray(states)) return;
-    for (const entry of states) {
-      if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
-        const sessionId = entry.session_id;
-        const prevState = agentStates[sessionId];
-        if (entry.state === "working") {
-          if (prevState !== "working") workingStartedAt[sessionId] = Date.now();
-        } else if (entry.state === "idle") {
-          const startedAt = workingStartedAt[sessionId];
-          if (prevState === "working" && startedAt !== undefined && Date.now() - startedAt >= WORKING_MIN_DURATION_MS) {
-            doneSessions[sessionId] = true;
-          }
-          delete workingStartedAt[sessionId];
-        } else {
-          delete workingStartedAt[sessionId];
-          delete doneSessions[sessionId];
-        }
-        agentStates[sessionId] = entry.state;
-        if (typeof entry.source === "string") agentStateSources[sessionId] = entry.source;
-      }
-    }
-  }
-
   function setTabFlag(tabId: number, key: string, value: unknown) {
     if (!tabFlags[tabId]) tabFlags[tabId] = {};
     tabFlags[tabId][key] = value;
   }
 
-  function clearAgentState(sessionId: string | null | undefined) {
-    if (!sessionId) return;
-    delete workingStartedAt[sessionId];
-    delete agentStates[sessionId];
-    delete agentStateSources[sessionId];
-    delete doneSessions[sessionId];
-  }
-
-  // sessionId → true の「見たら消えるバッジ」フラグ共通の解除処理
-  // （doneSessions/phraseNotifySessionsで重複していたロジックを共通化）。
-  function clearNotifyFlag(flags: Record<string, boolean>, sessionId: string | null | undefined) {
-    if (sessionId) delete flags[sessionId];
-  }
-
-  function clearDoneState(sessionId: string | null | undefined) {
-    clearNotifyFlag(doneSessions, sessionId);
-  }
-
-  // sessionId → notify_phrase 検知フラグ。タブが選択されたら見た扱いでクリアする。
-  const phraseNotifySessions = reactive<Record<string, boolean>>({});
-
-  function markPhraseNotify(sessionId: string) {
-    if (sessionId) phraseNotifySessions[sessionId] = true;
-  }
-
-  function clearPhraseNotify(sessionId: string | null | undefined) {
-    clearNotifyFlag(phraseNotifySessions, sessionId);
-  }
-
-  // セッションが選択・アクティブ化された際に見た扱いでクリアするバッジをまとめて処理する。
-  function clearSessionNotifyBadges(sessionId: string | null | undefined) {
-    clearPhraseNotify(sessionId);
-    clearDoneState(sessionId);
-  }
-
   function clearTabFlags(tabId: number) {
     delete tabFlags[tabId];
-  }
-
-  function saveTerminalSettings() {
-    safeJsonSave(TERMINAL_SETTINGS_KEY, terminalSettings.value);
-  }
-
-  function setTerminalSetting(key: string, value: unknown) {
-    if (!(key in DEFAULT_TERMINAL_SETTINGS)) return null;
-    const next = sanitizeTerminalSetting(key, value);
-    terminalSettings.value[key] = next;
-    saveTerminalSettings();
-    return next;
-  }
-
-  function resetTerminalSettings() {
-    terminalSettings.value = { ...DEFAULT_TERMINAL_SETTINGS };
-    saveTerminalSettings();
-    return terminalSettings.value;
   }
 
   // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側（useSessionSync の
@@ -226,7 +119,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const existing = openTabs.value.find((t) => t.sessionId === sessionId);
     if (existing) return existing;
 
-    const opts = getTerminalRuntimeOptions();
+    const opts = useTerminalSettingsStore().getTerminalRuntimeOptions();
     const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
@@ -293,7 +186,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const tabs = openTabs.value;
     const next = tabs.find((_, i) => i >= idx) || tabs[tabs.length - 1];
     activeTabId.value = next ? next.id : null;
-    if (next) clearDoneState(next.sessionId);
+    if (next) useAgentStateStore().clearDoneState(next.sessionId);
   }
 
   function switchTab(tabId: number, { focus = true }: { focus?: boolean } = {}) {
@@ -302,7 +195,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (tab) {
       localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
-      clearSessionNotifyBadges(tab.sessionId);
+      useAgentStateStore().clearSessionNotifyBadges(tab.sessionId);
     }
   }
 
@@ -399,17 +292,6 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  function getTerminalRuntimeOptions() {
-    return {
-      cursorBlink: terminalSettings.value.cursorBlink,
-      cursorStyle: terminalSettings.value.cursorStyle,
-      fontSize: terminalSettings.value.fontSize,
-      fontFamily: '"Hack Nerd Font", monospace',
-      scrollback: terminalSettings.value.scrollback,
-      scrollOnOutput: terminalSettings.value.scrollOnOutput,
-    };
-  }
-
   return {
     openTabs,
     activeTabId,
@@ -417,27 +299,13 @@ export const useTerminalStore = defineStore("terminal", () => {
     hasRestoredTabsFromStorage,
     restoreSessionsLoading,
     restoreSessionsError,
-    terminalSettings,
     tabFlags,
     pendingCloseSessionIds,
     suppressNextFocus,
     markPendingClose,
     clearPendingClose,
-    agentStates,
-    agentStateSources,
-    applyAgentStates,
-    clearAgentState,
-    doneSessions,
-    clearDoneState,
-    phraseNotifySessions,
-    markPhraseNotify,
-    clearPhraseNotify,
-    clearSessionNotifyBadges,
     setTabFlag,
     clearTabFlags,
-    TERMINAL_SETTINGS_META,
-    DEFAULT_TERMINAL_SETTINGS,
-    setTerminalSetting,
     addTerminalTab,
     removeTab,
     switchTab,
@@ -448,8 +316,5 @@ export const useTerminalStore = defineStore("terminal", () => {
     setTabLabel,
     tabWorkspaceVersion,
     loadTabOrder,
-    resetTerminalSettings,
-    sanitizeTerminalSetting,
-    sanitizeTerminalSettings,
   };
 });

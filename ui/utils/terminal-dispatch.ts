@@ -1,5 +1,5 @@
 import { keyDefToAnsi } from "./key-ansi.ts";
-import { useTerminalStore } from "../stores/terminal.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 
 /**
  * 指定ターミナルタブの WebSocket へキー入力（ANSI シーケンス）を送信する。
@@ -13,7 +13,7 @@ export function dispatchKeyToTab(
   const seq = keyDefToAnsi(keyDef);
   if (seq == null) return false;
   tab.ws.send(new TextEncoder().encode(seq));
-  useTerminalStore().clearSessionNotifyBadges(tab.sessionId);
+  useAgentStateStore().clearSessionNotifyBadges(tab.sessionId);
   return true;
 }
 
@@ -26,6 +26,6 @@ export function dispatchTextToTab(
 ): boolean {
   if (!tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return false;
   tab.ws.send(new TextEncoder().encode(text));
-  useTerminalStore().clearSessionNotifyBadges(tab.sessionId);
+  useAgentStateStore().clearSessionNotifyBadges(tab.sessionId);
   return true;
 }
