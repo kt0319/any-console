@@ -19,6 +19,7 @@
 import { computed, provide } from "vue";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.ts";
+import { provideModalView } from "../composables/useModalView.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import ModalShell from "./ModalShell.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
@@ -51,12 +52,7 @@ const terminalStore = useTerminalStore();
 // （実行時の値・挙動は不変）。
 const activeTabId = computed(() => terminalStore.activeTabId as number);
 
-provide("modalTitle", modalTitle);
-provide("modalBranch", modalBranch);
-provide("viewState", viewState);
-provide("pushView", pushView);
-provide("popView", popView);
-provide("updateViewState", updateViewState);
+provideModalView({ modalTitle, modalBranch, viewState, pushView, popView, updateViewState });
 // DispatchRunViewがRun成功後にこのオーバーレイごと閉じるために使う
 // （WorkspaceDetail.vue参照）。
 provide("closeWorkspaceDetail", close);

@@ -12,17 +12,13 @@
     @overlay="close"
     @escape="close"
   >
-    <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
-    <WorkspaceAddView v-if="currentView === 'WorkspaceAdd'" />
-    <WorkspaceEditPane v-if="currentView === 'WorkspaceEdit'" />
-    <JobConfig v-if="currentView === 'JobConfig'" />
-    <IconPicker v-if="currentView === 'IconPicker'" />
+    <component :is="VIEWS[currentView ?? '']" v-if="currentView && VIEWS[currentView]" />
   </ModalShell>
 </template>
 
 <script setup lang="ts">
-import { provide } from "vue";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
+import { provideModalView } from "../composables/useModalView.ts";
 import ModalShell from "./ModalShell.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAddView from "./WorkspaceAddView.vue";
@@ -42,12 +38,19 @@ const {
   pushView, popView, updateViewState, onBack, closeNav,
 } = useSessionOpenNav();
 
-provide("modalTitle", modalTitle);
-provide("modalBranch", modalBranch);
-provide("viewState", currentState);
-provide("pushView", pushView);
-provide("popView", popView);
-provide("updateViewState", updateViewState);
+provideModalView({
+  modalTitle, modalBranch, viewState: currentState,
+  pushView, popView, updateViewState,
+});
+
+// ビュー名 → コンポーネントの対応（ビュー追加はここに1行足すだけ）。
+const VIEWS: Record<string, unknown> = {
+  WorkspaceOpen,
+  WorkspaceAdd: WorkspaceAddView,
+  WorkspaceEdit: WorkspaceEditPane,
+  JobConfig,
+  IconPicker,
+};
 
 function close() {
   closeNav();

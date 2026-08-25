@@ -12,26 +12,13 @@
     @overlay="close"
     @escape="close"
   >
-    <ModalMenu v-if="currentView === 'ModalMenu'" />
-    <SessionPreviewTab v-if="currentView === 'SessionPreview'" />
-    <TerminalConfig v-if="currentView === 'TerminalConfig'" />
-    <EditorConfig v-if="currentView === 'EditorConfig'" />
-    <AuthConfig v-if="currentView === 'AuthConfig'" />
-    <PairDeviceConfig v-if="currentView === 'PairDeviceConfig'" />
-    <ServerInfo v-if="currentView === 'ServerInfo'" />
-    <DisplayConfig v-if="currentView === 'DisplayConfig'" />
-    <SendSnippet v-if="currentView === 'SendSnippet'" />
-    <SendHistory v-if="currentView === 'SendHistory'" />
-    <NotificationConfig v-if="currentView === 'NotificationConfig'" />
-    <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
-    <InfoPillConfig v-if="currentView === 'InfoPillConfig'" />
-    <ConfigFile v-if="currentView === 'ConfigFile'" />
+    <component :is="VIEWS[currentView ?? '']" v-if="currentView && VIEWS[currentView]" />
   </ModalShell>
 </template>
 
 <script setup lang="ts">
-import { provide } from "vue";
 import { useSettingsNav } from "../composables/useSettingsNav.ts";
+import { provideModalView } from "../composables/useModalView.ts";
 import ModalShell from "./ModalShell.vue";
 import ModalMenu from "./ModalMenu.vue";
 import SessionPreviewTab from "./SessionPreviewTab.vue";
@@ -60,12 +47,28 @@ const {
   pushView, popView, updateViewState, onBack, closeNav,
 } = useSettingsNav();
 
-provide("modalTitle", modalTitle);
-provide("modalBranch", modalBranch);
-provide("viewState", currentState);
-provide("pushView", pushView);
-provide("popView", popView);
-provide("updateViewState", updateViewState);
+provideModalView({
+  modalTitle, modalBranch, viewState: currentState,
+  pushView, popView, updateViewState,
+});
+
+// ビュー名 → コンポーネントの対応（ビュー追加はここに1行足すだけ）。
+const VIEWS: Record<string, unknown> = {
+  ModalMenu,
+  SessionPreview: SessionPreviewTab,
+  TerminalConfig,
+  EditorConfig,
+  AuthConfig,
+  PairDeviceConfig,
+  ServerInfo,
+  DisplayConfig,
+  SendSnippet,
+  SendHistory,
+  NotificationConfig,
+  CircleKeyPadConfig,
+  InfoPillConfig,
+  ConfigFile,
+};
 
 function close() {
   closeNav();
