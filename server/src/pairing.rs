@@ -22,10 +22,10 @@
 //! - claim 成功後のエントリ（tombstone）は `expires_at` を `CLAIMED_OBSERVATION_SEC`
 //!   分だけ先に延長し、発行元のポーリング遅延で「claimed を見損ねて expired 扱いに
 //!   なる」ことを防ぐ（token 自体は既に破棄済みなので延命してもリプレイのリスクは無い）。
-//! - claim のたびに必ず新規デバイスとして登録する（`find_or_register_device` は使わない
-//!   — 同一 UA の 2 台を続けてペアリングした場合に、再利用ロジックが後発デバイスの
-//!   ために先発デバイスの secret を回転させ、先発デバイスを無言でログアウトさせて
-//!   しまうため）。
+//! - claim のたびに必ず新規デバイスとして登録する（同一 UA の既存デバイスは再利用
+//!   しない — 同一 UA の 2 台を続けてペアリングした場合に、再利用ロジックが後発
+//!   デバイスのために先発デバイスの secret を回転させ、先発デバイスを無言で
+//!   ログアウトさせてしまうため）。
 //! - QR に埋め込む URL は、Tailscale の MagicDNS 名が引ければ「ホスト名 + リクエストが
 //!   実際に使ったポート」で組み立てる。bind 自体が loopback 専用の場合は使わない。
 //!   MagicDNS 名が引けず、かつ発行元が loopback アドレスで開いている場合は、QR の
@@ -354,9 +354,9 @@ pub async fn claim_pairing(
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
         let name = crate::devices::autoname_from_user_agent(ua);
-        // find_or_register_device ではなく必ず新規登録する（同一 UA の 2 台を続けて
-        // ペアリングした場合、再利用ロジックが先発デバイスの secret を回転させ、
-        // 無言でログアウトさせてしまうため）。
+        // 同一 UA の既存デバイスを再利用せず必ず新規登録する（同一 UA の 2 台を
+        // 続けてペアリングした場合、再利用ロジックが先発デバイスの secret を
+        // 回転させ、無言でログアウトさせてしまうため）。
         let (device_id, raw_secret) = crate::devices::register_device(
             &state.paths.data_dir,
             state.auth.devices(),
