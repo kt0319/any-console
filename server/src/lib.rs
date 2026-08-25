@@ -75,14 +75,6 @@ async fn index(State(state): State<Arc<AppState>>) -> Response {
     }
 }
 
-async fn pair_page(State(state): State<Arc<AppState>>) -> Response {
-    // QRペアリング画面は "/" と同じ SPA シェル（解釈はフロント側が行う）
-    match &state.static_ctx {
-        Some(ctx) => ctx.serve_index(),
-        None => serve_static_or_404(state, "/").await,
-    }
-}
-
 async fn sw_js(State(state): State<Arc<AppState>>) -> Response {
     match &state.static_ctx {
         Some(ctx) => ctx.serve_sw(),
@@ -107,7 +99,8 @@ async fn serve_static_or_404(state: Arc<AppState>, path: &str) -> Response {
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(index))
-        .route("/pair/{pairing_id}", get(pair_page))
+        // QRペアリング画面は "/" と同じ SPA シェル（解釈はフロント側が行う）
+        .route("/pair/{pairing_id}", get(index))
         .route("/sw.js", get(sw_js))
         // ─── system ─────────────────────────────────────────────────────────
         .route("/system/info", get(system::info))

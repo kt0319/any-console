@@ -83,26 +83,10 @@ pub(crate) async fn get_app_commit_date(root: &Path) -> String {
     .unwrap_or_default()
 }
 
-/// 空白区切りで**合計 n 要素**に分割し、最後の要素には残り全体
-/// （先頭空白を除去）を入れる（Python の `str.split(None, n-1)` 相当）。
-/// `foreground.rs` の `split_whitespace_n`（maxsplit=n で最大 n+1 要素）とは
-/// n の解釈が異なるので注意。
+/// 空白区切りで**合計 n 要素**に分割し、最後の要素には残り全体を入れる
+/// （Python の `str.split(None, n-1)` 相当 — 実体は `util::split_whitespace_max`）。
 fn split_into_fields(line: &str, n: usize) -> Vec<&str> {
-    let mut parts = Vec::new();
-    let mut rest = line.trim_start();
-    while parts.len() + 1 < n && !rest.is_empty() {
-        match rest.find(char::is_whitespace) {
-            Some(idx) => {
-                parts.push(&rest[..idx]);
-                rest = rest[idx..].trim_start();
-            }
-            None => break,
-        }
-    }
-    if !rest.is_empty() {
-        parts.push(rest);
-    }
-    parts
+    crate::util::split_whitespace_max(line, n.saturating_sub(1))
 }
 
 // ─── GET /system/processes ──────────────────────────────────────────────────

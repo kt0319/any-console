@@ -7,7 +7,7 @@
 //! Ctrl+V 相当（`\x16`）を送るだけでよく、失敗時はファイルパスを直接送って
 //! エージェント側に貼り付けさせる（`upload-image-to-terminal.js` 参照）。
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use axum::extract::{Multipart, State};
@@ -17,6 +17,7 @@ use tokio::process::Command;
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, too_large, ApiError};
+use crate::subprocess::which;
 use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
@@ -141,13 +142,6 @@ async fn write_image_to_clipboard(filepath: &Path, content_type: &str) -> bool {
     } else {
         write_image_to_clipboard_linux(filepath, content_type).await
     }
-}
-
-fn which(program: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|dir| dir.join(program))
-        .find(|candidate| candidate.is_file())
 }
 
 pub async fn upload_image(

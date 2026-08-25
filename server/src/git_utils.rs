@@ -25,6 +25,13 @@ pub const BACKGROUND_FETCH_TIMEOUT_SEC: f64 = 15.0;
 /// `DEFAULT_WS_ICON` と同じ値）。
 pub const DEFAULT_WORKSPACE_ICON: &str = "mdi-console";
 
+/// エントリの `icon` 値（未設定・空文字なら `DEFAULT_WORKSPACE_ICON`）。
+pub fn workspace_icon_or_default(icon: Option<&Value>) -> &str {
+    icon.and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_WORKSPACE_ICON)
+}
+
 /// バックグラウンドの `git fetch --quiet` を実行し、実行できたかを返す
 /// （Python `background_fetch` 相当 — 終了コードは見ない。タイムアウト・OS
 /// エラーのみ false）。GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する。
@@ -532,7 +539,7 @@ async fn worktree_entries_for_workspace(
             "path": wt_path_str,
             "is_git_repo": true,
             "branch": branch,
-            "icon": entry.get("icon").and_then(Value::as_str).filter(|s| !s.is_empty()).unwrap_or(DEFAULT_WORKSPACE_ICON),
+            "icon": workspace_icon_or_default(entry.get("icon")),
             "icon_color": entry.get("icon_color").and_then(Value::as_str).unwrap_or(""),
             "exists": true,
             "worktree": true,

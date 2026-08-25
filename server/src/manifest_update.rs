@@ -229,13 +229,6 @@ fn save_status(store: &ManifestStore, status: &Map<String, Value>) {
     );
 }
 
-fn now_unix() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
 async fn run_catalog_check<F, Fut>(
     store: &ManifestStore,
     catalog_url: &str,
@@ -304,7 +297,10 @@ where
     Fut: std::future::Future<Output = Result<String, String>>,
 {
     let mut status = load_status(store);
-    status.insert("last_check_unix".to_string(), json!(now_unix()));
+    status.insert(
+        "last_check_unix".to_string(),
+        json!(crate::util::now_epoch()),
+    );
     let mut agents_status = status
         .get("agents")
         .and_then(Value::as_object)

@@ -686,10 +686,7 @@ async fn poll_loop(state: Arc<AppState>) {
         if state.status_stream.subscriber_count() == 0 && !has_push_subscriptions(&state) {
             return;
         }
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
+        let now = crate::util::now_epoch_f64();
         let mut last_states = state.agent_watch.last_states.lock().await;
         let mut last_state_sources = state.agent_watch.last_state_sources.lock().await;
         let collected = {

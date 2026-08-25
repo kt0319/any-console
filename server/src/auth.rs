@@ -315,14 +315,14 @@ impl Auth {
             self.save_api_tokens_unlocked(&tokens);
         }
         tracing::info!("api token created id={token_id} name={display_name} scope={scope}");
-        (strip_api_token_secret(entry), raw_token)
+        (crate::devices::strip_secret_hash(entry), raw_token)
     }
 
     /// secret_hash を除いた一覧を返す（UI 表示用）。
     pub fn list_api_tokens(&self) -> Vec<Value> {
         self.load_api_tokens_unlocked()
             .into_iter()
-            .map(strip_api_token_secret)
+            .map(crate::devices::strip_secret_hash)
             .collect()
     }
 
@@ -333,7 +333,7 @@ impl Auth {
         self.load_api_tokens_unlocked()
             .into_iter()
             .find(|t| t.get("id").and_then(Value::as_str) == Some(token_id))
-            .map(strip_api_token_secret)
+            .map(crate::devices::strip_secret_hash)
     }
 
     pub fn revoke_api_token(&self, token_id: &str) -> bool {
@@ -379,15 +379,6 @@ impl Auth {
         }
         Some(tokens[idx].clone())
     }
-}
-
-/// API レスポンスに `secret_hash` を漏らさないための共通フィルタ
-/// （devices.rs の `strip_secret_hash` と同じ役割 — トークン用に別名で持つ）。
-fn strip_api_token_secret(mut entry: Value) -> Value {
-    if let Value::Object(ref mut map) = entry {
-        map.remove("secret_hash");
-    }
-    entry
 }
 
 // ─── /api-tokens/*（`api/routers/api_tokens.py` の移植）───────────────────────
@@ -483,6 +474,15 @@ pub async fn put_auth_settings(
 /// `bearer <token>` や `BEARER <token>` のような大小文字違いも受け付ける
 /// （素朴に `strip_prefix("Bearer ")` だけだと、標準準拠のクライアントが
 /// 別の大文字小文字で送ってきた場合に Rust 側だけ 401 になってしまう）。
+/// Authorization ヘッダから Bearer トークンを取り出す（無ければ空文字）。
+pub fn bearer_from_headers(headers: &http::HeaderMap) -> &str {
+    headers
+        .get(http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .map(extract_bearer_token)
+        .unwrap_or("")
+}
+
 pub fn extract_bearer_token(value: &str) -> &str {
     match value.split_once(' ') {
         Some((scheme, token)) if scheme.eq_ignore_ascii_case("bearer") => token,
@@ -501,12 +501,7 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
         parts: &mut http::request::Parts,
         state: &std::sync::Arc<crate::state::AppState>,
     ) -> Result<Self, Self::Rejection> {
-        let bearer = parts
-            .headers
-            .get(http::header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .map(extract_bearer_token)
-            .unwrap_or("");
+        let bearer = bearer_from_headers(&parts.headers);
         let cookies = parse_cookies(&parts.headers);
         let result = state
             .auth
@@ -552,11 +547,7 @@ pub async fn auth_check(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     headers: http::HeaderMap,
 ) -> Result<Response, crate::errors::ApiError> {
-    let bearer = headers
-        .get(http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .map(extract_bearer_token)
-        .unwrap_or("");
+    let bearer = bearer_from_headers(&headers);
     let cookies = parse_cookies(&headers);
     let result = state
         .auth

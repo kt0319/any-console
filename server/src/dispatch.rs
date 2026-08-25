@@ -692,12 +692,7 @@ async fn verify_dispatch_auth(
 }
 
 fn bearer_from_headers(headers: &http::HeaderMap) -> String {
-    headers
-        .get(http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .map(crate::auth::extract_bearer_token)
-        .unwrap_or("")
-        .to_string()
+    crate::auth::bearer_from_headers(headers).to_string()
 }
 
 // ─── ルート ─────────────────────────────────────────────────────────────────

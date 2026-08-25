@@ -354,14 +354,7 @@ async fn read_cmdline(pid: u32) -> String {
         let parts: Vec<String> = result.stdout.split_whitespace().map(String::from).collect();
         return label_from_cmdline_parts(&parts);
     }
-    let Ok(raw) = std::fs::read(format!("/proc/{pid}/cmdline")) else {
-        return String::new();
-    };
-    let parts: Vec<String> = raw
-        .split(|&b| b == 0)
-        .filter(|p| !p.is_empty())
-        .map(|p| String::from_utf8_lossy(p).into_owned())
-        .collect();
+    let parts = crate::foreground::read_proc_argv(pid as i32);
     label_from_cmdline_parts(&parts)
 }
 
