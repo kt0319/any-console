@@ -102,9 +102,8 @@ const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 const { fetchCommitDiff } = useGitDiff();
 
 const {
-  graphRows, commitEntries, graphWidth,
-  isHistoryLoading, hasMoreHistory, isLoadingMoreHistory,
-  historyListEl, loadHistory, loadMoreHistory, onHistoryListScroll,
+  graphRows, commitEntries, graphWidth, isHistoryLoading,
+  historyListEl, loadHistory, onHistoryListScroll,
 } = useGitLogPagination();
 
 const {
@@ -344,10 +343,6 @@ defineExpose({
 .git-log-entry-unpushed .git-log-entry-author,
 .git-log-entry-unpushed .git-log-entry-time {
   color: var(--text-muted);
-}
-
-.diff-file-row.action-open {
-  background: rgba(130, 170, 255, 0.08);
 }
 
 </style>

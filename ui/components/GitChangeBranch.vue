@@ -248,10 +248,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   overflow: hidden;
 }
 
-.branch-toolbar-spin {
-  animation: spin 0.8s linear infinite;
-}
-
 .branch-add-overlay {
   position: fixed;
   inset: 0;
@@ -377,11 +373,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   }
 }
 
-.branch-item-action {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
 .branch-summary-caret {
   margin-left: 8px;
   color: var(--text-muted);
@@ -434,10 +425,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   font-size: 13px;
   margin-right: 4px;
   color: var(--accent);
-}
-
-.branch-worktree-icon.is-main {
-  color: var(--text-muted);
 }
 
 

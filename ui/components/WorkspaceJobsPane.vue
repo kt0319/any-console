@@ -263,22 +263,6 @@ defineExpose({ load });
   background: transparent;
 }
 
-.job-section-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
 .job-item-edit-btn {
   display: flex;
   align-items: center;

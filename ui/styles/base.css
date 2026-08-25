@@ -156,32 +156,6 @@ body {
   color: #ffffff;
 }
 
-.long-press-surface {
-  position: relative;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.long-press-surface::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--accent-bg-20);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.long-press-surface.long-pressing::after {
-  opacity: 1;
-  transition: opacity 0.15s ease-out;
-}
-
-.long-press-surface.long-pressed::after {
-  opacity: 1;
-  transition: none;
-}
-
 button {
   font-family: inherit;
   font-size: 13px;

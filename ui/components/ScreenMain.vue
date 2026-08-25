@@ -105,8 +105,7 @@ const openTabs = computed(() => terminalStore.openTabs);
 const hasAnyTab = computed(() => openTabs.value.length > 0);
 const isEmptyScreenVisible = computed(() => {
   if (layoutStore.isSplitMode) return false;
-  if (openTabs.value.length > 0) return false;
-  return !openTabs.value.some(t => t.id === terminalStore.activeTabId);
+  return openTabs.value.length === 0;
 });
 
 watch(isEmptyScreenVisible, async (isEmpty) => {
@@ -169,8 +168,6 @@ watch(
   { immediate: true },
 );
 
-let mainPanelResizeObserver: ResizeObserver | null = null;
-
 function openWorkspaceSelection() {
   emit("workspace:openModal");
 }
@@ -227,12 +224,6 @@ onMounted(() => {
   initViewport((opts) => {
     terminalBaseView.value?.fitAllTerminals(opts);
   });
-
-  if (typeof ResizeObserver !== "undefined") {
-    mainPanelResizeObserver = new ResizeObserver(() => {});
-    const main = document.querySelector(".main-panel");
-    if (main) mainPanelResizeObserver.observe(main);
-  }
 });
 
 onMounted(async () => {
@@ -252,7 +243,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   bridgeCleanups.forEach((cleanup) => cleanup());
   stopSyncPolling();
-  mainPanelResizeObserver?.disconnect();
 });
 
 defineExpose({

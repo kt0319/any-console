@@ -50,11 +50,6 @@ defineEmits(["action"]);
   transition: background 0.15s, color 0.15s;
 }
 
-.git-action-btn.icon-only {
-  width: 36px;
-  padding: 0;
-}
-
 .git-action-btn.pull-btn {
   color: var(--text-muted);
   background: transparent;

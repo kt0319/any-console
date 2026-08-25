@@ -27,7 +27,6 @@
         @input="onSearchInput"
       />
       <div ref="gridRef" class="icon-picker-grid">
-        <div v-if="loadingIcons" class="icon-picker-loading">Loading...</div>
       </div>
 
       <div class="icon-picker-section-label">Color</div>
@@ -132,7 +131,6 @@ const selectedIcon = ref<string | null>(null);
 const uploadedIcon = ref<string | null>(null);
 const selectedColor = ref("");
 const previewHtml = ref("");
-const loadingIcons = ref(false);
 const canSubmit = ref(false);
 
 function renderGrid(icons: string[], query: string) {
@@ -420,14 +418,6 @@ onMounted(async () => {
   max-height: 220px;
   padding: 4px 0;
   align-content: flex-start;
-}
-
-.icon-picker-loading {
-  width: 100%;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 12px 0;
 }
 
 .icon-picker-footer {
