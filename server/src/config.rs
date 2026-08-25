@@ -674,12 +674,15 @@ mod tests {
         let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
         assert!(text.ends_with('\n'), "Python と同じ末尾改行");
         assert!(text.contains("  \"__global__\""), "2スペースインデント");
-        // 正規化でデフォルト値（空 label / 空 icon）が落ちている
+        // 宣言フィールドは値がデフォルト相当（空 label / 空 icon）でもそのまま残る
         let loaded = s.load_all();
-        assert_eq!(loaded["ws_a"], json!({"name": "proj", "path": "~/proj"}));
+        assert_eq!(
+            loaded["ws_a"],
+            json!({"name": "proj", "path": "~/proj", "icon": ""})
+        );
         assert_eq!(
             loaded[GLOBAL_CONFIG_KEY]["snippets"],
-            json!([{"command": "ls"}])
+            json!([{"command": "ls", "label": ""}])
         );
     }
 
@@ -765,9 +768,9 @@ mod tests {
         let cfg = store(&dir).load_all();
         let job = cfg["ws_a"]["jobs"]["dev"].as_object().unwrap();
         assert!(!job.contains_key("detached_tab"));
-        // detached: false は新キー側が採用された上で、既定値のため正規化で省かれる
+        // 新キー側の明示値 false が採用される
         // （detached_tab: true が detached: true として残らないことが本題）。
-        assert!(!job.contains_key("detached"));
+        assert_eq!(job.get("detached"), Some(&json!(false)));
     }
 
     #[test]
