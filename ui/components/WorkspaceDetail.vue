@@ -113,6 +113,7 @@ import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
+import { useCollapsibleSection } from "../composables/useCollapsibleSection.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { workspaceDisplayName, baseWorkspaceName } from "../utils/worktree.ts";
@@ -168,11 +169,19 @@ function onDispatchRunDone() {
 const activePane = ref("jobs");
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
 // （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
-const branchSectionExpanded = ref(false);
+const {
+  expanded: branchSectionExpanded,
+  toggle: toggleBranchSection,
+  expand: expandBranchSection,
+} = useCollapsibleSection(loadBranchSection);
 // Changesタブに統合したStash一覧も同じパターンで既定は畳んだ状態にする
 // （旧: 独立した「Stashes」タブ。ChangesとStashは両方「今のワークツリーの
 // 未確定の変更」という同じ関心事なので1タブへ統合した）。
-const stashSectionExpanded = ref(false);
+const {
+  expanded: stashSectionExpanded,
+  toggle: toggleStashSection,
+  expand: expandStashSection,
+} = useCollapsibleSection(loadStashSection);
 // コミットのファイル一覧を見ている間はBranchヘッダーを隠し、履歴の
 // 表示領域を圧迫しないようにする（GitHistoryのcommit:expanded/collapsed）。
 const isViewingCommitFiles = ref(false);
@@ -255,35 +264,8 @@ function loadBranchSection() {
   });
 }
 
-function toggleBranchSection() {
-  branchSectionExpanded.value = !branchSectionExpanded.value;
-  if (branchSectionExpanded.value) loadBranchSection();
-}
-
-function expandBranchSection() {
-  if (!branchSectionExpanded.value) {
-    branchSectionExpanded.value = true;
-    loadBranchSection();
-  }
-}
-
 function loadStashSection() {
   nextTick(() => gitStash.value?.load());
-}
-
-function toggleStashSection() {
-  if (stashSectionExpanded.value) {
-    stashSectionExpanded.value = false;
-  } else {
-    expandStashSection();
-  }
-}
-
-function expandStashSection() {
-  if (!stashSectionExpanded.value) {
-    stashSectionExpanded.value = true;
-    loadStashSection();
-  }
 }
 
 function clearDiffSelection() {
