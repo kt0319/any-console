@@ -22,34 +22,33 @@ use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
-/// アップロード画像の保持期間。ターミナルへ貼り付けてエージェントに読ませる
-/// ための一時ファイルなので1日残れば十分（保存先が data/ 配下で再起動を
-/// 跨いで残るため、掃除しないと1件最大10MBのファイルが際限なく増える）。
-const UPLOAD_RETENTION_SEC: u64 = 24 * 60 * 60;
+/// 保持するアップロード画像の最大件数。ターミナルへ貼り付けてエージェントに
+/// 読ませるための一時ファイルなので直近数件あれば十分（保存先が data/ 配下で
+/// 再起動を跨いで残るため、掃除しないと1件最大10MBのファイルが際限なく増える。
+/// 件数上限ならディスク使用量もこの件数×最大サイズで頭打ちになる）。
+const MAX_KEPT_UPLOADS: usize = 10;
 
-/// 保持期間を過ぎた古いアップロードを削除する（新規アップロードのたびに実行。
-/// ディレクトリの中身は高々直近1日分なので走査コストは無視できる）。
-fn prune_old_uploads(dir: &Path, max_age: Duration) {
+/// 直近 `keep` 件を残して古いアップロードを削除する（新規アップロードのたびに
+/// 実行。ディレクトリの中身は高々 `keep`+1 件なので走査コストは無視できる）。
+/// ファイル名の先頭が UTC タイムスタンプ（`YYYYMMDD-HHMMSS`）のため、名前の
+/// 辞書順がそのまま時刻順になる — mtime には依存しない。
+fn prune_old_uploads(dir: &Path, keep: usize) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
-    let now = std::time::SystemTime::now();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-        let Ok(modified) = entry.metadata().and_then(|m| m.modified()) else {
-            continue;
-        };
-        let expired = now
-            .duration_since(modified)
-            .map(|age| age > max_age)
-            .unwrap_or(false);
-        if expired {
-            if let Err(e) = std::fs::remove_file(&path) {
-                tracing::warn!("upload prune failed ({}): {e}", path.display());
-            }
+    let mut files: Vec<std::path::PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_file())
+        .collect();
+    if files.len() <= keep {
+        return;
+    }
+    files.sort();
+    let excess = files.len() - keep;
+    for path in &files[..excess] {
+        if let Err(e) = std::fs::remove_file(path) {
+            tracing::warn!("upload prune failed ({}): {e}", path.display());
         }
     }
 }
@@ -213,7 +212,6 @@ pub async fn upload_image(
     tokio::fs::create_dir_all(&dir)
         .await
         .map_err(|e| crate::errors::server_error(format!("Cannot create upload dir: {e}")))?;
-    prune_old_uploads(&dir, Duration::from_secs(UPLOAD_RETENTION_SEC));
     let ext = extension_for(&content_type);
     let filename = format!(
         "{}-{}.{ext}",
@@ -224,6 +222,9 @@ pub async fn upload_image(
     tokio::fs::write(&filepath, &data)
         .await
         .map_err(|e| crate::errors::server_error(format!("Cannot write upload: {e}")))?;
+    // 書き込み後に直近分だけ残して掃除する（書いたばかりのファイルが名前順で
+    // 最新になるため、掃除対象になることはない）。
+    prune_old_uploads(&dir, MAX_KEPT_UPLOADS);
 
     let clipboard_ok = write_image_to_clipboard(&filepath, &content_type).await;
     Ok(axum::Json(json!({
@@ -257,22 +258,31 @@ mod tests {
     }
 
     #[test]
-    fn prune_old_uploads_removes_only_expired_files() {
+    fn prune_old_uploads_keeps_only_newest_files() {
         let dir = tempfile::tempdir().unwrap();
-        let old = dir.path().join("old.png");
-        let fresh = dir.path().join("fresh.png");
-        std::fs::write(&old, b"x").unwrap();
-        std::fs::write(&fresh, b"y").unwrap();
-        let past = std::time::SystemTime::now() - Duration::from_secs(UPLOAD_RETENTION_SEC + 60);
-        std::fs::File::options()
-            .write(true)
-            .open(&old)
-            .unwrap()
-            .set_modified(past)
-            .unwrap();
-        prune_old_uploads(dir.path(), Duration::from_secs(UPLOAD_RETENTION_SEC));
-        assert!(!old.exists(), "期限切れは削除される");
-        assert!(fresh.exists(), "新しいファイルは残る");
+        // 実ファイル名と同じくタイムスタンプ始まり（辞書順 = 時刻順）
+        let names = [
+            "20260101-000000-aaaa.png",
+            "20260102-000000-bbbb.png",
+            "20260103-000000-cccc.png",
+            "20260104-000000-dddd.png",
+        ];
+        for name in names {
+            std::fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        prune_old_uploads(dir.path(), 2);
+        assert!(!dir.path().join(names[0]).exists(), "古い方から削除される");
+        assert!(!dir.path().join(names[1]).exists());
+        assert!(dir.path().join(names[2]).exists(), "直近 keep 件は残る");
+        assert!(dir.path().join(names[3]).exists());
+    }
+
+    #[test]
+    fn prune_old_uploads_is_noop_within_keep_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("20260101-000000-aaaa.png"), b"x").unwrap();
+        prune_old_uploads(dir.path(), 2);
+        assert!(dir.path().join("20260101-000000-aaaa.png").exists());
     }
 
     #[test]
