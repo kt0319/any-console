@@ -12,7 +12,7 @@
     @mousedown="onMouseDown"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
-    <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
+    <CircleKeypad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="pill-group"
@@ -99,15 +99,15 @@ import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts
 import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.ts";
-import { useCircleKeyPad } from "../composables/useCircleKeyPad.ts";
+import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { usePeekPills } from "../composables/usePeekPills.ts";
-import { useElementMaxWidth } from "../composables/useElementWidth.ts";
-import CircleKeyPad from "./CircleKeyPad.vue";
+import { useElementMaxWidth } from "../composables/useElementMaxWidth.ts";
+import CircleKeypad from "./CircleKeypad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
@@ -333,7 +333,7 @@ const reconnectLabel = computed(() =>
 );
 
 const paneIndexRef = toRef(props, "paneIndex");
-const circleKeypad = useCircleKeyPad();
+const circleKeypad = useCircleKeypad();
 const circleKeypadKeys = circleKeypad.keys;
 const circleKeypadSpecials = circleKeypad.specials;
 const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onMouseDown } = useTerminalPaneGestures({

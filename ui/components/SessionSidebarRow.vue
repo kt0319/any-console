@@ -76,7 +76,7 @@ import SessionRowContent from "./SessionRowContent.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { usePeekPills } from "../composables/usePeekPills.ts";
-import { useElementMaxWidth } from "../composables/useElementWidth.ts";
+import { useElementMaxWidth } from "../composables/useElementMaxWidth.ts";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 
 // SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態

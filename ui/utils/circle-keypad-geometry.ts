@@ -1,4 +1,4 @@
-// 円形キーパッドの幾何計算（純粋関数）。useCircleKeyPad から分離してテスト可能にする。
+// 円形キーパッドの幾何計算（純粋関数）。useCircleKeypad から分離してテスト可能にする。
 
 const SPECIAL_WIDTH = 80;
 const SPECIAL_HEIGHT = 34;
