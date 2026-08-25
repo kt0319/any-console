@@ -15,11 +15,9 @@
 //! （購読者ゼロの間は監視・ポーリングタスクを止めるという設計思想はそのまま維持する
 //! — `receiver_count() == 0` を停止条件に使う）。
 //!
-//! WS エンドポイント自体（`status_stream_ws`）はこのファイルで実装済みだが、
-//! まだ `build_router` には配線していない — git_watch の FS 監視ループ・
-//! agent_watch のポーリングループ・dispatch の直接配信化が揃うまでは、配信元
-//! （producer）が無いため接続しても何も届かない（Python 側の同エンドポイントが
-//! 引き続き実トラフィックを処理する）。全 producer が揃った時点で一括配線する。
+//! WS エンドポイント（`status_stream_ws`）は `build_router`（lib.rs）で
+//! `/workspaces/statuses/ws` に配線済み。producer は git_watch の FS 監視ループ・
+//! agent_watch のポーリングループ・session_watch・dispatch の各配信。
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -185,21 +183,40 @@ async fn handle_status_stream_ws(
     // 以後の `rx.recv()` ループで自然に受け取る — 冪等な全量スナップショットの
     // ため、既存購読者への再送も無害）。
     crate::dispatch::broadcast_current_queue(&state).await;
+
+    stream_until_disconnect(&state, &mut socket, &mut rx, conn_id, device_id.as_deref()).await;
+
+    // 単一のクリーンアップ出口: 途中の送信失敗を含むすべての切断経路がここを通る。
+    // 購読者数の判定（`StatusStreamState::subscriber_count`）に反映されるよう、
+    // タスク停止判定の前に受信側を明示的に破棄する。
+    drop(rx);
+    if let Some(id) = conn_id {
+        state.status_stream.unregister_viewer(id);
+    }
+    crate::git_watch::maybe_stop_tasks(&state);
+    crate::agent_watch::maybe_stop_tasks(&state);
+    let _ = socket.close().await;
+    tracing::info!("status stream disconnected");
+}
+
+/// 接続1本ぶんの送受信ループ。戻った時点で切断が確定しており、後始末
+/// （受信側破棄・viewer 解除・タスク停止判定）は呼び出し元が一括で行う。
+async fn stream_until_disconnect(
+    state: &Arc<AppState>,
+    socket: &mut WebSocket,
+    rx: &mut broadcast::Receiver<Value>,
+    conn_id: Option<u64>,
+    device_id: Option<&str>,
+) {
     // Python `agent_watch.subscribe` と同じく、既知の agent 状態スナップショットを
     // この接続にだけ即時送信する（再接続時にポーリング1周期分の空白が生まれない
     // ようにする — 全購読者への broadcast ではなく、この socket への直送）。
-    if let Some(snapshot) = crate::agent_watch::initial_snapshot(&state).await {
+    if let Some(snapshot) = crate::agent_watch::initial_snapshot(state).await {
         if socket
             .send(Message::Text(snapshot.to_string().into()))
             .await
             .is_err()
         {
-            drop(rx);
-            if let Some(id) = conn_id {
-                state.status_stream.unregister_viewer(id);
-            }
-            crate::git_watch::maybe_stop_tasks(&state);
-            crate::agent_watch::maybe_stop_tasks(&state);
             return;
         }
     }
@@ -231,7 +248,7 @@ async fn handle_status_stream_ws(
                 // デバイス cookie 認証の接続は revoke 済みデバイスへの配信を
                 // 続けないよう ping ごとに存続を確認する（terminal.rs の WS と
                 // 同方式 — WS はハンドシェイク時のみ認証されるため）。
-                if let Some(id) = device_id.as_deref() {
+                if let Some(id) = device_id {
                     if crate::devices::get_device(&state.paths.data_dir, id).is_none() {
                         break;
                     }
@@ -260,16 +277,6 @@ async fn handle_status_stream_ws(
             }
         }
     }
-    // 購読者数の判定（`StatusStreamState::subscriber_count`）に反映されるよう、
-    // タスク停止判定の前に受信側を明示的に破棄する。
-    drop(rx);
-    if let Some(id) = conn_id {
-        state.status_stream.unregister_viewer(id);
-    }
-    crate::git_watch::maybe_stop_tasks(&state);
-    crate::agent_watch::maybe_stop_tasks(&state);
-    let _ = socket.close().await;
-    tracing::info!("status stream disconnected");
 }
 
 #[cfg(test)]

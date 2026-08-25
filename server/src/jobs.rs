@@ -34,52 +34,38 @@ pub async fn list_all_workspace_jobs(
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
-    let entries: Vec<(String, Value)> = all_config
-        .iter()
-        .filter(|(k, v)| k.as_str() != GLOBAL_CONFIG_KEY && v.is_object())
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
-
-    // 表示名 -> jobs（worktree_base の解決用）
+    // 1回の走査で表示名・worktree_base・自前ジョブを集める。表示名 -> jobs は
+    // worktree_base 解決用（登録済み・動的 worktree の両方が参照する）。
     let mut jobs_by_name: std::collections::HashMap<String, Map<String, Value>> =
         std::collections::HashMap::new();
-    for (ws_id, entry) in &entries {
-        let display = entry
-            .get("name")
+    let mut infos: Vec<(String, String, String, Map<String, Value>)> = Vec::new();
+    for (ws_id, entry) in all_config
+        .iter()
+        .filter(|(k, v)| k.as_str() != GLOBAL_CONFIG_KEY && v.is_object())
+    {
+        let display = crate::config::workspace_display_name(entry.get("name"), ws_id).to_string();
+        let base = entry
+            .get("worktree_base")
             .and_then(Value::as_str)
-            .filter(|s| !s.is_empty())
-            .unwrap_or(ws_id);
+            .unwrap_or("")
+            .to_string();
         let jobs = entry
             .get("jobs")
             .and_then(Value::as_object)
             .cloned()
             .unwrap_or_default();
-        jobs_by_name.insert(display.to_string(), jobs);
+        jobs_by_name.insert(display.clone(), jobs.clone());
+        infos.push((ws_id.clone(), display, base, jobs));
     }
-
-    let mut sorted_entries = entries.clone();
-    sorted_entries.sort_by(|a, b| a.0.cmp(&b.0));
+    infos.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut result = Map::new();
-    for (ws_id, entry) in &sorted_entries {
-        let display = entry
-            .get("name")
-            .and_then(Value::as_str)
-            .filter(|s| !s.is_empty())
-            .unwrap_or(ws_id)
-            .to_string();
-        let base = entry
-            .get("worktree_base")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        let ws_jobs = if !base.is_empty() && jobs_by_name.contains_key(base) {
-            jobs_by_name[base].clone()
+    for (_ws_id, display, base, own_jobs) in infos {
+        let ws_jobs = if base.is_empty() {
+            own_jobs
         } else {
-            entry
-                .get("jobs")
-                .and_then(Value::as_object)
-                .cloned()
-                .unwrap_or_default()
+            // worktree はベースのジョブ定義を引き継ぐ（ベース未登録なら自前のまま）
+            jobs_by_name.get(&base).cloned().unwrap_or(own_jobs)
         };
         result.insert(
             display,

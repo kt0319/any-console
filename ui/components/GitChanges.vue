@@ -6,18 +6,11 @@
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
         <template v-for="file in files" :key="file.path">
-          <FileItem
-            class="diff-file-row"
+          <DiffFileItem
+            :file="file"
             :selected="selectedFile === file.path"
-            :label="file.path"
-            :icon-html="fileIconHtml(file)"
             @click="selectFile(file)"
-          >
-            <template #right>
-              <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
-              <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
-            </template>
-          </FileItem>
+          />
         </template>
       </ul>
     </div>
@@ -40,13 +33,11 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import FileItem from "./FileItem.vue";
+import DiffFileItem from "./DiffFileItem.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
 import { emit } from "../app-bridge.ts";
-import { renderFileIconFromPath } from "../utils/file-icon.ts";
-import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { getWorkspace } = useWorkspace();
@@ -78,14 +69,6 @@ const isCommitDisabled = computed(
   () => !commitForm.value?.commitMessage?.trim() || !!commitForm.value?.submitting,
 );
 const isStashDisabled = computed(() => files.value.length === 0);
-
-function statusClass(status: string) {
-  return GIT_DIFF_STATUS_CLASSES[status as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
-}
-
-function fileIconHtml(file: DiffFileRow) {
-  return renderFileIconFromPath(file.path);
-}
 
 function selectFile(file: DiffFileRow) {
   selectedFile.value = file.path;

@@ -1,4 +1,5 @@
 import { workspaceFileContentPath } from "./endpoints.ts";
+import { GIT_DIFF_STATUS_CLASSES } from "./constants.ts";
 
 export type GitRef = {
   label: string;
@@ -162,6 +163,11 @@ export function entryBranches(entry: { refs?: GitRef[] }): string[] {
 export function buildGitHubFileUrl(githubUrl: string, ref: string, path: string, type: "blob" | "tree" = "blob") {
   if (!githubUrl || !ref) return "";
   return `${githubUrl}/${type}/${ref}/${path}`;
+}
+
+/** 差分ステータス文字（M / A / D / ?）を表示用クラスへ写像する（未知は空文字）。 */
+export function diffStatusClass(status: string): string {
+  return GIT_DIFF_STATUS_CLASSES[status as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
 }
 
 export function abbreviateBranch(branch: string): { abbr: string, rest: string } {

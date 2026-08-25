@@ -60,8 +60,7 @@ import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
-import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import { useTabClose } from "../composables/useTabClose.ts";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
@@ -82,7 +81,7 @@ type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
-const { confirm } = useConfirm();
+const { confirmAndCloseTab } = useTabClose();
 
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
@@ -184,10 +183,10 @@ function onPillOpen(item: SessionItem, key: string) {
   openPaneFor(item.tab, item, key);
 }
 
-// タブを閉じる（破壊的操作のため、TerminalPaneと同じ確認ダイアログを通す）。
+// タブを閉じる（破壊的操作のため、TerminalPaneと同じ確認ダイアログ・
+// 結果ディスパッチ（close / Refresh / Detach）を共有する）。
 async function onCloseTab(item: SessionItem) {
-  const result = await confirmCloseTab(confirm, item.tab);
-  if (result === true) emit("tab:close", { tab: item.tab });
+  await confirmAndCloseTab(item.tab);
 }
 
 // このビューはSettingsPanel.vueにより「currentView==='SessionList'」の間

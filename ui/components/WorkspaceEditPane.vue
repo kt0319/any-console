@@ -183,27 +183,6 @@ onMounted(() => {
 </style>
 
 <style scoped>
-.ws-delete-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.ws-delete-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 12px;
-  font-size: 13px;
-  color: var(--error);
-  background: transparent;
-  border: 1px solid var(--error);
-  border-radius: var(--radius);
-  cursor: pointer;
-  justify-content: center;
-}
-
 .icon-select-preview .mdi {
   font-size: 18px;
   vertical-align: middle;

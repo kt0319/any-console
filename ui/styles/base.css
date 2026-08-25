@@ -531,6 +531,40 @@ button:disabled {
   min-width: 48px;
 }
 
+/* ラベルを上・入力を下に積む縦並びの設定行（JobConfig / DispatchRunView で共用）。 */
+.ws-settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ws-settings-row-stack .ws-settings-label {
+  min-width: 0;
+}
+
+/* 危険操作（削除・破棄）セクションと全幅の危険ボタン
+   （WorkspaceEditPane / JobConfig / DispatchRunView で共用）。 */
+.ws-delete-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ws-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--error);
+  background: transparent;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  cursor: pointer;
+  justify-content: center;
+}
+
 .clone-repo-empty,
 .clone-repo-error,
 .job-config-error {

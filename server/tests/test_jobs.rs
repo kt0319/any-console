@@ -211,6 +211,65 @@ async fn common_jobs_merge_and_reorder() {
     assert_eq!(resp.status(), 400);
 }
 
+/// 登録済み worktree エントリ（worktree_base 持ち）は /jobs/workspaces で
+/// ベースのジョブ定義を引き継ぐ（一覧走査リファクタの回帰テスト）。
+#[tokio::test]
+async fn list_all_workspace_jobs_inherits_base_jobs_for_worktree() {
+    let dir = tempfile::tempdir().unwrap();
+    let data_dir = dir.path().join("data");
+    save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
+
+    let ws_path = dir.path().join("proj");
+    let wt_path = dir.path().join("proj-wt");
+    std::fs::create_dir_all(&ws_path).unwrap();
+    std::fs::create_dir_all(&wt_path).unwrap();
+    let store = ConfigStore::new(dir.path().join("config.json"));
+    let mut cfg = store.load_all();
+    cfg.insert(
+        "ws_proj".to_string(),
+        json!({
+            "name": "proj",
+            "path": ws_path.to_string_lossy(),
+            "jobs": {"job_base": {"label": "Base", "command": "make base"}},
+        }),
+    );
+    cfg.insert(
+        "ws_wt".to_string(),
+        json!({
+            "name": "proj [feature]",
+            "path": wt_path.to_string_lossy(),
+            "worktree_base": "proj",
+        }),
+    );
+    store.save_all(&cfg).unwrap();
+
+    let state = common::test_app_state(
+        dir.path(),
+        common::StateOptions {
+            config: Some(store),
+            ..Default::default()
+        },
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            build_router(state).into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
+    let front = TestFront { addr, _dir: dir };
+
+    let all = get_json(&front, "/jobs/workspaces").await;
+    assert_eq!(all["proj"]["job_base"]["label"], "Base");
+    assert_eq!(
+        all["proj [feature]"]["job_base"]["label"], "Base",
+        "worktree entry inherits base jobs"
+    );
+}
+
 /// 並行ジョブ作成が全件残ること（lost update しないこと）を検証する回帰テスト
 /// （Codex レビュー指摘: load→mutate→save が分離していると後勝ちの書き込みが
 /// 先勝ちの新規ジョブを消してしまう）。共通ジョブ・ワークスペースジョブの

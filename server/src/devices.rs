@@ -233,55 +233,6 @@ pub fn register_device(
     register_locked(data_dir, state, name, user_agent, source)
 }
 
-/// 同一 UA・source のデバイスが既登録なら secret を再発行して返す。なければ
-/// 新規登録する（Tailscale 経由の自動登録で cookie が失われるたびに同一
-/// デバイスが増殖するのを防ぐ）。最も直近に使われたエントリを再利用する。
-pub fn find_or_register_device(
-    data_dir: &Path,
-    state: &DevicesState,
-    name: &str,
-    user_agent: &str,
-    source: &str,
-) -> (String, String) {
-    let ua_stored = truncate_chars(user_agent, MAX_UA_LEN);
-    let _guard = state.devices_lock.lock().expect("devices lock poisoned");
-    let mut data = load_unlocked(data_dir);
-    let mut devices = devices_array(&data);
-    let candidate_idx = devices
-        .iter()
-        .enumerate()
-        .filter(|(_, d)| {
-            d.get("user_agent").and_then(Value::as_str).unwrap_or("") == ua_stored
-                && d.get("source").and_then(Value::as_str).unwrap_or("token") == source
-        })
-        .max_by_key(|(_, d)| d.get("last_seen_at").and_then(Value::as_i64).unwrap_or(0))
-        .map(|(i, _)| i);
-    let Some(idx) = candidate_idx else {
-        return register_locked(data_dir, state, name, user_agent, source);
-    };
-    let raw_secret = crate::util::token_urlsafe(32);
-    let hash = hash_secret(data_dir, state, &raw_secret);
-    let now = now_epoch();
-    let device_id = devices[idx]
-        .get("id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let device_name = devices[idx]
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    if let Value::Object(ref mut entry) = devices[idx] {
-        entry.insert("secret_hash".to_string(), json!(hash));
-        entry.insert("last_seen_at".to_string(), json!(now));
-    }
-    data["devices"] = Value::Array(devices);
-    save_unlocked(data_dir, &data);
-    tracing::info!("device reissued id={device_id} name={device_name} source={source}");
-    (device_id, raw_secret)
-}
-
 /// device_id + raw_secret が登録済みデバイスと一致すれば dict を返す
 /// （secret_hash を含む生の entry）。一致した場合は last_seen_at を
 /// スロットリング付きで更新する（Python `verify_and_touch_device`）。
@@ -641,33 +592,6 @@ mod tests {
         let (device_id, _) = register_device(dir.path(), &state, "   ", "ua", "token");
         let stored = get_device(dir.path(), &device_id).unwrap();
         assert_eq!(stored["name"], "Unnamed device");
-    }
-
-    #[test]
-    fn find_or_register_device_reuses_matching_ua_and_source() {
-        let dir = tempfile::tempdir().unwrap();
-        let state = DevicesState::new();
-        let (first_id, first_secret) =
-            find_or_register_device(dir.path(), &state, "Phone", "ua-1", "tailscale");
-        let (second_id, second_secret) =
-            find_or_register_device(dir.path(), &state, "Phone Again", "ua-1", "tailscale");
-        assert_eq!(first_id, second_id, "same ua+source reuses the device");
-        assert_ne!(first_secret, second_secret, "secret is reissued on reuse");
-        // 古い secret はもう有効ではない。
-        assert!(verify_and_touch_device(dir.path(), &state, &first_id, &first_secret).is_none());
-        assert!(verify_and_touch_device(dir.path(), &state, &second_id, &second_secret).is_some());
-
-        let devices = list_devices(dir.path());
-        assert_eq!(devices.len(), 1, "reuse must not create a second device");
-    }
-
-    #[test]
-    fn find_or_register_device_registers_new_for_different_source() {
-        let dir = tempfile::tempdir().unwrap();
-        let state = DevicesState::new();
-        find_or_register_device(dir.path(), &state, "Phone", "ua-1", "tailscale");
-        find_or_register_device(dir.path(), &state, "Phone", "ua-1", "token");
-        assert_eq!(list_devices(dir.path()).len(), 2);
     }
 
     #[test]

@@ -144,11 +144,7 @@ pub async fn create_worktree(
     crate::git_helpers::ensure_git_result_ok(&result, "Failed to create worktree")?;
 
     let base_config = state.config.load_workspace_config(&name);
-    let base_display = base_config
-        .get("name")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(&name);
+    let base_display = crate::config::workspace_display_name(base_config.get("name"), &name);
     let display_name = worktree_display_name(base_display, &branch);
     tracing::info!(
         "worktree created workspace={} branch={} path={}",

@@ -43,12 +43,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, type PropType } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
-import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import { useTabClose } from "../composables/useTabClose.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { emit } from "../app-bridge.ts";
 import { DRAG_THRESHOLD } from "../utils/constants.ts";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
@@ -59,9 +57,9 @@ const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
 
-const emits = defineEmits(["select", "close", "refresh", "detach"]);
+const emits = defineEmits(["select"]);
 const layoutStore = useLayoutStore();
-const { confirm } = useConfirm();
+const { confirmAndCloseTab } = useTabClose();
 const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
@@ -166,10 +164,7 @@ function onClick(e: MouseEvent) {
 
 async function onClose() {
   closePending = false;
-  const result = await confirmCloseTab(confirm, props.tab);
-  if (result === true) emits("close", props.tab);
-  else if (result === "refresh") emits("refresh", props.tab);
-  else if (result === "detach") emits("detach", props.tab);
+  await confirmAndCloseTab(props.tab);
 }
 
 function onCloseUp() {

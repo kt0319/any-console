@@ -109,11 +109,7 @@ fn apply_import_entry(current: &mut Map<String, Value>, identifier: &str, ws_con
     for (k, v) in ws_obj {
         merged.insert(k.clone(), v.clone());
     }
-    let name = existing
-        .get("name")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(&target_id);
+    let name = crate::config::workspace_display_name(existing.get("name"), &target_id);
     merged.insert("name".to_string(), Value::String(name.to_string()));
     current.insert(target_id.clone(), Value::Object(merged));
 }
@@ -173,7 +169,7 @@ pub(crate) fn notification_grace_sec(store: &ConfigStore) -> i64 {
         return PHRASE_NOTIFY_IDLE_GRACE_SEC;
     };
     match obj.get("phrase_notify_grace_sec") {
-        Some(Value::Number(n)) if !obj["phrase_notify_grace_sec"].is_boolean() => n
+        Some(Value::Number(n)) => n
             .as_i64()
             .filter(|&v| v >= 0)
             .unwrap_or(PHRASE_NOTIFY_IDLE_GRACE_SEC),
@@ -259,6 +255,24 @@ pub struct InfoPillSettings {
     order: Vec<String>,
 }
 
+impl InfoPillSettings {
+    /// フィールド名（`INFO_PILL_FIELDS` のキー）から表示フラグを引く。
+    /// フィールドを追加したら `INFO_PILL_FIELDS`・構造体とここを揃えること。
+    fn flag(&self, key: &str) -> bool {
+        match key {
+            "branch" => self.branch,
+            "prs" => self.prs,
+            "actions" => self.actions,
+            "changes" => self.changes,
+            "devserver" => self.devserver,
+            "files" => self.files,
+            "add" => self.add,
+            "dispatch" => self.dispatch,
+            _ => unreachable!("unknown info pill field: {key}"),
+        }
+    }
+}
+
 fn yes() -> bool {
     true
 }
@@ -270,16 +284,7 @@ pub async fn get_info_pills(State(state): State<Arc<AppState>>, _auth: RequireAu
         .unwrap_or(json!({}));
     let raw = raw.as_object().cloned().unwrap_or_default();
     let mut result = Map::new();
-    for field in [
-        "branch",
-        "prs",
-        "actions",
-        "changes",
-        "devserver",
-        "files",
-        "add",
-        "dispatch",
-    ] {
+    for &field in INFO_PILL_FIELDS {
         let v = raw
             .get(field)
             .map(|v| v.as_bool().unwrap_or(true) || v.as_i64().is_some_and(|n| n != 0))
@@ -313,17 +318,8 @@ pub async fn put_info_pills(
     JsonBody(body): JsonBody<InfoPillSettings>,
 ) -> Result<Json<Value>, ApiError> {
     let mut data = Map::new();
-    for (key, v) in [
-        ("branch", body.branch),
-        ("prs", body.prs),
-        ("actions", body.actions),
-        ("changes", body.changes),
-        ("devserver", body.devserver),
-        ("files", body.files),
-        ("add", body.add),
-        ("dispatch", body.dispatch),
-    ] {
-        data.insert(key.to_string(), Value::Bool(v));
+    for &key in INFO_PILL_FIELDS {
+        data.insert(key.to_string(), Value::Bool(body.flag(key)));
     }
     data.insert(
         "order".to_string(),
@@ -640,20 +636,6 @@ pub async fn get_recent_jobs(
     } else {
         valid
     };
-    // v4 リネーム（jobDetachedTab → jobDetached）の過渡期対応: 開いたままの
-    // 旧 SPA バンドルは GET 応答で自前キャッシュを丸ごと置き換えた上で
-    // jobDetachedTab しか読まないため、応答にのみ同値のミラーを併載する
-    // （保存形は jobDetached のみ）。旧バンドルが淘汰されたら削除してよい。
-    let mut result = result;
-    if let Some(items) = result.as_array_mut() {
-        for item in items {
-            if let Some(obj) = item.as_object_mut() {
-                if obj.get("jobDetached") == Some(&Value::Bool(true)) {
-                    obj.insert("jobDetachedTab".to_string(), Value::Bool(true));
-                }
-            }
-        }
-    }
     Ok(Json(json!({"recent_jobs": result})))
 }
 
@@ -678,31 +660,10 @@ pub struct RecentJobItem {
     job_command: String,
     #[serde(default, rename = "jobConfirm")]
     job_confirm: Option<bool>,
-    /// v4 リネーム（jobDetachedTab → jobDetached）の過渡期対応。serde の
-    /// alias ではなく独立フィールドで受ける — GET 応答のミラー（`get_recent_jobs`）
-    /// を丸ごと PUT し返す旧 SPA は両キーを同時に送ってくるため、alias だと
-    /// duplicate field エラーで保存が壊れる。新キーが明示されていればそちらを
-    /// 正とし（新キー優先）、無ければ legacy を採用する（`detached()`）。
-    /// 保存形は jobDetached のみ（`skip_serializing`）。
-    #[serde(
-        default,
-        rename = "jobDetached",
-        skip_serializing_if = "Option::is_none"
-    )]
-    job_detached: Option<bool>,
-    #[serde(default, rename = "jobDetachedTab", skip_serializing)]
-    job_detached_tab_legacy: Option<bool>,
+    #[serde(default, rename = "jobDetached")]
+    job_detached: bool,
     #[serde(default)]
     pinned: bool,
-}
-
-impl RecentJobItem {
-    /// detached の実効値（新キー優先で legacy へフォールバック）。
-    fn detached(&self) -> bool {
-        self.job_detached
-            .or(self.job_detached_tab_legacy)
-            .unwrap_or(false)
-    }
 }
 
 #[derive(Deserialize)]
@@ -740,15 +701,7 @@ pub async fn put_recent_jobs(
         .recent_jobs
         .iter()
         .filter(|item| !item.key.trim().is_empty())
-        .map(|item| {
-            let mut v = serde_json::to_value(item).expect("serializable");
-            // legacy キー（jobDetachedTab）でしか指定されていない場合も、
-            // 保存形は常に実効値の jobDetached に畳み込む（過渡期対応）。
-            if let Some(obj) = v.as_object_mut() {
-                obj.insert("jobDetached".to_string(), json!(item.detached()));
-            }
-            v
-        })
+        .map(|item| serde_json::to_value(item).expect("serializable"))
         .collect();
     save_global(
         &state.config,

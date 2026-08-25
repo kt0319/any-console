@@ -96,7 +96,7 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     };
     let mut info = json!({
         "id": ws_id,
-        "name": config.get("name").and_then(Value::as_str).filter(|s| !s.is_empty()).unwrap_or(ws_id),
+        "name": crate::config::workspace_display_name(config.get("name"), ws_id),
         "path": path_str,
         "is_git_repo": is_git,
         "branch": branch,

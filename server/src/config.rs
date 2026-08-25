@@ -29,9 +29,32 @@ pub fn generate_entity_id() -> String {
     format!("{ENTITY_ID_PREFIX}{}", crate::util::token_hex(6))
 }
 
+/// workspace エントリの表示名を解決する（`name` が空・欠如ならワークスペース ID
+/// にフォールバック）。`entry.get("name")` を渡す — エントリが `Map` でも `Value`
+/// でも同じ呼び方になる。フォールバック規則はここ1箇所で管理する。
+pub fn workspace_display_name<'a>(name_field: Option<&'a Value>, ws_id: &'a str) -> &'a str {
+    name_field
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(ws_id)
+}
+
 #[derive(Debug, Clone)]
 pub struct ConfigStore {
     pub config_file: PathBuf,
+    /// `load_all` の読み込みキャッシュ。clone 間で共有する（`Arc`）。
+    cache: std::sync::Arc<std::sync::Mutex<Option<ConfigCache>>>,
+}
+
+/// mtime + サイズのシグネチャが一致する間だけ有効な `load_all` の結果キャッシュ
+/// （`auth.rs` の `TokenCache` と同方式）。ポーリング系（agent_watch / git_watch /
+/// statuses）が周期ごとに何度も `load_all` を呼ぶため、変更が無い間は flock と
+/// 全文読み込み・正規化を省く。別プロセス（CLI 等）の書き込みは mtime の変化で
+/// 検知し、自プロセスの書き込みは `write_unlocked` が明示的に無効化する。
+#[derive(Debug)]
+struct ConfigCache {
+    signature: (std::time::SystemTime, u64),
+    config: Map<String, Value>,
 }
 
 /// flock を保持したままにするためのガード（drop で unlock）。
@@ -39,7 +62,20 @@ struct FileLock(#[allow(dead_code)] std::fs::File);
 
 impl ConfigStore {
     pub fn new(config_file: PathBuf) -> Self {
-        Self { config_file }
+        Self {
+            config_file,
+            cache: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        }
+    }
+
+    /// config.json の変更検知シグネチャ（mtime + サイズ）。
+    fn stat_signature(&self) -> Option<(std::time::SystemTime, u64)> {
+        let meta = std::fs::metadata(&self.config_file).ok()?;
+        Some((meta.modified().ok()?, meta.len()))
+    }
+
+    fn invalidate_cache(&self) {
+        *self.cache.lock().expect("config cache lock poisoned") = None;
     }
 
     /// Python `_file_lock` と同じ `config.lock` を flock する。
@@ -142,6 +178,10 @@ impl ConfigStore {
     /// Python `_write_config_unlocked` と同一: 正規化（エラーは拒否）→ .bak
     /// ローテーション → tmp 書き込み → rename。末尾改行付き・2スペースインデント。
     fn write_unlocked(&self, config: &Map<String, Value>) -> Result<(), String> {
+        // 書き込みの成否に関わらずキャッシュを破棄する（.bak ローテーション後に
+        // tmp 書き込みが失敗するとファイル状態が変わったまま戻らないため、
+        // 成功時のみの無効化では古い内容を返しうる）。
+        self.invalidate_cache();
         let (normalized, errors) =
             normalize_loaded_config(&Value::Object(config.clone()), GLOBAL_CONFIG_KEY);
         if let Some((name, error)) = errors.first() {
@@ -168,11 +208,34 @@ impl ConfigStore {
     }
 
     pub fn load_all(&self) -> Map<String, Value> {
+        // ホットパス: mtime + サイズが前回読み込みから変わっていなければ、flock も
+        // 全文読み込みもせずキャッシュを返す。シグネチャは読み込み前に取る —
+        // 読み込み中に他プロセスが書き換えた場合、保存されるのは古いシグネチャに
+        // なるため、次回の load_all は必ず「読み直す」側に倒れる。
+        let signature = self.stat_signature();
+        if let Some(sig) = signature {
+            let cache = self.cache.lock().expect("config cache lock poisoned");
+            if let Some(cached) = cache.as_ref() {
+                if cached.signature == sig {
+                    return cached.config.clone();
+                }
+            }
+        }
         let (config, needs_writeback) = {
             let _lock = self.file_lock(false);
             self.read_core()
         };
         if !needs_writeback {
+            // 空の結果はキャッシュしない: read_core は一時的な読み込み失敗
+            // （EIO・権限等）でも空 Map を返すため、シグネチャ付きで覚えると
+            // 復旧後も mtime が変わるまで空 config を返し続けてしまう。
+            // 正当に空（初回起動）の読み込みはもとより軽いので毎回読んでよい。
+            if let (Some(sig), false) = (signature, config.is_empty()) {
+                *self.cache.lock().expect("config cache lock poisoned") = Some(ConfigCache {
+                    signature: sig,
+                    config: config.clone(),
+                });
+            }
             return config;
         }
         // .bak からの復旧・バージョンマイグレーションの書き戻しは config.bak/config.tmp
@@ -359,14 +422,7 @@ impl ConfigStore {
             let matches = path == ws_path_str || path.starts_with(&format!("{ws_path_str}/"));
             if matches && ws_path_str.len() as i64 > best_len {
                 best_len = ws_path_str.len() as i64;
-                best_name = Some(
-                    entry
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .filter(|s| !s.is_empty())
-                        .map(String::from)
-                        .unwrap_or(key),
-                );
+                best_name = Some(workspace_display_name(entry.get("name"), &key).to_string());
             }
         }
         best_name
@@ -753,5 +809,48 @@ mod tests {
         write_file(&dir, "config.json", "{broken");
         let h = s.check_health();
         assert_eq!(h["ok"], json!(false));
+    }
+
+    #[test]
+    fn load_all_cache_sees_own_and_external_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = store(&dir);
+        assert!(s.load_all().is_empty());
+
+        // 別インスタンス（別プロセス相当）の書き込みは mtime + サイズの変化で検知する
+        let other = store(&dir);
+        let mut cfg = other.load_all();
+        cfg.insert("ws_a".to_string(), json!({"name": "A", "path": "/tmp/a"}));
+        other.save_all(&cfg).unwrap();
+        assert_eq!(s.load_all()["ws_a"]["name"], "A");
+        // 変更が無い間のキャッシュヒットでも同じ内容が返る
+        assert_eq!(s.load_all()["ws_a"]["name"], "A");
+
+        // 自身の save_all 後もキャッシュが無効化され、古い内容を返さない
+        let mut cfg = s.load_all();
+        cfg.insert("ws_b".to_string(), json!({"name": "B", "path": "/tmp/b"}));
+        s.save_all(&cfg).unwrap();
+        let loaded = s.load_all();
+        assert_eq!(loaded["ws_a"]["name"], "A");
+        assert_eq!(loaded["ws_b"]["name"], "B");
+
+        // clone はキャッシュを共有しつつ、clone 経由の書き込みも即座に見える
+        let cloned = s.clone();
+        let mut cfg = cloned.load_all();
+        cfg.remove("ws_a");
+        cloned.save_all(&cfg).unwrap();
+        assert!(!s.load_all().contains_key("ws_a"));
+    }
+
+    #[test]
+    fn workspace_display_name_falls_back_to_id() {
+        let entry = json!({"name": "My WS"});
+        assert_eq!(workspace_display_name(entry.get("name"), "ws_1"), "My WS");
+        let empty = json!({"name": ""});
+        assert_eq!(workspace_display_name(empty.get("name"), "ws_1"), "ws_1");
+        let missing = json!({});
+        assert_eq!(workspace_display_name(missing.get("name"), "ws_1"), "ws_1");
+        let non_str = json!({"name": 42});
+        assert_eq!(workspace_display_name(non_str.get("name"), "ws_1"), "ws_1");
     }
 }

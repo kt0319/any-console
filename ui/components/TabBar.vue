@@ -30,9 +30,6 @@
           :active-tab-id="activeTabId"
           :is-panel-bottom="isPanelBottom"
           @select="onSelect"
-          @close="onClose"
-          @refresh="onRefresh"
-          @detach="onDetach"
         />
       </div>
       <button
@@ -110,18 +107,6 @@ function onTabListKeydown(e: KeyboardEvent) {
   const nextTab = tabs[nextIndex];
   onSelect(nextTab, { skipFocus: true });
   focusTab(nextTab);
-}
-
-function onClose(tab: TerminalTab) {
-  emit("tab:close", { tab });
-}
-
-function onRefresh(tab: TerminalTab) {
-  emit("tab:refresh", { tab });
-}
-
-function onDetach(tab: TerminalTab) {
-  terminalStore.detachTab(tab.id);
 }
 
 const { isOpen: isSessionListOpen, open: openSessionList, close: closeSessionList } = useSessionListOverlay();
