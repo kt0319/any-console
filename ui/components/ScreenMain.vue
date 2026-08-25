@@ -260,11 +260,13 @@ onMounted(async () => {
     applyDeepLink();
     startSyncPolling();
     startLayoutPersist();
-    await restoreBrowserTabs();
-    // 返り値のクリーンアップを必ず登録する — 捨てるとログアウト（アンマウント）
-    // 後も復元リトライのタイマーが /settings/browser-tabs を叩き続け、
-    // ログイン毎に watcher と connectivity:back リスナーが積み上がる。
+    // クリーンアップの登録は復元の await より前に同期的に行う — 後に置くと、
+    // 復元GET中にアンマウント（ログアウト）された場合に bridgeCleanups の解放後
+    // へ登録されて解除不能になり、リトライがログイン画面で API を叩き続ける。
+    // watcher は isRestored ガード付きのため復元前に開始しても保存は走らない
+    // （詳細は useBrowserTabsPersist.startWatching のコメントを参照）。
     bridgeCleanups.push(startBrowserTabsPersist());
+    await restoreBrowserTabs();
   } finally {
     booting.value = false;
     bootMessage.value = "Loading...";

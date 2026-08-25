@@ -212,7 +212,9 @@ describe("useBrowserTabsPersist", () => {
         activeUrl: null,
       }),
     );
-    const { restoreBrowserTabs } = useBrowserTabsPersist();
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    // 本番と同じく watcher を先に登録する（リトライ予約は購読者がいる間だけ行われる）
+    cleanups.push(startWatching());
     await restoreBrowserTabs();
 
     apiFetchMock.mockResolvedValueOnce({ ok: false });
@@ -232,6 +234,22 @@ describe("useBrowserTabsPersist", () => {
     // 4000（残骸）は復活せず、5000（失敗中のローカル操作）はマージされて残る
     expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/", "http://localhost:5000/"]);
     expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:5000/");
+  });
+
+  it("クリーンアップ後に復元GETの失敗が解決しても、リトライは予約されない（ログイン画面での永久ポーリング防止）", async () => {
+    let rejectFetch;
+    apiFetchMock.mockReturnValueOnce(new Promise((_, rej) => { rejectFetch = rej; }));
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    const cleanup = startWatching();
+    const pending = restoreBrowserTabs();
+    // 復元GETが未解決のままアンマウント（ログアウト）相当
+    cleanup();
+    rejectFetch(new Error("network"));
+    await pending;
+
+    const callsAfter = apiFetchMock.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(BROWSER_TABS_RESTORE_RETRY_MS * 2 + 10);
+    expect(apiFetchMock.mock.calls.length).toBe(callsAfter);
   });
 
   it("debounce待ちの保存は再復元の開始時に破棄され、古い一覧でサーバーを上書きしない", async () => {

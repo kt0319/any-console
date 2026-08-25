@@ -22,6 +22,12 @@ let _restoreInFlight: Promise<void> | null = null;
 // （429/500等 — 接続自体は生きている）でも復元を諦めないための保険。
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
 
+// 稼働中の watcher 数（startWatching で+1、クリーンアップで-1）。0 の間は
+// 再試行を予約しない — 復元GETがアンマウント後に解決した場合、その失敗経路が
+// クリーンアップ後に新しいタイマーを積んでログイン画面でポーリングし続けるのを
+// 防ぐ（クリーンアップは実行時点のタイマーしか消せないため、予約側で止める）。
+let _activeWatchers = 0;
+
 /**
  * ブラウザタブ一覧をサーバー（/settings/browser-tabs）へ保存・復元する
  * コンポーザブル。ターミナルタブの useLayoutPersist.ts と同じ形（変化を
@@ -58,21 +64,24 @@ export function useBrowserTabsPersist() {
   }
 
   /**
-   * restoreBrowserTabs() 完了後に呼ぶこと。復元前に変化を監視すると、
-   * 空配列の初期状態でサーバーの保存済みタブを上書きしてしまう。
-   * 呼び出し順に加えて isRestored（ストアが synced の間だけ true）でも
-   * ガードする — 復元に失敗したまま保存を許すと、突き合わせ前の一覧のPUTが
-   * サーバーの保存済み一覧や他クライアントの変更を上書きするため。
+   * restoreBrowserTabs() を await する「前」に呼び、返り値のクリーンアップを
+   * 必ずアンマウント時に実行できる場所（ScreenMain の bridgeCleanups）へ
+   * 同期的に登録すること — await の後に登録すると、復元GET中のアンマウントで
+   * 解除不能な watcher / リスナーが残る。復元前に監視を始めても安全:
+   * watcher は isRestored（ストアが synced の間だけ true）でガードされており、
+   * 復元前・復元失敗中の一覧が保存されることはない（突き合わせ前の一覧のPUTは
+   * サーバーの保存済み一覧や他クライアントの変更を上書きするため）。
    *
    * 復元が失敗したままのセッションは、接続復帰（connectivity:back — useStatusStream
    * と同じ復帰シグナル）と _scheduleRestoreRetry() の定期再試行の両方で復元を
    * やり直して永続化を復活させる。未同期中のローカル操作はストアが記録し、
    * 遅れて成功した復元で失われない（applyServerState が突き合わせる）。
    *
-   * @returns watch と connectivity:back 購読を解除するクリーンアップ関数
-   *   （実運用ではアプリと同寿命のため未使用。テスト間の分離用）。
+   * @returns watch と connectivity:back 購読を解除し再試行を止める
+   *   クリーンアップ関数。アンマウント時に必ず呼ぶこと。
    */
   function startWatching(): () => void {
+    _activeWatchers += 1;
     const stopWatch = watch(
       () => [browserTabStore.tabs.slice(), browserTabStore.activeBrowserTabId],
       () => {
@@ -85,6 +94,7 @@ export function useBrowserTabsPersist() {
       if (!browserTabStore.isRestored) restoreBrowserTabs();
     });
     return () => {
+      _activeWatchers -= 1;
       stopWatch();
       offConnectivity();
       _clearRetryTimer();
@@ -105,6 +115,9 @@ export function useBrowserTabsPersist() {
    * 唯一のリトライ経路になる。成功するまで一定間隔で繰り返す。
    */
   function _scheduleRestoreRetry() {
+    // 購読者がいない（アンマウント済み）なら再試行しない — クリーンアップ後に
+    // 解決した復元GETの失敗経路が、ログイン画面で永久ポーリングを始めないため。
+    if (_activeWatchers === 0) return;
     _clearRetryTimer();
     _retryTimer = setTimeout(() => {
       _retryTimer = null;
