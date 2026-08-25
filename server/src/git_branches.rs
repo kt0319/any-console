@@ -304,7 +304,7 @@ pub async fn delete_branch(
         return execute_git_action_with_activity(
             &state,
             &name,
-            Some(&ws_path),
+            &ws_path,
             &["push", "origin", "--delete", &branch],
             "delete remote branch",
             "git_delete_branch",
@@ -327,7 +327,7 @@ pub async fn delete_branch(
     execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &["branch", "-D", &branch],
         "delete branch",
         "git_delete_branch",
@@ -362,7 +362,7 @@ pub async fn create_branch(
     execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &arg_refs,
         "create-branch",
         "git_create_branch",
@@ -393,7 +393,7 @@ pub async fn checkout_branch(
     execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &args,
         "checkout",
         "git_checkout",
@@ -517,8 +517,16 @@ pub async fn push(
     let before_hash = rev_parse(&ws_path, "@{u}").await;
     let pending = commits_between(&ws_path, "@{u}..HEAD").await?;
     let env_owned = ssh_env_additions();
-    let mut result =
-        execute_git_action(&state, &name, &["push"], "push", &env_refs(&env_owned), "").await?;
+    let mut result = execute_git_action(
+        &state,
+        &name,
+        &ws_path,
+        &["push"],
+        "push",
+        &env_refs(&env_owned),
+        "",
+    )
+    .await?;
     if result["status"] == "ok" {
         result["commits"] = pending;
         let commit = rev_parse(&ws_path, "HEAD").await;
@@ -555,6 +563,7 @@ pub async fn push_branch(
     let mut result = execute_git_action(
         &state,
         &name,
+        &ws_path,
         &["push", "-u", "origin", &refspec],
         "push branch",
         &env_refs(&env_owned),
@@ -590,7 +599,7 @@ pub async fn set_upstream(
     execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &["branch", "--set-upstream-to", &upstream_ref],
         "set upstream",
         "git_set_upstream",
@@ -614,7 +623,7 @@ pub async fn push_upstream(
     let mut result = execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &["push", "-u", "origin", "HEAD"],
         "push upstream",
         "git_push",
@@ -635,11 +644,12 @@ pub async fn fetch(
     Path(name): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
     let env_owned = ssh_env_additions();
     execute_git_action_with_activity(
         &state,
         &name,
-        None,
+        &ws_path,
         &["fetch", "--prune"],
         "fetch",
         "git_fetch",
