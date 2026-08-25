@@ -108,7 +108,7 @@ async fn write_image_to_clipboard_linux(filepath: &Path, content_type: &str) -> 
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| std::env::var("USER").ok().filter(|v| !v.is_empty()))
-        .unwrap_or_else(crate::system::current_user);
+        .unwrap_or_else(crate::system_info::current_user);
     let Ok(data) = tokio::fs::read(filepath).await else {
         return false;
     };

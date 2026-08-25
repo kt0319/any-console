@@ -52,6 +52,8 @@ pub mod static_files;
 pub mod status_stream;
 pub mod subprocess;
 pub mod system;
+pub mod system_info;
+pub mod system_update;
 pub mod terminal;
 pub mod terminal_session;
 pub mod tmux;
@@ -105,14 +107,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/pair/{pairing_id}", get(index))
         .route("/sw.js", get(sw_js))
         // ─── system ─────────────────────────────────────────────────────────
-        .route("/system/info", get(system::info))
+        .route("/system/info", get(system_info::info))
         .route("/system/processes", get(system::processes))
         .route("/system/process/kill", post(system::process_kill))
         .route("/system/tmux-info", get(system::tmux_info))
         .route("/system/tmux/kill", post(system::tmux_kill))
         .route("/system/tmux/adopt", post(system::tmux_adopt))
-        .route("/system/update/check", get(system::update_check))
-        .route("/system/update/apply", post(system::update_apply))
+        .route("/system/update/check", get(system_update::update_check))
+        .route("/system/update/apply", post(system_update::update_apply))
         .route("/client-errors", post(system::client_errors))
         .route(
             "/upload-image",

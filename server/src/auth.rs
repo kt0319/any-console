@@ -567,7 +567,7 @@ pub async fn auth_check(
     let commit_date = crate::system::get_app_commit_date(&state.paths.project_root).await;
     let response = Json(json!({
         "status": "ok",
-        "hostname": crate::system::hostname(),
+        "hostname": crate::system_info::hostname(),
         "commit_date": commit_date,
         "auth_method": auth_method,
         "device": device,
