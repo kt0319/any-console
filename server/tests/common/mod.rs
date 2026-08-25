@@ -115,3 +115,20 @@ pub fn skip_if_no_tmux() -> bool {
         .map(|o| !o.status.success())
         .unwrap_or(true)
 }
+
+/// テスト用リポジトリで git コマンドを実行する（失敗は即 assert）。
+/// コミット日時は固定し、時刻依存の表示（相対時刻等）を決定的にする。
+pub fn sh_git(repo: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(repo)
+        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
+        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}

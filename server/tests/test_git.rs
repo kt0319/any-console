@@ -22,21 +22,6 @@ struct TestFront {
 
 const TOKEN: &str = "git-test-token";
 
-fn sh_git(repo: &std::path::Path, args: &[&str]) {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
-        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-}
-
 async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
@@ -45,12 +30,12 @@ async fn spawn_front() -> TestFront {
     // テスト用 git リポジトリ
     let ws_path = dir.path().join("repo");
     std::fs::create_dir_all(&ws_path).unwrap();
-    sh_git(&ws_path, &["init", "-q", "-b", "main"]);
-    sh_git(&ws_path, &["config", "user.email", "t@example.com"]);
-    sh_git(&ws_path, &["config", "user.name", "tester"]);
+    common::sh_git(&ws_path, &["init", "-q", "-b", "main"]);
+    common::sh_git(&ws_path, &["config", "user.email", "t@example.com"]);
+    common::sh_git(&ws_path, &["config", "user.name", "tester"]);
     std::fs::write(ws_path.join("a.txt"), "hello\n").unwrap();
-    sh_git(&ws_path, &["add", "-A"]);
-    sh_git(&ws_path, &["commit", "-q", "-m", "first commit"]);
+    common::sh_git(&ws_path, &["add", "-A"]);
+    common::sh_git(&ws_path, &["commit", "-q", "-m", "first commit"]);
 
     // ワークスペース登録
     let store = ConfigStore::new(dir.path().join("config.json"));

@@ -22,27 +22,14 @@ struct TestFront {
 
 const TOKEN: &str = "ws-test-token";
 
-fn sh_git(repo: &std::path::Path, args: &[&str]) {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-}
-
 fn make_repo(path: &std::path::Path) {
     std::fs::create_dir_all(path).unwrap();
-    sh_git(path, &["init", "-q", "-b", "main"]);
-    sh_git(path, &["config", "user.email", "t@example.com"]);
-    sh_git(path, &["config", "user.name", "tester"]);
+    common::sh_git(path, &["init", "-q", "-b", "main"]);
+    common::sh_git(path, &["config", "user.email", "t@example.com"]);
+    common::sh_git(path, &["config", "user.name", "tester"]);
     std::fs::write(path.join("a.txt"), "hello\n").unwrap();
-    sh_git(path, &["add", "-A"]);
-    sh_git(path, &["commit", "-q", "-m", "first commit"]);
+    common::sh_git(path, &["add", "-A"]);
+    common::sh_git(path, &["commit", "-q", "-m", "first commit"]);
 }
 
 async fn spawn_front() -> TestFront {
@@ -149,7 +136,7 @@ async fn list_workspaces_includes_dynamic_worktrees_and_respects_order() {
     let ws2 = front.dir.path().join("second");
     make_repo(&ws2);
     let wt_path = front.dir.path().join("wt-feat");
-    sh_git(
+    common::sh_git(
         &front.ws_path,
         &["worktree", "add", wt_path.to_str().unwrap(), "-b", "feat/x"],
     );
