@@ -598,8 +598,6 @@ const MAX_URL_LENGTH: usize = 2000;
 #[derive(Deserialize, serde::Serialize, Clone)]
 pub struct BrowserTabItem {
     url: String,
-    #[serde(default)]
-    label: String,
 }
 
 #[derive(Deserialize)]
@@ -638,7 +636,6 @@ pub async fn put_browser_tabs(
 ) -> Result<Json<Value>, ApiError> {
     for item in &body.tabs {
         check_max_len("url", &item.url, MAX_URL_LENGTH)?;
-        check_max_len("label", &item.label, MAX_LABEL_LENGTH)?;
     }
     if let Some(url) = &body.active_url {
         check_max_len("activeUrl", url, MAX_URL_LENGTH)?;

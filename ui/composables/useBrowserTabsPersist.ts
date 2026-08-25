@@ -22,7 +22,7 @@ export function useBrowserTabsPersist() {
       await auth.apiFetch(EP_SETTINGS_BROWSER_TABS, {
         method: "PUT",
         body: {
-          tabs: browserTabStore.tabs.map((t) => ({ url: t.url, label: t.label })),
+          tabs: browserTabStore.tabs.map((t) => ({ url: t.url })),
           activeUrl: activeTab ? activeTab.url : null,
         },
       });

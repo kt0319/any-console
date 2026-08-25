@@ -184,17 +184,17 @@ describe("browserTabs store: restoreFromServer（useBrowserTabsPersist.restoreBr
     store = useBrowserTabStore();
   });
 
-  it("サーバーから受け取ったタブ一覧を反映し、isRestoredをtrueにする", () => {
+  it("サーバーから受け取ったタブ一覧を反映し、isRestoredをtrueにする。labelはURLから導出する（永続化された値は無い）", () => {
     expect(store.isRestored).toBe(false);
-    store.restoreFromServer([{ url: "http://localhost:3000/", label: "App" }], null);
+    store.restoreFromServer([{ url: "http://localhost:3000/" }], null);
     expect(store.tabs).toHaveLength(1);
-    expect(store.tabs[0]).toMatchObject({ url: "http://localhost:3000/", label: "App" });
+    expect(store.tabs[0]).toMatchObject({ url: "http://localhost:3000/", label: "localhost:3000" });
     expect(store.isRestored).toBe(true);
   });
 
   it("activeUrlに一致するタブをアクティブにする（idは復元のたびに振り直されるためURLで突き合わせる）", () => {
     store.restoreFromServer(
-      [{ url: "http://localhost:3000/", label: "a" }, { url: "http://localhost:4000/", label: "b" }],
+      [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
       "http://localhost:3000/",
     );
     const activeTab = store.tabs.find((t) => t.id === store.activeBrowserTabId);
@@ -202,7 +202,7 @@ describe("browserTabs store: restoreFromServer（useBrowserTabsPersist.restoreBr
   });
 
   it("activeUrlがtabs内に無ければactiveBrowserTabIdはnull", () => {
-    store.restoreFromServer([{ url: "http://localhost:3000/", label: "a" }], "http://localhost:9999/");
+    store.restoreFromServer([{ url: "http://localhost:3000/" }], "http://localhost:9999/");
     expect(store.activeBrowserTabId).toBeNull();
   });
 

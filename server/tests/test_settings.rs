@@ -106,7 +106,7 @@ async fn browser_tabs_roundtrip_and_sanitize() {
         "/settings/browser-tabs",
         &json!({
             "tabs": [
-                {"url": "http://localhost:3000/", "label": "App"},
+                {"url": "http://localhost:3000/"},
                 {"url": ""},
             ],
             "activeUrl": "http://localhost:3000/",
@@ -117,10 +117,7 @@ async fn browser_tabs_roundtrip_and_sanitize() {
 
     let got = get_json(&front, "/settings/browser-tabs").await;
     // 空urlのタブは除去される
-    assert_eq!(
-        got["tabs"],
-        json!([{"url": "http://localhost:3000/", "label": "App"}])
-    );
+    assert_eq!(got["tabs"], json!([{"url": "http://localhost:3000/"}]));
     assert_eq!(got["activeUrl"], "http://localhost:3000/");
 
     // config.json が Python 互換フォーマットで書かれている

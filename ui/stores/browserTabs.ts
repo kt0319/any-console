@@ -123,11 +123,13 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   /**
    * サーバーから復元したタブ一覧を反映する（useBrowserTabsPersist.restoreBrowserTabsから
    * のみ呼ぶ）。idは再読込のたびに振り直すため、アクティブタブはURLで突き合わせる。
+   * labelは持たず常にURLから導出する（永続化された値を信頼しない — 導出ロジック
+   * を変更した際に古いデータが古いままの表示で固まるのを防ぐ）。
    */
-  function restoreFromServer(persisted: { url: string, label: string }[], activeUrl: string | null) {
+  function restoreFromServer(persisted: { url: string }[], activeUrl: string | null) {
     tabs.value = persisted.map((p) => {
       idCounter += 1;
-      return { id: idCounter, url: p.url, label: p.label };
+      return { id: idCounter, url: p.url, label: shortLabelFromUrl(p.url) };
     });
     activeBrowserTabId.value = tabs.value.find((t) => t.url === activeUrl)?.id ?? null;
     isRestored.value = true;
