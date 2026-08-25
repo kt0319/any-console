@@ -1,6 +1,6 @@
 <template>
   <div class="git-branch-pane-wrapper">
-    <div v-if="addModalOpen" class="branch-add-overlay" @click.self="closeAddModal">
+    <BaseDialog :visible="addModalOpen" :z-index="210" initial-focus="none" @dismiss="closeAddModal">
       <div class="branch-add-dialog" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
         <div class="branch-add-dialog-title">Add</div>
         <div class="branch-add-radio-group">
@@ -32,7 +32,7 @@
           <button class="dialog-btn dialog-btn-ok" :disabled="!addName.trim()" @click="submitAddModal">Create</button>
         </div>
       </div>
-    </div>
+    </BaseDialog>
     <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isBusy }">
         <div
           v-for="branch in localBranches"
@@ -144,6 +144,7 @@ import { useBranchActions } from "../composables/useBranchActions.ts";
 import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
+import BaseDialog from "./BaseDialog.vue";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush, type LocalBranch, type RemoteBranch } from "../utils/git-branch.ts";
 import { worktreeWorkspaceName } from "../utils/worktree.ts";
@@ -246,17 +247,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.branch-add-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 210;
-  padding: 20px;
 }
 
 .branch-add-dialog {
