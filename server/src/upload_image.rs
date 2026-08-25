@@ -28,18 +28,20 @@ const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "
 /// 件数上限ならディスク使用量もこの件数×最大サイズで頭打ちになる）。
 const MAX_KEPT_UPLOADS: usize = 10;
 
-/// 直近 `keep` 件を残して古いアップロードを削除する（新規アップロードのたびに
-/// 実行。ディレクトリの中身は高々 `keep`+1 件なので走査コストは無視できる）。
-/// ファイル名の先頭が UTC タイムスタンプ（`YYYYMMDD-HHMMSS`）のため、名前の
-/// 辞書順がそのまま時刻順になる — mtime には依存しない。
-fn prune_old_uploads(dir: &Path, keep: usize) {
+/// `protect` 以外から直近 `keep` 件を残して古いアップロードを削除する
+/// （新規アップロードのたびに実行。ディレクトリの中身は高々 `keep`+2 件なので
+/// 走査コストは無視できる）。ファイル名の先頭が UTC タイムスタンプ
+/// （`YYYYMMDD-HHMMSS`）のため、名前の辞書順がおおむね時刻順になる — mtime には
+/// 依存しない。同一秒内はランダムサフィックス順で書いたばかりのファイルが
+/// 「最古」側に並び得るため、書いた本人は `protect` で明示的に除外する。
+fn prune_old_uploads(dir: &Path, keep: usize, protect: &Path) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
     let mut files: Vec<std::path::PathBuf> = entries
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.is_file())
+        .filter(|p| p.is_file() && p != protect)
         .collect();
     if files.len() <= keep {
         return;
@@ -222,9 +224,9 @@ pub async fn upload_image(
     tokio::fs::write(&filepath, &data)
         .await
         .map_err(|e| crate::errors::server_error(format!("Cannot write upload: {e}")))?;
-    // 書き込み後に直近分だけ残して掃除する（書いたばかりのファイルが名前順で
-    // 最新になるため、掃除対象になることはない）。
-    prune_old_uploads(&dir, MAX_KEPT_UPLOADS);
+    // 書き込み後に、今回の分を保護しつつ直近分だけ残して掃除する
+    // （今回の分 + keep 件で合計は MAX_KEPT_UPLOADS 以下になる）。
+    prune_old_uploads(&dir, MAX_KEPT_UPLOADS - 1, &filepath);
 
     let clipboard_ok = write_image_to_clipboard(&filepath, &content_type).await;
     Ok(axum::Json(json!({
@@ -270,7 +272,7 @@ mod tests {
         for name in names {
             std::fs::write(dir.path().join(name), b"x").unwrap();
         }
-        prune_old_uploads(dir.path(), 2);
+        prune_old_uploads(dir.path(), 2, &dir.path().join("none.png"));
         assert!(!dir.path().join(names[0]).exists(), "古い方から削除される");
         assert!(!dir.path().join(names[1]).exists());
         assert!(dir.path().join(names[2]).exists(), "直近 keep 件は残る");
@@ -281,8 +283,35 @@ mod tests {
     fn prune_old_uploads_is_noop_within_keep_limit() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("20260101-000000-aaaa.png"), b"x").unwrap();
-        prune_old_uploads(dir.path(), 2);
+        prune_old_uploads(dir.path(), 2, &dir.path().join("none.png"));
         assert!(dir.path().join("20260101-000000-aaaa.png").exists());
+    }
+
+    /// 同一秒内の大量アップロードでは名前のタイムスタンプが同一になり、辞書順が
+    /// ランダムサフィックス順になる。書いたばかりのファイルが「最古」側に並んでも
+    /// protect で保護され削除されないこと（Codex レビュー指摘）。
+    #[test]
+    fn prune_old_uploads_never_removes_protected_file() {
+        let dir = tempfile::tempdir().unwrap();
+        // "0000" は辞書順で最古側に並ぶが、これが今回書いたファイル
+        let current = dir.path().join("20260101-000000-0000.png");
+        let names = [
+            "20260101-000000-0000.png",
+            "20260101-000000-aaaa.png",
+            "20260101-000000-bbbb.png",
+            "20260101-000000-cccc.png",
+        ];
+        for name in names {
+            std::fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        prune_old_uploads(dir.path(), 2, &current);
+        assert!(current.exists(), "書いたばかりのファイルは削除されない");
+        assert!(
+            !dir.path().join(names[1]).exists(),
+            "保護対象外の最古が削除される"
+        );
+        assert!(dir.path().join(names[2]).exists());
+        assert!(dir.path().join(names[3]).exists());
     }
 
     #[test]
