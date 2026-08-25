@@ -127,6 +127,7 @@
 - **Decision**: `manifest.json` + `ui/sw.js` を採用。キャッシュ名は `any-console-{git-short-hash}` とし、ビルド時に vite.config.js が置換することでデプロイごとに自動で cache busting される。キャッシュ対象は API を denylist で除外するのではなく、**静的アセットを allowlist する**方式とする（`isCacheableAsset`：ナビゲーション・`STATIC_ASSET_PATHS`・`STATIC_ASSET_PREFIXES` のみ network-first でキャッシュし、該当しないリクエスト＝API ルート・動的リソースは素通し）。precache 一覧（`ASSETS_TO_CACHE`）はビルド時に vite.config.js の `closeBundle` が `dist/` を再帰走査して `__PRECACHE_ASSETS__` プレースホルダへ注入し、手で保守しない（sw.js 自身は除外、ナビゲーション用に `./` を補う）。
 - **Consequences**: オフラインで動くのは静的アセットのみ（terminal / git / jobs はバックエンド必須）。allowlist 方式により、API ルートを追加・変更しても更新漏れの failure mode は「キャッシュされず素通し（＝正しい挙動）」に倒れ、API レスポンスが stale になる事故は起きない（旧 denylist 方式が抱えていた手動同期の保守負担は解消済み）。precache 一覧もビルド時に dist から自動生成するため、新しい静的アセットを増やしても sw.js を手で更新する必要はない。ハッシュ付きの本体バンドル（`/assets/*.js`,`.css`）も precache 対象に入る。
 - **Alternatives considered**: PWA なし — モバイル UX が一段下がる (ブラウザの UI バーが常に表示される等)。Workbox 導入 — 個人ツールには設定コストが過剰。
+- **Update (2026-08)**: オフラインキャッシュ（precache + fetch ハンドラ + 静的アセット allowlist + `vite.config.js` のビルド時 precache 一覧注入・`__BUILD_HASH__` 置換）を廃止し、SW はプッシュ通知（受信・表示・クリック遷移）と通知設定の Cache Storage 永続化のみを担う。理由: any-console は自前サーバに繋いで使うツールであり、サーバに届かない状況では静的アセットだけキャッシュから表示できても操作は何もできず、オフラインキャッシュの価値がコスト（allowlist の保守・cache busting 機構・`/pair/` 除外のような特例）に見合わなかった。PWA 自体（manifest・ホーム画面追加・standalone 表示・プッシュ通知）は維持する。旧バージョンの SW が残したキャッシュは activate 時に一括削除する（通知設定キャッシュのみ残す）。ADR 28 の「`/pair/` 配下をキャッシュ対象から除外する」特例は、キャッシュ廃止に伴い機構ごと消滅した。
 
 ---
 

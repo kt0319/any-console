@@ -54,7 +54,7 @@ agent_manifests/               Vendored agent-detection manifests (TOML), read b
 ui/                            Frontend (Vue 3 + Pinia, built with Vite)
   vue-main.ts                  Entry point
   app-bridge.ts                Global event bus (BUS_EVENTS)
-  sw.js                        Service Worker (PWA; copied to dist/ as-is, not bundled)
+  sw.js                        Service Worker (push notifications only — no offline cache; copied to dist/ as-is, not bundled)
   components/                  Vue components
   stores/                      Pinia stores
   composables/                 Reusable logic (useApi, useTerminal, useModal, etc.)
