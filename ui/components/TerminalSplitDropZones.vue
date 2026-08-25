@@ -26,24 +26,6 @@
     </div>
   </div>
 </template>
-    <div class="split-drop-zone drop-top" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top')">
-      <span class="drop-zone-rect-icon rect-top" aria-hidden="true">
-        <span class="rect r1"></span>
-        <span class="rect r2"></span>
-      </span>
-    </div>
-    <div class="split-drop-zone drop-bottom" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom')">
-      <span class="drop-zone-rect-icon rect-bottom" aria-hidden="true">
-        <span class="rect r1"></span>
-        <span class="rect r2"></span>
-      </span>
-    </div>
-    <div v-if="isSplitMode" class="split-drop-zone drop-center" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'center')">
-      <span class="mdi mdi-fullscreen drop-zone-icon"></span>
-      <span class="drop-zone-label">Exit split mode</span>
-    </div>
-  </div>
-</template>
 
 <script setup lang="ts">
 import { computed } from "vue";
