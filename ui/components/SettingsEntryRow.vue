@@ -1,8 +1,8 @@
 <template>
-  <div class="settings-entry-row">
-    <div class="settings-entry-meta">
-      <span class="settings-entry-name"><slot name="name" /></span>
-      <span class="settings-entry-sub">{{ sub }}</span>
+  <div class="device-row">
+    <div class="device-meta">
+      <span class="device-name"><slot name="name" /></span>
+      <span class="device-sub">{{ sub }}</span>
     </div>
     <slot name="action" />
   </div>
@@ -17,7 +17,7 @@ defineProps({
 </script>
 
 <style scoped>
-.settings-entry-row {
+.device-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -25,7 +25,7 @@ defineProps({
   border-bottom: 1px solid var(--border);
 }
 
-.settings-entry-meta {
+.device-meta {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -33,7 +33,7 @@ defineProps({
   min-width: 0;
 }
 
-.settings-entry-name {
+.device-name {
   font-size: 14px;
   color: var(--text-primary);
   display: flex;
@@ -41,7 +41,7 @@ defineProps({
   gap: 6px;
 }
 
-.settings-entry-sub {
+.device-sub {
   font-size: 12px;
   color: var(--text-muted);
 }
