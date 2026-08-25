@@ -80,14 +80,14 @@ pub fn validate_stash_ref(stash_ref: &str) -> Result<String, ApiError> {
 pub async fn execute_git_action(
     state: &Arc<AppState>,
     name: &str,
+    ws_path: &Path,
     args: &[&str],
     operation: &str,
     env: &[(&str, &str)],
     log_extra: &str,
 ) -> Result<Value, ApiError> {
     let _guard = state.git_locks.acquire(name).await?;
-    let ws_path = resolve_workspace_path(&state.config, name).await?;
-    let result = run_git_command(args, &ws_path, GIT_LONG_TIMEOUT_SEC, operation, env).await?;
+    let result = run_git_command(args, ws_path, GIT_LONG_TIMEOUT_SEC, operation, env).await?;
     let extra = if log_extra.is_empty() {
         String::new()
     } else {
@@ -100,8 +100,23 @@ pub async fn execute_git_action(
         extra,
         result["exit_code"]
     );
-    invalidate_and_publish_git_info(state, name, &ws_path);
+    invalidate_and_publish_git_info(state, name, ws_path);
     Ok(result)
+}
+
+/// ワークスペースパス未解決の呼び出し側向け thin wrapper（stash 系等）。
+/// パスを既に解決済みの呼び出し側は `execute_git_action` を直接使うこと —
+/// worktree 名の解決は `git worktree list` サブプロセスを伴うため二重解決を避ける。
+pub async fn execute_git_action_by_name(
+    state: &Arc<AppState>,
+    name: &str,
+    args: &[&str],
+    operation: &str,
+    env: &[(&str, &str)],
+    log_extra: &str,
+) -> Result<Value, ApiError> {
+    let ws_path = resolve_workspace_path(&state.config, name).await?;
+    execute_git_action(state, name, &ws_path, args, operation, env, log_extra).await
 }
 
 /// Python `invalidate_git_info` の Rust 対応: ローカルキャッシュの無効化 +
@@ -140,7 +155,7 @@ pub fn activity_fields(pairs: &[(&str, Value)]) -> Map<String, Value> {
 pub async fn execute_git_action_with_activity(
     state: &Arc<AppState>,
     name: &str,
-    ws_path: Option<&Path>,
+    ws_path: &Path,
     args: &[&str],
     operation: &str,
     event: &str,
@@ -149,13 +164,11 @@ pub async fn execute_git_action_with_activity(
     resolve_head: bool,
     mut activity_fields: Map<String, Value>,
 ) -> Result<Value, ApiError> {
-    let result = execute_git_action(state, name, args, operation, env, log_extra).await?;
+    let result = execute_git_action(state, name, ws_path, args, operation, env, log_extra).await?;
     if result["status"] == "ok" {
         if resolve_head {
-            if let Some(ws) = ws_path {
-                let head = rev_parse_head(ws).await;
-                activity_fields.insert("commit".to_string(), Value::String(head));
-            }
+            let head = rev_parse_head(ws_path).await;
+            activity_fields.insert("commit".to_string(), Value::String(head));
         }
         log_activity(&state.paths.data_dir, Some(name), event, activity_fields);
     }

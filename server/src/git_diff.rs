@@ -323,10 +323,11 @@ pub async fn discard(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<DiscardRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    resolve_workspace_file(&state, &name, &body.path).await?;
+    let (ws_path, _, _) = resolve_workspace_file(&state, &name, &body.path).await?;
     execute_git_action(
         &state,
         &name,
+        &ws_path,
         &["restore", &body.path],
         "restore",
         &[],

@@ -1,5 +1,6 @@
 import { watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { applyDispatchQueue } from "./useDispatchQueue.ts";
 import { useSessionSync } from "./useSessionSync.ts";
@@ -77,13 +78,13 @@ export function useStatusStream() {
       if (msg?.type === "statuses") {
         workspaceStore.applyStatuses(msg.statuses);
       } else if (msg?.type === "agent_states") {
-        terminalStore.applyAgentStates(msg.states);
+        useAgentStateStore().applyAgentStates(msg.states);
       } else if (msg?.type === "dispatch_queue") {
         applyDispatchQueue(msg.items, msg.recent);
       } else if (msg?.type === "phrase_notify") {
-        terminalStore.markPhraseNotify(msg.session_id);
+        useAgentStateStore().markPhraseNotify(msg.session_id);
       } else if (msg?.type === "phrase_notify_clear") {
-        terminalStore.clearPhraseNotify(msg.session_id);
+        useAgentStateStore().clearPhraseNotify(msg.session_id);
       } else if (msg?.type === "session_created" || msg?.type === "session_removed") {
         syncSessionsFromServer();
       } else if (msg?.type === "session_workspace_bound") {

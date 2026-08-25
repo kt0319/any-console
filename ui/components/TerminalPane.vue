@@ -91,6 +91,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef, type
 import type { Terminal } from "@xterm/xterm";
 import { useTerminal } from "../composables/useTerminal.ts";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useTerminalSettingsStore } from "../stores/terminal-settings.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
@@ -101,11 +102,11 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.ts";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
-import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
+import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
-import { usePillPeek } from "../composables/usePillPeek.ts";
+import { usePeekPills } from "../composables/usePeekPills.ts";
+import { useElementMaxWidth } from "../composables/useElementWidth.ts";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
@@ -128,7 +129,6 @@ const tabRef = toRef(props, "tab");
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
-const infoPillConfig = useInfoPillConfigStore();
 const { confirmAndCloseTab } = useTabClose();
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
@@ -168,11 +168,14 @@ const devServerEntry = computed(() => {
   return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
 });
 
+const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
+
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
 // （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
-// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
-const { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling } = useGitHubPolling();
+// PR/Actionsのポーリング開始・停止は useGitHubPollingFor に集約。
+const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(
+  computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
 const branchPR = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -189,17 +192,6 @@ const branchAction = computed<Record<string, any> | null>(() => {
 // failure以外で完了したrunはピル自体を表示しない（判定はisNoticeableRun参照）。
 const visibleBranchAction = computed(() =>
   isNoticeableRun(branchAction.value) ? branchAction.value : null,
-);
-
-const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
-
-watch(
-  githubWorkspaceKey,
-  (workspace, prevWorkspace) => {
-    if (prevWorkspace) stopGitHubPolling(prevWorkspace);
-    if (workspace) startGitHubPolling(workspace);
-  },
-  { immediate: true },
 );
 
 const { queue: dispatchQueue } = useDispatchQueue();
@@ -233,22 +225,9 @@ let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 // 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
 // 横スクロール上限幅を 100vw 基準にすると、狭いペインではみ出した Branches/
 // Changes 等の先頭側ボタンが .terminal-pane の overflow クリップで完全に
-// 隠れ、スクロールしても届かなくなる。実測したペイン幅を基準にする。
-const paneWidthRef = ref(0);
-// 閉じるボタン・ワークスペースピル本体・余白ぶんを差し引いた残りをスクロール
-// 領域の上限にする。マイナスにはしない。
-const trailingMaxWidth = computed(() => Math.max(0, paneWidthRef.value - PANE_PILL_TRAILING_RESERVED_PX));
-let roPane: ResizeObserver | null = null;
-
-watch(paneEl, (paneNode) => {
-  roPane?.disconnect();
-  roPane = null;
-  if (!paneNode) return;
-  roPane = new ResizeObserver((entries) => {
-    for (const e of entries) paneWidthRef.value = e.contentRect.width;
-  });
-  roPane.observe(paneNode);
-});
+// 隠れ、スクロールしても届かなくなる。実測したペイン幅から閉じるボタン・
+// ワークスペースピル本体・余白ぶんを差し引いた残りを上限にする。
+const { maxWidth: trailingMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
 
 // アイコンのみのボタンでも、PCでホバーした時にその時点の実際の値
 // （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
@@ -311,14 +290,12 @@ const peekFields = computed<Record<string, any>>(() => ({
   dispatchTooltip: tooltips.value.dispatch,
 }));
 
-const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig as unknown as Record<string, boolean>));
-
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
 // アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
-// 数秒だけ表示する。変化検出・キュー・タイマーはusePillPeekに集約。
-// peekピル表示用の派生値（アイコン・色・テキスト・シグネチャ）も
-// usePillPeekが返す（SessionSidebarRowと共用）。
+// 数秒だけ表示する。trailingPeekItems の組み立て・変化検出・キュー・
+// タイマーは usePeekPills に集約（SessionSidebarRow と共用）。
 const {
+  trailingPeekItems,
   peekingKey,
   peekDurationMs,
   branchPushCount,
@@ -329,8 +306,8 @@ const {
   peekSignature,
   peekActionName,
   peekActionStatusText,
-} = usePillPeek({
-  trailingPeekItems,
+} = usePeekPills({
+  peekFields,
   paneWorkspace,
   workspaceKey: () => props.tab.workspace,
   prsByWorkspace,
@@ -338,7 +315,6 @@ const {
   devServerEntry,
   ahead,
   behind,
-  peekFields,
 });
 
 const isActive = computed(() => {
@@ -451,7 +427,7 @@ function applyFocusGuard(term: Terminal | null | undefined) {
 
 onMounted(() => {
   if (frameEl.value) {
-    const fs = terminalStore.terminalSettings?.fontSize || 12;
+    const fs = useTerminalSettingsStore().terminalSettings?.fontSize || 12;
     frameEl.value.style.setProperty("--terminal-font-size", `${fs}px`);
   }
   if (props.tab._pendingOpen && frameEl.value) {
@@ -517,9 +493,6 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
-  if (githubWorkspaceKey.value) stopGitHubPolling(githubWorkspaceKey.value);
-  roPane?.disconnect();
-  roPane = null;
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }

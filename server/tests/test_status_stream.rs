@@ -197,21 +197,6 @@ async fn multiple_subscribers_all_receive_the_same_broadcast() {
     }
 }
 
-fn sh_git(repo: &std::path::Path, args: &[&str]) {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
-        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-}
-
 /// 接続 → git_watch のタスク起動（`ensure_tasks`）→ 実ファイル変更の検知 →
 /// `statuses` 配信、という一連が実際に end-to-end で動くことを検証する
 /// （`notify`/`notify-debouncer-full` による実 FS イベントに依存する）。
@@ -221,12 +206,12 @@ async fn connecting_starts_git_watch_and_detects_real_fs_changes() {
 
     let ws_path = front._dir.path().join("repo");
     std::fs::create_dir_all(&ws_path).unwrap();
-    sh_git(&ws_path, &["init", "-q", "-b", "main"]);
-    sh_git(&ws_path, &["config", "user.email", "t@example.com"]);
-    sh_git(&ws_path, &["config", "user.name", "tester"]);
+    common::sh_git(&ws_path, &["init", "-q", "-b", "main"]);
+    common::sh_git(&ws_path, &["config", "user.email", "t@example.com"]);
+    common::sh_git(&ws_path, &["config", "user.name", "tester"]);
     std::fs::write(ws_path.join("a.txt"), "hello\n").unwrap();
-    sh_git(&ws_path, &["add", "-A"]);
-    sh_git(&ws_path, &["commit", "-q", "-m", "first"]);
+    common::sh_git(&ws_path, &["add", "-A"]);
+    common::sh_git(&ws_path, &["commit", "-q", "-m", "first"]);
 
     let mut cfg = front.state.config.load_all();
     cfg.insert(

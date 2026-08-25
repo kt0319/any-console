@@ -1,5 +1,5 @@
 <template>
-  <div class="github-pane-wrapper">
+  <div class="github-pane-wrapper pane-fill">
     <div class="modal-scroll-body">
       <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
@@ -15,7 +15,7 @@
             rel="noopener noreferrer"
           >
             <span class="github-item-number">#{{ item.number }}</span>
-            <span class="github-item-title">{{ item.title }}</span>
+            <span class="github-item-title text-ellipsis-flex">{{ item.title }}</span>
             <span v-if="item.author" class="github-item-author">{{ item.author }}</span>
             <span v-if="item.labels?.length" class="github-labels">
               <span

@@ -38,11 +38,15 @@ pub mod manifest_update;
 pub mod middleware;
 pub mod pairing;
 pub mod paths;
+pub mod port_scan;
 pub mod preview;
+pub mod preview_tls;
 pub mod pty;
 pub mod push;
 pub mod rate_limit;
 pub mod screen_manifest;
+pub mod screen_regions;
+pub mod session_autotag;
 pub mod session_watch;
 pub mod settings;
 pub mod state;
@@ -50,6 +54,8 @@ pub mod static_files;
 pub mod status_stream;
 pub mod subprocess;
 pub mod system;
+pub mod system_info;
+pub mod system_update;
 pub mod terminal;
 pub mod terminal_session;
 pub mod tmux;
@@ -71,14 +77,6 @@ async fn index(State(state): State<Arc<AppState>>) -> Response {
     match &state.static_ctx {
         Some(ctx) => ctx.serve_index(),
         // dist 未ビルド時はフォールバック（= 404）へ落とす
-        None => serve_static_or_404(state, "/").await,
-    }
-}
-
-async fn pair_page(State(state): State<Arc<AppState>>) -> Response {
-    // QRペアリング画面は "/" と同じ SPA シェル（解釈はフロント側が行う）
-    match &state.static_ctx {
-        Some(ctx) => ctx.serve_index(),
         None => serve_static_or_404(state, "/").await,
     }
 }
@@ -107,17 +105,18 @@ async fn serve_static_or_404(state: Arc<AppState>, path: &str) -> Response {
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(index))
-        .route("/pair/{pairing_id}", get(pair_page))
+        // QRペアリング画面は "/" と同じ SPA シェル（解釈はフロント側が行う）
+        .route("/pair/{pairing_id}", get(index))
         .route("/sw.js", get(sw_js))
         // ─── system ─────────────────────────────────────────────────────────
-        .route("/system/info", get(system::info))
+        .route("/system/info", get(system_info::info))
         .route("/system/processes", get(system::processes))
         .route("/system/process/kill", post(system::process_kill))
         .route("/system/tmux-info", get(system::tmux_info))
         .route("/system/tmux/kill", post(system::tmux_kill))
         .route("/system/tmux/adopt", post(system::tmux_adopt))
-        .route("/system/update/check", get(system::update_check))
-        .route("/system/update/apply", post(system::update_apply))
+        .route("/system/update/check", get(system_update::update_check))
+        .route("/system/update/apply", post(system_update::update_apply))
         .route("/client-errors", post(system::client_errors))
         .route(
             "/upload-image",

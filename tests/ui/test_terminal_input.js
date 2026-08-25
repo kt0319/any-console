@@ -5,6 +5,8 @@ import { setActivePinia, createPinia } from "pinia";
 import { bindTerminalInput } from "../../ui/composables/useTerminalInput.ts";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
+import { useAgentStateStore } from "../../ui/stores/agent-state.ts";
+import { useTerminalSettingsStore } from "../../ui/stores/terminal-settings.ts";
 
 function decode(bytes) {
   return new TextDecoder().decode(bytes);
@@ -112,23 +114,23 @@ describe("bindTerminalInput", () => {
   it("PageUp/PageDown送信でそのタブのdoneSessionsをクリアする", () => {
     const { tab } = makeTab();
     bindTerminalInput(tab);
-    useTerminalStore().doneSessions.s1 = true;
+    useAgentStateStore().doneSessions.s1 = true;
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageUp", bubbles: true, cancelable: true }));
 
-    expect(useTerminalStore().doneSessions.s1).toBeUndefined();
+    expect(useAgentStateStore().doneSessions.s1).toBeUndefined();
     tab._releaseInput();
   });
 
   it("ターミナルへの入力(onData)でそのタブのdoneSessionsをクリアする", () => {
     const { tab, term } = makeTab();
     bindTerminalInput(tab);
-    useTerminalStore().doneSessions.s1 = true;
+    useAgentStateStore().doneSessions.s1 = true;
 
     const onDataHandler = term.onData.mock.calls[0][0];
     onDataHandler("a");
 
-    expect(useTerminalStore().doneSessions.s1).toBeUndefined();
+    expect(useAgentStateStore().doneSessions.s1).toBeUndefined();
   });
 
   it("選択時の自動コピーはcopyOnSelect設定に従う", () => {
@@ -142,7 +144,7 @@ describe("bindTerminalInput", () => {
     onSelection();
     expect(writeText).toHaveBeenCalledWith("selected text");
 
-    useTerminalStore().setTerminalSetting("copyOnSelect", false);
+    useTerminalSettingsStore().setTerminalSetting("copyOnSelect", false);
     onSelection();
     expect(writeText).toHaveBeenCalledTimes(1);
   });
@@ -158,7 +160,7 @@ describe("bindTerminalInput", () => {
     expect(oscHandler(payload)).toBe(true);
     expect(writeText).toHaveBeenCalledWith("copied via osc52");
 
-    useTerminalStore().setTerminalSetting("copyOnSelect", false);
+    useTerminalSettingsStore().setTerminalSetting("copyOnSelect", false);
     expect(oscHandler(payload)).toBe(true);
     expect(writeText).toHaveBeenCalledTimes(1);
   });

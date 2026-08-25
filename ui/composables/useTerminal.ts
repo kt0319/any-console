@@ -1,4 +1,5 @@
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS, TERMINAL_BULK_WRITE_REFRESH_THRESHOLD } from "../utils/constants.ts";
@@ -78,7 +79,7 @@ export function useTerminal() {
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
     if ((tab._reconnectAttempts || 0) >= RECONNECTING_OVERLAY_MIN_ATTEMPTS) {
-      terminalStore.clearAgentState(tab.sessionId);
+      useAgentStateStore().clearAgentState(tab.sessionId);
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
       terminalStore.setTabFlag(tab.id, "reconnectReason", `retry ${tab._reconnectAttempts}`);
     }

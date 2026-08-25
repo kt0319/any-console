@@ -286,6 +286,19 @@ impl TerminalSession {
     }
 }
 
+/// `create_registered_session` の作成パラメータ。呼び出し側は必要な項目だけを
+/// 設定する（既定は全て None / interactive=false）。
+#[derive(Default)]
+pub struct NewSessionSpec {
+    pub workspace_path: Option<String>,
+    pub workspace: Option<String>,
+    pub icon: Option<String>,
+    pub icon_color: Option<String>,
+    pub job_name: Option<String>,
+    pub job_label: Option<String>,
+    pub interactive: bool,
+}
+
 /// ターミナルセッションのレジストリ（Python `TERMINAL_SESSIONS` + `sessions_lock` 相当）。
 #[derive(Default)]
 pub struct TerminalRegistry {
@@ -332,20 +345,12 @@ impl TerminalRegistry {
     ///
     /// `workspace` が指定されていれば session_id は `{sanitize(worktree_base)}-{短いID}`、
     /// 無指定なら短い ID のみになる。
-    #[allow(clippy::too_many_arguments)]
     pub async fn create_registered_session(
         &self,
         data_dir: &std::path::Path,
         config: &ConfigStore,
-        project_root: &std::path::Path,
         tmux_prefix: &str,
-        workspace_path: Option<&str>,
-        workspace: Option<String>,
-        icon: Option<String>,
-        icon_color: Option<String>,
-        job_name: Option<String>,
-        job_label: Option<String>,
-        interactive: bool,
+        spec: NewSessionSpec,
     ) -> Result<(String, Arc<Mutex<TerminalSession>>), ApiError> {
         if self.len().await >= MAX_TERMINAL_SESSIONS {
             return Err(too_many_requests(format!(
@@ -353,7 +358,7 @@ impl TerminalRegistry {
             )));
         }
         let short_id = crate::util::token_urlsafe(6);
-        let session_id = match workspace.as_deref() {
+        let session_id = match spec.workspace.as_deref() {
             Some(ws) => format!(
                 "{}-{short_id}",
                 sanitize_session_segment(&worktree_base_of(ws))
@@ -361,17 +366,17 @@ impl TerminalRegistry {
             None => short_id,
         };
         let tmux_name = format!("{tmux_prefix}{session_id}");
-        tmux::create_tmux_session(data_dir, config, project_root, workspace_path, &tmux_name)
+        tmux::create_tmux_session(data_dir, config, spec.workspace_path.as_deref(), &tmux_name)
             .await
             .map_err(|e| server_error(format!("Failed to create terminal: {e}")))?;
 
         let mut session = TerminalSession::new(tmux_name);
-        session.set_workspace(workspace);
-        session.icon = icon;
-        session.icon_color = icon_color;
-        session.job_name = job_name;
-        session.job_label = job_label;
-        session.interactive = interactive;
+        session.set_workspace(spec.workspace);
+        session.icon = spec.icon;
+        session.icon_color = spec.icon_color;
+        session.job_name = spec.job_name;
+        session.job_label = spec.job_label;
+        session.interactive = spec.interactive;
         session.save_metadata().await;
 
         let arc = self.insert(session_id.clone(), session).await;
@@ -442,15 +447,12 @@ mod tests {
             .create_registered_session(
                 dir.path(),
                 &config,
-                dir.path(),
                 &prefix,
-                None,
-                Some("myws".to_string()),
-                None,
-                None,
-                None,
-                None,
-                true,
+                NewSessionSpec {
+                    workspace: Some("myws".to_string()),
+                    interactive: true,
+                    ..Default::default()
+                },
             )
             .await
             .expect("session should be created");
@@ -515,19 +517,7 @@ mod tests {
                 .await;
         }
         let result = registry
-            .create_registered_session(
-                dir.path(),
-                &config,
-                dir.path(),
-                "ac-",
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
-            )
+            .create_registered_session(dir.path(), &config, "ac-", NewSessionSpec::default())
             .await;
         match result {
             Err(e) => assert_eq!(e.status, axum::http::StatusCode::TOO_MANY_REQUESTS),

@@ -10,8 +10,8 @@ use serde_json::{json, Value};
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, ApiError};
 use crate::git_helpers::{
-    activity_fields, execute_git_action, execute_git_action_with_activity, resolve_workspace_file,
-    validate_branch_name, validate_commit_ref, validate_stash_ref,
+    activity_fields, execute_git_action_by_name, execute_git_action_with_activity,
+    resolve_workspace_file, validate_branch_name, validate_commit_ref, validate_stash_ref,
 };
 use crate::git_utils::{
     resolve_workspace_path, rev_parse_head, run_git_command, GIT_STANDARD_TIMEOUT_SEC,
@@ -226,7 +226,7 @@ async fn execute_commit_action(
     execute_git_action_with_activity(
         state,
         name,
-        Some(&ws_path),
+        &ws_path,
         &args,
         operation,
         event,
@@ -288,7 +288,7 @@ async fn branch_action(
     execute_git_action_with_activity(
         state,
         name,
-        Some(&ws_path),
+        &ws_path,
         &[operation, &branch],
         operation,
         event,
@@ -339,7 +339,7 @@ pub async fn reset(
     execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &["reset", &mode_flag, &commit_hash],
         "reset",
         "git_reset",
@@ -383,7 +383,7 @@ pub async fn commit(
     execute_git_action_with_activity(
         &state,
         &name,
-        Some(&ws_path),
+        &ws_path,
         &["commit", "-m", &message],
         "commit",
         "git_commit",
@@ -435,10 +435,11 @@ pub async fn stash_drop(
     JsonBody(body): JsonBody<GitActionRequest>,
 ) -> Result<Json<Value>, ApiError> {
     let r = validate_stash_ref(&body.stash_ref)?;
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
     execute_git_action_with_activity(
         &state,
         &name,
-        None,
+        &ws_path,
         &["stash", "drop", &r],
         "stash drop",
         "git_stash_drop",
@@ -458,7 +459,7 @@ pub async fn stash_pop_ref(
     JsonBody(body): JsonBody<GitActionRequest>,
 ) -> Result<Json<Value>, ApiError> {
     let r = validate_stash_ref(&body.stash_ref)?;
-    execute_git_action(
+    execute_git_action_by_name(
         &state,
         &name,
         &["stash", "pop", &r],
@@ -495,7 +496,7 @@ pub async fn stash(
     if include_untracked {
         args.push("-u");
     }
-    execute_git_action(&state, &name, &args, "stash", &[], "")
+    execute_git_action_by_name(&state, &name, &args, "stash", &[], "")
         .await
         .map(Json)
 }
@@ -505,7 +506,7 @@ pub async fn stash_pop(
     Path(name): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    execute_git_action(&state, &name, &["stash", "pop"], "stash pop", &[], "")
+    execute_git_action_by_name(&state, &name, &["stash", "pop"], "stash pop", &[], "")
         .await
         .map(Json)
 }

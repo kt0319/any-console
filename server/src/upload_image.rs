@@ -7,23 +7,84 @@
 //! Ctrl+V 相当（`\x16`）を送るだけでよく、失敗時はファイルパスを直接送って
 //! エージェント側に貼り付けさせる（`upload-image-to-terminal.js` 参照）。
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use axum::extract::Multipart;
+use axum::extract::{Multipart, State};
 use serde_json::{json, Value};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, too_large, ApiError};
+use crate::subprocess::which;
 use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
+/// 保持するアップロード画像の最大件数。ターミナルへ貼り付けてエージェントに
+/// 読ませるための一時ファイルなので直近数件あれば十分（保存先が data/ 配下で
+/// 再起動を跨いで残るため、掃除しないと1件最大10MBのファイルが際限なく増える。
+/// 件数上限ならディスク使用量もこの件数×最大サイズで頭打ちになる）。
+const MAX_KEPT_UPLOADS: usize = 10;
 
-fn upload_dir() -> PathBuf {
-    PathBuf::from("/tmp/any-console-uploads")
+/// 応答を返す前（書き込み〜クリップボード転送中）のアップロードパスの集合。
+/// prune はここに載っているファイルを削除候補から除外する — 同一秒内に並行
+/// アップロードが重なると、名前の辞書順がランダムサフィックス順になり、
+/// 他リクエストの書き込み直後のファイルが「最古」側に並んで削除され得るため、
+/// 自分のパスだけでなく in-flight 全件を保護する必要がある。
+fn in_flight_uploads() -> &'static Mutex<HashSet<PathBuf>> {
+    static SET: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+    SET.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// in-flight 登録の RAII ガード。ハンドラ途中のエラー return でも drop で
+/// 確実に登録解除される。
+struct InFlightUpload(PathBuf);
+
+impl InFlightUpload {
+    fn register(path: PathBuf) -> Self {
+        in_flight_uploads().lock().unwrap().insert(path.clone());
+        InFlightUpload(path)
+    }
+}
+
+impl Drop for InFlightUpload {
+    fn drop(&mut self) {
+        in_flight_uploads().lock().unwrap().remove(&self.0);
+    }
+}
+
+/// in-flight を除いた候補から直近 `keep` 件を残して古いアップロードを削除する
+/// （新規アップロードのたびに実行。ディレクトリの中身は高々 keep + 同時
+/// アップロード数 + α 件なので走査コストは無視できる）。ファイル名の先頭が
+/// UTC タイムスタンプ（`YYYYMMDD-HHMMSS`）のため、名前の辞書順がおおむね
+/// 時刻順になる — mtime には依存しない。
+fn prune_old_uploads(dir: &Path, keep: usize) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let in_flight = in_flight_uploads().lock().unwrap().clone();
+    let mut files: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_file() && !in_flight.contains(p))
+        .collect();
+    if files.len() <= keep {
+        return;
+    }
+    files.sort();
+    let excess = files.len() - keep;
+    for path in &files[..excess] {
+        if let Err(e) = std::fs::remove_file(path) {
+            // NotFound は並行する prune が先に消しただけなので正常系として無視
+            if e.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!("upload prune failed ({}): {e}", path.display());
+            }
+        }
+    }
 }
 
 /// ファイル名用のコンパクトなタイムスタンプ（`%Y%m%d-%H%M%S`、UTC）。
@@ -111,7 +172,7 @@ async fn write_image_to_clipboard_linux(filepath: &Path, content_type: &str) -> 
         .ok()
         .filter(|v| !v.is_empty())
         .or_else(|| std::env::var("USER").ok().filter(|v| !v.is_empty()))
-        .unwrap_or_else(crate::system::current_user);
+        .unwrap_or_else(crate::system_info::current_user);
     let Ok(data) = tokio::fs::read(filepath).await else {
         return false;
     };
@@ -147,14 +208,8 @@ async fn write_image_to_clipboard(filepath: &Path, content_type: &str) -> bool {
     }
 }
 
-fn which(program: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|dir| dir.join(program))
-        .find(|candidate| candidate.is_file())
-}
-
 pub async fn upload_image(
+    State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
     mut multipart: Multipart,
 ) -> Result<axum::Json<Value>, ApiError> {
@@ -187,7 +242,7 @@ pub async fn upload_image(
         return Err(too_large(MSG_UPLOAD_TOO_LARGE));
     }
 
-    let dir = upload_dir();
+    let dir = state.paths.uploads_dir();
     tokio::fs::create_dir_all(&dir)
         .await
         .map_err(|e| crate::errors::server_error(format!("Cannot create upload dir: {e}")))?;
@@ -198,9 +253,14 @@ pub async fn upload_image(
         crate::util::token_hex(4)
     );
     let filepath = dir.join(&filename);
+    // 応答を返すまで並行リクエストの prune から保護する（ガードの drop で解除）。
+    let _in_flight = InFlightUpload::register(filepath.clone());
     tokio::fs::write(&filepath, &data)
         .await
         .map_err(|e| crate::errors::server_error(format!("Cannot write upload: {e}")))?;
+    // 書き込み後に、in-flight 分を保護しつつ直近分だけ残して掃除する
+    // （今回の分 + keep 件で合計はおおむね MAX_KEPT_UPLOADS 以下に収まる）。
+    prune_old_uploads(&dir, MAX_KEPT_UPLOADS - 1);
 
     let clipboard_ok = write_image_to_clipboard(&filepath, &content_type).await;
     Ok(axum::Json(json!({
@@ -231,6 +291,69 @@ mod tests {
             .chars()
             .enumerate()
             .all(|(i, c)| i == 8 || c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn prune_old_uploads_keeps_only_newest_files() {
+        let dir = tempfile::tempdir().unwrap();
+        // 実ファイル名と同じくタイムスタンプ始まり（辞書順 = 時刻順）
+        let names = [
+            "20260101-000000-aaaa.png",
+            "20260102-000000-bbbb.png",
+            "20260103-000000-cccc.png",
+            "20260104-000000-dddd.png",
+        ];
+        for name in names {
+            std::fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        prune_old_uploads(dir.path(), 2);
+        assert!(!dir.path().join(names[0]).exists(), "古い方から削除される");
+        assert!(!dir.path().join(names[1]).exists());
+        assert!(dir.path().join(names[2]).exists(), "直近 keep 件は残る");
+        assert!(dir.path().join(names[3]).exists());
+    }
+
+    #[test]
+    fn prune_old_uploads_is_noop_within_keep_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("20260101-000000-aaaa.png"), b"x").unwrap();
+        prune_old_uploads(dir.path(), 2);
+        assert!(dir.path().join("20260101-000000-aaaa.png").exists());
+    }
+
+    /// 同一秒内に並行アップロードが重なると名前のタイムスタンプが同一になり、
+    /// 辞書順がランダムサフィックス順になる。他リクエストの書き込み直後の
+    /// ファイルが「最古」側に並んでも、in-flight 登録されている間は削除されない
+    /// こと（Codex レビュー指摘: 自分のパスだけの保護では並行リクエスト分が
+    /// 消え得る）。
+    #[test]
+    fn prune_old_uploads_never_removes_in_flight_files() {
+        let dir = tempfile::tempdir().unwrap();
+        // "0000" は辞書順で最古側に並ぶが、これが別リクエストの書き込み直後分
+        let in_flight = dir.path().join("20260101-000000-0000.png");
+        let names = [
+            "20260101-000000-0000.png",
+            "20260101-000000-aaaa.png",
+            "20260101-000000-bbbb.png",
+            "20260101-000000-cccc.png",
+        ];
+        for name in names {
+            std::fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        let guard = InFlightUpload::register(in_flight.clone());
+        prune_old_uploads(dir.path(), 2);
+        assert!(in_flight.exists(), "in-flight 中のファイルは削除されない");
+        assert!(
+            !dir.path().join(names[1]).exists(),
+            "保護対象外の最古が削除される"
+        );
+        assert!(dir.path().join(names[2]).exists());
+        assert!(dir.path().join(names[3]).exists());
+        drop(guard);
+        assert!(
+            !in_flight_uploads().lock().unwrap().contains(&in_flight),
+            "ガードの drop で登録解除される"
+        );
     }
 
     #[test]

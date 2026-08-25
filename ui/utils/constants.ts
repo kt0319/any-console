@@ -131,3 +131,20 @@ export const GIT_DIFF_STATUS_CLASSES = Object.freeze({
   D: "diff-status-del",
   "?": "diff-status-untracked",
 });
+
+// 起動時のフォント読み込み待ちタイムアウト（vue-main.ts）
+export const FONT_LOAD_TIMEOUT_MS = 3000;
+// チャンク読み込みエラー時の自動リロードのループ防止窓（vue-main.ts）
+export const CHUNK_RELOAD_GUARD_MS = 10000;
+// ターミナル上の URL 長押し検出（useTerminalPaneGestures.ts）
+export const LONG_PRESS_URL_MS = 400;
+export const TAP_MAX_DELTA_PX = 10;
+// stash 一覧キャッシュの TTL（useStashCache.ts）
+export const STASH_CACHE_TTL_MS = 5 * 60 * 1000;
+// クライアントエラー報告の重複抑制窓（error-reporter.ts）
+export const ERROR_DEDUP_WINDOW_MS = 5000;
+// トーストのスワイプ解除しきい値 / タップ判定の許容移動量（AppToast.vue）
+export const TOAST_SWIPE_DISMISS_PX = 40;
+export const TOAST_TAP_MAX_DELTA_PX = 5;
+// IconPicker のグリッド最大表示件数
+export const ICON_GRID_MAX_DISPLAY = 200;

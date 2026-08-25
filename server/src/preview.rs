@@ -15,7 +15,7 @@
 //!   認証は信頼ネットワーク（Tailscale）境界に委ねる。
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -28,21 +28,18 @@ use tokio::task::JoinHandle;
 
 use crate::auth::RequireAuth;
 use crate::config::ConfigStore;
+use crate::port_scan::{read_cwd, scan_listening_ports};
+use crate::preview_tls::{find_cert_pair, load_tls_server_config, TlsConfig};
 use crate::state::AppState;
-use crate::subprocess::run_subprocess_safe;
-use crate::util::{now_epoch, IS_MACOS};
+use crate::util::now_epoch;
 
 const SCAN_INTERVAL_SEC: u64 = 3;
-const PORT_SCAN_TIMEOUT_SEC: f64 = 2.0;
-const PROC_INFO_TIMEOUT_SEC: f64 = 1.0;
 /// LISTEN が消えてから一覧から落とすまで（dev server 再起動時の瞬断は許容しつつ、
 /// 停止を早く反映する）。
 const PORT_STALE_SEC: i64 = 8;
 /// `/preview/ports` へのアクセスからこの秒数を過ぎたら background scan を休止する
 /// （パネルを閉じている間は `ss` を回さない — 既存 proxy は維持する）。
 const PREVIEW_IDLE_SEC: u64 = 60;
-const MIN_PORT: u16 = 1024;
-const MAX_PORT: u16 = 65535;
 
 const PROXY_OFFSET: u16 = 20000;
 const PROXY_MIN_TARGET: u16 = 1024;
@@ -90,17 +87,13 @@ pub struct DetectedPort {
     pub worktree_branch: Option<String>,
 }
 
-/// TLS 証明書の起動時ロード結果（Python の `_ssl_loaded`/`_ssl_ctx` に対応する
-/// 遅延一回ロード）。ロード自体に失敗した場合も再試行はしない（Python と同じ）。
-type TlsConfig = Option<Arc<tokio_rustls::rustls::ServerConfig>>;
-
 pub struct PreviewState {
     detected: Mutex<HashMap<u16, DetectedPort>>,
     self_ports: Mutex<HashSet<u16>>,
     last_access: Mutex<Option<Instant>>,
     probing: Mutex<HashSet<u16>>,
     proxies: Mutex<HashMap<u16, JoinHandle<()>>>,
-    scan_task: Mutex<Option<JoinHandle<()>>>,
+    scan_task: crate::util::SupervisedTask,
     tls: OnceLock<TlsConfig>,
 }
 
@@ -112,7 +105,7 @@ impl Default for PreviewState {
             last_access: Mutex::new(None),
             probing: Mutex::new(HashSet::new()),
             proxies: Mutex::new(HashMap::new()),
-            scan_task: Mutex::new(None),
+            scan_task: crate::util::SupervisedTask::new(),
             tls: OnceLock::new(),
         }
     }
@@ -143,82 +136,6 @@ fn should_scan_now(state: &PreviewState) -> bool {
     }
 }
 
-// ─── TLS 証明書探索 ──────────────────────────────────────────────────────────
-//
-// preview proxy（dev server への TLS 終端）で使う証明書探索。`SSL_CERTFILE`/
-// `SSL_KEYFILE` env var → `data/certs/*.crt`+`.key` の優先順位で探す。
-
-pub fn find_cert_pair(data_dir: &Path) -> Option<(PathBuf, PathBuf)> {
-    if let (Ok(cert), Ok(key)) = (std::env::var("SSL_CERTFILE"), std::env::var("SSL_KEYFILE")) {
-        let (cert, key) = (PathBuf::from(cert), PathBuf::from(key));
-        if cert.is_file() && key.is_file() {
-            return Some((cert, key));
-        }
-    }
-    let cert_dir = data_dir.join("certs");
-    let Ok(entries) = std::fs::read_dir(&cert_dir) else {
-        return None;
-    };
-    let mut crt_files: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|ext| ext == "crt"))
-        .collect();
-    crt_files.sort();
-    for cert in crt_files {
-        let key = cert.with_extension("key");
-        if key.is_file() {
-            return Some((cert, key));
-        }
-    }
-    None
-}
-
-pub fn load_tls_server_config(
-    cert: &Path,
-    key: &Path,
-) -> Option<Arc<tokio_rustls::rustls::ServerConfig>> {
-    use tokio_rustls::rustls;
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-    let cert_pem = std::fs::read(cert).ok()?;
-    let key_pem = std::fs::read(key).ok()?;
-    let certs: Vec<_> = rustls_pemfile::certs(&mut cert_pem.as_slice())
-        .filter_map(|r| r.ok())
-        .collect();
-    if certs.is_empty() {
-        tracing::warn!("TLS disabled: no certificate found in {}", cert.display());
-        return None;
-    }
-    let private_key = match rustls_pemfile::private_key(&mut key_pem.as_slice()) {
-        Ok(Some(key)) => key,
-        Ok(None) => {
-            return None;
-        }
-        Err(e) => {
-            tracing::warn!("TLS disabled: key load failed: {e}");
-            return None;
-        }
-    };
-    match rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(certs, private_key)
-    {
-        Ok(cfg) => {
-            tracing::info!(
-                "TLS certificate loaded cert={}",
-                cert.file_name()
-                    .map(|n| n.to_string_lossy())
-                    .unwrap_or_default()
-            );
-            Some(Arc::new(cfg))
-        }
-        Err(e) => {
-            tracing::warn!("TLS disabled: cert load failed: {e}");
-            None
-        }
-    }
-}
-
 fn preview_tls_config(state: &PreviewState, data_dir: &Path) -> TlsConfig {
     state
         .tls
@@ -237,153 +154,6 @@ fn preview_scheme(state: &PreviewState, data_dir: &Path) -> &'static str {
     }
 }
 
-// ─── ポートスキャン: 出力パース（純粋関数） ─────────────────────────────────
-
-/// `ss -ltnp` の各行から「LISTEN 行のローカルポート」と最初の
-/// `("proc",pid=N)` を抜く。出力例:
-/// `LISTEN 0 511   0.0.0.0:5173  0.0.0.0:*  users:(("node",pid=1942930,fd=21))`
-static SS_PORT_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r"(?:127\.0\.0\.1|0\.0\.0\.0|\*|\[?::\]?):(\d{2,5})\b").unwrap()
-});
-static SS_PROC_RE: std::sync::LazyLock<regex::Regex> =
-    std::sync::LazyLock::new(|| regex::Regex::new(r#"users:\(\("([^"]+)",pid=(\d+),"#).unwrap());
-/// `lsof -F pcn` の "n" 行（アドレス）末尾からポート番号を抜く。
-/// 出力例: `n127.0.0.1:5173` / `n*:5173` / `n[::1]:5173`
-static LSOF_ADDR_RE: std::sync::LazyLock<regex::Regex> =
-    std::sync::LazyLock::new(|| regex::Regex::new(r":(\d{2,5})$").unwrap());
-
-/// `ss -ltnp` の標準出力から LISTEN 行を (port, proc_name, pid) の並びへ変換する
-/// （`proxy_ports` = 自分自身の proxy listener の集合。除外対象）。
-/// cmdline 読み取り（I/O）はここでは行わない — 呼び出し側の責務。
-fn parse_ss_listen_lines(stdout: &str, proxy_ports: &HashSet<u16>) -> Vec<(u16, String, u32)> {
-    let mut found = Vec::new();
-    for line in stdout.lines() {
-        if !line.starts_with("LISTEN") {
-            continue;
-        }
-        let Some(port_match) = SS_PORT_RE.captures(line) else {
-            continue;
-        };
-        let Ok(port) = port_match[1].parse::<u16>() else {
-            continue;
-        };
-        if !(MIN_PORT..=MAX_PORT).contains(&port) || proxy_ports.contains(&port) {
-            continue;
-        }
-        // 他ユーザ所有のプロセス（権限不足で名前取れない）。dev server として
-        // preview したいケースはほぼない（postgres / system daemons）ので除外。
-        let Some(proc_match) = SS_PROC_RE.captures(line) else {
-            continue;
-        };
-        let proc_name = proc_match[1].to_string();
-        let Ok(pid) = proc_match[2].parse::<u32>() else {
-            continue;
-        };
-        found.push((port, proc_name, pid));
-    }
-    found
-}
-
-/// `lsof -iTCP -sTCP:LISTEN -P -n -F pcn` の出力を (port, pid, command) の
-/// リストへ変換する。
-fn parse_lsof_listeners(out: &str) -> Vec<(u16, u32, String)> {
-    let mut listeners = Vec::new();
-    let mut pid: Option<u32> = None;
-    let mut command = String::new();
-    for line in out.lines() {
-        if line.is_empty() {
-            continue;
-        }
-        let (tag, value) = (&line[..1], &line[1..]);
-        match tag {
-            "p" => {
-                pid = value.parse().ok();
-                command.clear();
-            }
-            "c" => command = value.to_string(),
-            "n" => {
-                if let Some(pid) = pid {
-                    if let Some(m) = LSOF_ADDR_RE.captures(value) {
-                        if let Ok(port) = m[1].parse::<u16>() {
-                            listeners.push((port, pid, command.clone()));
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    listeners
-}
-
-/// cmdline の各要素から表示用ラベルを組み立てる。通常は先頭要素の basename。
-/// node/python 等のランタイム経由の場合は実行スクリプト名を続けた
-/// "node vite" のような2語のラベルを返す。
-fn label_from_cmdline_parts(parts: &[String]) -> String {
-    let Some(first) = parts.first() else {
-        return String::new();
-    };
-    let basename = |p: &str| p.rsplit('/').next().unwrap_or(p).to_string();
-    let is_runtime = ["node", "python", "python3", "ruby", "bun"]
-        .iter()
-        .any(|suffix| first.ends_with(suffix));
-    if is_runtime && parts.len() >= 2 {
-        for p in &parts[1..] {
-            if !p.starts_with('-') {
-                return format!("{} {}", basename(first), basename(p));
-            }
-        }
-    }
-    basename(first)
-}
-
-// ─── プロセス情報の取得（Linux: /proc、macOS: ps/lsof） ─────────────────────
-
-/// プロセスの cmdline から表示用ラベルを取得する（`label_from_cmdline_parts` 参照）。
-async fn read_cmdline(pid: u32) -> String {
-    if IS_MACOS {
-        let Some(result) = run_subprocess_safe(
-            &["ps", "-o", "command=", "-p", &pid.to_string()],
-            PROC_INFO_TIMEOUT_SEC,
-            None,
-        )
-        .await
-        else {
-            return String::new();
-        };
-        let parts: Vec<String> = result.stdout.split_whitespace().map(String::from).collect();
-        return label_from_cmdline_parts(&parts);
-    }
-    let Ok(raw) = std::fs::read(format!("/proc/{pid}/cmdline")) else {
-        return String::new();
-    };
-    let parts: Vec<String> = raw
-        .split(|&b| b == 0)
-        .filter(|p| !p.is_empty())
-        .map(|p| String::from_utf8_lossy(p).into_owned())
-        .collect();
-    label_from_cmdline_parts(&parts)
-}
-
-/// プロセスの起動時カレントディレクトリを取得する（取得できなければ None）。
-async fn read_cwd(pid: u32) -> Option<String> {
-    if IS_MACOS {
-        let result = run_subprocess_safe(
-            &["lsof", "-a", "-p", &pid.to_string(), "-d", "cwd", "-Fn"],
-            PROC_INFO_TIMEOUT_SEC,
-            None,
-        )
-        .await?;
-        return result
-            .stdout
-            .lines()
-            .find_map(|line| line.strip_prefix('n').map(String::from));
-    }
-    std::fs::read_link(format!("/proc/{pid}/cwd"))
-        .ok()
-        .map(|p| p.to_string_lossy().into_owned())
-}
-
 /// cwd を登録済みワークスペース（worktree含む）と照合する
 /// （`git_utils::match_workspace_with_worktree` 参照）。
 async fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<String> {
@@ -392,60 +162,6 @@ async fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<Stri
         return None;
     }
     crate::git_utils::match_workspace_with_worktree(config, cwd).await
-}
-
-// ─── ポートスキャン: OS 呼び出し ────────────────────────────────────────────
-
-async fn scan_listening_ports_linux(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
-    // ss が無い（最小コンテナ等）・実行に失敗する環境では lsof スキャンへ
-    // フォールバックする（read_cmdline は Linux では /proc を読むため lsof 側でも動く）
-    let Some(result) = run_subprocess_safe(&["ss", "-ltnp"], PORT_SCAN_TIMEOUT_SEC, None)
-        .await
-        .filter(crate::subprocess::CmdResult::success)
-    else {
-        tracing::warn!("ss unavailable; falling back to lsof port scan");
-        return scan_listening_ports_lsof(proxy_ports).await;
-    };
-    let mut found = HashMap::new();
-    for (port, proc_name, pid) in parse_ss_listen_lines(&result.stdout, proxy_ports) {
-        let label = read_cmdline(pid).await;
-        let label = if label.is_empty() { proc_name } else { label };
-        found.insert(port, (label, pid));
-    }
-    found
-}
-
-/// lsof による LISTEN ポート列挙。macOS の既定スキャンかつ、Linux で ss が
-/// 使えない場合のフォールバック（lsof の呼び出し・出力形式は両 OS 共通）。
-async fn scan_listening_ports_lsof(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
-    let Some(result) = run_subprocess_safe(
-        &["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-F", "pcn"],
-        PORT_SCAN_TIMEOUT_SEC,
-        None,
-    )
-    .await
-    else {
-        tracing::warn!("lsof failed; skipping port scan");
-        return HashMap::new();
-    };
-    let mut found = HashMap::new();
-    for (port, pid, command) in parse_lsof_listeners(&result.stdout) {
-        if !(MIN_PORT..=MAX_PORT).contains(&port) || proxy_ports.contains(&port) {
-            continue;
-        }
-        let label = read_cmdline(pid).await;
-        let label = if label.is_empty() { command } else { label };
-        found.insert(port, (label, pid));
-    }
-    found
-}
-
-async fn scan_listening_ports(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
-    if IS_MACOS {
-        scan_listening_ports_lsof(proxy_ports).await
-    } else {
-        scan_listening_ports_linux(proxy_ports).await
-    }
 }
 
 // ─── 検出結果の更新・一覧 ────────────────────────────────────────────────────
@@ -796,27 +512,10 @@ async fn scan_loop(state: Arc<AppState>) {
 /// preview のバックグラウンドスキャンタスクを起動する（冪等 — 既に動作中なら
 /// 何もしない）。`main.rs` から起動時に一度呼ぶ。
 pub fn start_scanner(state: &Arc<AppState>) {
-    let mut task = state
+    state
         .preview
         .scan_task
-        .lock()
-        .expect("scan_task lock poisoned");
-    let running = crate::util::task_running(&task);
-    if !running {
-        *task = Some(tokio::spawn(scan_loop(state.clone())));
-    }
-}
-
-#[allow(dead_code)]
-pub fn stop_scanner(state: &PreviewState) {
-    if let Some(handle) = state
-        .scan_task
-        .lock()
-        .expect("scan_task lock poisoned")
-        .take()
-    {
-        handle.abort();
-    }
+        .ensure(|| tokio::spawn(scan_loop(state.clone())));
 }
 
 // ─── HTTP エンドポイント（`GET /preview/ports`）─────────────────────────────
@@ -837,100 +536,6 @@ pub async fn list_detected_ports(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const SAMPLE_SS_OUTPUT: &str = concat!(
-        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n",
-        "LISTEN 0 511 0.0.0.0:3000 0.0.0.0:* users:((\"node\",pid=12345,fd=21))\n",
-        "LISTEN 0 511 127.0.0.1:7002 0.0.0.0:* users:((\"python3\",pid=22222,fd=24))\n",
-        // 他ユーザ所有 → 名前情報なし → 除外される
-        "LISTEN 0 4096 0.0.0.0:5432 0.0.0.0:*\n",
-        // 範囲外
-        "LISTEN 0 100 0.0.0.0:80 0.0.0.0:* users:((\"nginx\",pid=33333,fd=6))\n",
-    );
-
-    #[test]
-    fn parse_ss_listen_lines_extracts_owned_ports() {
-        let found = parse_ss_listen_lines(SAMPLE_SS_OUTPUT, &HashSet::new());
-        assert!(found.contains(&(3000, "node".to_string(), 12345)));
-        assert!(found.contains(&(7002, "python3".to_string(), 22222)));
-        assert!(
-            !found.iter().any(|(p, ..)| *p == 5432),
-            "他ユーザ所有は除外"
-        );
-        assert!(!found.iter().any(|(p, ..)| *p == 80), "範囲外は除外");
-    }
-
-    #[test]
-    fn parse_ss_listen_lines_excludes_proxy_ports() {
-        let found = parse_ss_listen_lines(SAMPLE_SS_OUTPUT, &HashSet::from([3000u16]));
-        assert!(!found.iter().any(|(p, ..)| *p == 3000));
-        assert!(found.iter().any(|(p, ..)| *p == 7002));
-    }
-
-    const SAMPLE_LSOF_OUTPUT: &str = concat!(
-        "p12345\n",
-        "cnode\n",
-        "n127.0.0.1:3000\n",
-        "n*:3000\n",
-        "p22222\n",
-        "cpython3\n",
-        "n*:7002\n",
-        // 範囲外（フィルタは呼び出し側の責務なので、ここではそのまま出てくる）
-        "p33333\n",
-        "cnginx\n",
-        "n*:80\n",
-    );
-
-    #[test]
-    fn parse_lsof_listeners_extracts_all_entries() {
-        let listeners = parse_lsof_listeners(SAMPLE_LSOF_OUTPUT);
-        assert!(listeners.contains(&(3000, 12345, "node".to_string())));
-        assert!(listeners.contains(&(7002, 22222, "python3".to_string())));
-        assert!(listeners.contains(&(80, 33333, "nginx".to_string())));
-    }
-
-    #[test]
-    fn parse_lsof_listeners_ignores_n_line_without_pid() {
-        // "n" 行より先に "p" が来ていない場合は無視する。
-        let listeners = parse_lsof_listeners("cnode\nn127.0.0.1:3000\n");
-        assert!(listeners.is_empty());
-    }
-
-    #[test]
-    fn label_from_cmdline_uses_basename_for_plain_command() {
-        assert_eq!(
-            label_from_cmdline_parts(&["/usr/local/bin/nginx".to_string()]),
-            "nginx"
-        );
-    }
-
-    #[test]
-    fn label_from_cmdline_combines_runtime_and_script() {
-        assert_eq!(
-            label_from_cmdline_parts(&[
-                "/usr/bin/node".to_string(),
-                "/app/node_modules/.bin/vite".to_string(),
-            ]),
-            "node vite"
-        );
-    }
-
-    #[test]
-    fn label_from_cmdline_skips_flags_to_find_script() {
-        assert_eq!(
-            label_from_cmdline_parts(&[
-                "python3".to_string(),
-                "-u".to_string(),
-                "manage.py".to_string(),
-            ]),
-            "python3 manage.py"
-        );
-    }
-
-    #[test]
-    fn label_from_cmdline_empty_for_no_parts() {
-        assert_eq!(label_from_cmdline_parts(&[]), "");
-    }
 
     #[test]
     fn proxy_port_for_range() {
@@ -956,211 +561,6 @@ mod tests {
         assert!(!should_scan_now(&state), "未アクセスはアイドル扱い");
         touch_access(&state);
         assert!(should_scan_now(&state));
-    }
-
-    // SSL_CERTFILE/SSL_KEYFILE はプロセス全体で共有される環境変数のため、
-    // cargo test のデフォルト並列実行では他の find_cert_pair テストと
-    // レースして誤検出しうる（実際にCIで発生した）。この4テストだけ
-    // Mutexで直列化する。
-    fn cert_pair_env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    struct CertEnvGuard {
-        cert: Option<String>,
-        key: Option<String>,
-    }
-
-    impl CertEnvGuard {
-        fn clear() -> Self {
-            let guard = Self {
-                cert: std::env::var("SSL_CERTFILE").ok(),
-                key: std::env::var("SSL_KEYFILE").ok(),
-            };
-            unsafe {
-                std::env::remove_var("SSL_CERTFILE");
-                std::env::remove_var("SSL_KEYFILE");
-            }
-            guard
-        }
-    }
-
-    impl Drop for CertEnvGuard {
-        fn drop(&mut self) {
-            unsafe {
-                match &self.cert {
-                    Some(v) => std::env::set_var("SSL_CERTFILE", v),
-                    None => std::env::remove_var("SSL_CERTFILE"),
-                }
-                match &self.key {
-                    Some(v) => std::env::set_var("SSL_KEYFILE", v),
-                    None => std::env::remove_var("SSL_KEYFILE"),
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn find_cert_pair_prefers_env_over_certs_dir() {
-        let _guard = cert_pair_env_lock()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _env = CertEnvGuard::clear();
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("env.crt"), b"cert").unwrap();
-        std::fs::write(dir.path().join("env.key"), b"key").unwrap();
-        unsafe {
-            std::env::set_var("SSL_CERTFILE", dir.path().join("env.crt"));
-            std::env::set_var("SSL_KEYFILE", dir.path().join("env.key"));
-        }
-        let found = find_cert_pair(dir.path());
-        assert_eq!(
-            found,
-            Some((dir.path().join("env.crt"), dir.path().join("env.key")))
-        );
-    }
-
-    #[test]
-    fn find_cert_pair_falls_back_to_certs_dir() {
-        let _guard = cert_pair_env_lock()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _env = CertEnvGuard::clear();
-        let dir = tempfile::tempdir().unwrap();
-        let certs_dir = dir.path().join("certs");
-        std::fs::create_dir(&certs_dir).unwrap();
-        std::fs::write(certs_dir.join("host.crt"), b"cert").unwrap();
-        std::fs::write(certs_dir.join("host.key"), b"key").unwrap();
-        assert_eq!(
-            find_cert_pair(dir.path()),
-            Some((certs_dir.join("host.crt"), certs_dir.join("host.key")))
-        );
-    }
-
-    #[test]
-    fn find_cert_pair_none_when_key_missing() {
-        let _guard = cert_pair_env_lock()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _env = CertEnvGuard::clear();
-        let dir = tempfile::tempdir().unwrap();
-        let certs_dir = dir.path().join("certs");
-        std::fs::create_dir(&certs_dir).unwrap();
-        std::fs::write(certs_dir.join("host.crt"), b"cert").unwrap();
-        assert_eq!(find_cert_pair(dir.path()), None);
-    }
-
-    #[test]
-    fn find_cert_pair_none_when_certs_dir_missing() {
-        let _guard = cert_pair_env_lock()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _env = CertEnvGuard::clear();
-        let dir = tempfile::tempdir().unwrap();
-        assert_eq!(find_cert_pair(dir.path()), None);
-    }
-
-    #[tokio::test]
-    async fn read_cmdline_empty_for_unreadable_pid() {
-        assert_eq!(read_cmdline(u32::MAX).await, "");
-    }
-
-    /// openssl が無い実行環境ではスキップする（CI/開発機には通常入っている）。
-    fn generate_self_signed_cert(cert: &Path, key: &Path) -> bool {
-        let key_ok = std::process::Command::new("openssl")
-            .args([
-                "ecparam",
-                "-name",
-                "prime256v1",
-                "-genkey",
-                "-noout",
-                "-out",
-                key.to_str().unwrap(),
-            ])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-        if !key_ok {
-            return false;
-        }
-        std::process::Command::new("openssl")
-            .args([
-                "req",
-                "-x509",
-                "-new",
-                "-key",
-                key.to_str().unwrap(),
-                "-out",
-                cert.to_str().unwrap(),
-                "-days",
-                "1",
-                "-nodes",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-    }
-
-    #[test]
-    fn load_tls_server_config_accepts_valid_self_signed_cert() {
-        // rustls 0.23 は複数 crypto backend が同居しうるため、`ServerConfig::builder()`
-        // より前に一度だけ明示的にプロセス既定の provider を選ぶ必要がある
-        // （本番は main.rs の起動直後に一度だけ実行 — ここではテスト用に模する）。
-        static INIT: std::sync::Once = std::sync::Once::new();
-        INIT.call_once(|| {
-            let _ = tokio_rustls::rustls::crypto::aws_lc_rs::default_provider().install_default();
-        });
-        let dir = tempfile::tempdir().unwrap();
-        let cert = dir.path().join("test.crt");
-        let key = dir.path().join("test.key");
-        if !generate_self_signed_cert(&cert, &key) {
-            eprintln!("openssl not available, skipping");
-            return;
-        }
-        assert!(load_tls_server_config(&cert, &key).is_some());
-    }
-
-    #[test]
-    fn load_tls_server_config_none_for_garbage_pem() {
-        let dir = tempfile::tempdir().unwrap();
-        let cert = dir.path().join("bad.crt");
-        let key = dir.path().join("bad.key");
-        std::fs::write(&cert, b"not a certificate").unwrap();
-        std::fs::write(&key, b"not a key").unwrap();
-        assert!(load_tls_server_config(&cert, &key).is_none());
-    }
-
-    #[test]
-    fn load_tls_server_config_none_for_missing_files() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(
-            load_tls_server_config(&dir.path().join("nope.crt"), &dir.path().join("nope.key"))
-                .is_none()
-        );
-    }
-
-    #[tokio::test]
-    async fn read_cmdline_returns_for_own_pid() {
-        // 自分自身の pid は Linux (/proc/self) でも macOS (ps) でも必ず読める。
-        // basename は環境依存（cargo test のバイナリ名）なので空でないことだけ確認する。
-        let result = read_cmdline(std::process::id()).await;
-        assert!(!result.is_empty());
-    }
-
-    #[tokio::test]
-    async fn read_cwd_none_for_unreadable_pid() {
-        assert_eq!(read_cwd(u32::MAX).await, None);
-    }
-
-    #[tokio::test]
-    async fn read_cwd_returns_for_own_pid() {
-        let result = read_cwd(std::process::id()).await;
-        assert!(result.is_some());
     }
 
     fn store_with_workspaces(entries: &[(&str, Option<&str>, &str)]) -> ConfigStore {
@@ -1229,17 +629,6 @@ mod tests {
             match_workspace(&store, Some("/Users/dev/my-app/src")).await,
             Some("Nested".to_string())
         );
-    }
-
-    #[tokio::test]
-    async fn scan_listening_ports_linux_handles_subprocess_error() {
-        // "ss" が存在しないコマンドとして解決される（この sandbox には無い）ため、
-        // run_subprocess_safe が None を返し空マップになることを確認する。
-        // 実行環境に ss が入っていれば実際にスキャンされてしまうため、コマンド
-        // 自体を差し替えられないこの純粋な統合テストでは「例外を出さないこと」
-        // だけを確認する（クラッシュしない・ハングしないことが本質）。
-        let result = scan_listening_ports_linux(&HashSet::new()).await;
-        let _ = result; // 内容は環境依存なので検証しない
     }
 
     fn free_port() -> u16 {
@@ -1552,11 +941,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn scanner_start_and_stop_lifecycle() {
+    async fn scanner_start_spawns_task() {
         let (state, _dir) = test_state();
         start_scanner(&state);
-        assert!(state.preview.scan_task.lock().unwrap().is_some());
-        stop_scanner(&state.preview);
-        assert!(state.preview.scan_task.lock().unwrap().is_none());
+        assert!(state.preview.scan_task.is_running());
+        assert!(state.preview.scan_task.stop());
+        assert!(!state.preview.scan_task.is_running());
     }
 }

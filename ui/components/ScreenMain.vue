@@ -69,6 +69,7 @@ import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
 import { on, emit } from "../app-bridge.ts";
+import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const layoutStore = useLayoutStore();
@@ -105,8 +106,7 @@ const openTabs = computed(() => terminalStore.openTabs);
 const hasAnyTab = computed(() => openTabs.value.length > 0);
 const isEmptyScreenVisible = computed(() => {
   if (layoutStore.isSplitMode) return false;
-  if (openTabs.value.length > 0) return false;
-  return !openTabs.value.some(t => t.id === terminalStore.activeTabId);
+  return openTabs.value.length === 0;
 });
 
 watch(isEmptyScreenVisible, async (isEmpty) => {
@@ -125,7 +125,7 @@ const activeTabLabel = computed(() => {
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {
     const paneId = layoutStore.splitPaneTabIds[layoutStore.activePaneIndex];
-    if (paneId != null && !layoutStore.isEmptyPaneId(paneId)) tabId = paneId;
+    if (paneId != null && !isEmptyPaneId(paneId)) tabId = paneId;
   }
   const tab = terminalStore.openTabs.find((t) => t.id === tabId);
   const label = tabTitleLabel(tab, workspaceStore.allWorkspaces);
@@ -168,8 +168,6 @@ watch(
   },
   { immediate: true },
 );
-
-let mainPanelResizeObserver: ResizeObserver | null = null;
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");
@@ -227,12 +225,6 @@ onMounted(() => {
   initViewport((opts) => {
     terminalBaseView.value?.fitAllTerminals(opts);
   });
-
-  if (typeof ResizeObserver !== "undefined") {
-    mainPanelResizeObserver = new ResizeObserver(() => {});
-    const main = document.querySelector(".main-panel");
-    if (main) mainPanelResizeObserver.observe(main);
-  }
 });
 
 onMounted(async () => {
@@ -252,7 +244,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   bridgeCleanups.forEach((cleanup) => cleanup());
   stopSyncPolling();
-  mainPanelResizeObserver?.disconnect();
 });
 
 defineExpose({

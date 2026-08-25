@@ -21,21 +21,6 @@ struct TestFront {
 
 const TOKEN: &str = "git-remote-test-token";
 
-fn sh_git(repo: &std::path::Path, args: &[&str]) {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
-        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-}
-
 /// bareリモート・2クローン（clone_a: 新規コミットをpushする側、clone_b:
 /// pullする側 = ワークスペース登録対象）を用意する。clone_bは初期コミットの
 /// 時点でcloneするため、後からclone_aが積むコミット分だけbehindになる。
@@ -45,13 +30,13 @@ async fn spawn_front_with_remote() -> TestFront {
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
 
     let remote_path = dir.path().join("remote.git");
-    sh_git(
+    common::sh_git(
         dir.path(),
         &["init", "-q", "--bare", "-b", "main", "remote.git"],
     );
 
     let clone_a = dir.path().join("clone_a");
-    sh_git(
+    common::sh_git(
         dir.path(),
         &[
             "clone",
@@ -60,15 +45,15 @@ async fn spawn_front_with_remote() -> TestFront {
             clone_a.to_str().unwrap(),
         ],
     );
-    sh_git(&clone_a, &["config", "user.email", "a@example.com"]);
-    sh_git(&clone_a, &["config", "user.name", "a"]);
+    common::sh_git(&clone_a, &["config", "user.email", "a@example.com"]);
+    common::sh_git(&clone_a, &["config", "user.name", "a"]);
     std::fs::write(clone_a.join("a.txt"), "hello\n").unwrap();
-    sh_git(&clone_a, &["add", "-A"]);
-    sh_git(&clone_a, &["commit", "-q", "-m", "initial"]);
-    sh_git(&clone_a, &["push", "-q", "origin", "main"]);
+    common::sh_git(&clone_a, &["add", "-A"]);
+    common::sh_git(&clone_a, &["commit", "-q", "-m", "initial"]);
+    common::sh_git(&clone_a, &["push", "-q", "origin", "main"]);
 
     let ws_path = dir.path().join("clone_b");
-    sh_git(
+    common::sh_git(
         dir.path(),
         &[
             "clone",
@@ -77,8 +62,8 @@ async fn spawn_front_with_remote() -> TestFront {
             ws_path.to_str().unwrap(),
         ],
     );
-    sh_git(&ws_path, &["config", "user.email", "b@example.com"]);
-    sh_git(&ws_path, &["config", "user.name", "b"]);
+    common::sh_git(&ws_path, &["config", "user.email", "b@example.com"]);
+    common::sh_git(&ws_path, &["config", "user.name", "b"]);
 
     let store = ConfigStore::new(dir.path().join("config.json"));
     let mut cfg = store.load_all();
@@ -155,12 +140,12 @@ async fn pull_reports_commit_count_and_messages_for_fast_forward() {
     let dir_root = front.ws_path.parent().unwrap();
     let clone_a = dir_root.join("clone_a");
     std::fs::write(clone_a.join("b.txt"), "b\n").unwrap();
-    sh_git(&clone_a, &["add", "-A"]);
-    sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
+    common::sh_git(&clone_a, &["add", "-A"]);
+    common::sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
     std::fs::write(clone_a.join("c.txt"), "c\n").unwrap();
-    sh_git(&clone_a, &["add", "-A"]);
-    sh_git(&clone_a, &["commit", "-q", "-m", "third commit"]);
-    sh_git(&clone_a, &["push", "-q", "origin", "main"]);
+    common::sh_git(&clone_a, &["add", "-A"]);
+    common::sh_git(&clone_a, &["commit", "-q", "-m", "third commit"]);
+    common::sh_git(&clone_a, &["push", "-q", "origin", "main"]);
 
     let body = post_json(&front, "/workspaces/repo/pull").await;
     assert_eq!(body["status"], "ok");
@@ -183,12 +168,12 @@ async fn pull_reports_commits_even_when_upstream_was_already_fetched_in_backgrou
     let dir_root = front.ws_path.parent().unwrap();
     let clone_a = dir_root.join("clone_a");
     std::fs::write(clone_a.join("b.txt"), "b\n").unwrap();
-    sh_git(&clone_a, &["add", "-A"]);
-    sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
-    sh_git(&clone_a, &["push", "-q", "origin", "main"]);
+    common::sh_git(&clone_a, &["add", "-A"]);
+    common::sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
+    common::sh_git(&clone_a, &["push", "-q", "origin", "main"]);
 
     // バックグラウンドfetchを模してpullを叩く前にfetchだけ済ませておく。
-    sh_git(&front.ws_path, &["fetch", "--quiet"]);
+    common::sh_git(&front.ws_path, &["fetch", "--quiet"]);
 
     let body = post_json(&front, "/workspaces/repo/pull").await;
     assert_eq!(body["status"], "ok");
@@ -210,15 +195,15 @@ async fn unpulled_log_lists_commits_not_yet_pulled_without_pulling() {
     let dir_root = front.ws_path.parent().unwrap();
     let clone_a = dir_root.join("clone_a");
     std::fs::write(clone_a.join("b.txt"), "b\n").unwrap();
-    sh_git(&clone_a, &["add", "-A"]);
-    sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
+    common::sh_git(&clone_a, &["add", "-A"]);
+    common::sh_git(&clone_a, &["commit", "-q", "-m", "second commit"]);
     std::fs::write(clone_a.join("c.txt"), "c\n").unwrap();
-    sh_git(&clone_a, &["add", "-A"]);
-    sh_git(&clone_a, &["commit", "-q", "-m", "third commit"]);
-    sh_git(&clone_a, &["push", "-q", "origin", "main"]);
+    common::sh_git(&clone_a, &["add", "-A"]);
+    common::sh_git(&clone_a, &["commit", "-q", "-m", "third commit"]);
+    common::sh_git(&clone_a, &["push", "-q", "origin", "main"]);
 
     // ワークスペース側（clone_b）はfetchのみ行い、pullはしない。
-    sh_git(&front.ws_path, &["fetch", "--quiet"]);
+    common::sh_git(&front.ws_path, &["fetch", "--quiet"]);
 
     let body = get_json(&front, "/workspaces/repo/unpulled-log?limit=10&graph=true").await;
     assert_eq!(body["status"], "ok");

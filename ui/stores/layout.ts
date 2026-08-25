@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import { MOBILE_BREAKPOINT_PX, LS_KEY_SESSION_SIDEBAR_OPEN } from "../utils/constants.ts";
-import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.ts";
-import { calcGridLayout } from "../utils/terminal-layout.ts";
+import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.ts";
+import { buildPanesWithTabAt, cornerToGridIndex, resolveExitRestoreTab, soleRemainingTab } from "../utils/split-panes.ts";
 import { isTouchInput } from "../utils/device.ts";
 import { safeFlagLoad, safeFlagSave } from "../utils/storage.ts";
 import { useTerminalStore } from "./terminal.ts";
@@ -52,43 +52,6 @@ export const useLayoutStore = defineStore("layout", () => {
     return makeEmptyPaneId(emptyPaneSeq);
   }
 
-  function cornerToGridIndex(count: number, corner: string) {
-    const rows = calcGridLayout(count);
-    const topCols = rows[0] || 1;
-    const bottomRow = rows.length - 1;
-    const bottomCols = rows[bottomRow] || 1;
-    let rowIdx = 0;
-    let colIdx = 0;
-
-    if (corner === "top-right") {
-      rowIdx = 0;
-      colIdx = Math.max(0, topCols - 1);
-    } else if (corner === "bottom-left") {
-      rowIdx = bottomRow;
-      colIdx = 0;
-    } else if (corner === "bottom-right") {
-      rowIdx = bottomRow;
-      colIdx = Math.max(0, bottomCols - 1);
-    }
-
-    let offset = 0;
-    for (let i = 0; i < rowIdx; i++) offset += rows[i];
-    return offset + colIdx;
-  }
-
-  // 新規に空きペインを作る時、割り当てられる候補タブが1つしか無いなら選ばせる
-  // までもないため、そのタブを返す（無ければnull＝これまで通り空きペインにする）。
-  // 空きペイン側に一覧を出してからユーザー操作で選ばせる方式（reactiveな
-  // watch等）だと、SplitEmptyPane.vue のマイナスボタン（ペインを明示的に
-  // 空ける操作）でも「候補が1つだけ」の状態が再現され、外したタブ自身が
-  // 即座に再割り当てされて選択画面に戻れなくなる不具合があった。生成時点
-  // だけで判定するこの方式ならその副作用が起きない。
-  function soleRemainingTab(openTabs: TerminalTab[] | null | undefined, excludeIds: (number | string)[]): TerminalTab | null {
-    const exclude = new Set(excludeIds);
-    const candidates = (openTabs || []).filter((t) => !exclude.has(t.id));
-    return candidates.length === 1 ? candidates[0] : null;
-  }
-
   function splitWithDrop(tabId: number, direction: string, openTabs: TerminalTab[], _activeTabId?: number | null) {
     if (!tabId) return;
 
@@ -111,7 +74,7 @@ export const useLayoutStore = defineStore("layout", () => {
         return;
       }
       const paneCount = Math.max(4, Math.min(4, openTabs.length || 4));
-      const ids = buildPanesWithTabAt(tabId, paneCount, cornerToGridIndex(paneCount, direction));
+      const ids = buildPanesWithTabAt(tabId, paneCount, cornerToGridIndex(paneCount, direction), nextEmptyId);
       splitLayout.value = "grid";
       splitPaneTabIds.value = ids;
       activePaneIndex.value = ids.indexOf(tabId);
@@ -143,13 +106,6 @@ export const useLayoutStore = defineStore("layout", () => {
     splitPaneTabIds.value = ids;
     activePaneIndex.value = ids.indexOf(tabId);
     isSplitMode.value = true;
-  }
-
-  function buildPanesWithTabAt(tabId: number, paneCount: number, targetIdx: number) {
-    const arr: (number | string)[] = new Array(paneCount).fill(null).map(() => nextEmptyId());
-    const idx = Math.min(Math.max(0, targetIdx), paneCount - 1);
-    arr[idx] = tabId;
-    return arr;
   }
 
   /**
@@ -192,12 +148,7 @@ export const useLayoutStore = defineStore("layout", () => {
    * 別途呼ぶ必要はない。
    */
   function exitSplitMode(targetTabId?: number | null): number | null {
-    const ids = splitPaneTabIds.value;
-    const activeId = ids[activePaneIndex.value];
-    const restoreTabId = targetTabId
-      ?? (activeId != null && !isEmptyPaneId(activeId) ? (activeId as number) : null)
-      ?? realTabIds(ids)[0]
-      ?? null;
+    const restoreTabId = resolveExitRestoreTab(splitPaneTabIds.value, activePaneIndex.value, targetTabId);
     isSplitMode.value = false;
     splitPaneTabIds.value = [];
     activePaneIndex.value = 0;
@@ -272,7 +223,5 @@ export const useLayoutStore = defineStore("layout", () => {
     replaceTabWithEmpty,
     addPane,
     removeEmptyPane,
-    isEmptyPaneId,
-    countRealPanes,
   };
 });

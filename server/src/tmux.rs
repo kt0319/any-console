@@ -116,7 +116,6 @@ pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
 fn hook_session_env(
     data_dir: &Path,
     config: &ConfigStore,
-    _project_root: &Path,
     tmux_session_name: &str,
 ) -> Vec<(String, String)> {
     let (host, port) = resolve_effective_bind(config);
@@ -155,6 +154,8 @@ fn systemd_user_env_defaults() -> Vec<(String, String)> {
     extra
 }
 
+/// 実体は `subprocess::run_subprocess_with_env` — C ロケール強制を共有する
+/// （tmux はクライアントのロケールが UTF-8 でないと出力を壊す。subprocess.rs 参照）。
 async fn run_session_cmd(
     program: &str,
     args: &[String],
@@ -162,16 +163,12 @@ async fn run_session_cmd(
     env: &[(String, String)],
     timeout_sec: f64,
 ) -> bool {
-    let mut command = tokio::process::Command::new(program);
-    command.args(args).kill_on_drop(true).current_dir(cwd);
-    for (k, v) in env {
-        command.env(k, v);
-    }
-    let fut = command.status();
-    matches!(
-        tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await,
-        Ok(Ok(status)) if status.success()
-    )
+    let mut cmd: Vec<&str> = Vec::with_capacity(args.len() + 1);
+    cmd.push(program);
+    cmd.extend(args.iter().map(String::as_str));
+    crate::subprocess::run_subprocess_with_env(&cmd, timeout_sec, Some(cwd), env)
+        .await
+        .is_some_and(|r| r.success())
 }
 
 /// tmux ベースセッションを作成する（Python `create_tmux_session` 相当）。
@@ -180,7 +177,6 @@ async fn run_session_cmd(
 pub async fn create_tmux_session(
     data_dir: &Path,
     config: &ConfigStore,
-    project_root: &Path,
     workspace_path: Option<&str>,
     session_name: &str,
 ) -> std::io::Result<()> {
@@ -199,12 +195,7 @@ pub async fn create_tmux_session(
     if let Some(ws) = workspace_path {
         env.push(("WORKSPACE".to_string(), ws.to_string()));
     }
-    env.extend(hook_session_env(
-        data_dir,
-        config,
-        project_root,
-        session_name,
-    ));
+    env.extend(hook_session_env(data_dir, config, session_name));
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();
@@ -637,7 +628,7 @@ mod tests {
         let data_dir = dir.path().join("data");
         let config = ConfigStore::new(dir.path().join("config.json"));
 
-        let env = hook_session_env(&data_dir, &config, dir.path(), "ac-sess");
+        let env = hook_session_env(&data_dir, &config, "ac-sess");
         let url = env
             .iter()
             .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
@@ -655,7 +646,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let name = format!("ac-test-{}", crate::util::token_hex(4));
 
-        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(crate::subprocess::tmux_session_exists(&name).await);
@@ -702,7 +693,7 @@ mod tests {
         let session_id = "s1";
         let name = format!("{prefix}{session_id}");
 
-        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);

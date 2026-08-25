@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { reactive } from "vue";
-import { useTerminalStore } from "../stores/terminal.ts";
+import { useTerminalSettingsStore } from "../stores/terminal-settings.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
@@ -74,16 +74,16 @@ interface TerminalSettingSchema {
   options?: { value: string, label: string }[];
 }
 
-const terminalStore = useTerminalStore();
-const TERMINAL_SETTINGS_META = terminalStore.TERMINAL_SETTINGS_META as Record<string, TerminalSettingSchema>;
-const currentValues = reactive<Record<string, any>>({ ...terminalStore.terminalSettings });
+const settingsStore = useTerminalSettingsStore();
+const TERMINAL_SETTINGS_META = settingsStore.TERMINAL_SETTINGS_META as Record<string, TerminalSettingSchema>;
+const currentValues = reactive<Record<string, any>>({ ...settingsStore.terminalSettings });
 
 function syncFromStore() {
-  Object.assign(currentValues, terminalStore.terminalSettings);
+  Object.assign(currentValues, settingsStore.terminalSettings);
 }
 
 function commitValue(key: string, rawValue: unknown) {
-  const next = terminalStore.setTerminalSetting(key, rawValue);
+  const next = settingsStore.setTerminalSetting(key, rawValue);
   if (next != null) currentValues[key] = next;
 }
 
@@ -94,7 +94,7 @@ function stepValue(key: string, direction: number) {
 }
 
 function resetAll() {
-  terminalStore.resetTerminalSettings();
+  settingsStore.resetTerminalSettings();
   syncFromStore();
 }
 </script>

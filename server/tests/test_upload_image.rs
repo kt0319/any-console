@@ -123,7 +123,8 @@ async fn upload_image_saves_file_and_reports_shape() {
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["status"], "ok");
     let path = body["path"].as_str().unwrap().to_string();
-    assert!(path.contains("any-console-uploads"));
+    // 保存先は data_dir 配下（paths.rs の uploads_dir — ANY_CONSOLE_DATA_DIR 隔離が効く）
+    assert!(path.contains("uploads"));
     assert!(path.ends_with(".png"));
     assert_eq!(
         std::fs::read(&path).unwrap(),

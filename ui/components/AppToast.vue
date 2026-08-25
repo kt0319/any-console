@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from "vue";
-import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.ts";
+import { TOAST_DEFAULT_DURATION_MS, TOAST_SWIPE_DISMISS_PX, TOAST_TAP_MAX_DELTA_PX } from "../utils/constants.ts";
 import { emit } from "../app-bridge.ts";
 import { copyText } from "../utils/clipboard.ts";
 
@@ -73,8 +73,6 @@ function dismiss(toast: ToastItem, { runAction = true } = {}) {
   nextTick(restack);
 }
 
-const SWIPE_DISMISS_PX = 40;
-
 function onPointerDown(toast: ToastItem, e: PointerEvent) {
   toast._ty = e.clientY;
   toast._tx = e.clientX;
@@ -93,9 +91,9 @@ function onPointerUp(toast: ToastItem, e: PointerEvent) {
   toast.swipeDy = 0;
   toast._ty = undefined;
   (e.currentTarget as Element | null)?.releasePointerCapture?.(e.pointerId);
-  if (Math.abs(dy) > SWIPE_DISMISS_PX) {
+  if (Math.abs(dy) > TOAST_SWIPE_DISMISS_PX) {
     dismiss(toast, { runAction: false });
-  } else if (Math.abs(dy) < 5) {
+  } else if (Math.abs(dy) < TOAST_TAP_MAX_DELTA_PX) {
     dismiss(toast);
   }
 }

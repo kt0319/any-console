@@ -28,7 +28,7 @@ use futures_util::StreamExt;
 use serde_json::{json, Map, Value};
 
 use crate::config::ConfigStore;
-use crate::json_store::{load_json_file, save_json_file};
+use crate::json_store::load_json_file;
 use crate::screen_manifest::{
     compare_manifest_versions, parse_manifest_text, parse_manifest_version, value_to_string,
     ManifestStore,
@@ -222,16 +222,11 @@ pub fn load_status(store: &ManifestStore) -> Map<String, Value> {
 }
 
 fn save_status(store: &ManifestStore, status: &Map<String, Value>) {
-    if let Err(e) = save_json_file(&status_path(store), &Value::Object(status.clone())) {
-        tracing::warn!("failed to save manifest update status: {e}");
-    }
-}
-
-fn now_unix() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+    crate::json_store::save_or_warn(
+        &status_path(store),
+        &Value::Object(status.clone()),
+        "agent-detection status.json",
+    );
 }
 
 async fn run_catalog_check<F, Fut>(
@@ -302,7 +297,10 @@ where
     Fut: std::future::Future<Output = Result<String, String>>,
 {
     let mut status = load_status(store);
-    status.insert("last_check_unix".to_string(), json!(now_unix()));
+    status.insert(
+        "last_check_unix".to_string(),
+        json!(crate::util::now_epoch()),
+    );
     let mut agents_status = status
         .get("agents")
         .and_then(Value::as_object)

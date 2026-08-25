@@ -140,12 +140,6 @@ watch(() => props.fileContent, () => highlight(), { immediate: true });
   background: var(--bg-secondary);
 }
 
-.file-content-message {
-  padding: 24px 16px;
-  color: var(--text-muted);
-  text-align: center;
-  font-size: 13px;
-}
 
 .file-content-viewer :deep(code.hljs) {
   background: transparent;

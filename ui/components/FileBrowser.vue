@@ -440,12 +440,6 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   -webkit-overflow-scrolling: touch;
 }
 
-.file-content-message {
-  padding: 24px 16px;
-  color: var(--text-muted);
-  text-align: center;
-  font-size: 13px;
-}
 
 .diff-viewer-pane {
   display: flex;

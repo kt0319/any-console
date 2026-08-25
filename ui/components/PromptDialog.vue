@@ -1,7 +1,7 @@
 <template>
   <BaseDialog :visible="visible" :z-index="210" initial-focus="none" @dismiss="onCancel">
-    <div class="prompt-dialog" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
-      <div v-if="title" class="prompt-title">{{ title }}</div>
+    <div class="prompt-dialog dialog-box" style="--dialog-width: 420px" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
+      <div v-if="title" class="dialog-title">{{ title }}</div>
       <p v-if="message" class="prompt-message">{{ message }}</p>
       <input
         ref="inputEl"
@@ -56,23 +56,6 @@ watch(visible, async (nextVisible) => {
 </script>
 
 <style scoped>
-.prompt-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  width: min(420px, calc(100vw - 40px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.prompt-title {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .prompt-message {
   color: var(--text-secondary);
   font-size: 13px;

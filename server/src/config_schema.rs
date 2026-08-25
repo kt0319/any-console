@@ -1,19 +1,20 @@
-//! config.json エントリの検証・正規化（Python 側 `api/config_schema.py` の移植）。
+//! config.json エントリの検証・正規化。
 //!
-//! Pydantic モデル（extra="allow" + `model_dump(exclude_defaults=True,
-//! exclude_none=True)`）と同じ振る舞いを再現する:
+//! かつては Python 実装（Pydantic モデル）との互換のため lax な型変換や
+//! `exclude_defaults` 相当のデフォルト値省略を再現していたが、Rust 移行完了に
+//! 伴い撤去した。現在の仕様:
 //!
-//! - 宣言フィールドは型検証し、**デフォルト値と等しいものは出力から落とす**
-//! - null 値のフィールド（宣言・extra とも）は落とす
+//! - 宣言フィールドは厳格に型検証する（bool は JSON の bool、int は JSON の
+//!   整数のみ。文字列からの変換はしない）
+//! - null 値のフィールド（宣言・extra とも）は「未設定」として落とす
 //! - 未宣言（extra）フィールドはそのまま保持する
 //! - グローバルセクションは検証エラーの該当箇所だけを取り除いて残りを救済する
 //!
-//! 正規化結果は旧 Python 実装と互換（同じ config.json を読み書きしても
-//! 書き換え合いが起きない）。ラウンドトリップ互換はテストで担保する。
+//! 旧実装がデフォルト値を省略して書いた既存の config.json は、フィールドが
+//! 無いだけなのでそのまま読める（ラウンドトリップはテストで担保する）。
 
 use serde_json::{Map, Value};
 
-/// Pydantic の lax な型変換のうち、実データで起こりうる範囲を再現する。
 fn coerce_str(v: &Value) -> Result<String, String> {
     match v {
         Value::String(s) => Ok(s.clone()),
@@ -21,61 +22,23 @@ fn coerce_str(v: &Value) -> Result<String, String> {
     }
 }
 
-/// Pydantic v2 の bool lax coercion（大文字小文字を区別しない）が受け付ける文字列。
-/// https://docs.pydantic.dev/latest/concepts/conversion_table/ の bool 列を参照。
-const BOOL_TRUE_STRS: &[&str] = &["true", "yes", "on", "y", "t", "1"];
-const BOOL_FALSE_STRS: &[&str] = &["false", "no", "off", "n", "f", "0"];
-
 fn coerce_bool(v: &Value) -> Result<bool, String> {
     match v {
         Value::Bool(b) => Ok(*b),
-        // int/float の 0/1 のみ有効（pydantic は 2 や 0.5 等は拒否する）。
-        Value::Number(n) => match n.as_f64() {
-            Some(0.0) => Ok(false),
-            Some(1.0) => Ok(true),
-            _ => Err("expected bool".to_string()),
-        },
-        Value::String(s) => {
-            let lower = s.to_ascii_lowercase();
-            if BOOL_TRUE_STRS.contains(&lower.as_str()) {
-                Ok(true)
-            } else if BOOL_FALSE_STRS.contains(&lower.as_str()) {
-                Ok(false)
-            } else {
-                Err("expected bool".to_string())
-            }
-        }
         _ => Err("expected bool".to_string()),
     }
 }
 
 fn coerce_int(v: &Value) -> Result<i64, String> {
     match v {
-        Value::Bool(_) => Err("expected int".to_string()),
-        Value::Number(n) => n
-            .as_i64()
-            .or_else(|| n.as_f64().filter(|f| f.fract() == 0.0).map(|f| f as i64))
-            .ok_or_else(|| "expected int".to_string()),
-        Value::String(s) => {
-            let t = s.trim();
-            // pydantic は "9000" だけでなく小数部が 0 の "9000.0" のような文字列も
-            // 整数として受け付ける（例: __global__.port を文字列で設定した場合）。
-            t.parse::<i64>().or_else(|_| {
-                t.parse::<f64>()
-                    .ok()
-                    .filter(|f| f.fract() == 0.0)
-                    .map(|f| f as i64)
-                    .ok_or_else(|| "expected int".to_string())
-            })
-        }
+        Value::Number(n) => n.as_i64().ok_or_else(|| "expected int".to_string()),
         _ => Err("expected int".to_string()),
     }
 }
 
-/// 宣言フィールドの仕様: (キー, 検証・正規化, デフォルト値)。
+/// 宣言フィールドの仕様: (キー, 検証・正規化)。
 struct FieldSpec {
     key: &'static str,
-    default: Value,
     kind: FieldKind,
 }
 
@@ -130,25 +93,23 @@ fn validate_field(kind: &FieldKind, v: &Value) -> Result<Value, String> {
     }
 }
 
-/// モデル共通の dump: 宣言フィールドは検証してデフォルトと違うときだけ残し、
-/// null は落とし、extra フィールドは保持する。
+/// モデル共通の dump: 宣言フィールドは型検証してそのまま残し、null は落とし、
+/// extra フィールドは保持する。
 fn dump_model(data: &Value, specs: &[FieldSpec]) -> Result<Map<String, Value>, String> {
     let obj = data.as_object().ok_or("expected object")?;
     let mut out = Map::new();
     for (key, value) in obj {
         if value.is_null() {
-            continue; // exclude_none
+            continue; // null は「未設定」として落とす
         }
         match specs.iter().find(|s| s.key == key) {
             Some(spec) => {
                 let normalized =
                     validate_field(&spec.kind, value).map_err(|e| format!("{key}: {e}"))?;
-                if normalized != spec.default {
-                    out.insert(key.clone(), normalized);
-                }
+                out.insert(key.clone(), normalized);
             }
             None => {
-                out.insert(key.clone(), value.clone()); // extra="allow"
+                out.insert(key.clone(), value.clone()); // extra は保持
             }
         }
     }
@@ -165,13 +126,10 @@ fn validate_snippet(data: &Value) -> Result<Value, String> {
     let specs = [
         FieldSpec {
             key: "label",
-            default: Value::String(String::new()),
             kind: FieldKind::Str,
         },
-        // required フィールドはデフォルト無し（常に出力に残す）ため default に到達不能値を置く
         FieldSpec {
             key: "command",
-            default: Value::Null,
             kind: FieldKind::Str,
         },
     ];
@@ -185,20 +143,14 @@ fn validate_recent_job(data: &Value) -> Result<Value, String> {
     }
     let s = |k: &'static str| FieldSpec {
         key: k,
-        default: Value::String(String::new()),
         kind: FieldKind::Str,
     };
     let b = |k: &'static str| FieldSpec {
         key: k,
-        default: Value::Bool(false),
         kind: FieldKind::Bool,
     };
     let specs = [
-        FieldSpec {
-            key: "key",
-            default: Value::Null,
-            kind: FieldKind::Str,
-        },
+        s("key"),
         s("workspace"),
         s("wsIcon"),
         s("wsIconColor"),
@@ -207,12 +159,7 @@ fn validate_recent_job(data: &Value) -> Result<Value, String> {
         s("jobIcon"),
         s("jobIconColor"),
         s("jobCommand"),
-        // jobConfirm: bool | None = None — null は exclude_none で落ち、bool は常に残す
-        FieldSpec {
-            key: "jobConfirm",
-            default: Value::Null,
-            kind: FieldKind::Bool,
-        },
+        b("jobConfirm"),
         b("jobDetached"),
         b("pinned"),
     ];
@@ -222,7 +169,6 @@ fn validate_recent_job(data: &Value) -> Result<Value, String> {
 fn validate_job_config(data: &Value) -> Result<Value, String> {
     let s = |k: &'static str| FieldSpec {
         key: k,
-        default: Value::String(String::new()),
         kind: FieldKind::Str,
     };
     let specs = [
@@ -232,17 +178,15 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
         s("icon_color"),
         FieldSpec {
             key: "confirm",
-            default: Value::Bool(true),
             kind: FieldKind::Bool,
         },
         FieldSpec {
             key: "detached",
-            default: Value::Bool(false),
             kind: FieldKind::Bool,
         },
     ];
     let out = dump_model(data, &specs)?;
-    // Python JobConfig の model_validator: command は必須
+    // command は必須（空文字も不可）
     let get_str = |m: &Map<String, Value>, k: &str| {
         m.get(k).and_then(Value::as_str).unwrap_or("").to_string()
     };
@@ -257,7 +201,6 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
 fn workspace_specs() -> Vec<FieldSpec> {
     let s = |k: &'static str| FieldSpec {
         key: k,
-        default: Value::String(String::new()),
         kind: FieldKind::Str,
     };
     vec![
@@ -267,17 +210,14 @@ fn workspace_specs() -> Vec<FieldSpec> {
         s("icon_color"),
         FieldSpec {
             key: "hidden",
-            default: Value::Bool(false),
             kind: FieldKind::Bool,
         },
         FieldSpec {
             key: "jobs",
-            default: Value::Object(Map::new()),
             kind: FieldKind::JobsDict,
         },
         FieldSpec {
             key: "worktree",
-            default: Value::Bool(false),
             kind: FieldKind::Bool,
         },
         s("worktree_base"),
@@ -289,32 +229,26 @@ fn global_specs() -> Vec<FieldSpec> {
     vec![
         FieldSpec {
             key: "snippets",
-            default: Value::Array(vec![]),
             kind: FieldKind::SnippetList,
         },
         FieldSpec {
             key: "recent_jobs",
-            default: Value::Array(vec![]),
             kind: FieldKind::RecentJobList,
         },
         FieldSpec {
             key: "workspace_order",
-            default: Value::Array(vec![]),
             kind: FieldKind::StrList,
         },
         FieldSpec {
             key: "jobs",
-            default: Value::Object(Map::new()),
             kind: FieldKind::JobsDict,
         },
         FieldSpec {
             key: "host",
-            default: Value::String(String::new()),
             kind: FieldKind::Str,
         },
         FieldSpec {
             key: "port",
-            default: Value::Number(0.into()),
             kind: FieldKind::Int,
         },
     ]
@@ -324,8 +258,7 @@ pub fn validate_workspace_config(data: &Value) -> Result<Map<String, Value>, Str
     dump_model(data, &workspace_specs())
 }
 
-/// グローバルセクションの検証。検証エラーになった該当箇所だけを取り除く
-/// （Python `validate_global_config` の repair 挙動と等価）。
+/// グローバルセクションの検証。検証エラーになった該当箇所だけを取り除く。
 /// jobs は該当ジョブのみ、snippets / recent_jobs は該当インデックスのみを落とし、
 /// 宣言スカラーはキーごと削除してデフォルトに委ね、extra フィールドは触らない。
 pub fn validate_global_config(data: &Value) -> Result<Map<String, Value>, String> {
@@ -384,9 +317,7 @@ pub fn validate_global_config(data: &Value) -> Result<Map<String, Value>, String
             },
         };
         if let Some(v) = repaired {
-            if v != spec.default {
-                out.insert(key.clone(), v);
-            }
+            out.insert(key.clone(), v);
         }
     }
     if !dropped.is_empty() {
@@ -410,8 +341,7 @@ pub fn validate_config_entry(
     }
 }
 
-/// config 全体の正規化。不正なエントリは (キー, エラー) として集めて落とす
-/// （Python `normalize_loaded_config` と等価）。
+/// config 全体の正規化。不正なエントリは (キー, エラー) として集めて落とす。
 pub fn normalize_loaded_config(
     raw: &Value,
     global_config_key: &str,
@@ -447,7 +377,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn workspace_defaults_are_dropped_and_extras_kept() {
+    fn workspace_declared_fields_and_extras_are_kept() {
         let data = json!({
             "name": "proj", "path": "~/proj",
             "icon": "", "hidden": false, "jobs": {},
@@ -455,9 +385,13 @@ mod tests {
         });
         let out = validate_workspace_config(&data).unwrap();
         assert_eq!(out.get("name"), Some(&json!("proj")));
-        assert!(!out.contains_key("icon"), "デフォルト値は落ちる");
-        assert!(!out.contains_key("hidden"));
-        assert!(!out.contains_key("jobs"));
+        assert_eq!(
+            out.get("icon"),
+            Some(&json!("")),
+            "宣言フィールドは常に残す"
+        );
+        assert_eq!(out.get("hidden"), Some(&json!(false)));
+        assert_eq!(out.get("jobs"), Some(&json!({})));
         assert_eq!(out.get("group_id"), Some(&json!("ws_abc")), "extra は保持");
         assert_eq!(out.get("unknown_extra"), Some(&json!(42)));
     }
@@ -469,52 +403,29 @@ mod tests {
         assert!(!out.contains_key("group_id"));
     }
 
-    /// Pydantic v2 lax bool coercion のスペリング一致（Codex レビュー指摘: "yes"/
-    /// "on"/"y"/"t" 等を拒否すると workspace フィールドが丸ごと落ちる／global 設定が
-    /// リセットされてしまう）。
+    /// 型検証は厳格（JSON ネイティブ型のみ）。旧 Pydantic 互換の lax coercion
+    /// （"yes" → true、"9000.0" → 9000 等）は受け付けない。
     #[test]
-    fn coerce_bool_matches_pydantic_lax_spellings() {
-        for s in [
-            "true", "True", "TRUE", "yes", "Yes", "YES", "on", "On", "ON", "y", "Y", "t", "T", "1",
-        ] {
-            assert_eq!(coerce_bool(&json!(s)), Ok(true), "{s}");
+    fn bool_and_int_require_native_json_types() {
+        assert_eq!(coerce_bool(&json!(true)), Ok(true));
+        assert_eq!(coerce_bool(&json!(false)), Ok(false));
+        for v in [json!("true"), json!("yes"), json!("1"), json!(1), json!(0)] {
+            assert!(coerce_bool(&v).is_err(), "{v}");
         }
-        for s in [
-            "false", "False", "FALSE", "no", "No", "NO", "off", "Off", "OFF", "n", "N", "f", "F",
-            "0",
-        ] {
-            assert_eq!(coerce_bool(&json!(s)), Ok(false), "{s}");
+        assert_eq!(coerce_int(&json!(9000)), Ok(9000));
+        assert_eq!(coerce_int(&json!(-1)), Ok(-1));
+        for v in [json!("9000"), json!("9000.0"), json!(9000.5), json!(true)] {
+            assert!(coerce_int(&v).is_err(), "{v}");
         }
-        assert!(coerce_bool(&json!("2")).is_err());
-        assert!(coerce_bool(&json!(" true ")).is_err());
-        assert!(coerce_bool(&json!("")).is_err());
-        assert_eq!(coerce_bool(&json!(0)), Ok(false));
-        assert_eq!(coerce_bool(&json!(1)), Ok(true));
-        assert_eq!(coerce_bool(&json!(0.0)), Ok(false));
-        assert_eq!(coerce_bool(&json!(1.0)), Ok(true));
-        assert!(coerce_bool(&json!(2)).is_err());
-        assert!(coerce_bool(&json!(0.5)).is_err());
-    }
-
-    /// "9000.0" のような小数部ゼロの文字列も int として受け付ける（Codex レビュー
-    /// 指摘: 拒否すると __global__.port がキーごと落ちてデフォルトポートに化ける）。
-    #[test]
-    fn coerce_int_accepts_pydantic_lax_numeric_strings() {
-        assert_eq!(coerce_int(&json!("9000")), Ok(9000));
-        assert_eq!(coerce_int(&json!("9000.0")), Ok(9000));
-        assert_eq!(coerce_int(&json!(" 9000 ")), Ok(9000));
-        assert_eq!(coerce_int(&json!("-1")), Ok(-1));
-        assert!(coerce_int(&json!("9000.5")).is_err());
-        assert!(coerce_int(&json!("not-a-number")).is_err());
     }
 
     #[test]
     fn job_requires_command() {
         assert!(validate_job_config(&json!({"command": "npm test"})).is_ok());
         assert!(validate_job_config(&json!({"label": "no command"})).is_err());
-        // confirm: true はデフォルトなので落ちる
+        // confirm は明示されていれば true/false どちらもそのまま残る
         let out = validate_job_config(&json!({"command": "x", "confirm": true})).unwrap();
-        assert!(!out.as_object().unwrap().contains_key("confirm"));
+        assert_eq!(out["confirm"], json!(true));
         let out = validate_job_config(&json!({"command": "x", "confirm": false})).unwrap();
         assert_eq!(out["confirm"], json!(false));
     }
@@ -522,13 +433,16 @@ mod tests {
     #[test]
     fn global_repair_drops_only_broken_parts() {
         let data = json!({
-            "port": "not-a-number",
+            "port": "9000",
             "jobs": {"good": {"command": "ls"}, "bad": {"label": "x"}},
             "snippets": [{"command": "ok"}, {"label": "no-command"}],
             "circle_keypad": {"keys": []},
         });
         let out = validate_global_config(&data).unwrap();
-        assert!(!out.contains_key("port"), "不正スカラーはキーごと削除");
+        assert!(
+            !out.contains_key("port"),
+            "文字列 port は不正としてキーごと削除"
+        );
         assert!(out["jobs"].as_object().unwrap().contains_key("good"));
         assert!(!out["jobs"].as_object().unwrap().contains_key("bad"));
         assert_eq!(out["snippets"].as_array().unwrap().len(), 1);
@@ -554,8 +468,8 @@ mod tests {
     }
 
     #[test]
-    fn python_normalized_config_roundtrips_unchanged() {
-        // Python が正規化済みの実形（デフォルト除去済み）を入れても変化しないこと
+    fn existing_normalized_config_roundtrips_unchanged() {
+        // 旧実装（デフォルト値省略済み）が書いた実形を入れても変化しないこと
         let raw = json!({
             "__global__": {
                 "config_version": 3,

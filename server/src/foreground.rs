@@ -37,33 +37,11 @@ pub fn parse_stat_pgrp_tpgid(stat_text: &str) -> Option<(i32, i32)> {
     Some((pgrp, tpgid))
 }
 
-/// Python の `str.split(None, n)`（連続空白を1区切りとして扱い、先頭 n 個までを
-/// 分割し残りは1要素にまとめる = 最大 n+1 要素）と同じ意味で分割する。
-/// `system.rs` の `split_into_fields`（合計 n 要素）とは n の解釈が異なる。
-fn split_whitespace_n(line: &str, n: usize) -> Vec<&str> {
-    let mut result = Vec::new();
-    let mut rest = line;
-    for _ in 0..n {
-        rest = rest.trim_start();
-        if rest.is_empty() {
-            return result;
-        }
-        let idx = rest.find(char::is_whitespace).unwrap_or(rest.len());
-        result.push(&rest[..idx]);
-        rest = &rest[idx..];
-    }
-    rest = rest.trim_start();
-    if !rest.is_empty() {
-        result.push(rest);
-    }
-    result
-}
-
 /// `ps -axo pid=,pgid=,tpgid=,command=` の出力を (pid, pgid, tpgid, argv) に変換する。
 pub fn parse_ps_lines(text: &str) -> Vec<PsRow> {
     let mut rows = Vec::new();
     for line in text.lines() {
-        let parts = split_whitespace_n(line, 3);
+        let parts = crate::util::split_whitespace_max(line, 3);
         if parts.len() < 4 {
             continue;
         }
@@ -85,7 +63,8 @@ fn read_proc_stat(pid: i32) -> Option<(i32, i32)> {
     parse_stat_pgrp_tpgid(&text)
 }
 
-fn read_proc_argv(pid: i32) -> Vec<String> {
+/// `/proc/<pid>/cmdline` を NUL 区切りで argv に分解する（preview.rs と共用）。
+pub(crate) fn read_proc_argv(pid: i32) -> Vec<String> {
     let Ok(raw) = std::fs::read(format!("/proc/{pid}/cmdline")) else {
         return Vec::new();
     };

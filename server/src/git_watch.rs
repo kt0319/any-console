@@ -25,7 +25,6 @@ use notify_debouncer_full::{new_debouncer, DebounceEventResult};
 use regex::Regex;
 use serde_json::{json, Value};
 use tokio::sync::Notify;
-use tokio::task::JoinHandle;
 
 use crate::config::ConfigStore;
 use crate::git_utils::{
@@ -34,7 +33,6 @@ use crate::git_utils::{
 };
 use crate::paths::safe_resolve_str;
 use crate::state::AppState;
-use crate::util::task_running;
 
 /// Python `common.py` の同名定数と同じ値。
 const GIT_WATCH_DEBOUNCE_MS: u64 = 300;
@@ -375,8 +373,8 @@ pub fn match_workspaces(
 
 /// git_watch の常駐タスク（監視・自動 fetch）とその実行状態を保持する。
 pub struct GitWatchState {
-    watch_task: Mutex<Option<JoinHandle<()>>>,
-    fetch_task: Mutex<Option<JoinHandle<()>>>,
+    watch_task: crate::util::SupervisedTask,
+    fetch_task: crate::util::SupervisedTask,
     /// ワークスペース追加・削除時に監視ループを再起動させる（Python の
     /// `_restart_event` 相当）。
     restart: Notify,
@@ -387,8 +385,8 @@ pub struct GitWatchState {
 impl GitWatchState {
     pub fn new() -> Self {
         Self {
-            watch_task: Mutex::new(None),
-            fetch_task: Mutex::new(None),
+            watch_task: crate::util::SupervisedTask::new(),
+            fetch_task: crate::util::SupervisedTask::new(),
             restart: Notify::new(),
             last_sent: Mutex::new(HashMap::new()),
         }
@@ -404,24 +402,14 @@ impl Default for GitWatchState {
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。タスクが動いていなければ
 /// 起動する（Python `_ensure_tasks` 相当）。
 pub fn ensure_tasks(state: &Arc<AppState>) {
-    {
-        let mut watch = state
-            .git_watch
-            .watch_task
-            .lock()
-            .expect("git_watch state poisoned");
-        if !task_running(&watch) {
-            *watch = Some(tokio::spawn(watch_loop(state.clone())));
-        }
-    }
-    let mut fetch = state
+    state
+        .git_watch
+        .watch_task
+        .ensure(|| tokio::spawn(watch_loop(state.clone())));
+    state
         .git_watch
         .fetch_task
-        .lock()
-        .expect("git_watch state poisoned");
-    if !task_running(&fetch) {
-        *fetch = Some(tokio::spawn(auto_fetch_loop(state.clone())));
-    }
+        .ensure(|| tokio::spawn(auto_fetch_loop(state.clone())));
 }
 
 /// 購読解除時に呼ぶ。全体の購読者（`StatusStreamState`）がゼロになったら
@@ -430,24 +418,8 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     if state.status_stream.subscriber_count() > 0 {
         return;
     }
-    if let Some(h) = state
-        .git_watch
-        .watch_task
-        .lock()
-        .expect("git_watch state poisoned")
-        .take()
-    {
-        h.abort();
-    }
-    if let Some(h) = state
-        .git_watch
-        .fetch_task
-        .lock()
-        .expect("git_watch state poisoned")
-        .take()
-    {
-        h.abort();
-    }
+    state.git_watch.watch_task.stop();
+    state.git_watch.fetch_task.stop();
     state
         .git_watch
         .last_sent

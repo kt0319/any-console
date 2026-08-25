@@ -1,5 +1,5 @@
 <template>
-  <div class="file-history-pane">
+  <div class="file-history-pane pane-fill">
     <template v-if="!selectedEntry">
       <div v-if="isLoading" class="text-muted-center">Loading...</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
@@ -15,7 +15,7 @@
           <div class="file-history-entry-meta">
             <span class="file-history-entry-author">{{ entry.author }}</span>
             <span class="file-history-entry-time">{{ entry.time }}</span>
-            <span class="file-history-entry-hash">{{ entry.hash.slice(0, 7) }}</span>
+            <span class="file-history-entry-hash">{{ shortHash(entry.hash) }}</span>
           </div>
         </div>
       </div>
@@ -30,7 +30,7 @@
           <div class="file-history-entry-meta">
             <span>{{ selectedEntry.author }}</span>
             <span>{{ selectedEntry.time }}</span>
-            <span class="file-history-entry-hash">{{ selectedEntry.hash.slice(0, 7) }}</span>
+            <span class="file-history-entry-hash">{{ shortHash(selectedEntry.hash) }}</span>
           </div>
         </div>
       </div>
@@ -47,6 +47,7 @@
 import { ref, watch } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
+import { parseFileLog, shortHash, type FileLogEntry } from "../utils/git.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { workspaceFileHistoryPath, workspaceFileDiffPath } from "../utils/endpoints.ts";
 import { colorDiff } from "../utils/diff-color.ts";
@@ -58,8 +59,7 @@ const props = defineProps({
 const workspaceStore = useWorkspaceStore();
 const { apiGet } = useApi();
 
-// git log 1行分（parseLogOutput が組み立てる表示用エントリ）。
-type HistoryEntry = { hash: string, time: string, author: string, message: string };
+type HistoryEntry = FileLogEntry;
 
 const entries = ref<HistoryEntry[]>([]);
 const isLoading = ref(false);
@@ -68,24 +68,6 @@ const selectedEntry = ref<HistoryEntry | null>(null);
 const diffHtml = ref("");
 const isDiffLoading = ref(false);
 const diffError = ref("");
-
-function parseLogOutput(stdout: string): HistoryEntry[] {
-  return stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const parts = line.split("\t");
-      const [hash = "", time = "", author = "", ...messageParts] = parts;
-      return {
-        hash,
-        time,
-        author,
-        message: messageParts.join("\t"),
-      };
-    })
-    .filter((e) => e.hash);
-}
 
 async function loadHistory() {
   const workspace = workspaceStore.selectedWorkspace;
@@ -101,7 +83,7 @@ async function loadHistory() {
       loadError.value = data?.stderr || data?.detail || "Failed to load history";
       return;
     }
-    entries.value = parseLogOutput(data.stdout || "");
+    entries.value = parseFileLog(data.stdout || "");
   } finally {
     isLoading.value = false;
   }
@@ -135,13 +117,6 @@ watch(() => props.filePath, loadHistory, { immediate: true });
 </script>
 
 <style scoped>
-.file-history-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .file-history-list {
   flex: 1;

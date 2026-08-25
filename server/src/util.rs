@@ -75,9 +75,45 @@ pub fn sanitize_session_segment(name: &str) -> String {
 pub const IS_MACOS: bool = cfg!(target_os = "macos");
 
 /// バックグラウンドタスクが起動済みかつ未終了かを判定する
-/// （git_watch / agent_watch / preview のタスク管理で共用）。
+/// （`SupervisedTask` 内部と一部テストで共用）。
 pub fn task_running(task: &Option<tokio::task::JoinHandle<()>>) -> bool {
     task.as_ref().is_some_and(|h| !h.is_finished())
+}
+
+/// 「動いていなければ spawn / 停止時は take + abort」のバックグラウンド
+/// タスク管理イディオム（git_watch / agent_watch / preview で共用）。
+#[derive(Default)]
+pub struct SupervisedTask(std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>);
+
+impl SupervisedTask {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 動いていなければ `spawn` で起動する（冪等）。
+    pub fn ensure(&self, spawn: impl FnOnce() -> tokio::task::JoinHandle<()>) {
+        let mut task = self.0.lock().expect("supervised task lock poisoned");
+        if !task_running(&task) {
+            *task = Some(spawn());
+        }
+    }
+
+    /// タスクを停止（abort）する。ハンドルを保持していたかを返す。
+    pub fn stop(&self) -> bool {
+        let handle = self.0.lock().expect("supervised task lock poisoned").take();
+        match handle {
+            Some(h) => {
+                h.abort();
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// 起動済みかつ未終了か（テスト・冪等性確認用）。
+    pub fn is_running(&self) -> bool {
+        task_running(&self.0.lock().expect("supervised task lock poisoned"))
+    }
 }
 
 /// アップロード共通の上限サイズ（/upload-image・ワークスペースのファイル
@@ -91,6 +127,36 @@ pub fn now_epoch() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0)
+}
+
+/// 現在時刻の UNIX epoch 秒（小数部あり — Python `time.time()` 相当）。
+pub fn now_epoch_f64() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64()
+}
+
+/// Python の `str.split(None, maxsplit)` と同じ意味で分割する（連続空白を
+/// 1区切りとして扱い、先頭 maxsplit 個までを分割し残りは1要素にまとめる =
+/// 最大 maxsplit+1 要素）。`ps` 出力等の「末尾はコマンド全体」なパース用。
+pub fn split_whitespace_max(line: &str, maxsplit: usize) -> Vec<&str> {
+    let mut result = Vec::new();
+    let mut rest = line;
+    for _ in 0..maxsplit {
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            return result;
+        }
+        let idx = rest.find(char::is_whitespace).unwrap_or(rest.len());
+        result.push(&rest[..idx]);
+        rest = &rest[idx..];
+    }
+    rest = rest.trim_start();
+    if !rest.is_empty() {
+        result.push(rest);
+    }
+    result
 }
 
 /// 文字数（バイトではなく char 単位）で切り詰める。
@@ -212,6 +278,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn split_whitespace_max_python_semantics() {
+        // Python str.split(None, maxsplit) 互換: 最大 maxsplit+1 要素、末尾は残り全体
+        assert_eq!(
+            split_whitespace_max("a  b   c d e", 2),
+            vec!["a", "b", "c d e"]
+        );
+        assert_eq!(split_whitespace_max("  a b ", 5), vec!["a", "b"]);
+        assert_eq!(split_whitespace_max("", 3), Vec::<&str>::new());
+        assert_eq!(split_whitespace_max("one two", 0), vec!["one two"]);
+    }
 
     #[test]
     fn sanitize_log_value_escapes_control_chars() {

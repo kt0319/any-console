@@ -132,20 +132,15 @@ pub async fn run_terminal_job(
     let command = validate_terminal_command(command)?;
 
     let (session_id, session_arc) = state
-        .terminal_registry
-        .create_registered_session(
-            &state.paths.data_dir,
-            &state.config,
-            &state.paths.project_root,
-            &state.paths.tmux_prefix,
-            ws_path.as_ref().map(|p| p.to_string_lossy()).as_deref(),
-            body.workspace.clone(),
-            body.icon.clone(),
-            body.icon_color.clone(),
-            body.job_name.clone(),
-            body.job_label.clone(),
-            body.interactive,
-        )
+        .create_terminal_session(crate::terminal_session::NewSessionSpec {
+            workspace_path: ws_path.as_ref().map(|p| p.to_string_lossy().into_owned()),
+            workspace: body.workspace.clone(),
+            icon: body.icon.clone(),
+            icon_color: body.icon_color.clone(),
+            job_name: body.job_name.clone(),
+            job_label: body.job_label.clone(),
+            interactive: body.interactive,
+        })
         .await?;
     crate::session_watch::notify_session_created(&state, &session_id);
 

@@ -59,10 +59,10 @@ pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
         },
         config: opts.config.unwrap_or_else(|| ConfigStore::new(config_file)),
         git_locks: any_console_server::git_lock::WorkspaceLocks::new(),
-        gh_cache: any_console_server::github::GhCache::new(),
+        gh_cache: any_console_server::github::new_gh_cache(),
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         git_watch: any_console_server::git_watch::GitWatchState::new(),
-        jobs_cache: any_console_server::jobs_common::JobsCache::new(),
+        jobs_cache: any_console_server::jobs_common::new_jobs_cache(),
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),
         agent_hooks: any_console_server::agent_hooks::AgentHookState::new(),
@@ -114,4 +114,21 @@ pub fn skip_if_no_tmux() -> bool {
         .output()
         .map(|o| !o.status.success())
         .unwrap_or(true)
+}
+
+/// テスト用リポジトリで git コマンドを実行する（失敗は即 assert）。
+/// コミット日時は固定し、時刻依存の表示（相対時刻等）を決定的にする。
+pub fn sh_git(repo: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(repo)
+        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
+        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }

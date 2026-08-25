@@ -7,7 +7,7 @@
 use std::io::Write;
 use std::path::Path;
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 /// JSON ファイルを読む。欠如・破損・検証失敗時は default を返す。
 pub fn load_json_file(
@@ -50,6 +50,24 @@ pub fn save_json_file(path: &Path, data: &Value) -> std::io::Result<()> {
     tmp.write_all(text.as_bytes())?;
     tmp.persist(path).map_err(|e| e.error)?;
     Ok(())
+}
+
+/// 保存失敗をログに留める非致命 write 用ラッパ（devices.json / auth.json /
+/// push_subscriptions.json 等、失敗してもリクエスト処理は続行するファイル向け）。
+pub fn save_or_warn(path: &Path, data: &Value, label: &str) {
+    if let Err(e) = save_json_file(path, data) {
+        tracing::warn!("{label} write failed: {e}");
+    }
+}
+
+/// `Option<Value>` を object として取り出す（欠如・非 object は空 Map）。
+pub fn section_as_map(v: Option<Value>) -> Map<String, Value> {
+    v.and_then(|x| x.as_object().cloned()).unwrap_or_default()
+}
+
+/// `Option<Value>` を array として取り出す（欠如・非 array は空 Vec）。
+pub fn section_as_array(v: Option<Value>) -> Vec<Value> {
+    v.and_then(|x| x.as_array().cloned()).unwrap_or_default()
 }
 
 #[cfg(test)]

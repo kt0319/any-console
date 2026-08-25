@@ -49,12 +49,26 @@ pub async fn run_subprocess_safe(
     timeout_sec: f64,
     cwd: Option<&Path>,
 ) -> Option<CmdResult> {
+    run_subprocess_with_env(cmd, timeout_sec, cwd, &[]).await
+}
+
+/// 追加の環境変数付きで実行する variant（tmux セッション作成等）。
+/// `run_subprocess_safe` と同じく C ロケール強制・kill_on_drop を適用する。
+pub async fn run_subprocess_with_env(
+    cmd: &[&str],
+    timeout_sec: f64,
+    cwd: Option<&Path>,
+    env: &[(String, String)],
+) -> Option<CmdResult> {
     let (program, args) = cmd.split_first()?;
     let mut command = tokio::process::Command::new(program);
     command.args(args).kill_on_drop(true);
     coerce_c_locale(&mut command);
     if let Some(dir) = cwd {
         command.current_dir(dir);
+    }
+    for (k, v) in env {
+        command.env(k, v);
     }
     let fut = command.output();
     let output = match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await {
@@ -89,11 +103,17 @@ pub async fn run_cmd_safe(cmd: &[&str], timeout_sec: f64, cwd: Option<&Path>) ->
 /// 既定インストール先・macOS の Tailscale.app（GUI版はPATHへ自動で
 /// 出てこないことがある）だけは追加でフォールバック探索する
 /// （旧: any-console スクリプトの `tailscale_hostname()` と同じ規則）。
+/// PATH から実行ファイルを探す（見つかったフルパスを返す）。
+pub(crate) fn which(program: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(program))
+        .find(|candidate| candidate.is_file())
+}
+
 fn resolve_tailscale_bin() -> Option<&'static str> {
-    if let Some(path) = std::env::var_os("PATH") {
-        if std::env::split_paths(&path).any(|dir| dir.join("tailscale").is_file()) {
-            return Some("tailscale");
-        }
+    if which("tailscale").is_some() {
+        return Some("tailscale");
     }
     [
         "/usr/local/bin/tailscale",

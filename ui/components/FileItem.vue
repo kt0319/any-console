@@ -1,25 +1,12 @@
 <template>
   <li
     class="file-browser-item hover-bg"
-    :class="{
-      selected,
-      gitignored,
-      'action-open': actionOpen,
-      'long-press-surface': longPressSurface,
-    }"
+    :class="{ selected, gitignored }"
     :data-type="dataType || null"
     @click="$emit('click', $event)"
-    @contextmenu.prevent="$emit('contextmenu', $event)"
-    @mouseenter="$emit('mouseenter', $event)"
-    @mousedown="$emit('mousedown', $event)"
-    @mouseup="$emit('mouseup', $event)"
-    @mouseleave="$emit('mouseleave', $event)"
-    @touchstart.passive="$emit('touchstart', $event)"
-    @touchend="$emit('touchend', $event)"
-    @touchcancel="$emit('touchcancel', $event)"
   >
     <span class="file-browser-item-icon nf-icon" v-html="iconHtml"></span>
-    <span class="file-browser-item-name">{{ label }}</span>
+    <span class="file-browser-item-name text-ellipsis-flex">{{ label }}</span>
     <span v-if="mtimeText || sizeText" class="file-browser-item-size">{{ sizeText }}</span>
     <span v-if="mtimeText || sizeText" class="file-browser-item-mtime">{{ mtimeText }}</span>
     <slot name="right"></slot>
@@ -35,21 +22,9 @@ defineProps({
   mtimeText: { type: String, default: "" },
   selected: { type: Boolean, default: false },
   gitignored: { type: Boolean, default: false },
-  actionOpen: { type: Boolean, default: false },
-  longPressSurface: { type: Boolean, default: false },
 });
 
-defineEmits([
-  "click",
-  "contextmenu",
-  "mouseenter",
-  "mousedown",
-  "mouseup",
-  "mouseleave",
-  "touchstart",
-  "touchend",
-  "touchcancel",
-]);
+defineEmits(["click"]);
 </script>
 
 <style scoped>
@@ -85,13 +60,6 @@ defineEmits([
   line-height: 1;
 }
 
-.file-browser-item-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .file-browser-item.gitignored {
   opacity: 0.4;
@@ -112,9 +80,5 @@ defineEmits([
 
 .file-browser-item-size {
   min-width: 5em;
-}
-
-.file-browser-item.action-open {
-  background: rgba(130, 170, 255, 0.08);
 }
 </style>

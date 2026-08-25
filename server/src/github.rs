@@ -20,28 +20,10 @@ use crate::subprocess::run_subprocess_safe;
 const GITHUB_CLI_TIMEOUT_SEC: f64 = 8.0;
 const PER_WORKSPACE_TTL_SEC: u64 = 30;
 
-pub struct GhCache(crate::util::TtlCache<Value>);
-
-impl Default for GhCache {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl GhCache {
-    pub fn new() -> Self {
-        Self(crate::util::TtlCache::new(Duration::from_secs(
-            PER_WORKSPACE_TTL_SEC,
-        )))
-    }
-
-    fn get(&self, key: &str) -> Option<Value> {
-        self.0.get(key)
-    }
-
-    fn set(&self, key: &str, value: Value) {
-        self.0.set(key, value);
-    }
+/// GitHub CLI 応答のワークスペース単位 TTL キャッシュを生成する
+/// （AppState.gh_cache）。
+pub fn new_gh_cache() -> crate::util::TtlCache<Value> {
+    crate::util::TtlCache::new(Duration::from_secs(PER_WORKSPACE_TTL_SEC))
 }
 
 /// gh を `--json` 付きで実行しパースする。失敗はすべて None。

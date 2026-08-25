@@ -2,7 +2,7 @@
   <div class="screen-empty-container">
     <div class="screen-empty-content">
       <div class="screen-empty-column screen-empty-column-left">
-        <div v-if="eligiblePhonePairing || eligibleHttpsSetup || eligiblePwaInstall || eligibleEnableNotifications || eligibleGhAuth" class="screen-empty-section">
+        <div v-if="setupItems.length > 0" class="screen-empty-section">
           <button
             type="button"
             class="screen-empty-section-label screen-empty-section-toggle"
@@ -16,30 +16,17 @@
             <span class="mdi" :class="setupExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
           </button>
           <template v-if="setupExpanded">
-            <button v-if="eligibleHttpsSetup" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': doneHttpsSetup }" @click="showHttpsInstructions">
-              <span class="mdi mdi-lock-outline screen-empty-menu-icon"></span>
-              <span class="screen-empty-menu-label">Set up HTTPS</span>
-              <span v-if="doneHttpsSetup" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
-            </button>
-            <button v-if="eligiblePwaInstall" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': donePwaInstall }" @click="installPwa">
-              <span class="mdi mdi-cellphone-arrow-down screen-empty-menu-icon"></span>
-              <span class="screen-empty-menu-label">Install as app</span>
-              <span v-if="donePwaInstall" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
-            </button>
-            <button v-if="eligiblePhonePairing" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': donePhonePairing }" @click="openPhonePairing">
-              <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
-              <span class="screen-empty-menu-label">Open on your phone</span>
-              <span v-if="donePhonePairing" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
-            </button>
-            <button v-if="eligibleEnableNotifications" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': doneEnableNotifications }" @click="enableNotifications">
-              <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
-              <span class="screen-empty-menu-label">Enable notifications</span>
-              <span v-if="doneEnableNotifications" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
-            </button>
-            <button v-if="eligibleGhAuth" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': doneGhAuth }" @click="showGhAuthInstructions">
-              <span class="mdi mdi-github screen-empty-menu-icon"></span>
-              <span class="screen-empty-menu-label">Log in to GitHub CLI</span>
-              <span v-if="doneGhAuth" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
+            <button
+              v-for="item in setupItems"
+              :key="item.label"
+              type="button"
+              class="screen-empty-menu-item"
+              :class="{ 'screen-empty-menu-item-done': item.done }"
+              @click="item.onClick"
+            >
+              <span :class="`mdi ${item.icon} screen-empty-menu-icon`"></span>
+              <span class="screen-empty-menu-label">{{ item.label }}</span>
+              <span v-if="item.done" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
             </button>
           </template>
         </div>
@@ -146,16 +133,19 @@ const doneGhAuth = computed(() => serverInfo.value?.gh_authenticated === true);
 
 // Setup項目が全て完了していたら初期状態でトグルを閉じる。開閉状態はユーザー操作を
 // 尊重し、allSetupDoneが変化した時（=データ読み込み完了時）だけ自動で追従させる。
-const allSetupDone = computed(() => {
-  const items = [
-    { eligible: eligiblePhonePairing.value, done: donePhonePairing.value },
-    { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value },
-    { eligible: eligiblePwaInstall.value, done: donePwaInstall.value },
-    { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value },
-    { eligible: eligibleGhAuth.value, done: doneGhAuth.value },
-  ].filter((item) => item.eligible);
-  return items.length > 0 && items.every((item) => item.done);
-});
+// Setup 項目の一覧（テンプレート表示・全完了判定・セクション表示可否の
+// 3箇所で同じリストを使う — 項目追加はここ1箇所で済ませる）。
+const setupItems = computed(() => [
+  { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value, icon: "mdi-lock-outline", label: "Set up HTTPS", onClick: showHttpsInstructions },
+  { eligible: eligiblePwaInstall.value, done: donePwaInstall.value, icon: "mdi-cellphone-arrow-down", label: "Install as app", onClick: installPwa },
+  { eligible: eligiblePhonePairing.value, done: donePhonePairing.value, icon: "mdi-cellphone", label: "Open on your phone", onClick: openPhonePairing },
+  { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value, icon: "mdi-bell-outline", label: "Enable notifications", onClick: enableNotifications },
+  { eligible: eligibleGhAuth.value, done: doneGhAuth.value, icon: "mdi-github", label: "Log in to GitHub CLI", onClick: showGhAuthInstructions },
+].filter((item) => item.eligible));
+
+const allSetupDone = computed(
+  () => setupItems.value.length > 0 && setupItems.value.every((item) => item.done),
+);
 const setupExpanded = ref(false);
 const setupChecked = ref(false);
 watch(allSetupDone, (done) => { setupExpanded.value = !done; });

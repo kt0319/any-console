@@ -1,0 +1,21 @@
+// IconPicker のカラーパレット既定色（label は tooltip / aria-label 用）。
+export const ICON_PRESET_COLORS = [
+  { label: "Default", value: "" },
+  { label: "Red", value: "#e53935" },
+  { label: "Pink", value: "#d81b60" },
+  { label: "Rose", value: "#ec407a" },
+  { label: "Purple", value: "#8e24aa" },
+  { label: "Deep Purple", value: "#5e35b1" },
+  { label: "Indigo", value: "#3949ab" },
+  { label: "Blue", value: "#1e88e5" },
+  { label: "Cyan", value: "#00acc1" },
+  { label: "Teal", value: "#00897b" },
+  { label: "Green", value: "#43a047" },
+  { label: "Lime", value: "#7cb342" },
+  { label: "Yellow", value: "#fdd835" },
+  { label: "Amber", value: "#ffb300" },
+  { label: "Orange", value: "#fb8c00" },
+  { label: "Brown", value: "#6d4c41" },
+  { label: "Gray", value: "#757575" },
+  { label: "White", value: "#ffffff" },
+];

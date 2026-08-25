@@ -3,6 +3,8 @@ import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
 import { fitTerminal, sendResize } from "./useTerminalResize.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
+import { useTerminalSettingsStore } from "../stores/terminal-settings.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
 import { keyDefToAnsi } from "../utils/key-ansi.ts";
 import { isEditableOrDialogTarget } from "../utils/dom.ts";
@@ -43,7 +45,7 @@ export function bindTerminalInput(tab: TerminalTab) {
   // バッジが残り続けてしまうため、そのタブで実際に操作した瞬間にも解除する。
   const sendUserInput = (bytes: Uint8Array) => {
     sendInput(bytes);
-    terminalStore.clearSessionNotifyBadges(tab.sessionId);
+    useAgentStateStore().clearSessionNotifyBadges(tab.sessionId);
   };
 
   function sendAppPageKey(e: KeyboardEvent) {
@@ -95,7 +97,7 @@ export function bindTerminalInput(tab: TerminalTab) {
   // 検知できず、以後のペーストが古い選択テキストに化けることがあるため、
   // 設定（Copy on Select）でオフにできる。
   tab.term?.onSelectionChange(() => {
-    if (!terminalStore.terminalSettings.copyOnSelect) return;
+    if (!useTerminalSettingsStore().terminalSettings.copyOnSelect) return;
     const text = tab.term?.getSelection();
     if (text) navigator.clipboard?.writeText(text).catch(() => {});
   });
@@ -106,7 +108,7 @@ export function bindTerminalInput(tab: TerminalTab) {
   // この経路もブラウザをクリップボード所有者にするため、copyOnSelect オフ時は
   // 書き込まない（Wayland の所有権通知問題の回避を選択時コピーと揃える）。
   tab.term?.parser.registerOscHandler(52, (data) => {
-    if (!terminalStore.terminalSettings.copyOnSelect) return true;
+    if (!useTerminalSettingsStore().terminalSettings.copyOnSelect) return true;
     const semi = data.indexOf(";");
     if (semi === -1) return false;
     const b64 = data.slice(semi + 1);
@@ -158,7 +160,7 @@ export function bindTerminalElement(tab: TerminalTab) {
     e.stopPropagation();
     if (tab.ws?.readyState === WebSocket.OPEN) {
       sendTabInput(tab, encoder.encode(text));
-      terminalStore.clearDoneState(tab.sessionId);
+      useAgentStateStore().clearDoneState(tab.sessionId);
     }
   }, true);
 }

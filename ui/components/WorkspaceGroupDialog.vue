@@ -1,8 +1,8 @@
 <template>
   <!-- グループ名入力モーダル -->
   <BaseDialog :visible="groupDialogOpen" :z-index="210" initial-focus="none" @dismiss="groupDialogOpen = false">
-    <div class="picker-group-dialog" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
-      <div class="picker-group-dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
+    <div class="picker-group-dialog dialog-box" style="--dialog-width: 320px" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
+      <div class="dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
       <input
         ref="groupInputEl"
         v-model="groupInputName"
@@ -84,24 +84,6 @@ defineExpose({ openAdd: startAddGroup, openRename: startRenameGroup });
 </script>
 
 <style scoped>
-/* グループ名ダイアログ */
-.picker-group-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  width: min(320px, calc(100vw - 40px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.picker-group-dialog-title {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .picker-group-dialog-buttons {
   display: flex;
   gap: 8px;

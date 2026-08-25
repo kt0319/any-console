@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-nocheck
 import { describe, it, expect, beforeEach } from "vitest";
+import { isEmptyPaneId } from "../../ui/utils/empty-pane.ts";
 import { setActivePinia, createPinia } from "pinia";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
@@ -70,14 +71,14 @@ describe("layout store: splitWithDrop", () => {
     const openTabs = [{ id: 1 }, { id: 2 }];
     store.splitWithDrop(1, "left", openTabs);
     expect(store.splitPaneTabIds).toEqual([1, 2]);
-    expect(store.isEmptyPaneId(store.splitPaneTabIds[1])).toBe(false);
+    expect(isEmptyPaneId(store.splitPaneTabIds[1])).toBe(false);
   });
 
   it("開いているタブが3つ以上ある時は自動で埋めず空きペインのままにする", () => {
     const openTabs = [{ id: 1 }, { id: 2 }, { id: 3 }];
     store.splitWithDrop(1, "left", openTabs);
     expect(store.splitPaneTabIds[0]).toBe(1);
-    expect(store.isEmptyPaneId(store.splitPaneTabIds[1])).toBe(true);
+    expect(isEmptyPaneId(store.splitPaneTabIds[1])).toBe(true);
   });
 });
 
@@ -141,7 +142,7 @@ describe("layout store: replaceTabWithEmpty（Remove from split ボタン）", (
 
     expect(store.isSplitMode).toBe(true);
     expect(store.splitPaneTabIds[0]).toBe(1);
-    expect(store.isEmptyPaneId(store.splitPaneTabIds[1])).toBe(true);
+    expect(isEmptyPaneId(store.splitPaneTabIds[1])).toBe(true);
   });
 
   it("実ペインが0件になったらスプリットを解除する", () => {
@@ -172,7 +173,7 @@ describe("layout store: addPane（空きペインの Add pane ボタン）", () 
     expect(store.splitPaneTabIds.length).toBe(3);
     expect(store.splitPaneTabIds[0]).toBe("A");
     expect(store.splitPaneTabIds[1]).toBe("B");
-    expect(store.isEmptyPaneId(store.splitPaneTabIds[2])).toBe(true);
+    expect(isEmptyPaneId(store.splitPaneTabIds[2])).toBe(true);
     expect(store.splitLayout).toBe("horizontal");
     expect(store.activePaneIndex).toBe(2);
   });

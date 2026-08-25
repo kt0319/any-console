@@ -1,5 +1,5 @@
 <template>
-  <div class="pair-screen">
+  <div class="pair-screen fullscreen-center">
     <div class="pair-box">
       <h2>any-console</h2>
       <div class="pair-claim-status" v-if="claiming">
@@ -65,17 +65,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.pair-screen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--app-dvh);
-  padding: 20px;
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: var(--bg-primary);
-}
 .pair-box {
   background: var(--bg-secondary);
   border: 1px solid var(--border);

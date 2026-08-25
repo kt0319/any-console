@@ -1,5 +1,5 @@
 <template>
-  <div class="git-stash-pane-wrapper">
+  <div class="git-stash-pane-wrapper pane-fill">
     <div class="modal-scroll-body" ref="stashListEl">
       <div v-if="isStashListLoading" class="text-muted-center">Loading...</div>
       <div v-else-if="stashEntries.length === 0" class="text-muted-center">No stash entries</div>
@@ -85,13 +85,6 @@ defineExpose({ load: loadStashList });
 </script>
 
 <style scoped>
-.git-stash-pane-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .stash-entry {
   display: flex;

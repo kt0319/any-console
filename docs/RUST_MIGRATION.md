@@ -160,6 +160,9 @@ workspace-order を移行済み。要点:
   部分救済）と .bak ローテーション・バージョンマイグレーションを同一挙動で
   再現。実機の相互書き込みテストで、Python 書き→Rust 書き→Python 書きの
   往復後に config.json が**バイト単位で安定**することを確認済み
+  （注: 移行完了後、Pydantic 互換のエミュレーション — lax な型変換と
+  デフォルト値の省略 — は撤去した。現行仕様は `config_schema.rs` の
+  モジュールコメントを参照）
 - subprocess 層に CPython の C ロケール強制（PEP 538 相当:
   `LC_CTYPE=C.UTF-8` 注入）を移植。これが無いと tmux が `-F` フォーマットの
   タブを `_` にサニタイズし、detached sessions 一覧が空になる（E2E で検出・

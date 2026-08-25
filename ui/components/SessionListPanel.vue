@@ -9,7 +9,7 @@
         @click="close"
       >&times;</button>
     </div>
-    <div class="settings-panel-body">
+    <div class="settings-panel-body pane-fill">
       <SessionListView />
     </div>
   </div>
@@ -49,11 +49,4 @@ const { close } = useSessionListOverlay();
 /* .modal-close-btn の見た目は ui/styles/modal-shell.css（グローバル）で
    他のオーバーレイと共用する。タイトルを出さないため左端に置く。 */
 
-.settings-panel-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 </style>

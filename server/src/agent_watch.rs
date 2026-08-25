@@ -21,17 +21,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use tokio::sync::Mutex as AsyncMutex;
-use tokio::task::JoinHandle;
 
 use crate::foreground::ForegroundInspector;
-use crate::job_match::JobPattern;
 use crate::screen_manifest::{
     Manifest, ManifestStore, ADOPTED_STATES, STATE_BLOCKED, STATE_IDLE, STATE_WORKING,
 };
 use crate::state::AppState;
-use crate::util::task_running;
 
 /// Python `common.py` の同名定数と同じ値。
 const AGENT_WATCH_POLL_INTERVAL_SEC: u64 = 2;
@@ -254,155 +251,6 @@ pub struct CollectedStates {
     pub blocked_notifications: Vec<(String, Option<String>)>,
 }
 
-/// セッションの (workspace, job_name) を返す。キャッシュ優先・tmux env で補完。
-async fn session_meta(state: &AppState, session_id: &str) -> (Option<String>, Option<String>) {
-    if let Some(cached) = state.terminal_registry.get(session_id).await {
-        let session = cached.lock().await;
-        return (session.workspace.clone(), session.job_name.clone());
-    }
-    let tmux_name = state.paths.tmux_session_name(session_id);
-    let meta = crate::tmux::load_tmux_metadata(&tmux_name).await;
-    (
-        meta.get("TMUX_WORKSPACE").cloned(),
-        meta.get("TMUX_JOB_NAME").cloned(),
-    )
-}
-
-/// cwd 照合で判明したワークスペースをセッションへ刻印する。
-///
-/// 復元時の自動判定（`tmux::detect_workspace_from_tmux`）と同じ紐付けをライブの
-/// セッションにも適用する。刻印されれば Git ピル・activity 帰属・ワークスペース
-/// ジョブの照合対象化が有効になる。
-async fn apply_workspace_tag(state: &AppState, session_id: &str, workspace: &str) {
-    if let Some(cached) = state.terminal_registry.get(session_id).await {
-        let mut session = cached.lock().await;
-        session.set_workspace(Some(workspace.to_string()));
-        session.save_workspace().await;
-    } else {
-        let tmux_name = state.paths.tmux_session_name(session_id);
-        crate::tmux::set_environment(&tmux_name, &[("TMUX_WORKSPACE", workspace)]).await;
-    }
-    tracing::info!("auto-bound workspace session={session_id} workspace={workspace}");
-    crate::session_watch::notify_session_workspace_bound(state, session_id, workspace);
-}
-
-/// 未紐付けセッションを cwd の最長前方一致で自動紐付けする（ADR 32）。
-///
-/// 既に紐付いているセッションはそのまま返す（上書きしない）。
-async fn resolve_workspace(
-    state: &AppState,
-    session_id: &str,
-    workspace: Option<String>,
-    pane_path: &str,
-) -> Option<String> {
-    if workspace.is_some() || pane_path.is_empty() {
-        return workspace;
-    }
-    let matched = crate::git_utils::match_workspace_with_worktree(&state.config, pane_path).await;
-    if let Some(ws) = &matched {
-        apply_workspace_tag(state, session_id, ws).await;
-    }
-    matched
-}
-
-/// 一致したジョブのメタデータをセッションへ刻印する。
-///
-/// 刻印されれば notify_phrase・アイコン表示など既存のジョブ機構が次のポーリング
-/// 以降そのまま有効になる。`jobs` は照合に使った候補ジョブ（label/icon 引き当て用）。
-async fn apply_job_tag(
-    state: &AppState,
-    session_id: &str,
-    pattern: &JobPattern,
-    jobs: &Map<String, Value>,
-) {
-    let entry = jobs.get(&pattern.name);
-    let label = entry
-        .and_then(|e| e.get("label"))
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(&pattern.name)
-        .to_string();
-    let icon = entry
-        .and_then(|e| e.get("icon"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let icon_color = entry
-        .and_then(|e| e.get("icon_color"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-
-    // 素のターミナル起動時にクライアントが送る仮アイコン（ui/composables/
-    // useTerminalLifecycle.ts の `jobName ? ... : "mdi-console"` と同じ値）。
-    // 「未設定」と区別が付かないため、この値の時もジョブのアイコンで
-    // 上書きしてよい（そうしないと素のターミナルが常にこの仮アイコンのまま
-    // 固定され、動的検出されたジョブのアイコンが一切反映されなかった）。
-    const BARE_TERMINAL_ICON: &str = "mdi-console";
-
-    if let Some(cached) = state.terminal_registry.get(session_id).await {
-        let mut session = cached.lock().await;
-        session.job_name = Some(pattern.name.clone());
-        session.job_label = Some(label.clone());
-        let has_custom_icon = !matches!(
-            session.icon.as_deref(),
-            None | Some("") | Some(BARE_TERMINAL_ICON)
-        );
-        if !has_custom_icon && !icon.is_empty() {
-            session.icon = Some(icon.to_string());
-            session.icon_color = Some(icon_color.to_string());
-        }
-        session.save_metadata().await;
-    } else {
-        let tmux_name = state.paths.tmux_session_name(session_id);
-        crate::tmux::set_environment(
-            &tmux_name,
-            &[
-                ("TMUX_JOB_NAME", pattern.name.as_str()),
-                ("TMUX_JOB_LABEL", label.as_str()),
-            ],
-        )
-        .await;
-    }
-    tracing::info!("auto-tagged job session={session_id} job={}", pattern.name);
-    crate::session_watch::notify_session_job_bound(
-        state,
-        session_id,
-        &pattern.name,
-        &label,
-        icon,
-        icon_color,
-    );
-}
-
-/// 未タグのセッションで前面ジョブがジョブ定義と一致したらタグ付けする。
-///
-/// 既にジョブタグのあるセッション（明示起動・過去の自動タグとも）は上書きしない。
-/// 照合は完全一致のみ（`job_match.rs`）。
-async fn maybe_autotag_job(
-    state: &AppState,
-    session_id: &str,
-    workspace: Option<&str>,
-    job_name: Option<&str>,
-    pane_pid: i64,
-    argvs: Option<Vec<Vec<String>>>,
-    inspector: &mut ForegroundInspector,
-) {
-    if job_name.is_some() || pane_pid <= 0 {
-        return;
-    }
-    let argvs = match argvs {
-        Some(a) => a,
-        None => inspector.argvs(pane_pid as i32).await,
-    };
-    if argvs.is_empty() {
-        return;
-    }
-    let jobs = crate::job_match::candidate_jobs(state, workspace);
-    let patterns = crate::job_match::build_job_patterns(&jobs);
-    if let Some(pattern) = crate::job_match::match_job(&argvs, &patterns) {
-        apply_job_tag(state, session_id, pattern, &jobs).await;
-    }
-}
-
 /// エージェント特定。プロセス名で当たらなければ前面ジョブの argv で再照合する。
 ///
 /// 戻り値の argvs はラッパー照合のために取得した場合のみ非 None
@@ -489,12 +337,14 @@ pub async fn collect_agent_states(
         let Some(capture) = crate::tmux::capture_visible_pane(&tmux_name).await else {
             continue;
         };
-        let (workspace, job_name) = session_meta(state, session_id).await;
+        let (workspace, job_name) = crate::session_autotag::session_meta(state, session_id).await;
         let (pane_command, pane_title, pane_pid, pane_path, pane_size) = pane_meta
             .get(&tmux_name)
             .cloned()
             .unwrap_or_else(|| (String::new(), String::new(), 0, String::new(), (0, 0)));
-        let workspace = resolve_workspace(state, session_id, workspace, &pane_path).await;
+        let workspace =
+            crate::session_autotag::resolve_workspace(state, session_id, workspace, &pane_path)
+                .await;
         let notify_phrase = job_notify_phrase(state, workspace.as_deref(), job_name.as_deref());
         let prev_capture = last_capture.get(session_id).cloned();
 
@@ -536,7 +386,7 @@ pub async fn collect_agent_states(
         states.insert(session_id.clone(), new_state);
         state_sources.insert(session_id.clone(), source.as_str().to_string());
 
-        maybe_autotag_job(
+        crate::session_autotag::maybe_autotag_job(
             state,
             session_id,
             workspace.as_deref(),
@@ -589,7 +439,7 @@ pub async fn collect_agent_states(
 
 /// agent_watch の常駐ポーリングタスクとポーリング間で持ち越す状態を保持する。
 pub struct AgentWatchState {
-    poll_task: std::sync::Mutex<Option<JoinHandle<()>>>,
+    poll_task: crate::util::SupervisedTask,
     last_capture: AsyncMutex<HashMap<String, String>>,
     /// リサイズ検知用の前回ペインサイズ（`collect_agent_states` 参照）。
     last_pane_size: AsyncMutex<HashMap<String, (i64, i64)>>,
@@ -605,7 +455,7 @@ pub struct AgentWatchState {
 impl AgentWatchState {
     pub fn new() -> Self {
         Self {
-            poll_task: std::sync::Mutex::new(None),
+            poll_task: crate::util::SupervisedTask::new(),
             last_capture: AsyncMutex::new(HashMap::new()),
             last_pane_size: AsyncMutex::new(HashMap::new()),
             tracker: AsyncMutex::new(PhraseNotifyTracker::new()),
@@ -630,14 +480,10 @@ fn has_push_subscriptions(state: &AppState) -> bool {
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。ポーリングタスクが
 /// 動いていなければ起動する（Python `ensure_phrase_task` 相当）。
 pub fn ensure_tasks(state: &Arc<AppState>) {
-    let mut task = state
+    state
         .agent_watch
         .poll_task
-        .lock()
-        .expect("agent_watch state poisoned");
-    if !task_running(&task) {
-        *task = Some(tokio::spawn(poll_loop(state.clone())));
-    }
+        .ensure(|| tokio::spawn(poll_loop(state.clone())));
 }
 
 /// 購読解除時に呼ぶ。全体の購読者（`StatusStreamState`）・push subscription が
@@ -646,15 +492,7 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     if state.status_stream.subscriber_count() > 0 || has_push_subscriptions(state) {
         return;
     }
-    if let Some(h) = state
-        .agent_watch
-        .poll_task
-        .lock()
-        .expect("agent_watch state poisoned")
-        .take()
-    {
-        h.abort();
-    }
+    state.agent_watch.poll_task.stop();
     // Python `_stop_task` と同じく、タスク停止時にポーリング間の持ち越し状態も
     // 破棄する（次回起動時はまっさらな状態から再構築する）。
     let state = state.clone();
@@ -686,10 +524,7 @@ async fn poll_loop(state: Arc<AppState>) {
         if state.status_stream.subscriber_count() == 0 && !has_push_subscriptions(&state) {
             return;
         }
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
+        let now = crate::util::now_epoch_f64();
         let mut last_states = state.agent_watch.last_states.lock().await;
         let mut last_state_sources = state.agent_watch.last_state_sources.lock().await;
         let collected = {
@@ -1076,20 +911,12 @@ mod collect_agent_states_tests {
         job_name: Option<&str>,
     ) -> String {
         let (session_id, _) = state
-            .terminal_registry
-            .create_registered_session(
-                &state.paths.data_dir,
-                &state.config,
-                &state.paths.project_root,
-                &state.paths.tmux_prefix,
-                workspace_path,
-                workspace.map(str::to_string),
-                None,
-                None,
-                job_name.map(str::to_string),
-                None,
-                false,
-            )
+            .create_terminal_session(crate::terminal_session::NewSessionSpec {
+                workspace_path: workspace_path.map(str::to_string),
+                workspace: workspace.map(str::to_string),
+                job_name: job_name.map(str::to_string),
+                ..Default::default()
+            })
             .await
             .expect("session should be created");
         let tmux_name = state.paths.tmux_session_name(&session_id);

@@ -27,7 +27,7 @@
         >
           <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
           <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
-          <span class="empty-pane-row-name">{{ tab.workspace || tab.label || 'terminal' }}</span>
+          <span class="empty-pane-row-name text-ellipsis-flex">{{ tab.workspace || tab.label || 'terminal' }}</span>
         </li>
       </ul>
       <div class="empty-pane-actions">
@@ -207,13 +207,6 @@ function onRemovePane() {
   transform: scale(0.98);
 }
 
-.empty-pane-row-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .empty-pane-actions {
   display: flex;

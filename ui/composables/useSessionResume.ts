@@ -1,6 +1,7 @@
 import type { Ref } from "vue";
 import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 import { useTerminal } from "./useTerminal.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { SESSION_RESUME_COALESCE_MS } from "../utils/constants.ts";
@@ -40,7 +41,7 @@ export function useSessionResume({ terminalBaseView }: { terminalBaseView: Ref<T
       }
       tab._pendingRedraw = true;
       tab._reconnectAttempts = 0;
-      terminalStore.clearAgentState(tab.sessionId);
+      useAgentStateStore().clearAgentState(tab.sessionId);
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
       terminalStore.setTabFlag(tab.id, "reconnectReason", "resume");
     }

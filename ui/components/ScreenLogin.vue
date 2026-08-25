@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="login-screen">
+  <div v-if="visible" class="login-screen fullscreen-center">
     <form class="login-box" @submit.prevent="handleLogin">
       <h2>any-console</h2>
       <input
@@ -209,17 +209,6 @@ defineExpose({ show, hide, visible });
 </script>
 
 <style scoped>
-.login-screen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--app-dvh);
-  padding: 20px;
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: var(--bg-primary);
-}
 .login-box {
   background: var(--bg-secondary);
   border: 1px solid var(--border);

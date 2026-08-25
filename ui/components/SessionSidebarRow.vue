@@ -75,9 +75,8 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
-import { usePillPeek } from "../composables/usePillPeek.ts";
-import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
+import { usePeekPills } from "../composables/usePeekPills.ts";
+import { useElementMaxWidth } from "../composables/useElementWidth.ts";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 
 // SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態
@@ -94,7 +93,6 @@ const props = defineProps({
 
 const emits = defineEmits(["select", "pillOpen", "closeTab"]);
 
-const infoPillConfig = useInfoPillConfigStore();
 
 const rowStateClasses = computed(() => ({
   active: props.active,
@@ -106,24 +104,7 @@ const rowStateClasses = computed(() => ({
 // TerminalPane.vue（trailingMaxWidth）と同じ考え方: 閉じるボタン＋余白ぶんを
 // 差し引いた残りをpeekピル/InfoPillRowの上限幅にする。
 const pillsRowEl = ref<HTMLElement | null>(null);
-const pillsRowWidth = ref(0);
-const pillsMaxWidth = computed(() => Math.max(0, pillsRowWidth.value - SIDEBAR_PILL_ROW_RESERVED_PX));
-let roPillsRow: ResizeObserver | null = null;
-watch(pillsRowEl, (el) => {
-  roPillsRow?.disconnect();
-  roPillsRow = null;
-  if (!el) return;
-  roPillsRow = new ResizeObserver((entries) => {
-    for (const e of entries) pillsRowWidth.value = e.contentRect.width;
-  });
-  roPillsRow.observe(el);
-});
-// template refのwatchはアンマウント時には再発火しない（scope停止が先）ため、
-// TerminalPane.vueのroPaneと同様に明示的に解放する。
-onBeforeUnmount(() => {
-  roPillsRow?.disconnect();
-  roPillsRow = null;
-});
+const { maxWidth: pillsMaxWidth } = useElementMaxWidth(pillsRowEl, SIDEBAR_PILL_ROW_RESERVED_PX);
 
 const peekFields = computed(() => ({
   workspaceLabel: props.item.tab.workspace || props.item.tab.label || "",
@@ -145,11 +126,10 @@ const peekFields = computed(() => ({
   dispatchTooltip: props.item.tooltips?.dispatch,
 }));
 
-const trailingPeekItems = computed(() => buildTrailingPeekItems(peekFields.value, infoPillConfig as unknown as Record<string, boolean>));
-
-// peekピル表示用の派生値（アイコン・色・テキスト・シグネチャ）も
-// usePillPeekが返す（TerminalPaneと共用）。
+// trailingPeekItems の組み立てと peek 派生値の算出は usePeekPills に集約
+//（TerminalPane と共用）。
 const {
+  trailingPeekItems,
   peekingKey,
   peekDurationMs,
   branchPushCount,
@@ -160,8 +140,8 @@ const {
   peekSignature,
   peekActionName,
   peekActionStatusText,
-} = usePillPeek({
-  trailingPeekItems,
+} = usePeekPills({
+  peekFields,
   // TerminalPane.vueのpaneWorkspace（tab.workspaceがあっても
   // workspaceStore側で未解決ならundefined）と同じ形にする。usePillPeekは
   // これの有無・last_commit_messageの有無で初回誤検知を防いでいる。
@@ -176,7 +156,6 @@ const {
   devServerEntry: computed(() => props.item.devServerEntry),
   ahead: computed(() => props.item.ahead),
   behind: computed(() => props.item.behind),
-  peekFields,
 });
 
 function onPeekClick() {

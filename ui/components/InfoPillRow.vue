@@ -114,7 +114,7 @@ import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { peekIconForKey } from "../utils/info-pills.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
-import { useTerminalStore } from "../stores/terminal.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 
 // ターミナルペイン右上のアイコンピル群（Info Pills）。表示条件・並び順は
 // 設定（infoPillConfig）と親から渡される現在値に従う。ピルのキーごとの
@@ -142,9 +142,9 @@ const props = defineProps({
 const emits = defineEmits(["open"]);
 
 const infoPillConfig = useInfoPillConfigStore();
-const terminalStore = useTerminalStore();
+const agentStateStore = useAgentStateStore();
 
-const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
+const agentState = computed(() => agentStateStore.agentStates[props.tab.sessionId] || "");
 // 新規出力通知(tab-activity)・エージェント実行中(pill-working)・承認待ち
 // (pill-blocked)のアニメーションは特定のピルに限らず、全ピル共通の見た目にする。
 const pillActivityClass = computed(() => ({

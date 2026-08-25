@@ -188,3 +188,31 @@ export function dirtyBadgeHtml(ws: { changed_files?: number, insertions?: number
   const filePart = files > 0 ? `<span class="header-git-files">${files}F</span> ` : "";
   return `${filePart}<span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
 }
+
+/// コミットハッシュの短縮表示（git の慣例に合わせ 7 桁）。
+export function shortHash(hash: string): string {
+  return hash.slice(0, 7);
+}
+
+// ファイル履歴1行分（parseFileLog が組み立てる表示用エントリ）。
+export type FileLogEntry = { hash: string, time: string, author: string, message: string };
+
+/// `git log --format=%H%x09...%x09%s` のタブ区切り出力をパースする
+/// （FileHistoryPane.vue から使用。メッセージ中のタブは保持する）。
+export function parseFileLog(stdout: string): FileLogEntry[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("\t");
+      const [hash = "", time = "", author = "", ...messageParts] = parts;
+      return {
+        hash,
+        time,
+        author,
+        message: messageParts.join("\t"),
+      };
+    })
+    .filter((e) => e.hash);
+}

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use futures_util::future::join_all;
@@ -397,14 +397,11 @@ pub struct WsQuery {
 pub async fn terminal_ws(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     QueryParams(query): QueryParams<WsQuery>,
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let Some(auth) =
-        crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers)
-    else {
+    let Some(auth) = crate::auth::verify_ws_token(&state, &query.token, &headers) else {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
     };
     let device_id = auth.device_id().map(str::to_string);
@@ -444,7 +441,6 @@ async fn ensure_tmux_session(
     match tmux::create_tmux_session(
         &state.paths.data_dir,
         &state.config,
-        &state.paths.project_root,
         workspace_path.as_deref(),
         &full_name,
     )

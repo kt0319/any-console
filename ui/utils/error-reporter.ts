@@ -1,7 +1,6 @@
 import type { App } from "vue";
 import { EP_CLIENT_ERRORS } from "./endpoints.ts";
-
-const DEDUP_WINDOW_MS = 5000;
+import { ERROR_DEDUP_WINDOW_MS } from "./constants.ts";
 const MAX_QUEUE_DURING_OUTAGE = 20;
 
 type ErrorReport = ReturnType<typeof buildReport>;
@@ -11,7 +10,7 @@ const recent = new Map<string, number>();
 let posting = false;
 const pending: ErrorReport[] = [];
 
-export function pruneRecent(map: Map<string, number>, now: number, windowMs = DEDUP_WINDOW_MS) {
+export function pruneRecent(map: Map<string, number>, now: number, windowMs = ERROR_DEDUP_WINDOW_MS) {
   for (const [key, ts] of map) {
     if (now - ts > windowMs) map.delete(key);
   }

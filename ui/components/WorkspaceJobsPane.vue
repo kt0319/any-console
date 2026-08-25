@@ -1,5 +1,5 @@
 <template>
-  <div class="jobs-pane-wrapper">
+  <div class="jobs-pane-wrapper pane-fill">
     <div class="modal-scroll-body">
       <div class="job-item-row hover-bg">
         <button type="button" class="job-item" @click="openTerminal">
@@ -7,38 +7,25 @@
           <span class="job-item-label">Terminal</span>
         </button>
       </div>
-      <div
-        v-for="job in commonJobs"
-        :key="'c-' + job.name"
-        class="job-item-row hover-bg"
-        :class="{ 'job-item-detached': job.detached }"
-      >
-        <button type="button" class="job-item" @click="runJob(job)">
-          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-          <span class="job-item-label">{{ job.label || job.name }}</span>
-        </button>
-        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
-          <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
-        </button>
-      </div>
-
-      <div v-if="localJobs.length" class="job-section-header job-section-subheader">
-        <span>Workspace jobs</span>
-      </div>
-      <div
-        v-for="job in localJobs"
-        :key="'l-' + job.name"
-        class="job-item-row hover-bg"
-        :class="{ 'job-item-detached': job.detached }"
-      >
-        <button type="button" class="job-item" @click="runJob(job)">
-          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-          <span class="job-item-label">{{ job.label || job.name }}</span>
-        </button>
-        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
-          <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
-        </button>
-      </div>
+      <template v-for="section in jobSections" :key="section.keyPrefix">
+        <div v-if="section.header && section.jobs.length" class="job-section-header job-section-subheader">
+          <span>{{ section.header }}</span>
+        </div>
+        <div
+          v-for="job in section.jobs"
+          :key="section.keyPrefix + job.name"
+          class="job-item-row hover-bg"
+          :class="{ 'job-item-detached': job.detached }"
+        >
+          <button type="button" class="job-item" @click="runJob(job)">
+            <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+            <span class="job-item-label">{{ job.label || job.name }}</span>
+          </button>
+          <button v-if="props.editMode" type="button" class="job-item-edit-btn" data-tooltip="Edit" aria-label="Edit" @click.stop="startEditJob(job, section.isCommon)">
+            <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
+          </button>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -89,6 +76,13 @@ const { confirm } = useConfirm();
 
 const commonJobs = ref<Job[]>([]);
 const localJobs = ref<Job[]>([]);
+
+// 共通ジョブ → ワークスペースジョブの順に同一マークアップで描画する
+//（編集時の isCommon と「Workspace jobs」小見出しだけが異なる）。
+const jobSections = computed(() => [
+  { keyPrefix: "c-", jobs: commonJobs.value, isCommon: true, header: "" },
+  { keyPrefix: "l-", jobs: localJobs.value, isCommon: false, header: "Workspace jobs" },
+]);
 
 const workspace = computed(() => props.workspace || workspaceStore.selectedWorkspace);
 const ws = computed(() =>
@@ -187,13 +181,6 @@ defineExpose({ load });
 </script>
 
 <style scoped>
-.jobs-pane-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .job-item-row {
   box-sizing: border-box;
@@ -261,22 +248,6 @@ defineExpose({ load });
   font-size: 10px;
   color: var(--text-muted);
   background: transparent;
-}
-
-.job-section-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
 }
 
 .job-item-edit-btn {

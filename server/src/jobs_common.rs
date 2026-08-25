@@ -83,47 +83,16 @@ pub fn validate_icon_color(color: &str) -> Result<String, ApiError> {
 // Python 側と同じ TTL。移行期間中、Rust の書き込みは Python 側キャッシュを即時
 // 無効化できないが、TTL 以内に必ず再読込されるため staleness の上限は従来と同じ。
 
-pub struct JobsCache(crate::util::TtlCache<Map<String, Value>>);
-
-impl Default for JobsCache {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl JobsCache {
-    pub fn new() -> Self {
-        Self(crate::util::TtlCache::new(Duration::from_secs(
-            WORKSPACE_JOBS_CACHE_TTL_SEC,
-        )))
-    }
-
-    fn get(&self, key: &str) -> Option<Map<String, Value>> {
-        self.0.get(key)
-    }
-
-    fn set(&self, key: &str, value: Map<String, Value>) {
-        self.0.set(key, value);
-    }
-
-    fn invalidate(&self, key: &str) {
-        self.0.invalidate(key);
-    }
-
-    fn invalidate_all(&self) {
-        self.0.invalidate_all();
-    }
-}
-
-fn section_as_map(v: Option<Value>) -> Map<String, Value> {
-    v.and_then(|x| x.as_object().cloned()).unwrap_or_default()
+/// ジョブ定義のワークスペース単位 TTL キャッシュを生成する（AppState.jobs_cache）。
+pub fn new_jobs_cache() -> crate::util::TtlCache<Map<String, Value>> {
+    crate::util::TtlCache::new(Duration::from_secs(WORKSPACE_JOBS_CACHE_TTL_SEC))
 }
 
 pub fn load_common_jobs_data(state: &AppState) -> Map<String, Value> {
     if let Some(cached) = state.jobs_cache.get(COMMON_JOBS_CACHE_KEY) {
         return cached;
     }
-    let data = section_as_map(state.config.load_global_section("jobs"));
+    let data = crate::json_store::section_as_map(state.config.load_global_section("jobs"));
     state.jobs_cache.set(COMMON_JOBS_CACHE_KEY, data.clone());
     data
 }
@@ -145,7 +114,7 @@ pub fn save_common_jobs_data(state: &AppState, data: Map<String, Value>) -> Resu
 /// の中で毎回読み直す設計にしている）。
 pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), ApiError> {
     state.config.with_exclusive(|all| {
-        let mut jobs = section_as_map(
+        let mut jobs = crate::json_store::section_as_map(
             all.get(crate::config::GLOBAL_CONFIG_KEY)
                 .and_then(Value::as_object)
                 .and_then(|g| g.get("jobs"))
@@ -155,7 +124,7 @@ pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), A
         ConfigStore::merge_global_section(all, "jobs", Value::Object(jobs));
         Ok(())
     })?;
-    state.jobs_cache.invalidate(COMMON_JOBS_CACHE_KEY);
+    // 共通ジョブは各ワークスペースのマージ結果にも効くため全キー無効化する
     state.jobs_cache.invalidate_all();
     Ok(())
 }
@@ -242,7 +211,8 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
         "detached": b("detached", false),
         // v4 リネーム（detached_tab → detached）の過渡期対応: 開いたままの
         // 旧 SPA バンドルは detached_tab しか読まないため、同値のミラーを
-        // 併載する。旧バンドルが淘汰されたら削除してよい。
+        // 併載する。旧バンドルが確実に淘汰されるまで削除しない（Codex レビュー
+        // 指摘: サーバだけ先に上がるローリング更新中の旧クライアント互換）。
         "detached_tab": b("detached", false),
         "notify_phrase": s("notify_phrase", ""),
     });
@@ -304,7 +274,7 @@ pub struct JobRequest {
     pub confirm: bool,
     /// alias は v4 リネーム（detached_tab → detached）の過渡期対応: バックエンド
     /// 更新時に開いたままの旧 SPA バンドルが送る `detached_tab` を受理する。
-    /// 旧バンドルが淘汰されたら alias は削除してよい。
+    /// 旧バンドルが確実に淘汰されるまで削除しない。
     #[serde(default, alias = "detached_tab")]
     pub detached: bool,
     #[serde(default)]

@@ -24,7 +24,7 @@
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{Path, State};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -101,20 +101,20 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
 
 async fn persist_pending(state: &Arc<AppState>) {
     let pending = state.dispatch.pending.lock().await.clone();
-    if let Err(e) =
-        crate::json_store::save_json_file(&queue_file(&state.paths), &json!({"items": pending}))
-    {
-        tracing::warn!("dispatch queue persist failed: {e}");
-    }
+    crate::json_store::save_or_warn(
+        &queue_file(&state.paths),
+        &json!({"items": pending}),
+        "dispatch queue",
+    );
 }
 
 async fn persist_recent(state: &Arc<AppState>) {
     let recent = state.dispatch.recent.lock().await.clone();
-    if let Err(e) =
-        crate::json_store::save_json_file(&recent_file(&state.paths), &json!({"items": recent}))
-    {
-        tracing::warn!("dispatch recent persist failed: {e}");
-    }
+    crate::json_store::save_or_warn(
+        &recent_file(&state.paths),
+        &json!({"items": recent}),
+        "dispatch recent",
+    );
 }
 
 async fn queue_payload(state: &Arc<AppState>) -> Value {
@@ -138,6 +138,23 @@ async fn broadcast_queue(state: &Arc<AppState>) {
 /// スナップショットは冪等なので、既存購読者への再送は無害）。
 pub async fn broadcast_current_queue(state: &Arc<AppState>) {
     broadcast_queue(state).await;
+}
+
+/// pending の永続化と status stream への全量配信の定型ペア（決定・失敗・
+/// 受付のたびに必ずセットで呼ぶ）。
+async fn persist_and_broadcast(state: &Arc<AppState>) {
+    persist_pending(state).await;
+    broadcast_queue(state).await;
+}
+
+/// dispatch 起動失敗時の activity 記録（pending 実行・履歴からの再送で共用）。
+fn log_dispatch_failed(state: &AppState, workspace: &str, detail: &str) {
+    crate::activity::log_activity(
+        &state.paths.data_dir,
+        Some(workspace),
+        "dispatch_failed",
+        crate::git_helpers::activity_fields(&[("detail", json!(detail))]),
+    );
 }
 
 async fn record_recent(
@@ -447,20 +464,15 @@ async fn create_session(
     job_def: &JobDef,
 ) -> Result<(String, Arc<Mutex<TerminalSession>>), ApiError> {
     let (session_id, session_arc) = state
-        .terminal_registry
-        .create_registered_session(
-            &state.paths.data_dir,
-            &state.config,
-            &state.paths.project_root,
-            &state.paths.tmux_prefix,
-            ws_path.map(|p| p.to_string_lossy()).as_deref(),
-            Some(workspace.to_string()),
-            Some(job_def.icon.clone()),
-            Some(job_def.icon_color.clone()),
-            (job != TERMINAL_JOB_KEY).then(|| job.to_string()),
-            Some(job_def.label.clone()),
-            true,
-        )
+        .create_terminal_session(crate::terminal_session::NewSessionSpec {
+            workspace_path: ws_path.map(|p| p.to_string_lossy().into_owned()),
+            workspace: Some(workspace.to_string()),
+            icon: Some(job_def.icon.clone()),
+            icon_color: Some(job_def.icon_color.clone()),
+            job_name: (job != TERMINAL_JOB_KEY).then(|| job.to_string()),
+            job_label: Some(job_def.label.clone()),
+            interactive: true,
+        })
         .await?;
     crate::session_watch::notify_session_created(state, &session_id);
     tracing::info!("dispatch session created session={session_id} workspace={workspace} job={job}");
@@ -672,14 +684,10 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
 async fn verify_dispatch_auth(
     state: &Arc<AppState>,
     bearer: &str,
-    client_ip: &str,
     headers: &http::HeaderMap,
 ) -> Result<(String, bool), ApiError> {
     let cookies = parse_cookies(headers);
-    if let Some(result) = state
-        .auth
-        .authenticate(bearer, client_ip, Some(headers), Some(&cookies))
-    {
+    if let Some(result) = state.auth.authenticate(bearer, Some(&cookies)) {
         return Ok(match result.kind {
             AuthKind::Disabled => ("disabled".to_string(), false),
             AuthKind::Main => ("main".to_string(), false),
@@ -697,25 +705,18 @@ async fn verify_dispatch_auth(
 }
 
 fn bearer_from_headers(headers: &http::HeaderMap) -> String {
-    headers
-        .get(http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .map(crate::auth::extract_bearer_token)
-        .unwrap_or("")
-        .to_string()
+    crate::auth::bearer_from_headers(headers).to_string()
 }
 
 // ─── ルート ─────────────────────────────────────────────────────────────────
 
 pub async fn dispatch(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     headers: http::HeaderMap,
     JsonBody(body): JsonBody<DispatchRequest>,
 ) -> Result<axum::response::Response, ApiError> {
     let bearer = bearer_from_headers(&headers);
-    let (auth_label, is_scoped_token) =
-        verify_dispatch_auth(&state, &bearer, &addr.ip().to_string(), &headers).await?;
+    let (auth_label, is_scoped_token) = verify_dispatch_auth(&state, &bearer, &headers).await?;
     dispatch_core(&state, body, &auth_label, is_scoped_token).await
 }
 
@@ -727,14 +728,12 @@ fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
         &state.paths.data_dir,
         result["workspace"].as_str(),
         "dispatch_executed",
-        [
-            ("job".to_string(), result["job"].clone()),
-            ("session_id".to_string(), result["session_id"].clone()),
-            ("created".to_string(), result["created"].clone()),
-            ("auth".to_string(), json!(auth_label)),
-        ]
-        .into_iter()
-        .collect(),
+        crate::git_helpers::activity_fields(&[
+            ("job", result["job"].clone()),
+            ("session_id", result["session_id"].clone()),
+            ("created", result["created"].clone()),
+            ("auth", json!(auth_label)),
+        ]),
     );
 }
 
@@ -813,17 +812,14 @@ async fn dispatch_core(
         } else {
             "dispatch_pending"
         },
-        [
-            ("job".to_string(), json!(body.job)),
-            ("text".to_string(), json!(body.text)),
-            ("auth".to_string(), json!(auth_label)),
-        ]
-        .into_iter()
-        .collect(),
+        crate::git_helpers::activity_fields(&[
+            ("job", json!(body.job)),
+            ("text", json!(body.text)),
+            ("auth", json!(auth_label)),
+        ]),
     );
 
-    persist_pending(state).await;
-    broadcast_queue(state).await;
+    persist_and_broadcast(state).await;
 
     Ok((
         axum::http::StatusCode::ACCEPTED,
@@ -868,8 +864,7 @@ pub async fn dispatch_execute(
                 Map::new(),
             );
             record_recent(&state, &dispatch_id, payload, "discarded").await;
-            persist_pending(&state).await;
-            broadcast_queue(&state).await;
+            persist_and_broadcast(&state).await;
             return Ok(Json(json!({"status": "ok"})).into_response());
         }
 
@@ -880,14 +875,7 @@ pub async fn dispatch_execute(
         let result = match launch(&state, &dispatch_body).await {
             Ok(r) => r,
             Err(e) => {
-                crate::activity::log_activity(
-                    &state.paths.data_dir,
-                    Some(&dispatch_body.workspace),
-                    "dispatch_failed",
-                    [("detail".to_string(), json!(e.detail))]
-                        .into_iter()
-                        .collect(),
-                );
+                log_dispatch_failed(&state, &dispatch_body.workspace, &e.detail);
                 // 失敗した項目はキューに残し、値を修正して再度executed/discardを
                 // やり直せるようにする（Python 版と同じ挙動）。上でクレーム済み
                 // のため戻す。
@@ -897,8 +885,7 @@ pub async fn dispatch_execute(
                     .lock()
                     .await
                     .insert(dispatch_id.clone(), payload);
-                persist_pending(&state).await;
-                broadcast_queue(&state).await;
+                persist_and_broadcast(&state).await;
                 return Err(e);
             }
         };
@@ -918,8 +905,7 @@ pub async fn dispatch_execute(
             }
         }
         record_recent(&state, &dispatch_id, executed_payload, "executed").await;
-        persist_pending(&state).await;
-        broadcast_queue(&state).await;
+        persist_and_broadcast(&state).await;
         return Ok(Json(result).into_response());
     }
 
@@ -952,14 +938,7 @@ pub async fn dispatch_execute(
     let result = match launch(&state, &req).await {
         Ok(r) => r,
         Err(e) => {
-            crate::activity::log_activity(
-                &state.paths.data_dir,
-                Some(&req.workspace),
-                "dispatch_failed",
-                [("detail".to_string(), json!(e.detail))]
-                    .into_iter()
-                    .collect(),
-            );
+            log_dispatch_failed(&state, &req.workspace, &e.detail);
             return Err(e);
         }
     };

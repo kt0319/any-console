@@ -1,4 +1,25 @@
-import { inject, type ComputedRef, type Ref } from "vue";
+import { inject, provide, type ComputedRef, type Ref } from "vue";
+
+/**
+ * モーダルホスト（SessionOpenModal / TerminalSettingsModal /
+ * WorkspaceDetailModal）が子ビューへ提供する6キーの provide 定型。
+ * useModalView() の inject キーと1対1で対応する。
+ */
+export function provideModalView(nav: {
+  modalTitle: Ref<string>,
+  modalBranch: Ref<string>,
+  viewState: ComputedRef<Record<string, any>>,
+  pushView: (view: string, state?: Record<string, any>) => void,
+  popView: (result?: any) => void,
+  updateViewState: (state: Record<string, any>) => void,
+}) {
+  provide("modalTitle", nav.modalTitle);
+  provide("modalBranch", nav.modalBranch);
+  provide("viewState", nav.viewState);
+  provide("pushView", nav.pushView);
+  provide("popView", nav.popView);
+  provide("updateViewState", nav.updateViewState);
+}
 
 // provide側（SessionOpenModal.vue / TerminalSettingsModal.vue / WorkspaceDetailModal.vue）
 // は全キーを提供する。

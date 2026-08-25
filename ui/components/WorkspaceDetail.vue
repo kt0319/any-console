@@ -17,8 +17,8 @@
     </div>
 
     <!-- タブコンテンツ -->
-    <div class="workspace-tab-content">
-      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
+    <div class="workspace-tab-content pane-fill">
+      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane pane-fill">
         <div v-show="!isViewingCommitFiles" class="git-history-branch-branches">
           <div class="branch-summary-body" :class="{ 'branch-summary-body-expanded': branchSectionExpanded }">
             <GitChangeBranch ref="gitBranch" :expanded="branchSectionExpanded" @toggle="toggleBranchSection" />
@@ -30,7 +30,7 @@
           @commit:collapsed="onCommitCollapsed"
         />
       </div>
-      <div v-show="activePane === 'files'" class="file-modal-pane">
+      <div v-show="activePane === 'files'" class="file-modal-pane pane-fill">
         <FileBrowser
           ref="fileBrowser"
           :diffFile="selectedDiffFile"
@@ -42,7 +42,7 @@
           @state="onFileBrowserState"
         />
       </div>
-      <div v-if="activePane === 'changes'" class="file-modal-pane">
+      <div v-if="activePane === 'changes'" class="file-modal-pane pane-fill">
         <button
           v-if="stashCount"
           type="button"
@@ -54,7 +54,7 @@
           @click="toggleStashSection"
         >
           <span class="mdi mdi-package-variant" aria-hidden="true"></span>
-          <span class="stash-summary-toggle-label">Stash ({{ stashCount }})</span>
+          <span class="stash-summary-toggle-label text-ellipsis-flex">Stash ({{ stashCount }})</span>
           <span class="mdi" :class="stashSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
         </button>
         <div v-if="stashSectionExpanded" id="stash-summary-body" class="stash-summary-body">
@@ -62,19 +62,19 @@
         </div>
         <GitChanges ref="gitChanges" />
       </div>
-      <div v-if="activePane === 'jobs'" class="file-modal-pane">
+      <div v-if="activePane === 'jobs'" class="file-modal-pane pane-fill">
         <WorkspaceJobsPane ref="jobsPane" />
       </div>
-      <div v-if="activePane === 'issues'" class="file-modal-pane">
+      <div v-if="activePane === 'issues'" class="file-modal-pane pane-fill">
         <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
       </div>
-      <div v-if="activePane === 'actions'" class="file-modal-pane">
+      <div v-if="activePane === 'actions'" class="file-modal-pane pane-fill">
         <GitHubActionsPane ref="githubActions" />
       </div>
-      <div v-if="activePane === 'prs'" class="file-modal-pane">
+      <div v-if="activePane === 'prs'" class="file-modal-pane pane-fill">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
-      <div v-if="activePane === 'dispatch'" class="file-modal-pane">
+      <div v-if="activePane === 'dispatch'" class="file-modal-pane pane-fill">
         <DispatchRunView
           v-if="selectedDispatchId"
           :item-id="selectedDispatchId"
@@ -83,7 +83,7 @@
         />
         <DispatchWorkspacePane v-else @select="selectedDispatchId = $event" />
       </div>
-      <div v-show="activePane === 'select'" class="file-modal-pane">
+      <div v-show="activePane === 'select'" class="file-modal-pane pane-fill">
         <TerminalSelectPane ref="terminalSelectPane" />
       </div>
     </div>
@@ -113,6 +113,7 @@ import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
+import { useCollapsibleSection } from "../composables/useCollapsibleSection.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { workspaceDisplayName, baseWorkspaceName } from "../utils/worktree.ts";
@@ -168,11 +169,19 @@ function onDispatchRunDone() {
 const activePane = ref("jobs");
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
 // （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
-const branchSectionExpanded = ref(false);
+const {
+  expanded: branchSectionExpanded,
+  toggle: toggleBranchSection,
+  expand: expandBranchSection,
+} = useCollapsibleSection(loadBranchSection);
 // Changesタブに統合したStash一覧も同じパターンで既定は畳んだ状態にする
 // （旧: 独立した「Stashes」タブ。ChangesとStashは両方「今のワークツリーの
 // 未確定の変更」という同じ関心事なので1タブへ統合した）。
-const stashSectionExpanded = ref(false);
+const {
+  expanded: stashSectionExpanded,
+  toggle: toggleStashSection,
+  expand: expandStashSection,
+} = useCollapsibleSection(loadStashSection);
 // コミットのファイル一覧を見ている間はBranchヘッダーを隠し、履歴の
 // 表示領域を圧迫しないようにする（GitHistoryのcommit:expanded/collapsed）。
 const isViewingCommitFiles = ref(false);
@@ -255,35 +264,8 @@ function loadBranchSection() {
   });
 }
 
-function toggleBranchSection() {
-  branchSectionExpanded.value = !branchSectionExpanded.value;
-  if (branchSectionExpanded.value) loadBranchSection();
-}
-
-function expandBranchSection() {
-  if (!branchSectionExpanded.value) {
-    branchSectionExpanded.value = true;
-    loadBranchSection();
-  }
-}
-
 function loadStashSection() {
   nextTick(() => gitStash.value?.load());
-}
-
-function toggleStashSection() {
-  if (stashSectionExpanded.value) {
-    stashSectionExpanded.value = false;
-  } else {
-    expandStashSection();
-  }
-}
-
-function expandStashSection() {
-  if (!stashSectionExpanded.value) {
-    stashSectionExpanded.value = true;
-    loadStashSection();
-  }
 }
 
 function clearDiffSelection() {
@@ -357,20 +339,23 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
   }
 }
 
-async function switchPane(key: string, opts: { expandBranch?: boolean, expandStash?: boolean } = {}) {
-  // 後方互換: "github" → "issues"、"browser"/"branch" → "history"、"stash" → "changes"
-  // （Branch/StashはそれぞれHistory/Changesタブへ統合。一覧は通常畳んだ状態で
-  // 開始するが、branch/stashピル経由（opts.expandBranch/opts.expandStash）の
-  // 場合だけ展開する）
-  if (key === "github") key = "issues";
-  if (key === "browser" || key === "branch") key = "history";
-  if (key === "stash") key = "changes";
+type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
 
-  activePane.value = key;
-  updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
-  updateViewTitle();
+// 後方互換のペイン名: "github" → "issues"、"browser"/"branch" → "history"、
+// "stash" → "changes"（Branch/StashはそれぞれHistory/Changesタブへ統合）。
+const PANE_ALIASES: Record<string, string> = {
+  github: "issues",
+  browser: "history",
+  branch: "history",
+  stash: "changes",
+};
 
-  if (key === "history") {
+// ペイン切替時の初期化処理（issues/actions/prs は v-if + onMounted で
+// 自動ロードするためエントリ無し）。タブを追加する時は tabs のエントリと
+// あわせてここへ足す。opts はピル経由の展開指定（一覧は通常畳んだ状態で
+// 開始するが、branch/stashピル経由の場合だけ展開する）。
+const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
+  history: (opts) => {
     nextTick(() => {
       // commit:expanded/collapsedの取りこぼし（タブ切替等で経由せず離脱した
       // 場合）でBranchヘッダーが隠れたまま復帰しなくなるのを防ぐため、
@@ -382,21 +367,31 @@ async function switchPane(key: string, opts: { expandBranch?: boolean, expandSta
       loadBranchSection();
       if (opts.expandBranch) expandBranchSection();
     });
-  } else if (key === "changes") {
+  },
+  changes: (opts) => {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
     if (opts.expandStash) expandStashSection();
-  } else if (key === "jobs") {
+  },
+  jobs: () => {
     nextTick(() => jobsPane.value?.load());
-  } else if (key === "files") {
+  },
+  files: () => {
     nextTick(() => {
       const filesKey = terminalSessionId.value || workspaceStore.selectedWorkspace;
       paneLoader.ensure("files", filesKey, () => fileBrowser.value?.load());
     });
-  }
-  // issues/actions/prs は v-if + onMounted で自動ロード
-  if (key === "select") {
+  },
+  select: () => {
     nextTick(() => terminalSelectPane.value?.refresh());
-  }
+  },
+};
+
+function switchPane(rawKey: string, opts: SwitchPaneOpts = {}) {
+  const key = PANE_ALIASES[rawKey] ?? rawKey;
+  activePane.value = key;
+  updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
+  updateViewTitle();
+  paneEnterHandlers[key]?.(opts);
 }
 
 function onStashCount(n: number | null) {
@@ -490,13 +485,6 @@ onMounted(() => {
   position: relative;
 }
 
-.file-modal-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 /* HistoryタブはBranch一覧をコミット履歴の上に置くが、既定では現在の
    ブランチ名 + シェブロンボタンだけの1行に畳んでおく（常時全部出すと
@@ -551,13 +539,6 @@ onMounted(() => {
   line-height: 1;
 }
 
-.stash-summary-toggle-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .stash-summary-toggle-expanded {
   border-bottom-left-radius: 0;
@@ -643,13 +624,6 @@ onMounted(() => {
 }
 
 /* タブコンテンツ */
-.workspace-tab-content {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
 
 @media (max-width: 768px) {
   .workspace-detail {

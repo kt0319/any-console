@@ -1,5 +1,23 @@
 /* ダイアログ共通スタイル。構造・フォーカス管理は BaseDialog.vue が担う。 */
 
+/* ダイアログ本体の共通枠（幅は --dialog-width で上書き、既定 360px） */
+.dialog-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: min(var(--dialog-width, 360px), calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dialog-title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .dialog-overlay {
   position: fixed;
   inset: 0;

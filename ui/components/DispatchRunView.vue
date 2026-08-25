@@ -481,11 +481,6 @@ async function discard() {
   color: var(--text-primary);
   word-break: break-all;
 }
-.dispatch-run-note {
-  margin-left: 6px;
-  color: var(--text-muted);
-  font-size: 11px;
-}
 .dispatch-run-input {
   resize: vertical;
   font-family: monospace;
