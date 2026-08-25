@@ -8,8 +8,6 @@ use crate::dispatch::DispatchState;
 use crate::git_info::GitInfoCache;
 use crate::git_lock::WorkspaceLocks;
 use crate::git_watch::GitWatchState;
-use crate::github::GhCache;
-use crate::jobs_common::JobsCache;
 use crate::pairing::PairingState;
 use crate::paths::Paths;
 use crate::preview::PreviewState;
@@ -24,10 +22,10 @@ pub struct AppState {
     pub paths: Paths,
     pub config: ConfigStore,
     pub git_locks: WorkspaceLocks,
-    pub gh_cache: GhCache,
+    pub gh_cache: crate::util::TtlCache<serde_json::Value>,
     pub git_info_cache: GitInfoCache,
     pub git_watch: GitWatchState,
-    pub jobs_cache: JobsCache,
+    pub jobs_cache: crate::util::TtlCache<serde_json::Map<String, serde_json::Value>>,
     pub terminal_registry: TerminalRegistry,
     pub dispatch: DispatchState,
     pub agent_hooks: AgentHookState,
@@ -62,10 +60,10 @@ pub fn test_app_state(dir: &std::path::Path, tmux_prefix: &str, rate_limit: u32)
         },
         config: ConfigStore::new(dir.join("config.json")),
         git_locks: WorkspaceLocks::new(),
-        gh_cache: GhCache::new(),
+        gh_cache: crate::github::new_gh_cache(),
         git_info_cache: GitInfoCache::new(),
         git_watch: GitWatchState::new(),
-        jobs_cache: JobsCache::new(),
+        jobs_cache: crate::jobs_common::new_jobs_cache(),
         terminal_registry: TerminalRegistry::new(),
         dispatch: DispatchState::new(),
         agent_hooks: AgentHookState::new(),

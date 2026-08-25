@@ -83,36 +83,9 @@ pub fn validate_icon_color(color: &str) -> Result<String, ApiError> {
 // Python 側と同じ TTL。移行期間中、Rust の書き込みは Python 側キャッシュを即時
 // 無効化できないが、TTL 以内に必ず再読込されるため staleness の上限は従来と同じ。
 
-pub struct JobsCache(crate::util::TtlCache<Map<String, Value>>);
-
-impl Default for JobsCache {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl JobsCache {
-    pub fn new() -> Self {
-        Self(crate::util::TtlCache::new(Duration::from_secs(
-            WORKSPACE_JOBS_CACHE_TTL_SEC,
-        )))
-    }
-
-    fn get(&self, key: &str) -> Option<Map<String, Value>> {
-        self.0.get(key)
-    }
-
-    fn set(&self, key: &str, value: Map<String, Value>) {
-        self.0.set(key, value);
-    }
-
-    fn invalidate(&self, key: &str) {
-        self.0.invalidate(key);
-    }
-
-    fn invalidate_all(&self) {
-        self.0.invalidate_all();
-    }
+/// ジョブ定義のワークスペース単位 TTL キャッシュを生成する（AppState.jobs_cache）。
+pub fn new_jobs_cache() -> crate::util::TtlCache<Map<String, Value>> {
+    crate::util::TtlCache::new(Duration::from_secs(WORKSPACE_JOBS_CACHE_TTL_SEC))
 }
 
 pub fn load_common_jobs_data(state: &AppState) -> Map<String, Value> {
@@ -151,7 +124,7 @@ pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), A
         ConfigStore::merge_global_section(all, "jobs", Value::Object(jobs));
         Ok(())
     })?;
-    state.jobs_cache.invalidate(COMMON_JOBS_CACHE_KEY);
+    // 共通ジョブは各ワークスペースのマージ結果にも効くため全キー無効化する
     state.jobs_cache.invalidate_all();
     Ok(())
 }

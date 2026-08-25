@@ -140,6 +140,23 @@ pub async fn broadcast_current_queue(state: &Arc<AppState>) {
     broadcast_queue(state).await;
 }
 
+/// pending の永続化と status stream への全量配信の定型ペア（決定・失敗・
+/// 受付のたびに必ずセットで呼ぶ）。
+async fn persist_and_broadcast(state: &Arc<AppState>) {
+    persist_pending(state).await;
+    broadcast_queue(state).await;
+}
+
+/// dispatch 起動失敗時の activity 記録（pending 実行・履歴からの再送で共用）。
+fn log_dispatch_failed(state: &AppState, workspace: &str, detail: &str) {
+    crate::activity::log_activity(
+        &state.paths.data_dir,
+        Some(workspace),
+        "dispatch_failed",
+        crate::git_helpers::activity_fields(&[("detail", json!(detail))]),
+    );
+}
+
 async fn record_recent(
     state: &Arc<AppState>,
     dispatch_id: &str,
@@ -715,14 +732,12 @@ fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
         &state.paths.data_dir,
         result["workspace"].as_str(),
         "dispatch_executed",
-        [
-            ("job".to_string(), result["job"].clone()),
-            ("session_id".to_string(), result["session_id"].clone()),
-            ("created".to_string(), result["created"].clone()),
-            ("auth".to_string(), json!(auth_label)),
-        ]
-        .into_iter()
-        .collect(),
+        crate::git_helpers::activity_fields(&[
+            ("job", result["job"].clone()),
+            ("session_id", result["session_id"].clone()),
+            ("created", result["created"].clone()),
+            ("auth", json!(auth_label)),
+        ]),
     );
 }
 
@@ -801,17 +816,14 @@ async fn dispatch_core(
         } else {
             "dispatch_pending"
         },
-        [
-            ("job".to_string(), json!(body.job)),
-            ("text".to_string(), json!(body.text)),
-            ("auth".to_string(), json!(auth_label)),
-        ]
-        .into_iter()
-        .collect(),
+        crate::git_helpers::activity_fields(&[
+            ("job", json!(body.job)),
+            ("text", json!(body.text)),
+            ("auth", json!(auth_label)),
+        ]),
     );
 
-    persist_pending(state).await;
-    broadcast_queue(state).await;
+    persist_and_broadcast(state).await;
 
     Ok((
         axum::http::StatusCode::ACCEPTED,
@@ -856,8 +868,7 @@ pub async fn dispatch_execute(
                 Map::new(),
             );
             record_recent(&state, &dispatch_id, payload, "discarded").await;
-            persist_pending(&state).await;
-            broadcast_queue(&state).await;
+            persist_and_broadcast(&state).await;
             return Ok(Json(json!({"status": "ok"})).into_response());
         }
 
@@ -868,14 +879,7 @@ pub async fn dispatch_execute(
         let result = match launch(&state, &dispatch_body).await {
             Ok(r) => r,
             Err(e) => {
-                crate::activity::log_activity(
-                    &state.paths.data_dir,
-                    Some(&dispatch_body.workspace),
-                    "dispatch_failed",
-                    [("detail".to_string(), json!(e.detail))]
-                        .into_iter()
-                        .collect(),
-                );
+                log_dispatch_failed(&state, &dispatch_body.workspace, &e.detail);
                 // 失敗した項目はキューに残し、値を修正して再度executed/discardを
                 // やり直せるようにする（Python 版と同じ挙動）。上でクレーム済み
                 // のため戻す。
@@ -885,8 +889,7 @@ pub async fn dispatch_execute(
                     .lock()
                     .await
                     .insert(dispatch_id.clone(), payload);
-                persist_pending(&state).await;
-                broadcast_queue(&state).await;
+                persist_and_broadcast(&state).await;
                 return Err(e);
             }
         };
@@ -906,8 +909,7 @@ pub async fn dispatch_execute(
             }
         }
         record_recent(&state, &dispatch_id, executed_payload, "executed").await;
-        persist_pending(&state).await;
-        broadcast_queue(&state).await;
+        persist_and_broadcast(&state).await;
         return Ok(Json(result).into_response());
     }
 
@@ -940,14 +942,7 @@ pub async fn dispatch_execute(
     let result = match launch(&state, &req).await {
         Ok(r) => r,
         Err(e) => {
-            crate::activity::log_activity(
-                &state.paths.data_dir,
-                Some(&req.workspace),
-                "dispatch_failed",
-                [("detail".to_string(), json!(e.detail))]
-                    .into_iter()
-                    .collect(),
-            );
+            log_dispatch_failed(&state, &req.workspace, &e.detail);
             return Err(e);
         }
     };
