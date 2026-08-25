@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, type PropType } from "vue";
+import { resolveDropIndex } from "../utils/tab-nav.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import { useLayoutStore } from "../stores/layout.ts";
@@ -235,10 +236,10 @@ function onDropOnTab(e: DragEvent) {
 
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const insertBefore = e.clientX < rect.left + rect.width / 2;
-  let toIndex = insertBefore ? targetIndex : targetIndex + 1;
-  if (fromIndex < toIndex) toIndex -= 1;
-  toIndex = Math.max(0, Math.min(toIndex, terminalStore.openTabs.length - 1));
-  terminalStore.moveTab(fromIndex, toIndex);
+  terminalStore.moveTab(
+    fromIndex,
+    resolveDropIndex(fromIndex, targetIndex, insertBefore, terminalStore.openTabs.length),
+  );
 
   cancelDrag();
 }
@@ -281,10 +282,10 @@ function finishTouchDrag(clientX: number, clientY: number) {
     const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
     const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === hit.tabId);
     if (fromIndex >= 0 && targetIndex >= 0) {
-      let toIndex = hit.side === "left" ? targetIndex : targetIndex + 1;
-      if (fromIndex < toIndex) toIndex -= 1;
-      toIndex = Math.max(0, Math.min(toIndex, terminalStore.openTabs.length - 1));
-      terminalStore.moveTab(fromIndex, toIndex);
+      terminalStore.moveTab(
+        fromIndex,
+        resolveDropIndex(fromIndex, targetIndex, hit.side === "left", terminalStore.openTabs.length),
+      );
     }
   } else {
     finishSplitDrop({ tabId: props.tab.id, clientX, clientY });
