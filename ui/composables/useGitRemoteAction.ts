@@ -3,7 +3,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { useToast } from "./useToast.ts";
-import { formatRemoteToast } from "../utils/git-remote.ts";
+import { formatRemoteToast, type RemoteLabel } from "../utils/git-remote.ts";
 import { TOAST_DEFAULT_DURATION_MS, TOAST_DETAIL_DURATION_MS } from "../utils/constants.ts";
 
 const REMOTE_ACTIONS: Record<string, { label: string, confirm: string }> = {
@@ -59,7 +59,8 @@ export function useGitRemoteAction() {
     return (ws?.worktree && ws.worktree_base) || wsName;
   }
 
-  async function runPushPull(wsName: string, action: string, branch: string | undefined, label: string) {
+  // PUSH_PULL_ACTIONS のガード下でのみ呼ばれるため label は RemoteLabel の3種に限られる。
+  async function runPushPull(wsName: string, action: string, branch: string | undefined, label: RemoteLabel) {
     const body = action === "push-branch" ? { branch } : {};
     const { ok, data } = await apiCommand(wsEndpoint(wsName, action), body, { errorMessage: `${label} failed` });
     if (!ok) return;
@@ -86,7 +87,7 @@ export function useGitRemoteAction() {
     try {
       const label = actionLabel(action);
       if (PUSH_PULL_ACTIONS.has(action)) {
-        await runPushPull(wsName, action, branch, label);
+        await runPushPull(wsName, action, branch, label as RemoteLabel);
       } else {
         await runGenericAction(wsName, action, label);
       }

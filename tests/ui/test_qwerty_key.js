@@ -2,7 +2,6 @@
 import { describe, it, expect } from "vitest";
 import {
   qwertyDisplayLabel,
-  qwertySymbolLabel,
   qwertyHasFlick,
   qwertyFlickUpLabel,
   resolveQwertyVerticalFlick,
@@ -25,24 +24,6 @@ describe("qwertyDisplayLabel", () => {
 
   it("falls back to key when label is missing", () => {
     expect(qwertyDisplayLabel({ key: "x" }, false)).toBe("x");
-  });
-});
-
-describe("qwertySymbolLabel", () => {
-  it("shows flickUp symbol in symbol view", () => {
-    expect(qwertySymbolLabel({ label: "q", key: "q", flickUp: "!" }, false, true)).toBe("!");
-  });
-
-  it("keeps display label for noSymbol keys in symbol view", () => {
-    expect(qwertySymbolLabel({ label: "⌫", key: "Backspace", flickUp: "Delete", noSymbol: true }, false, true)).toBe("⌫");
-  });
-
-  it("keeps display label when symbol view is off", () => {
-    expect(qwertySymbolLabel({ label: "q", key: "q", flickUp: "!" }, false, false)).toBe("q");
-  });
-
-  it("applies shift uppercase when symbol view is off", () => {
-    expect(qwertySymbolLabel({ label: "q", key: "q", flickUp: "!" }, true, false)).toBe("Q");
   });
 });
 

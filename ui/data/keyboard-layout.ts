@@ -36,7 +36,7 @@ export const QWERTY_ROWS = [
     { label: "j", key: "j", flickUp: "(",  flickDown: "<" },
     { label: "k", key: "k", flickUp: ")",  flickDown: ">" },
     { label: "l", key: "l", flickUp: ":",  flickDown: ";" },
-    { label: "Del", key: "Delete", noSymbol: true },
+    { label: "Del", key: "Delete" },
   ],
   [
     { label: "z", key: "z", flickUp: "~" },

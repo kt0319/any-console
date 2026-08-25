@@ -21,9 +21,6 @@ import {
 // 指を離した方向に応じてキーを送信する。中心付近で離した場合はキャンセル。
 export const CIRCLE_KEYPAD_TRIGGER_PX = 36;
 
-// 幾何計算と関連定数は circle-keypad-geometry.ts に分離（テスト容易化）。既存の import 互換のため再エクスポートする。
-export { CIRCLE_KEYPAD_ANGLES, SPECIAL_POSITIONS, SPECIAL_BUTTON_SIZE };
-
 export function useCircleKeypad() {
   const workspaceStore = useWorkspaceStore();
   const terminalStore = useTerminalStore();

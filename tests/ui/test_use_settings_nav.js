@@ -61,34 +61,13 @@ describe("useSettingsNav", () => {
     expect(settingsOpen.value).toBe(false);
   });
 
-  it("旧view名TabConfigもSessionList同様にリダイレクトされる", async () => {
-    const { useSettingsNav, useSessionListOverlay, emit } = await freshModules();
-    const { isOpen: settingsOpen } = useSettingsNav();
-    const { isOpen: sessionListOpen } = useSessionListOverlay();
-
-    emit("settings:open", { view: "TabConfig" });
-
-    expect(sessionListOpen.value).toBe(true);
-    expect(settingsOpen.value).toBe(false);
-  });
-
-  it("旧view名PreviewPorts/PreviewConfigはSessionPreviewとしてModalMenu配下に積まれる", async () => {
+  it("キーパッドプリセット由来のPreviewPortsはSessionPreviewとしてModalMenu配下に積まれる", async () => {
     const { useSettingsNav, emit } = await freshModules();
     const { viewStack } = useSettingsNav();
 
-    emit("settings:open", { view: "PreviewConfig" });
+    emit("settings:open", { view: "PreviewPorts" });
 
     expect(viewStack.value.map((e) => e.view)).toEqual(["ModalMenu", "SessionPreview"]);
-  });
-
-  it("廃止済みDispatchQueueConfigはModalMenuへフォールバックする", async () => {
-    const { useSettingsNav, emit } = await freshModules();
-    const { currentView, viewStack } = useSettingsNav();
-
-    emit("settings:open", { view: "DispatchQueueConfig" });
-
-    expect(currentView.value).toBe("ModalMenu");
-    expect(viewStack.value).toHaveLength(1);
   });
 
   it("PairDeviceConfigはAuthConfigを経由して積まれる（戻るとAuthConfigに戻れる）", async () => {

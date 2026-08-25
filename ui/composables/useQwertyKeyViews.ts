@@ -29,7 +29,6 @@ export function useQwertyKeyViews({
   onReload: () => void,
 }) {
   const showFnView = ref(false);
-  const showSymbolView = ref(false);
 
   watch(showSnippetView, (val) => { if (val) showFnView.value = false; });
 
@@ -50,7 +49,6 @@ export function useQwertyKeyViews({
     if (showFnView.value) {
       modifierState.shift = false;
       modifierState.ctrl = false;
-      showSymbolView.value = false;
       closeSnippetView();
     }
   }
@@ -61,8 +59,6 @@ export function useQwertyKeyViews({
     const tab = getActiveTerminalTab();
     if (tab) emit("tab:refresh", { tab });
   }
-
-  const fnFlick = createFlickHandlers({ up: doRefresh, down: onReload, tap: toggleFnView });
 
   const shiftFlick = createFlickHandlers({
     up: doRefresh,
@@ -90,7 +86,6 @@ export function useQwertyKeyViews({
 
   return {
     showFnView,
-    showSymbolView,
     toggleShift,
     toggleCtrl,
     toggleFnView,
@@ -98,6 +93,5 @@ export function useQwertyKeyViews({
     shiftFlick,
     ctrlFlick,
     spaceFlick,
-    fnFlick,
   };
 }
