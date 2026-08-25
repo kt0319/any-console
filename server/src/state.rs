@@ -94,4 +94,26 @@ impl AppState {
             .get_or_register(&self.config, &self.paths.tmux_prefix, session_id)
             .await
     }
+
+    /// ターミナルセッションを新規作成する（`create_registered_session` の
+    /// 定型呼び出し — data_dir / config / tmux_prefix を束ねる）。
+    pub async fn create_terminal_session(
+        &self,
+        spec: crate::terminal_session::NewSessionSpec,
+    ) -> Result<
+        (
+            String,
+            std::sync::Arc<tokio::sync::Mutex<crate::terminal_session::TerminalSession>>,
+        ),
+        crate::errors::ApiError,
+    > {
+        self.terminal_registry
+            .create_registered_session(
+                &self.paths.data_dir,
+                &self.config,
+                &self.paths.tmux_prefix,
+                spec,
+            )
+            .await
+    }
 }

@@ -464,19 +464,15 @@ async fn create_session(
     job_def: &JobDef,
 ) -> Result<(String, Arc<Mutex<TerminalSession>>), ApiError> {
     let (session_id, session_arc) = state
-        .terminal_registry
-        .create_registered_session(
-            &state.paths.data_dir,
-            &state.config,
-            &state.paths.tmux_prefix,
-            ws_path.map(|p| p.to_string_lossy()).as_deref(),
-            Some(workspace.to_string()),
-            Some(job_def.icon.clone()),
-            Some(job_def.icon_color.clone()),
-            (job != TERMINAL_JOB_KEY).then(|| job.to_string()),
-            Some(job_def.label.clone()),
-            true,
-        )
+        .create_terminal_session(crate::terminal_session::NewSessionSpec {
+            workspace_path: ws_path.map(|p| p.to_string_lossy().into_owned()),
+            workspace: Some(workspace.to_string()),
+            icon: Some(job_def.icon.clone()),
+            icon_color: Some(job_def.icon_color.clone()),
+            job_name: (job != TERMINAL_JOB_KEY).then(|| job.to_string()),
+            job_label: Some(job_def.label.clone()),
+            interactive: true,
+        })
         .await?;
     crate::session_watch::notify_session_created(state, &session_id);
     tracing::info!("dispatch session created session={session_id} workspace={workspace} job={job}");

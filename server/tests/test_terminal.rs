@@ -250,13 +250,10 @@ async fn ws_connect_attach_write_read_and_lifecycle() {
             &front.state.paths.data_dir,
             &front.state.config,
             &front.state.paths.tmux_prefix,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            true,
+            any_console_server::terminal_session::NewSessionSpec {
+                interactive: true,
+                ..Default::default()
+            },
         )
         .await
         .expect("session should be created");
@@ -405,13 +402,10 @@ async fn set_workspace_broadcasts_session_workspace_bound() {
             &front.state.paths.data_dir,
             &front.state.config,
             &front.state.paths.tmux_prefix,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            true,
+            any_console_server::terminal_session::NewSessionSpec {
+                interactive: true,
+                ..Default::default()
+            },
         )
         .await
         .expect("session should be created");

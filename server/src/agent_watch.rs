@@ -1059,19 +1059,12 @@ mod collect_agent_states_tests {
         job_name: Option<&str>,
     ) -> String {
         let (session_id, _) = state
-            .terminal_registry
-            .create_registered_session(
-                &state.paths.data_dir,
-                &state.config,
-                &state.paths.tmux_prefix,
-                workspace_path,
-                workspace.map(str::to_string),
-                None,
-                None,
-                job_name.map(str::to_string),
-                None,
-                false,
-            )
+            .create_terminal_session(crate::terminal_session::NewSessionSpec {
+                workspace_path: workspace_path.map(str::to_string),
+                workspace: workspace.map(str::to_string),
+                job_name: job_name.map(str::to_string),
+                ..Default::default()
+            })
             .await
             .expect("session should be created");
         let tmux_name = state.paths.tmux_session_name(&session_id);
