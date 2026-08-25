@@ -46,6 +46,12 @@ pub struct GitOutput {
     pub stderr: String,
 }
 
+impl GitOutput {
+    pub fn success(&self) -> bool {
+        self.code == 0
+    }
+}
+
 /// Python の TimeoutExpired / OSError に対応するエラー分類。
 #[derive(Debug)]
 pub enum GitError {
