@@ -2,8 +2,7 @@ import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useConfirm } from "./useConfirm.ts";
-import { confirmCloseTab } from "../utils/tab-close-confirm.ts";
+import { useTabClose } from "./useTabClose.ts";
 import { emit } from "../app-bridge.ts";
 import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
 import { isEditableTarget } from "../utils/dom.ts";
@@ -12,7 +11,7 @@ export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) 
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
   const layoutStore = useLayoutStore();
-  const { confirm } = useConfirm();
+  const { confirmAndCloseTab } = useTabClose();
 
   async function onGlobalKeydown(e: KeyboardEvent) {
     // 選択中のターミナルがあれば Ctrl/Cmd+C をコピーに割り当てる（フォーカスが
@@ -32,16 +31,13 @@ export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) 
       const tab = terminalStore.activeTab;
       if (!tab) return;
       e.preventDefault();
-      const result = await confirmCloseTab(confirm, tab);
-      if (result === true) {
-        await closeTab(tab);
+      // close だけはショートカット固有のフォロー（選択ワークスペースの同期）が
+      // あるため onClose で差し替える。refresh / detach は共通ディスパッチ。
+      await confirmAndCloseTab(tab, async (t) => {
+        await closeTab(t);
         const activeTab = terminalStore.activeTab;
         workspaceStore.selectedWorkspace = activeTab?.workspace || null;
-      } else if (result === "refresh") {
-        emit("tab:refresh", { tab });
-      } else if (result === "detach") {
-        terminalStore.detachTab(tab.id);
-      }
+      });
     } else if (e.code === "KeyN") {
       e.preventDefault();
       emit("workspace:openModal");
