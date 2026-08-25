@@ -219,7 +219,10 @@ export function browserTabSidebarItems(tabs: BrowserTab[], activeBrowserTabId: n
       wsIcon: null,
       jobIcon: { name: "mdi-web", color: null },
       isWorktree: false,
-      agent: null,
+      // working演出（session-workingの左ボーダー点滅）だけでは状態が読み取れない
+      // ため、通常のセッション行のagentバッジ（SessionRowContent.vue）と同じ
+      // 見た目でロード中を明示する。
+      agent: tab.loading ? { icon: "mdi-autorenew", label: "Loading", className: "agent-state-working" } : null,
       phraseNotify: false,
     },
   }));

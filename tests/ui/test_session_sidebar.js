@@ -278,6 +278,16 @@ describe("browserTabSidebarItems", () => {
     expect(items[1].item.jobIcon).toEqual({ name: "mdi-web", color: null });
   });
 
+  it("loading中はLoadingバッジをagentに設定し、そうでなければnull", () => {
+    const tabs = [
+      { id: 1, url: "http://localhost:3000/", label: "a", loading: true },
+      { id: 2, url: "http://localhost:4000/", label: "b" },
+    ];
+    const items = browserTabSidebarItems(tabs, null);
+    expect(items[0].item.agent).toEqual({ icon: "mdi-autorenew", label: "Loading", className: "agent-state-working" });
+    expect(items[1].item.agent).toBeNull();
+  });
+
   it("activeBrowserTabIdに一致するタブだけisActiveがtrue", () => {
     const tabs = [
       { id: 1, url: "http://localhost:3000/", label: "a" },
