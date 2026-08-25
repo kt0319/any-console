@@ -19,7 +19,7 @@
         >
           <h3 class="modal-title">
             <span v-if="canBack && showBackArrow" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
-            <span class="modal-title-text">{{ title }}<template v-if="branch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="branch">{{ branch }}</span></template></span>
+            <span class="modal-title-text text-ellipsis-flex">{{ title }}<template v-if="branch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="branch">{{ branch }}</span></template></span>
           </h3>
         </button>
         <button
@@ -143,13 +143,6 @@ watch(
   color: inherit;
 }
 
-.modal-title-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .settings-panel-body {
   display: flex;

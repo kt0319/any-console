@@ -2,8 +2,8 @@
   <div class="modal-scroll-body si-body">
     <div v-if="isLoading" class="text-muted-center">Loading...</div>
     <div v-else v-for="section in sections" :key="section.label" class="si-card">
-      <div class="si-card-head">
-        <span class="si-card-title">{{ section.label }}</span>
+      <div class="settings-card-head">
+        <span class="settings-card-title">{{ section.label }}</span>
       </div>
       <div v-if="section.error" class="status-message error">{{ section.error }}</div>
       <div v-else>
@@ -17,9 +17,9 @@
     </div>
 
     <div v-if="!isLoading && serverInfo?.updatable" class="si-card">
-      <div class="si-card-head">
-        <span class="si-card-title">Update</span>
-        <button type="button" class="si-refresh" :disabled="upd.checking || upd.applying" @click="updCheck">
+      <div class="settings-card-head">
+        <span class="settings-card-title">Update</span>
+        <button type="button" class="settings-card-refresh" :disabled="upd.checking || upd.applying" @click="updCheck">
           <span class="mdi mdi-refresh" :class="{ spinning: upd.checking }"></span>
         </button>
       </div>
@@ -232,15 +232,10 @@ defineExpose({ load });
 .si-body { display: flex; flex-direction: column; }
 .si-card { flex-shrink: 0; }
 .si-card + .si-card { margin-top: 16px; }
-.si-card-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent); border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border); }
-.si-card-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.02em; }
 .si-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .si-row:last-child { border-bottom: none; }
 .si-label { flex: 1; color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .si-vals { display: flex; gap: 16px; color: var(--text-primary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-.si-refresh { background: none; border: none; color: var(--text-muted); padding: 0; cursor: pointer; font-size: 20px; line-height: 1; }
-.si-refresh:disabled { opacity: 0.4; cursor: default; }
-.si-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
 .si-copy-btn {

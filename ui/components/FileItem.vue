@@ -6,7 +6,7 @@
     @click="$emit('click', $event)"
   >
     <span class="file-browser-item-icon nf-icon" v-html="iconHtml"></span>
-    <span class="file-browser-item-name">{{ label }}</span>
+    <span class="file-browser-item-name text-ellipsis-flex">{{ label }}</span>
     <span v-if="mtimeText || sizeText" class="file-browser-item-size">{{ sizeText }}</span>
     <span v-if="mtimeText || sizeText" class="file-browser-item-mtime">{{ mtimeText }}</span>
     <slot name="right"></slot>
@@ -60,13 +60,6 @@ defineEmits(["click"]);
   line-height: 1;
 }
 
-.file-browser-item-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .file-browser-item.gitignored {
   opacity: 0.4;

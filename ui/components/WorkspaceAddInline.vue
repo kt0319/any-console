@@ -25,7 +25,7 @@
         :class="{ registered: entry.registered }"
         @mousedown.prevent="onSuggestClick(entry)"
       >
-        <span class="ws-suggest-name">{{ entry.name }}</span>
+        <span class="ws-suggest-name text-ellipsis-flex">{{ entry.name }}</span>
         <span v-if="entry.registered" class="ws-suggest-badge">Registered</span>
       </div>
     </div>
@@ -217,13 +217,6 @@ onMounted(() => {
   cursor: default;
 }
 
-.ws-suggest-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .ws-suggest-badge {
   flex-shrink: 0;

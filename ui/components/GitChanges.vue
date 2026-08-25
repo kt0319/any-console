@@ -1,5 +1,5 @@
 <template>
-  <div class="git-changes-pane-wrapper">
+  <div class="git-changes-pane-wrapper pane-fill">
     <div class="diff-file-list">
       <div v-if="isLoading" class="text-muted-center">Loading...</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
@@ -127,13 +127,6 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 </script>
 
 <style scoped>
-.git-changes-pane-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .diff-actions {
   display: flex;

@@ -558,3 +558,44 @@ button:disabled {
   padding: 16px;
   text-align: center;
 }
+
+/* ─── 汎用レイアウトユーティリティ ───────────────────────────────────────── */
+
+/* 親フレックス列を埋めるペインラッパ（Git 各ペイン・設定パネル等で共用） */
+.pane-fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* フレックス行内で余白を占有しつつ1行省略表示するテキスト */
+.text-ellipsis-flex {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 全画面中央寄せのスクリーン（ログイン / QR ペアリングで共用） */
+.fullscreen-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--app-dvh);
+  padding: 20px;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-primary);
+}
+
+/* ファイル系ペインの中央メッセージ（FileBrowser / FileTextViewer で共用） */
+.file-content-message {
+  padding: 24px 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}

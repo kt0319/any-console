@@ -1,5 +1,5 @@
 <template>
-  <div class="github-pane-wrapper">
+  <div class="github-pane-wrapper pane-fill">
     <div class="modal-scroll-body">
       <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
@@ -17,7 +17,7 @@
             <span :class="['github-run-status', runStatusClass(run.conclusion || run.status)]">
               {{ runStatusIcon(run.conclusion || run.status) }}
             </span>
-            <span class="github-item-title">{{ run.name }}</span>
+            <span class="github-item-title text-ellipsis-flex">{{ run.name }}</span>
             <span class="github-item-meta">{{ run.headBranch }}</span>
           </a>
         </div>

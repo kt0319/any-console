@@ -17,8 +17,8 @@
     </div>
 
     <!-- タブコンテンツ -->
-    <div class="workspace-tab-content">
-      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane">
+    <div class="workspace-tab-content pane-fill">
+      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane pane-fill">
         <div v-show="!isViewingCommitFiles" class="git-history-branch-branches">
           <div class="branch-summary-body" :class="{ 'branch-summary-body-expanded': branchSectionExpanded }">
             <GitChangeBranch ref="gitBranch" :expanded="branchSectionExpanded" @toggle="toggleBranchSection" />
@@ -30,7 +30,7 @@
           @commit:collapsed="onCommitCollapsed"
         />
       </div>
-      <div v-show="activePane === 'files'" class="file-modal-pane">
+      <div v-show="activePane === 'files'" class="file-modal-pane pane-fill">
         <FileBrowser
           ref="fileBrowser"
           :diffFile="selectedDiffFile"
@@ -42,7 +42,7 @@
           @state="onFileBrowserState"
         />
       </div>
-      <div v-if="activePane === 'changes'" class="file-modal-pane">
+      <div v-if="activePane === 'changes'" class="file-modal-pane pane-fill">
         <button
           v-if="stashCount"
           type="button"
@@ -54,7 +54,7 @@
           @click="toggleStashSection"
         >
           <span class="mdi mdi-package-variant" aria-hidden="true"></span>
-          <span class="stash-summary-toggle-label">Stash ({{ stashCount }})</span>
+          <span class="stash-summary-toggle-label text-ellipsis-flex">Stash ({{ stashCount }})</span>
           <span class="mdi" :class="stashSectionExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
         </button>
         <div v-if="stashSectionExpanded" id="stash-summary-body" class="stash-summary-body">
@@ -62,19 +62,19 @@
         </div>
         <GitChanges ref="gitChanges" />
       </div>
-      <div v-if="activePane === 'jobs'" class="file-modal-pane">
+      <div v-if="activePane === 'jobs'" class="file-modal-pane pane-fill">
         <WorkspaceJobsPane ref="jobsPane" />
       </div>
-      <div v-if="activePane === 'issues'" class="file-modal-pane">
+      <div v-if="activePane === 'issues'" class="file-modal-pane pane-fill">
         <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
       </div>
-      <div v-if="activePane === 'actions'" class="file-modal-pane">
+      <div v-if="activePane === 'actions'" class="file-modal-pane pane-fill">
         <GitHubActionsPane ref="githubActions" />
       </div>
-      <div v-if="activePane === 'prs'" class="file-modal-pane">
+      <div v-if="activePane === 'prs'" class="file-modal-pane pane-fill">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
-      <div v-if="activePane === 'dispatch'" class="file-modal-pane">
+      <div v-if="activePane === 'dispatch'" class="file-modal-pane pane-fill">
         <DispatchRunView
           v-if="selectedDispatchId"
           :item-id="selectedDispatchId"
@@ -83,7 +83,7 @@
         />
         <DispatchWorkspacePane v-else @select="selectedDispatchId = $event" />
       </div>
-      <div v-show="activePane === 'select'" class="file-modal-pane">
+      <div v-show="activePane === 'select'" class="file-modal-pane pane-fill">
         <TerminalSelectPane ref="terminalSelectPane" />
       </div>
     </div>
@@ -490,13 +490,6 @@ onMounted(() => {
   position: relative;
 }
 
-.file-modal-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 /* HistoryタブはBranch一覧をコミット履歴の上に置くが、既定では現在の
    ブランチ名 + シェブロンボタンだけの1行に畳んでおく（常時全部出すと
@@ -551,13 +544,6 @@ onMounted(() => {
   line-height: 1;
 }
 
-.stash-summary-toggle-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .stash-summary-toggle-expanded {
   border-bottom-left-radius: 0;
@@ -643,13 +629,6 @@ onMounted(() => {
 }
 
 /* タブコンテンツ */
-.workspace-tab-content {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
 
 @media (max-width: 768px) {
   .workspace-detail {

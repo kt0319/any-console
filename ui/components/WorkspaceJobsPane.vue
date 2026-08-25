@@ -1,5 +1,5 @@
 <template>
-  <div class="jobs-pane-wrapper">
+  <div class="jobs-pane-wrapper pane-fill">
     <div class="modal-scroll-body">
       <div class="job-item-row hover-bg">
         <button type="button" class="job-item" @click="openTerminal">
@@ -187,13 +187,6 @@ defineExpose({ load });
 </script>
 
 <style scoped>
-.jobs-pane-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .job-item-row {
   box-sizing: border-box;

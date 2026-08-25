@@ -671,37 +671,6 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.picker-ws-mini-btn .mdi {
-  font-size: 12px;
-}
-
-.picker-ws-mini-btn.pull-btn.has-count {
-  color: var(--warning);
-  background: var(--warning-bg-20);
-  border-color: rgba(238, 166, 68, 0.3);
-}
-
-.picker-ws-mini-btn.push-btn.has-count {
-  color: var(--accent);
-  background: rgba(130, 170, 255, 0.15);
-  border-color: rgba(130, 170, 255, 0.3);
-}
-
-.picker-ws-mini-btn.upstream-set-btn {
-  color: var(--warning);
-  background: rgba(238, 166, 68, 0.15);
-  border-color: rgba(238, 166, 68, 0.3);
-}
-
-.picker-ws-mini-btn.running {
-  pointer-events: none;
-  color: transparent;
-}
-
-.picker-ws-mini-btn.running > * {
-  visibility: hidden;
-}
-
 .git-badge {
   display: inline-flex;
   align-items: center;

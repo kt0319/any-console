@@ -1,5 +1,5 @@
 <template>
-  <div class="file-history-pane">
+  <div class="file-history-pane pane-fill">
     <template v-if="!selectedEntry">
       <div v-if="isLoading" class="text-muted-center">Loading...</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
@@ -117,13 +117,6 @@ watch(() => props.filePath, loadHistory, { immediate: true });
 </script>
 
 <style scoped>
-.file-history-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .file-history-list {
   flex: 1;

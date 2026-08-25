@@ -1,8 +1,8 @@
 <template>
-  <div class="git-branch-pane-wrapper">
+  <div class="git-branch-pane-wrapper pane-fill">
     <BaseDialog :visible="addModalOpen" :z-index="210" initial-focus="none" @dismiss="closeAddModal">
-      <div class="branch-add-dialog" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
-        <div class="branch-add-dialog-title">Add</div>
+      <div class="branch-add-dialog dialog-box" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
+        <div class="dialog-title">Add</div>
         <div class="branch-add-radio-group">
           <label class="branch-add-radio-label">
             <input type="radio" v-model="addType" value="branch" />
@@ -42,7 +42,7 @@
           :aria-expanded="branch.current ? expanded : undefined"
           @click="onRowClick(branch)"
         >
-          <div class="branch-item-name">
+          <div class="branch-item-name text-ellipsis-flex">
             <span
               v-if="linkedWorktree(branch)"
               class="mdi mdi-file-tree branch-worktree-icon"
@@ -104,7 +104,7 @@
             class="branch-item remote-only"
             @click="selectBranch(branch)"
           >
-            <div class="branch-item-name">{{ branch.name }}</div>
+            <div class="branch-item-name text-ellipsis-flex">{{ branch.name }}</div>
             <div class="branch-item-actions" @click.stop>
               <button
                 type="button"
@@ -241,30 +241,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 </script>
 
 <style scoped>
-.git-branch-pane-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.branch-add-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  width: min(360px, calc(100vw - 40px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.branch-add-dialog-title {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
-}
 
 .branch-add-dialog-desc {
   font-size: 12px;
@@ -317,13 +293,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   border-bottom: none;
 }
 
-.branch-item-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .branch-item-actions {
   display: flex;

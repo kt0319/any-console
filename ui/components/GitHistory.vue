@@ -1,5 +1,5 @@
 <template>
-  <div class="git-history-pane-wrapper">
+  <div class="git-history-pane-wrapper pane-fill">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
       <div class="git-log-entry git-log-commit diff-files-selected-commit">
@@ -175,13 +175,6 @@ defineExpose({
 </script>
 
 <style scoped>
-.git-history-pane-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 
 .diff-files-selected-commit {
   flex-shrink: 0;

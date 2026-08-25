@@ -1,12 +1,12 @@
 <template>
   <div class="preview-tab">
-    <div class="proc-card-head">
-      <span class="proc-card-title">Processes on <code>{{ hostname }}</code></span>
+    <div class="settings-card-head">
+      <span class="settings-card-title">Processes on <code>{{ hostname }}</code></span>
       <span class="proc-col-heads">
         <span>CPU</span>
         <span>MEM</span>
       </span>
-      <button type="button" class="proc-refresh" :disabled="isRefreshing" @click="refreshAll">
+      <button type="button" class="settings-card-refresh" :disabled="isRefreshing" @click="refreshAll">
         <span class="mdi mdi-refresh" :class="{ spinning: isRefreshing }"></span>
       </button>
     </div>
@@ -177,12 +177,7 @@ onBeforeUnmount(stopPolling);
   padding: 8px;
 }
 
-.proc-card-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent); border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border); }
-.proc-card-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.02em; }
 .proc-col-heads { display: flex; gap: 16px; width: 88px; justify-content: flex-end; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.proc-refresh { background: none; border: none; color: var(--text-muted); padding: 0; cursor: pointer; font-size: 20px; line-height: 1; }
-.proc-refresh:disabled { opacity: 0.4; cursor: default; }
-.proc-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
 
 /* dev server行・通常プロセス行を同じ列構成（アイコン/名称+補足/CPU・MEM/Open?/Kill）
    で揃え、1つの表として見えるようにする。 */
