@@ -546,8 +546,7 @@ fn runtime_script_name(argv: &[String]) -> Option<String> {
         if RUNTIME_EVAL_FLAGS.contains(&arg) {
             return None;
         }
-        if let Some(stripped) = arg.strip_prefix('-') {
-            let _ = stripped;
+        if arg.starts_with('-') {
             if RUNTIME_VALUE_FLAGS.contains(&arg) {
                 i += 1;
             }

@@ -25,7 +25,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{ConnectInfo, State};
+use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use futures_util::SinkExt;
 use serde::Deserialize;
@@ -138,14 +138,11 @@ pub struct WsQuery {
 /// `StatusStreamState` への配信をそのままクライアントへ中継する。
 pub async fn status_stream_ws(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     QueryParams(query): QueryParams<WsQuery>,
     headers: http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let Some(auth) =
-        crate::auth::verify_ws_token(&state, &query.token, &addr.ip().to_string(), &headers)
-    else {
+    let Some(auth) = crate::auth::verify_ws_token(&state, &query.token, &headers) else {
         return (http::StatusCode::FORBIDDEN, "Unauthorized").into_response();
     };
     let device_id = auth.device_id().map(str::to_string);

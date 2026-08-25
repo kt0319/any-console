@@ -116,7 +116,6 @@ pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
 fn hook_session_env(
     data_dir: &Path,
     config: &ConfigStore,
-    _project_root: &Path,
     tmux_session_name: &str,
 ) -> Vec<(String, String)> {
     let (host, port) = resolve_effective_bind(config);
@@ -180,7 +179,6 @@ async fn run_session_cmd(
 pub async fn create_tmux_session(
     data_dir: &Path,
     config: &ConfigStore,
-    project_root: &Path,
     workspace_path: Option<&str>,
     session_name: &str,
 ) -> std::io::Result<()> {
@@ -199,12 +197,7 @@ pub async fn create_tmux_session(
     if let Some(ws) = workspace_path {
         env.push(("WORKSPACE".to_string(), ws.to_string()));
     }
-    env.extend(hook_session_env(
-        data_dir,
-        config,
-        project_root,
-        session_name,
-    ));
+    env.extend(hook_session_env(data_dir, config, session_name));
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();
@@ -637,7 +630,7 @@ mod tests {
         let data_dir = dir.path().join("data");
         let config = ConfigStore::new(dir.path().join("config.json"));
 
-        let env = hook_session_env(&data_dir, &config, dir.path(), "ac-sess");
+        let env = hook_session_env(&data_dir, &config, "ac-sess");
         let url = env
             .iter()
             .find(|(k, _)| k == "ANY_CONSOLE_HOOK_URL")
@@ -655,7 +648,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let name = format!("ac-test-{}", crate::util::token_hex(4));
 
-        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(crate::subprocess::tmux_session_exists(&name).await);
@@ -702,7 +695,7 @@ mod tests {
         let session_id = "s1";
         let name = format!("{prefix}{session_id}");
 
-        create_tmux_session(dir.path(), &config, dir.path(), None, &name)
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);

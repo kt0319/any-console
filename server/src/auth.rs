@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use axum::extract::{ConnectInfo, State};
+use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::{json, Value};
@@ -194,8 +194,6 @@ impl Auth {
     pub fn authenticate(
         &self,
         bearer: &str,
-        client_host: &str,
-        headers: Option<&http::HeaderMap>,
         cookies: Option<&HashMap<String, String>>,
     ) -> Option<AuthResult> {
         let token = self.current_token();
@@ -205,7 +203,6 @@ impl Auth {
                 label: String::new(),
             });
         }
-        let _ = (client_host, headers);
         if let Some(cookies) = cookies {
             let id = cookies
                 .get(COOKIE_DEVICE_ID)
@@ -512,15 +509,10 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
             .and_then(|v| v.to_str().ok())
             .map(extract_bearer_token)
             .unwrap_or("");
-        let client_ip = parts
-            .extensions
-            .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-            .map(|ci| ci.0.ip().to_string())
-            .unwrap_or_default();
         let cookies = parse_cookies(&parts.headers);
         let result = state
             .auth
-            .authenticate(bearer, &client_ip, Some(&parts.headers), Some(&cookies))
+            .authenticate(bearer, Some(&cookies))
             .ok_or_else(|| crate::errors::unauthorized("Invalid token"))?;
         Ok(RequireAuth(result))
     }
@@ -534,13 +526,10 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
 pub fn verify_ws_token(
     state: &crate::state::AppState,
     token: &str,
-    client_ip: &str,
     headers: &http::HeaderMap,
 ) -> Option<AuthResult> {
     let cookies = parse_cookies(headers);
-    state
-        .auth
-        .authenticate(token, client_ip, Some(headers), Some(&cookies))
+    state.auth.authenticate(token, Some(&cookies))
 }
 
 /// Cookie ヘッダ文字列を key→value にパースする（値の `=` を許容）。
@@ -563,7 +552,6 @@ pub fn parse_cookies(headers: &http::HeaderMap) -> HashMap<String, String> {
 /// cookie のいずれかで認証できればログイン状態とみなす）。
 pub async fn auth_check(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     headers: http::HeaderMap,
 ) -> Result<Response, crate::errors::ApiError> {
     let bearer = headers
@@ -571,11 +559,10 @@ pub async fn auth_check(
         .and_then(|v| v.to_str().ok())
         .map(extract_bearer_token)
         .unwrap_or("");
-    let client_ip = addr.ip().to_string();
     let cookies = parse_cookies(&headers);
     let result = state
         .auth
-        .authenticate(bearer, &client_ip, Some(&headers), Some(&cookies))
+        .authenticate(bearer, Some(&cookies))
         .ok_or_else(|| crate::errors::unauthorized("Invalid token"))?;
 
     let (auth_method, device) = match result.kind {
@@ -635,7 +622,7 @@ mod tests {
     fn no_token_means_disabled() {
         let dir = tempfile::tempdir().unwrap();
         let auth = Auth::load(dir.path().to_path_buf());
-        let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
+        let r = auth.authenticate("", None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
 
@@ -643,12 +630,10 @@ mod tests {
     fn main_token_matches_constant_time() {
         let dir = tempfile::tempdir().unwrap();
         let auth = setup(&dir, "secret-token");
-        let r = auth
-            .authenticate("secret-token", "1.2.3.4", None, None)
-            .unwrap();
+        let r = auth.authenticate("secret-token", None).unwrap();
         assert_eq!(r.kind, AuthKind::Main);
-        assert!(auth.authenticate("wrong", "1.2.3.4", None, None).is_none());
-        assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
+        assert!(auth.authenticate("wrong", None).is_none());
+        assert!(auth.authenticate("", None).is_none());
     }
 
     #[test]
@@ -660,11 +645,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 123})).unwrap();
         let auth = Auth::load(dir.path().to_path_buf());
-        let r = auth.authenticate("123", "1.2.3.4", None, None).unwrap();
+        let r = auth.authenticate("123", None).unwrap();
         assert_eq!(r.kind, AuthKind::Main);
         // 無関係な bearer や空文字では通らない（無認証化していないことの確認）。
-        assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
-        assert!(auth.authenticate("wrong", "1.2.3.4", None, None).is_none());
+        assert!(auth.authenticate("", None).is_none());
+        assert!(auth.authenticate("wrong", None).is_none());
     }
 
     #[test]
@@ -674,18 +659,14 @@ mod tests {
         // ならない。
         let dir = tempfile::tempdir().unwrap();
         let auth = setup(&dir, "good-token");
-        assert!(auth
-            .authenticate("good-token", "1.2.3.4", None, None)
-            .is_some());
+        assert!(auth.authenticate("good-token", None).is_some());
 
         std::thread::sleep(std::time::Duration::from_millis(20));
         std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
-        let r = auth
-            .authenticate("good-token", "1.2.3.4", None, None)
-            .unwrap();
+        let r = auth.authenticate("good-token", None).unwrap();
         assert_eq!(r.kind, AuthKind::Main);
         // 空 bearer では通らない（無認証化していないことの確認）。
-        assert!(auth.authenticate("", "1.2.3.4", None, None).is_none());
+        assert!(auth.authenticate("", None).is_none());
 
         // ファイルが正しい内容に戻れば追従する。
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -694,12 +675,8 @@ mod tests {
             &json!({"token": "rotated-token"}),
         )
         .unwrap();
-        assert!(auth
-            .authenticate("good-token", "1.2.3.4", None, None)
-            .is_none());
-        assert!(auth
-            .authenticate("rotated-token", "1.2.3.4", None, None)
-            .is_some());
+        assert!(auth.authenticate("good-token", None).is_none());
+        assert!(auth.authenticate("rotated-token", None).is_some());
     }
 
     #[test]
@@ -710,7 +687,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
         let auth = Auth::load(dir.path().to_path_buf());
-        let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
+        let r = auth.authenticate("", None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
 
@@ -731,7 +708,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 0})).unwrap();
         let auth = Auth::load(dir.path().to_path_buf());
-        let r = auth.authenticate("", "1.2.3.4", None, None).unwrap();
+        let r = auth.authenticate("", None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
 
@@ -739,9 +716,7 @@ mod tests {
     fn token_rotation_is_picked_up_without_reload() {
         let dir = tempfile::tempdir().unwrap();
         let auth = setup(&dir, "old-token");
-        assert!(auth
-            .authenticate("old-token", "1.2.3.4", None, None)
-            .is_some());
+        assert!(auth.authenticate("old-token", None).is_some());
         // 別プロセス（Python の Settings API）によるローテーションを模す
         std::thread::sleep(std::time::Duration::from_millis(20));
         save_json_file(
@@ -749,25 +724,8 @@ mod tests {
             &json!({"token": "new-token"}),
         )
         .unwrap();
-        assert!(auth
-            .authenticate("old-token", "1.2.3.4", None, None)
-            .is_none());
-        assert!(auth
-            .authenticate("new-token", "1.2.3.4", None, None)
-            .is_some());
-    }
-
-    #[test]
-    fn tailscale_header_is_ignored() {
-        let dir = tempfile::tempdir().unwrap();
-        save_json_file(&dir.path().join("auth.json"), &json!({"token": "t"})).unwrap();
-        let mut headers = http::HeaderMap::new();
-        headers.insert("tailscale-user-login", "alice@example.com".parse().unwrap());
-
-        let auth = Auth::load(dir.path().to_path_buf());
-        assert!(auth
-            .authenticate("", "127.0.0.1", Some(&headers), None)
-            .is_none());
+        assert!(auth.authenticate("old-token", None).is_none());
+        assert!(auth.authenticate("new-token", None).is_some());
     }
 
     #[test]
@@ -795,16 +753,12 @@ mod tests {
         let mut cookies = HashMap::new();
         cookies.insert(COOKIE_DEVICE_ID.to_string(), "dev_1".to_string());
         cookies.insert(COOKIE_DEVICE_SECRET.to_string(), raw_secret.to_string());
-        let r = auth
-            .authenticate("", "1.2.3.4", None, Some(&cookies))
-            .unwrap();
+        let r = auth.authenticate("", Some(&cookies)).unwrap();
         assert_eq!(r.kind, AuthKind::Device);
         assert_eq!(r.label, "device:dev_1");
 
         cookies.insert(COOKIE_DEVICE_SECRET.to_string(), "wrong".to_string());
-        assert!(auth
-            .authenticate("", "1.2.3.4", None, Some(&cookies))
-            .is_none());
+        assert!(auth.authenticate("", Some(&cookies)).is_none());
     }
 
     #[test]
@@ -825,16 +779,10 @@ mod tests {
     fn update_token_rotates_and_is_immediately_effective() {
         let dir = tempfile::tempdir().unwrap();
         let auth = setup(&dir, "old-token");
-        assert!(auth
-            .authenticate("old-token", "1.2.3.4", None, None)
-            .is_some());
+        assert!(auth.authenticate("old-token", None).is_some());
         auth.update_token("new-token");
-        assert!(auth
-            .authenticate("old-token", "1.2.3.4", None, None)
-            .is_none());
-        assert!(auth
-            .authenticate("new-token", "1.2.3.4", None, None)
-            .is_some());
+        assert!(auth.authenticate("old-token", None).is_none());
+        assert!(auth.authenticate("new-token", None).is_some());
     }
 
     #[test]

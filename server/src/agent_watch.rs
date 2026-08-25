@@ -1080,7 +1080,6 @@ mod collect_agent_states_tests {
             .create_registered_session(
                 &state.paths.data_dir,
                 &state.config,
-                &state.paths.project_root,
                 &state.paths.tmux_prefix,
                 workspace_path,
                 workspace.map(str::to_string),

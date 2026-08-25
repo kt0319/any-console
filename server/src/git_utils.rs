@@ -110,7 +110,7 @@ pub async fn run_git_query(args: &[&str], cwd: &Path, timeout_sec: f64) -> Optio
 }
 
 /// API 応答用の定型 dict（Python `command_result_dict` 相当）。
-pub fn command_result_json(out: &GitOutput) -> Value {
+fn command_result_json(out: &GitOutput) -> Value {
     json!({
         "status": if out.code == 0 { "ok" } else { "error" },
         "exit_code": out.code,

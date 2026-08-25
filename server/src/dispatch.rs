@@ -24,7 +24,7 @@
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{Path, State};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -451,7 +451,6 @@ async fn create_session(
         .create_registered_session(
             &state.paths.data_dir,
             &state.config,
-            &state.paths.project_root,
             &state.paths.tmux_prefix,
             ws_path.map(|p| p.to_string_lossy()).as_deref(),
             Some(workspace.to_string()),
@@ -672,14 +671,10 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
 async fn verify_dispatch_auth(
     state: &Arc<AppState>,
     bearer: &str,
-    client_ip: &str,
     headers: &http::HeaderMap,
 ) -> Result<(String, bool), ApiError> {
     let cookies = parse_cookies(headers);
-    if let Some(result) = state
-        .auth
-        .authenticate(bearer, client_ip, Some(headers), Some(&cookies))
-    {
+    if let Some(result) = state.auth.authenticate(bearer, Some(&cookies)) {
         return Ok(match result.kind {
             AuthKind::Disabled => ("disabled".to_string(), false),
             AuthKind::Main => ("main".to_string(), false),
@@ -709,13 +704,11 @@ fn bearer_from_headers(headers: &http::HeaderMap) -> String {
 
 pub async fn dispatch(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     headers: http::HeaderMap,
     JsonBody(body): JsonBody<DispatchRequest>,
 ) -> Result<axum::response::Response, ApiError> {
     let bearer = bearer_from_headers(&headers);
-    let (auth_label, is_scoped_token) =
-        verify_dispatch_auth(&state, &bearer, &addr.ip().to_string(), &headers).await?;
+    let (auth_label, is_scoped_token) = verify_dispatch_auth(&state, &bearer, &headers).await?;
     dispatch_core(&state, body, &auth_label, is_scoped_token).await
 }
 

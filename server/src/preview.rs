@@ -807,18 +807,6 @@ pub fn start_scanner(state: &Arc<AppState>) {
     }
 }
 
-#[allow(dead_code)]
-pub fn stop_scanner(state: &PreviewState) {
-    if let Some(handle) = state
-        .scan_task
-        .lock()
-        .expect("scan_task lock poisoned")
-        .take()
-    {
-        handle.abort();
-    }
-}
-
 // ─── HTTP エンドポイント（`GET /preview/ports`）─────────────────────────────
 
 /// パネルを開いた時だけスキャンを起こす（常時ポーリングはしない）。
@@ -1552,11 +1540,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn scanner_start_and_stop_lifecycle() {
+    async fn scanner_start_spawns_task() {
         let (state, _dir) = test_state();
         start_scanner(&state);
-        assert!(state.preview.scan_task.lock().unwrap().is_some());
-        stop_scanner(&state.preview);
-        assert!(state.preview.scan_task.lock().unwrap().is_none());
+        let handle = state
+            .preview
+            .scan_task
+            .lock()
+            .unwrap()
+            .take()
+            .expect("scanner task spawned");
+        handle.abort();
     }
 }
