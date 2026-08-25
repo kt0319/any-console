@@ -2,17 +2,17 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useCircleKeyPad } from "../../ui/composables/useCircleKeyPad.ts";
-import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.ts";
+import { useCircleKeypad } from "../../ui/composables/useCircleKeypad.ts";
+import { useCircleKeypadConfigStore } from "../../ui/stores/circle-keypad-config.ts";
 import { SPECIAL_POSITIONS } from "../../ui/utils/circle-keypad-geometry.ts";
 
-describe("useCircleKeyPad: コーナーアクション None", () => {
+describe("useCircleKeypad: コーナーアクション None", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
   it("action が空のコーナーはヒット領域内でも activeId にならない", () => {
-    const config = useCircleKeyPadConfigStore();
+    const config = useCircleKeypadConfigStore();
     config.specials = [
       { label: "", action: "", payload: null },
       { label: "Jobs", action: "git:openFileModal", payload: { pane: "jobs" } },
@@ -20,7 +20,7 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
       { label: "", action: "", payload: null },
     ];
 
-    const pad = useCircleKeyPad();
+    const pad = useCircleKeypad();
     pad.open(0, 0);
 
     // 左上（specials[0], action なし）: ヒット領域内でも activeId は立たない
@@ -35,7 +35,7 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
   });
 
   it("computed specials は action 空でもエントリ自体は保持する（位置インデックス整合のため）", () => {
-    const config = useCircleKeyPadConfigStore();
+    const config = useCircleKeypadConfigStore();
     config.specials = [
       { label: "", action: "", payload: null },
       { label: "Jobs", action: "git:openFileModal", payload: { pane: "jobs" } },
@@ -43,14 +43,14 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
       { label: "", action: "", payload: null },
     ];
 
-    const pad = useCircleKeyPad();
+    const pad = useCircleKeypad();
     expect(pad.specials.value).toHaveLength(4);
     expect(pad.specials.value[0].action).toBe("");
     expect(pad.specials.value[1].action).toBe("git:openFileModal");
   });
 
   it("PageUp / PageDown を ANSI シーケンスとしてターミナルへ送る", () => {
-    const config = useCircleKeyPadConfigStore();
+    const config = useCircleKeypadConfigStore();
     config.keys = [
       { key: "PageUp", ctrl: false, shift: false, alt: false, label: "PgUp" },
       { key: "PageDown", ctrl: false, shift: false, alt: false, label: "PgDn" },
@@ -69,7 +69,7 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
       },
     };
 
-    const pad = useCircleKeyPad();
+    const pad = useCircleKeypad();
     pad.open(0, 0);
     pad.state.activeId = "key:0";
     pad.commitAndClose(tab);
@@ -81,7 +81,7 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
   });
 
   it("Wheel / Scroll の特殊操作は別経路で xterm scrollback を動かす", () => {
-    const config = useCircleKeyPadConfigStore();
+    const config = useCircleKeypadConfigStore();
     config.specials = [
       { label: "Wheel Up", action: "terminal:wheelUp", payload: null },
       { label: "Wheel Down", action: "terminal:wheelDown", payload: null },
@@ -99,7 +99,7 @@ describe("useCircleKeyPad: コーナーアクション None", () => {
     });
     const tab = { term: { element, scrollLines } };
 
-    const pad = useCircleKeyPad();
+    const pad = useCircleKeypad();
     for (const idx of [0, 1, 2, 3]) {
       pad.open(0, 0);
       pad.state.activeId = `special:${idx}`;

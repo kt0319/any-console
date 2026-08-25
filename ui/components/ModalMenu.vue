@@ -17,7 +17,7 @@
         <button type="button" class="settings-menu-item" @click="pushView('DisplayConfig')">
           <span class="mdi mdi-monitor-eye"></span> Display
         </button>
-        <button type="button" class="settings-menu-item" @click="pushView('CircleKeyPadConfig')">
+        <button type="button" class="settings-menu-item" @click="pushView('CircleKeypadConfig')">
           <span class="mdi mdi-gesture-tap"></span> Circle Keypad
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">

@@ -31,7 +31,7 @@ import DisplayConfig from "./DisplayConfig.vue";
 import SendSnippet from "./SendSnippet.vue";
 import SendHistory from "./SendHistory.vue";
 import NotificationConfig from "./NotificationConfig.vue";
-import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
+import CircleKeypadConfig from "./CircleKeypadConfig.vue";
 import InfoPillConfig from "./InfoPillConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 
@@ -65,7 +65,7 @@ const VIEWS: Record<string, unknown> = {
   SendSnippet,
   SendHistory,
   NotificationConfig,
-  CircleKeyPadConfig,
+  CircleKeypadConfig,
   InfoPillConfig,
   ConfigFile,
 };

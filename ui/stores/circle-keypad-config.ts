@@ -44,7 +44,7 @@ function sanitizeSpecials(specials: any): CircleKeypadSpecialDef[] {
   });
 }
 
-export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", () => {
+export const useCircleKeypadConfigStore = defineStore("circle-keypad-config", () => {
   const keys = ref<CircleKeypadKeyDef[]>(defaultKeyDefs());
   const specials = ref<CircleKeypadSpecialDef[]>(defaultSpecialDefs());
   const enabled = ref(true);

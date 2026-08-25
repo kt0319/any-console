@@ -5,10 +5,10 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { createTouchTracker } from "../utils/gesture.ts";
 import { findUrlInBuffer } from "../utils/terminal-buffer-text.ts";
 import { emit } from "../app-bridge.ts";
-import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeyPad.ts";
+import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeypad.ts";
 import { LONG_PRESS_URL_MS, TAP_MAX_DELTA_PX } from "../utils/constants.ts";
 
-// useCircleKeyPad() の戻り値のうち、このジェスチャ処理が利用する部分。
+// useCircleKeypad() の戻り値のうち、このジェスチャ処理が利用する部分。
 interface CircleKeypadLike {
   enabled: Ref<boolean>;
   state: { visible: boolean };

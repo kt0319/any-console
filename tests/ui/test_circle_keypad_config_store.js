@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
-import { useCircleKeyPadConfigStore } from "../../ui/stores/circle-keypad-config.ts";
+import { useCircleKeypadConfigStore } from "../../ui/stores/circle-keypad-config.ts";
 import { useAuthStore } from "../../ui/stores/auth.ts";
 import { defaultKeyDefs, defaultSpecialDefs } from "../../ui/utils/circle-keypad-presets.ts";
 
@@ -18,7 +18,7 @@ describe("circle-keypad-config store: load 堅牢化", () => {
   let auth;
   beforeEach(() => {
     setActivePinia(createPinia());
-    store = useCircleKeyPadConfigStore();
+    store = useCircleKeypadConfigStore();
     auth = useAuthStore();
   });
 

@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { useCircleKeyPadConfigStore, type CircleKeypadSpecialDef } from "../stores/circle-keypad-config.ts";
+import { useCircleKeypadConfigStore, type CircleKeypadSpecialDef } from "../stores/circle-keypad-config.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,
@@ -62,7 +62,7 @@ const { modalTitle } = useModalView();
 // ユニットテスト向けのデフォルト）ため、non-null で扱う。
 modalTitle!.value = "Circle Keypad";
 
-const circleKeypad = useCircleKeyPadConfigStore();
+const circleKeypad = useCircleKeypadConfigStore();
 const modifierOptions = CIRCLE_KEYPAD_MODIFIER_OPTIONS;
 const baseKeys = CIRCLE_KEYPAD_BASE_KEYS;
 const specialPresets = CIRCLE_KEYPAD_SPECIAL_PRESETS;

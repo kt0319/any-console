@@ -5,7 +5,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { useStatusStream } from "./useStatusStream.ts";
 import { useToast } from "./useToast.ts";
-import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.ts";
+import { useCircleKeypadConfigStore } from "../stores/circle-keypad-config.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.ts";
@@ -46,7 +46,7 @@ export function useAppBootstrap() {
     const sessionsPromise = auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null);
     const jobsPromise = auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null);
     const healthPromise = auth.apiFetch(EP_SETTINGS_CONFIG_HEALTH).catch(() => null);
-    useCircleKeyPadConfigStore().load();
+    useCircleKeypadConfigStore().load();
     useInfoPillConfigStore().load();
 
     const [, sessionsRes, jobsRes, healthRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise, healthPromise]);
