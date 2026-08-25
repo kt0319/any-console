@@ -22,9 +22,7 @@
           </span>
           <span class="git-log-entry-row1">
             <span class="git-log-entry-row1-left">
-              <span v-if="selectedCommitForFiles.refs?.length" class="git-log-entry-refs">
-                <span v-for="r in selectedCommitForFiles.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type" :data-tooltip="r.label"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span class="git-ref-text"><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span></span>
-              </span>
+              <GitRefBadges :refs="selectedCommitForFiles.refs || []" />
             </span>
             <span class="git-log-entry-meta">
               <span class="git-log-entry-author">{{ selectedCommitForFiles.author }}</span>
@@ -44,17 +42,7 @@
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
           <template v-for="file in selectedCommitFiles" :key="file.path">
-            <FileItem
-              class="diff-file-row"
-              :label="file.path"
-              :icon-html="fileIconHtml(file)"
-              @click="onDiffFileClick(file)"
-            >
-              <template #right>
-                <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
-                <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
-              </template>
-            </FileItem>
+            <DiffFileItem :file="file" @click="onDiffFileClick(file)" />
           </template>
         </ul>
       </div>
@@ -81,9 +69,7 @@
             <span class="git-log-entry-msg">{{ row.entry.message }}</span>
             <span class="git-log-entry-row1">
               <span class="git-log-entry-row1-left">
-                <span v-if="row.entry.refs.length" class="git-log-entry-refs">
-                  <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type" :data-tooltip="r.label"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span class="git-ref-text"><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span></span>
-                </span>
+                <GitRefBadges :refs="row.entry.refs" />
               </span>
               <span class="git-log-entry-meta">
                 <span class="git-log-entry-author">{{ row.entry.author }}</span>
@@ -100,32 +86,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 
-import FileItem from "./FileItem.vue";
+import DiffFileItem from "./DiffFileItem.vue";
+import GitRefBadges from "./GitRefBadges.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useGitLogPagination } from "../composables/useGitLogPagination.ts";
-import { useIsMobile } from "../composables/useIsMobile.ts";
 import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.ts";
 import { useCommitActionMenu } from "../composables/useCommitActionMenu.ts";
 import { useDiffFileActions } from "../composables/useDiffFileActions.ts";
-import { renderFileIconFromPath } from "../utils/file-icon.ts";
-import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.ts";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.ts";
-import { abbreviateBranch, entryBranches } from "../utils/git.ts";
+import { entryBranches } from "../utils/git.ts";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
-
-const { isMobile } = useIsMobile();
-
-// git.ts の GitRef（type がリテラルUnion）と useGitLogPagination 経由の
-// GitGraphEntry.refs（type が string に広がったローカル型）の両方を受けるため、
-// 最小限のフィールドだけを要求する形にする。
-type RefLike = { type: string, label: string };
-
-function abbreviateRef(r: RefLike) {
-  if (r.type === "tag" || !isMobile.value || r.label.length < 24) return { abbr: "", rest: r.label };
-  return abbreviateBranch(r.label);
-}
 
 const { fetchCommitDiff } = useGitDiff();
 
@@ -142,14 +114,6 @@ const {
   openDiffFiles: openDiffFilesBase,
   close: closeDiffFilesState,
 } = useCommitDiffFiles();
-
-function statusClass(status: string) {
-  return GIT_DIFF_STATUS_CLASSES[status as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
-}
-
-function fileIconHtml(file: { path: string }) {
-  return renderFileIconFromPath(file.path);
-}
 
 // GitHistory では closeFn（第3引数）を渡さない呼び方のため、その形に型を絞る
 // （実行時は従来どおり同じ関数をそのまま呼ぶ）。
@@ -331,17 +295,6 @@ defineExpose({
   min-width: 0;
   /* overflow:hidden は子の data-tooltip ::after をクリップするため visible。
      ref ラベル自体は .git-ref の max-width で個別に絞っているので暴走しない。 */
-}
-
-.git-log-entry-refs {
-  display: flex;
-  gap: 4px;
-  flex-wrap: nowrap;
-}
-
-.branch-abbr {
-  color: #fff;
-  font-weight: 500;
 }
 
 .git-log-entry-meta {
