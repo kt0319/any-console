@@ -266,6 +266,21 @@ describe("browserTabs store: beginRestore / applyServerState（useBrowserTabsPer
     expect(store.tabs).toHaveLength(1);
   });
 
+  it("未同期中に最後のタブを閉じてターミナルへ戻った場合も、復元成功時にサーバーのactiveUrlで前面を奪わない", () => {
+    store.applyServerState([{ url: "http://localhost:3000/" }], "http://localhost:3000/");
+    store.beginRestore();
+    store.closeBrowserTab(store.tabs[0].id);
+    expect(store.activeBrowserTabId).toBe(null);
+    // 他クライアントが開いていた4000がサーバーのactiveUrlになっている
+    store.applyServerState(
+      [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
+      "http://localhost:4000/",
+    );
+    // 3000はtombstoneで消え、4000は残るが前面には出ない
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:4000/"]);
+    expect(store.activeBrowserTabId).toBe(null);
+  });
+
   it("ターミナルへ戻った後でもブラウザタブを選び直せば、復元成功時にアクティブが維持される", () => {
     store.applyServerState([{ url: "http://localhost:3000/" }], null);
     store.beginRestore();

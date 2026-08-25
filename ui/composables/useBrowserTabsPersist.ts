@@ -82,13 +82,17 @@ export function useBrowserTabsPersist() {
    */
   function startWatching(): () => void {
     _activeWatchers += 1;
+    // データ本体ではなく「ユーザー操作バージョン」を watch する — データを
+    // watch すると applyServerState() のタブ入れ替えでも保存が走り、無変更の
+    // GETスナップショットをPUTして、GET後〜debounce満了の間に他クライアントが
+    // 行った更新を巻き戻してしまう。復元由来の差分（マージ結果）は
+    // _restoreNow() が changedLocally を見て明示的に保存する。
     const stopWatch = watch(
-      () => [browserTabStore.tabs.slice(), browserTabStore.activeBrowserTabId],
+      () => browserTabStore.userMutationVersion,
       () => {
         if (!browserTabStore.isRestored) return;
         _scheduleSave();
       },
-      { deep: false },
     );
     const offConnectivity = on("connectivity:back", () => {
       if (!browserTabStore.isRestored) restoreBrowserTabs();

@@ -48,6 +48,17 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   const syncState = ref<"unsynced" | "synced">("unsynced");
   // 保存可否のゲート（useBrowserTabsPersist の watcher が参照）。
   const isRestored = computed(() => syncState.value === "synced");
+  // 「ユーザー操作による永続化対象の変化」だけを数えるバージョン。
+  // useBrowserTabsPersist はデータ本体ではなくこれを watch する — データを
+  // watch すると applyServerState() のタブ入れ替えでも保存が走り、無変更の
+  // GETスナップショットをPUTして他クライアントの直後の更新を巻き戻しうる
+  // （保存はユーザーが何か変えた時だけでよい。復元由来の差分は
+  // applyServerState の返り値で明示的に保存される）。
+  const userMutationVersion = ref(0);
+
+  function _markUserMutation() {
+    userMutationVersion.value += 1;
+  }
 
   // 未同期（unsynced）中のローカル操作の記録。applyServerState() の突き合わせに
   // 使い、成功時にクリアする。reactive にする必要は無い（表示には使わない）。
@@ -78,15 +89,15 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
    * ブラウザタブが被ったままにならない。
    */
   function showTerminal() {
+    if (activeBrowserTabId.value != null) _markUserMutation();
     activeBrowserTabId.value = null;
     if (syncState.value !== "synced") terminalChosenWhileUnsynced = true;
   }
 
   /**
-   * iframeのload/reloadに合わせてBrowserPane.vueが呼ぶ。tabオブジェクトの
-   * プロパティを直接書き換える（配列を置き換えない）ため、
-   * useBrowserTabsPersist.tsのshallow watchは反応せず、保存も走らない
-   * （ロード中フラグの変化は保存対象ではないため意図通り）。
+   * iframeのload/reloadに合わせてBrowserPane.vueが呼ぶ。ロード中フラグは
+   * 一時的な表示状態で保存対象ではないため、userMutationVersion は進めない
+   * （＝useBrowserTabsPersist の保存は走らない）。
    */
   function setBrowserTabLoading(id: number, loading: boolean) {
     const tab = tabs.value.find((t) => t.id === id);
@@ -99,7 +110,9 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   function openBrowserTab(url: string): number {
     const existing = tabs.value.find((t) => t.url === url);
     if (existing) {
+      if (activeBrowserTabId.value !== existing.id) _markUserMutation();
       activeBrowserTabId.value = existing.id;
+      terminalChosenWhileUnsynced = false;
       return existing.id;
     }
     idCounter += 1;
@@ -108,11 +121,13 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
     activeBrowserTabId.value = tab.id;
     _recordOpen(url);
     terminalChosenWhileUnsynced = false;
+    _markUserMutation();
     return tab.id;
   }
 
   function selectBrowserTab(id: number) {
     if (!tabs.value.some((t) => t.id === id)) return;
+    if (activeBrowserTabId.value !== id) _markUserMutation();
     activeBrowserTabId.value = id;
     terminalChosenWhileUnsynced = false;
   }
@@ -120,30 +135,34 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   /**
    * URL編集（BrowserPane.vueの地球儀アイコン→usePrompt）でタブのURLを書き換える。
    * ラベルは常にURLのホスト名から導出するため、新URLに合わせて再計算する。
-   * splice で配列を置き換えることで useBrowserTabsPersist.ts の shallow watch
-   * （tabs.slice()）にも変化を検知させる（プロパティの直接書き換えでは検知されない）。
    */
   function updateBrowserTabUrl(id: number, url: string) {
     const idx = tabs.value.findIndex((t) => t.id === id);
     if (idx === -1) return;
     const tab = tabs.value[idx];
+    if (tab.url === url) return;
     _recordRemove(tab.url);
     _recordOpen(url);
     tabs.value.splice(idx, 1, { ...tab, url, label: browserTabLabelFromUrl(url) });
+    _markUserMutation();
   }
 
   /**
    * 閉じたタブがアクティブだった場合、他のブラウザタブがあればそれへ、
-   * 無ければターミナル側（null）へフォールバックする。
+   * 無ければターミナル側（null）へフォールバックする。最後のタブを閉じて
+   * ターミナルへ戻った場合は showTerminal() と同じく「ターミナルを選んだ」
+   * として記録する（遅れた復元がサーバーの activeUrl で前面を奪わないため）。
    */
   function closeBrowserTab(id: number) {
     const idx = tabs.value.findIndex((t) => t.id === id);
     if (idx === -1) return;
     const [closed] = tabs.value.splice(idx, 1);
     _recordRemove(closed.url);
+    _markUserMutation();
     if (activeBrowserTabId.value !== id) return;
     const fallback = tabs.value[Math.min(idx, tabs.value.length - 1)];
     activeBrowserTabId.value = fallback ? fallback.id : null;
+    if (!fallback && syncState.value !== "synced") terminalChosenWhileUnsynced = true;
   }
 
   /**
@@ -195,7 +214,7 @@ export const useBrowserTabStore = defineStore("browserTabs", () => {
   }
 
   return {
-    tabs, activeBrowserTabId, isRestored,
+    tabs, activeBrowserTabId, isRestored, userMutationVersion,
     openBrowserTab, selectBrowserTab, closeBrowserTab, updateBrowserTabUrl,
     beginRestore, applyServerState,
     showTerminal, setBrowserTabLoading,

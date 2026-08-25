@@ -236,6 +236,19 @@ describe("useBrowserTabsPersist", () => {
     expect(store.tabs.find((t) => t.id === store.activeBrowserTabId)?.url).toBe("http://localhost:5000/");
   });
 
+  it("復元の適用自体では保存しない（watcherを先に登録していても、無変更のGETスナップショットをPUTし返さない）", async () => {
+    apiFetchMock.mockResolvedValueOnce(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: "http://localhost:3000/" }),
+    );
+    const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
+    // 本番と同じく watcher を復元より先に登録する
+    cleanups.push(startWatching());
+    await restoreBrowserTabs();
+
+    await flushSave();
+    expect(putCalls().length).toBe(0);
+  });
+
   it("クリーンアップ後に復元GETの失敗が解決しても、リトライは予約されない（ログイン画面での永久ポーリング防止）", async () => {
     let rejectFetch;
     apiFetchMock.mockReturnValueOnce(new Promise((_, rej) => { rejectFetch = rej; }));
