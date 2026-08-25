@@ -19,7 +19,7 @@
 //! - デバイス単位で revoke 可能。
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::extract::State;
 use axum::http::{header, HeaderMap, HeaderValue};
@@ -47,16 +47,18 @@ const COOKIE_MAX_AGE_SEC: i64 = 365 * 24 * 60 * 60;
 pub struct DevicesState {
     /// devices.json の read-modify-write 全体を直列化する。
     devices_lock: Mutex<()>,
-    /// server_key の初回生成を直列化する（devices_lock とは別ロック —
-    /// Python 版の `_server_key_lock`/`_devices_lock` の分離と同じ設計）。
-    server_key_lock: Mutex<()>,
+    /// HMAC 用サーバ鍵のプロセス内キャッシュ。初回解決（読み込み or 生成）を
+    /// 直列化しつつ、以後は認証ホットパスでのディスク再読込を避ける。
+    /// 書き込みに失敗しても同じ鍵を使い続けることで、リクエストごとに別鍵が
+    /// 再生成されて全クッキー・全 API トークンが無効化される事態を防ぐ。
+    server_key: OnceLock<Vec<u8>>,
 }
 
 impl Default for DevicesState {
     fn default() -> Self {
         Self {
             devices_lock: Mutex::new(()),
-            server_key_lock: Mutex::new(()),
+            server_key: OnceLock::new(),
         }
     }
 }
@@ -67,36 +69,41 @@ impl DevicesState {
     }
 }
 
-fn load_or_create_server_key(data_dir: &Path, state: &DevicesState) -> Vec<u8> {
-    let _guard = state
-        .server_key_lock
-        .lock()
-        .expect("server_key lock poisoned");
-    let path = data_dir.join("server_key");
-    if let Ok(existing) = std::fs::read(&path) {
-        if !existing.is_empty() {
-            return existing;
+fn load_or_create_server_key<'a>(data_dir: &Path, state: &'a DevicesState) -> &'a [u8] {
+    state.server_key.get_or_init(|| {
+        let path = data_dir.join("server_key");
+        if let Ok(existing) = std::fs::read(&path) {
+            if !existing.is_empty() {
+                return existing;
+            }
         }
-    }
-    let mut key = vec![0u8; 32];
-    getrandom::fill(&mut key).expect("os rng");
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    let _ = std::fs::write(&path, &key);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
-    }
-    key
+        let mut key = vec![0u8; 32];
+        getrandom::fill(&mut key).expect("os rng");
+        if let Some(parent) = path.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                tracing::error!("server_key dir create failed: {e}");
+            }
+        }
+        if let Err(e) = std::fs::write(&path, &key) {
+            // 永続化に失敗してもプロセス生存中はメモリ上の鍵で自己一貫させる
+            //（次回起動で全デバイス再認証にはなるが、稼働中の全断は避ける）。
+            tracing::error!("server_key write failed ({}): {e}", path.display());
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // 書き込み失敗時はファイルが無いだけなので、権限設定の失敗は無視してよい
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        key
+    })
 }
 
 /// HMAC-SHA256(data/server_key, secret) の hex（`api/devices.py` `_hash_secret`）。
 /// `api_tokens`（`server/src/auth.rs`）も同じ鍵・同じハッシュ方式を共有する。
 pub fn hash_secret(data_dir: &Path, state: &DevicesState, raw_secret: &str) -> String {
     let key = load_or_create_server_key(data_dir, state);
-    let mut mac = Hmac::<Sha256>::new_from_slice(&key).expect("hmac accepts any key length");
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("hmac accepts any key length");
     mac.update(raw_secret.as_bytes());
     mac.finalize()
         .into_bytes()
@@ -540,6 +547,19 @@ mod tests {
         // 同じキーが再利用されるので同じ secret から同じ hash が出る。
         let h2 = hash_secret(dir.path(), &state, "s1");
         assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn hash_secret_uses_in_process_cache_after_first_resolution() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = DevicesState::new();
+        let h1 = hash_secret(dir.path(), &state, "s1");
+        // ファイルが消えても（= 再書き込みできない状況でも）プロセス内
+        // キャッシュの鍵で同じ hash が出続けること。
+        std::fs::remove_file(dir.path().join("server_key")).unwrap();
+        let h2 = hash_secret(dir.path(), &state, "s1");
+        assert_eq!(h1, h2);
+        assert!(!dir.path().join("server_key").exists());
     }
 
     #[test]
