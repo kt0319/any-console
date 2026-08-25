@@ -9,6 +9,12 @@ import { on } from "../app-bridge.ts";
 
 const _saver = createSaveScheduler(SAVE_DEBOUNCE_MS);
 
+// 実行中の復元GET（無ければnull）。接続復帰イベントは短時間に複数回発火しうる
+// （useConnectivityMonitorはonline即時とヘルスチェック後の2回emitすることが
+// ある）ため、並行GETを許すと先に復元が完了した後のユーザー操作を、遅れて
+// 返ってきた2本目の応答が上書きしてしまう。実行中があればそれを共有する。
+let _restoreInFlight: Promise<void> | null = null;
+
 /**
  * ブラウザタブ一覧をサーバー（/settings/browser-tabs）へ保存・復元する
  * コンポーザブル。ターミナルタブの useLayoutPersist.ts と同じ形（変化を
@@ -70,7 +76,7 @@ export function useBrowserTabsPersist() {
     };
   }
 
-  async function restoreBrowserTabs() {
+  async function _restoreNow() {
     try {
       const res = await auth.apiFetch(EP_SETTINGS_BROWSER_TABS);
       if (!res || !res.ok) return;
@@ -83,14 +89,21 @@ export function useBrowserTabsPersist() {
         .map((t: { url?: unknown }) => normalizeBrowserTabUrl(t?.url))
         .filter((u: string | null): u is string => u != null)
         .map((url: string) => ({ url }));
-      // 復元GETの失敗後（connectivity:back のリトライ前）にローカルで開かれた
-      // タブはサーバー分の後ろへマージして残す — 遅れて成功した復元がローカル
-      // 操作を消さないため。アクティブタブもローカル優先。
-      const localUrls = browserTabStore.tabs
-        .map((t) => t.url)
-        .filter((u) => !serverTabs.some((s) => s.url === u));
+      // ローカルタブとのマージは「このストアがまだ一度も復元に成功していない」
+      // 時だけ行う（復元GETの失敗後にローカルで開かれたタブを、connectivity:back
+      // のリトライで遅れて成功した復元が消さないため。アクティブタブもローカル
+      // 優先）。復元済みのストアで再度呼ばれた場合（ログアウト→再ログイン等で
+      // ScreenMain が再マウントされた時）はサーバー状態で置き換える — 前回
+      // マウントの残骸をローカル新規タブと誤認してマージすると、他クライアント
+      // が意図して閉じたタブを復活させてしまうため。
+      const shouldMerge = !browserTabStore.isRestored;
+      const localUrls = shouldMerge
+        ? browserTabStore.tabs.map((t) => t.url).filter((u) => !serverTabs.some((s) => s.url === u))
+        : [];
       const merged = [...serverTabs, ...localUrls.map((url) => ({ url }))];
-      const localActive = browserTabStore.tabs.find((t) => t.id === browserTabStore.activeBrowserTabId);
+      const localActive = shouldMerge
+        ? browserTabStore.tabs.find((t) => t.id === browserTabStore.activeBrowserTabId)
+        : undefined;
       const activeUrl = localActive?.url ?? normalizeBrowserTabUrl(data?.activeUrl);
       browserTabStore.restoreFromServer(merged, activeUrl);
       // ローカル分をマージした場合はサーバーがまだ知らないので反映しておく。
@@ -100,6 +113,15 @@ export function useBrowserTabsPersist() {
       // 走らせない（空の一覧でサーバーの保存済みタブを上書きしないため）。
       // 接続復帰時に startWatching() 側のリトライが復元をやり直す。
     }
+  }
+
+  function restoreBrowserTabs(): Promise<void> {
+    if (!_restoreInFlight) {
+      _restoreInFlight = _restoreNow().finally(() => {
+        _restoreInFlight = null;
+      });
+    }
+    return _restoreInFlight;
   }
 
   return { startWatching, restoreBrowserTabs };

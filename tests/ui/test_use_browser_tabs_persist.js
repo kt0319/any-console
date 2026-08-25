@@ -161,6 +161,50 @@ describe("useBrowserTabsPersist", () => {
     });
   });
 
+  it("復元済みストアでの再復元（再マウント等）はマージせずサーバー状態で置き換える — 他クライアントが閉じたタブを復活させない", async () => {
+    apiFetchMock.mockResolvedValueOnce(
+      okResponse({
+        tabs: [{ url: "http://localhost:3000/" }, { url: "http://localhost:4000/" }],
+        activeUrl: "http://localhost:4000/",
+      }),
+    );
+    const { restoreBrowserTabs } = useBrowserTabsPersist();
+    await restoreBrowserTabs();
+    expect(store.tabs.length).toBe(2);
+
+    // 他クライアントが4000を閉じた後の再マウント相当: ストアには前回の残骸が残っている
+    apiFetchMock.mockResolvedValue(
+      okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: "http://localhost:3000/" }),
+    );
+    await restoreBrowserTabs();
+
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+    // マージしていないので保存も走らない
+    await vi.advanceTimersByTimeAsync(LAYOUT_SAVE_DEBOUNCE_MS + 10);
+    expect(putCalls().length).toBe(0);
+  });
+
+  it("復元GETの並行実行はin-flightのPromiseを共有して1本にまとめる", async () => {
+    let resolveFetch;
+    apiFetchMock.mockReturnValue(new Promise((r) => { resolveFetch = r; }));
+    const { restoreBrowserTabs } = useBrowserTabsPersist();
+
+    const p1 = restoreBrowserTabs();
+    const p2 = restoreBrowserTabs();
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFetch(okResponse({ tabs: [{ url: "http://localhost:3000/" }], activeUrl: null }));
+    await p1;
+    await p2;
+    expect(store.isRestored).toBe(true);
+    expect(store.tabs.map((t) => t.url)).toEqual(["http://localhost:3000/"]);
+
+    // 完了後は解放され、次の呼び出しは新しくGETする
+    apiFetchMock.mockResolvedValue(okResponse({ tabs: [], activeUrl: null }));
+    await restoreBrowserTabs();
+    expect(apiFetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("復元失敗のまま接続が復帰（connectivity:back）したら復元をリトライして永続化を復活させる", async () => {
     apiFetchMock.mockRejectedValueOnce(new Error("network"));
     const { restoreBrowserTabs, startWatching } = useBrowserTabsPersist();
