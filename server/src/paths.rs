@@ -139,11 +139,32 @@ impl Paths {
     pub fn tmux_session_name(&self, session_id: &str) -> String {
         format!("{}{session_id}", self.tmux_prefix)
     }
+
+    /// 画像アップロードの保存先。data_dir 配下に置くことで
+    /// `ANY_CONSOLE_DATA_DIR` による隔離（E2E 使い捨てサーバ）を効かせる。
+    pub fn uploads_dir(&self) -> PathBuf {
+        self.data_dir.join("uploads")
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uploads_dir_is_under_data_dir() {
+        let root = Path::new("/srv/any-console");
+        let (data_dir, config_file) = resolve_data_paths(root, Some("/tmp/isolated"));
+        let paths = Paths {
+            project_root: root.to_path_buf(),
+            frontend_dir: root.join("dist"),
+            icons_dir: data_dir.join("icons"),
+            data_dir,
+            config_file,
+            tmux_prefix: "ac-".to_string(),
+        };
+        assert_eq!(paths.uploads_dir(), PathBuf::from("/tmp/isolated/uploads"));
+    }
 
     #[test]
     fn default_paths_under_project_root() {

@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use axum::extract::Multipart;
+use axum::extract::{Multipart, State};
 use serde_json::{json, Value};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -21,10 +21,6 @@ use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
 const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
-
-fn upload_dir() -> PathBuf {
-    PathBuf::from("/tmp/any-console-uploads")
-}
 
 /// ファイル名用のコンパクトなタイムスタンプ（`%Y%m%d-%H%M%S`、UTC）。
 fn timestamp_compact() -> String {
@@ -155,6 +151,7 @@ fn which(program: &str) -> Option<PathBuf> {
 }
 
 pub async fn upload_image(
+    State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
     mut multipart: Multipart,
 ) -> Result<axum::Json<Value>, ApiError> {
@@ -187,7 +184,7 @@ pub async fn upload_image(
         return Err(too_large(MSG_UPLOAD_TOO_LARGE));
     }
 
-    let dir = upload_dir();
+    let dir = state.paths.uploads_dir();
     tokio::fs::create_dir_all(&dir)
         .await
         .map_err(|e| crate::errors::server_error(format!("Cannot create upload dir: {e}")))?;
