@@ -37,7 +37,7 @@ import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.ts";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.ts";
 import { isComposingEvent } from "../utils/keyboard-event.ts";
 import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
-import { emit as bridgeEmit } from "../app-bridge.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 
 const emit = defineEmits(["focused", "submitted"]);
 // フリックバーの矢印キーと同じ履歴↑↓状態を物理キーボードの矢印キーでも
@@ -51,6 +51,7 @@ const props = defineProps({
 });
 
 const inputStore = useInputStore();
+const layoutStore = useLayoutStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
 
 const draft = defineModel("draft", { default: "" });
@@ -111,7 +112,7 @@ function onEscape(e: KeyboardEvent) {
 function onFocus() {
   focused.value = true;
   emit("focused", true);
-  bridgeEmit("oskeyboard:show");
+  layoutStore.isOsKeyboardOpen = true;
 }
 
 // v-model（vModelText）はIME変換中（compositionstart〜compositionend）は
@@ -134,7 +135,7 @@ function onBlur() {
   if (!handleBlur()) return;
   focused.value = false;
   emit("focused", false);
-  bridgeEmit("oskeyboard:hide");
+  layoutStore.isOsKeyboardOpen = false;
 }
 
 function focus() {

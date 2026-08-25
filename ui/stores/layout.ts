@@ -20,6 +20,10 @@ export const useLayoutStore = defineStore("layout", () => {
 
   const isSettingsOpen = ref(false);
 
+  // モバイルの入力バー（KeyboardInput）フォーカス中＝OSキーボード表示中。
+  // ScreenMain が .keyboard-open クラスの切替えに使う。
+  const isOsKeyboardOpen = ref(false);
+
   // タブバー左端のハンバーガーで開くセッションサイドバー（SessionSidebar.vue）。
   // 開閉状態はlocalStorageへ保存し、リロード後も復元する。
   const isSessionSidebarOpen = ref(safeFlagLoad(LS_KEY_SESSION_SIDEBAR_OPEN));
@@ -206,6 +210,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isTouchDevice,
     isPwa,
     isSettingsOpen,
+    isOsKeyboardOpen,
     isSessionSidebarOpen,
     toggleSessionSidebar,
     closeSessionSidebar,

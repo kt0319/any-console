@@ -19,7 +19,8 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useIsMobile } from "../composables/useIsMobile.ts";
+import { storeToRefs } from "pinia";
+import { useLayoutStore } from "../stores/layout.ts";
 
 defineProps({
   currentMode: { type: String, required: true },
@@ -28,7 +29,7 @@ defineProps({
 
 defineEmits(["select"]);
 
-const { isMobile } = useIsMobile();
+const { isPanelBottom: isMobile } = storeToRefs(useLayoutStore());
 
 const modes = [
   { value: "normal", icon: "split-icon-normal", minTabs: 0, label: "Single pane" },

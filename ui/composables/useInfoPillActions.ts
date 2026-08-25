@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { terminalSessionCwdPath } from "../utils/endpoints.ts";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.ts";
 import { useDevServerOpen } from "./useDevServerOpen.ts";
+import { openWorkspaceAdd } from "./useSessionOpenNav.ts";
 
 // Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が
 // 同じopenPane(key)を使う。
@@ -78,7 +79,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     } else if (action.type === "launch") {
       emit("terminal:launch", { workspace: action.workspace, icon: action.icon, iconColor: action.iconColor });
     } else {
-      emit("workspace:openAdd", { initialPath: action.initialPath, attachSessionId: tab.value.sessionId, attachTabId: tab.value.id });
+      openWorkspaceAdd({ initialPath: action.initialPath, attachSessionId: tab.value.sessionId, attachTabId: tab.value.id });
     }
   }
 
