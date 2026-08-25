@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -327,5 +327,28 @@ describe("dirtyBadgeHtml", () => {
   });
   it("変更ファイル数が1件以上ならFバッジを付与", () => {
     expect(dirtyBadgeHtml({ changed_files: 3, insertions: 10, deletions: 4 })).toBe('<span class="header-git-files">3F</span> <span class="diff-num-plus">+10</span> <span class="diff-num-del">-4</span>');
+  });
+});
+
+describe("shortHash", () => {
+  it("7桁に短縮する", () => {
+    expect(shortHash("0123456789abcdef")).toBe("0123456");
+    expect(shortHash("abc")).toBe("abc");
+  });
+});
+
+describe("parseFileLog", () => {
+  it("タブ区切りの git log 出力をパースする", () => {
+    const out = "aaa\t2026-01-01\tAlice\tfix: bug\nbbb\t2026-01-02\tBob\tfeat: tab\tin message\n";
+    const entries = parseFileLog(out);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toEqual({ hash: "aaa", time: "2026-01-01", author: "Alice", message: "fix: bug" });
+    // メッセージ中のタブは保持される
+    expect(entries[1].message).toBe("feat: tab\tin message");
+  });
+
+  it("空行を除外する", () => {
+    expect(parseFileLog("\n\n")).toEqual([]);
+    expect(parseFileLog("")).toEqual([]);
   });
 });
