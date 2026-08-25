@@ -51,12 +51,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from "vue";
+import { computed, ref, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
-import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
+import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
@@ -83,10 +83,22 @@ const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirmAndCloseTab } = useTabClose();
 
+// GitHub連携があるワークスペース（githubWorkspaceKeys）ごとにPR/Actionsの
+// ポーリングを回す（TerminalPaneの同種ロジックを複数ワークスペース分に
+// まとめたもの — 差分開始/停止は useGitHubPollingFor に集約）。
+const githubWorkspaceKeys = computed(() => {
+  const keys = new Set<string>();
+  for (const tab of terminalStore.openTabs) {
+    if (!tab.workspace) continue;
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === tab.workspace);
+    if (ws?.is_git_repo && ws?.github_url) keys.add(tab.workspace);
+  }
+  return [...keys];
+});
+
 // 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
-// PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
-const { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling } = useGitHubPolling();
+const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { queue: dispatchQueue } = useDispatchQueue();
 
@@ -193,34 +205,9 @@ async function onCloseTab(item: SessionItem) {
 // だけマウントされる（他の設定画面を見ている間はアンマウントされる）ため、
 // ポーリングはこのコンポーネント自身のマウント/アンマウントに素直に紐付く。
 // PR/Actionsはgithub連携のあるgitワークスペースだけ、開いているタブの
-// 集合が変わるたびに増減分だけ開始/停止する（TerminalPaneの同種ロジック
-// を複数ワークスペース分にまとめたもの）。
-const githubWorkspaceKeys = computed(() => {
-  const keys = new Set<string>();
-  for (const tab of terminalStore.openTabs) {
-    if (!tab.workspace) continue;
-    const ws = workspaceStore.allWorkspaces.find((w) => w.name === tab.workspace);
-    if (ws?.is_git_repo && ws?.github_url) keys.add(tab.workspace);
-  }
-  return [...keys];
-});
-
-let activeGitHubKeys: string[] = [];
-watch(githubWorkspaceKeys, (keys) => {
-  const keySet = new Set(keys);
-  for (const old of activeGitHubKeys) {
-    if (!keySet.has(old)) stopGitHubPolling(old);
-  }
-  for (const key of keys) {
-    if (!activeGitHubKeys.includes(key)) startGitHubPolling(key);
-  }
-  activeGitHubKeys = keys;
-}, { immediate: true });
-
 startPreviewPolling();
 
 onBeforeUnmount(() => {
-  for (const key of activeGitHubKeys) stopGitHubPolling(key);
   stopPreviewPolling();
 });
 </script>

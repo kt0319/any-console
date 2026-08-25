@@ -1,3 +1,4 @@
+import { onBeforeUnmount, watch, type ComputedRef } from "vue";
 import { useWorkspacePRs } from "./useWorkspacePRs.ts";
 import { useWorkspaceRuns } from "./useWorkspaceRuns.ts";
 
@@ -25,4 +26,29 @@ export function useGitHubPolling() {
   }
 
   return { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling };
+}
+
+/**
+ * 対象ワークスペース集合の変化に追従してポーリングを増減し、アンマウント時に
+ * まとめて停止する（TerminalPane = 1件 / SessionListView = 複数件で共用の
+ * 差分開始・停止ブックキーピング）。
+ */
+export function useGitHubPollingFor(keys: ComputedRef<string[]>) {
+  const polling = useGitHubPolling();
+  let active: string[] = [];
+  watch(keys, (next) => {
+    const keySet = new Set(next);
+    for (const old of active) {
+      if (!keySet.has(old)) polling.stopGitHubPolling(old);
+    }
+    for (const key of next) {
+      if (!active.includes(key)) polling.startGitHubPolling(key);
+    }
+    active = [...next];
+  }, { immediate: true });
+  onBeforeUnmount(() => {
+    for (const key of active) polling.stopGitHubPolling(key);
+    active = [];
+  });
+  return polling;
 }

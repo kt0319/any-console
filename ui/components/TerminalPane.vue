@@ -101,7 +101,7 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.ts";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
-import { useGitHubPolling } from "../composables/useGitHubPolling.ts";
+import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { usePeekPills } from "../composables/usePeekPills.ts";
@@ -171,7 +171,8 @@ const devServerEntry = computed(() => {
 // （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
 // PR/Actionsのポーリングは必ずペアで開始・停止するためuseGitHubPollingに集約。
-const { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling } = useGitHubPolling();
+const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(
+  computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
 const branchPR = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -191,15 +192,6 @@ const visibleBranchAction = computed(() =>
 );
 
 const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
-
-watch(
-  githubWorkspaceKey,
-  (workspace, prevWorkspace) => {
-    if (prevWorkspace) stopGitHubPolling(prevWorkspace);
-    if (workspace) startGitHubPolling(workspace);
-  },
-  { immediate: true },
-);
 
 const { queue: dispatchQueue } = useDispatchQueue();
 const tabDispatchItems = computed(() => {
@@ -500,7 +492,6 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
-  if (githubWorkspaceKey.value) stopGitHubPolling(githubWorkspaceKey.value);
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }
