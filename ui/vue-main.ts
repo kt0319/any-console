@@ -22,7 +22,7 @@ import { installErrorReporter } from "./utils/error-reporter.ts";
 import { installTooltip } from "./utils/tooltip.ts";
 import { emit } from "./app-bridge.ts";
 import { safeJsonLoad } from "./utils/storage.ts";
-import { LS_KEY_NOTIF_PREFS } from "./utils/constants.ts";
+import { CHUNK_RELOAD_GUARD_MS, FONT_LOAD_TIMEOUT_MS, LS_KEY_NOTIF_PREFS } from "./utils/constants.ts";
 
 // 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
 // dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。
@@ -33,7 +33,7 @@ function installChunkErrorAutoReload() {
   function tryReload() {
     try {
       const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || "0");
-      if (Date.now() - last < 10000) return;  // 直近10秒以内はループ防止
+      if (Date.now() - last < CHUNK_RELOAD_GUARD_MS) return; // 直近の窓内はループ防止
       sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
     } catch { /* private mode 等 */ }
     location.reload();
@@ -68,7 +68,7 @@ async function bootstrap() {
           document.fonts.load('1em "Hack Nerd Font"'),
           document.fonts.load('bold 1em "Hack Nerd Font"'),
         ]),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
+        new Promise((resolve) => setTimeout(resolve, FONT_LOAD_TIMEOUT_MS)),
       ]);
     } catch { /* ignore */ }
   }

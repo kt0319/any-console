@@ -90,14 +90,13 @@ import { useIconUpload } from "../composables/useIconUpload.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { looksLikeUrl, extractDomain } from "../utils/icon-url.ts";
 import { buildIconGridModel } from "../utils/icon-grid.ts";
+import { ICON_GRID_MAX_DISPLAY } from "../utils/constants.ts";
 import MDI_ICONS from "../data/mdi-icons.ts";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle!.value = "Icon Picker";
 
 const { readIconFile } = useIconUpload();
-
-const MAX_DISPLAY = 200;
 
 const ICON_PRESET_COLORS = [
   { label: "Default", value: "" },
@@ -137,7 +136,7 @@ function renderGrid(icons: string[], query: string) {
   const el = gridRef.value;
   if (!el) return;
   el.innerHTML = "";
-  const { items, remaining } = buildIconGridModel(icons, query, MAX_DISPLAY);
+  const { items, remaining } = buildIconGridModel(icons, query, ICON_GRID_MAX_DISPLAY);
   for (const name of items) {
     const btn = document.createElement("button");
     btn.type = "button";

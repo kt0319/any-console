@@ -5,7 +5,11 @@ import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 
 vi.mock("../../../ui/app-bridge.ts", () => ({ emit: vi.fn(), on: vi.fn(() => () => {}) }));
-vi.mock("../../../ui/utils/constants.ts", () => ({ TOAST_DEFAULT_DURATION_MS: 5000 }));
+vi.mock("../../../ui/utils/constants.ts", () => ({
+  TOAST_DEFAULT_DURATION_MS: 5000,
+  TOAST_SWIPE_DISMISS_PX: 40,
+  TOAST_TAP_MAX_DELTA_PX: 5,
+}));
 
 // Teleport to="body" のため wrapper.find() ではなく document.body から検索する
 const bodyFind = (sel) => document.body.querySelector(sel);
