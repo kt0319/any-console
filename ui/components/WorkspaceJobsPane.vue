@@ -17,7 +17,7 @@
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
         </button>
-        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
+        <button v-if="props.editMode" type="button" class="job-item-edit-btn" data-tooltip="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
@@ -35,7 +35,7 @@
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
         </button>
-        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
+        <button v-if="props.editMode" type="button" class="job-item-edit-btn" data-tooltip="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>

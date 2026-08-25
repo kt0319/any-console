@@ -37,7 +37,8 @@
           type="button"
           class="color-palette-item"
           :class="{ selected: selectedColor === preset.value }"
-          :title="preset.label"
+          :data-tooltip="preset.label"
+          :aria-label="preset.label"
           :style="{ background: preset.value || 'var(--text-primary)' }"
           @click="selectColor(preset.value)"
         />

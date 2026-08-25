@@ -6,7 +6,8 @@
       type="button"
       class="detached-sessions-li"
       :data-session-id="s.session_id || null"
-      :title="s.external ? 'Adopt into any-console (rename tmux session)' : 'Open as tab'"
+      :data-tooltip="s.external ? 'Adopt into any-console (rename tmux session)' : 'Open as tab'"
+      :aria-label="s.external ? 'Adopt into any-console (rename tmux session)' : 'Open as tab'"
       @click="s.external ? adoptDetached(s) : openDetached(s)"
     >
       <span class="mdi detached-sessions-icon" :class="s.external ? 'mdi-import' : 'mdi-tab-plus'"></span>

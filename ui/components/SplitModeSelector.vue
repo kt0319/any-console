@@ -8,7 +8,7 @@
       :class="{ active: currentMode === m.value }"
       :disabled="m.minTabs > tabCount"
       :aria-label="m.label"
-      :title="m.label"
+      :data-tooltip="m.label"
       :aria-pressed="currentMode === m.value ? 'true' : 'false'"
       @click="$emit('select', m.value)"
     >
