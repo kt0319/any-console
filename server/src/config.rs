@@ -29,6 +29,16 @@ pub fn generate_entity_id() -> String {
     format!("{ENTITY_ID_PREFIX}{}", crate::util::token_hex(6))
 }
 
+/// workspace エントリの表示名を解決する（`name` が空・欠如ならワークスペース ID
+/// にフォールバック）。`entry.get("name")` を渡す — エントリが `Map` でも `Value`
+/// でも同じ呼び方になる。フォールバック規則はここ1箇所で管理する。
+pub fn workspace_display_name<'a>(name_field: Option<&'a Value>, ws_id: &'a str) -> &'a str {
+    name_field
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(ws_id)
+}
+
 #[derive(Debug, Clone)]
 pub struct ConfigStore {
     pub config_file: PathBuf,
@@ -359,14 +369,7 @@ impl ConfigStore {
             let matches = path == ws_path_str || path.starts_with(&format!("{ws_path_str}/"));
             if matches && ws_path_str.len() as i64 > best_len {
                 best_len = ws_path_str.len() as i64;
-                best_name = Some(
-                    entry
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .filter(|s| !s.is_empty())
-                        .map(String::from)
-                        .unwrap_or(key),
-                );
+                best_name = Some(workspace_display_name(entry.get("name"), &key).to_string());
             }
         }
         best_name
@@ -753,5 +756,17 @@ mod tests {
         write_file(&dir, "config.json", "{broken");
         let h = s.check_health();
         assert_eq!(h["ok"], json!(false));
+    }
+
+    #[test]
+    fn workspace_display_name_falls_back_to_id() {
+        let entry = json!({"name": "My WS"});
+        assert_eq!(workspace_display_name(entry.get("name"), "ws_1"), "My WS");
+        let empty = json!({"name": ""});
+        assert_eq!(workspace_display_name(empty.get("name"), "ws_1"), "ws_1");
+        let missing = json!({});
+        assert_eq!(workspace_display_name(missing.get("name"), "ws_1"), "ws_1");
+        let non_str = json!({"name": 42});
+        assert_eq!(workspace_display_name(non_str.get("name"), "ws_1"), "ws_1");
     }
 }

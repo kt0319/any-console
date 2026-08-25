@@ -44,11 +44,7 @@ pub async fn list_all_workspace_jobs(
     let mut jobs_by_name: std::collections::HashMap<String, Map<String, Value>> =
         std::collections::HashMap::new();
     for (ws_id, entry) in &entries {
-        let display = entry
-            .get("name")
-            .and_then(Value::as_str)
-            .filter(|s| !s.is_empty())
-            .unwrap_or(ws_id);
+        let display = crate::config::workspace_display_name(entry.get("name"), ws_id);
         let jobs = entry
             .get("jobs")
             .and_then(Value::as_object)
@@ -62,12 +58,7 @@ pub async fn list_all_workspace_jobs(
 
     let mut result = Map::new();
     for (ws_id, entry) in &sorted_entries {
-        let display = entry
-            .get("name")
-            .and_then(Value::as_str)
-            .filter(|s| !s.is_empty())
-            .unwrap_or(ws_id)
-            .to_string();
+        let display = crate::config::workspace_display_name(entry.get("name"), ws_id).to_string();
         let base = entry
             .get("worktree_base")
             .and_then(Value::as_str)

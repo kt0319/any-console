@@ -109,11 +109,7 @@ fn apply_import_entry(current: &mut Map<String, Value>, identifier: &str, ws_con
     for (k, v) in ws_obj {
         merged.insert(k.clone(), v.clone());
     }
-    let name = existing
-        .get("name")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(&target_id);
+    let name = crate::config::workspace_display_name(existing.get("name"), &target_id);
     merged.insert("name".to_string(), Value::String(name.to_string()));
     current.insert(target_id.clone(), Value::Object(merged));
 }

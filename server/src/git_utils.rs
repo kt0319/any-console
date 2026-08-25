@@ -477,12 +477,8 @@ pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathB
         let p =
             crate::paths::expand_user_path(entry.get("path").and_then(Value::as_str).unwrap_or(""));
         if p.is_dir() && git_is_repo(&p).await {
-            let name = entry
-                .get("name")
-                .and_then(Value::as_str)
-                .filter(|s| !s.is_empty())
-                .unwrap_or(&ws_id)
-                .to_string();
+            let name =
+                crate::config::workspace_display_name(entry.get("name"), &ws_id).to_string();
             result.push((name, p));
         }
     }
@@ -513,12 +509,7 @@ async fn worktree_entries_for_workspace(
     if !is_git {
         return Vec::new();
     }
-    let base_name = entry
-        .get("name")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(&ws_id)
-        .to_string();
+    let base_name = crate::config::workspace_display_name(entry.get("name"), &ws_id).to_string();
     let mut out = Vec::new();
     for wt in git_worktree_list(&ws_path).await.iter().skip(1) {
         let wt_path_str = wt.get("path").and_then(Value::as_str).unwrap_or("");
