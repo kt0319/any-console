@@ -22,6 +22,8 @@ pub const TMUX_PANE_POLL_INTERVAL_SEC: f64 = 0.05;
 /// 起動処理中はこの出力が現れない）。
 const SHELL_READY_PROBE_MARKER: &str = "ANYCONSOLE_SHELL_READY";
 pub const SHELL_READY_TIMEOUT_SEC: f64 = 2.0;
+/// `$SHELL` 未設定時のフォールバック（`create_tmux_session`/`attach_tmux_session`で共通に使う）。
+const DEFAULT_SHELL: &str = "/bin/zsh";
 pub const TERMINAL_DEFAULT_COLS: u16 = 80;
 pub const TERMINAL_DEFAULT_ROWS: u16 = 24;
 pub const TERMINAL_TERM_TYPE: &str = "xterm-256color";
@@ -180,7 +182,7 @@ pub async fn create_tmux_session(
     workspace_path: Option<&str>,
     session_name: &str,
 ) -> std::io::Result<()> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| DEFAULT_SHELL.to_string());
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let cwd_buf = match workspace_path {
         Some(p) if Path::new(p).is_dir() => std::path::PathBuf::from(p),
@@ -299,7 +301,7 @@ pub fn attach_tmux_session(session_name: &str, cols: u16, rows: u16) -> std::io:
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let path = std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".to_string());
     let lang = std::env::var("LANG").unwrap_or_else(|_| "en_US.UTF-8".to_string());
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| DEFAULT_SHELL.to_string());
     let env: Vec<(&str, &str)> = vec![
         ("TERM", TERMINAL_TERM_TYPE),
         ("HOME", home.as_str()),

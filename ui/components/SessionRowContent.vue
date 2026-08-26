@@ -167,6 +167,12 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
   color: var(--success);
 }
 
+/* Working/Blocked/Doneと違い常時表示されうる（idle＝大半の時間readyのため）、
+   目立たせすぎない中間色にする。 */
+.session-sidebar-agent.agent-state-ready {
+  color: var(--text-muted);
+}
+
 /* タブがまだ無いワークスペースの承認待ちdispatch行専用（SessionListView.vue、
    実際のエージェント状態ではないが同じバッジ見た目を流用する）。 */
 .session-sidebar-agent.agent-state-dispatch-pending {

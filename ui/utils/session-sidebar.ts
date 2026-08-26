@@ -8,23 +8,29 @@ import { buildInfoPillTooltips } from "./info-pill-tooltips.ts";
 /**
  * エージェント状態（terminalStore.agentStates の値）ごとの表示メタ。
  * 色のみで状態を示さないため、アイコンとラベルを必ず併記する。
- * idleは「何もしていない」通常状態でありノイズになるためバッジを出さない
- * （resolveAgentBadgeState が idle を常に null に潰す）。
+ *
+ * agent_watch（バックエンド）は既知エージェント（claude/codex等）だけでなく
+ * 全セッションの状態を画面差分ベースでworking/idle判定しているため、idleは
+ * 「ただのターミナル」にも既知エージェントにも共通して届く。ここではidleを
+ * 「何もしていない」ではなく「コマンド入力待ち」＝Readyとして表示する
+ * （resolveAgentBadgeState参照）。
  */
 export const AGENT_STATE_META = Object.freeze({
   working: Object.freeze({ icon: "mdi-autorenew", label: "Working", className: "agent-state-working" }),
   blocked: Object.freeze({ icon: "mdi-alert-circle-outline", label: "Blocked", className: "agent-state-blocked" }),
   done: Object.freeze({ icon: "mdi-check-circle-outline", label: "Done", className: "agent-state-done" }),
+  ready: Object.freeze({ icon: "mdi-check", label: "Ready", className: "agent-state-ready" }),
 });
 
 /**
  * 生のエージェント状態(working/blocked/idle)と doneSessions（working→idle
  * 遷移をタブを見るまで保持するフラグ）から、バッジ表示に使う実効状態を
- * 決める。idleはdoneでない限り常に非表示。
+ * 決める。状態が未取得（初回ポーリング前等）の間だけ非表示。
  */
 export function resolveAgentBadgeState(rawState?: string, isDone?: boolean): string | null {
   if (isDone) return "done";
-  if (!rawState || rawState === "idle") return null;
+  if (!rawState) return null;
+  if (rawState === "idle") return "ready";
   return rawState;
 }
 

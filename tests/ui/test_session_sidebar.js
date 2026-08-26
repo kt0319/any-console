@@ -28,7 +28,7 @@ describe("agentStateDescriptor", () => {
     expect(agentStateDescriptor(undefined)).toBeNull();
   });
 
-  it("idleはAGENT_STATE_METAに定義が無い（バッジを出さない）", () => {
+  it("AGENT_STATE_METAはidleキーを持たない（resolveAgentBadgeStateがidleをreadyへ変換してから使うため）", () => {
     expect(AGENT_STATE_META.idle).toBeUndefined();
     expect(agentStateDescriptor("idle")).toBeNull();
   });
@@ -40,8 +40,11 @@ describe("resolveAgentBadgeState", () => {
     expect(resolveAgentBadgeState(undefined, true)).toBe("done");
   });
 
-  it("doneでなければidleはnullに潰す", () => {
-    expect(resolveAgentBadgeState("idle", false)).toBeNull();
+  it("doneでなければidleはreadyになる（コマンド入力待ち）", () => {
+    expect(resolveAgentBadgeState("idle", false)).toBe("ready");
+  });
+
+  it("状態が未取得（undefined）ならnull", () => {
     expect(resolveAgentBadgeState(undefined, false)).toBeNull();
   });
 
@@ -131,18 +134,24 @@ describe("sessionSidebarItems", () => {
     expect(items[1].phraseNotify).toBe(true);
   });
 
-  it("idleはバッジ非表示、doneSessionsに含まれていればdoneを表示する", () => {
+  it("idleはReadyバッジ、doneSessionsに含まれていればdoneを表示する", () => {
     const items = sessionSidebarItems(tabs, workspaces, {
       agentStates: { s1: "idle", s2: "idle" },
       doneSessions: { s2: true },
     });
-    expect(items[0].agent).toBeNull();
+    expect(items[0].agent).toBe(AGENT_STATE_META.ready);
     expect(items[1].agent).toBe(AGENT_STATE_META.done);
   });
 
   it("タブが空・未定義でも空配列を返す", () => {
     expect(sessionSidebarItems([], [])).toEqual([]);
     expect(sessionSidebarItems(undefined, undefined)).toEqual([]);
+  });
+
+  it("agentStates未設定（ただのターミナル含む、状態未取得）はバッジ無し", () => {
+    const items = sessionSidebarItems(tabs, workspaces);
+    expect(items[0].agent).toBeNull();
+    expect(items[1].agent).toBeNull();
   });
 });
 
