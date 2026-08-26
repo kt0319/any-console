@@ -1020,6 +1020,35 @@ mod collect_agent_states_tests {
         assert_eq!(got.as_deref(), Some(STATE_IDLE));
     }
 
+    /// ペイン内容が`needle`を含み、かつ連続2回のcaptureが完全一致する（＝出力・
+    /// プロンプト再描画が出揃って安定した）まで待つ（最大`timeout`、50msごと）。
+    ///
+    /// send-keys 直後に固定sleepだけを挟むテストは、高負荷環境ではシェルの
+    /// 出力/プロンプト再描画がまだ途中の状態を拾ってしまうことがあり、
+    /// その直後に間隔を置かず連続でcapture-pane判定を行う箇所（例:
+    /// notify_phrase の初検出→grace period経過判定を2回連続で呼ぶテスト）では
+    /// 1回目と2回目のcaptureが実際には変化した扱いになり、「アクティビティ
+    /// あり」と誤検知してflakyになっていた。
+    async fn wait_for_stable_capture(tmux_name: &str, needle: &str, timeout: std::time::Duration) {
+        let deadline = tokio::time::Instant::now() + timeout;
+        let mut prev: Option<String> = None;
+        loop {
+            let capture = crate::tmux::capture_visible_pane(tmux_name)
+                .await
+                .unwrap_or_default();
+            if capture.contains(needle) {
+                if prev.as_deref() == Some(capture.as_str()) {
+                    return;
+                }
+                prev = Some(capture);
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    }
+
     /// 最新の状態を返すまで最大2秒（100msごと）ポーリングする（実tmuxの
     /// タイミング依存によるテストのflakinessを避けるためのテスト専用ヘルパー）。
     #[allow(clippy::too_many_arguments)]
@@ -1151,8 +1180,19 @@ mod collect_agent_states_tests {
         let session_id = create_session(&state, None, None, Some("agent")).await;
         let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
+        // ユーザーの実シェル設定（starship/powerlevel10k等）は、非同期に取得した
+        // git情報等でコマンド入力を挟まずにプロンプトを描き直すことがあり、
+        // r1→r2間で「画面が変化した」と誤検知してflakyになっていた
+        // （固定sleepでもwait_for_stable_captureでも取り除けない、本テストが
+        // 検証したい対象とは無関係なノイズ）。env -i の最小sh + 固定PS1に
+        // 切り替えて、テスト中は画面がコマンド入力以外で絶対に変化しない
+        // ようにする。
+        assert!(
+            crate::tmux::send_keys_to_tmux(&tmux_name, "exec env -i PS1='TEST$ ' /bin/sh", true)
+                .await
+        );
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo FINISHED", true).await);
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        wait_for_stable_capture(&tmux_name, "FINISHED", std::time::Duration::from_secs(3)).await;
 
         let mut last_capture = HashMap::new();
         let mut last_pane_size = HashMap::new();
