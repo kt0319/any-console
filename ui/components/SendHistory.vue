@@ -3,7 +3,7 @@
     <div class="history-list">
       <div v-for="(text, idx) in history" :key="idx" class="history-row">
         <button type="button" class="history-command" @click="onInsert(text)">{{ text }}</button>
-        <button type="button" class="history-delete" @click="onDelete(text)" aria-label="Delete history entry">
+        <button type="button" class="history-delete" @click="onDelete(text)" aria-label="Delete history entry" data-tooltip="Delete history entry">
           <span class="mdi mdi-trash-can-outline"></span>
         </button>
       </div>

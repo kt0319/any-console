@@ -7,7 +7,7 @@
         type="text"
         placeholder="Add snippet..."
       />
-      <button type="submit" class="snippet-add-btn" :disabled="!newCommand.trim()" aria-label="Add snippet">
+      <button type="submit" class="snippet-add-btn" :disabled="!newCommand.trim()" aria-label="Add snippet" data-tooltip="Add snippet">
         <span class="mdi mdi-plus"></span>
       </button>
     </form>
@@ -15,7 +15,7 @@
     <div class="snippet-list">
       <div v-for="(snippet, idx) in snippets" :key="idx" class="snippet-row">
         <button type="button" class="snippet-command" @click="onInsert(snippet.command)">{{ snippet.command }}</button>
-        <button type="button" class="snippet-delete" @click="onDelete(idx)" aria-label="Delete snippet">
+        <button type="button" class="snippet-delete" @click="onDelete(idx)" aria-label="Delete snippet" data-tooltip="Delete snippet">
           <span class="mdi mdi-trash-can-outline"></span>
         </button>
       </div>

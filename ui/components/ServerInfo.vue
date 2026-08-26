@@ -19,7 +19,7 @@
     <div v-if="!isLoading && serverInfo?.updatable" class="si-card">
       <div class="settings-card-head">
         <span class="settings-card-title">Update</span>
-        <button type="button" class="settings-card-refresh" :disabled="upd.checking || upd.applying" @click="updCheck">
+        <button type="button" class="settings-card-refresh" :disabled="upd.checking || upd.applying" aria-label="Check for updates" data-tooltip="Check for updates" @click="updCheck">
           <span class="mdi mdi-refresh" :class="{ spinning: upd.checking }"></span>
         </button>
       </div>

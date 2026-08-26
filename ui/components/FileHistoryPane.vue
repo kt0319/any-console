@@ -22,7 +22,7 @@
     </template>
     <template v-else>
       <div class="file-history-diff-header">
-        <button type="button" class="file-history-back-btn" @click="clearSelection">
+        <button type="button" class="file-history-back-btn" aria-label="Back to file history" data-tooltip="Back" @click="clearSelection">
           <span class="mdi mdi-arrow-left"></span>
         </button>
         <div class="file-history-diff-summary">
