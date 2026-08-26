@@ -6,6 +6,7 @@
         <div class="github-section-body">
           <div v-if="isLoading" class="github-loading">Loading...</div>
           <div v-else-if="error" class="github-error">{{ error }}</div>
+          <div v-else-if="!items.length" class="text-muted-center">No workflow runs</div>
           <a
             v-for="run in items"
             :key="run.id"

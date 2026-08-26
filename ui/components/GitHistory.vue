@@ -5,7 +5,7 @@
       <div class="git-log-entry git-log-commit diff-files-selected-commit">
         <span class="git-log-entry-body">
           <span class="git-log-entry-msg-row">
-            <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
+            <button type="button" class="diff-files-close-btn" aria-label="Back to history" data-tooltip="Back" @click.stop="closeSelectedCommitFiles">
               <span class="mdi mdi-arrow-left"></span>
             </button>
             <span

@@ -6,7 +6,7 @@
         <span>CPU</span>
         <span>MEM</span>
       </span>
-      <button type="button" class="settings-card-refresh" :disabled="isRefreshing" @click="refreshAll">
+      <button type="button" class="settings-card-refresh" :disabled="isRefreshing" aria-label="Refresh processes" data-tooltip="Refresh processes" @click="refreshAll">
         <span class="mdi mdi-refresh" :class="{ spinning: isRefreshing }"></span>
       </button>
     </div>

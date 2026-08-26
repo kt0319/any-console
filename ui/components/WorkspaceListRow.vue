@@ -24,7 +24,7 @@
         </span>
       </button>
       <div class="picker-ws-top-meta" @click.stop>
-        <button v-if="ws.is_git_repo && ws.clean === false && !editMode" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="$emit('openChanges', ws)"></button>
+        <button v-if="ws.is_git_repo && ws.clean === false && !editMode" type="button" class="git-badge dirty" aria-label="Open changes" data-tooltip="Open changes" v-html="dirtyBadgeHtml(ws)" @click.stop="$emit('openChanges', ws)"></button>
         <template v-if="ws.is_git_repo && !editMode">
           <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="$emit('gitAction', ws, 'pull')" />
           <GitActionBtn v-if="ws.ahead > 0" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, pushActionFor(ws))" btn-class="picker-ws-mini-btn push-btn has-count" @action="$emit('gitAction', ws, pushActionFor(ws))" />
