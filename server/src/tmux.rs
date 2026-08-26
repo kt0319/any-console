@@ -14,14 +14,14 @@ use crate::subprocess::{run_tmux_cmd, CmdResult};
 
 pub const TMUX_PANE_READY_TIMEOUT_SEC: f64 = 2.0;
 pub const TMUX_PANE_POLL_INTERVAL_SEC: f64 = 0.05;
-/// `wait_pane_ready` はシェルプロセスが立ち上がった時点（`pane_current_command`
-/// が非空になった時点）で true を返すが、そこから実際にプロンプトが
-/// キー入力を受け付けられる状態（rc ファイル読み込み・direnv 等の起動処理）
-/// まではもう少しかかることがある。worktree 配下（.envrc 等が重い/初回の
-/// direnv allow待ちが挟まる等）でこの差が顕著になり、pane ready 直後に
-/// send-keys したジョブ起動コマンドがシェルの起動処理に飲み込まれて
-/// ターミナルに反映されない不具合があったため、送信前に一呼吸置く。
-pub const TMUX_JOB_LAUNCH_SETTLE_SEC: f64 = 0.3;
+/// シェルready確認プローブの識別子。`printf`の引数に`$$`（シェルPID）を渡す
+/// ことで、ローカルエコーで見える未展開の入力テキスト（`..._$$`）と、
+/// シェルが実際にコマンドを実行した後の出力（`..._1234`のように数字が続く）
+/// を区別できる。数字付きの出力が画面に現れて初めて「シェルが対話的に
+/// 入力を処理できる状態」と判断できる（rc ファイル読み込み・direnv 等の
+/// 起動処理中はこの出力が現れない）。
+const SHELL_READY_PROBE_MARKER: &str = "ANYCONSOLE_SHELL_READY";
+pub const SHELL_READY_TIMEOUT_SEC: f64 = 2.0;
 pub const TERMINAL_DEFAULT_COLS: u16 = 80;
 pub const TERMINAL_DEFAULT_ROWS: u16 = 24;
 pub const TERMINAL_TERM_TYPE: &str = "xterm-256color";
@@ -347,6 +347,45 @@ pub async fn wait_pane_ready(session_name: &str, timeout_sec: f64) -> bool {
     false
 }
 
+/// シェルが実際にキー入力を処理できる状態か（rc ファイル読み込み・direnv 等の
+/// 起動処理が終わっているか）をプローブして確認する（`wait_pane_ready`の
+/// プロセス起動検知だけでは不十分な問題への対応。`SHELL_READY_PROBE_MARKER`
+/// のコメント参照）。プローブ自体がシェルの起動処理に飲み込まれた場合は
+/// 出力が現れないため、timeout_sec 経過すると false を返す
+/// （呼び出し側はベストエフォートでそのまま送信するフォールバックを持つ）。
+pub async fn wait_shell_ready(session_name: &str, timeout_sec: f64) -> bool {
+    let probe = format!("printf '{SHELL_READY_PROBE_MARKER}_%s\\n' $$");
+    if !send_keys_to_tmux(session_name, &probe, true).await {
+        return false;
+    }
+    let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(timeout_sec);
+    while tokio::time::Instant::now() < deadline {
+        if let Some(capture) = capture_visible_pane(session_name).await {
+            if contains_expanded_marker(&capture, SHELL_READY_PROBE_MARKER) {
+                return true;
+            }
+        }
+        tokio::time::sleep(Duration::from_secs_f64(TMUX_PANE_POLL_INTERVAL_SEC)).await;
+    }
+    false
+}
+
+/// `marker_`の直後に数字が続く箇所があるかを調べる。ローカルエコーで見える
+/// 未展開の入力テキスト（`marker_$$`、`$`が2つ続く）とは一致せず、シェルが
+/// 実際に実行した後の出力（`marker_1234`）だけを検出できる。
+fn contains_expanded_marker(haystack: &str, marker: &str) -> bool {
+    let needle = format!("{marker}_");
+    let mut search_from = 0;
+    while let Some(pos) = haystack[search_from..].find(needle.as_str()) {
+        let after = search_from + pos + needle.len();
+        if haystack[after..].starts_with(|c: char| c.is_ascii_digit()) {
+            return true;
+        }
+        search_from = after;
+    }
+    false
+}
+
 pub async fn load_tmux_metadata(tmux_name: &str) -> HashMap<String, String> {
     let Some(r) = run_tmux_cmd(&["show-environment", "-t", tmux_name]).await else {
         tracing::warn!("load_tmux_metadata failed session={tmux_name} result=None");
@@ -415,6 +454,17 @@ async fn display_message(tmux_name: &str, fmt: &str) -> Option<String> {
 
 async fn display_message_int(tmux_name: &str, fmt: &str) -> Option<i64> {
     display_message(tmux_name, fmt).await?.parse().ok()
+}
+
+/// 1セッション分の`pane_current_command`/`pane_title`を返す。`list_pane_meta`
+/// は全セッション一括取得用のため、短間隔のポーリング（pending text flush の
+/// idle 待ち等）で1セッションだけ確認したい場合はこちらを使う。
+pub async fn pane_command_and_title(tmux_name: &str) -> Option<(String, String)> {
+    let command = display_message(tmux_name, "#{pane_current_command}").await?;
+    let title = display_message(tmux_name, "#{pane_title}")
+        .await
+        .unwrap_or_default();
+    Some((command, title))
 }
 
 pub async fn get_session_cwd(tmux_name: &str) -> Option<String> {
@@ -577,6 +627,33 @@ mod tests {
         assert_eq!(decode_pending_text("abc"), ""); // 奇数長
     }
 
+    #[test]
+    fn contains_expanded_marker_ignores_unexpanded_local_echo() {
+        // ローカルエコーで見える未展開の入力テキスト（$$がリテラルのまま）は
+        // マッチしない。
+        assert!(!contains_expanded_marker(
+            "printf 'ANYCONSOLE_SHELL_READY_%s\\n' $$",
+            "ANYCONSOLE_SHELL_READY"
+        ));
+    }
+
+    #[test]
+    fn contains_expanded_marker_detects_executed_output() {
+        // シェルが実際に実行した後の出力（PIDが数字で展開されている）は検出できる。
+        assert!(contains_expanded_marker(
+            "ANYCONSOLE_SHELL_READY_12345",
+            "ANYCONSOLE_SHELL_READY"
+        ));
+    }
+
+    #[test]
+    fn contains_expanded_marker_false_when_absent() {
+        assert!(!contains_expanded_marker(
+            "no marker here",
+            "ANYCONSOLE_SHELL_READY"
+        ));
+    }
+
     /// `ANY_CONSOLE_RS_HOST`/`ANY_CONSOLE_RS_PORT` を書き換えるため、この crate の
     /// テストの中でこれらの環境変数を触るのはこのテストだけ（他は grep 済み）—
     /// 単体テストは同一プロセス内で並行実行されるため、他のテストと競合しうる
@@ -680,6 +757,42 @@ mod tests {
         crate::pty::close(pty.into_inner(), child.pid);
         crate::subprocess::kill_tmux_by_name(&name).await;
         assert!(!crate::subprocess::tmux_session_exists(&name).await);
+    }
+
+    #[tokio::test]
+    async fn wait_shell_ready_confirms_probe_output_then_allows_send_keys() {
+        if super::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let config = ConfigStore::new(dir.path().join("config.json"));
+        let name = format!("ac-test-ready-{}", crate::util::token_hex(4));
+
+        create_tmux_session(dir.path(), &config, None, &name)
+            .await
+            .expect("session should be created");
+        assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);
+
+        assert!(wait_shell_ready(&name, SHELL_READY_TIMEOUT_SEC).await);
+        assert!(send_keys_to_tmux(&name, "echo after-ready", true).await);
+
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        let mut found = false;
+        while tokio::time::Instant::now() < deadline {
+            if let Some(capture) = capture_visible_pane(&name).await {
+                if capture.contains("after-ready") {
+                    found = true;
+                    break;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        assert!(
+            found,
+            "job command sent after wait_shell_ready should reach the shell"
+        );
+
+        crate::subprocess::kill_tmux_by_name(&name).await;
     }
 
     #[tokio::test]

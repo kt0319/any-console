@@ -558,14 +558,15 @@ async fn resolve_and_launch_session(
                 create_session(state, effective_ws, Some(ws_path), &body.job, job_def).await?;
             let tmux_name = { sess.lock().await.tmux_session_name.clone() };
             tmux::wait_pane_ready(&tmux_name, tmux::TMUX_PANE_READY_TIMEOUT_SEC).await;
-            tokio::time::sleep(std::time::Duration::from_secs_f64(
-                tmux::TMUX_JOB_LAUNCH_SETTLE_SEC,
-            ))
-            .await;
-            if !job_def.command.is_empty()
-                && !tmux::send_keys_to_tmux(&tmux_name, &job_def.command, true).await
-            {
-                tracing::warn!("dispatch job launch send-keys failed session={sid}");
+            if !job_def.command.is_empty() {
+                // rc ファイル読み込み・direnv 等の起動処理中に送るとジョブ起動
+                // コマンドが飲み込まれることがあるため、シェルが実際にキー入力を
+                // 処理できる状態になったことをプローブで確認してから送る
+                // （タイムアウトしてもベストエフォートでそのまま送信する）。
+                tmux::wait_shell_ready(&tmux_name, tmux::SHELL_READY_TIMEOUT_SEC).await;
+                if !tmux::send_keys_to_tmux(&tmux_name, &job_def.command, true).await {
+                    tracing::warn!("dispatch job launch send-keys failed session={sid}");
+                }
             }
             if !body.text.is_empty() {
                 set_pending_text(&tmux_name, &body.text, body.enter).await;

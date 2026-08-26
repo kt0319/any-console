@@ -17,17 +17,23 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
+use crate::agent_watch;
 use crate::auth::RequireAuth;
 use crate::errors::{not_found, server_error, timeout_error, ApiError};
 use crate::git_helpers::resolve_and_validate_workspace_path;
 use crate::git_utils::resolve_workspace_path;
 use crate::json_store::{load_json_file, save_json_file};
+use crate::screen_manifest;
 use crate::state::AppState;
 use crate::terminal_session::{PtyEvent, TerminalSession};
 use crate::tmux;
 use crate::util::{JsonBody, QueryParams};
 
 const PENDING_TEXT_DELAY_SEC: f64 = 0.5;
+/// pending text flush 前に、job（既知のAIエージェントと識別できた場合のみ）が
+/// 画面上でidleになるまで待つ上限（`wait_agent_idle_if_known`参照）。
+const AGENT_READY_TIMEOUT_SEC: f64 = 8.0;
+const AGENT_READY_POLL_INTERVAL_SEC: f64 = 0.2;
 const WS_PING_INTERVAL_SEC: u64 = 15;
 const WS_MSG_RESIZE: u8 = 0x00;
 const WS_CLOSE_SESSION_EXITED: u16 = 4001;
@@ -530,8 +536,9 @@ async fn handle_terminal_ws(
     };
     if let Some(full_name) = flush_target {
         let session_id_for_flush = session_id.clone();
+        let state_for_flush = state.clone();
         tokio::spawn(async move {
-            flush_pending_text(&full_name, &session_id_for_flush).await;
+            flush_pending_text(&state_for_flush, &full_name, &session_id_for_flush).await;
         });
     }
 
@@ -638,7 +645,7 @@ async fn handle_resize(
 /// dispatch が新規セッションに予約したテキストを attach 後の初期 redraw を
 /// 待ってから送る（Python `_flush_pending_text` 相当。永続先が tmux 環境変数
 /// なのでプロセスをまたいでも安全 — 詳細は dispatch.rs のコメント参照）。
-async fn flush_pending_text(full_tmux_name: &str, session_id: &str) {
+async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session_id: &str) {
     tokio::time::sleep(Duration::from_secs_f64(PENDING_TEXT_DELAY_SEC)).await;
     let meta = tmux::load_tmux_metadata(full_tmux_name).await;
     let Some(encoded) = meta.get("TMUX_PENDING_TEXT").filter(|s| !s.is_empty()) else {
@@ -650,8 +657,51 @@ async fn flush_pending_text(full_tmux_name: &str, session_id: &str) {
     let enter = meta.get("TMUX_PENDING_ENTER").map(String::as_str) != Some("0");
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_TEXT").await;
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_ENTER").await;
+    // job が claude/codex 等の既知エージェントとして識別できる場合だけ、
+    // 実際にプロンプト入力待ち（idle）になるまで待つ（`wait_agent_idle_if_known`
+    // のコメント参照）。
+    wait_agent_idle_if_known(state, full_tmux_name).await;
     if !text.is_empty() && !tmux::send_keys_to_tmux(full_tmux_name, &text, enter).await {
         tracing::warn!("pending text send-keys failed session={session_id}");
+    }
+}
+
+/// job（例: `claude`）が既知のAIエージェント（`agent_manifests/`で定義済み）
+/// と識別できる場合だけ、画面が実際にidle（プロンプト入力待ち）になるまで
+/// ポーリングする。判定できない任意コマンドのjob（stdinを読まないデーモン的
+/// プロセス等も多い）には汎用的な「入力受付可能」の検知手段が無いため、
+/// 何もせず即座に返す（この場合は従来通り `PENDING_TEXT_DELAY_SEC` の固定
+/// 待ちのみに依存する）。
+///
+/// `agent_watch::resolve_session_state` を画面差分の履歴（prev_capture）無しで
+/// 呼ぶため、manifestのルールに一致しない間はscreen diffフォールバックが常に
+/// "idle" を返してしまう（`classify_agent_state`参照）。これは意味の無い
+/// idle判定のため、`AgentStateSource::Manifest` 由来のidleだけを本物の
+/// ready signal として扱う。
+async fn wait_agent_idle_if_known(state: &Arc<AppState>, full_tmux_name: &str) {
+    let Some((command, _)) = tmux::pane_command_and_title(full_tmux_name).await else {
+        return;
+    };
+    let Some(manifest) = state.manifest_store.identify_agent(Some(&command)) else {
+        return;
+    };
+    let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC);
+    while tokio::time::Instant::now() < deadline {
+        let Some(capture) = tmux::capture_visible_pane(full_tmux_name).await else {
+            break;
+        };
+        let title = tmux::pane_command_and_title(full_tmux_name)
+            .await
+            .map(|(_, title)| title)
+            .unwrap_or_default();
+        let (state_str, source) =
+            agent_watch::resolve_session_state(&capture, None, Some(&manifest), &title);
+        if state_str == screen_manifest::STATE_IDLE
+            && source == agent_watch::AgentStateSource::Manifest
+        {
+            return;
+        }
+        tokio::time::sleep(Duration::from_secs_f64(AGENT_READY_POLL_INTERVAL_SEC)).await;
     }
 }
 
@@ -707,7 +757,9 @@ mod tests {
         .await;
         assert!(tmux::wait_pane_ready(&name, 2.0).await);
 
-        flush_pending_text(&name, "test-session").await;
+        let dir = tempfile::tempdir().unwrap();
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "ac-test-", 1000));
+        flush_pending_text(&state, &name, "test-session").await;
 
         let meta = tmux::load_tmux_metadata(&name).await;
         assert!(!meta.contains_key("TMUX_PENDING_TEXT"));
