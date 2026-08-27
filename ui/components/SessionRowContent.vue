@@ -8,29 +8,19 @@
     <span v-if="!wsIconHtml && !jobIconHtml" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
     <span v-if="item.isWorktree" class="mdi mdi-file-tree session-sidebar-worktree" aria-label="worktree"></span>
     <span class="session-sidebar-label" :class="{ 'session-sidebar-label-dim': dim }">{{ item.label }}</span>
-    <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
-    <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className">
-      <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>{{ item.agent.label }}
-    </span>
-  </span>
-  <span v-if="item.branch" class="session-sidebar-sub">
-    <span class="session-sidebar-branch">
-      <span class="session-sidebar-branch-name">{{ item.branch }}</span>
-    </span>
-    <span v-if="item.dirty" class="session-sidebar-changes">
-      <span class="session-sidebar-changes-files">{{ item.changedFiles }}F</span> <span class="session-sidebar-changes-numstat" v-html="numstatHtml"></span>
-    </span>
+    <span v-if="item.branch" class="session-sidebar-branch-name">{{ item.branch }}</span>
   </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
-import { buildNumstatHtml } from "../utils/git.ts";
 
-// SessionListView.vueの通常表示・編集モード表示の両方が使う行の中身
-// （アイコン・ラベル・worktree・フレーズ通知・エージェント状態・ブランチ・
-// 変更差分）。sessionSidebarItems()が返すitem形状にのみ依存する。
+// SessionListView.vueの通常表示・編集モード表示の両方が使う行1行目の中身
+// （アイコン・ラベル・worktree・ブランチ名）。sessionSidebarItems()が返す
+// item形状にのみ依存する。エージェント状態バッジ・フレーズ通知は2行目
+// （ピル行）側にInfoPillRowと並べて表示するため、SessionSidebarRow.vue /
+// SessionListView.vue側でitem.agent/item.phraseNotifyを直接参照する。
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -41,7 +31,6 @@ const props = defineProps({
 
 const wsIconHtml = computed(() => (props.item.wsIcon ? renderIconStr(props.item.wsIcon.name, props.item.wsIcon.color, 18) : ""));
 const jobIconHtml = computed(() => (props.item.jobIcon ? renderIconStr(props.item.jobIcon.name, props.item.jobIcon.color, 18) : ""));
-const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props.item.deletions));
 </script>
 
 <style scoped>
@@ -101,76 +90,17 @@ const numstatHtml = computed(() => buildNumstatHtml(props.item.insertions, props
   font-weight: 400;
 }
 
-.session-sidebar-notify {
-  color: var(--warning);
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.session-sidebar-sub {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+/* ワークスペース名（.session-sidebar-label、flex:1）が残り幅を優先的に取り、
+   ブランチ名はその右に縮小しつつ収まる（長い場合は末尾を省略）。 */
+.session-sidebar-branch-name {
+  flex-shrink: 1;
   min-width: 0;
-  padding-left: 24px;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.session-sidebar-branch {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-}
-
-.session-sidebar-branch-name {
-  overflow-wrap: anywhere;
-}
-
-.session-sidebar-changes {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-/* PillPeek.vueのpill-peek-changes-filesと同じ配色に揃える */
-.session-sidebar-changes-files {
-  color: var(--warning);
-}
-
-.session-sidebar-agent {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.session-sidebar-agent.agent-state-working {
-  color: var(--accent);
-}
-
-.session-sidebar-agent.agent-state-working .mdi {
-  animation: spin 1.6s linear infinite;
-}
-
-.session-sidebar-agent.agent-state-blocked {
-  color: var(--warning);
-}
-
-.session-sidebar-agent.agent-state-done {
-  color: var(--success);
-}
-
-/* タブがまだ無いワークスペースの承認待ちdispatch行専用（SessionListView.vue、
-   実際のエージェント状態ではないが同じバッジ見た目を流用する）。 */
-.session-sidebar-agent.agent-state-dispatch-pending {
-  color: var(--pink);
 }
 
 </style>

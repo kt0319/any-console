@@ -904,17 +904,17 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     return { layoutStore, terminalStore };
   }
 
-  it("行にブランチ名・変更サマリ・エージェント状態が表示される", async () => {
+  it("行にブランチ名（1行目右）・エージェント状態（2行目左）が表示される", async () => {
     const { terminalStore } = seedSidebar();
     useAgentStateStore().agentStates.s1 = "working";
     await flushPromises();
     const rows = wrapper.findAll(".session-sidebar-item");
     expect(rows).toHaveLength(2);
     expect(rows[0].text()).toContain("main");
-    expect(rows[0].text()).toContain("1F +5 -2");
-    expect(rows[0].text()).toContain("Working");
     expect(rows[0].classes()).toContain("active");
     expect(rows[1].text()).toContain("bare");
+    const lis = wrapper.findAll(".session-sidebar-li");
+    expect(lis[0].text()).toContain("Working");
   });
 
   it("PC: 行クリックで tab:select が emit されサイドバーは開いたまま", async () => {

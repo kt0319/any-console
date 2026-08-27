@@ -188,3 +188,45 @@
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
 }
+
+/* エージェント状態バッジ・フレーズ通知アイコン。ピル行（.session-sidebar-pills-row、
+   SessionSidebarRow.vue / SessionListView.vueのpending dispatch行の両方）の
+   左側に置く（右側のInfoPillRow/PillPeekとは.session-sidebar-pills-rowの
+   flexレイアウトで自然に左右分離される）。両コンポーネントのscopedスタイルを
+   跨いで使うためここに置く（ファイル先頭コメント参照）。 */
+.session-sidebar-notify {
+  color: var(--warning);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.session-sidebar-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.session-sidebar-agent.agent-state-working {
+  color: var(--accent);
+}
+
+.session-sidebar-agent.agent-state-working .mdi {
+  animation: spin 1.6s linear infinite;
+}
+
+.session-sidebar-agent.agent-state-blocked {
+  color: var(--warning);
+}
+
+.session-sidebar-agent.agent-state-done {
+  color: var(--success);
+}
+
+/* タブがまだ無いワークスペースの承認待ちdispatch行専用（SessionListView.vue、
+   実際のエージェント状態ではないが同じバッジ見た目を流用する）。 */
+.session-sidebar-agent.agent-state-dispatch-pending {
+  color: var(--pink);
+}

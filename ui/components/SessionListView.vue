@@ -26,6 +26,10 @@
             <SessionRowContent :item="p" dim />
           </button>
           <span class="session-sidebar-pills-row">
+            <span v-if="p.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
+            <span v-if="p.agent" class="session-sidebar-agent" :class="p.agent.className">
+              <span class="mdi" :class="p.agent.icon" aria-hidden="true"></span>{{ p.agent.label }}
+            </span>
             <InfoPillRow
               class="session-sidebar-pills"
               :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"

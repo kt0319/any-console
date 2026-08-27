@@ -15,6 +15,10 @@
       :class="rowStateClasses"
       @click="emits('select')"
     >
+      <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
+      <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className">
+        <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>{{ item.agent.label }}
+      </span>
       <Transition name="pill-fade" mode="out-in">
         <PillPeek
           v-if="peekingKey"
