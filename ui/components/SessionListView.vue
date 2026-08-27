@@ -102,7 +102,7 @@ const githubWorkspaceKeys = computed(() => {
 // 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
 const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
-const { queue: dispatchQueue } = useDispatchQueue();
+const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
 
 // 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、
 // タブ一覧の下に別枠で出す（タブが既にあるワークスペースはInfoPillRowの
@@ -116,6 +116,7 @@ const pendingDispatchWorkspaces = computed(() => {
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
     dispatchQueue: dispatchQueue.value,
+    dispatchAllJobs: dispatchAllJobs.value,
     hostname: location.hostname,
   });
 });
@@ -168,6 +169,7 @@ const items = computed(() => {
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
     dispatchQueue: dispatchQueue.value,
+    dispatchAllJobs: dispatchAllJobs.value,
     hostname: location.hostname,
   });
 });

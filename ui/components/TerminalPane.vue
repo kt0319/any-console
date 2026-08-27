@@ -194,7 +194,7 @@ const visibleBranchAction = computed(() =>
   isNoticeableRun(branchAction.value) ? branchAction.value : null,
 );
 
-const { queue: dispatchQueue } = useDispatchQueue();
+const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
 const tabDispatchItems = computed(() => {
   if (!props.tab.workspace) return [];
   return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === props.tab.workspace);
@@ -246,6 +246,7 @@ const tooltips = computed(() => buildInfoPillTooltips({
   devServerEntry: devServerEntry.value,
   hostname: location.hostname,
   dispatchItems: tabDispatchItems.value,
+  dispatchAllJobs: dispatchAllJobs.value,
   branchPR: branchPR.value,
   branchAction: branchAction.value,
 }));

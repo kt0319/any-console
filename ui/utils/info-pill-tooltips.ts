@@ -5,7 +5,7 @@
 
 import { firstCommitLine } from "./git.ts";
 import { devServerOrigin } from "./preview-url.ts";
-import { dispatchJobLabel } from "./dispatch-request.ts";
+import { dispatchBranchLabel, resolveDispatchJobLabel } from "./dispatch-request.ts";
 
 export function branchTooltip({ branch = "", ahead = 0, behind = 0, hasUpstream = true, lastCommitMessage = null }: {
   branch?: string; ahead?: number; behind?: number; hasUpstream?: boolean; lastCommitMessage?: string | null;
@@ -38,9 +38,20 @@ export function devServerTooltip(entry: { scheme?: string; proxy_port?: number }
   return `Dev Server: ${devServerOrigin(entry, hostname)}`;
 }
 
-export function dispatchTooltip(items: { request: Record<string, any> }[]): string {
+/**
+ * job名（request.jobはlabelではなくジョブ定義のキー＝job id相当のため、
+ * allJobsで人間向けlabelに解決する）とブランチ名の両方を表示する。
+ * どちらも無ければ"pending"にフォールバックする（job idをそのまま
+ * 出すことは無い — DispatchQueueRowBody.vueと同じ方針）。
+ */
+export function dispatchTooltip(
+  items: { request: Record<string, any> }[],
+  allJobs: Record<string, Record<string, { label?: string }>> = {},
+): string {
   if (items.length === 1) {
-    return `Dispatch: ${dispatchJobLabel(items[0].request) || "run"}`;
+    const request = items[0].request;
+    const parts = [resolveDispatchJobLabel(request, allJobs), dispatchBranchLabel(request)].filter(Boolean);
+    return parts.length ? `Dispatch: ${parts.join("  ·  ")}` : "Dispatch: pending";
   }
   return items.length ? `Dispatch: ${items.length} pending` : "Dispatch";
 }
@@ -67,6 +78,7 @@ export function buildInfoPillTooltips({
   lastCommitMessage = null,
   devServerEntry = null, hostname = "",
   dispatchItems = [],
+  dispatchAllJobs = {},
   branchPR = null, branchAction = null,
 }: {
   name?: string; isGitRepo?: boolean;
@@ -75,6 +87,7 @@ export function buildInfoPillTooltips({
   lastCommitMessage?: string | null;
   devServerEntry?: any; hostname?: string;
   dispatchItems?: { request: Record<string, any> }[];
+  dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
   branchPR?: any; branchAction?: any;
 }): Record<string, string> {
   return {
@@ -82,7 +95,7 @@ export function buildInfoPillTooltips({
     changes: changesTooltip({ changedFiles, insertions, deletions }),
     branch: branchTooltip({ branch, ahead, behind, hasUpstream, lastCommitMessage }),
     devserver: devServerTooltip(devServerEntry, hostname),
-    dispatch: dispatchTooltip(dispatchItems),
+    dispatch: dispatchTooltip(dispatchItems, dispatchAllJobs),
     prs: prsTooltip(branchPR),
     actions: actionsTooltip(branchAction),
     add: ADD_PILL_TOOLTIP,

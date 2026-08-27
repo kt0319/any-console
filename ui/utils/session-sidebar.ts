@@ -50,10 +50,11 @@ function buildPillFields(
     runsByWorkspace?: Record<string, any[]>;
     previewPorts?: any[];
     dispatchQueue?: { request: Record<string, any> }[];
+    dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
     hostname?: string;
   },
 ) {
-  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dispatchQueue = [], hostname = "" } = ctx;
+  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
   const isGitRepo = ws?.is_git_repo === true;
   const branch = ws?.branch || "";
   const ahead = ws?.ahead || 0;
@@ -103,7 +104,7 @@ function buildPillFields(
       changedFiles, insertions, deletions,
       lastCommitMessage: ws?.last_commit_message,
       devServerEntry, hostname,
-      dispatchItems,
+      dispatchItems, dispatchAllJobs,
       branchPR, branchAction,
     }),
   };
@@ -133,6 +134,7 @@ export function sessionSidebarItems(
     runsByWorkspace?: Record<string, any[]>;
     previewPorts?: any[];
     dispatchQueue?: { request: Record<string, any> }[];
+    dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
     hostname?: string;
   } = {},
 ) {

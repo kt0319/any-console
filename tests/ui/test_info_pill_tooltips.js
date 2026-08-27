@@ -56,6 +56,41 @@ describe("buildInfoPillTooltips", () => {
   });
 });
 
+describe("dispatchTooltip", () => {
+  const allJobs = { ws1: { job_1: { label: "Claude Worker" } } };
+
+  it("1件・job labelとbranch両方あれば両方表示する", () => {
+    expect(dispatchTooltip(
+      [{ request: { workspace: "ws1", job: "job_1", branch: "feature/login-fix" } }],
+      allJobs,
+    )).toBe("Dispatch: Claude Worker  ·  feature/login-fix");
+  });
+
+  it("job labelが引けない（allJobs未取得・既定ジョブ等）ならbranchのみ", () => {
+    expect(dispatchTooltip([{ request: { workspace: "ws1", job: "job_1", branch: "feature/x" } }]))
+      .toBe("Dispatch: feature/x");
+  });
+
+  it("branch未指定ならjob labelのみ", () => {
+    expect(dispatchTooltip(
+      [{ request: { workspace: "ws1", job: "job_1" } }],
+      allJobs,
+    )).toBe("Dispatch: Claude Worker");
+  });
+
+  it("どちらも無ければpendingにフォールバックする（job idはそのまま出さない）", () => {
+    expect(dispatchTooltip([{ request: { workspace: "ws1", job: "job_1" } }])).toBe("Dispatch: pending");
+  });
+
+  it("複数件はpending件数を表示する", () => {
+    expect(dispatchTooltip([{ request: {} }, { request: {} }])).toBe("Dispatch: 2 pending");
+  });
+
+  it("0件はDispatchのみ", () => {
+    expect(dispatchTooltip([])).toBe("Dispatch");
+  });
+});
+
 describe("branchTooltip", () => {
   it("最終コミットの1行目をブランチ表記に併記する", () => {
     expect(branchTooltip({ branch: "main", lastCommitMessage: "feat: 追加\n\n本文" }))

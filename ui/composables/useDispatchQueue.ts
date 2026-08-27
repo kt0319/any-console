@@ -9,7 +9,8 @@ import {
   EP_TERMINAL_SESSIONS,
 } from "../utils/endpoints.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
-import { emit } from "../app-bridge.ts";
+import { resolveDispatchJobLabel } from "../utils/dispatch-request.ts";
+import { emit, on } from "../app-bridge.ts";
 
 type DispatchQueueItem = { id: string, request: Record<string, any> };
 type DispatchRecentItem = DispatchQueueItem & { outcome: string };
@@ -29,6 +30,19 @@ function removeFromQueue(id: string) {
   queue.value = queue.value.filter((q) => q.id !== id);
 }
 
+// dispatchピル/一覧でjob idではなく表示用labelを出すためのジョブ定義
+// キャッシュ（/jobs/workspaces）。queue/recentと同じくモジュールスコープの
+// 単一状態にし、複数コンポーネントから同時にuseDispatchQueue()が呼ばれても
+// fetchは1回だけにする。
+const allJobs = ref<Record<string, any>>({});
+let allJobsLoadPromise: Promise<void> | null = null;
+
+// ジョブ編集で古いキャッシュを引きずらないよう、他のjob一覧系キャッシュ
+// （WorkspaceJobsPane.vue）と同じ jobs:refresh で無効化する。
+on("jobs:refresh", () => {
+  allJobsLoadPromise = null;
+});
+
 /**
  * ステータスストリームから受信したキュー全量で置き換える。
  * DispatchRunView を開いたまま対象が消えた場合（他端末で決定済み）に一覧へ
@@ -46,6 +60,24 @@ export function useDispatchQueue() {
   const { apiPost, apiGet } = useApi();
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
+
+  function loadAllJobs(): Promise<void> {
+    if (!allJobsLoadPromise) {
+      allJobsLoadPromise = (async () => {
+        const res = await getWithRetry(apiGet, EP_JOBS_WORKSPACES);
+        if (res.ok && res.data) allJobs.value = res.data;
+      })();
+    }
+    return allJobsLoadPromise;
+  }
+  // dispatchピル・Dispatch Queue一覧のどちらもマウント時点でjob labelが
+  // 引ければ十分なため fire-and-forget（結果は allJobs の更新で反映され、
+  // 呼び出し側のcomputedが自動で追従する）。
+  loadAllJobs();
+
+  function jobLabel(request: Record<string, any>): string {
+    return resolveDispatchJobLabel(request, allJobs.value);
+  }
 
   async function focusSession(sessionId?: string, workspace?: string) {
     if (!sessionId) return;
@@ -105,5 +137,5 @@ export function useDispatchQueue() {
     return ok;
   }
 
-  return { queue, recent, runItem, rejectItem };
+  return { queue, recent, runItem, rejectItem, jobLabel, allJobs };
 }

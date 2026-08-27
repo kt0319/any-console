@@ -2,12 +2,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { applyDispatchQueue, useDispatchQueue } from "../../ui/composables/useDispatchQueue.ts";
-import { on } from "../../ui/app-bridge.ts";
+import { emit, on } from "../../ui/app-bridge.ts";
 
 const apiPostMock = vi.fn();
+const apiGetMock = vi.fn(async () => ({ ok: false }));
 
 vi.mock("../../ui/composables/useApi.ts", () => ({
-  useApi: () => ({ apiGet: vi.fn(async () => ({ ok: false })), apiPost: apiPostMock }),
+  useApi: () => ({ apiGet: apiGetMock, apiPost: apiPostMock }),
 }));
 
 const item = (id) => ({ id, request: { workspace: "ws1" } });
@@ -98,5 +99,47 @@ describe("runItem", () => {
     apiPostMock.mockResolvedValue({ ok: false, data: null });
     const { runItem } = useDispatchQueue();
     expect(await runItem("d1", {})).toBe(false);
+  });
+});
+
+describe("jobLabel / allJobs（/jobs/workspacesからのジョブ表示名解決）", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    // allJobsはモジュールスコープでキャッシュされる（queue/recentと同じ設計）ため、
+    // 前のテストで読み込み済みだと再フェッチされない。jobs:refreshで強制的に
+    // キャッシュを無効化し、このdescribeの各テストが必ず自前でfetchするようにする。
+    emit("jobs:refresh");
+    apiGetMock.mockReset();
+  });
+
+  it("allJobsが読み込まれるまではjobLabelは空文字", async () => {
+    let resolveGet;
+    apiGetMock.mockReturnValue(new Promise((r) => { resolveGet = r; }));
+    const { jobLabel } = useDispatchQueue();
+    expect(jobLabel({ workspace: "ws1", job: "job_1" })).toBe("");
+    resolveGet({ ok: true, data: {} });
+  });
+
+  it("読み込み後はallJobsからlabelを解決する", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { ws1: { job_1: { label: "Claude Worker" } } },
+    });
+    const { jobLabel } = useDispatchQueue();
+    await vi.waitFor(() => {
+      expect(jobLabel({ workspace: "ws1", job: "job_1" })).toBe("Claude Worker");
+    });
+  });
+
+  it("labelが引けない・既定ジョブは空文字", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { ws1: { job_1: { label: "Claude Worker" } } },
+    });
+    const { jobLabel, allJobs } = useDispatchQueue();
+    await vi.waitFor(() => expect(Object.keys(allJobs.value)).toContain("ws1"));
+    expect(jobLabel({ workspace: "ws1", job: "unknown_job" })).toBe("");
+    expect(jobLabel({ workspace: "ws1", job: "terminal" })).toBe("");
+    expect(jobLabel({ workspace: "other-ws", job: "job_1" })).toBe("");
   });
 });
