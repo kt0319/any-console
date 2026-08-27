@@ -1030,22 +1030,40 @@ mod collect_agent_states_tests {
     /// 1回目と2回目のcaptureが実際には変化した扱いになり、「アクティビティ
     /// あり」と誤検知してflakyになっていた。
     async fn wait_for_stable_capture(tmux_name: &str, needle: &str, timeout: std::time::Duration) {
+        // 連続2回一致（100ms間隔）だけでは、starship/powerlevel10k等が起動時に
+        // spawnした非同期の子プロセス（gitステータス取得等。execで親を
+        // 置き換えても子は独立して生き続け、任意のタイミングでtty書き込みを
+        // 続ける）がこの短い一致窓の直後に書き込むケースを見逃し、flakyに
+        // なっていた。必要な連続一致回数を増やし、より長い静穏窓を要求する。
+        const REQUIRED_STABLE_MATCHES: u32 = 6;
+        const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(150);
+
         let deadline = tokio::time::Instant::now() + timeout;
         let mut prev: Option<String> = None;
+        let mut stable_count = 0u32;
         loop {
             let capture = crate::tmux::capture_visible_pane(tmux_name)
                 .await
                 .unwrap_or_default();
             if capture.contains(needle) {
                 if prev.as_deref() == Some(capture.as_str()) {
-                    return;
+                    stable_count += 1;
+                    if stable_count >= REQUIRED_STABLE_MATCHES {
+                        return;
+                    }
+                } else {
+                    stable_count = 0;
                 }
                 prev = Some(capture);
+            } else {
+                stable_count = 0;
             }
             if tokio::time::Instant::now() >= deadline {
-                return;
+                panic!(
+                    "wait_for_stable_capture: '{needle}' が {timeout:?} 以内に安定表示されなかった（最終capture: {prev:?}）"
+                );
             }
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            tokio::time::sleep(POLL_INTERVAL).await;
         }
     }
 
@@ -1192,7 +1210,12 @@ mod collect_agent_states_tests {
                 .await
         );
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo FINISHED", true).await);
-        wait_for_stable_capture(&tmux_name, "FINISHED", std::time::Duration::from_secs(3)).await;
+        // CI・多重テスト並列実行時のCPU競合下ではプロンプト再描画が3秒を
+        // 超えて遅延することがあり、タイムアウトで安定未確認のまま後続の
+        // ポーリングに進んでflakyになっていた（wait_for_stable_captureは
+        // タイムアウトを黙って許容し呼び出し側にシグナルしないため）。
+        // 猶予を10秒に広げる（安定すれば即returnするため通常ケースのコストは変わらない）。
+        wait_for_stable_capture(&tmux_name, "FINISHED", std::time::Duration::from_secs(10)).await;
 
         let mut last_capture = HashMap::new();
         let mut last_pane_size = HashMap::new();
@@ -1215,22 +1238,6 @@ mod collect_agent_states_tests {
             .iter()
             .any(|(id, phrase, _)| id == &session_id && phrase == "FINISHED"));
 
-        // CI再現調査用デバッグ出力（原因特定後に削除する）。
-        let capture_after_r1 = last_capture.get(&session_id).cloned();
-        eprintln!(
-            "DEBUG capture_after_r1={:?}",
-            capture_after_r1.as_deref().map(|s| s.replace('\n', "\\n"))
-        );
-        let fresh_before_r2 = crate::tmux::capture_visible_pane(&tmux_name).await;
-        eprintln!(
-            "DEBUG fresh_before_r2={:?}",
-            fresh_before_r2.as_deref().map(|s| s.replace('\n', "\\n"))
-        );
-        eprintln!(
-            "DEBUG capture_matches={}",
-            capture_after_r1.as_deref() == fresh_before_r2.as_deref()
-        );
-
         // 画面が変わらないまま次のポーリング → 猶予(0)経過で通知される。
         let r2 = collect_agent_states(
             &state,
@@ -1242,13 +1249,6 @@ mod collect_agent_states_tests {
             100.5,
         )
         .await;
-        eprintln!(
-            "DEBUG capture_after_r2={:?}",
-            last_capture
-                .get(&session_id)
-                .map(|s| s.replace('\n', "\\n"))
-        );
-        eprintln!("DEBUG r2.notifications={:?}", r2.notifications);
         assert!(r2
             .notifications
             .iter()
