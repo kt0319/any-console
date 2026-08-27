@@ -8,7 +8,13 @@
     <span v-if="!wsIconHtml && !jobIconHtml" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
     <span v-if="item.isWorktree" class="mdi mdi-file-tree session-sidebar-worktree" aria-label="worktree"></span>
     <span class="session-sidebar-label" :class="{ 'session-sidebar-label-dim': dim }">{{ item.label }}</span>
-    <span v-if="item.branch" class="session-sidebar-branch-name">{{ item.branch }}</span>
+    <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
+    <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className">
+      <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>{{ item.agent.label }}
+    </span>
+    <span v-else-if="item.branch" class="session-sidebar-branch-name">
+      <span class="mdi mdi-source-branch" aria-hidden="true"></span>{{ item.branch }}
+    </span>
   </span>
 </template>
 
@@ -17,10 +23,10 @@ import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 
 // SessionListView.vueの通常表示・編集モード表示の両方が使う行1行目の中身
-// （アイコン・ラベル・worktree・ブランチ名）。sessionSidebarItems()が返す
-// item形状にのみ依存する。エージェント状態バッジ・フレーズ通知は2行目
-// （ピル行）側にInfoPillRowと並べて表示するため、SessionSidebarRow.vue /
-// SessionListView.vue側でitem.agent/item.phraseNotifyを直接参照する。
+// （アイコン・ラベル・worktree・エージェント状態バッジ/フレーズ通知/ブランチ名）。
+// sessionSidebarItems()が返すitem形状にのみ依存する。ワークスペース名（左、
+// flex:1で伸縮）の右側に、agentがあればステータスバッジ、無ければブランチ名を
+// 同じ位置に排他表示する。
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -90,9 +96,49 @@ const jobIconHtml = computed(() => (props.item.jobIcon ? renderIconStr(props.ite
   font-weight: 400;
 }
 
+.session-sidebar-notify {
+  color: var(--warning);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.session-sidebar-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.session-sidebar-agent.agent-state-working {
+  color: var(--accent);
+}
+
+.session-sidebar-agent.agent-state-working .mdi {
+  animation: spin 1.6s linear infinite;
+}
+
+.session-sidebar-agent.agent-state-blocked {
+  color: var(--warning);
+}
+
+.session-sidebar-agent.agent-state-done {
+  color: var(--success);
+}
+
+/* タブがまだ無いワークスペースの承認待ちdispatch行専用（SessionListView.vue、
+   実際のエージェント状態ではないが同じバッジ見た目を流用する）。 */
+.session-sidebar-agent.agent-state-dispatch-pending {
+  color: var(--pink);
+}
+
 /* ワークスペース名（.session-sidebar-label、flex:1）が残り幅を優先的に取り、
    ブランチ名はその右に縮小しつつ収まる（長い場合は末尾を省略）。 */
 .session-sidebar-branch-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   flex-shrink: 1;
   min-width: 0;
   max-width: 45%;
