@@ -767,7 +767,7 @@ TLS 越しでも壊れていないことの実地検証）。証明書なしの�
 **Update (2026-08)**: 本体公開ポートでの direct TLS 終端は削除し、
 `any-console-server` は常に HTTP で listen する方針に戻した。HTTPS は Tailscale
 Serve / reverse proxy に任せる。`SSL_CERTFILE` / `SSL_KEYFILE` と `certs/`
-探索は direct-port dev server preview proxy（例: `https://<device>:12001/`）
+探索は direct-port dev server preview proxy（例: `https://<device>:23000/`）
 のために `preview.rs` 側へ残す。
 
 **Update (2026-08)**: `certs/` はリポジトリ直下から `data/certs/` へ移した。

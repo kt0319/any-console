@@ -97,6 +97,11 @@ app open.
 - **"Install as app" / notifications don't show up** — confirm you're on
   `https://` (not `http://`) and that `tailscale serve` is running on the
   host (`tailscale serve status`).
+- **"Enable notifications" is missing from the checklist** — it is hidden
+  when the notification permission was previously denied. Allow
+  notifications for the installed app from iOS **Settings →
+  Notifications**, or remove the Home Screen app and add it again, then
+  relaunch.
 - **QR code says expired or already used** — go back to Settings → Auth
   and generate a new one.
 - **Host unreachable** — check that both devices are connected to
