@@ -73,7 +73,7 @@ if (!process.env.ANY_CONSOLE_URL && !LIST_ONLY) {
       ...process.env,
       ANY_CONSOLE_DATA_DIR: dataDir,
       ANY_CONSOLE_TMUX_PREFIX: tmuxPrefix,
-      // E2E は短時間に多数のリクエストを送るため、レート制限(既定 200req/60s)を引き上げる
+      // E2E は短時間に多数のリクエストを送るため、レート制限(既定 1000req/60s)を引き上げる
       ANY_CONSOLE_RATE_LIMIT: "2000",
     },
   };

@@ -6,6 +6,10 @@
 - **対象リビジョン**: 0a7d8c8b5bf3bb54622238bb1eeb09b6a82fe5e2
 - **監査手法**: 手動コードレビュー（自動ツール未使用）
 
+以下の「検出した問題」「今回修正した問題」の行番号・ファイル構成は対象リビジョン時点の
+スナップショットであり、現在のコードとは一致しない場合がある（例: `Modal.vue` の閉じる
+ボタンは現在 `ModalShell.vue` にある）。現在の状態は「今後の TODO」以降を参照。
+
 ## 監査範囲
 
 - タブ・ボタン・ダイアログの ARIA 属性（role, aria-label, aria-expanded 等）
@@ -72,11 +76,11 @@
 
 ### Fix 5: グローバル focus-visible
 
-**ファイル**: `ui/styles/a11y.css`（新規）、`ui/vue-main.js`
+**ファイル**: `ui/styles/a11y.css`（新規）、`ui/vue-main.js`（現 `vue-main.ts`）
 
 - `:focus:not(:focus-visible) { outline: none }` でマウス操作時の ring を除去
 - `:focus-visible { outline: 2px solid var(--accent) }` でキーボード操作時の ring を追加
-- `vue-main.js` で import
+- `vue-main.js`（現 `vue-main.ts`）で import
 
 ---
 
@@ -117,7 +121,7 @@ CI（`npm run test:coverage`）で毎回実行され、構造的な a11y 違反�
 
 - **PromptDialog**: 入力 `<input>` にラベルが無い（critical / `label`）→ `aria-label` を追加
 - **GitActionBtn**: アイコンボタンにアクセシブルネームが無い（critical / `button-name`、TODO #8）→ `aria-label` を追加
-- **SplitModeSelector**: アイコンのみの分割モードボタンにアクセシブルネームが無い（critical / `button-name`）→ `aria-label` + `title` + `aria-pressed` を追加
+- **SplitModeSelector**: アイコンのみの分割モードボタンにアクセシブルネームが無い（critical / `button-name`）→ `aria-label` + `aria-pressed` を追加（ヒントは当初 `title` 併設、後日 `data-tooltip` へ移行 — 上記規約参照）
 - **WorkspaceJobsPane**: ジョブ行のクリッカブル `<div>` がキーボード操作不可（TODO #7）→ 実行 `<button>` + 編集 `<button>` の兄弟構造に変更
 
 ### 自動検査でカバーできない範囲（引き続き手動 / 別ツール）
