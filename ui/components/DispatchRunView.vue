@@ -12,7 +12,7 @@
         <select v-model="selectedSessionId" class="form-input">
           <option :value="NEW_SESSION_VALUE">+ New session</option>
           <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
-            {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}
+            {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}{{ s.session_id === currentSessionId ? ' (this session)' : '' }}
           </option>
         </select>
       </div>
@@ -102,6 +102,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useToast } from "../composables/useToast.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.ts";
 
@@ -121,7 +122,11 @@ const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { queue, recent, runItem, rejectItem } = useDispatchQueue();
 const workspaceStore = useWorkspaceStore();
+const terminalStore = useTerminalStore();
 const toast = useToast();
+// Session select の一覧中、今このモーダルを開いているタブ自身があれば
+// 「(this session)」を付けて区別できるようにする。
+const currentSessionId = computed(() => terminalStore.activeTab?.sessionId || null);
 
 const itemId = props.itemId;
 // 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
