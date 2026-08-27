@@ -39,7 +39,7 @@
         </span>
       </div>
       <div class="modal-scroll-body">
-        <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
+        <div v-if="isSelectedCommitFilesLoading" class="text-muted-center loading-dots">Loading</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
           <template v-for="file in selectedCommitFiles" :key="file.path">
             <DiffFileItem :file="file" @click="onDiffFileClick(file)" />
@@ -49,7 +49,7 @@
     </template>
     <!-- コミット履歴モード -->
     <div v-else class="modal-scroll-body" ref="historyListEl" @scroll.passive="onHistoryListScroll">
-      <div v-if="isHistoryLoading" class="text-muted-center">Loading...</div>
+      <div v-if="isHistoryLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="commitEntries.length === 0" class="text-muted-center">No commit history</div>
       <!-- Changes -->
       <template v-for="(row, idx) in graphRows" :key="idx">

@@ -4,7 +4,7 @@
       <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
         <div class="github-section-body">
-          <div v-if="isLoading" class="github-loading">Loading...</div>
+          <div v-if="isLoading" class="github-loading loading-dots">Loading</div>
           <div v-else-if="error" class="github-error">{{ error }}</div>
           <div v-else-if="!items.length" class="text-muted-center">No workflow runs</div>
           <a

@@ -1,7 +1,7 @@
 <template>
   <div class="git-stash-pane-wrapper pane-fill">
     <div class="modal-scroll-body" ref="stashListEl">
-      <div v-if="isStashListLoading" class="text-muted-center">Loading...</div>
+      <div v-if="isStashListLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="stashEntries.length === 0" class="text-muted-center">No stash entries</div>
       <div v-for="entry in stashEntries" :key="entry.ref" class="stash-entry">
         <div class="stash-entry-info">

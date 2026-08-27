@@ -46,7 +46,7 @@
     </template>
 
     <template v-else>
-      <div :class="{ 'file-content-message': isFileBrowserLoading }" role="status" aria-live="polite">{{ isFileBrowserLoading ? "Loading..." : "" }}</div>
+      <div :class="{ 'file-content-message': isFileBrowserLoading, 'loading-dots': isFileBrowserLoading }" role="status" aria-live="polite">{{ isFileBrowserLoading ? "Loading" : "" }}</div>
       <div :class="{ 'file-content-message': fileBrowserError }" role="alert">{{ fileBrowserError }}</div>
 
       <template v-if="!isFileBrowserLoading && !fileBrowserError">

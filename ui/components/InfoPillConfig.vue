@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body">
-    <div v-if="!infoPillConfig.loaded" class="text-muted-center">Loading...</div>
+    <div v-if="!infoPillConfig.loaded" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
       <label
         v-for="(item, idx) in orderedToggles"

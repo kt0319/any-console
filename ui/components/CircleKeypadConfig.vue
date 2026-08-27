@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body ckpad-cfg">
-    <div v-if="!circleKeypad.loaded" class="text-muted-center">Loading...</div>
+    <div v-if="!circleKeypad.loaded" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
       <div class="ckpad-cfg-section">
         <label class="ckpad-cfg-enable">

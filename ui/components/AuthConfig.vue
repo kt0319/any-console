@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body">
-    <div v-if="loading" class="text-muted-center">Loading...</div>
+    <div v-if="loading" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
       <div class="settings-category-head">
         <span class="settings-category-title">{{ tokenConfigured ? "Replace user token" : "User Token" }}</span>

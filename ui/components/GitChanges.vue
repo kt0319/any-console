@@ -1,7 +1,7 @@
 <template>
   <div class="git-changes-pane-wrapper pane-fill">
     <div class="diff-file-list">
-      <div v-if="isLoading" class="text-muted-center">Loading...</div>
+      <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
       <ul v-else class="file-browser-list diff-file-browser-list">

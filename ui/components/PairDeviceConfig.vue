@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body pair-device">
-    <div v-if="loading" class="text-muted-center">Loading...</div>
+    <div v-if="loading" class="text-muted-center loading-dots">Loading</div>
     <template v-else-if="error">
       <div class="pair-status pair-status-error">
         <span class="mdi mdi-alert-circle-outline"></span>

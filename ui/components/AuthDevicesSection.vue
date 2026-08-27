@@ -14,7 +14,7 @@
     <div class="settings-note" style="margin-bottom: 8px;">
       Registered devices can sign in without entering a token. Revoke any device that should no longer have access.
     </div>
-    <div v-if="devicesLoading" class="text-muted-center">Loading...</div>
+    <div v-if="devicesLoading" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
       <div v-if="!devices.length" class="settings-note">No devices registered yet.</div>
       <SettingsEntryRow

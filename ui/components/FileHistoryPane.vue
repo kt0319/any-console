@@ -1,7 +1,7 @@
 <template>
   <div class="file-history-pane pane-fill">
     <template v-if="!selectedEntry">
-      <div v-if="isLoading" class="text-muted-center">Loading...</div>
+      <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="entries.length === 0" class="text-muted-center">No history</div>
       <div v-else class="file-history-list">
@@ -35,7 +35,7 @@
         </div>
       </div>
       <div class="file-history-diff">
-        <div v-if="isDiffLoading" class="text-muted-center">Loading...</div>
+        <div v-if="isDiffLoading" class="text-muted-center loading-dots">Loading</div>
         <div v-else-if="diffError" class="text-muted-center">{{ diffError }}</div>
         <pre v-else class="file-history-diff-content" v-html="diffHtml"></pre>
       </div>

@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body si-body">
-    <div v-if="isLoading" class="text-muted-center">Loading...</div>
+    <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
     <div v-else v-for="section in sections" :key="section.label" class="si-card">
       <div class="settings-card-head">
         <span class="settings-card-title">{{ section.label }}</span>

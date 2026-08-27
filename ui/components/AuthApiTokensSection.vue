@@ -36,7 +36,7 @@
       </div>
     </div>
 
-    <div v-if="apiTokensLoading" class="text-muted-center">Loading...</div>
+    <div v-if="apiTokensLoading" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
       <div v-if="!apiTokens.length" class="settings-note">No API tokens yet.</div>
       <SettingsEntryRow
