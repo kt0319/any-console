@@ -1215,6 +1215,22 @@ mod collect_agent_states_tests {
             .iter()
             .any(|(id, phrase, _)| id == &session_id && phrase == "FINISHED"));
 
+        // CI再現調査用デバッグ出力（原因特定後に削除する）。
+        let capture_after_r1 = last_capture.get(&session_id).cloned();
+        eprintln!(
+            "DEBUG capture_after_r1={:?}",
+            capture_after_r1.as_deref().map(|s| s.replace('\n', "\\n"))
+        );
+        let fresh_before_r2 = crate::tmux::capture_visible_pane(&tmux_name).await;
+        eprintln!(
+            "DEBUG fresh_before_r2={:?}",
+            fresh_before_r2.as_deref().map(|s| s.replace('\n', "\\n"))
+        );
+        eprintln!(
+            "DEBUG capture_matches={}",
+            capture_after_r1.as_deref() == fresh_before_r2.as_deref()
+        );
+
         // 画面が変わらないまま次のポーリング → 猶予(0)経過で通知される。
         let r2 = collect_agent_states(
             &state,
@@ -1226,6 +1242,13 @@ mod collect_agent_states_tests {
             100.5,
         )
         .await;
+        eprintln!(
+            "DEBUG capture_after_r2={:?}",
+            last_capture
+                .get(&session_id)
+                .map(|s| s.replace('\n', "\\n"))
+        );
+        eprintln!("DEBUG r2.notifications={:?}", r2.notifications);
         assert!(r2
             .notifications
             .iter()
