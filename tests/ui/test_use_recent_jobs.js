@@ -130,18 +130,20 @@ describe("useRecentJobs: サーバーとの同期", () => {
     expect(recentJobs.value).toEqual([]);
   });
 
-  it("非ピン留めの履歴は RECENT_JOBS_MAX(10)件を超えると古い順に切り捨てる", async () => {
+  it("非ピン留めの履歴はRECENT_JOBS_MAX件を超えると古い順に切り捨てる", async () => {
+    const { RECENT_JOBS_MAX } = await import("../../ui/utils/constants.ts");
     const { useRecentJobs } = await freshModule();
     const { recentJobs, loadRecentJobs, recordJob } = useRecentJobs();
     await loadRecentJobs();
 
-    for (let i = 0; i < 12; i++) {
+    const total = RECENT_JOBS_MAX + 2;
+    for (let i = 0; i < total; i++) {
       recordJob({ name: `ws${i}` }, { name: "build" });
     }
 
-    expect(recentJobs.value.length).toBe(10);
+    expect(recentJobs.value.length).toBe(RECENT_JOBS_MAX);
     // 直近に記録した分が残り、最初期の分は切り捨てられる
-    expect(recentJobs.value.map((j) => j.key)).toContain("ws11:build");
+    expect(recentJobs.value.map((j) => j.key)).toContain(`ws${total - 1}:build`);
     expect(recentJobs.value.map((j) => j.key)).not.toContain("ws0:build");
   });
 });

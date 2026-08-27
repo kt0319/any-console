@@ -40,13 +40,13 @@
       ><span class="mdi mdi-delete-outline"></span></span>
     </button>
     <button
-      v-if="allowExpand && hasUnpinnedRecentJobs"
+      v-if="hasMoreRecentJobs"
       type="button"
       class="recent-jobs-more hover-bg-text"
-      @click="showAll = !showAll"
+      @click="showMore"
     >
-      <span class="mdi" :class="showAll ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
-      {{ showAll ? 'Less' : 'More' }}
+      <span class="mdi mdi-chevron-down"></span>
+      More
     </button>
   </div>
 </template>
@@ -56,10 +56,13 @@ import { computed, ref } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
-import { RECENT_JOBS_MAX } from "../utils/constants.ts";
+import { RECENT_JOBS_MAX, RECENT_JOBS_PAGE_SIZE } from "../utils/constants.ts";
 
 const props = defineProps({
-  allowExpand: { type: Boolean, default: true },
+  // "pinned": ピン留めのみ。"recent": 非ピン留めのみ（上限RECENT_JOBS_MAX件）。
+  // 表示の見出し（Pinned Jobs / Recent Jobs）は呼び出し元（WorkspaceOpen.vue /
+  // ScreenEmpty.vue）が「Recent Jobs」既存見出しと同じスタイルで別々に出す。
+  variant: { type: String, default: "recent" },
   editMode: { type: Boolean, default: false },
 });
 
@@ -79,14 +82,20 @@ async function removeRecent(recent: (typeof recentJobs.value)[number]) {
   await removeRecentJob(recent.key);
 }
 
-// 初期表示はピン留めのみ。非ピン留めは「More」で展開する。
-// allowExpand=falseの場合はMore/Lessを出さず、常に全件（上限RECENT_JOBS_MAX件）表示する。
-const showAll = ref(false);
-const hasUnpinnedRecentJobs = computed(() => recentJobs.value.some((j) => !j.pinned));
+// Recentは上限RECENT_JOBS_MAX件のうち、初期表示はRECENT_JOBS_PAGE_SIZE件のみ。
+// 「More」を押すたびにRECENT_JOBS_PAGE_SIZE件ずつ追加表示する（一度に全件は
+// 出さない。100件近く溜まる想定のため折りたたみに戻す「Less」は設けない）。
+// Pinnedはページングしない。
+const visibleCount = ref(RECENT_JOBS_PAGE_SIZE);
+const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinned).slice(0, RECENT_JOBS_MAX));
+const hasMoreRecentJobs = computed(() => props.variant === "recent" && unpinnedRecentJobs.value.length > visibleCount.value);
 const visibleRecentJobs = computed(() => {
-  if (!props.allowExpand) return recentJobs.value.slice(0, RECENT_JOBS_MAX);
-  return showAll.value ? recentJobs.value : recentJobs.value.filter((j) => j.pinned);
+  if (props.variant === "pinned") return recentJobs.value.filter((j) => j.pinned);
+  return unpinnedRecentJobs.value.slice(0, visibleCount.value);
 });
+function showMore() {
+  visibleCount.value += RECENT_JOBS_PAGE_SIZE;
+}
 </script>
 
 <style scoped>
@@ -185,7 +194,6 @@ const visibleRecentJobs = computed(() => {
     background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
   }
 }
-
 
 .recent-jobs-more {
   display: flex;

@@ -51,9 +51,15 @@
         </div>
       </div>
 
-      <div v-if="recentJobs.length" class="screen-empty-column screen-empty-column-right screen-empty-section">
-        <div class="screen-empty-section-label">Recent Jobs</div>
-        <RecentJobsList :allow-expand="false" />
+      <div v-if="recentJobs.length" class="screen-empty-column screen-empty-column-right">
+        <div v-if="pinnedJobs.length" class="screen-empty-section">
+          <div class="screen-empty-section-label">Pinned Jobs</div>
+          <RecentJobsList variant="pinned" />
+        </div>
+        <div v-if="unpinnedRecentJobs.length" class="screen-empty-section">
+          <div class="screen-empty-section-label">Recent Jobs</div>
+          <RecentJobsList variant="recent" />
+        </div>
       </div>
 
       <div v-if="serverInfo" class="screen-empty-server-info">
@@ -92,6 +98,8 @@ defineEmits(["openWorkspace"]);
 const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/, ""));
 
 const { recentJobs, loadRecentJobs } = useRecentJobs();
+const pinnedJobs = computed(() => recentJobs.value.filter((j) => j.pinned));
+const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinned));
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();

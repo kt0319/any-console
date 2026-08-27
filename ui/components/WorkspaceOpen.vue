@@ -27,11 +27,18 @@
         </button>
       </div>
 
-      <template v-if="recentJobs.length">
+      <template v-if="pinnedJobs.length">
+        <div class="settings-category-head">
+          <span class="settings-category-title">Pinned Jobs</span>
+        </div>
+        <RecentJobsList variant="pinned" :edit-mode="isEditMode" />
+      </template>
+
+      <template v-if="unpinnedRecentJobs.length">
         <div class="settings-category-head">
           <span class="settings-category-title">Recent Jobs</span>
         </div>
-        <RecentJobsList :edit-mode="isEditMode" />
+        <RecentJobsList variant="recent" :edit-mode="isEditMode" />
       </template>
 
       <div class="settings-category-head">
@@ -158,6 +165,8 @@ const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
+const pinnedJobs = computed(() => recentJobs.value.filter((j) => j.pinned));
+const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinned));
 const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 
 const wsListEl = ref<HTMLElement | null>(null);
