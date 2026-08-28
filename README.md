@@ -204,7 +204,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console update
 ```
 
-For a binary install, this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered — the same as re-running the `curl | bash` command, and idempotent (`data/`, including `certs/`, and `config.json` are left untouched). For a source checkout, `update` instead fetches the latest release tag and rebuilds (`cargo build --release` + `npm install` + `npm run build`); it refuses to run while the tree has uncommitted changes. Source checkouts can also check for and apply updates from the UI (Settings > System Info).
+For a binary install, this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered — the same as re-running the `curl | bash` command, and idempotent (`data/`, including `certs/`, and `config.json` are left untouched). For a source checkout, `update` instead fetches the latest release tag and rebuilds (`cargo build --release` + `npm install` + `npm run build`); it refuses to run while the tree has uncommitted changes. Source checkouts can also check for new releases from the UI (Settings > System Info), but applying from there only checks out the latest tag without rebuilding — run `./any-console update` to actually rebuild and restart.
 
 Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed. When upgrading from such an old version, kill leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) manually if any remain (see `docs/DECISIONS.md`, ADR 16).
 
