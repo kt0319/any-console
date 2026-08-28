@@ -136,6 +136,26 @@ async fn start_returns_id_url_and_expiry() {
 }
 
 #[tokio::test]
+async fn start_builds_https_url_behind_tls_proxy() {
+    // Tailscale Serve / reverse proxy が TLS を終端して X-Forwarded-Proto を
+    // 付けて転送してきた場合、QR の URL も https になる。
+    let front = spawn_front().await;
+    let resp = common::client()
+        .post(format!("http://{}/auth/pairing/start", front.addr))
+        .bearer_auth(TOKEN)
+        .header("host", FAKE_ORIGIN_HOST)
+        .header("x-forwarded-proto", "https")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    let pairing_id = body["id"].as_str().unwrap();
+    let url = body["url"].as_str().unwrap();
+    assert!(url.starts_with(&format!("https://{FAKE_ORIGIN_HOST}/pair/{pairing_id}?t=")));
+}
+
+#[tokio::test]
 async fn status_not_found_for_unknown_id() {
     let front = spawn_front().await;
     let resp = common::client()

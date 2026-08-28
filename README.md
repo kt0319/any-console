@@ -27,8 +27,15 @@ Website: <https://any-console.highedge.net/>
 - **Persistent sessions** — tmux × WebSocket; switch devices without losing your session
 - **Mobile-optimized input** — Custom flick keyboard with swipe support
 - **Web terminal** — xterm.js based, multi-tab and split-pane
-- **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase
+- **Workspaces** — Register repos, group them, and drive files / Git / jobs per workspace
+- **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase, worktrees
+- **File browser** — Browse, view, upload, and download workspace files
 - **Job runner** — One-tap shell script execution; define and edit jobs from the UI
+- **Agent state detection** — Sessions running known coding agents show working / idle / blocked state (screen analysis + optional hooks)
+- **Push notifications** — Web Push (VAPID) for blocked agents, job phrases, and dispatch approvals
+- **GitHub integration** — Issues, PRs, and Actions runs per workspace (via `gh`)
+- **Dispatch API** — Queue commands from CI/automation over HTTP, approved from the UI
+- **Dev server preview** — Detects listening dev servers and proxies them (TLS-capable)
 - **PWA** — Installable on phone and desktop
 - **Lightweight stack** — Vue 3 + Pinia frontend (Vite), Rust (axum) backend
 
@@ -48,7 +55,7 @@ Downloads a prebuilt release from [GitHub Releases](https://github.com/kt0319/an
 curl -fsSL https://raw.githubusercontent.com/kt0319/any-console/main/install.sh | bash
 ```
 
-Then finish service registration interactively — this registers a systemd (Linux) or launchd (macOS) service; the `./any-console` helper detects the OS. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots:
+Then finish service registration interactively — this registers a systemd (Linux, requires `sudo`) or launchd (macOS) service; the `./any-console` helper detects the OS. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots:
 
 ```bash
 cd ~/.any-console && ./any-console setup
@@ -60,8 +67,10 @@ After this, manage the service with `./any-console start|stop|update|logs|...` (
 
 - `git` — used by the Git UI
 - `tmux` — required for terminal session management
-- `curl` / `tar` — used by `install.sh` and `./any-console update`
+- `curl` / `tar` — used by `install.sh` and `./any-console update` (`install.sh` also needs `sha256sum` or `shasum` for checksum verification)
 - `gh` (GitHub CLI, optional) — for fetching GitHub repos, issues, PRs, and Actions
+
+Running from a source checkout (git clone) instead of a binary release additionally requires the build toolchain: Rust (`cargo`) and Node.js (`node` / `npm`).
 
 ## Authentication
 
@@ -97,6 +106,8 @@ accurate and instant (no polling delay, no dependency on screen rendering).
 ```bash
 ./any-console hooks-setup
 ```
+
+Requires the Claude Code CLI (`claude`) to be installed and on `PATH`.
 
 This registers `scripts/claude-code-hook.sh` in `~/.claude/settings.json`. It
 merges into your existing hooks config without touching other hooks, re-running
@@ -156,7 +167,7 @@ The any-console server itself listens over HTTP. If you need another HTTPS setup
 
 The default bind address is `0.0.0.0` (all interfaces). When the app is reached exclusively through Tailscale Serve — which proxies to `127.0.0.1` — you can set `__global__.host` to `"127.0.0.1"` in `config.json` so the plain-HTTP port is not also reachable over the LAN.
 
-Direct-port dev server previews can still use HTTPS. `./any-console https-setup` issues a Tailscale certificate and stores it for the preview proxy, so URLs such as `https://<device>:12001/` can work even when the main app is served through Tailscale Serve:
+Direct-port dev server previews can still use HTTPS. `./any-console https-setup` issues a Tailscale certificate and stores it for the preview proxy. The proxy listens on `target port + 20000` (for target ports 1024–9999), so a dev server on port 3000 becomes `https://<device>:23000/` — this works even when the main app is served through Tailscale Serve:
 
 ```bash
 ./any-console https-setup
@@ -193,17 +204,21 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 ./any-console update
 ```
 
-For a binary install, this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered — the same as re-running the `curl | bash` command, and idempotent (`data/`, including `certs/`, and `config.json` are left untouched). For a source checkout, `update` instead fetches the latest release tag and rebuilds (`cargo build --release` + `npm run build`).
+For a binary install, this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered — the same as re-running the `curl | bash` command, and idempotent (`data/`, including `certs/`, and `config.json` are left untouched). For a source checkout, `update` instead fetches the latest release tag and rebuilds (`cargo build --release` + `npm install` + `npm run build`); it refuses to run while the tree has uncommitted changes. Source checkouts can also check for new releases from the UI (Settings > System Info), but applying from there only checks out the latest tag without rebuilding — run `./any-console update` to actually rebuild and restart.
 
 Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed. When upgrading from such an old version, kill leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) manually if any remain (see `docs/DECISIONS.md`, ADR 16).
 
 ## Repository layout
 
 ```
-server/           Backend (Rust, axum)
+server/            Backend (Rust, axum)
 ui/                Frontend (Vue 3 + Pinia, built with Vite)
+dist/              Frontend build output, served by the backend (generated by npm run build)
 agent_manifests/   Vendored agent-detection manifests (read by the backend at runtime)
+tests/             Frontend unit tests (tests/ui), Playwright E2E (tests/e2e), stress tests
+scripts/           Helper scripts shipped with releases (e.g. claude-code-hook.sh)
 docs/              Architecture & design docs
+any-console        Launcher / service-management CLI (install.sh installs alongside it)
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-level breakdown.

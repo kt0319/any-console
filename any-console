@@ -178,6 +178,23 @@ get_version() {
   echo "unknown"
 }
 
+# ビルド済みバイナリが現在の HEAD からビルドされたものかを返す（ソース
+# チェックアウト用）。server/build.rs がビルド時の短縮 git SHA を --version の
+# 括弧内に埋め込んでいるので、それを HEAD の SHA と前方一致で比べる。
+# バイナリが無い・SHA が取れない・"unknown"（.git 無しでのビルド）の場合は
+# 不一致扱い（= 再ビルドする側）に倒す。
+built_binary_matches_head() {
+  [ -x "$RUST_BIN" ] || return 1
+  local built head
+  built=$("$RUST_BIN" --version 2>/dev/null | sed -n 's/.*(\(.*\))$/\1/p')
+  head=$(git rev-parse HEAD 2>/dev/null)
+  [ -n "$built" ] && [ -n "$head" ] || return 1
+  case "$head" in
+    "$built"*) return 0 ;;
+  esac
+  return 1
+}
+
 # config.json の読み書きは any-console-server 自身のCLIサブコマンド
 # （config/workspaces/jobs/auth/tailscale）に委譲する（python3を実行時依存に
 # しないため。ANY_CONSOLE_DATA_DIR/ANY_CONSOLE_PROJECT_ROOTの解決規則は
@@ -854,12 +871,19 @@ cmd_update() {
     error "No release tags found"
   fi
   if [ "$latest" = "$current" ]; then
-    info "Already on the latest release ($current)"
-    return
+    # UI（Settings > System Info）からの適用は最新タグの checkout だけを行う
+    # ため、タグは最新でもビルド成果物が古いままのことがある。バイナリに
+    # 埋め込まれたビルド時 SHA（server/build.rs）と HEAD を比べ、一致して
+    # いる場合のみ何もせずに済ませる。
+    if built_binary_matches_head; then
+      info "Already on the latest release ($current)"
+      return
+    fi
+    info "Already on $current, but built artifacts are stale — rebuilding..."
+  else
+    info "Updating ${current:-(none)} -> $latest"
+    git -c advice.detachedHead=false checkout "$latest"
   fi
-
-  info "Updating ${current:-(none)} -> $latest"
-  git -c advice.detachedHead=false checkout "$latest"
 
   info "Building the server..."
   check_cargo

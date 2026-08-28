@@ -22,7 +22,7 @@ test.describe("tab bar: open session / settings buttons", () => {
     await expect(page.locator(".settings-menu")).toBeVisible({ timeout: 5000 });
   });
 
-  test("Open SessionとSettingsは互いに独立して開閉できる（PCは同時表示も可能）", async ({ page }) => {
+  test("Open SessionとSettingsは互いに排他（後から開いた方が前を閉じる）", async ({ page }) => {
     await page.locator('[aria-label="Open session"]').click();
     await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
 

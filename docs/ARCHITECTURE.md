@@ -14,12 +14,14 @@ For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
 ```
 server/                       Backend (Rust, axum)
   src/main.rs                 App init (CLI dispatch → singleton lock → HTTP bind)
+  src/lib.rs                   Library crate root — module declarations + build_router() (all axum
+                               route wiring lives here, not in main.rs); shared with integration tests
   src/cli.rs                  Lightweight CLI subcommands (config / workspaces / jobs / hooks / auth /
                                tailscale / paths) used by the ./any-console launcher instead of spawning a server
   src/paths.rs                 Resolves data_dir / config_file / project_root (all persistent-file
                                paths go through here; honors ANY_CONSOLE_DATA_DIR isolation)
-  src/static_files.rs          dist/ serving; the embed-assets build feature bakes dist/ and
-                               agent_manifests/ into the release binary
+  src/static_files.rs          dist/ serving; the embed-assets build feature bakes dist/ into the
+                               release binary (agent_manifests/ embedding lives in screen_manifest.rs)
   src/auth.rs                 Bearer token auth (optional) + API tokens; sole writer of auth.json
                                (device-cookie verification is delegated to devices.rs)
   src/devices.rs               Device cookie storage (registration, listing, revocation)
@@ -34,7 +36,10 @@ server/                       Backend (Rust, axum)
   src/agent_watch.rs           Agent state polling (working / idle / blocked), blocked push
                                notifications, workspace auto-binding
   src/screen_manifest.rs       Agent state detection from pane content (herdr manifests: bundled + remote + local override)
+  src/screen_regions.rs        Pure region-extraction helpers for pane captures (split out of screen_manifest.rs)
   src/manifest_update.rs       Periodic remote manifest updates from herdr.dev (validated, cached under data/)
+  src/session_autotag.rs       Auto-tagging of terminal sessions with workspace/job metadata,
+                               called from agent_watch.rs's polling loop (see DECISIONS.md #32)
   src/agent_hooks.rs           Event-driven session state from agent hooks (authoritative over manifests)
   src/foreground.rs            Foreground process group argv inspection (/proc on Linux, ps on macOS)
   src/job_match.rs             Match foreground argv against job definitions (auto-tag manual runs)
@@ -42,16 +47,27 @@ server/                       Backend (Rust, axum)
   src/config_migrations.rs     config.json schema versioning + auto-migration
   src/activity.rs              Operation log (data/activity/{workspace}/{date}.jsonl)
   src/rate_limit.rs            In-process rate limiter
-  src/preview.rs               Dev server port detection + TCP/TLS proxy for direct-port previews
+  src/preview.rs               Dev server detection store + HTTP probing + TCP/TLS proxy for
+                               direct-port previews
+  src/port_scan.rs             LISTEN-port scanning and owning-process lookup (ss/lsof; split out of preview.rs)
+  src/preview_tls.rs           Certificate discovery + loading for the preview proxy's TLS termination
   src/push.rs                  VAPID / Web Push (RFC 8291/8292), native
-  src/{workspaces,groups,jobs,terminal,system,settings,git_*,github,dispatch,job_runner,pairing,upload_image}.rs
-                               Route handlers (pairing = QR code device pairing; short-lived,
-                               single-use tokens — see DECISIONS.md #28)
+  src/git_helpers.rs           Shared helpers for the git routers — ref validation and
+                               execute_git_action wrappers with activity logging
+  src/git_info.rs              Per-workspace git-status collection pipeline (parallel queries,
+                               TTL cache with stale-overwrite guard)
+  src/{workspaces,groups,jobs,terminal,system,system_info,system_update,settings,github,dispatch,job_runner,pairing,upload_image}.rs
+                               Route handlers (system = tmux management; system_info = /system/info
+                               probes; system_update = git-based self-update; pairing = QR code
+                               device pairing; short-lived, single-use tokens — see DECISIONS.md #28)
+  src/git_{branches,diff,files,history,worktree}.rs  Git route handlers (branch ops, diffs,
+                               file browse/upload/download, log/commit/stash, worktrees)
   src/{state,subprocess,util,json_store,jobs_common,icons,fallback}.rs  Shared plumbing
                                (app state, subprocess helper, JSON persistence, 404 fallback, ...)
 agent_manifests/               Vendored agent-detection manifests (TOML), read by screen_manifest.rs at runtime
                                (embedded into release binaries via the embed-assets feature)
 ui/                            Frontend (Vue 3 + Pinia, built with Vite)
+  index.html                   Vite entry HTML
   vue-main.ts                  Entry point
   app-bridge.ts                Global event bus (BUS_EVENTS)
   sw.js                        Service Worker (push notifications only — no offline cache; copied to dist/ as-is, not bundled)
@@ -60,7 +76,8 @@ ui/                            Frontend (Vue 3 + Pinia, built with Vite)
   composables/                 Reusable logic (useApi, useTerminal, useModal, etc.)
   utils/                       Pure functions, constants, endpoints
   styles/                      Global CSS
-  data/                        Static data (keyboard layout, MDI icon list)
+  data/                        Static data (keyboard layout, MDI icon list, icon preset colors)
+  public/                      Vite publicDir, copied to dist/ as-is (PWA manifest.json, icons, fonts)
 docs/                          Architecture / design / audit docs and migration records
 config.json                    Config file (auto-generated, .gitignore'd)
 data/auth.json                 Token storage (.gitignore'd)
@@ -79,5 +96,5 @@ this to keep test state fully isolated from a real deployment.
 | `composables/useApi.ts` | Shared API layer. Response format changes affect all callers. |
 | `utils/constants.ts` | Grep all references before changing a value. |
 | `app-bridge.ts` | Event bus. Renaming events requires updating both `emit` and `on` sides. |
-| `composables/useListDragSort.ts` | Shared drag-sort for vertical lists (info-pill config, workspace Groups; tab reordering is a separate native HTML5 DnD implementation). Uses pointer events + hit-detection. New sortable lists should use this instead of a custom implementation. |
-| `styles/drag-utils.css` | Global CSS for `.drag-handle`, `.drag-source`, `.drag-over-above/below`. All drag-enabled rows must use these classes. |
+| `composables/useListDragSort.ts` | Shared drag-sort for vertical lists (info-pill config, workspace group headers). Uses pointer events + hit-detection. New sortable lists should use this instead of a custom implementation. Workspace rows (`useWorkspaceListDrag.ts`, cross-group dragging) and tab reordering (native HTML5 DnD in `TabItem.vue`) are separate implementations. |
+| `styles/drag-utils.css` | Global CSS for `.drag-handle`, `.drag-source`, `.drag-over-above/below`. All vertical-list drag rows must use these classes (tabs use their own local styles). |

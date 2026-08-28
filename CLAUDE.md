@@ -100,7 +100,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 ## E2E スモーク
 
 - `tests/e2e/*.spec.js` に Playwright スモークを置く（CI の `e2e` ジョブで実行。ローカル手動実行も可）
-- CI は PR・main への push・workflow_dispatch で**全スペック**を実行する（`npm run test:e2e`。トリガ条件の詳細は `.github/workflows/ci.yml` 冒頭コメントを参照）
+- CI は PR・main への push・workflow_dispatch で**全スペック**を実行する（`npm run test:e2e`。`docs/**`・`*.md` のみの変更は `paths-ignore` でスキップ。トリガ条件の詳細は `.github/workflows/ci.yml` 冒頭コメントを参照）
   - **smoke サブセット**（`smoke` / `terminal` / `mobile` / `api-contract` — 認証・ターミナル・モバイル主要フロー・API ワイヤ契約の壊れたら即死する経路）はローカルでの素早い確認用（`npm run test:e2e:smoke`）
   - smoke サブセットに spec を足す・外す時は `package.json` の `test:e2e:smoke` を更新する（パターンは `e2e/<name>.spec.js` 形式で書く — 部分一致のため `terminal` だけだと `mobile-terminal` にも一致する）
   - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・メイン画面遷移・認証維持）
@@ -126,7 +126,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - 共通ヘルパー（ログイン・セッション後始末・設定モーダル操作・Bearer ヘッダ）は `helpers.js`
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
 - **既定は使い捨てサーバモード**: `ANY_CONSOLE_URL` 未指定なら `playwright.config.js` の `webServer` が `ANY_CONSOLE_DATA_DIR` で隔離したサーバをランごとの空きポートで自動起動する（実運用の `data/`・`config.json` には一切触れない。詳細は `playwright.config.js` 冒頭コメントを参照）。前提: ビルド済み Rust バイナリ（`cargo build --release`）と tmux。CI も同じ仕組みで動く
-- 起動済みの外部サーバに対して実行する場合のみ `ANY_CONSOLE_URL` を指定する。このときは対象サーバをレート制限を引き上げて起動しておく（既定 200req/60s のままだと連続実行で 429 になる）
+- 起動済みの外部サーバに対して実行する場合のみ `ANY_CONSOLE_URL` を指定する。このときは対象サーバをレート制限を引き上げて起動しておく（既定 1000req/60s のままだと連続実行で 429 になる）
 - テストがサーバ状態を汚さないこと (**MUST**): セッション等を作るテストは自分が作った分だけを必ず後始末する（`helpers.js` の `cleanupNewSessions` を使う。既存セッションには触れない）。使い捨てサーバモードでは tmux セッション名もランごとのユニークプレフィックス（`ANY_CONSOLE_TMUX_PREFIX`）で分離され、中断時の残りは global-teardown が自ラン分のみ一掃するが、この後始末は保険であり各テストの後始末は省略しない
 - ローカル初回セットアップ:
   ```bash
