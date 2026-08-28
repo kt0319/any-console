@@ -1,5 +1,6 @@
 <template>
   <div class="git-changes-pane-wrapper pane-fill">
+    <DiffTotalNumstat :files="files" />
     <div class="diff-file-list">
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
@@ -34,6 +35,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import DiffFileItem from "./DiffFileItem.vue";
+import DiffTotalNumstat from "./DiffTotalNumstat.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
@@ -46,6 +48,8 @@ interface DiffFileRow {
   path: string;
   status: string;
   numstat?: string;
+  insertions?: number;
+  deletions?: number;
 }
 
 interface DiffActionButton {

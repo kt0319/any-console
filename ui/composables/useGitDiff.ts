@@ -2,7 +2,7 @@ import { useAuthStore } from "../stores/auth.ts";
 import { useGitStore, parseDiffChunks } from "../stores/git.ts";
 import { useApi } from "./useApi.ts";
 import { useWorkspace } from "./useWorkspace.ts";
-import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.ts";
+import { buildFileNumstatHtml, resolveFileNumstat, resolveUntrackedNumstat } from "../utils/git.ts";
 import { workspaceCommitDiffPath } from "../utils/endpoints.ts";
 
 export function buildFileList(files: Record<string, any>[] | null | undefined) {
@@ -27,14 +27,22 @@ export function useGitDiff() {
   }
 
   function attachNumstat(fileList: ReturnType<typeof buildFileList>, diffChunks: Record<string, string>, untrackedNumstat: Record<string, number> = {}) {
-    return fileList.map((f) => ({
-      ...f,
-      numstat: buildFileNumstatHtml(
-        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
-        diffChunks[f.path],
-        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
-      ),
-    }));
+    return fileList.map((f) => {
+      const merged = { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) };
+      const resolved = resolveFileNumstat(merged, diffChunks[f.path]);
+      return {
+        ...f,
+        // 生のf.insertions/deletions（trackedファイルのみ・untracked等はnull）を
+        // 表示可能な確定値（無情報時は0）に置き換える。合計numstat
+        // （GitChanges.vue）がper-fileと同じ解決順（tracked → untracked行数 →
+        // diffChunk解析）を個々にたどり直さず単純合計できるようにするため。
+        insertions: resolved.insertions ?? 0,
+        deletions: resolved.deletions ?? 0,
+        numstat: buildFileNumstatHtml(merged, diffChunks[f.path], {
+          neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null,
+        }),
+      };
+    });
   }
 
   async function fetchWorkingTreeDiff() {

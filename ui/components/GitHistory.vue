@@ -38,6 +38,7 @@
           />
         </span>
       </div>
+      <DiffTotalNumstat :files="selectedCommitFiles" />
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center loading-dots">Loading</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
@@ -87,6 +88,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 
 import DiffFileItem from "./DiffFileItem.vue";
+import DiffTotalNumstat from "./DiffTotalNumstat.vue";
 import GitRefBadges from "./GitRefBadges.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
 import { useGitDiff } from "../composables/useGitDiff.ts";

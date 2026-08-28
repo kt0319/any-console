@@ -110,17 +110,29 @@ type GitFileLike = {
   deleted?: number | null;
 };
 
+/**
+ * ファイル1件分の挿入/削除行数を解決する（tracked済みのinsertions/deletions →
+ * diffChunkからのパース、の優先順）。buildFileNumstatHtml（1件表示）と
+ * 合計numstat表示（GitChanges.vue）の両方で同じ解決順を共有するため分離。
+ * 情報が全く無い場合はnull/nullを返す（buildNumstatHtmlの「両方null なら
+ * 空文字列」判定と対にするため、0/0に丸めない）。
+ */
+export function resolveFileNumstat(file: GitFileLike, diffChunk = ""): { insertions: number | null, deletions: number | null } {
+  const insertions = file.insertions ?? file.added;
+  const deletions = file.deletions ?? file.deleted;
+  if (insertions != null || deletions != null) {
+    return { insertions: insertions ?? null, deletions: deletions ?? null };
+  }
+  const parsed = parseDiffNumstatFromChunk(diffChunk);
+  return { insertions: parsed?.insertions ?? null, deletions: parsed?.deletions ?? null };
+}
+
 export function buildFileNumstatHtml(file: GitFileLike, diffChunk = "", opts: { neutralText?: boolean } = {}) {
   const status = String(file.status || "").trim();
   const omitZeroDeletions = status === "??" || status === "A";
   const { neutralText = false } = opts;
-  const insertions = file.insertions ?? file.added;
-  const deletions = file.deletions ?? file.deleted;
-  if (insertions != null || deletions != null) {
-    return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
-  }
-  const parsed = parseDiffNumstatFromChunk(diffChunk);
-  return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
+  const { insertions, deletions } = resolveFileNumstat(file, diffChunk);
+  return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
 }
 
 export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {

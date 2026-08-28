@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -245,6 +245,21 @@ describe("buildFileNumstatHtml", () => {
 
   it("numstatもchunkもない場合は空文字列", () => {
     expect(buildFileNumstatHtml({ status: "M" })).toBe("");
+  });
+});
+
+describe("resolveFileNumstat", () => {
+  it("insertions/deletionsフィールドを優先する", () => {
+    expect(resolveFileNumstat({ status: "M", insertions: 5, deletions: 2 })).toEqual({ insertions: 5, deletions: 2 });
+  });
+
+  it("numstat情報がなければdiffChunkからカウントする", () => {
+    const chunk = "+line1\n+line2\n-old";
+    expect(resolveFileNumstat({ status: "M" }, chunk)).toEqual({ insertions: 2, deletions: 1 });
+  });
+
+  it("numstatもchunkも無ければnull/null（合計計算側で0扱いにするための判別用）", () => {
+    expect(resolveFileNumstat({ status: "M" })).toEqual({ insertions: null, deletions: null });
   });
 });
 
