@@ -143,14 +143,38 @@ fn parse_host_header(headers: &HeaderMap) -> (String, Option<u16>) {
     }
 }
 
+/// リクエストが届いた時のスキームを返す。この Rust サーバ自身は TLS を終端しない
+/// ため、TLS は常に前段の proxy（Tailscale Serve / Caddy / nginx 等）が終端して
+/// plain HTTP で転送してくる。その場合に proxy が付ける `X-Forwarded-Proto` を見て
+/// "https" と判定し、無ければ "http" とする。ヘッダはクライアントも自由に送れるが、
+/// 影響は発行者自身に返る QR URL のスキーム表記だけであり、認可判定には使わない。
+fn request_scheme(headers: &HeaderMap) -> &'static str {
+    let proto = headers
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let first = proto.split(',').next().unwrap_or("").trim();
+    if first.eq_ignore_ascii_case("https") {
+        "https"
+    } else {
+        "http"
+    }
+}
+
+fn scheme_default_port(scheme: &str) -> u16 {
+    if scheme == "https" {
+        443
+    } else {
+        80
+    }
+}
+
 /// リクエストが実際に使ったポートを返す。`Host` ヘッダに明示的なポートが無ければ
 /// スキームの標準ポートを補う（`api/routers/pairing.py` `_effective_port`）。
-///
-/// この Rust サーバ自身は TLS を終端しない（本番は Tailscale Serve が外部で TLS を
-/// 終端し plain HTTP でこのプロセスへ転送する — `devices.rs` の cookie Secure 判定
-/// と同じ前提）ため、スキームは常に "http" として既定ポート 80 を補う。
-fn effective_port(headers: &HeaderMap) -> Option<u16> {
-    parse_host_header(headers).1.or(Some(80))
+fn effective_port(headers: &HeaderMap, scheme: &str) -> Option<u16> {
+    parse_host_header(headers)
+        .1
+        .or(Some(scheme_default_port(scheme)))
 }
 
 fn bind_is_loopback_only(state: &AppState) -> bool {
@@ -167,12 +191,20 @@ async fn resolve_tailscale_name() -> Option<String> {
 }
 
 fn magicdns_pairing_url(
+    scheme: &str,
     hostname: &str,
     port: u16,
     pairing_id: &str,
     pairing_token: &str,
 ) -> String {
-    format!("http://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}")
+    // スキーム標準ポート（http:80 / https:443）は省略する — Tailscale Serve 経由
+    // では Host にポートが乗らないため、ユーザーが実際に開いている
+    // `https://<host>.ts.net/` と同じ形の URL になる。
+    if port == scheme_default_port(scheme) {
+        format!("{scheme}://{hostname}/pair/{pairing_id}?t={pairing_token}")
+    } else {
+        format!("{scheme}://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}")
+    }
 }
 
 /// MagicDNS 名が引けない（または bind が loopback 専用）場合のフォールバック。
@@ -194,8 +226,9 @@ fn fallback_pairing_url(
         .get(header::HOST)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
+    let scheme = request_scheme(headers);
     Ok(format!(
-        "http://{netloc}/pair/{pairing_id}?t={pairing_token}"
+        "{scheme}://{netloc}/pair/{pairing_id}?t={pairing_token}"
     ))
 }
 
@@ -206,10 +239,12 @@ async fn build_pairing_url(
     pairing_token: &str,
 ) -> Result<String, ApiError> {
     let hostname = resolve_tailscale_name().await;
-    let port = effective_port(headers);
+    let scheme = request_scheme(headers);
+    let port = effective_port(headers, scheme);
     if let (Some(hostname), Some(port)) = (&hostname, port) {
         if !bind_is_loopback_only(state) {
             return Ok(magicdns_pairing_url(
+                scheme,
                 hostname,
                 port,
                 pairing_id,
@@ -425,9 +460,46 @@ mod tests {
     #[test]
     fn magicdns_url_has_expected_shape() {
         assert_eq!(
-            magicdns_pairing_url("host.tail1234.ts.net", 8888, "pr_1", "tok_1"),
+            magicdns_pairing_url("http", "host.tail1234.ts.net", 8888, "pr_1", "tok_1"),
             "http://host.tail1234.ts.net:8888/pair/pr_1?t=tok_1"
         );
+    }
+
+    #[test]
+    fn magicdns_url_omits_scheme_default_port() {
+        assert_eq!(
+            magicdns_pairing_url("https", "host.tail1234.ts.net", 443, "pr_1", "tok_1"),
+            "https://host.tail1234.ts.net/pair/pr_1?t=tok_1"
+        );
+        assert_eq!(
+            magicdns_pairing_url("http", "host.tail1234.ts.net", 80, "pr_1", "tok_1"),
+            "http://host.tail1234.ts.net/pair/pr_1?t=tok_1"
+        );
+        // 標準外ポートは https でも残す（Tailscale Serve の 8443 フロントエンド等）。
+        assert_eq!(
+            magicdns_pairing_url("https", "host.tail1234.ts.net", 8443, "pr_1", "tok_1"),
+            "https://host.tail1234.ts.net:8443/pair/pr_1?t=tok_1"
+        );
+    }
+
+    #[test]
+    fn request_scheme_follows_x_forwarded_proto() {
+        let headers = HeaderMap::new();
+        assert_eq!(request_scheme(&headers), "http");
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-proto", "https".parse().unwrap());
+        assert_eq!(request_scheme(&headers), "https");
+
+        // 大文字・多段 proxy のカンマ連結は先頭の値で判定する。
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-proto", "HTTPS, http".parse().unwrap());
+        assert_eq!(request_scheme(&headers), "https");
+
+        // https 以外の値は http 扱い。
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-proto", "ws".parse().unwrap());
+        assert_eq!(request_scheme(&headers), "http");
     }
 
     #[test]
@@ -439,6 +511,15 @@ mod tests {
     }
 
     #[test]
+    fn fallback_url_keeps_https_scheme_behind_tls_proxy() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, "myhost.example".parse().unwrap());
+        headers.insert("x-forwarded-proto", "https".parse().unwrap());
+        let url = fallback_pairing_url(&headers, "pr_1", "tok_1").unwrap();
+        assert_eq!(url, "https://myhost.example/pair/pr_1?t=tok_1");
+    }
+
+    #[test]
     fn fallback_url_rejects_loopback_host() {
         let mut headers = HeaderMap::new();
         headers.insert(header::HOST, "localhost:8888".parse().unwrap());
@@ -447,14 +528,15 @@ mod tests {
     }
 
     #[test]
-    fn effective_port_defaults_to_80_without_explicit_port() {
+    fn effective_port_defaults_to_scheme_port_without_explicit_port() {
         let mut headers = HeaderMap::new();
         headers.insert(header::HOST, "example.com".parse().unwrap());
-        assert_eq!(effective_port(&headers), Some(80));
+        assert_eq!(effective_port(&headers, "http"), Some(80));
+        assert_eq!(effective_port(&headers, "https"), Some(443));
 
         let mut headers = HeaderMap::new();
         headers.insert(header::HOST, "example.com:9000".parse().unwrap());
-        assert_eq!(effective_port(&headers), Some(9000));
+        assert_eq!(effective_port(&headers, "http"), Some(9000));
     }
 
     #[test]
