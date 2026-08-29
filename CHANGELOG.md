@@ -5,6 +5,118 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0](https://github.com/kt0319/any-console/compare/v0.15.0...v0.16.0) (2026-08-29)
+
+
+### Features
+
+* Changes/Historyのファイル一覧に合計numstatを表示する ([341f0d9](https://github.com/kt0319/any-console/commit/341f0d91bd3a58d63ec7398213f219f1ade10cb8))
+* Dispatch Queueの一覧表示をブランチ名・日時中心に整理 ([c6f1e3d](https://github.com/kt0319/any-console/commit/c6f1e3d53d21b79316d30508b73540400de12c1a))
+* dispatchのSession選択で現在開いているセッションに(this session)と付記する ([1e18e56](https://github.com/kt0319/any-console/commit/1e18e56328e2cb9c92e48a450410095f16679ddb))
+* dispatchピークピルにjob名とブランチ名を両方表示する ([955c6cf](https://github.com/kt0319/any-console/commit/955c6cf48479a3b6337f64befa4f7a0b2de85f4d))
+* Recent JobsをPinned Jobs/Recent Jobsの見出し付きセクションに分離しページングを追加 ([a0cb4dc](https://github.com/kt0319/any-console/commit/a0cb4dcfec84ba3e241d9c92f9371f4d5011c519))
+* Service Worker のオフラインキャッシュを廃止しプッシュ通知専用にする ([d765ffa](https://github.com/kt0319/any-console/commit/d765ffa48ee3d59f1f8360eb6c8fb583c0e0c0be))
+* キーボードバー送信ボタン/矢印キーのフリック機能を追加 ([577cdcd](https://github.com/kt0319/any-console/commit/577cdcdaae9d34031919c68a0da8844f306a4975))
+* サイドバーにただのターミナルもReadyステータスを表示する ([c87a95f](https://github.com/kt0319/any-console/commit/c87a95fd22f841850a682fd6f75b8b8563bc5d3b))
+* ブランチモーダルでworktreeブランチをタップした際に確認ダイアログを挟む ([08c03f5](https://github.com/kt0319/any-console/commit/08c03f59d33ec6beaefc8857af0148bb1059f53a))
+* 各画面のLoading...表記を既存のloading-dotsアニメーションで統一する ([32e05ca](https://github.com/kt0319/any-console/commit/32e05ca92112c26ce0c7ebe3e3e99e10c6b0ebde))
+
+
+### Bug Fixes
+
+* Codex レビュー指摘への対応（フォーカス・互換・アップロード保持） ([1c74e77](https://github.com/kt0319/any-console/commit/1c74e77bdab2038b749288366d804a978e4e0ea2))
+* dispatchでworktree実行時にrunコマンドが入力されない不具合を修正 ([ab1cdc3](https://github.com/kt0319/any-console/commit/ab1cdc3c6d2d8058fd7d477d6114a8f56ad4d697))
+* dispatchのジョブ起動・入力送信を固定sleepからready信号ベースに変更 ([45544e0](https://github.com/kt0319/any-console/commit/45544e0c02a2a4a7487e3451f4133c618d765861))
+* GitHubペインの取得0件時に空状態メッセージを表示する ([a445f8e](https://github.com/kt0319/any-console/commit/a445f8e8784ca5476909364a4a9bd1d111cd30f4))
+* Gitモーダルのブランチ折りたたみ・worktreeタブ開閉を修正 ([0bec07c](https://github.com/kt0319/any-console/commit/0bec07cbe9b18dce54ff3e405166a166dae2b73b))
+* HTTPS設定案内の tailscale serve コマンド例を新構文に統一 ([0ac04d4](https://github.com/kt0319/any-console/commit/0ac04d406124eef0ee612648de12213d90296ef8))
+* notify_phrase猶予テストのflaky再発を修正しwait_for_stable_captureの静穏窓を拡大 ([ccced7c](https://github.com/kt0319/any-console/commit/ccced7c55965532ed24d29256dcbbc42b215d33b))
+* push/pull後のfetchStatuses未await競合でHistoryの未push表示が更新されないのを修正 ([81af6d4](https://github.com/kt0319/any-console/commit/81af6d43cd2386a488cb70141432e70b28271256))
+* server_key の書き込み失敗を握りつぶさずプロセス内キャッシュで自己一貫させる ([8e41e37](https://github.com/kt0319/any-console/commit/8e41e37a00178730838326129a18030c17c7439c))
+* SettingsEntryRow のクラス名を既存の device-row 系に戻す ([ea1951c](https://github.com/kt0319/any-console/commit/ea1951c3a4ed4179c723a4e882c958b109211a10))
+* TerminalPane の GitHub ポーリング配線を宣言順の後ろへ移動し TDZ エラーを解消する ([ab18896](https://github.com/kt0319/any-console/commit/ab18896cd9796305643863caeb700d995e86d6b1))
+* TLS終端proxy経由でもQRペアリングURLがhttpになる問題を修正 ([a0c3711](https://github.com/kt0319/any-console/commit/a0c37116d92f50fad2abc7300d9bd8ce788bde6d))
+* アイコンのみボタンに欠けていたaria-labelとdata-tooltipを補完する ([90dacd4](https://github.com/kt0319/any-console/commit/90dacd4e6ea92564e09fd18ad2f52f7a0fa057a2))
+* サイドバーのタブ閉じ確認で Refresh / Detach が無視される問題を修正 ([f46c83a](https://github.com/kt0319/any-console/commit/f46c83a5eb993c1f75a53107e030535342530326))
+* ブランチ追加ダイアログを BaseDialog に載せ替えフォーカストラップと Esc を有効にする ([1750840](https://github.com/kt0319/any-console/commit/1750840e0513bb53e7a64fa26fd37c793f2ae2ca))
+* 並行アップロード中のファイルをすべて prune から保護する ([6d43f72](https://github.com/kt0319/any-console/commit/6d43f72963cb1697fdba1fece4c55ea0c2732ad9))
+* 最新タグ checkout 済みでもビルド成果物が古ければ update で再ビルドする ([3f59b04](https://github.com/kt0319/any-console/commit/3f59b0432a591902bae4d1330f07251ebd557d82))
+* 分割ドロップゾーンのデータ駆動化で残っていた旧テンプレート断片を除去する ([d3f5468](https://github.com/kt0319/any-console/commit/d3f5468050cda34e0418728a9256ca0a6e26bca4))
+* 同一秒アップロード時に直前のファイルが掃除されないよう保護する ([3ded3da](https://github.com/kt0319/any-console/commit/3ded3da49a6e51ad361b3b31ad827cb80dd27a15))
+* 画像アップロード先を /tmp 直書きから paths.rs 経由の data/uploads に変更する ([5728bf7](https://github.com/kt0319/any-console/commit/5728bf7e2e4a16c6101e1cfd3707143d36f81df0))
+
+
+### Performance Improvements
+
+* ConfigStore に mtime ベースの読み込みキャッシュを導入 ([4a7dc26](https://github.com/kt0319/any-console/commit/4a7dc269edec1248b5a6bf02e041f77e78c5dbe2))
+
+
+### Refactor
+
+* /jobs/workspaces の一覧構築を1回の走査に統合 ([e0e73bd](https://github.com/kt0319/any-console/commit/e0e73bde61c7b7135a0abd30af80fb29133a796c))
+* AuthConfig を3セクションに分割し共通の設定行コンポーネントを導入する ([d42abd2](https://github.com/kt0319/any-console/commit/d42abd282dcb7f805344c2fb3e1f3013b144d17c))
+* config スキーマの Pydantic 互換エミュレーションを撤去する ([b8b5e66](https://github.com/kt0319/any-console/commit/b8b5e66d61e69b005ed268029322a8c05b730e5a))
+* diff ファイル行と git-ref バッジの重複を共通コンポーネント化 ([ae19fbd](https://github.com/kt0319/any-console/commit/ae19fbd32ffcc4536021f9aee7c3a13c3d5f2bc2))
+* dispatch の反復処理を集約し TtlCache の純委譲ラッパを撤去する ([3a620d8](https://github.com/kt0319/any-console/commit/3a620d8a18285ddbd6201d799bf7bb2792caa4e4))
+* execute_git_action のワークスペースパス二重解決を解消する ([341db0e](https://github.com/kt0319/any-console/commit/341db0e0226393e61ce02b501f9d9ed96482b048))
+* GitHub PR/Actions ポーリングの差分開始・停止を useGitHubPollingFor へ集約する ([3269508](https://github.com/kt0319/any-console/commit/326950823d530e6e35465fc91ad899abf1d9b1f7))
+* IconPicker のグリッドを命令的 DOM 生成から宣言的レンダリングへ置き換える ([9807d98](https://github.com/kt0319/any-console/commit/9807d98ea7effb2e50c61f0b1865b6b33a13d14a))
+* info-pill フィールド一覧を INFO_PILL_FIELDS に一本化 ([e198c9d](https://github.com/kt0319/any-console/commit/e198c9d151fb3eec852e6923086ef4cef29b0184))
+* jobDetachedTab 過渡期ミラーを削除 ([4767f2e](https://github.com/kt0319/any-console/commit/4767f2e57b8ea380cda053ce143c2d64f8bc1b91))
+* JSON保存・設定セクション読み出しの反復イディオムを共通ヘルパーへ集約する ([7baff88](https://github.com/kt0319/any-console/commit/7baff887424b442f80499268aae13b129744ad32))
+* preview.rs から TLS 証明書処理とポートスキャンを別モジュールへ分離する ([e374f6f](https://github.com/kt0319/any-console/commit/e374f6fe0a8f60d9eaa99d7ef0e8b766539cdee1))
+* ScreenEmpty のセットアップ項目と分割ドロップゾーンをデータ駆動にする ([f47bf90](https://github.com/kt0319/any-console/commit/f47bf907f171e4f5a3059eebb10bded1286a46df))
+* status stream の切断クリーンアップを単一出口に集約 ([85c8e45](https://github.com/kt0319/any-console/commit/85c8e45ce0c6a0cc5c26f765d7592924e93297b1))
+* system.rs の独自 git 実行を git_utils へ委譲する ([bc4ee03](https://github.com/kt0319/any-console/commit/bc4ee03d5ff0a2bd4b59640326b4ae4e88fda5bd))
+* system.rs をシステム情報・セルフアップデートの各モジュールへ分割する ([4fdd724](https://github.com/kt0319/any-console/commit/4fdd7243cba2340ef234d66758cad8cabc1af355))
+* TabItem のドラッグ処理を useTabDrag composable へ抽出する ([8958d9b](https://github.com/kt0319/any-console/commit/8958d9b29ef9b4937041998939850261cc95a3d1))
+* terminal ストアからエージェント状態とターミナル設定を独立ストアへ分割する ([cd8bcef](https://github.com/kt0319/any-console/commit/cd8bcefd19b222958f4daca65e3cda329c29ebdc))
+* tmux セッション作成コマンドを subprocess ヘルパー経由にし C ロケール強制を効かせる ([7bba8b2](https://github.com/kt0319/any-console/commit/7bba8b28899ba81d07a888ede4c4126b61ee8009))
+* WorkspaceDetail のペイン切替をデータ駆動にする ([8465548](https://github.com/kt0319/any-console/commit/8465548e23ba336150c8850f996c741b4333ab69))
+* WorkspaceOpen の並べ替え永続化と行表示を分離する ([9672549](https://github.com/kt0319/any-console/commit/967254970c8fb19edb2aea9adb855dc5888541dd))
+* アイコンのみボタンの title を data-tooltip + aria-label に統一する ([0462f0d](https://github.com/kt0319/any-console/commit/0462f0d336a801ea6773db96db97db84e396d5a0))
+* アップロード画像の保持を時間ベースから件数ベースに変更する ([f42635c](https://github.com/kt0319/any-console/commit/f42635cfa16db92c2b5670c4761fea41e22554f2))
+* コンポーネント内の純関数を ui/utils へ移動しテストを追加する ([9a2fb58](https://github.com/kt0319/any-console/commit/9a2fb58f1ca71c5c8979b2d74053d1b524049e42))
+* コンポーネント間で重複していた CSS を共通ユーティリティへ集約する ([46392ed](https://github.com/kt0319/any-console/commit/46392ed7a848c4239e72e479674aefbd24489806))
+* サイドバー行1行目にステータス/ブランチ名を配置（ワークスペース名の右側） ([1916f64](https://github.com/kt0319/any-console/commit/1916f64d772991637f357524c7d8e8002affcd5f))
+* サイドバー行を2行構成（1行目ワークスペース+ブランチ、2行目ステータス+ピル）に整理 ([4b9fbc6](https://github.com/kt0319/any-console/commit/4b9fbc69dc0e170200e7b3d0857f15bb78ce70d2))
+* ジョブ一覧の二重ループと不要な間接参照を整理する ([aa993dc](https://github.com/kt0319/any-console/commit/aa993dc49a7c70f99287604f20086b4fbe726284))
+* セッション作成の11引数を NewSessionSpec 構造体に集約する ([b0298a0](https://github.com/kt0319/any-console/commit/b0298a0cf04f69516efe3729442e0d2e93737a5c))
+* セッション自動タグ付けを session_autotag.rs へ分離する ([418cd16](https://github.com/kt0319/any-console/commit/418cd16d9a9db30e3fbf2c2a90bd1b711088448f))
+* タブドラッグのドロップ先計算を resolveDropIndex に共通化する ([2edd292](https://github.com/kt0319/any-console/commit/2edd292d8f534a58399cfbb632b0654b482c4e8d))
+* バックエンドの死にコード・未使用引数を削除する ([d254ada](https://github.com/kt0319/any-console/commit/d254ada6d038b56cc40b3d4551f1783c00368afe))
+* バックグラウンドタスクの起動・停止管理を util::SupervisedTask に集約する ([94e141f](https://github.com/kt0319/any-console/commit/94e141fe1aab18c46fc589ca1cc74cd8275a2010))
+* ピル行の幅計測と peek 配線を共通 composable へ抽出する ([6aae9b8](https://github.com/kt0319/any-console/commit/6aae9b8f0289c277c02c19feeb251f53e6277246))
+* フロントエンドの死にコード・未使用CSSを削除する ([09ba423](https://github.com/kt0319/any-console/commit/09ba423616ae15a31ae554040d709813ad5132b3))
+* モーダルホストの provide 定型とビュー切替ラダーを共通化する ([4156f92](https://github.com/kt0319/any-console/commit/4156f92dad2d5a81f2f544c74b930a2f08b600ff))
+* モジュール間で重複していた小物ユーティリティを共通化する ([a5ae12b](https://github.com/kt0319/any-console/commit/a5ae12b6bdd52786ce541d34e9476283dcdceb4e))
+* モバイル判定を layout store に一本化し 1対1バスイベントを直接呼び出しへ置き換える ([b4a0228](https://github.com/kt0319/any-console/commit/b4a0228f1c4cc31829f07102ab7df73539b1f252))
+* ワークスペース表示名の解決を共通ヘルパーに集約 ([acd0ffe](https://github.com/kt0319/any-console/commit/acd0ffe5bc44a76c59c7b7af2fd56a6f7428c931))
+* 分割ペインの純粋な index 計算を ui/utils/split-panes.ts へ抽出する ([133ec62](https://github.com/kt0319/any-console/commit/133ec623e17f96e34fe434e5160374b3f1958d5a))
+* 呼び出し元のない find_or_register_device を削除 ([51f94fc](https://github.com/kt0319/any-console/commit/51f94fc2adba4ef34c71677d0b406de7389b7162))
+* 命名規約からずれたファイル名・識別子を統一する ([1fec6c6](https://github.com/kt0319/any-console/commit/1fec6c6253db3a1196a5361c6fdcedf9f7b4edc5))
+* 折りたたみセクションの開閉ロジックを useCollapsibleSection へ集約する ([b747166](https://github.com/kt0319/any-console/commit/b74716632ffc1c27bfa75e9c2daf9ee3239f885e))
+* 死にコードと到達不能な旧view/pane名エイリアスを削除する ([4e47269](https://github.com/kt0319/any-console/commit/4e47269f240e0e5536ba071f9217c4e9d79d8e7f))
+* 画面リージョン切り出しの純関数群を screen_regions.rs へ分離する ([d3b43e0](https://github.com/kt0319/any-console/commit/d3b43e0debd8c281c47e883dd111e320fda55cac))
+* 直書きだったタイミング・しきい値定数を constants.ts へ移動する ([9bb729f](https://github.com/kt0319/any-console/commit/9bb729fba780c931e96136b6c58ff2139ca1db67))
+* 重複していた設定画面の共通CSSを base.css へ移動 ([568453a](https://github.com/kt0319/any-console/commit/568453a0f24db80a8b9360b3d6ff42dd2a23e810))
+
+
+### Documentation
+
+* ARCHITECTURE.md のモジュール一覧を現行実装に同期 ([5238d17](https://github.com/kt0319/any-console/commit/5238d17c6eccc8b5690ba5c2167fc2e1d31358ee))
+* README ほかのドキュメントを実装に同期 ([f623f36](https://github.com/kt0319/any-console/commit/f623f3631cd50d23023fc538dca6e30d62e8f0e0))
+* UI からのアップデート適用が再ビルドを伴わないことを README に明記 ([4aa929b](https://github.com/kt0319/any-console/commit/4aa929b841e4adb0821ba6637bcd74b631b06b89))
+* レートリミット既定値の誤記修正と A11Y 監査レポートの陳腐化参照を整理 ([19b2bfa](https://github.com/kt0319/any-console/commit/19b2bfa494b74f929e8ec390dfe343b5218fa525))
+
+
+### Tests
+
+* CIでのnotify_phrase猶予テストflaky原因調査用デバッグ出力を追加 ([d707db3](https://github.com/kt0319/any-console/commit/d707db37c864f0ac3bb9afabe6dbd9925b6877d5))
+* notify_phraseテストのプロンプト非同期描画によるflakinessを解消 ([101d5ee](https://github.com/kt0319/any-console/commit/101d5eec51b48fba6b8c1c9f6802b9c423c01667))
+* session-menu のテスト名を実際の検証内容（排他動作）に一致させる ([3cafaf8](https://github.com/kt0319/any-console/commit/3cafaf85063354df9959cae33710d98330dbf7bc))
+* 統合テストの sh_git ヘルパーを tests/common へ一本化する ([c083386](https://github.com/kt0319/any-console/commit/c0833865bdf927eea8120c130116554c4de6363e))
+
 ## [0.15.0](https://github.com/kt0319/any-console/compare/v0.14.0...v0.15.0) (2026-08-21)
 
 
