@@ -67,7 +67,10 @@ export function useGitRemoteAction() {
     const message = formatRemoteToast(wsName, label, data);
     const hasDetail = message.includes("\n");
     toast.success(message, { duration: hasDetail ? TOAST_DETAIL_DURATION_MS : TOAST_DEFAULT_DURATION_MS, action: { event: "git:openHistory", wsName } });
-    workspaceStore.fetchStatuses();
+    // 呼び出し元（useBranchActions.ts）がこの後 emit("git:commitDone") する
+    // ため、aheadの更新（GitHistory.vueのunpushed表示が参照する）が
+    // 確実に反映されてからemitされるようawaitする。
+    await workspaceStore.fetchStatuses();
   }
 
   async function runGenericAction(wsName: string, action: string, label: string) {

@@ -91,3 +91,36 @@ describe("useGitRemoteAction: 実行中ロックの範囲", () => {
     await Promise.all([p1, p2]);
   });
 });
+
+describe("useGitRemoteAction: push/pull完了後のfetchStatuses待ち合わせ", () => {
+  // GitHistory.vueのunpushed表示はworkspaceStore.currentWorkspace.aheadを見て
+  // 再計算される。gitAction()（push/pull）がfetchStatuses()の完了を待たずに
+  // resolveすると、呼び出し元（useBranchActions.ts）のemit("git:commitDone")が
+  // 古いahead値のまま発火し、Historyの未push表示が更新されない不具合になる
+  // （修正: useGitRemoteAction.tsのrunPushPullでfetchStatuses()をawaitする）。
+  it("gitAction(push)はfetchStatuses完了まで解決しない", async () => {
+    const workspaceStore = useWorkspaceStore();
+    workspaceStore.allWorkspaces = [{ name: "repo", worktree: false }];
+    apiCommandMock.mockResolvedValue({ ok: true, data: {} });
+
+    let resolveFetchStatuses;
+    const fetchStatusesSpy = vi.spyOn(workspaceStore, "fetchStatuses")
+      .mockReturnValue(new Promise((resolve) => { resolveFetchStatuses = resolve; }));
+
+    const { useGitRemoteAction } = await freshModule();
+    const { gitAction } = useGitRemoteAction();
+
+    let resolved = false;
+    const p = gitAction("repo", "push").then(() => { resolved = true; });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchStatusesSpy).toHaveBeenCalled();
+    expect(resolved).toBe(false);
+
+    resolveFetchStatuses();
+    await p;
+    expect(resolved).toBe(true);
+  });
+});
