@@ -643,6 +643,33 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
       restoreFetch();
     }
   });
+
+  // 再発防止: branch一覧の取得APIが失敗（error状態）してもRunが永久disabledのまま
+  // 残らないこと（AsyncStateのerrorはisAsyncPendingでfalseになる必要がある）。
+  it("branch一覧の取得が失敗してもRunを永久disableにしない", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("/branches")) {
+        return { ok: false, json: async () => ({ detail: "boom" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
+
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      wrapper.unmount();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
 
 // ── AuthConfig: API Tokens ────────────────────────────────────────────────

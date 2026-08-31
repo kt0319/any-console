@@ -105,6 +105,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.ts";
+import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 // Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new_session__";
@@ -173,12 +174,14 @@ const branchSelectValue = computed({
 // （select由来の切替先ブランチ）を使う。
 const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
 
-const jobs = ref<{ key: string, label: string }[]>([]);
-const jobsLoaded = ref(false);
-const sessions = ref<Record<string, any>[]>([]);
-const sessionsLoaded = ref(false);
-const localBranches = ref<string[]>([]);
-const localBranchesLoaded = ref(false);
+type JobOption = { key: string, label: string };
+
+const jobsState = ref<AsyncState<JobOption[]>>(asyncIdle());
+const jobs = computed(() => asyncValueOr(jobsState.value, [] as JobOption[]));
+const sessionsState = ref<AsyncState<Record<string, any>[]>>(asyncIdle());
+const sessions = computed(() => asyncValueOr(sessionsState.value, [] as Record<string, any>[]));
+const branchesState = ref<AsyncState<string[]>>(asyncIdle());
+const localBranches = computed(() => asyncValueOr(branchesState.value, [] as string[]));
 const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
@@ -228,18 +231,24 @@ const hasBranchField = computed(() => !request.value?.worktree);
 // これに気付かず Run すると失敗するので、送信前に検知して disable する。
 const missingBranchBlockReason = computed(() => {
   if (createMode.value !== "") return "";
-  if (!localBranchesLoaded.value) return ""; // 未取得時はinfoLoadingでRunごとブロックするためここでは判定しない
+  // ready（取得成功）の時だけ検証する。idle/loading中はまだ判定できず、
+  // error（取得失敗）は検証しようがないため対象外（fail open。Runの可否は
+  // infoLoading側でidle/loading中のみブロックする）。
+  if (branchesState.value.status !== "ready") return "";
   const target = branch.value.trim();
   if (!target || localBranches.value.includes(target)) return "";
   return `Branch "${target}" does not exist in this workspace.`;
 });
 
-// Session / Job / Branch のいずれかがまだ取得できていない（初回ロード中・失敗）
-// 間はRunを押させない。取得前の古い/空の選択肢のままdispatchしてしまう事故を防ぐ
-// （branchesはhasBranchFieldがfalse＝worktree上のdispatchでは表示自体しないため対象外）。
+// Session / Job / Branch のいずれかが未取得(idle)・取得中(loading)の間はRunを
+// 押させない。取得前の古い/空の選択肢のままdispatchしてしまう事故を防ぐ
+// （branchesはhasBranchFieldがfalse＝worktree上のdispatchでは表示自体しないため
+// 対象外）。取得失敗(error)はブロックし続けない（fail open。エラー時にRunが
+// 永久disabledのまま残る事故を防ぐため。error時の代替バリデーションは行わない
+// — missingBranchBlockReason等がreadyの時のみ判定する設計と対）。
 const infoLoading = computed(() => {
-  if (!sessionsLoaded.value || !jobsLoaded.value) return true;
-  if (hasBranchField.value && !localBranchesLoaded.value) return true;
+  if (isAsyncPending(sessionsState.value) || isAsyncPending(jobsState.value)) return true;
+  if (hasBranchField.value && isAsyncPending(branchesState.value)) return true;
   return false;
 });
 
@@ -297,9 +306,11 @@ watch(() => request.value?.retry_count, (count) => {
 // セッション一覧はSession selectの選択肢そのものなので、選択操作のたびに
 // 取り直す必要はなくマウント時に1回だけ取得すれば足りる。
 onMounted(() => {
+  sessionsState.value = asyncLoading();
   apiGet(EP_TERMINAL_SESSIONS).then((res) => {
-    if (res.ok && Array.isArray(res.data)) sessions.value = res.data.filter((s) => !s.detached);
-    sessionsLoaded.value = true;
+    sessionsState.value = res.ok && Array.isArray(res.data)
+      ? asyncReady(res.data.filter((s) => !s.detached))
+      : asyncError("Failed to load sessions");
   });
 });
 
@@ -319,14 +330,12 @@ watch(selectedSessionId, (id) => {
 });
 
 watch(selectedWorkspace, async (ws) => {
-  jobs.value = [];
-  jobsLoaded.value = false;
-  if (!ws) { jobsLoaded.value = true; return; }
+  jobsState.value = asyncLoading();
+  if (!ws) { jobsState.value = asyncReady([]); return; }
   const res = await apiGet(wsEndpoint(ws, "jobs"));
-  if (res.ok && res.data) {
-    jobs.value = Object.entries(res.data as Record<string, any>).map(([key, def]) => ({ key, label: def.label || key }));
-  }
-  jobsLoaded.value = true;
+  jobsState.value = res.ok && res.data
+    ? asyncReady(Object.entries(res.data as Record<string, any>).map(([key, def]) => ({ key, label: def.label || key })))
+    : asyncError("Failed to load jobs");
   if (selectedJob.value !== "terminal" && !jobs.value.some((j) => j.key === selectedJob.value)) {
     selectedJob.value = "terminal";
   }
@@ -342,18 +351,18 @@ const baseBranchWorkspace = computed(() => {
 });
 
 watch(baseBranchWorkspace, async (ws) => {
-  localBranches.value = [];
-  localBranchesLoaded.value = false;
-  if (!ws) { localBranchesLoaded.value = true; return; }
+  branchesState.value = asyncLoading();
+  if (!ws) { branchesState.value = asyncReady([]); return; }
   const res = await apiGet(wsEndpoint(ws, "branches"));
   if (res.ok && Array.isArray(res.data)) {
     // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
     // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
     const current = res.data.find((b) => b.current);
     const rest = res.data.filter((b) => !b.current).map((b) => b.name);
-    localBranches.value = current ? [current.name, ...rest] : rest;
+    branchesState.value = asyncReady(current ? [current.name, ...rest] : rest);
+  } else {
+    branchesState.value = asyncError("Failed to load branches");
   }
-  localBranchesLoaded.value = true;
   if (baseBranch.value && !localBranches.value.includes(baseBranch.value)) {
     baseBranch.value = "";
   }
