@@ -76,7 +76,7 @@
         <button
           type="button"
           class="primary"
-          :disabled="running || !!dirtyBlockReason || !!missingBranchBlockReason || (selectedCreateWorktree && !newBranchName.trim())"
+          :disabled="running || infoLoading || !!dirtyBlockReason || !!missingBranchBlockReason || (selectedCreateWorktree && !newBranchName.trim())"
           @click="run"
         >
           <span class="mdi mdi-play"></span> {{ running ? "Running..." : "Run" }}
@@ -174,7 +174,9 @@ const branchSelectValue = computed({
 const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
 
 const jobs = ref<{ key: string, label: string }[]>([]);
+const jobsLoaded = ref(false);
 const sessions = ref<Record<string, any>[]>([]);
+const sessionsLoaded = ref(false);
 const localBranches = ref<string[]>([]);
 const localBranchesLoaded = ref(false);
 const running = ref(false);
@@ -226,10 +228,19 @@ const hasBranchField = computed(() => !request.value?.worktree);
 // これに気付かず Run すると失敗するので、送信前に検知して disable する。
 const missingBranchBlockReason = computed(() => {
   if (createMode.value !== "") return "";
-  if (!localBranchesLoaded.value) return ""; // 一覧取得が未完了/失敗の間は判定しない（fail open）
+  if (!localBranchesLoaded.value) return ""; // 未取得時はinfoLoadingでRunごとブロックするためここでは判定しない
   const target = branch.value.trim();
   if (!target || localBranches.value.includes(target)) return "";
   return `Branch "${target}" does not exist in this workspace.`;
+});
+
+// Session / Job / Branch のいずれかがまだ取得できていない（初回ロード中・失敗）
+// 間はRunを押させない。取得前の古い/空の選択肢のままdispatchしてしまう事故を防ぐ
+// （branchesはhasBranchFieldがfalse＝worktree上のdispatchでは表示自体しないため対象外）。
+const infoLoading = computed(() => {
+  if (!sessionsLoaded.value || !jobsLoaded.value) return true;
+  if (hasBranchField.value && !localBranchesLoaded.value) return true;
+  return false;
 });
 
 // サーバ側のガード（api/routers/dispatch.py の _ensure_branch）と対になる UI 側の
@@ -288,6 +299,7 @@ watch(() => request.value?.retry_count, (count) => {
 onMounted(() => {
   apiGet(EP_TERMINAL_SESSIONS).then((res) => {
     if (res.ok && Array.isArray(res.data)) sessions.value = res.data.filter((s) => !s.detached);
+    sessionsLoaded.value = true;
   });
 });
 
@@ -308,11 +320,13 @@ watch(selectedSessionId, (id) => {
 
 watch(selectedWorkspace, async (ws) => {
   jobs.value = [];
-  if (!ws) return;
+  jobsLoaded.value = false;
+  if (!ws) { jobsLoaded.value = true; return; }
   const res = await apiGet(wsEndpoint(ws, "jobs"));
   if (res.ok && res.data) {
     jobs.value = Object.entries(res.data as Record<string, any>).map(([key, def]) => ({ key, label: def.label || key }));
   }
+  jobsLoaded.value = true;
   if (selectedJob.value !== "terminal" && !jobs.value.some((j) => j.key === selectedJob.value)) {
     selectedJob.value = "terminal";
   }
@@ -330,7 +344,7 @@ const baseBranchWorkspace = computed(() => {
 watch(baseBranchWorkspace, async (ws) => {
   localBranches.value = [];
   localBranchesLoaded.value = false;
-  if (!ws) return;
+  if (!ws) { localBranchesLoaded.value = true; return; }
   const res = await apiGet(wsEndpoint(ws, "branches"));
   if (res.ok && Array.isArray(res.data)) {
     // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
