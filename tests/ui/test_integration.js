@@ -414,6 +414,20 @@ function findRunButton(wrapper) {
   return wrapper.findAll("button").find((b) => b.text().includes("Run"));
 }
 
+// DispatchRunView は Session/Job/Branch 一覧の取得完了を待ってから Run を有効化する
+// （infoLoading）。CIの実fetchは接続エラーになるまで時間がかかり flushPromises() 1回
+// では解決しきれないため、branches を含む全リクエストを即時解決するモックに差し替える。
+function stubDispatchRunViewFetch(branches = [{ name: "main" }]) {
+  const originalFetch = global.fetch;
+  global.fetch = vi.fn(async (url) => {
+    if (String(url).includes("/branches")) {
+      return { ok: true, json: async () => branches };
+    }
+    return { ok: true, json: async () => ({}) };
+  });
+  return () => { global.fetch = originalFetch; };
+}
+
 describe("DispatchRunView: dirty workspace でのブランチ切替ブロック", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -449,32 +463,42 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
   });
 
   it("ブランチが現在ブランチと同じならブロックしない", async () => {
-    applyDispatchQueue([
-      { id: "d1", request: { workspace: "ws1", text: "run", branch: "main", create_branch: true, retry_count: 1 } },
-    ]);
-    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 3 }];
+    const restoreFetch = stubDispatchRunViewFetch();
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", branch: "main", create_branch: true, retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 3 }];
 
-    const wrapper = mountDispatchRunView();
-    await flushPromises();
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
 
-    const runBtn = findRunButton(wrapper);
-    expect(runBtn.attributes("disabled")).toBeUndefined();
-    wrapper.unmount();
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      wrapper.unmount();
+    } finally {
+      restoreFetch();
+    }
   });
 
   it("Create branch オフなら既存ブランチへの切替 + dirty でもブロックしない", async () => {
-    applyDispatchQueue([
-      { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/existing", create_branch: false, retry_count: 1 } },
-    ]);
-    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 4 }];
+    const restoreFetch = stubDispatchRunViewFetch([{ name: "main" }, { name: "feature/existing" }]);
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/existing", create_branch: false, retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 4 }];
 
-    const wrapper = mountDispatchRunView();
-    await flushPromises();
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
 
-    const runBtn = findRunButton(wrapper);
-    expect(runBtn.attributes("disabled")).toBeUndefined();
-    expect(wrapper.text()).not.toContain("uncommitted changes");
-    wrapper.unmount();
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      expect(wrapper.text()).not.toContain("uncommitted changes");
+      wrapper.unmount();
+    } finally {
+      restoreFetch();
+    }
   });
 
   it("Change branch の初期値が実在しないブランチなら Run を disable してエラーを表示する", async () => {
@@ -583,31 +607,41 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
   });
 
   it("ブランチ未指定（現在ブランチのまま）ならdirtyでもブロックしない", async () => {
-    applyDispatchQueue([
-      { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
-    ]);
-    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 5 }];
+    const restoreFetch = stubDispatchRunViewFetch();
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 5 }];
 
-    const wrapper = mountDispatchRunView();
-    await flushPromises();
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
 
-    const runBtn = findRunButton(wrapper);
-    expect(runBtn.attributes("disabled")).toBeUndefined();
-    wrapper.unmount();
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      wrapper.unmount();
+    } finally {
+      restoreFetch();
+    }
   });
 
   it("workspace がクリーン（changed_files: 0）ならブロックしない", async () => {
-    applyDispatchQueue([
-      { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/y", create_branch: true, retry_count: 1 } },
-    ]);
-    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+    const restoreFetch = stubDispatchRunViewFetch([{ name: "main" }, { name: "feature/y" }]);
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/y", create_branch: true, retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
 
-    const wrapper = mountDispatchRunView();
-    await flushPromises();
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
 
-    const runBtn = findRunButton(wrapper);
-    expect(runBtn.attributes("disabled")).toBeUndefined();
-    wrapper.unmount();
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      wrapper.unmount();
+    } finally {
+      restoreFetch();
+    }
   });
 });
 

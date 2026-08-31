@@ -352,8 +352,8 @@ watch(baseBranchWorkspace, async (ws) => {
     const current = res.data.find((b) => b.current);
     const rest = res.data.filter((b) => !b.current).map((b) => b.name);
     localBranches.value = current ? [current.name, ...rest] : rest;
-    localBranchesLoaded.value = true;
   }
+  localBranchesLoaded.value = true;
   if (baseBranch.value && !localBranches.value.includes(baseBranch.value)) {
     baseBranch.value = "";
   }
