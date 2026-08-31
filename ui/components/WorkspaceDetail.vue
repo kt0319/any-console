@@ -164,6 +164,10 @@ const closeWorkspaceDetail = inject<((tabId?: number | null) => void) | undefine
 function onDispatchRunDone() {
   selectedDispatchId.value = null;
   closeWorkspaceDetail?.(openedForTabId);
+  // Runで既存セッションへ切り替わった場合、切替後にアクティブな別タブ側の
+  // Detailが開いた状態で残ることがあるため、そちらも念のため閉じる
+  // （openedForTabIdと同じタブなら二重呼び出しになるだけで無害）。
+  closeWorkspaceDetail?.(useTerminalStore().activeTabId);
 }
 
 const activePane = ref("jobs");
