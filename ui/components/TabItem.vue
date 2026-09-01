@@ -312,7 +312,7 @@ function onClosePress() {
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
