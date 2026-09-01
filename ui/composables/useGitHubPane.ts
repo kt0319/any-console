@@ -1,19 +1,21 @@
-import { ref, onMounted, type Ref } from "vue";
+import { shallowRef, computed, onMounted, type Ref } from "vue";
 import { useGitHub } from "./useGitHub.ts";
+import { type AsyncState, asyncIdle, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
-type GitHubPaneLoader = (listRef: Ref<any[]>, loadingRef: Ref<boolean>, errorRef: Ref<string>) => Promise<void>;
+type GitHubPaneLoader<T> = (stateRef: Ref<AsyncState<T[]>>) => Promise<void>;
 
-export function useGitHubPane(loaderFn: GitHubPaneLoader, opts: { onLoaded?: (items: any[]) => void } = {}) {
+export function useGitHubPane<T>(loaderFn: GitHubPaneLoader<T>, opts: { onLoaded?: (items: T[]) => void } = {}) {
   const { onLoaded } = opts;
   const { githubUrl, loadWorkspaceGitHubUrl } = useGitHub();
-  const items = ref<any[]>([]);
-  const isLoading = ref(false);
-  const error = ref("");
+  const state = shallowRef<AsyncState<T[]>>(asyncIdle());
+  const items = computed(() => asyncValueOr(state.value, [] as T[]));
+  const isLoading = computed(() => isAsyncPending(state.value));
+  const error = computed(() => (state.value.status === "error" ? state.value.error : ""));
 
   async function reload() {
     loadWorkspaceGitHubUrl();
     if (!githubUrl.value) return;
-    await loaderFn(items, isLoading, error);
+    await loaderFn(state);
     onLoaded?.(items.value);
   }
 

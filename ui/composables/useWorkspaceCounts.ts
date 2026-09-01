@@ -4,6 +4,7 @@ import { useApi } from "./useApi.ts";
 import { getCachedCount, useGitHub } from "./useGitHub.ts";
 import { getStashCachedCount, setStashCache } from "./useStashCache.ts";
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
+import { type AsyncState, asyncIdle } from "../utils/async-state.ts";
 
 /**
  * ワークスペース詳細のタブに表示するバッジ件数（changes / stash / branch /
@@ -65,17 +66,17 @@ export function useWorkspaceCounts() {
 
     if (!hasGitHub.value) return;
     loadWorkspaceGitHubUrl();
-    const issueItems = ref([]), issueLoading = ref(false), issueError = ref("");
-    const prLoadItems = ref([]), prLoading = ref(false), prError = ref("");
-    const actionLoadItems = ref([]), actionLoading = ref(false), actionError = ref("");
+    const issueState = ref<AsyncState<any[]>>(asyncIdle());
+    const prState = ref<AsyncState<any[]>>(asyncIdle());
+    const actionState = ref<AsyncState<any[]>>(asyncIdle());
     await Promise.all([
-      loadIssues(issueItems, issueLoading, issueError),
-      loadPRs(prLoadItems, prLoading, prError),
-      loadActions(actionLoadItems, actionLoading, actionError),
+      loadIssues(issueState),
+      loadPRs(prState),
+      loadActions(actionState),
     ]);
-    if (!issueError.value) issuesCount.value = issueItems.value.length;
-    if (!prError.value) { prsCount.value = prLoadItems.value.length; prItems.value = prLoadItems.value; }
-    if (!actionError.value) actionItems.value = actionLoadItems.value;
+    if (issueState.value.status === "ready") issuesCount.value = issueState.value.value.length;
+    if (prState.value.status === "ready") { prsCount.value = prState.value.value.length; prItems.value = prState.value.value; }
+    if (actionState.value.status === "ready") actionItems.value = actionState.value.value;
   }
 
   return {

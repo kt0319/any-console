@@ -3,6 +3,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { mapGitHubPR, mapGitHubRun } from "../utils/github-runs.ts";
+import { type AsyncState, asyncError, asyncLoading, asyncReady } from "../utils/async-state.ts";
 
 const _countCache: Record<string, number> = {};
 
@@ -60,35 +61,29 @@ export function useGitHub() {
     return githubUrl.value;
   }
 
-  async function _loadList(
+  async function _loadList<T>(
     endpoint: string,
     countKey: string,
-    mapper: (item: any) => any,
-    listRef: Ref<any[]>,
-    loadingRef: Ref<boolean>,
-    errorRef: Ref<string>,
+    mapper: (item: any) => T,
+    stateRef: Ref<AsyncState<T[]>>,
   ) {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    loadingRef.value = true;
-    errorRef.value = "";
+    stateRef.value = asyncLoading();
     try {
       const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, endpoint));
-      if (!ok) { errorRef.value = "Failed to fetch"; return; }
-      if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
+      if (!ok) { stateRef.value = asyncError("Failed to fetch"); return; }
+      if (data.status !== "ok") { stateRef.value = asyncError(data.message || "Failed to fetch"); return; }
       const result = (data.data || []).map(mapper);
-      listRef.value = result;
+      stateRef.value = asyncReady(result);
       setCountCache(workspace, countKey, result.length);
     } catch (e) {
-      errorRef.value = e instanceof Error ? e.message : String(e);
-    } finally {
-      loadingRef.value = false;
+      stateRef.value = asyncError(e instanceof Error ? e.message : String(e));
     }
   }
 
-  function _makeLoader(endpoint: string, countKey: string, mapper: (item: any) => any) {
-    return (listRef: Ref<any[]>, loadingRef: Ref<boolean>, errorRef: Ref<string>) =>
-      _loadList(endpoint, countKey, mapper, listRef, loadingRef, errorRef);
+  function _makeLoader<T>(endpoint: string, countKey: string, mapper: (item: any) => T) {
+    return (stateRef: Ref<AsyncState<T[]>>) => _loadList(endpoint, countKey, mapper, stateRef);
   }
 
   const loadIssues = _makeLoader("github/issues", "issues", (item) => ({

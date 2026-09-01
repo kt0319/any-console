@@ -60,5 +60,19 @@ describe("GitHub panes", () => {
       expect(fetchMock).not.toHaveBeenCalled();
       wrapper.unmount();
     });
+
+    // useGitHubPane/useGitHub の内部状態を boolean 2つ（isLoading/error）から
+    // AsyncState<T> に統合した際の再発防止: 取得失敗時に空状態メッセージへ
+    // フォールバックせず、エラーメッセージが表示されること。
+    it(`${name}: 取得失敗時はエラーメッセージを表示する`, async () => {
+      setupWorkspace();
+      vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) })));
+
+      const wrapper = mount(component, { attachTo: document.body });
+      await flushPromises();
+      expect(wrapper.text()).toContain("Failed to fetch");
+      expect(wrapper.text()).not.toContain(emptyMessage);
+      wrapper.unmount();
+    });
   }
 });
