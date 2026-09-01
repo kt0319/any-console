@@ -38,6 +38,13 @@
         </span>
       </button>
     </div>
+    <div v-if="workspaceStore.groups.length" class="ws-settings-row">
+      <span class="ws-settings-label">Group</span>
+      <select class="form-input" v-model="addGroupId">
+        <option :value="null">— None —</option>
+        <option v-for="g in workspaceStore.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+      </select>
+    </div>
     <div v-if="addError" class="form-message error">{{ addError }}</div>
     <div v-if="addSuccess" class="form-message success">{{ addSuccess }}</div>
     <button
@@ -57,6 +64,7 @@ import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useDirectorySuggest } from "../composables/useDirectorySuggest.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_WORKSPACES } from "../utils/endpoints.ts";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.ts";
@@ -69,10 +77,12 @@ const emit = defineEmits(["added"]);
 
 const { apiPost } = useApi();
 const { viewState, pushView } = useModalView();
+const workspaceStore = useWorkspaceStore();
 
 const addPath = ref(props.initialPath || "");
 const addIcon = ref("");
 const addIconColor = ref("");
+const addGroupId = ref<string | null>(null);
 const adding = ref(false);
 const addError = ref("");
 const addSuccess = ref("");
@@ -110,6 +120,7 @@ async function doAddExisting() {
       path: addPath.value.trim(),
       icon: addIcon.value || null,
       icon_color: addIconColor.value || null,
+      group_id: addGroupId.value || null,
     });
     if (!ok) {
       addError.value = data?.detail || "Failed to add";
@@ -118,6 +129,7 @@ async function doAddExisting() {
       addPath.value = "";
       addIcon.value = "";
       addIconColor.value = "";
+      addGroupId.value = null;
       emit("added", data?.name || null);
       loadSuggest();
     }

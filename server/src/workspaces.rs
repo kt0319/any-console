@@ -350,6 +350,8 @@ pub struct AddWorkspaceRequest {
     icon: Option<String>,
     #[serde(default)]
     icon_color: Option<String>,
+    #[serde(default)]
+    group_id: Option<String>,
 }
 
 pub async fn add_workspace(
@@ -395,6 +397,9 @@ pub async fn add_workspace(
     }
     if let Some(icon_color) = body.icon_color.as_deref().filter(|s| !s.is_empty()) {
         config.insert("icon_color".to_string(), json!(icon_color));
+    }
+    if let Some(group_id) = body.group_id.as_deref().filter(|s| !s.is_empty()) {
+        config.insert("group_id".to_string(), json!(group_id));
     }
     state
         .config

@@ -229,6 +229,38 @@ async fn add_update_delete_workspace_roundtrip() {
     assert_eq!(cfg[&icon_id]["icon"], "mdi-rocket");
     assert_eq!(cfg[&icon_id]["icon_color"], "#00ff00");
 
+    // group_id 付きで登録
+    let grouped_dir = front.dir.path().join("groupedproj");
+    std::fs::create_dir_all(&grouped_dir).unwrap();
+    let res = send_json(
+        &front,
+        reqwest::Method::POST,
+        "/workspaces",
+        &json!({"path": grouped_dir.to_string_lossy(), "group_id": "grp_test"}),
+    )
+    .await;
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    let grouped_id = body["id"].as_str().unwrap().to_string();
+    let cfg = load_config(&front);
+    assert_eq!(cfg[&grouped_id]["group_id"], "grp_test");
+
+    // group_id="" は未指定と同じ扱い（キー自体を作らない）
+    let ungrouped_dir = front.dir.path().join("ungroupedproj");
+    std::fs::create_dir_all(&ungrouped_dir).unwrap();
+    let res = send_json(
+        &front,
+        reqwest::Method::POST,
+        "/workspaces",
+        &json!({"path": ungrouped_dir.to_string_lossy(), "group_id": ""}),
+    )
+    .await;
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    let ungrouped_id = body["id"].as_str().unwrap().to_string();
+    let cfg = load_config(&front);
+    assert!(cfg[&ungrouped_id].get("group_id").is_none());
+
     // 名前重複は 409
     let res = send_json(
         &front,
