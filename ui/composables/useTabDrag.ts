@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onBeforeUnmount, type ComputedRef, type Ref } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, type Ref } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useSplitDropDrag } from "./useSplitDropDrag.ts";
@@ -9,20 +9,19 @@ import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 /**
  * タブ1つ分のドラッグ操作（TabItem.vue から抽出）。
  * - PC: HTML5 Drag & Drop によるタブ並び替え + 分割ドロップ
- * - モバイル: 長押し無しで閾値を超えた瞬間にドラッグ開始し、その時点の移動方向で
- *   分岐する。横移動はアクティブタブの並び替え専用（非アクティブタブの横移動は
- *   preventDefault せず touch-action:pan-x のネイティブスクロールに委ねる）、
- *   縦移動はアクティブ/非アクティブ問わずスプリットドラッグになる。
+ * - モバイル: 長押し無しで閾値を超えた瞬間にドラッグ開始する。タッチでの
+ *   タブ並び替えは行わない（横移動は touch-action:pan-x のネイティブ
+ *   スクロールに委ねる。並び替えはPCのD&Dのみ）。縦移動だけスプリット
+ *   ドラッグとして扱う。
  * クローズはタブ本体のタップ/クリックでは行わず、常に tab-close ボタン経由。
  */
 export function useTabDrag(options: {
   tabId: () => number,
-  isActive: ComputedRef<boolean>,
   pillEl: Ref<HTMLElement | null>,
   /** クローズボタン押下中はドラッグを開始しない（TabItem の closePending）。 */
   isClosePending: () => boolean,
 }) {
-  const { tabId, isActive, pillEl, isClosePending } = options;
+  const { tabId, pillEl, isClosePending } = options;
   const layoutStore = useLayoutStore();
   const terminalStore = useTerminalStore();
   const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
@@ -32,7 +31,7 @@ export function useTabDrag(options: {
   let lastInputWasTouch = false;
 
   const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
-  // タッチでのドラッグ処理そのものは全タブで有効にする（分岐は onTouchMove 側）。
+  // タッチでのドラッグ（縦方向のスプリットドロップ）は全タブで有効。
   const canTouchDrag = computed(() => terminalStore.openTabs.length >= 1);
   const effectiveDropSide = computed(() => {
     if (layoutStore.dragOverTabId === tabId()) return layoutStore.dragOverSide;
@@ -113,57 +112,19 @@ export function useTabDrag(options: {
     cancelDrag();
   }
 
-  // Mobile: タッチドラッグ
+  // Mobile: タッチドラッグ（縦方向のみ = 分割ドロップ専用。横方向の並び替えは
+  // 行わない。タブ並び替えはPCのHTML5 D&D経由のみ）。
   const touchTracker = createTouchTracker();
-  // 閾値超え時点の移動方向で確定する軸。"horizontal" = 並び替え（アクティブ
-  // タブのみ）、"vertical" = 分割ドラッグ（全タブ）。
-  const touchDragAxis = ref<"horizontal" | "vertical" | null>(null);
-
-  function hitTestTab(clientX: number, clientY: number) {
-    const el = document.elementFromPoint(clientX, clientY);
-    const btn = el?.closest?.<HTMLElement>(".tab-btn[data-tab-id]");
-    if (!btn) return null;
-    const hitTabId = Number(btn.dataset.tabId);
-    if (!Number.isFinite(hitTabId) || hitTabId === tabId()) return null;
-    const rect = btn.getBoundingClientRect();
-    const side = clientX < rect.left + rect.width / 2 ? "left" : "right";
-    return { tabId: hitTabId, side };
-  }
 
   function clearDragOverIndicator() {
     layoutStore.dragOverTabId = null;
     layoutStore.dragOverSide = "";
   }
 
-  function finishTouchDrag(clientX: number, clientY: number) {
-    if (touchDragAxis.value === "vertical") {
-      finishSplitDrop({ tabId: tabId(), clientX, clientY });
-      clearDragOverIndicator();
-      cancelDrag();
-      return;
-    }
-    const hit = hitTestTab(clientX, clientY);
-    if (hit) {
-      const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === tabId());
-      const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === hit.tabId);
-      if (fromIndex >= 0 && targetIndex >= 0) {
-        terminalStore.moveTab(
-          fromIndex,
-          resolveDropIndex(fromIndex, targetIndex, hit.side === "left", terminalStore.openTabs.length),
-        );
-      }
-    } else {
-      finishSplitDrop({ tabId: tabId(), clientX, clientY });
-    }
-    clearDragOverIndicator();
-    cancelDrag();
-  }
-
   function onTouchStart(e: TouchEvent) {
     lastInputWasTouch = true;
     touchTracker.start(e);
     isDragging.value = false;
-    touchDragAxis.value = null;
   }
 
   function onTouchMove(e: TouchEvent) {
@@ -171,32 +132,26 @@ export function useTabDrag(options: {
     if (!isDragging.value) {
       const { dx, dy } = touchTracker.delta(e);
       if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) return;
-      const axis = Math.abs(dy) > Math.abs(dx) ? "vertical" : "horizontal";
-      // 横方向はアクティブタブの並び替え専用。非アクティブタブの横移動は
-      // ここで何もせず、touch-action:pan-x によるネイティブのタブバー
-      // スクロールに委ねる（preventDefaultしない）。
-      if (axis === "horizontal" && !isActive.value) return;
-      touchDragAxis.value = axis;
+      // 横方向はネイティブスクロール（touch-action:pan-x）に委ねる。
+      // preventDefaultせずここで何もしない。
+      if (Math.abs(dx) >= Math.abs(dy)) return;
       isDragging.value = true;
       beginDrag(tabId());
     }
     if (e.cancelable) e.preventDefault();
     const touch = e.touches[0];
     updateHover(touch.clientX, touch.clientY);
-    if (touchDragAxis.value === "vertical") return;
-    const hit = hitTestTab(touch.clientX, touch.clientY);
-    layoutStore.dragOverTabId = hit?.tabId ?? null;
-    layoutStore.dragOverSide = hit?.side ?? "";
   }
 
   function onTouchEnd(e: TouchEvent) {
     if (isDragging.value) {
       if (e.cancelable) e.preventDefault();
       const touch = e.changedTouches[0];
-      finishTouchDrag(touch.clientX, touch.clientY);
+      finishSplitDrop({ tabId: tabId(), clientX: touch.clientX, clientY: touch.clientY });
+      clearDragOverIndicator();
+      cancelDrag();
       isDragging.value = false;
     }
-    touchDragAxis.value = null;
     // 長押し→そのまま離す＝クローズは廃止。クローズは tab-close ボタン経由のみ。
   }
 
@@ -206,7 +161,6 @@ export function useTabDrag(options: {
       clearDragOverIndicator();
       cancelDrag();
     }
-    touchDragAxis.value = null;
   }
 
   onMounted(() => {

@@ -78,7 +78,6 @@ const {
   consumeLastInputWasTouch,
 } = useTabDrag({
   tabId: () => props.tab.id,
-  isActive,
   pillEl,
   isClosePending: () => closePending,
 });
@@ -198,15 +197,6 @@ function onClosePress() {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: pan-x;
-}
-
-/* アクティブタブは横移動も並び替え用にJSで制御するため、pan-x（ネイティブの
-   横スクロール）を許可しない。pan-xのままだと、ドラッグ閾値を超えて
-   preventDefaultする前にブラウザ側が横スクロールを開始してしまい、
-   並び替えが発火しなくなる（縦方向はpan-xと同様どちらにせよJS制御に
-   委ねられるため、noneにしても既存の分割ドラッグに影響しない）。 */
-.tab-btn.active {
-  touch-action: none;
 }
 
 .tab-btn img,
