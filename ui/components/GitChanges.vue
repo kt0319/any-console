@@ -40,6 +40,7 @@ import GitCommitForm from "./GitCommitForm.vue";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
 import { emit } from "../app-bridge.ts";
+import { type AsyncState, asyncError, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { getWorkspace } = useWorkspace();
@@ -60,9 +61,10 @@ interface DiffActionButton {
   handler: () => void;
 }
 
-const files = ref<DiffFileRow[]>([]);
-const isLoading = ref(false);
-const loadError = ref("");
+const diffState = ref<AsyncState<DiffFileRow[]>>(asyncLoading());
+const files = computed(() => asyncValueOr(diffState.value, [] as DiffFileRow[]));
+const isLoading = computed(() => isAsyncPending(diffState.value));
+const loadError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 const selectedFile = ref("");
 const actionButtons = ref<DiffActionButton[]>([]);
 const isWorkingTree = ref(false);
@@ -81,11 +83,10 @@ function selectFile(file: DiffFileRow) {
 
 async function loadWorkingTreeDiff() {
   if (!getWorkspace()) {
-    loadError.value = "No workspace selected";
+    diffState.value = asyncError("No workspace selected");
     return;
   }
-  isLoading.value = true;
-  loadError.value = "";
+  diffState.value = asyncLoading();
   isWorkingTree.value = true;
   const stashBtn = {
     label: "Stash",
@@ -100,30 +101,32 @@ async function loadWorkingTreeDiff() {
   try {
     const result = await fetchWorkingTreeDiff();
     if (!result) {
-      loadError.value = "Failed to load changes";
+      diffState.value = asyncError("Failed to load changes");
       return;
     }
-    files.value = result.fileList;
+    diffState.value = asyncReady(result.fileList);
   } catch (e) {
-    loadError.value = "Failed to load changes";
+    diffState.value = asyncError("Failed to load changes");
     console.error("diff load failed:", e);
-  } finally {
-    isLoading.value = false;
   }
 }
 
 async function loadCommitDiff(hash: string) {
-  isLoading.value = true;
+  diffState.value = asyncLoading();
   isWorkingTree.value = false;
   try {
     const result = await fetchCommitDiff(hash);
-    if (!result) { isLoading.value = false; return; }
-    files.value = result.fileList;
+    if (!result) {
+      // 元々エラー表示は無かった（filesが空のまま"No changes"扱い）が、
+      // loadWorkingTreeDiff側と挙動を揃えて失敗を明示する。
+      diffState.value = asyncError("Failed to load commit diff");
+      return;
+    }
+    diffState.value = asyncReady(result.fileList);
     actionButtons.value = [];
   } catch (e) {
+    diffState.value = asyncError("Failed to load commit diff");
     console.error("commit diff load failed:", e);
-  } finally {
-    isLoading.value = false;
   }
 }
 

@@ -44,13 +44,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { parseFileLog, shortHash, type FileLogEntry } from "../utils/git.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { workspaceFileHistoryPath, workspaceFileDiffPath } from "../utils/endpoints.ts";
 import { colorDiff } from "../utils/diff-color.ts";
+import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 const props = defineProps({
   filePath: { type: String, required: true },
@@ -61,56 +62,48 @@ const { apiGet } = useApi();
 
 type HistoryEntry = FileLogEntry;
 
-const entries = ref<HistoryEntry[]>([]);
-const isLoading = ref(false);
-const loadError = ref("");
+// 一覧取得（historyState）とdiff取得（diffState）は互いに独立した非同期状態
+// （一覧を選び直してもdiff側のエラーは引きずらない、逆も同様）。
+const historyState = ref<AsyncState<HistoryEntry[]>>(asyncIdle());
+const entries = computed(() => asyncValueOr(historyState.value, [] as HistoryEntry[]));
+const isLoading = computed(() => isAsyncPending(historyState.value));
+const loadError = computed(() => (historyState.value.status === "error" ? historyState.value.error : ""));
+
 const selectedEntry = ref<HistoryEntry | null>(null);
-const diffHtml = ref("");
-const isDiffLoading = ref(false);
-const diffError = ref("");
+const diffState = ref<AsyncState<string>>(asyncIdle());
+const diffHtml = computed(() => asyncValueOr(diffState.value, ""));
+const isDiffLoading = computed(() => isAsyncPending(diffState.value));
+const diffError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 
 async function loadHistory() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace || !props.filePath) return;
-  entries.value = [];
   selectedEntry.value = null;
-  diffHtml.value = "";
-  isLoading.value = true;
-  loadError.value = "";
-  try {
-    const { ok, data } = await getWithRetry(apiGet, workspaceFileHistoryPath(workspace, props.filePath));
-    if (!ok) {
-      loadError.value = data?.stderr || data?.detail || "Failed to load history";
-      return;
-    }
-    entries.value = parseFileLog(data.stdout || "");
-  } finally {
-    isLoading.value = false;
+  diffState.value = asyncIdle();
+  historyState.value = asyncLoading();
+  const { ok, data } = await getWithRetry(apiGet, workspaceFileHistoryPath(workspace, props.filePath));
+  if (!ok) {
+    historyState.value = asyncError(data?.stderr || data?.detail || "Failed to load history");
+    return;
   }
+  historyState.value = asyncReady(parseFileLog(data.stdout || ""));
 }
 
 async function selectEntry(entry: HistoryEntry) {
   selectedEntry.value = entry;
-  diffHtml.value = "";
-  diffError.value = "";
-  isDiffLoading.value = true;
-  try {
-    const workspace = workspaceStore.selectedWorkspace!;
-    const { ok, data } = await getWithRetry(apiGet, workspaceFileDiffPath(workspace, entry.hash, props.filePath));
-    if (!ok) {
-      diffError.value = data?.stderr || data?.detail || "Failed to load diff";
-      return;
-    }
-    diffHtml.value = colorDiff(data.diff || "");
-  } finally {
-    isDiffLoading.value = false;
+  diffState.value = asyncLoading();
+  const workspace = workspaceStore.selectedWorkspace!;
+  const { ok, data } = await getWithRetry(apiGet, workspaceFileDiffPath(workspace, entry.hash, props.filePath));
+  if (!ok) {
+    diffState.value = asyncError(data?.stderr || data?.detail || "Failed to load diff");
+    return;
   }
+  diffState.value = asyncReady(colorDiff(data.diff || ""));
 }
 
 function clearSelection() {
   selectedEntry.value = null;
-  diffHtml.value = "";
-  diffError.value = "";
+  diffState.value = asyncIdle();
 }
 
 watch(() => props.filePath, loadHistory, { immediate: true });
