@@ -83,4 +83,32 @@ test.describe("terminal", () => {
     await dialog.locator(".dialog-btn-danger").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 10_000 });
   });
+
+  test("タブが幅いっぱいでスクロール可能な時だけ端がフェードする", async ({ page }) => {
+    // PCレイアウト（ラベル付きタブ）を維持しつつ幅を制限し、タブ追加だけで
+    // 容易にoverflowさせる（MOBILE_BREAKPOINT_PXの768pxは超えたまま）。
+    await page.setViewportSize({ width: 900, height: 700 });
+
+    async function maskImage() {
+      return page.locator(".tab-bar").evaluate((el) => getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage);
+    }
+
+    // スクロール不要な間はフェード無し(mask-image: none)
+    await expect.poll(maskImage).toBe("none");
+
+    // 幅を超えるまでタブを開くとフェードが付く
+    for (let i = 0; i < 15; i++) await openNewTerminal(page);
+    await expect.poll(maskImage).not.toBe("none");
+
+    // 先頭までスクロールすると右端だけのフェードになる（右端は透明で終わり、
+    // 左は"0px"から不透明で始まる = getComputedStyle正規化後の文字列末尾/先頭で判定）。
+    await page.locator(".tab-bar").evaluate((el) => {
+      el.scrollLeft = 0;
+      el.dispatchEvent(new Event("scroll"));
+    });
+    await expect.poll(async () => {
+      const m = await maskImage();
+      return m.includes("0px,") && m.endsWith("rgba(0, 0, 0, 0))");
+    }).toBe(true);
+  });
 });

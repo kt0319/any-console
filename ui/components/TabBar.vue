@@ -20,7 +20,9 @@
     <div
       ref="tabListEl"
       class="tab-bar"
+      :style="tabBarFadeStyle"
       @keydown="onTabListKeydown"
+      @scroll="updateScrollFade"
     >
       <div class="tab-bar-tabs" role="tablist" aria-label="Open terminal tabs">
         <TabItem
@@ -59,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, type PropType } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch, type PropType } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
@@ -68,6 +70,8 @@ import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 import { useSettingsNav } from "../composables/useSettingsNav.ts";
 import { emit } from "../app-bridge.ts";
 import { nextTabIndex } from "../utils/tab-nav.ts";
+import { scrollFadeMaskImage } from "../utils/scroll-fade.ts";
+import { TAB_BAR_FADE_WIDTH_PX } from "../utils/constants.ts";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -96,6 +100,48 @@ function focusTab(tab: TerminalTab) {
     tabListEl.value?.querySelector<HTMLElement>(`[data-tab-id="${tab.id}"]`)?.focus?.();
   });
 }
+
+// タブが幅いっぱいで横スクロール可能な時、隠れているタブがあることを
+// 端のフェードで示す。canScrollLeft/Right はスクロール位置から判定し、
+// スクロール操作・タブの増減・コンテナ幅の変化（サイドバー開閉等）の
+// いずれでも再計算する。
+const canScrollLeft = ref(false);
+const canScrollRight = ref(false);
+const tabBarFadeStyle = computed(() => {
+  const mask = scrollFadeMaskImage(canScrollLeft.value, canScrollRight.value, TAB_BAR_FADE_WIDTH_PX);
+  return { maskImage: mask, webkitMaskImage: mask };
+});
+
+function updateScrollFade() {
+  const el = tabListEl.value;
+  if (!el) {
+    canScrollLeft.value = false;
+    canScrollRight.value = false;
+    return;
+  }
+  canScrollLeft.value = el.scrollLeft > 0;
+  canScrollRight.value = el.scrollLeft < el.scrollWidth - el.clientWidth - 1;
+}
+
+let tabBarResizeObserver: ResizeObserver | null = null;
+watch(tabListEl, (el) => {
+  tabBarResizeObserver?.disconnect();
+  tabBarResizeObserver = null;
+  if (!el) return;
+  tabBarResizeObserver = new ResizeObserver(updateScrollFade);
+  tabBarResizeObserver.observe(el);
+  updateScrollFade();
+}, { immediate: true });
+
+// コンテナ幅が変わらずタブの増減だけでコンテンツ幅（scrollWidth）が変わる
+// ケースはResizeObserver（コンテナ自体の外形監視）だけでは検知できないため、
+// タブ数の変化でも再計算する。
+watch(() => sortedItems.value.length, () => nextTick(updateScrollFade));
+
+onBeforeUnmount(() => {
+  tabBarResizeObserver?.disconnect();
+  tabBarResizeObserver = null;
+});
 
 function onTabListKeydown(e: KeyboardEvent) {
   const tabs = sortedItems.value.map((item) => item.tab);
