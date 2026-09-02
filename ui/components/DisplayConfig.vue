@@ -1,8 +1,8 @@
 <template>
   <div class="modal-scroll-body">
     <div class="settings-item">
-      <span class="settings-item-label">Narrow screen（折りたたみ時・縦持ちスマホ等）</span>
-      <span class="settings-note">画面幅が {{ MOBILE_BREAKPOINT_PX }}px 以下の時の表示。</span>
+      <span class="settings-item-label">Narrow screen (folded / portrait phone, etc.)</span>
+      <span class="settings-note">Applies when the screen width is {{ MOBILE_BREAKPOINT_PX }}px or less.</span>
       <div class="display-settings-radio-row">
         <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="top" /> Tab bar: Top</label>
         <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="bottom" /> Bottom</label>
@@ -12,8 +12,8 @@
       </div>
     </div>
     <div class="settings-item">
-      <span class="settings-item-label">Wide screen（展開時・PC等）</span>
-      <span class="settings-note">画面幅が {{ MOBILE_BREAKPOINT_PX }}px を超える時の表示。</span>
+      <span class="settings-item-label">Wide screen (unfolded / PC, etc.)</span>
+      <span class="settings-note">Applies when the screen width is greater than {{ MOBILE_BREAKPOINT_PX }}px.</span>
       <div class="display-settings-radio-row">
         <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="top" /> Tab bar: Top</label>
         <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="bottom" /> Bottom</label>
