@@ -134,7 +134,7 @@
   min-width: 0;
   flex: 1;
   padding: 0;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
   border-radius: var(--radius);
   background: var(--bg-tertiary);
   color: var(--text-primary);
