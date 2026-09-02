@@ -15,15 +15,15 @@
         </div>
       </div>
       <div class="display-settings-field">
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
-      </div>
-      <div class="display-settings-field">
         <span class="display-settings-field-label">Title bar</span>
         <div class="display-settings-radio-row">
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="off" /> Off</label>
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="top" /> Top</label>
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="bottom" /> Bottom</label>
         </div>
+      </div>
+      <div class="display-settings-field">
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
       </div>
     </div>
     <div class="settings-item">
@@ -37,15 +37,15 @@
         </div>
       </div>
       <div class="display-settings-field">
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
-      </div>
-      <div class="display-settings-field">
         <span class="display-settings-field-label">Title bar</span>
         <div class="display-settings-radio-row">
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="off" /> Off</label>
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="top" /> Top</label>
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="bottom" /> Bottom</label>
         </div>
+      </div>
+      <div class="display-settings-field">
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
       </div>
     </div>
     <label class="settings-item settings-toggle">
