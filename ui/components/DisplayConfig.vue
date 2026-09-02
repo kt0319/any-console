@@ -5,35 +5,47 @@
       These settings are saved on this device only and are not synced across your other devices.
     </div>
     <div class="settings-item">
-      <span class="settings-item-label">Narrow screen (folded / portrait phone, etc.)</span>
-      <span class="settings-note">Applies when the screen width is {{ MOBILE_BREAKPOINT_PX }}px or less.</span>
-      <div class="display-settings-radio-row">
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="top" /> Tab bar: Top</label>
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="bottom" /> Bottom</label>
+      <span class="settings-item-label">Wide screen (unfolded / PC, etc.)</span>
+      <span class="settings-note">Applies when the screen width is greater than {{ MOBILE_BREAKPOINT_PX }}px.</span>
+      <div class="display-settings-field">
+        <span class="display-settings-field-label">Tab bar</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="top" /> Top</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="bottom" /> Bottom</label>
+        </div>
       </div>
-      <div class="display-settings-radio-row">
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
+      <div class="display-settings-field">
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
       </div>
-      <div class="display-settings-radio-row">
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="off" /> Title bar: Off</label>
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="top" /> Top</label>
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="bottom" /> Bottom</label>
+      <div class="display-settings-field">
+        <span class="display-settings-field-label">Title bar</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="off" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="top" /> Top</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="bottom" /> Bottom</label>
+        </div>
       </div>
     </div>
     <div class="settings-item">
-      <span class="settings-item-label">Wide screen (unfolded / PC, etc.)</span>
-      <span class="settings-note">Applies when the screen width is greater than {{ MOBILE_BREAKPOINT_PX }}px.</span>
-      <div class="display-settings-radio-row">
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="top" /> Tab bar: Top</label>
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="bottom" /> Bottom</label>
+      <span class="settings-item-label">Narrow screen (folded / portrait phone, etc.)</span>
+      <span class="settings-note">Applies when the screen width is {{ MOBILE_BREAKPOINT_PX }}px or less.</span>
+      <div class="display-settings-field">
+        <span class="display-settings-field-label">Tab bar</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="top" /> Top</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="bottom" /> Bottom</label>
+        </div>
       </div>
-      <div class="display-settings-radio-row">
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
+      <div class="display-settings-field">
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
       </div>
-      <div class="display-settings-radio-row">
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="off" /> Title bar: Off</label>
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="top" /> Top</label>
-        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="bottom" /> Bottom</label>
+      <div class="display-settings-field">
+        <span class="display-settings-field-label">Title bar</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="off" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="top" /> Top</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="bottom" /> Bottom</label>
+        </div>
       </div>
     </div>
     <label class="settings-item settings-toggle">
@@ -86,11 +98,22 @@ onMounted(() => { modalTitle!.value = "Display"; });
   border-bottom: 1px solid var(--border);
 }
 
+.display-settings-field {
+  margin-top: 8px;
+}
+
+.display-settings-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .display-settings-radio-row {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .display-settings-level-list {
