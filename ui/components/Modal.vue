@@ -56,7 +56,7 @@ watch(
 .modal {
   position: relative;
   background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
-  padding: 12px 8px 0;
+  padding: 12px 0 0;
   width: 100%;
   max-width: 100%;
   height: 100%;
