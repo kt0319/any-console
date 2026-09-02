@@ -413,16 +413,21 @@ function onWheel(e: WheelEvent) {
 }
 
 // term.open() 後に xterm フォーカスポリシーを注入する。
-// isPanelBottom（モバイル / 狭幅PC）では textarea へのフォーカスを禁止し、
-// キーボードバー入力経由でのみターミナルへ送るよう統一する。
+// タップ（touch）ではOSキーボードを開かせず、クリック（mouse/pen等）では
+// 通常通りフォーカスしてOSキーボード/物理キーボード入力を許可する。
+// 直前のpointerdownのpointerTypeで判定する（isPanelBottom等のレイアウト設定には依存しない）。
 function applyFocusGuard(term: Terminal | null | undefined) {
   const textarea = term?.textarea;
   if (!term || !textarea) return;
   const origFocus = term.focus.bind(term);
-  term.focus = () => { if (!layoutStore.isPanelBottom) origFocus(); };
+  let lastPointerType = "mouse";
+  term.element?.addEventListener("pointerdown", (e: PointerEvent) => {
+    lastPointerType = e.pointerType;
+  }, { capture: true });
+  term.focus = () => { if (lastPointerType !== "touch") origFocus(); };
   textarea.tabIndex = -1;
   textarea.addEventListener("focus", () => {
-    if (layoutStore.isPanelBottom) textarea.blur();
+    if (lastPointerType === "touch") textarea.blur();
   });
 }
 
