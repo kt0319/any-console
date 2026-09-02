@@ -419,12 +419,10 @@ function onWheel(e: WheelEvent) {
 function applyFocusGuard(term: Terminal | null | undefined) {
   const textarea = term?.textarea;
   if (!term || !textarea) return;
-  const origFocus = term.focus.bind(term);
   let lastPointerType = "mouse";
   term.element?.addEventListener("pointerdown", (e: PointerEvent) => {
     lastPointerType = e.pointerType;
   }, { capture: true });
-  term.focus = () => { if (lastPointerType !== "touch") origFocus(); };
   textarea.tabIndex = -1;
   textarea.addEventListener("focus", () => {
     if (lastPointerType === "touch") textarea.blur();
