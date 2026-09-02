@@ -7,30 +7,18 @@
     aria-modal="true"
     @mousedown.self="emit('overlay')"
   >
-    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': isPanelBottom }">
-      <div class="settings-panel-header">
-        <button
-          type="button"
-          class="modal-title-wrap"
-          :class="{ 'is-clickable': canBack, 'no-back': !canBack }"
-          :tabindex="canBack ? 0 : -1"
-          :aria-disabled="!canBack ? 'true' : 'false'"
-          @click="canBack && emit('back')"
-        >
-          <h3 class="modal-title">
-            <span v-if="canBack && showBackArrow" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
-            <span class="modal-title-text text-ellipsis-flex">{{ title }}<template v-if="branch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="branch">{{ branch }}</span></template></span>
-          </h3>
-        </button>
-        <button
-          type="button"
-          class="modal-close-btn"
-          :aria-label="closeLabel"
-          :data-tooltip="closeLabel"
-          @click="emit('close')"
-        >&times;</button>
-      </div>
-      <div class="settings-panel-body">
+    <div ref="modalEl" class="modal">
+      <ModalHeader
+        :title="title"
+        :branch="branch"
+        :can-back="canBack"
+        :show-back-arrow="showBackArrow"
+        :close-label="closeLabel"
+        :panel-bottom="isPanelBottom"
+        @back="emit('back')"
+        @close="emit('close')"
+      />
+      <div class="settings-panel-body" :class="{ 'panel-bottom': isPanelBottom }">
         <slot />
       </div>
     </div>
@@ -41,6 +29,7 @@
 import { computed, ref, watch } from "vue";
 import { useModal } from "../composables/useModal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
+import ModalHeader from "./ModalHeader.vue";
 
 // 全面オーバーレイモーダルの共通シェル。
 // TerminalSettingsModal / SessionOpenModal / WorkspaceDetailModal が丸ごと
@@ -48,6 +37,8 @@ import { useLayoutStore } from "../stores/layout.ts";
 // .settings-panel-body）と scoped CSS（約90行×3）をここに一本化した。
 // フォーカストラップ（useModal）もここで面倒を見る — Esc は `escape` を
 // emit するだけなので、閉じるか戻るかは各ホストが決める。
+// ヘッダー（タイトル+戻る/閉じる）はModalHeader.vue（SessionListPanel.vue
+// と共用）に切り出してある。
 //
 // ホスト側に残るのは「どのビューを body に出すか」「back/close/escape/
 // overlay クリックで何をするか」だけ。
@@ -109,44 +100,18 @@ watch(
 }
 
 /* Modal.vue（モバイルの設定オーバーレイ）と同じボトムシート風にする。既定
-   （タブバー: Top相当）はタイトルを上部固定にし、セッションタブがボトム
-   配置（Settings > Display）の時だけタイトルも下部（ボトムシート風）に
-   揃える。画面幅ではなく実際のタブ位置設定に連動させる（折りたたみ機等で
-   画面幅とタブ位置設定が一致しない場合があるため）。 */
+   （タブバー: Top相当）はヘッダーを上部固定にし、セッションタブがボトム
+   配置（Settings > Display）の時だけヘッダーも下部（ボトムシート風）に
+   揃える。ヘッダー自体の見た目（panel-bottom時の境界線・safe-area余白）は
+   ModalHeader.vue側が持ち、ここではheader/bodyの並び順（order）だけ切り
+   替える。 */
 .settings-panel-header {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 8px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  border-top: none;
-  padding-bottom: 0;
   order: 0;
 }
 
-.modal.panel-bottom .settings-panel-header {
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+.settings-panel-header.panel-bottom {
   order: 1;
 }
-
-.modal-title-wrap.is-clickable {
-  cursor: pointer;
-}
-
-.modal-close-btn {
-  margin-left: auto;
-}
-
-.modal-title-back-icon {
-  font-size: 18px;
-  line-height: 1;
-  flex-shrink: 0;
-  color: inherit;
-}
-
 
 .settings-panel-body {
   display: flex;
@@ -157,7 +122,7 @@ watch(
   order: 1;
 }
 
-.modal.panel-bottom .settings-panel-body {
+.settings-panel-body.panel-bottom {
   order: 0;
 }
 

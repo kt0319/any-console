@@ -1,15 +1,12 @@
 <template>
   <div class="settings-panel">
-    <div class="settings-panel-header">
-      <button
-        type="button"
-        class="modal-close-btn"
-        aria-label="Close sessions panel"
-        data-tooltip="Close sessions panel"
-        @click="close"
-      >&times;</button>
-    </div>
-    <div class="settings-panel-body pane-fill">
+    <ModalHeader
+      title="Sessions"
+      close-label="Close sessions panel"
+      :panel-bottom="panelBottom"
+      @close="close"
+    />
+    <div class="settings-panel-body pane-fill" :class="{ 'panel-bottom': panelBottom }">
       <SessionListView />
     </div>
   </div>
@@ -17,13 +14,21 @@
 
 <script setup lang="ts">
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
+import ModalHeader from "./ModalHeader.vue";
 import SessionListView from "./SessionListView.vue";
 
 // Modal.vue（モバイルのオーバーレイ表示）とSessionSidebar.vue（PCのインライン
 // 表示）の両方から使うセッション一覧の中身。Open Session/Settingsはここから
-// 分離済みのため、SessionListView.vueをそのままホストするだけの薄い
-// ラッパーになっている（タイトルは出さず閉じるボタンのみ。モバイル/PC共通で
-// ヘッダー左端に閉じるボタンを出す）。
+// 分離済みのため、SessionListView.vueをホストするだけの薄いラッパーになって
+// いる。ヘッダーはModalShell.vueと共通のModalHeader.vue（タイトル+閉じる
+// ボタン。戻る機能は無いのでcanBackは渡さない＝falseのまま）。
+// panelBottomは呼び出し元がヘッダーを上部/下部どちらに寄せるか渡す
+// （Modal.vue経由＝実際のタブ位置設定、SessionSidebar.vue経由＝常にfalse
+// 固定。インラインサイドバーは常に上部固定のため）。
+
+defineProps<{
+  panelBottom?: boolean,
+}>();
 
 const { close } = useSessionListOverlay();
 </script>
@@ -37,16 +42,18 @@ const { close } = useSessionListOverlay();
 }
 
 .settings-panel-header {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 44px;
-  padding: 0 8px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+  order: 0;
 }
 
-/* .modal-close-btn の見た目は ui/styles/modal-shell.css（グローバル）で
-   他のオーバーレイと共用する。タイトルを出さないため左端に置く。 */
+.settings-panel-header.panel-bottom {
+  order: 1;
+}
 
+.settings-panel-body {
+  order: 1;
+}
+
+.settings-panel-body.panel-bottom {
+  order: 0;
+}
 </style>

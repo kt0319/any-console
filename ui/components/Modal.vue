@@ -6,8 +6,8 @@
     aria-modal="true"
     @mousedown.self="close"
   >
-    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': layoutStore.isPanelBottom }">
-      <SessionListPanel ref="panelRef" />
+    <div ref="modalEl" class="modal">
+      <SessionListPanel ref="panelRef" :panel-bottom="layoutStore.isPanelBottom" />
     </div>
   </div>
 </template>
@@ -69,31 +69,7 @@ watch(
   overflow: hidden;
 }
 
-/* セッションタブがボトム配置（Settings > Display）の時だけヘッダーが下部
-   （ボトムシート風）に来る。閉じるボタンはSessionListPanel.vue自身の
-   ヘッダー（左端）にPC/モバイル共通で出す。このコンポーネント自体は画面が
-   狭い時だけ開くオーバーレイ（isNarrowViewport、上のwatch参照）だが、
-   ヘッダー位置自体は画面幅ではなく実際のタブ位置設定（isPanelBottom）に
-   連動させることで、タブ位置とヘッダー位置の見た目を常に揃える。 */
-:deep(.settings-panel-header) {
-  border-bottom: 1px solid var(--border);
-  border-top: none;
-  padding-bottom: 0;
-  order: 0;
-}
-
-:deep(.settings-panel-body) {
-  order: 1;
-}
-
-.modal.panel-bottom :deep(.settings-panel-header) {
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
-  order: 1;
-}
-
-.modal.panel-bottom :deep(.settings-panel-body) {
-  order: 0;
-}
+/* ヘッダー位置（上部固定 / ボトムシート風）の切り替えはSessionListPanel.vue
+   （ModalHeader.vue経由）が:panel-bottom propで自己完結して持つ。ここでは
+   何もしない。 */
 </style>

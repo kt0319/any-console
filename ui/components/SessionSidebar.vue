@@ -4,7 +4,7 @@
     class="session-sidebar"
     aria-label="Sessions"
   >
-    <SessionListPanel />
+    <SessionListPanel :panel-bottom="false" />
   </nav>
 </template>
 
