@@ -7,7 +7,7 @@
     aria-modal="true"
     @mousedown.self="emit('overlay')"
   >
-    <div ref="modalEl" class="modal">
+    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': isPanelBottom }">
       <div class="settings-panel-header">
         <button
           type="button"
@@ -38,8 +38,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useModal } from "../composables/useModal.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 
 // 全面オーバーレイモーダルの共通シェル。
 // TerminalSettingsModal / SessionOpenModal / WorkspaceDetailModal が丸ごと
@@ -74,6 +75,8 @@ const emit = defineEmits<{
 
 const modal = useModal();
 const modalEl = ref<HTMLElement | null>(null);
+const layoutStore = useLayoutStore();
+const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
 watch(
   () => props.isOpen,
@@ -105,27 +108,28 @@ watch(
   overflow: hidden;
 }
 
-/* Modal.vue（モバイルの設定オーバーレイ）と同じボトムシート風にする。
-   モバイルはタイトルを下部に表示し、PC幅では通常通り上部に戻す。 */
+/* Modal.vue（モバイルの設定オーバーレイ）と同じボトムシート風にする。既定
+   （タブバー: Top相当）はタイトルを上部固定にし、セッションタブがボトム
+   配置（Settings > Display）の時だけタイトルも下部（ボトムシート風）に
+   揃える。画面幅ではなく実際のタブ位置設定に連動させる（折りたたみ機等で
+   画面幅とタブ位置設定が一致しない場合があるため）。 */
 .settings-panel-header {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 0 8px;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  border-top: none;
+  padding-bottom: 0;
+  order: 0;
+}
+
+.modal.panel-bottom .settings-panel-header {
   border-bottom: none;
   border-top: 1px solid var(--border);
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   order: 1;
-}
-
-@media (min-width: 769px) {
-  .settings-panel-header {
-    border-bottom: 1px solid var(--border);
-    border-top: none;
-    padding-bottom: 0;
-    order: 0;
-  }
 }
 
 .modal-title-wrap.is-clickable {
@@ -150,13 +154,11 @@ watch(
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  order: 0;
+  order: 1;
 }
 
-@media (min-width: 769px) {
-  .settings-panel-body {
-    order: 1;
-  }
+.modal.panel-bottom .settings-panel-body {
+  order: 0;
 }
 
 /* 各ペインが使う .modal-scroll-body（スクロール本体）の契約は

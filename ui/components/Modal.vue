@@ -6,7 +6,7 @@
     aria-modal="true"
     @mousedown.self="close"
   >
-    <div ref="modalEl" class="modal">
+    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': layoutStore.isPanelBottom }">
       <SessionListPanel ref="panelRef" />
     </div>
   </div>
@@ -66,32 +66,31 @@ watch(
   overflow: hidden;
 }
 
-/* モバイルはヘッダーが下部（ボトムシート風）に来る。閉じるボタンは
-   SessionListPanel.vue自身のヘッダー（左端）にPC/モバイル共通で出す。 */
+/* セッションタブがボトム配置（Settings > Display）の時だけヘッダーが下部
+   （ボトムシート風）に来る。閉じるボタンはSessionListPanel.vue自身の
+   ヘッダー（左端）にPC/モバイル共通で出す。このコンポーネント自体は
+   isPanelBottomの時だけ開くモバイル専用オーバーレイ（上のwatch参照）だが、
+   画面幅ではなく実際のタブ位置設定に連動させることで、折りたたみ機等の
+   画面幅とタブ位置設定が一致しないケースでも崩れないようにする。 */
 :deep(.settings-panel-header) {
+  border-bottom: 1px solid var(--border);
+  border-top: none;
+  padding-bottom: 0;
+  order: 0;
+}
+
+:deep(.settings-panel-body) {
+  order: 1;
+}
+
+.modal.panel-bottom :deep(.settings-panel-header) {
   border-bottom: none;
   border-top: 1px solid var(--border);
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   order: 1;
 }
 
-:deep(.settings-panel-body) {
+.modal.panel-bottom :deep(.settings-panel-body) {
   order: 0;
-}
-
-/* PC幅ではモバイルのボトムシート風（ヘッダー下部）をやめ、ヘッダーを上に固定する。
-   このコンポーネント自体はモバイル専用だが、念のためPC幅でオーバーレイが
-   出てしまった場合でも崩れないよう残しておく。 */
-@media (min-width: 769px) {
-  :deep(.settings-panel-header) {
-    border-bottom: 1px solid var(--border);
-    border-top: none;
-    padding-bottom: 0;
-    order: 0;
-  }
-
-  :deep(.settings-panel-body) {
-    order: 1;
-  }
 }
 </style>
