@@ -23,6 +23,7 @@ defineProps({
 <style scoped>
 .session-sidebar-meta {
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
