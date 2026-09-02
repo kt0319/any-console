@@ -277,8 +277,12 @@ defineExpose({
 .active-tab-title {
   /* 表示/非表示自体はv-show（titleBarVisible、Settings > Displayの狭い/広い
      設定）がインラインstyleで制御する。ここはflexで表示された時のレイアウト
-     のみ定義する。 */
+     のみ定義する。
+     Top位置（既定、.title-bar-at-bottomが付かない状態）は、TabBarの
+     order（既定0・panel-bottom時2）より確実に小さい値にして、タブバーの
+     位置設定に関わらず常にセッションタブより上に表示されるようにする。 */
   display: flex;
+  order: -10;
   flex-shrink: 0;
   align-items: flex-end;
   justify-content: center;
