@@ -29,6 +29,7 @@ import PillPeek from "../../../ui/components/PillPeek.vue";
 import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import SessionSidebar from "../../../ui/components/SessionSidebar.vue";
 import TabBar from "../../../ui/components/TabBar.vue";
+import DisplayConfig from "../../../ui/components/DisplayConfig.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.ts";
 import { usePrompt } from "../../../ui/composables/usePrompt.ts";
@@ -404,6 +405,18 @@ describe("a11y: TabBar", () => {
     expect(movedTabs[1].attributes("tabindex")).toBe("0");
 
     cleanup();
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: DisplayConfig", () => {
+  it("Narrow/Wideのタブ位置・Keyboard bar設定に a11y 違反が無い", async () => {
+    const wrapper = mount(DisplayConfig, {
+      global: { provide: { modalTitle: ref("") } },
+      attachTo: document.body,
+    });
+    await nextTick();
+    await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });
 });

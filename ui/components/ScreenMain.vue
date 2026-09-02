@@ -30,7 +30,7 @@
       <TerminalSettingsModal />
       <WorkspaceDetailModal />
     </div>
-    <KeyboardBar :is-panel-bottom="isPanelBottom" />
+    <KeyboardBar :visible="keyboardBarVisible" />
     <div v-if="booting || isLaunching" class="block-layer"></div>
 
   </div>
@@ -149,6 +149,7 @@ const debugInfo = computed(() => {
 });
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 

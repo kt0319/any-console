@@ -1,5 +1,27 @@
 <template>
   <div class="modal-scroll-body">
+    <div class="settings-item">
+      <span class="settings-item-label">Narrow screen（折りたたみ時・縦持ちスマホ等）</span>
+      <span class="settings-note">画面幅が {{ MOBILE_BREAKPOINT_PX }}px 以下の時の表示。</span>
+      <div class="display-settings-radio-row">
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="top" /> Tab bar: Top</label>
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTabPosition" value="bottom" /> Bottom</label>
+      </div>
+      <div class="display-settings-radio-row">
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
+      </div>
+    </div>
+    <div class="settings-item">
+      <span class="settings-item-label">Wide screen（展開時・PC等）</span>
+      <span class="settings-note">画面幅が {{ MOBILE_BREAKPOINT_PX }}px を超える時の表示。</span>
+      <div class="display-settings-radio-row">
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="top" /> Tab bar: Top</label>
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTabPosition" value="bottom" /> Bottom</label>
+      </div>
+      <div class="display-settings-radio-row">
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
+      </div>
+    </div>
     <label class="settings-item settings-toggle">
       <input type="checkbox" v-model="debugMode" />
       <div class="settings-toggle-copy">
@@ -22,12 +44,14 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.ts";
-import { DEBUG_LEVELS } from "../utils/constants.ts";
+import { useLayoutPrefs } from "../composables/useLayoutPrefs.ts";
+import { DEBUG_LEVELS, MOBILE_BREAKPOINT_PX } from "../utils/constants.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
 const { modalTitle } = useModalView();
 const debugMode = useDebugMode();
 const debugLevels = useDebugLevels();
+const layoutPrefs = useLayoutPrefs();
 
 function toggleLevel(level: string) {
   const next = new Set(debugLevels.value);
@@ -40,6 +64,13 @@ onMounted(() => { modalTitle!.value = "Display"; });
 </script>
 
 <style scoped>
+.display-settings-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
 .display-settings-level-list {
   display: flex;
   gap: 12px;

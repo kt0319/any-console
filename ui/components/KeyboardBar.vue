@@ -156,13 +156,14 @@ import SendSnippet from "./SendSnippet.vue";
 import SendHistory from "./SendHistory.vue";
 
 const props = defineProps({
-  isPanelBottom: { type: Boolean, default: false },
+  visible: { type: Boolean, default: false },
 });
 
-// モバイル幅（isPanelBottom）でのみ表示する。分割モード（isSplitMode）は
-// PC幅でも成立するため、以前はそちらでも表示していたが、キーボードバーは
-// モバイル専用機能として扱う。
-const isVisible = computed(() => props.isPanelBottom);
+// 表示要否はlayout store（Settings > Display の狭い/広い設定）で決まる
+// （呼び出し元のScreenMain.vueがlayoutStore.keyboardBarVisibleを渡す）。
+// 分割モード（isSplitMode）はPC幅でも成立するが、キーボードバーはそれとは
+// 独立してこの設定に従う。
+const isVisible = computed(() => props.visible);
 
 const { clearModifiers, sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
