@@ -254,12 +254,19 @@ defineExpose({
 </script>
 
 <style scoped>
+/* ボーダーはTabBar/TitleBar/KeyboardBar個々には持たせず、ここ（ターミナル本体）
+   の上下端に常設する。タブ位置・タイトルバー位置は独立に上下を切り替えられる
+   ため、どのバーが実際にターミナルへ隣接するかは組み合わせ次第で変わる。
+   各バー側で位置ごとに条件分岐してボーダーを付け替えるより、常に
+   ターミナルとの境目にだけ線を引く方が組み合わせに依存せず正しくなる。 */
 .content-area {
   position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 /* PCでセッションサイドバーを開いている間は、ターミナルに被せず
@@ -296,7 +303,6 @@ defineExpose({
   color: var(--text-muted);
   padding: 4px 12px 6px;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -353,8 +359,6 @@ defineExpose({
 .main-panel.panel-bottom :deep(.tab-bar-row) {
   order: 2;
   position: relative;
-  border-bottom: none;
-  border-top: 1px solid var(--border);
   padding-bottom: 0;
   /* モバイルの.tab-btn（padding 12px 16px）はTabBar.vue既定のmin-height(37px)
      より実高さが大きく、タブが1件も無い時（.tab-barが空）だけ37pxに縮んで
@@ -398,8 +402,6 @@ defineExpose({
    常に最後尾（画面最下部）に来るようにする。 */
 .active-tab-title.title-bar-at-bottom {
   order: 100;
-  border-bottom: none;
-  border-top: 1px solid var(--border);
   padding: 0 12px;
   padding-bottom: env(safe-area-inset-bottom);
 }

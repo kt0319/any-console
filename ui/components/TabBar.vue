@@ -193,7 +193,6 @@ function onSettingsClick() {
 .tab-bar-row {
   display: flex;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   /* タップターゲット推奨サイズ(44px)に揃える。ScreenMain.vueのpanel-bottom時の
      オーバーライドと同じ値にすることで、SessionListPanel.vueの
