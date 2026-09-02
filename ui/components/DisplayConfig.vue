@@ -1,5 +1,9 @@
 <template>
   <div class="modal-scroll-body">
+    <div class="settings-note display-settings-device-note">
+      <span class="mdi mdi-cellphone-cog" aria-hidden="true"></span>
+      These settings are saved on this device only and are not synced across your other devices.
+    </div>
     <div class="settings-item">
       <span class="settings-item-label">Narrow screen (folded / portrait phone, etc.)</span>
       <span class="settings-note">Applies when the screen width is {{ MOBILE_BREAKPOINT_PX }}px or less.</span>
@@ -9,7 +13,11 @@
       </div>
       <div class="display-settings-radio-row">
         <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowTitleBar" /> Show title bar</label>
+      </div>
+      <div class="display-settings-radio-row">
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="off" /> Title bar: Off</label>
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="top" /> Top</label>
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowTitleBarPosition" value="bottom" /> Bottom</label>
       </div>
     </div>
     <div class="settings-item">
@@ -21,7 +29,11 @@
       </div>
       <div class="display-settings-radio-row">
         <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideTitleBar" /> Show title bar</label>
+      </div>
+      <div class="display-settings-radio-row">
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="off" /> Title bar: Off</label>
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="top" /> Top</label>
+        <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideTitleBarPosition" value="bottom" /> Bottom</label>
       </div>
     </div>
     <label class="settings-item settings-toggle">
@@ -66,6 +78,14 @@ onMounted(() => { modalTitle!.value = "Display"; });
 </script>
 
 <style scoped>
+.display-settings-device-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
 .display-settings-radio-row {
   display: flex;
   flex-wrap: wrap;

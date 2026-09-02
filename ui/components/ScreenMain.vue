@@ -7,7 +7,7 @@
          サイドバーのヘッダーの間に無駄な空白ができてしまう（モバイルの
          Modal.vueは全面オーバーレイのままで問題ないため対象外）。 -->
     <SessionSidebar />
-    <div class="active-tab-title" v-show="titleBarVisible">
+    <div class="active-tab-title" :class="{ 'title-bar-at-bottom': titleBarAtBottom }" v-show="titleBarVisible">
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
@@ -151,6 +151,7 @@ const debugInfo = computed(() => {
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible);
 const titleBarVisible = computed(() => layoutStore.titleBarVisible);
+const titleBarAtBottom = computed(() => layoutStore.titleBarAtBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
@@ -379,13 +380,16 @@ defineExpose({
   order: 0;
 }
 
-/* タブバーがボトム配置の時のレイアウト（順序・余白）。表示/非表示自体は
-   titleBarVisible（Settings > Display）がv-showで制御するため、ここには
-   displayを含めない。ボトム配置ではTabItem.vueがタブのラベルを畳んで
-   アイコンのみにするため（タップターゲット確保のため）、タイトルバーで
-   現在のタブ名を補う用途を想定した既定値になっている。 */
-.main-panel.panel-bottom .active-tab-title {
-  order: 3;
+/* タイトルバーの位置（Top/Bottom）はSettings > Displayでタブバー位置とは
+   独立に設定できる（titleBarPosition）。表示/非表示自体はv-show
+   （titleBarVisible）が制御するため、ここにはdisplayを含めない。
+   既定のorder(未指定=0相当)がTop相当（TabBarの直後・content-areaの前に
+   自然に並ぶ）で、.title-bar-at-bottomが付いた時だけBottom相当（他の
+   全要素より後ろ）に回す。orderの大小関係はTabBar側のorder（既定0/
+   panel-bottom時2）より確実に大きい値にし、タブバーの位置設定に関わらず
+   常に最後尾（画面最下部）に来るようにする。 */
+.active-tab-title.title-bar-at-bottom {
+  order: 100;
   border: none;
   padding: 0 12px;
   padding-bottom: env(safe-area-inset-bottom);
@@ -403,7 +407,7 @@ defineExpose({
   padding-bottom: 0;
 }
 
-:global(.pwa .main-panel.panel-bottom .active-tab-title) {
+:global(.pwa .active-tab-title.title-bar-at-bottom) {
   padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
 }
 </style>
