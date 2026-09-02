@@ -311,21 +311,7 @@ defineExpose({
 .debug-level-error { color: var(--error); }
 .debug-level-info { color: var(--accent); }
 
-@media (max-width: 768px) {
-  .active-tab-title {
-    display: flex;
-  }
-}
-
-.main-panel.split-mode .active-tab-title {
-  display: flex;
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .main-panel.split-mode .active-tab-title {
-    display: none;
-  }
-
   .main-panel.split-mode :deep(.keyboard-bar) {
     display: none;
   }
@@ -389,7 +375,12 @@ defineExpose({
   order: 0;
 }
 
+/* セッションタブがボトム配置の時だけ表示する。ボトム配置ではTabItem.vueが
+   タブのラベルを畳んでアイコンのみにするため（タップターゲット確保のため）、
+   現在どのタブを見ているかをここで補う。トップ配置ではタブバー自体に
+   ラベルが出るため不要。 */
 .main-panel.panel-bottom .active-tab-title {
+  display: flex;
   order: 3;
   border: none;
   padding: 0 12px;
