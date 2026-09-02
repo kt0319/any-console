@@ -13,7 +13,7 @@
       </template>
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
-    <div class="content-area" :class="{ 'content-area-sidebar-open': isSessionSidebarOpen && !isPanelBottom }">
+    <div class="content-area" :class="{ 'content-area-sidebar-open': isSessionSidebarOpen && !isNarrowViewport }">
       <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
         <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
       </div>
@@ -149,6 +149,10 @@ const debugInfo = computed(() => {
 });
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+// サイドバー用のスペースがあるかどうか（インラインサイドバー vs Modal.vueの
+// 全面オーバーレイの出し分け）は、タブ位置設定ではなく実際の画面幅で判定する
+// （SessionSidebar.vue/Modal.vue参照）。
+const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible);
 const titleBarVisible = computed(() => layoutStore.titleBarVisible);
 const titleBarAtBottom = computed(() => layoutStore.titleBarAtBottom);

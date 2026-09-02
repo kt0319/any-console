@@ -30,12 +30,15 @@ const { close } = useSessionListOverlay();
 const modalEl = ref<HTMLElement | null>(null);
 const panelRef = ref<InstanceType<typeof SessionListPanel> | null>(null);
 
-// isSessionSidebarOpen（ハンバーガーで開閉）かつモバイルの時だけ、
+// isSessionSidebarOpen（ハンバーガーで開閉）かつ画面が狭い時だけ、
 // フォーカストラップ・Escハンドリング付きのオーバーレイとして開閉する。
+// サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
+// 判定する——タブバー位置の設定（isPanelBottom）とは独立（Wide画面でタブを
+// Bottomに設定していても、幅があるならインラインサイドバーを使う）。
 // PCはSessionSidebar.vue側が同じisSessionSidebarOpenを見て自身のサイドバー
 // を開くだけで、このオーバーレイ自体は使わない。
 watch(
-  () => layoutStore.isSessionSidebarOpen && layoutStore.isPanelBottom,
+  () => layoutStore.isSessionSidebarOpen && layoutStore.isNarrowViewport,
   (shouldShow) => {
     if (shouldShow) {
       modal.open(() => modalEl.value, close);
@@ -68,10 +71,10 @@ watch(
 
 /* セッションタブがボトム配置（Settings > Display）の時だけヘッダーが下部
    （ボトムシート風）に来る。閉じるボタンはSessionListPanel.vue自身の
-   ヘッダー（左端）にPC/モバイル共通で出す。このコンポーネント自体は
-   isPanelBottomの時だけ開くモバイル専用オーバーレイ（上のwatch参照）だが、
-   画面幅ではなく実際のタブ位置設定に連動させることで、折りたたみ機等の
-   画面幅とタブ位置設定が一致しないケースでも崩れないようにする。 */
+   ヘッダー（左端）にPC/モバイル共通で出す。このコンポーネント自体は画面が
+   狭い時だけ開くオーバーレイ（isNarrowViewport、上のwatch参照）だが、
+   ヘッダー位置自体は画面幅ではなく実際のタブ位置設定（isPanelBottom）に
+   連動させることで、タブ位置とヘッダー位置の見た目を常に揃える。 */
 :deep(.settings-panel-header) {
   border-bottom: 1px solid var(--border);
   border-top: none;

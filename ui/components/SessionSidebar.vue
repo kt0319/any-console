@@ -24,7 +24,10 @@ import SessionListPanel from "./SessionListPanel.vue";
 const layoutStore = useLayoutStore();
 const { close } = useSessionListOverlay();
 
-const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isPanelBottom);
+// サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
+// 判定する——タブバー位置の設定（isPanelBottom）とは独立（Wide画面でタブを
+// Bottomに設定していても、幅があるならこちらを使う。Modal.vue参照）。
+const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isNarrowViewport);
 
 // Esc で閉じる（モバイルはModal.vue側のuseModalが同様のEscハンドリングを持つ）。
 function onKeydown(e: KeyboardEvent) {
