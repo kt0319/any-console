@@ -1,20 +1,14 @@
 <template>
   <li class="session-sidebar-li" :class="rowStateClasses">
-    <button
-      type="button"
-      class="session-sidebar-item hover-bg"
-      :class="rowStateClasses"
-      :aria-current="active ? 'true' : undefined"
-      @click="emits('select')"
-    >
-      <SessionRowContent :item="item" />
-    </button>
-    <span
-      ref="pillsRowEl"
-      class="session-sidebar-pills-row"
-      :class="rowStateClasses"
-      @click="emits('select')"
-    >
+    <span ref="row1El" class="session-sidebar-row1" :class="rowStateClasses" @click="emits('select')">
+      <button
+        type="button"
+        class="session-sidebar-item"
+        :aria-current="active ? 'true' : undefined"
+      >
+        <SessionRowContent :item="item" />
+      </button>
+      <span class="session-sidebar-pills-row">
       <Transition name="pill-fade" mode="out-in">
         <PillPeek
           v-if="peekingKey"
@@ -66,6 +60,10 @@
         data-tooltip="Close tab"
         @click.stop="emits('closeTab')"
       ><span class="mdi mdi-close"></span></button>
+      </span>
+    </span>
+    <span v-if="item.branch || item.agent" class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
+      <SessionRowMeta :item="item" />
     </span>
   </li>
 </template>
@@ -73,6 +71,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import SessionRowContent from "./SessionRowContent.vue";
+import SessionRowMeta from "./SessionRowMeta.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { usePeekPills } from "../composables/usePeekPills.ts";
@@ -101,10 +100,13 @@ const rowStateClasses = computed(() => ({
   "session-phrase-notify": !!props.item.phraseNotify,
 }));
 
-// TerminalPane.vue（trailingMaxWidth）と同じ考え方: 閉じるボタン＋余白ぶんを
+// TerminalPane.vue（trailingMaxWidth）と同じ考え方: 行1（.session-sidebar-row1、
+// 常に行全体の実幅を持つ安定した基準）から閉じるボタン＋余白ぶんを
 // 差し引いた残りをpeekピル/InfoPillRowの上限幅にする。
-const pillsRowEl = ref<HTMLElement | null>(null);
-const { maxWidth: pillsMaxWidth } = useElementMaxWidth(pillsRowEl, SIDEBAR_PILL_ROW_RESERVED_PX);
+// pills-row自身（中身に応じて伸縮する）を基準にすると、maxWidthで中身が
+// 決まり中身でmaxWidthが決まる循環参照になり0に収束してしまうため使わない。
+const row1El = ref<HTMLElement | null>(null);
+const { maxWidth: pillsMaxWidth } = useElementMaxWidth(row1El, SIDEBAR_PILL_ROW_RESERVED_PX);
 
 const peekFields = computed(() => ({
   workspaceLabel: props.item.tab.workspace || props.item.tab.label || "",

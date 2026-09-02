@@ -12,31 +12,54 @@
   position: relative;
 }
 
-/* ピル行 + 閉じるボタンのコンテナ。activeタブの背景・左ボーダーは
-   .session-sidebar-item.active と揃え、行全体が一体に見えるようにする
-   （ボタン部分だけがアクティブ色になっていると分断して見えるため）。
-   非activeの時は.session-sidebar-item側の既定（transparent、hover/active時のみ
-   var(--bg-tertiary)）と揃え透明にする（常時色を敷くと、上の本体行との間に
-   境目が見えてしまうため）。ピル自体（.pill-chip）は個別に地色を持つ。 */
-.session-sidebar-pills-row {
+/* 行1（アイコン・ワークスペース名 + インフォピル）・行2（ブランチ名・
+   ステータス）は見た目上ひとつのクリック可能な行として振る舞う。背景・
+   アクティブ色・左ボーダーはここ（各行のラッパー）に統一して持たせ、中の
+   .session-sidebar-item（ボタン）・.session-sidebar-pills-rowは透過にする
+   （個別に色を持たせると2行の間で分断して見えるため）。 */
+.session-sidebar-row1,
+.session-sidebar-row2 {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 12px 8px 12px;
+  width: 100%;
   border-left: 3px solid transparent;
   background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
-.session-sidebar-pills-row.active {
+.session-sidebar-row1 {
+  min-height: 44px;
+  padding: 4px 12px 0;
+}
+
+.session-sidebar-row2 {
+  padding: 0 12px 8px;
+}
+
+.session-sidebar-row1:active,
+.session-sidebar-row2:active {
+  background: var(--bg-tertiary);
+}
+
+.session-sidebar-row1.active,
+.session-sidebar-row2.active {
   background: var(--accent-bg-12);
   border-left-color: var(--accent);
 }
 
-/* TerminalPaneのピル行と同じ見た目（ui/styles/info-pills.css）を土台に、
-   サイドバー内では行の右端に寄せる。ピル自体の背景（.pill-chip既定は
-   ターミナル背景越しに見える前提の半透明ダーク）はサイドバーの地色
-   （--bg-secondary）に対して浮いて見えるため、サイドバー用に上書きする。 */
+.session-sidebar-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* TerminalPaneのピル行と同じ見た目（ui/styles/info-pills.css）を土台にする。
+   ピル自体の背景（.pill-chip既定はターミナル背景越しに見える前提の半透明
+   ダーク）はサイドバーの地色（--bg-secondary）に対して浮いて見えるため、
+   サイドバー用に上書きする。 */
 .session-sidebar-pills {
   display: flex;
   flex: 1;
@@ -74,54 +97,46 @@
   margin-left: auto;
 }
 
+/* ボタン自体は行1ラッパー（.session-sidebar-row1）の中で中身（アイコン・
+   ワークスペース名）ぶんだけ幅を持つ内側要素。背景・左ボーダー・アクティブ色は
+   .session-sidebar-row1側が持つため、ここでは持たない（二重に色が付くのを
+   避けるため）。 */
 .session-sidebar-item {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  width: 100%;
-  min-height: 44px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  padding: 8px 12px;
+  padding: 0;
   border: none;
-  border-left: 3px solid transparent;
-  border-radius: 0;
   background: transparent;
-  color: var(--text-secondary);
+  color: inherit;
   font-size: 14px;
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.session-sidebar-item:active {
-  background: var(--bg-tertiary);
-}
-
-/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブ行は
+/* 通常ホバーは行1/行2ラッパー自身にvar(--bg-tertiary)を敷く。アクティブ行は
    ホバーでもアクティブ強調色を維持する。 */
 @media (hover: hover) and (pointer: fine) {
-  .session-sidebar-item.active:hover {
+  .session-sidebar-row1.active:hover,
+  .session-sidebar-row2.active:hover {
     background: var(--accent-bg-12);
   }
 
-  /* ピル行（.session-sidebar-pills-row）はボタンではなく独立した兄弟要素の
-     ため、その上をホバーしても本体行（.session-sidebar-item）のhover-bgは
-     効かない。行全体（li）を1つのホバー対象として扱い、ピル行の上にいる時も
-     本体行と同じ背景で連動させる（分断して見えないようにするため）。 */
-  .session-sidebar-li:hover .session-sidebar-item:not(.active) {
-    background: var(--bg-tertiary);
-  }
-
-  .session-sidebar-li:hover .session-sidebar-pills-row:not(.active) {
+  /* 行1・行2はボタンではなく独立した兄弟要素のため、片方をホバーしても
+     もう片方のhover-bgは効かない。行全体（li）を1つのホバー対象として扱い、
+     どちらの行の上にいても両方が同じ背景で連動するようにする（分断して
+     見えないようにするため）。 */
+  .session-sidebar-li:hover .session-sidebar-row1:not(.active),
+  .session-sidebar-li:hover .session-sidebar-row2:not(.active) {
     background: var(--bg-tertiary);
   }
 }
 
-.session-sidebar-item.active {
+.session-sidebar-row1.active .session-sidebar-item {
   color: var(--text-primary);
-  background: var(--accent-bg-12);
-  border-left-color: var(--accent);
 }
 
 /* working（出力中）・blocked/phrase通知は、行全体ではなく左3pxのアクティブ

@@ -22,26 +22,31 @@
       <template v-if="pendingDispatchWorkspaces.length > 0">
         <ul class="session-sidebar-list session-sidebar-list-pending">
         <li v-for="p in pendingDispatchWorkspaces" :key="p.workspace" class="session-sidebar-li">
-          <button type="button" class="session-sidebar-item hover-bg" @click="onOpenPendingDispatch(p)">
-            <SessionRowContent :item="p" dim />
-          </button>
-          <span class="session-sidebar-pills-row">
-            <InfoPillRow
-              class="session-sidebar-pills"
-              :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
-              :max-width="PILL_MAX_WIDTH_UNLIMITED_PX"
-              :is-git-repo="p.isGitRepo"
-              :is-worktree="p.isWorktree"
-              :is-dirty="p.dirty"
-              :ahead="p.ahead"
-              :behind="p.behind"
-              :has-pr="p.hasPr"
-              :has-action="p.hasAction"
-              :has-dev-server="p.hasDevServer"
-              :dispatch-count="p.dispatchCount"
-              :tooltips="p.tooltips"
-              @open="onPendingPillOpen(p, $event)"
-            />
+          <span class="session-sidebar-row1" @click="onOpenPendingDispatch(p)">
+            <button type="button" class="session-sidebar-item">
+              <SessionRowContent :item="p" dim />
+            </button>
+            <span class="session-sidebar-pills-row">
+              <InfoPillRow
+                class="session-sidebar-pills"
+                :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
+                :max-width="PILL_MAX_WIDTH_UNLIMITED_PX"
+                :is-git-repo="p.isGitRepo"
+                :is-worktree="p.isWorktree"
+                :is-dirty="p.dirty"
+                :ahead="p.ahead"
+                :behind="p.behind"
+                :has-pr="p.hasPr"
+                :has-action="p.hasAction"
+                :has-dev-server="p.hasDevServer"
+                :dispatch-count="p.dispatchCount"
+                :tooltips="p.tooltips"
+                @open="onPendingPillOpen(p, $event)"
+              />
+            </span>
+          </span>
+          <span v-if="p.branch || p.agent" class="session-sidebar-row2" @click="onOpenPendingDispatch(p)">
+            <SessionRowMeta :item="p" />
           </span>
         </li>
         </ul>
@@ -64,6 +69,7 @@ import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
+import SessionRowMeta from "./SessionRowMeta.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.ts";
 import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
