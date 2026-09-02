@@ -64,6 +64,9 @@
         </label>
       </div>
     </div>
+    <div class="display-settings-actions">
+      <button type="button" class="display-settings-reset-btn" @click="resetAll">Reset to defaults</button>
+    </div>
   </div>
 </template>
 
@@ -71,6 +74,7 @@
 import { onMounted } from "vue";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.ts";
 import { useLayoutPrefs } from "../composables/useLayoutPrefs.ts";
+import { DEFAULT_LAYOUT_PREFS } from "../utils/layout-prefs.ts";
 import { DEBUG_LEVELS, MOBILE_BREAKPOINT_PX } from "../utils/constants.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
@@ -84,6 +88,12 @@ function toggleLevel(level: string) {
   if (next.has(level)) next.delete(level);
   else next.add(level);
   debugLevels.value = next;
+}
+
+function resetAll() {
+  layoutPrefs.value = { ...DEFAULT_LAYOUT_PREFS };
+  debugMode.value = false;
+  debugLevels.value = new Set(DEBUG_LEVELS);
 }
 
 onMounted(() => { modalTitle!.value = "Display"; });
@@ -146,5 +156,15 @@ onMounted(() => { modalTitle!.value = "Display"; });
 .display-settings-disabled {
   opacity: 0.4;
   pointer-events: none;
+}
+
+.display-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.display-settings-reset-btn {
+  min-height: 40px;
 }
 </style>
