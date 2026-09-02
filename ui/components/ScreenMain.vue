@@ -398,7 +398,8 @@ defineExpose({
    常に最後尾（画面最下部）に来るようにする。 */
 .active-tab-title.title-bar-at-bottom {
   order: 100;
-  border: none;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
   padding: 0 12px;
   padding-bottom: env(safe-area-inset-bottom);
 }
