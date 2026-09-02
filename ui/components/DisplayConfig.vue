@@ -52,7 +52,7 @@
       <input type="checkbox" v-model="debugMode" />
       <div class="settings-toggle-copy">
         <span class="settings-item-label">Debug mode</span>
-        <span class="settings-note">Show real-time logs (WS / API / events) in the title bar instead of the tab title.</span>
+        <span class="settings-note">Show real-time logs (WS / API / events) in the title bar instead of the tab title. Requires the title bar to be enabled above (has no effect if set to Off).</span>
       </div>
     </label>
     <div class="settings-item" :class="{ 'display-settings-disabled': !debugMode }">
