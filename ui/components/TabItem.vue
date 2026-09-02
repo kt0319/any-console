@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn hover-bg"
-    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-blocked': agentState === 'blocked', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-blocked': agentState === 'blocked', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-narrow': isNarrow, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
     :aria-label="tabAriaLabel"
@@ -52,7 +52,11 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 const props = defineProps({
   tab: { type: Object as PropType<TerminalTab>, required: true },
   activeTabId: { type: Number as PropType<number | null>, default: null },
+  // アンダーラインの向き等、タブバーの位置（上/下）に応じた見た目に使う。
   isPanelBottom: { type: Boolean, default: false },
+  // ラベル表示可否等、タブ自体の幅広/幅狭に使う。isPanelBottomとは独立
+  // （実際の画面幅で決まる。TabBar.vue参照）。
+  isNarrow: { type: Boolean, default: false },
 });
 
 const emits = defineEmits(["select"]);
@@ -276,7 +280,7 @@ function onClosePress() {
   flex-shrink: 0;
 }
 
-.tab-panel-bottom { justify-content: center; }
+.tab-narrow { justify-content: center; }
 
 .tab-icon-slot {
   display: inline-flex;
@@ -295,8 +299,8 @@ function onClosePress() {
   line-height: 1;
 }
 
-/* モバイル(パネル下部)はアイコンのみ表示にするため、ラベルは常に畳む。 */
-.tab-btn.tab-panel-bottom .tab-extra {
+/* 画面が狭い時はアイコンのみ表示にするため、ラベルは常に畳む。 */
+.tab-btn.tab-narrow .tab-extra {
   max-width: 0;
   margin-left: -6px;
   opacity: 0;
@@ -326,7 +330,7 @@ function onClosePress() {
   -webkit-touch-callout: none;
 }
 
-.tab-btn.tab-panel-bottom :deep(.favicon-icon) {
+.tab-btn.tab-narrow :deep(.favicon-icon) {
   width: 20px;
   height: 20px;
 }

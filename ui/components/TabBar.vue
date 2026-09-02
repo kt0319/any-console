@@ -1,13 +1,17 @@
 <template>
   <div
     class="tab-bar-row"
-    :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isPanelBottom }"
+    :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isNarrowViewport }"
   >
-    <!-- PCはサイドバー（SessionListPanel.vue）のタイトル行右端に専用の閉じる
-         ボタンがあるため、サイドバーが開いている間はこのボタン自体を隠し
-         タブだけにする。モバイルはこのボタンだけが開閉の手段のため常に出す。 -->
+    <!-- PC（インラインサイドバー、SessionSidebar.vue参照）はサイドバー
+         （SessionListPanel.vue）のタイトル行右端に専用の閉じるボタンがある
+         ため、サイドバーが開いている間はこのボタン自体を隠しタブだけにする。
+         モバイル（Modal.vueの全面オーバーレイ）はこのボタンだけが開閉の
+         手段のため常に出す。インラインサイドバーになるかどうかは実際の
+         画面幅（isNarrowViewport）で決まる——タブ位置設定（isPanelBottom）
+         とは独立（SessionSidebar.vue/Modal.vue参照）。 -->
     <button
-      v-if="isPanelBottom || !isSidebarOpen"
+      v-if="isNarrowViewport || !isSidebarOpen"
       class="tab-menu-btn hover-bg"
       :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
       @click="onMenuClick"
@@ -15,7 +19,7 @@
       :aria-expanded="isSidebarOpen ? 'true' : 'false'"
       :data-tooltip="sidebarToggleLabel"
     >
-      <span :class="['mdi', isSidebarOpen && isPanelBottom ? 'mdi-close' : 'mdi-menu']"></span>
+      <span :class="['mdi', isSidebarOpen && isNarrowViewport ? 'mdi-close' : 'mdi-menu']"></span>
     </button>
     <div
       ref="tabListEl"
@@ -31,6 +35,7 @@
           :tab="item.tab"
           :active-tab-id="activeTabId"
           :is-panel-bottom="isPanelBottom"
+          :is-narrow="isNarrowViewport"
           @select="onSelect"
         />
       </div>
@@ -83,6 +88,10 @@ const props = defineProps({
 const tabListEl = ref<HTMLElement | null>(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+// サイドバーのインライン/全面オーバーレイ切替と同じ基準（SessionSidebar.vue/
+// Modal.vue参照）。タブ自体の幅広/幅狭（TabItem.vueのラベル表示可否）にも
+// これを使う——タブ位置設定（isPanelBottom）ではなく実際の画面幅で決まる。
+const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Close session list" : "Open session list"));
 const sortedItems = computed(() => {
