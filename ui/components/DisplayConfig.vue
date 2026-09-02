@@ -9,6 +9,7 @@
       </div>
       <div class="display-settings-radio-row">
         <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowTitleBar" /> Show title bar</label>
       </div>
     </div>
     <div class="settings-item">
@@ -20,6 +21,7 @@
       </div>
       <div class="display-settings-radio-row">
         <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
+        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideTitleBar" /> Show title bar</label>
       </div>
     </div>
     <label class="settings-item settings-toggle">

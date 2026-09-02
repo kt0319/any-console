@@ -10,16 +10,20 @@ export interface LayoutPrefs {
   wideTabPosition: TabPosition;
   narrowKeyboardBar: boolean;
   wideKeyboardBar: boolean;
+  narrowTitleBar: boolean;
+  wideTitleBar: boolean;
 }
 
-// 現状の自動判定（MOBILE_BREAKPOINT_PXを境に下タブ+Keyboard bar表示 / 上タブ+
-// Keyboard bar非表示）と一致させる。設定を一度も変更していないユーザーには
-// 挙動の変化が無いようにするため。
+// 現状の自動判定（MOBILE_BREAKPOINT_PXを境に下タブ+Keyboard bar表示+タイトル
+// バー表示 / 上タブ+Keyboard bar非表示+タイトルバー非表示）と一致させる。
+// 設定を一度も変更していないユーザーには挙動の変化が無いようにするため。
 export const DEFAULT_LAYOUT_PREFS: LayoutPrefs = {
   narrowTabPosition: "bottom",
   wideTabPosition: "top",
   narrowKeyboardBar: true,
   wideKeyboardBar: false,
+  narrowTitleBar: true,
+  wideTitleBar: false,
 };
 
 function normalizeTabPosition(value: unknown, fallback: TabPosition): TabPosition {
@@ -39,6 +43,8 @@ export function normalizeLayoutPrefs(raw: unknown): LayoutPrefs {
     wideTabPosition: normalizeTabPosition(r.wideTabPosition, DEFAULT_LAYOUT_PREFS.wideTabPosition),
     narrowKeyboardBar: normalizeBoolean(r.narrowKeyboardBar, DEFAULT_LAYOUT_PREFS.narrowKeyboardBar),
     wideKeyboardBar: normalizeBoolean(r.wideKeyboardBar, DEFAULT_LAYOUT_PREFS.wideKeyboardBar),
+    narrowTitleBar: normalizeBoolean(r.narrowTitleBar, DEFAULT_LAYOUT_PREFS.narrowTitleBar),
+    wideTitleBar: normalizeBoolean(r.wideTitleBar, DEFAULT_LAYOUT_PREFS.wideTitleBar),
   };
 }
 
@@ -48,4 +54,8 @@ export function resolveTabPosition(prefs: LayoutPrefs, isNarrow: boolean): TabPo
 
 export function resolveKeyboardBarVisible(prefs: LayoutPrefs, isNarrow: boolean): boolean {
   return isNarrow ? prefs.narrowKeyboardBar : prefs.wideKeyboardBar;
+}
+
+export function resolveTitleBarVisible(prefs: LayoutPrefs, isNarrow: boolean): boolean {
+  return isNarrow ? prefs.narrowTitleBar : prefs.wideTitleBar;
 }

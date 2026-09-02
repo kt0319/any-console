@@ -7,7 +7,7 @@
          サイドバーのヘッダーの間に無駄な空白ができてしまう（モバイルの
          Modal.vueは全面オーバーレイのままで問題ないため対象外）。 -->
     <SessionSidebar />
-    <div class="active-tab-title">
+    <div class="active-tab-title" v-show="titleBarVisible">
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
@@ -150,6 +150,7 @@ const debugInfo = computed(() => {
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible);
+const titleBarVisible = computed(() => layoutStore.titleBarVisible);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
@@ -273,7 +274,10 @@ defineExpose({
 }
 
 .active-tab-title {
-  display: none;
+  /* 表示/非表示自体はv-show（titleBarVisible、Settings > Displayの狭い/広い
+     設定）がインラインstyleで制御する。ここはflexで表示された時のレイアウト
+     のみ定義する。 */
+  display: flex;
   flex-shrink: 0;
   align-items: flex-end;
   justify-content: center;
@@ -375,12 +379,12 @@ defineExpose({
   order: 0;
 }
 
-/* セッションタブがボトム配置の時だけ表示する。ボトム配置ではTabItem.vueが
-   タブのラベルを畳んでアイコンのみにするため（タップターゲット確保のため）、
-   現在どのタブを見ているかをここで補う。トップ配置ではタブバー自体に
-   ラベルが出るため不要。 */
+/* タブバーがボトム配置の時のレイアウト（順序・余白）。表示/非表示自体は
+   titleBarVisible（Settings > Display）がv-showで制御するため、ここには
+   displayを含めない。ボトム配置ではTabItem.vueがタブのラベルを畳んで
+   アイコンのみにするため（タップターゲット確保のため）、タイトルバーで
+   現在のタブ名を補う用途を想定した既定値になっている。 */
 .main-panel.panel-bottom .active-tab-title {
-  display: flex;
   order: 3;
   border: none;
   padding: 0 12px;

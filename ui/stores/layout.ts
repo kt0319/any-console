@@ -5,7 +5,7 @@ import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-p
 import { buildPanesWithTabAt, cornerToGridIndex, resolveExitRestoreTab, soleRemainingTab } from "../utils/split-panes.ts";
 import { isTouchInput } from "../utils/device.ts";
 import { safeFlagLoad, safeFlagSave } from "../utils/storage.ts";
-import { resolveTabPosition, resolveKeyboardBarVisible } from "../utils/layout-prefs.ts";
+import { resolveTabPosition, resolveKeyboardBarVisible, resolveTitleBarVisible } from "../utils/layout-prefs.ts";
 import { useLayoutPrefs } from "../composables/useLayoutPrefs.ts";
 import { useTerminalStore } from "./terminal.ts";
 import type { TerminalTab } from "./terminal.ts";
@@ -29,6 +29,7 @@ export const useLayoutStore = defineStore("layout", () => {
     set: (v) => { isNarrowViewport.value = v; },
   });
   const keyboardBarVisible = computed(() => resolveKeyboardBarVisible(layoutPrefs.value, isNarrowViewport.value));
+  const titleBarVisible = computed(() => resolveTitleBarVisible(layoutPrefs.value, isNarrowViewport.value));
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
     || (navigator as any).standalone === true;
 
@@ -223,6 +224,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isPanelBottom,
     isNarrowViewport,
     keyboardBarVisible,
+    titleBarVisible,
     isTouchDevice,
     isPwa,
     isSettingsOpen,
