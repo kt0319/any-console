@@ -116,6 +116,7 @@ import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/git
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.ts";
 import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
+import { getLastPointerType } from "../utils/pointer-type.ts";
 
 const props = defineProps({
   tab: { type: Object as PropType<TerminalTab>, required: true },
@@ -415,17 +416,18 @@ function onWheel(e: WheelEvent) {
 // term.open() 後に xterm フォーカスポリシーを注入する。
 // タップ（touch）ではOSキーボードを開かせず、クリック（mouse/pen等）では
 // 通常通りフォーカスしてOSキーボード/物理キーボード入力を許可する。
-// 直前のpointerdownのpointerTypeで判定する（isPanelBottom等のレイアウト設定には依存しない）。
+// アプリ全体で最後に観測したpointerType（getLastPointerType）で判定する
+// （isPanelBottom等のレイアウト設定には依存しない）。ターミナル要素自体への
+// pointerdownだけを見ると、確認ダイアログのボタンをタップして閉じた直後の
+// タブ切替えのようにターミナル要素自身は何もイベントを受けていないfocus()
+// 呼び出しを判定できない（既定値のままフォーカスを許可してしまいiOSで
+// キーボードが開く）ため、アプリ全体を対象にする。
 function applyFocusGuard(term: Terminal | null | undefined) {
   const textarea = term?.textarea;
   if (!term || !textarea) return;
-  let lastPointerType = "mouse";
-  term.element?.addEventListener("pointerdown", (e: PointerEvent) => {
-    lastPointerType = e.pointerType;
-  }, { capture: true });
   textarea.tabIndex = -1;
   textarea.addEventListener("focus", () => {
-    if (lastPointerType === "touch") textarea.blur();
+    if (getLastPointerType() === "touch") textarea.blur();
   });
 }
 
