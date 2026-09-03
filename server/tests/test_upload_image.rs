@@ -2,8 +2,8 @@
 //!
 //! クリップボード書き込み（osascript/xclip 呼び出し）はサンドボックスに無いため
 //! 実行されない・例外にもならないことを、`clipboard: false` の応答で確認する。
-//! ファイル自体は Python 版と同じ実パス（`/tmp/any-console-uploads`）に書かれる
-//! ため、テストは自分が作ったファイルを後始末する。
+//! ファイルは実運用と同じパス（`/tmp/any-console-uploads`）に書かれるため、
+//! テストは自分が作ったファイルを後始末する。
 
 mod common;
 
@@ -147,7 +147,7 @@ async fn upload_image_missing_file_field_is_bad_request() {
         .send()
         .await
         .unwrap();
-    // Python 版（FastAPI の必須 UploadFile）と同じく 422（git_files 側とも一致）。
+    // 422（git_files 側の必須ファイルフィールド未指定と同じ扱い）。
     assert_eq!(resp.status(), 422);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["detail"], "file field required");

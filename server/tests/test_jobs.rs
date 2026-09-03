@@ -271,9 +271,8 @@ async fn list_all_workspace_jobs_inherits_base_jobs_for_worktree() {
 }
 
 /// 並行ジョブ作成が全件残ること（lost update しないこと）を検証する回帰テスト
-/// （Codex レビュー指摘: load→mutate→save が分離していると後勝ちの書き込みが
-/// 先勝ちの新規ジョブを消してしまう）。共通ジョブ・ワークスペースジョブの
-/// 両方で確認する。
+/// （load→mutate→save が分離していると後勝ちの書き込みが先勝ちの新規ジョブを
+/// 消してしまう）。共通ジョブ・ワークスペースジョブの両方で確認する。
 #[tokio::test]
 async fn concurrent_job_creation_does_not_lose_updates() {
     let front = spawn_front().await;
@@ -356,7 +355,7 @@ async fn recent_jobs_roundtrip_and_prune() {
     assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["recent_jobs"].as_array().unwrap().len(), 3);
-    // Python model_dump と同じく全フィールドを返す
+    // 全フィールドを返す
     assert_eq!(body["recent_jobs"][0]["jobName"], job_name);
     assert_eq!(body["recent_jobs"][0]["pinned"], true);
 

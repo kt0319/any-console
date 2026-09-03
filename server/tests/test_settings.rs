@@ -336,7 +336,6 @@ async fn export_health_and_import() {
     .error_for_status()
     .unwrap();
     // export の読み込みがバージョンマイグレーション（v0 → v4 刻印）を起こす
-    // （Python も同じ: config_version は読み込み時に刻印される）
     let exported = get_json(&front, "/settings/export").await;
     assert_eq!(exported["__global__"]["editor"]["url_template"], "e://x");
     let health = get_json(&front, "/settings/config-health").await;

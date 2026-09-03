@@ -137,8 +137,7 @@ async fn subscriber_receives_broadcasts_and_disconnect_drops_count() {
         "statuses": [{"name": "proj", "branch": "main"}],
     }));
 
-    // 接続直後は dispatch の初期同期スナップショット（空でも送られる）が先に
-    // 届きうるため、type=="statuses" が来るまで読み飛ばす。
+    // dispatch の初期同期スナップショットが先着しうるため type=="statuses" まで読み飛ばす。
     let parsed =
         recv_json_until(&mut ws, Duration::from_secs(5), |v| v["type"] == "statuses").await;
     assert_eq!(
@@ -150,8 +149,8 @@ async fn subscriber_receives_broadcasts_and_disconnect_drops_count() {
     assert!(wait_for(|| front.state.status_stream.subscriber_count() == 0).await);
 }
 
-/// 接続すると、既存の pending dispatch がある場合 Python `dispatch.subscribe`
-/// と同じく現在のキュー全量を即座に受け取ること（承認待ちを見逃さない）。
+/// 接続すると、既存の pending dispatch があれば現在のキュー全量を即座に
+/// 受け取ること（承認待ちを見逃さない）。
 #[tokio::test]
 async fn connecting_receives_current_dispatch_queue_snapshot() {
     let front = spawn_front().await;
@@ -262,8 +261,7 @@ async fn connecting_starts_git_watch_and_detects_real_fs_changes() {
 /// 接続 → agent_watch のタスク起動（`ensure_tasks`）→ 実 tmux セッションの状態
 /// ポーリング → `agent_states` 配信、という一連が実際に end-to-end で動くことを
 /// 検証する。`TerminalRegistry` に未登録のセッションも tmux 環境変数だけから
-/// 拾えることも合わせて確認する（Python `agent_watch` の cache-miss フォールバック
-/// 設計と同じ）。
+/// 拾えることも合わせて確認する（cache-miss フォールバック）。
 #[tokio::test]
 async fn connecting_starts_agent_watch_and_reports_real_tmux_session() {
     if common::skip_if_no_tmux() {

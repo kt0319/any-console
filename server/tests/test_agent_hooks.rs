@@ -117,13 +117,10 @@ async fn unrecognized_event_is_not_an_error_but_not_recognized() {
     assert!(hook_state(&front.state, "s1").is_none());
 }
 
-/// `scripts/claude-code-hook.sh` の実体を子プロセスとして実行し、実サーバへ
-/// 実際に届いてstateが更新されることを検証する。`reqwest`でハンドラを直叩き
-/// する他のテストと違い、スクリプト自体のクオート処理・環境変数名・payload
-/// 組み立て（sed抽出等）にリグレッションが無いことを担保する（過去の
-/// hooks-setupクオート不具合・release tarballへのscripts/同梱漏れの再発防止）。
-/// スクリプトは curl をバックグラウンドサブシェルで起動して即0終了するため、
-/// 送信完了は `wait_for` でポーリングする。
+/// `claude-code-hook.sh` を子プロセス実行し、スクリプトのクオート処理・
+/// payload組み立てにリグレッションが無いことを検証する（reqwest直叩きでは
+/// 担保できない範囲）。curlはバックグラウンドサブシェルで起動し即0終了する
+/// ため、送信完了は `wait_for` でポーリングする。
 async fn wait_for(cond: impl Fn() -> bool) -> bool {
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
     while tokio::time::Instant::now() < deadline {

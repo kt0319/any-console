@@ -63,7 +63,6 @@ async fn system_info_served_natively() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
-    // 必須キー（Python 実装と同じ）
     assert!(body["hostname"].is_string());
     assert!(body["user"].is_string());
     assert!(body["install_dir"].is_string());

@@ -1,11 +1,11 @@
 //! `/auth/pairing/*` の統合テスト。
 //!
 //! これらのルートはまだ `build_router` に配線されていない（`/devices/*`・
-//! `/auth/check`・`/auth/logout` と同時に配線する — devices.json への書き込みが
-//! Python/Rust 両方から起きる split-brain を避けるための atomic cutover 設計判断。
-//! `server/src/pairing.rs` の module doc 参照）ため、テスト専用の Router を直接
-//! 組み立てる。サンドボックスに `tailscale` バイナリは無い前提のため、MagicDNS
-//! による URL 組み立て分岐は必ずスキップされ、netloc フォールバックへ落ちる。
+//! `/auth/check`・`/auth/logout` と同時に配線する設計判断 — 詳細は
+//! `server/src/pairing.rs` の module doc 参照）ため、テスト専用の Router を
+//! 直接組み立てる。サンドボックスに `tailscale` バイナリは無い前提のため、
+//! MagicDNS による URL 組み立て分岐は必ずスキップされ、netloc フォールバック
+//! へ落ちる。
 
 mod common;
 

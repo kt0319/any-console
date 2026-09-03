@@ -155,12 +155,10 @@ async fn pull_reports_commit_count_and_messages_for_fast_forward() {
     assert!(messages.contains(&json!("second commit")));
 }
 
-/// auto_fetch_loop（git_watch.rs）のバックグラウンドfetchが、ユーザーが
-/// pullボタンを押す前に既にupstream参照（@{u}）を最新化しているケースの
-/// regression。before_upstream..after_upstreamで数えると差分が0になり
-/// 「Already up to date」と誤表示していた（修正前のバグ）。before_hashを
-/// 起点に数えることで、fetchのタイミングに依らず正しく報告できることを
-/// 検証する。
+/// auto_fetch_loop のバックグラウンドfetchがpull前にupstream参照(@{u})を
+/// 先に最新化していると、before_upstream..after_upstreamでは差分0になり
+/// 「Already up to date」と誤表示していた（修正前バグ）。before_hash起点で
+/// 数えることでfetchタイミングに依らず正しく報告できることを検証する。
 #[tokio::test]
 async fn pull_reports_commits_even_when_upstream_was_already_fetched_in_background() {
     let front = spawn_front_with_remote().await;

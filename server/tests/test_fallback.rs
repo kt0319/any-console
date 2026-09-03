@@ -1,8 +1,7 @@
 //! フォールバックハンドラ（`fallback::handle`）の統合テスト。
 //!
-//! ストラングラー移行は完了し、Python が提供していた全ルートが Rust ネイティブへ
-//! 移行済みのため、ここでは Python upstream を一切起動せずに検証する
-//! （静的ファイル配信・未知パスのネイティブ 404・セキュリティヘッダ・
+//! 全ルートが Rust ネイティブ実装のため、ここでは upstream を一切起動せずに
+//! 検証する（静的ファイル配信・未知パスのネイティブ 404・セキュリティヘッダ・
 //! レート制限がいずれも upstream 無しで正しく動くことの確認）。
 
 mod common;
@@ -69,9 +68,9 @@ async fn unknown_path_returns_native_404_with_detail() {
     assert_eq!(body["detail"], "Not Found");
 }
 
-/// `/internal/*`（旧 migration_bridge.py 専用の内部ブリッジパス）は
-/// もう存在しない routers を指すが、他の未知パスと同様にネイティブ 404 になる
-/// ことを確認する（外部から到達しても何の内部操作も起動しない）。
+/// `/internal/*` はもう存在しない内部ブリッジ用パスだが、他の未知パスと
+/// 同様にネイティブ 404 になることを確認する（外部から到達しても何の内部
+/// 操作も起動しない）。
 #[tokio::test]
 async fn internal_prefixed_paths_are_not_special_cased_and_404() {
     let front = spawn_front(1000).await;

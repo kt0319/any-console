@@ -62,10 +62,6 @@ async fn preview_ports_requires_auth() {
 #[tokio::test]
 async fn preview_ports_served_natively_and_triggers_scan() {
     let front = spawn_front().await;
-    // 実 ss/lsof の結果は環境依存（この sandbox には ss が無い）ため中身までは
-    // 検証しないが、配線・認証・アクセス時スキャン起動・レスポンス形（配列）を
-    // 検証する。スキャン自体のパース・フィルタロジックは preview.rs の単体
-    // テストで実際の出力フィクスチャを使って検証済み。
     let resp = common::client()
         .get(format!("http://{}/preview/ports", front.addr))
         .bearer_auth(TOKEN)

@@ -83,7 +83,7 @@ fn config_set_ssl_and_get_roundtrip() {
         stdout(&run(dir.path(), &["config", "get", "ssl_keyfile"])),
         "/tmp/key.pem"
     );
-    // 未設定キーは空文字（旧python版と同じ挙動）。
+    // 未設定キーは空文字を返す。
     assert_eq!(stdout(&run(dir.path(), &["config", "get", "nope"])), "");
 }
 
