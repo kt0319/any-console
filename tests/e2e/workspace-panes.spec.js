@@ -266,10 +266,7 @@ test.describe("workspace detail panes", () => {
     await page.locator(".diff-actions button", { hasText: "Stash" }).click();
     await expect(page.locator(".toast", { hasText: "Saved" })).toBeVisible({ timeout: 10_000 });
 
-    // カウント類を読み直すため詳細を開き直すと、ChangesタブにStashトグルが現れる
-    // （StashesはChangesタブへ統合済み。旧: 独立タブ）。
-    // openDetail自体がpage.goto()でフルリロードするため、WorkspaceDetail
-    // オーバーレイ（Settingsとは独立）を明示的に閉じる手順は不要。
+    // 開き直すとChangesタブにStashトグルが現れる（Stashesは独立タブから統合済み）
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "Changes" }).click();
     const stashToggle = page.locator(".stash-summary-toggle");

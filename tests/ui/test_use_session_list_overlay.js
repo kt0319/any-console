@@ -17,11 +17,8 @@ beforeEach(() => {
   setActivePinia(createPinia());
 });
 
-// isSessionSidebarOpenはlocalStorageへ永続化される（layout.js参照）ため、
-// open()したまま終わるテストが他ファイルの初期状態を汚さないよう、ストア
-// 経由でfalseに戻しておく（watchがsafeFlagSave(false)を書き戻す）。
-// vi.resetModules()後はグローバルのlocalStorage参照が失われるため直接
-// localStorage.removeItemは呼べない（ストア経由なら問題ない）。
+// isSessionSidebarOpenはlocalStorageへ永続化される（layout.js参照）ため、open()したまま
+// 終わるテストが他ファイルを汚さないようストア経由でfalseに戻す（直接removeItemは不可）。
 afterEach(() => {
   useLayoutStore().isSessionSidebarOpen = false;
 });

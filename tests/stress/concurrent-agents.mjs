@@ -233,11 +233,8 @@ async function main() {
     const createResults = await Promise.all(
       Array.from({ length: SESSION_COUNT }, (_, i) => {
         const command = AGENT_COMMANDS[i % AGENT_COMMANDS.length];
-        // codexはOPENAI_API_KEYが環境にあるとChatGPTサブスクリプション
-        // ログイン（auth_mode=chatgpt）より優先して従量課金APIを使うことが
-        // ある。tmuxサーバはシステム全体で1つ共有されており新規セッションは
-        // サーバ起動時点の古い環境を引き継ぎうるため、起動コマンド自体で
-        // unsetして確実にサブスクリプション枠を使わせる。
+        // tmuxサーバは起動時点の環境を新規セッションに引き継ぐことがあるため、
+        // 起動コマンド自体でもOPENAI_API_KEYをunsetして確実に消す。
         const launchCommand = command === "codex" ? "unset OPENAI_API_KEY; codex" : command;
         return fetch(`${baseUrl}/run`, {
           method: "POST",

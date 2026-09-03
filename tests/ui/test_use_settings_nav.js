@@ -4,10 +4,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 
-// vi.resetModules()するとapp-bridge.tsも再読み込みされ、on/emitが別々の
-// モジュールインスタンス（別々のリスナーレジストリ）を参照してイベントが
-// 届かなくなるため、関連composable群とapp-bridgeを同じタイミングで動的
-// importし、同一インスタンスを共有させる（useBranchActions系テストと同じ対策）。
+// 関連composable群とapp-bridgeを同じタイミングで動的importし、resetModules後も
+// 同一インスタンスを共有させる（理由はtest_use_branch_actions.jsのfreshModuleを参照）。
 async function freshModules() {
   vi.resetModules();
   const [{ useSettingsNav }, { useSessionListOverlay }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([

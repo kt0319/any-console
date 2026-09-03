@@ -4,11 +4,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 
-// vi.resetModules()するとapp-bridge.tsも再読み込みされ、on/emitが別々の
-// モジュールインスタンス（別々のリスナーレジストリ）を参照してイベントが
-// 届かなくなるため、useSessionOpenNav/useExclusiveMobileOverlay/app-bridgeを
-// 同じタイミングで動的importし、同一インスタンスを共有させる
-// （useBranchActions系テストと同じ対策）。
+// useSessionOpenNav/useExclusiveMobileOverlay/app-bridgeを同じタイミングで動的
+// importし、resetModules後も同一インスタンスを共有させる（理由はtest_use_branch_actions.jsのfreshModuleを参照）。
 async function freshModules() {
   vi.resetModules();
   const [{ useSessionOpenNav, openWorkspaceAdd }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([

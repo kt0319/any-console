@@ -955,10 +955,8 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     workspaceStore.allWorkspaces = [
       { name: "app", branch: "main", clean: false, ahead: 2, behind: 0, changed_files: 1, insertions: 5, deletions: 2 },
     ];
-    // PC はSessionSidebar.vue（サイドバーの入れ物+SessionListPanel）、モバイルは
-    // Modal.vueが同じSessionListPanel.vueを全面オーバーレイで出す（このテスト
-    // ではSessionSidebar.vue自体はPC専用のためモバイル時は描画されない）ため、
-    // 行の中身自体（SessionListView.vue）を直接マウントして検証する。
+    // SessionSidebar.vueはPC専用（モバイルはModal.vueが同じ中身を全面オーバーレイで出す）
+    // なので、行の中身自体（SessionListView.vue）を直接マウントして両パターンを検証する。
     wrapper = panelBottom
       ? mount(SessionListView, { attachTo: document.body })
       : mount(SessionSidebar, { attachTo: document.body });
