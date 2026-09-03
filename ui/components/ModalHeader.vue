@@ -9,7 +9,7 @@
       @click="canBack && emit('back')"
     >
       <h3 class="modal-title">
-        <span v-if="canBack && showBackArrow" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
+        <span v-if="canBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
         <span class="modal-title-text text-ellipsis-flex">{{ title }}<template v-if="branch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="branch">{{ branch }}</span></template></span>
       </h3>
     </button>
@@ -36,11 +36,8 @@
 defineProps<{
   title: string,
   branch?: string,
-  /// タイトル部が「戻る」ボタンとして機能するか（false ならクリック不可）。
+  /// タイトル部が「戻る」ボタンとして機能するか（false ならクリック不可・← アイコンも出さない）。
   canBack?: boolean,
-  /// タイトル左の ← アイコンを出すか（WorkspaceDetail は常時クリック可能
-  /// だがアイコンは出さない従来見た目のため false にする）。
-  showBackArrow?: boolean,
   closeLabel: string,
   /// ヘッダーを下部（ボトムシート風）に寄せるか。
   panelBottom?: boolean,

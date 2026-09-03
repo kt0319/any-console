@@ -3,10 +3,7 @@
     :is-open="isOpen"
     :title="modalTitle"
     :branch="modalBranch"
-    can-back
-    :show-back-arrow="false"
     close-label="Close workspace detail"
-    @back="onBack"
     @close="close"
     @overlay="onBack"
     @escape="onBack"
@@ -32,8 +29,6 @@ import WorkspaceDetail from "./WorkspaceDetail.vue";
 // PCはサイドバー分.content-areaが右へ縮んでいるため、サイドバーには
 // 被さらずターミナル部分だけに重なる）。
 // シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに共通化。
-// タイトルは常にタップで閉じる（戻る）ボタンとして機能する（←アイコンは
-// 出さない従来の見た目のまま）。
 //
 // pushView/popViewだけは例外的にuseSessionOpenNav.tsの実体をprovideする
 // （WorkspaceJobsPane.vueの「Add Job」からJobConfig（Open Session側の画面）を

@@ -5,7 +5,6 @@
     :title="modalTitle"
     :branch="modalBranch"
     :can-back="canNavigateBack"
-    show-back-arrow
     close-label="Close open session"
     @back="onBack"
     @close="close"

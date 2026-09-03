@@ -12,7 +12,6 @@
         :title="title"
         :branch="branch"
         :can-back="canBack"
-        :show-back-arrow="showBackArrow"
         :close-label="closeLabel"
         :panel-bottom="isPanelBottom"
         @back="emit('back')"
@@ -47,11 +46,8 @@ const props = defineProps<{
   isOpen: boolean,
   title: string,
   branch?: string,
-  /// タイトル部が「戻る」ボタンとして機能するか（false ならクリック不可）。
+  /// タイトル部が「戻る」ボタンとして機能するか（false ならクリック不可・← アイコンも出さない）。
   canBack?: boolean,
-  /// タイトル左の ← アイコンを出すか（WorkspaceDetail は常時クリック可能
-  /// だがアイコンは出さない従来見た目のため false にする）。
-  showBackArrow?: boolean,
   closeLabel: string,
   /// E2E・スタイルフックに使う overlay の追加クラス（例: "session-open-modal"）。
   overlayClass?: string,
