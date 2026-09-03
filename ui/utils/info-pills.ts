@@ -1,13 +1,9 @@
-// Info Pills（TerminalPaneのピル群）の種別ごとの定義を1箇所に集約する
-// ディスクリプタテーブル。設定ストアのフィールド一覧・デフォルト表示順
-// （ui/stores/info-pill-config.ts）、設定画面のトグルのラベル・説明
-// （InfoPillConfig.vue）、ピル本体（InfoPillRow.vue）と peekピル
-// （TerminalPane.vue）のアイコンはすべて
-// ここから導出する。新しいピルを追加する時はまずこのテーブルへ1エントリ足す
-// （バックエンド server/src/settings.rs の INFO_PILL_FIELDS にも同じキーを
-// 追加する。settings.rs 内のユニットテストが両者の整合を検証している）。
+// Info Pills（TerminalPaneのピル群）の種別ごとの定義を1箇所に集約するテーブル。
+// 設定ストア・設定画面・ピル本体・peekピルのアイコンはすべてここから導出する。
+// 新しいピルを追加する時はまずこのテーブルへ1エントリ足す（バックエンド
+// server/src/settings.rs の INFO_PILL_FIELDS にも同じキーを追加すること。
+// settings.rs 内のユニットテストが両者の整合を検証している）。
 //
-// label / note はピル本体のツールチップ文言（TerminalPane.vue）に揃える。
 // 並び順は設定画面・保存値が無い時のデフォルト表示順として使われる。
 
 export const INFO_PILLS = [
@@ -103,14 +99,11 @@ const ACTIONS_STATUS_COLOR_BUCKET: Record<string, string> = {
 
 /**
  * peekピルの色クラス。対応する通常ピルのアイコン色と揃える。
- * branchはアイコンだけ状態色にし、テキストは通常色（白）のまま
- * 読みやすく保つ（pill-peek-icon-only。changes/prsはテキストごと色付け）。
- * actionsはアイコンを常にブラウン固定にし（pill-peek-brownを常に含める）、
- * 名前部分は白、ステータス部分だけをpush/pullのPushed/Pulled表示と同様に
- * 色付け+boldにする（branchAction.status/conclusion。PillPeek.vue側で
- * .pill-peek-actions-name/.pill-peek-actions-statusの2spanに分けて描画
- * する）。実行中系=warning、成功=success、失敗系=error、cancelled/skipped等
- * の実害の無い終了=neutral（text-muted）と、全状態に必ず何らかの色が付く。
+ * branchはアイコンだけ状態色にし、テキストは通常色のまま読みやすく保つ
+ * （pill-peek-icon-only。changes/prsはテキストごと色付け）。
+ * actionsはアイコンを常にブラウン固定にし、ステータス部分だけ
+ * branchAction.status/conclusionに応じて色付け+boldにする
+ * （PillPeek.vue側で .pill-peek-actions-name/-status の2spanに分けて描画）。
  */
 export function peekColorForKey(
   key: string | null | undefined,

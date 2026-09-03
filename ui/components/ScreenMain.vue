@@ -1,11 +1,8 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
-    <!-- PCのサイドバーはTabBarの行と同じ高さにヘッダー（Sessions/設定タイトル）を
-         揃えたいため、.content-area配下ではなく.main-panel直下に置く。
-         .content-area内に置くとactive-tab-title分だけ下にずれ、TabBarの行と
-         サイドバーのヘッダーの間に無駄な空白ができてしまう（モバイルの
-         Modal.vueは全面オーバーレイのままで問題ないため対象外）。 -->
+    <!-- PCのサイドバーはTabBarの行とヘッダー高さを揃えるため.content-area配下ではなく
+         .main-panel直下に置く（.content-area内だとactive-tab-title分だけ下にずれる）。 -->
     <SessionSidebar />
     <div class="active-tab-title" :class="{ 'title-bar-at-bottom': titleBarAtBottom }" v-show="titleBarVisible">
       <template v-if="debugMode">
@@ -149,9 +146,8 @@ const debugInfo = computed(() => {
 });
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
-// サイドバー用のスペースがあるかどうか（インラインサイドバー vs Modal.vueの
-// 全面オーバーレイの出し分け）は、タブ位置設定ではなく実際の画面幅で判定する
-// （SessionSidebar.vue/Modal.vue参照）。
+// インラインサイドバー vs Modal.vueの全面オーバーレイの出し分けは、タブ位置設定ではなく
+// 実際の画面幅で判定する。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible);
 const titleBarVisible = computed(() => layoutStore.titleBarVisible);
@@ -159,10 +155,8 @@ const titleBarAtBottom = computed(() => layoutStore.titleBarAtBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
-// isSettingsOpenは「セッション一覧・Open Session・Settings・WorkspaceDetailの
-// いずれかのオーバーレイが表示中か」を表す既存フラグ（useTerminalInput/
-// useGlobalShortcutsがショートカット抑止に使う）。4つの独立したオーバーレイ
-// に分離したため、ここで集約する。
+// isSettingsOpenは「いずれかのオーバーレイが表示中か」を表す既存フラグ（useTerminalInput/
+// useGlobalShortcutsがショートカット抑止に使う）。4つの独立オーバーレイに分離したためここで集約する。
 const { isOpen: isSessionListOverlayOpen } = useSessionListOverlay();
 const { isOpen: isSessionOpenNavOpen } = useSessionOpenNav();
 const { isOpen: isSettingsNavOpen } = useSettingsNav();

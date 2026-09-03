@@ -7,8 +7,7 @@ import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from 
 import { useDevServerOpen } from "./useDevServerOpen.ts";
 import { openWorkspaceAdd } from "./useSessionOpenNav.ts";
 
-// Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が
-// 同じopenPane(key)を使う。
+// Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が同じopenPane(key)を使う。
 export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behind }: {
   tab: Ref<Record<string, any>>,
   isGitRepo: Ref<boolean> | ComputedRef<boolean>,
@@ -22,41 +21,32 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
   };
   const { confirmOpenDevServer } = useDevServerOpen();
 
-  // history/changes/branch/prs/actions はワークスペース詳細の同名ペインを開く
-  // （pane名＝ピルのキー）。
   function openWorkspacePane(pane: string, extra: Record<string, any> = {}) {
     if (!tab.value.workspace) return;
     workspaceStore.selectedWorkspace = tab.value.workspace;
     emit("git:openFileModal", { pane, ...extra });
   }
 
-  // branchピルはPush/Pull件数（ahead/behind）を表示している時だけBranch一覧を
-  // 展開して開く。件数が無い時（ブランチ名だけの表示）はHistoryを畳んだ状態で
-  // 開き、コミット履歴を主役にする。
+  // Push/Pull件数がある時だけBranch一覧を展開する（無い時はHistory優先で畳んで開く）。
   function openBranch() {
     const hasPushPull = (ahead?.value || 0) > 0 || (behind?.value || 0) > 0;
     openWorkspacePane("branch", { expandBranch: hasPushPull });
   }
 
-  // git 未登録（ワークスペース未紐付け）のベアターミナルでは、cwd を都度取得して
-  // Files モーダル・ワークスペース登録に使う（常時ポーリングはせず必要時にのみ叩く）。
+  // git未登録のベアターミナルではcwdを都度取得する（常時ポーリングはしない）。
   async function fetchCwd() {
     if (!tab.value.sessionId) return "";
     const { ok, data } = await apiGet(terminalSessionCwdPath(tab.value.sessionId));
     return ok ? (data?.cwd || "") : "";
   }
 
-  // 非Gitワークスペースに紐づいたターミナルでcdして未登録ディレクトリへ移動した
-  // 場合や、ワークスペース未紐付けのベアターミナルの場合、Files はワークスペース
-  // パスではなくセッションの実際のcwdを起点に開く（廃止済みWorkspaceStatusBarの
-  // isPlainTerminal時の挙動を踏襲）。
+  // 非Gitワークスペースやワークスペース未紐付けのターミナルでは、ワークスペース
+  // パスではなくセッションの実際のcwdを起点にFilesを開く。
   async function openBareTerminalFiles() {
     const cwd = tab.value.sessionId ? await fetchCwd() : "";
     emit("git:openFileModal", resolveBareTerminalFilesDetail(tab.value.sessionId, cwd));
   }
 
-  // Gitワークスペースはワークスペース名から直接Filesペインを開く。
-  // 非Git（ベアターミナル・非Git登録ワークスペース）はcwd起点のopenBareTerminalFilesへ。
   function openFiles() {
     if (isGitRepo.value && tab.value.workspace) {
       workspaceStore.selectedWorkspace = tab.value.workspace;
@@ -66,9 +56,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     }
   }
 
-  // 「Add」ボタンのラベル・アイコンは固定表示にする。実際にAdd/Openの
-  // どちらとして動くかはクリック時にregisterCurrentDirがcwdを取得して
-  // その場で判定する。
+  // ラベル/アイコンは固定表示にし、Add/Openどちらとして動くかはクリック時にcwdを見て判定する。
   async function registerCurrentDir() {
     if (!tab.value.sessionId) return;
     const cwd = await fetchCwd();
@@ -89,15 +77,12 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     await confirmOpenDevServer(p);
   }
 
-  // 他のピル（history/changes/branch/prs/actions）と同じく、常にワークスペース
-  // 詳細のDispatchタブを開く（件数によらず動作を揃える。1件だけの時の個別
-  // 詳細へはDispatchタブの行から進む）。
+  // 件数によらず常にDispatchタブを開く（個別詳細はDispatchタブの行から進む）。
   function openDispatch() {
     openWorkspacePane("dispatch");
   }
 
-  // ピル/peekピルのキー → 遷移先。devserver-stopは「検出されなくなった」
-  // という通知のみで開く対象が無いため対象外（default）。
+  // devserver-stopは「検出されなくなった」通知のみで遷移先が無いためdefaultへ。
   function openPane(key: string | null | undefined) {
     switch (key) {
       case "workspace":

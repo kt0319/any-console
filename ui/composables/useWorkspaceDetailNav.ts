@@ -2,34 +2,23 @@ import { reactive, computed, watch } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 
-// WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用のナビゲー
-// ション状態。useSettingsNav.tsのビュースタックとは完全に独立させている
-// （以前はSettingsのスタックに"WorkspaceDetail"を積んでいたため、開くたびに
-// セッション一覧/設定側の表示（currentView・modalTitle）まで巻き込んで
-// 切り替わってしまっていた）。WorkspaceDetailを開いても、裏の
-// SessionSidebar.vue/Modal.vue側の表示はそのまま変化しない。
+// WorkspaceDetail専用のナビゲーション状態。useSettingsNav.tsのビュースタックとは
+// 完全に独立させている（以前はSettingsのスタックに積んでいたため、開くたびに
+// セッション一覧/設定側の表示まで巻き込んで切り替わってしまっていた）。
 //
-// WorkspaceDetail.vueはuseModalView()経由でmodalTitle/modalBranch/viewState/
-// updateViewStateをinjectする前提のため、WorkspaceDetailModal.vueはこの
-// composableの値をその名前でprovideする（pushView/popViewだけは、Jobsペイン
-// からJobConfigを開く導線のためuseSettingsNav.ts側の実物をprovideする）。
+// WorkspaceDetail.vueはuseModalView()経由でこの値をinjectする前提（provide側は
+// WorkspaceDetailModal.vue。pushView/popViewだけはJobsペインからJobConfigを開く
+// 導線のためuseSettingsNav.ts側の実物をprovideする）。
 //
-// 状態はterminalStoreのタブID（activeTabId）をキーにしたMapで保持し、
-// タブごとに開閉状態・表示中のペイン（detail.pane）を独立させる（タブAで
-// Filesを開いたままタブBに切り替えても、Aへ戻れば開いていたFilesのまま
-// 復元される）。WorkspaceDetailModal.vueは<WorkspaceDetail :key="activeTabId">
-// でタブ切替時に強制的に再マウントし、onMounted内のopen(viewState.detail)で
-// Mapに保存されたペイン情報から復元する（ペイン内部の詳細な状態＝スクロール
-// 位置・選択中のdiffファイル等までは対象外。isOpen/pane程度の粒度）。
+// 状態はterminalStoreのタブID（activeTabId）をキーにしたMapで保持し、タブごとに
+// 開閉状態・表示中のペインを独立させる（isOpen/pane程度の粒度。スクロール位置等の
+// ペイン内部状態までは対象外）。
 //
-// 各タブのエントリはreactive()でラップし、フィールドごとに独立して依存追跡
-// させる（isOpen/detail/modalTitle/modalBranch/currentPaneRefの5フィールドを
-// 単一の共有トリガーrefで無効化する実装を最初に試したが、setPaneRef（テンプレの
-// :ref="setPaneRef"経由で再レンダリングのたびに呼ばれる）がcurrentPaneRefを
-// 書き換えるたびに isOpen/modalTitle まで無効化され、それらを参照する
-// WorkspaceDetailModal.vueの再レンダリング→setPaneRef再呼び出し→無効化…という
-// 無限ループでブラウザタブがクラッシュした。reactive()のプロパティ単位の
-// 追跡ならcurrentPaneRefの書き換えは他フィールドに影響しない）。
+// 各タブのエントリはreactive()でラップする（単一の共有トリガーrefで無効化する
+// 実装を最初に試したが、setPaneRefがcurrentPaneRefを書き換えるたびに他フィールドも
+// 無効化され、それを参照するコンポーネントの再レンダリング→setPaneRef再呼び出し
+// →無効化…の無限ループでブラウザタブがクラッシュした。reactive()のプロパティ単位
+// 追跡ならこれが起きない）。
 
 interface TabDetailState {
   isOpen: boolean;
@@ -99,13 +88,11 @@ function setPaneRef(el: any) {
   entry().currentPaneRef = el;
 }
 
-// tabId省略時は現在アクティブなタブを閉じる。DispatchRunView経由のRun成功時
-// （WorkspaceDetail.vue）は、Runで新規セッションが作られてアクティブタブが
-// 切り替わった後に呼ばれるため、tabIdを明示しないと「今アクティブな
-// （切り替わった後の新しい）タブ」のエントリを誤って閉じてしまい、実際に
-// 開いていた元タブのエントリが isOpen: true のまま残ってしまう
-// （WorkspaceDetail.vueのonMountedが :key="activeTabId" の再マウント時に
-// open()を呼ぶため、意図せず再度開いて見えることがあった）。
+// tabId省略時は現在アクティブなタブを閉じる。DispatchRunView経由のRun成功時は
+// Runで新規セッションが作られアクティブタブが切り替わった後に呼ばれるため、
+// tabIdを明示しないと元タブではなく切り替わった後の新タブを閉じてしまい、
+// 元タブが isOpen: true のまま残ってしまう（再マウント時のopen()で意図せず
+// 再度開いて見えることがあった）。
 function close(tabId?: number | null) {
   const e = tabId !== undefined && tabId !== null ? entryFor(tabId) : entry();
   e.isOpen = false;

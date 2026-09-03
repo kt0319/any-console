@@ -36,10 +36,9 @@ export function agentStateDescriptor(state?: string | null): { icon: string; lab
 }
 
 /**
- * InfoPillRow用の派生フィールド（Branch/Changes/PR/Actions/DevServer/Dispatch）を
- * ワークスペース名単位でまとめて計算する。開いているタブの行（sessionSidebarItems）と
- * タブが無い承認待ちワークスペースの行（pendingDispatchSidebarItems）の両方から
- * 共有する（同じワークスペースなら同じピルが同じ内容で出るようにするため）。
+ * InfoPillRow用の派生フィールド（Branch/Changes/PR/Actions/DevServer/Dispatch）をワークスペース
+ * 名単位でまとめて計算する。sessionSidebarItems と pendingDispatchSidebarItems の両方から共有する
+ * （同じワークスペースなら同じピルが同じ内容で出るようにするため）。
  * @param ws workspaceStore.allWorkspaces の該当エントリ（無ければ undefined）
  */
 function buildPillFields(
@@ -62,10 +61,8 @@ function buildPillFields(
   const changedFiles = ws?.changed_files || 0;
   const insertions = ws?.insertions || 0;
   const deletions = ws?.deletions || 0;
-  // findPRForBranch/findRunForBranchのJSDoc戻り値型はマッチ用フィールドのみの
-  // 狭い形（{headRefName}/{headBranch}）だが、実際のオブジェクトは
-  // number/title/status/conclusion等も持つ。tsc（weak type検出）が
-  // prsTooltip等への受け渡しをプロパティ無関係と誤検出しないよう any 扱いにする。
+  // findPRForBranch/findRunForBranchの戻り値型はマッチ用フィールドのみの狭い形だが、
+  // 実際のオブジェクトはnumber/title/status/conclusion等も持つため any 扱いにする。
   const branchPR: any = isGitRepo && wsName ? findPRForBranch(prsByWorkspace[wsName], branch) : null;
   const branchAction: any = isGitRepo && wsName ? findRunForBranch(runsByWorkspace[wsName], branch) : null;
   const visibleBranchAction = isNoticeableRun(branchAction) ? branchAction : null;
@@ -76,10 +73,8 @@ function buildPillFields(
     ? dispatchQueue.filter((item) => dispatchWorkspaceLabel(item.request) === wsName)
     : [];
   return {
-    // ws（workspaceStore.allWorkspacesの該当エントリ）が見つかっているか。
-    // TerminalPane.vueのpaneWorkspace（tab.workspaceが有っても未解決なら
-    // undefined）と同じ「解決済みかどうか」をpeek側の初回誤検知ガードに
-    // 渡すために必要（usePillPeek参照）。
+    // wsが見つかっているか。TerminalPane.vueのpaneWorkspaceと同じ「解決済みかどうか」を
+    // peek側の初回誤検知ガードに渡すために必要（usePillPeek参照）。
     wsResolved: !!ws,
     isGitRepo,
     branch,
@@ -111,14 +106,12 @@ function buildPillFields(
 }
 
 /**
- * サイドバーの表示行を組み立てる。TabBar と同じく autoDiscovered なタブは
- * 除外し、並び順も openTabs のまま（タブバーと一致）にする。
+ * サイドバーの表示行を組み立てる。TabBar と同じく autoDiscovered なタブは除外し、
+ * 並び順も openTabs のまま（タブバーと一致）にする。
  *
- * InfoPillRow（TerminalPane と同じピル群）をサイドバーの各行にも出すため、
- * 判定に必要な生データ（PR一覧・Actions run一覧・Dev Server検出結果・
- * dispatchキュー）も ctx で受け取り、ここで各タブ分に絞り込む
- * （TerminalPane.vue の branchPR/branchAction/devServerEntry/tabDispatchItems
- *  と同じロジックを、複数タブ分まとめて処理する）。
+ * InfoPillRow（TerminalPane と同じピル群）をサイドバーの各行にも出すため、判定に必要な
+ * 生データ（PR一覧・Actions run一覧・Dev Server検出結果・dispatchキュー）も ctx で受け取り、
+ * ここで各タブ分に絞り込む。
  * @param tabs terminalStore.openTabs
  * @param workspaces workspaceStore.allWorkspaces
  */
@@ -143,13 +136,10 @@ export function sessionSidebarItems(
     .filter((tab) => !tabFlags[tab.id]?.autoDiscovered)
     .map((tab) => {
       const ws = tab.workspace ? (workspaces || []).find((w) => w.name === tab.workspace) : undefined;
-      // worktree行はブランチを下段（session-sidebar-sub）で別表示するため、
-      // タイトルはworkspaceDisplayName()の「ベース名 | ブランチ」ではなく
-      // ベース名のみにする（TabItem.vue等の1行表示とは異なりここは2行使える）。
-      // ワークスペース・ジョブいずれにも紐付かないベアターミナルは、他の
-      // ワークスペース名主体の行と見分けが付くよう「[terminal] パス名」の
-      // 形式にする（tab.labelはuseTerminalLifecycle.tsが実cwdのディレクトリ名を
-      // 反映する。未取得の間は"[terminal]"のみになる）。
+      // worktree行はブランチを下段（session-sidebar-sub）で別表示するため、タイトルは
+      // ベース名のみにする（TabItem.vue等の1行表示と異なりここは2行使えるため）。
+      // ワークスペース・ジョブいずれにも紐付かないベアターミナルは「[terminal] パス名」の
+      // 形式にする（tab.labelはuseTerminalLifecycle.tsが実cwdのディレクトリ名を反映する）。
       const bareTerminalLabel = tab.label ? `[terminal] ${tab.label}` : "[terminal]";
       const label = ws?.worktree ? (ws.worktree_base || ws.name || "") : (tab.workspace || bareTerminalLabel);
       const pill = buildPillFields(tab.workspace, ws, ctx);
@@ -172,10 +162,9 @@ export function sessionSidebarItems(
 }
 
 /**
- * タブがまだ無い（=通常のセッション行が存在しない）ワークスペースの承認待ち
- * dispatchを、通常のセッション行と同じ情報（Branch/Changes/PR/Actions/
- * DevServer/Dispatchの各ピル）で出すための行データ。openTabWorkspaceNamesに
- * 含まれるワークスペースは対象外（既にセッション行のピルで足りるため）。
+ * タブがまだ無いワークスペースの承認待ちdispatchを、通常のセッション行と同じ情報
+ * （Branch/Changes/PR/Actions/DevServer/Dispatchの各ピル）で出すための行データ。
+ * openTabWorkspaceNamesに含まれるワークスペースは対象外（既にセッション行のピルで足りるため）。
  * @param workspaces workspaceStore.allWorkspaces
  * @param ctx sessionSidebarItemsと同じctx
  */
@@ -199,8 +188,7 @@ export function pendingDispatchSidebarItems(
       wsIcon: ws?.icon ? { name: ws.icon, color: ws.icon_color } : null,
       jobIcon: null,
       isWorktree: !!ws?.worktree,
-      // SessionRowContent.vueのagentステータスバッジをそのまま流用し、
-      // 「Pending」であることを他の行のWorking/Blocked等と同じ見せ方で示す。
+      // SessionRowContent.vueのagentステータスバッジをそのまま流用し「Pending」を示す。
       agent: { icon: "mdi-inbox-arrow-down-outline", label: "Pending", className: "agent-state-dispatch-pending" },
       phraseNotify: false,
       ...pill,

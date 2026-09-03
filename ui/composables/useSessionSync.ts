@@ -9,10 +9,9 @@ import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts"
 import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../utils/session-jobs.ts";
 import { emit } from "../app-bridge.ts";
 
-// モジュールスコープ: サーバー応答の一時的な揺らぎで /terminal/sessions から
-// セッションが消えてタブが削除→再生成されても、一度解決できたジョブアイコンは
-// 保持する。再生成時に allJobs がまだ不完全で mdi-play フォールバックになった
-// 場合、このキャッシュがあれば上書きしない（session_id -> { icon, iconColor }）。
+// モジュールスコープ: /terminal/sessions の一時的な揺らぎでタブが削除→再生成
+// されても、一度解決できたジョブアイコンは保持する（session_id -> { icon, iconColor }）。
+// 再生成時に allJobs がまだ不完全で mdi-play フォールバックになる場合、このキャッシュがあれば上書きしない。
 const resolvedJobIcons = new Map<string, { icon: string, iconColor: string | null }>();
 
 // launchTerminal() 等、buildSessionTabParams を経由しない経路で既にジョブ

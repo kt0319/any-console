@@ -85,16 +85,12 @@ const { copied, copy: copyLink } = useCopyFeedback();
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
-// unmount後に解決したstatus応答が、共有viewStackに対してpopView等の副作用を
-// 起こさないようにするガード(pairingId比較だけでは、unmount後もrefの値自体は
-// 変わらず残るため、古いpairingへの切り替わりとunmountを区別できない)。
+// unmount後に解決したstatus応答が popView 等の副作用を起こさないためのガード
+// （pairingId比較だけでは、unmount後もrefの値は残るため区別できない）。
 let isUnmounted = false;
-// start()を呼ぶたびに進める世代カウンタ。「Generate new code」で古いpairingの
-// pollがin-flightのまま新しいstart()のapiPostがまだ解決していない間は、
-// pairingId.value自体はまだ古い値のままなので、pairingId比較だけでは
-// 古い応答を弾けない(start()が自身のawaitを終えて上書きするまでの間隙)。
-// start()の冒頭で同期的にインクリメントすることで、そのawait中に届いた
-// 旧世代の応答を確実に無効化する。
+// start()を呼ぶたびに同期的に進める世代カウンタ。「Generate new code」直後、
+// 新しいstart()のapiPostがawait中でpairingId.valueがまだ古い値のままの間隙が
+// あるため、pairingId比較だけでは旧世代のpoll()応答を弾けない。
 let pairingGeneration = 0;
 
 const qrSvg = computed(() => (pairingUrl.value ? generateQrSvg(pairingUrl.value) : ""));
@@ -115,10 +111,7 @@ async function poll() {
   if (!requestedId) return;
   const { ok, data } = await apiGet(pairingStatusPath(requestedId));
   if (isUnmounted) return;
-  // start() が再度呼ばれ別のpairingへ切り替わった後にこの応答が返ってきた場合、
-  // 新しいpairingの状態を古い応答で上書きしてしまわないよう無視する。
-  // 世代カウンタで判定する(pairingId比較だけだと、新しいstart()がまだ自身の
-  // apiPostをawait中でpairingId.valueを上書きする前の間隙をすり抜けてしまう)。
+  // 世代カウンタで旧pairingの応答を無視する（pairingGeneration宣言部を参照）。
   if (requestedGeneration !== pairingGeneration || requestedId !== pairingId.value) return;
   if (!ok || !data) return;
   if (data.status === "claimed") {
@@ -133,8 +126,6 @@ async function poll() {
 }
 
 async function start() {
-  // apiPostのawait前に同期的に進める — これより後に届く旧世代のpoll()応答を
-  // (pairingId.valueがまだ書き換わっていない間隙も含めて)確実に無効化する。
   const generation = ++pairingGeneration;
   loading.value = true;
   error.value = "";
@@ -142,15 +133,13 @@ async function start() {
   copied.value = false;
   clearTimers();
   const { ok, data } = await apiPost(EP_AUTH_PAIRING_START);
-  // アンマウント後、または自身より新しいstart()に追い越された後に解決した
-  // 場合、ここから先で新しいintervalを張ってしまうと二度とclearされず
-  // 残り続けるため、状態更新自体を行わない。
+  // アンマウント後・追い越され後は状態更新しない（ここでintervalを張ると
+  // 二度とclearされず残り続けるため）。
   if (isUnmounted || generation !== pairingGeneration) return;
   loading.value = false;
   if (!ok || !data) {
     // サーバがloopbackアクセス等で具体的な理由(detail)を返すことがある
-    // (_build_pairing_url参照)。汎用メッセージで握りつぶさず、その理由を
-    // 表示することでユーザーが対処できるようにする。
+    // (_build_pairing_url参照)。汎用メッセージで握りつぶさず表示する。
     error.value = extractApiError(data, "Failed to start pairing.");
     return;
   }
@@ -161,12 +150,9 @@ async function start() {
   tickTimer = setInterval(() => {
     if (secondsLeft.value <= 1) {
       secondsLeft.value = 0;
-      // 表示上のカウントダウンを止めるだけ。status/pollTimerには触れない —
-      // サーバはclaim進行中のエントリをexpires_atを過ぎても`claiming`のまま
-      // 保持し、後から claimed へ倒すことがある(claim_pairing参照)。ここで
-      // pollTimerまで止めてしまうと、その後の成功をissuer側が永久に観測
-      // できなくなる。expired/claimedの最終判定はpoll()の応答(サーバ側)に
-      // 委ねる。
+      // 表示上のカウントダウンを止めるだけ。サーバはexpires_at超過後も
+      // `claiming`中のエントリをclaimedへ倒すことがある(claim_pairing参照)ため、
+      // pollTimerは止めず、expired/claimedの最終判定はpoll()に委ねる。
       if (tickTimer) clearInterval(tickTimer);
       tickTimer = null;
       return;

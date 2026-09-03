@@ -75,11 +75,9 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
     }
   }
 
-  // ワークスペース・ジョブいずれにも紐付かないベアターミナルはタブ名が常に
-  // 固定文字列"terminal"になり、複数開くと見分けが付かない。起動直後の実cwd
-  // （tmuxセッションの実際のカレントディレクトリ）からディレクトリ名を取得し、
-  // タブ名に反映する（errorMessage未指定でベストエフォート。失敗時は
-  // "terminal"のまま）。
+  // ベアターミナルはタブ名が常に固定文字列"terminal"になり複数開くと見分けが
+  // 付かないため、起動直後の実cwdからディレクトリ名を取得してタブ名に反映する
+  // （ベストエフォート。失敗時は"terminal"のまま）。
   async function applyBareTerminalCwdLabel(tabId: number, sessionId: string) {
     const { ok, data } = await apiGet(terminalSessionCwdPath(sessionId));
     const dirName = ok ? basename(data?.cwd) : "";
@@ -87,9 +85,8 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
   }
 
   // cd で移動してもタブ名を追従させるため、アクティブタブがベアターミナルの間
-  // だけ軽く定期取得する（バックグラウンドタブ・他タブは対象外にして、常に
-  // 全タブ分ポーリングするコストを避ける）。setTabLabelは同じ値なら
-  // 何もしないので、無駄な再描画は起きない。
+  // だけ軽く定期取得する（バックグラウンド・他タブは対象外にして常時ポーリング
+  // するコストを避ける）。
   let bareTerminalCwdPollId: ReturnType<typeof setInterval> | null = null;
 
   function pollActiveBareTerminalCwd() {
@@ -117,11 +114,9 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       // タブがまだ存在しない間、現在のアクティブタブを操作できてしまわないよう
       // タブ作成完了までブロックする。
       isLaunching.value = true;
-      // セッションに紐付ける（=TMUX_ICONとして永続化され、他デバイスやServer
+      // セッションに紐付ける（TMUX_ICONとして永続化され、他デバイスやServer
       // Processes等サーバ側の情報からも見える）アイコンは、ジョブ固有のものが
-      // 設定されていればそちらを優先する。タブ表示側（wsIcon/addTerminalTab）は
-      // 従来通りワークスペースアイコンとジョブアイコンを両方使うため、ここでの
-      // 変更はタブの見た目には影響しない。
+      // あればそちらを優先する（タブ表示側は従来通り両方使うため見た目には影響しない）。
       const sessionIcon = jobName && jobIcon ? jobIcon : icon;
       const sessionIconColor = jobName && jobIcon ? jobIconColor : iconColor;
       const res = await auth.apiFetch(EP_RUN, {
@@ -152,8 +147,7 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       // /jobs/workspaces が一時的に不完全でもここで解決済みのアイコンを使えるようにする。
       if (jobName && jobIcon) rememberJobIcon(data.session_id, jobIcon, jobIconColor);
       if (detached) {
-        // detached 起動: タブに追加せず、セッションを detached としてマークするだけ。
-        // Tabs パネルの Detached tabs セクションに表示される。
+        // タブに追加せず detached マークのみ。Tabs パネルの Detached tabs セクションに表示される。
         if (data.session_id) {
           auth.apiFetch(terminalSessionDetachedPath(data.session_id), {
             method: "PUT", body: { detached: true },

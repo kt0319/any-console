@@ -110,10 +110,8 @@ import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, async
 // Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new_session__";
 
-// ワークスペース詳細のDispatchタブ内で、一覧（DispatchWorkspacePane）から
-// 選ばれた1件を表示するローカルな画面遷移として使う（WorkspaceDetail.vueが
-// activePane === 'dispatch' の中でv-ifを切り替える）。Settings側のpushView
-// スタックには乗せない（サイドバー側に別レイヤーとして出てしまっていたため）。
+// WorkspaceDetail.vueのDispatchタブ内でのローカルな画面遷移用。Settings側の
+// pushViewスタックには乗せない（サイドバー側に別レイヤーとして出てしまうため）。
 const props = defineProps({
   itemId: { type: String, required: true },
 });
@@ -131,9 +129,7 @@ const currentSessionId = computed(() => terminalStore.activeTab?.sessionId || nu
 
 const itemId = props.itemId;
 // 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
-// recent 由来の場合は「編集して再実行」モード（isRerun）になる:
-// Run は承認キューを経由せずその場で再実行し、Discard（承認待ちの破棄）は
-// 対象が無いため出さない。
+// recent 由来の場合は「編集して再実行」モード（isRerun）になり、Discardは出さない。
 const queueItem = computed(() => queue.value.find((q) => q.id === itemId) || null);
 const recentItem = computed(() => queueItem.value ? null : (recent.value.find((r) => r.id === itemId) || null));
 const item = computed(() => queueItem.value || recentItem.value);
@@ -142,10 +138,8 @@ const isRerun = computed(() => !queueItem.value && !!recentItem.value);
 
 const branch = ref("");
 // Create branch/worktree で入力する新規ブランチ名。Change branch側のbranch
-// （実在ブランチへの切替先、select由来）とは意味が異なるため別refに分離する
-// （分離前はbranch refを共用しており、Change branchへ戻ると自由入力の文字列が
-// 「切替先ブランチ」として誤読される不具合があった。分離後は逆にモード切替を
-// またいでもnewBranchNameは消えず、入力し直しの手間が無い）。
+// （実在ブランチへの切替先、select由来）とは別refに分離する（共用すると
+// Change branchへ戻った時に自由入力の文字列が切替先ブランチとして誤読される）。
 const newBranchName = ref("");
 const baseBranch = ref("");
 const text = ref("");
@@ -169,9 +163,8 @@ const branchSelectValue = computed({
   },
 });
 
-// dispatchリクエストへ実際に送るbranch値。Create branch/worktreeでは
-// newBranchName（自由入力の新規ブランチ名）、Change branchではbranch
-// （select由来の切替先ブランチ）を使う。
+// dispatchへ実際に送るbranch値。Create branch/worktreeではnewBranchName、
+// Change branchではbranch（select由来の切替先）を使う。
 const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
 
 type JobOption = { key: string, label: string };
@@ -187,8 +180,7 @@ const discarding = ref(false);
 const runError = ref("");
 
 function initFromRequest(req: Record<string, any> | null) {
-  // create_branch時の元リクエストのbranchは「新規ブランチ名」（newBranchName側）、
-  // それ以外は「切替先ブランチ」（branch側）を意味する。
+  // create_branch時のbranchは「新規ブランチ名」、それ以外は「切替先ブランチ」を意味する。
   if (req?.create_branch) {
     newBranchName.value = req?.branch || "";
     branch.value = "";
@@ -204,11 +196,9 @@ function initFromRequest(req: Record<string, any> | null) {
   createMode.value = req?.create_branch ? "branch" : "";
 }
 
-// 新規セッション作成時はworktreeをドロップダウンの選択肢に含めない
-// （ベースワークスペースのみ選択可能。worktree自体はCreate worktreeで別途作る）。
-// 既存セッションを選んだ時（disabledの参考表示）は、そのセッションのworkspaceが
-// worktreeのこともあるため、一覧に無いと選択値と選択肢がズレて空欄に見えて
-// しまう。選択中の値が一覧に無ければ表示専用として追加する。
+// 新規セッション作成時はworktreeを選択肢に含めない（worktree自体はCreate
+// worktreeで別途作る）。既存セッション選択時（disabledの参考表示）はそのセッションの
+// workspaceがworktreeのこともあるため、一覧に無ければ表示専用として追加する。
 const workspaceOptions = computed(() => {
   const opts = workspaceStore.allWorkspaces.filter((w) => !w.worktree);
   if (!isNewSession.value && selectedWorkspace.value && !opts.some((w) => w.name === selectedWorkspace.value)) {
@@ -224,16 +214,12 @@ const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWor
 // Branch select の意味（対象 / 分岐元）と Branch name の表示を切り替える。
 const hasBranchField = computed(() => !request.value?.worktree);
 
-// Change branch の select は localBranches（実在するブランチ）と「(current branch)」
-// しか選択肢が無いため、ユーザー操作では不正な値にならない。ズレが起き得るのは
-// 外部（CI等）から渡された元リクエストの branch が実在しない初期値のときだけ
-// （select 上は "(current branch)" のように見えて、実際の値はそのままズレている）。
-// これに気付かず Run すると失敗するので、送信前に検知して disable する。
+// Change branch のselectはlocalBranchesと「(current branch)」しか選択肢が無いため
+// ユーザー操作では不正値にならない。ズレるのは外部（CI等）から渡された元リクエストの
+// branchが実在しない初期値の時だけ。気付かずRunすると失敗するので事前に検知しdisableする。
 const missingBranchBlockReason = computed(() => {
   if (createMode.value !== "") return "";
-  // ready（取得成功）の時だけ検証する。idle/loading中はまだ判定できず、
-  // error（取得失敗）は検証しようがないため対象外（fail open。Runの可否は
-  // infoLoading側でidle/loading中のみブロックする）。
+  // ready（取得成功）時のみ検証する。error時はfail openにする（Run可否はinfoLoading側で扱う）。
   if (branchesState.value.status !== "ready") return "";
   const target = branch.value.trim();
   if (!target || localBranches.value.includes(target)) return "";
@@ -241,26 +227,18 @@ const missingBranchBlockReason = computed(() => {
 });
 
 // Session / Job / Branch のいずれかが未取得(idle)・取得中(loading)の間はRunを
-// 押させない。取得前の古い/空の選択肢のままdispatchしてしまう事故を防ぐ
-// （branchesはhasBranchFieldがfalse＝worktree上のdispatchでは表示自体しないため
-// 対象外）。取得失敗(error)はブロックし続けない（fail open。エラー時にRunが
-// 永久disabledのまま残る事故を防ぐため。error時の代替バリデーションは行わない
-// — missingBranchBlockReason等がreadyの時のみ判定する設計と対）。
+// 押させない（取得前の古い/空の選択肢のままdispatchする事故を防ぐ）。取得失敗(error)は
+// ブロックし続けない（fail open。Runが永久disabledのまま残る事故を防ぐため）。
 const infoLoading = computed(() => {
   if (isAsyncPending(sessionsState.value) || isAsyncPending(jobsState.value)) return true;
   if (hasBranchField.value && isAsyncPending(branchesState.value)) return true;
   return false;
 });
 
-// サーバ側のガード（api/routers/dispatch.py の _ensure_branch）と対になる UI 側の
-// 事前ブロック。新規ブランチを作成する dispatch（Create branch オン）は対象
-// ワークスペースが dirty だと 400 で失敗するため、送信前に理由を示して Run を
-// disable する。既存ブランチへの checkout（Create branch オフ）は対象外（サーバ
-// 側も dirty かどうかに関わらず同じ扱いだが、ここでは新規ブランチ作成時のみブロック
-// する方針）。
-// changed_files は untracked ファイル込みでカウントされる（api/git_info.py）ため、
-// ここでの dirty 判定も同じ基準（gitignore されていない未追跡ファイルがあれば
-// 安全側でブロックする）に揃える。
+// サーバ側のガード（api/routers/dispatch.py の _ensure_branch）と対になるUI側の事前
+// ブロック。新規ブランチを作成するdispatch（Create branchオン）は対象ワークスペースが
+// dirtyだと400で失敗するため、送信前に理由を示してRunをdisableする（既存ブランチへの
+// checkoutは対象外）。dirty判定はapi/git_info.pyのchanged_files（untracked込み）に揃える。
 const targetWorkspaceEntry = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === selectedWorkspace.value),
 );
@@ -278,12 +256,9 @@ const dirtyBlockReason = computed(() => {
   return `Workspace has uncommitted changes (${n} file${n === 1 ? "" : "s"}). Commit or stash them, or clear the branch to run on the current branch.`;
 });
 
-// dedup_key による置き換えは通知リンクを有効に保つため dispatch_id を維持する
-// （useDispatchQueue.ts 参照）。そのため置き換えられても dispatch:itemRemoved
-// は発火しない。retry_count の変化で「表示中の内容が別の失敗に置き換わった」
-// ことを検知し、フォームを黙って差し替えるのではなくダイアログを閉じる
-// （古い branch/text のまま承認され、置き換わった内容と食い違って実行される
-// 事故を防ぐため）。
+// dedup_keyによる置き換えはdispatch_idを維持するため（useDispatchQueue.ts参照）
+// dispatch:itemRemovedが発火しない。retry_countの変化で「表示中の内容が別の
+// 失敗に置き換わった」ことを検知し、古い内容のまま誤って承認されないようダイアログを閉じる。
 const initialRetryCount = ref<number | null>(null);
 
 onMounted(() => {
@@ -370,13 +345,10 @@ watch(baseBranchWorkspace, async (ws) => {
 
 function buildOverrides() {
   const orig = request.value || {};
-  // 元リクエストの新規セッション判定は existing_session_id の有無ではなく
-  // match（サーバー既定は "any" = 既存セッションがあれば流用）で見る。
-  // existing_session_id が無いことは「新規確定」を意味しない（match: "any"
-  // で既存セッションに解決されたケースも existing_session_id は記録されない）。
-  // ここを existing_session_id 基準にすると、「+ New session」を選んでも元と
-  // 見かけ上「変化なし」と誤判定されて override が送られず、サーバー側で
-  // match: "any" のまま既存セッションへ流用されてしまう。
+  // 元リクエストの新規セッション判定は existing_session_id の有無ではなく match
+  // （サーバー既定"any"）で見る。existing_session_idが無いことは「新規確定」を意味しない
+  // （match:"any"で既存セッションに解決された場合も記録されない）ため、existing_session_id
+  // 基準にすると「+ New session」を選んでも変化なしと誤判定されoverrideが送られない。
   const origIsNew = (orig.match || "any") === "none";
   const origCreateBranch = !!orig.create_branch;
   return {
@@ -398,10 +370,9 @@ async function run() {
   try {
     const overrides = buildOverrides();
     if (selectedCreateWorktree.value) {
-      // worktree は既存の GitChangeBranch.vue の Add > Worktree と同じ API で先に作成し、
-      // 作成後の compound な workspace 名（"{base}:{branch}"）をそのまま dispatch の
-      // workspace として使う（dispatch.py 側の worktree フィールドは既存 worktree の
-      // 検索専用で新規作成はしないため、作成自体はここで済ませる）。
+      // worktreeはGitChangeBranch.vueのAdd > Worktreeと同じAPIで先に作成し、compound
+      // なworkspace名（"{base}:{branch}"）をdispatchのworkspaceとして使う
+      // （dispatch.py側のworktreeフィールドは既存worktreeの検索専用のため）。
       const { ok, data } = await apiCommand(
         wsEndpoint(selectedWorkspace.value, "worktrees"),
         { branch: newBranchName.value.trim(), base: baseBranch.value || null },
@@ -415,11 +386,9 @@ async function run() {
       overrides.branch = null;
       overrides.base_branch = null;
       overrides.create_branch = null;
-      // worktree自体の作成に成功した時点でモーダルを閉じる。以降のdispatch実行
-      // （新規セッション起動＋Input欄の送信）は結果を待たずバックグラウンドで
-      // 継続する（作成〜実行の2段階の完了待ちでモーダルが開いたままになるのを
-      // 避けるため）。実行自体が失敗した場合はrunItem内のapiPostが通常の
-      // エラートースト（errorMessage）で通知する。
+      // worktree作成成功時点でモーダルを閉じ、以降のdispatch実行は結果を待たずバックグラウンド
+      // で継続する（作成〜実行の2段階待ちでモーダルが開いたままになるのを避けるため）。
+      // 実行自体が失敗した場合はrunItem内のapiPostが通常のエラートーストで通知する。
       emits("done");
       runItem(itemId, overrides).catch(() => {});
       return;

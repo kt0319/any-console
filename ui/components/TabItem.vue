@@ -68,7 +68,6 @@ const pillEl = ref<HTMLElement | null>(null);
 let closePending = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
-// ドラッグ操作（PC DnD + タッチ）は useTabDrag に集約。
 const {
   canDrag,
   isDragging,

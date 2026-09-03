@@ -23,13 +23,10 @@ let started = false;
 /**
  * git ステータス／エージェント状態／dispatch キュー／ターミナルセッション作成・削除の
  * リアルタイム配信 WS を購読する。
- * 受信した git ステータスは workspace ストアへ、エージェント状態は terminal
- * ストアへ即時マージされ、dispatch キューは承認待ち一覧へ全量反映される。
  * セッション作成・削除の通知は、他クライアントが開閉したタブをポーリング（最大
- * SESSION_SYNC_INTERVAL_MS の遅延、かつ非表示タブでは停止する）を待たずに即座へ
- * 反映するためのnudgeで、既存の syncSessionsFromServer() をそのまま呼ぶ。
- * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める
- * （エージェント状態・dispatch キューはサーバが購読開始時にスナップショットを送る）。
+ * SESSION_SYNC_INTERVAL_MS の遅延）で拾うのを待たずに即座へ反映するための
+ * nudgeで、既存の syncSessionsFromServer() をそのまま呼ぶ。
+ * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める。
  */
 export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
@@ -41,10 +38,9 @@ export function useStatusStream() {
     return !socket || socket.readyState === WebSocket.CLOSED;
   }
 
-  // 今アクティブなタブのsessionId（無ければnull）。タブが非表示（バック
-  // グラウンド化）中はnull扱いにする — push通知の「その端末で今そのセッションを
-  // 見ているなら送らない」抑制はユーザーが実際に画面を見ている時だけ効かせたい
-  // ため（バックグラウンドのタブは「見ている」とみなさない）。
+  // 今アクティブなタブのsessionId。タブが非表示（バックグラウンド化）中は
+  // null扱いにする — push通知の「見ているなら送らない」抑制はユーザーが実際に
+  // 画面を見ている時だけ効かせたいため。
   function currentViewingSessionId() {
     if (document.hidden) return null;
     const tab = terminalStore.activeTab;
@@ -89,10 +85,7 @@ export function useStatusStream() {
         syncSessionsFromServer();
       } else if (msg?.type === "session_workspace_bound") {
         // 素のターミナルがcwd照合で自動ワークスペース紐付けされた通知。該当タブが
-        // 既に開いていれば、次のポーリングを待たずタブアイコン・ピル（Git/Dev
-        // Server等）を即座に更新する（setTabWorkspaceがtab.wsIconと
-        // tabWorkspaceVersionを進め、TerminalPane/TabItemの各computedが
-        // 再評価される）。
+        // 既に開いていれば、次のポーリングを待たずタブアイコン・ピルを即座に更新する。
         const tab = terminalStore.openTabs.find((t) => t.sessionId === msg.session_id);
         if (tab) {
           const ws = workspaceStore.allWorkspaces.find((w) => w.name === msg.workspace);

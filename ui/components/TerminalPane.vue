@@ -172,9 +172,7 @@ const devServerEntry = computed(() => {
 const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
-// （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
-// 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
-// PR/Actionsのポーリング開始・停止は useGitHubPollingFor に集約。
+// （無関係なPRの存在では出さない）。PR/Actionsのポーリング開始・停止は useGitHubPollingFor に集約。
 const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(
   computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
 const branchPR = computed<Record<string, any> | null>(() => {
@@ -183,8 +181,6 @@ const branchPR = computed<Record<string, any> | null>(() => {
 });
 
 // GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
-// 実行中→完了への遷移をピルに反映するため、表示中は定期的に再取得する
-// （参照カウント式のポーリングはuseWorkspaceRuns側に集約）。
 const branchAction = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   return findRunForBranch(runsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
@@ -201,7 +197,6 @@ const tabDispatchItems = computed(() => {
   return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === props.tab.workspace);
 });
 
-// ピル・peekピルのクリック時の遷移（openPane(key)）はuseInfoPillActionsに集約。
 const { openPane } = useInfoPillActions({
   tab: tabRef as Ref<Record<string, any>>,
   isGitRepo,
@@ -210,8 +205,6 @@ const { openPane } = useInfoPillActions({
   behind,
 });
 
-// peekピル（値が変化した時に一時表示する長いピル）自体をクリック/タップした時、
-// 対応する通常ピルと同じ遷移先を開く。
 function onPeekClick() {
   openPane(peekingKey.value);
 }
@@ -223,16 +216,11 @@ const frameEl = ref<HTMLElement | null>(null);
 const pillEl = ref<HTMLElement | null>(null);
 let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 
-// 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
-// 横スクロール上限幅を 100vw 基準にすると、狭いペインではみ出した Branches/
-// Changes 等の先頭側ボタンが .terminal-pane の overflow クリップで完全に
-// 隠れ、スクロールしても届かなくなる。実測したペイン幅から閉じるボタン・
-// ワークスペースピル本体・余白ぶんを差し引いた残りを上限にする。
+// 分割モードでは.terminal-paneがビューポートよりずっと狭い。.pill-trailingの横スクロール
+// 上限幅を100vw基準にすると、はみ出したBranches/Changes等のボタンがoverflowクリップで隠れて
+// 届かなくなるため、実測したペイン幅から閉じるボタン等を差し引いた残りを上限にする。
 const { maxWidth: trailingMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
 
-// アイコンのみのボタンでも、PCでホバーした時にその時点の実際の値
-// （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
-// わかるようにする。文言の組み立てはinfo-pill-tooltips.ts（純粋関数）。
 const tooltips = computed(() => buildInfoPillTooltips({
   name: props.tab.workspace || props.tab.label || "",
   isGitRepo: isGitRepo.value,
@@ -252,26 +240,14 @@ const tooltips = computed(() => buildInfoPillTooltips({
   branchAction: branchAction.value,
 }));
 
-// ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
-// PC・モバイル問わず常にアイコンのみ表示する。値が更新された時だけピル行を
-// 丸ごと隠し、変化したキーの情報を載せた1本の長いピル（PillPeek.vue）に
-// 数秒だけ差し替える（peekingKey、下記参照）。
+// ピルは常にアイコンのみ表示し、値が更新された時だけピル行を隠して変化した
+// キーの情報を1本の長いピル（PillPeek.vue）に数秒だけ差し替える（peekingKey）。
 
-// peek の変化検出対象（ワークスペース名/Branches/Changes/Pull/Push/
-// Dev Server/Files/Add workspace）の内容。値だけ見て良く、v-if の
-// 表示条件（isGitRepo 等）と揃えておく（peekingKey による一時表示の判定にも
-// 同じ key を使う）。ここでは変化検出用の最小限の値（key + 見た目に影響する
-// text）だけ持てば良い。組み立て自体はセッションサイドバー行と
-// 共用するpill-peek.tsの純粋関数に集約する（branchをhistoryより前に置く
-// 理由等の詳細コメントもそちら参照）。
-// 省略表示形式（画面回転で変わりうる）をbranchのtextに使うと、回転しただけで
-// 「ブランチが変わった」と誤検知してpeekが発火してしまうため、表示形式に
-// 依存しない生のブランチ名を使う。actionsは成功で完了した瞬間もpeekで一度
-// 知らせたいため、通常時は非表示になるsuccessも含めbranchAction
-// （visibleBranchActionでフィルタする前の値）を変化検出に使う。
-// peek関連（buildTrailingPeekItems / buildPeekText / buildPeekSignature）で使う
-// フィールドはこの1つのcomputedに集約する（SessionSidebarRow.vueと同形。
-// 2箇所に分けて組み立てると、フィールド追加時に片方だけ足すズレが起きるため）。
+// peekの変化検出対象フィールド。組み立てはSessionSidebarRow.vueと共用する
+// pill-peek.tsの純粋関数に集約する（2箇所に分けるとフィールド追加時のズレが起きるため）。
+// branchのtextは画面回転で変わる省略表示形式ではなく生のブランチ名を使う
+// （回転しただけで「ブランチが変わった」と誤検知するのを防ぐ）。actionsは成功完了の
+// 瞬間もpeekで知らせたいため、フィルタ前のbranchActionを変化検出に使う。
 const peekFields = computed<Record<string, any>>(() => ({
   workspaceLabel: props.tab.workspace || props.tab.label || "",
   isGitRepo: isGitRepo.value,
@@ -292,10 +268,8 @@ const peekFields = computed<Record<string, any>>(() => ({
   dispatchTooltip: tooltips.value.dispatch,
 }));
 
-// アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象の
-// アイコン + 情報テキストだけを乗せた1本の長いピル（PillPeek.vue）を
-// 数秒だけ表示する。trailingPeekItems の組み立て・変化検出・キュー・
-// タイマーは usePeekPills に集約（SessionSidebarRow と共用）。
+// trailingPeekItems の組み立て・変化検出・キュー・タイマーは usePeekPills に集約
+// （SessionSidebarRow と共用）。
 const {
   trailingPeekItems,
   peekingKey,
@@ -413,15 +387,11 @@ function onWheel(e: WheelEvent) {
   e.preventDefault();
 }
 
-// term.open() 後に xterm フォーカスポリシーを注入する。
-// タップ（touch）ではOSキーボードを開かせず、クリック（mouse/pen等）では
-// 通常通りフォーカスしてOSキーボード/物理キーボード入力を許可する。
-// アプリ全体で最後に観測したpointerType（getLastPointerType）で判定する
-// （isPanelBottom等のレイアウト設定には依存しない）。ターミナル要素自体への
-// pointerdownだけを見ると、確認ダイアログのボタンをタップして閉じた直後の
-// タブ切替えのようにターミナル要素自身は何もイベントを受けていないfocus()
-// 呼び出しを判定できない（既定値のままフォーカスを許可してしまいiOSで
-// キーボードが開く）ため、アプリ全体を対象にする。
+// term.open() 後、タップ（touch）ではOSキーボードを開かせず、クリック
+// （mouse/pen等）では通常通りフォーカスを許可する。アプリ全体で最後に観測した
+// pointerType（getLastPointerType）で判定する。ターミナル要素自体へのpointerdown
+// だけを見ると、確認ダイアログをタップで閉じた直後のタブ切替えのように、
+// ターミナル要素自身は何もイベントを受けていないfocus()呼び出しを判定できないため。
 function applyFocusGuard(term: Terminal | null | undefined) {
   const textarea = term?.textarea;
   if (!term || !textarea) return;

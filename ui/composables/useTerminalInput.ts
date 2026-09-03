@@ -20,9 +20,9 @@ function isPlainAppPageKey(e: KeyboardEvent) {
     && !e.altKey;
 }
 
-// WS へ入力を送る唯一の経路（bindTerminalInput / bindTerminalElement 共用）。
-// 送信時刻を記録し、生存監視が「送信も activity」として扱えるようにする
-// （エコー無しプログラムへの連続入力で誤切断しないため）。
+// WS へ入力を送る唯一の経路（bindTerminalInput / bindTerminalElement 共用）。送信時刻を
+// 記録し、生存監視が「送信もactivity」として扱えるようにする（エコー無しプログラムへの
+// 連続入力で誤切断しないため）。
 function sendTabInput(tab: TerminalTab, bytes: Uint8Array) {
   if (tab.ws?.readyState !== WebSocket.OPEN) return;
   tab.ws.send(bytes);
@@ -39,10 +39,9 @@ export function bindTerminalInput(tab: TerminalTab) {
   const encoder = new TextEncoder();
 
   const sendInput = (bytes: Uint8Array) => sendTabInput(tab, bytes);
-  // ユーザー操作由来の入力は、送信に加えてdone/phrase通知バッジも解除する
-  // （onResizeの機械的な送信では解除しない）。タブ切替時のclearSessionNotifyBadges
-  // だけでは、既にアクティブなタブに通知が届いた場合（タブ切替が発生しない）に
-  // バッジが残り続けてしまうため、そのタブで実際に操作した瞬間にも解除する。
+  // ユーザー操作由来の入力は通知バッジも解除する（onResizeの機械的な送信では解除しない）。
+  // タブ切替時のclearSessionNotifyBadgesだけでは、既にアクティブなタブに通知が届いた場合
+  // （タブ切替が発生しない）にバッジが残り続けるため、実際に操作した瞬間にも解除する。
   const sendUserInput = (bytes: Uint8Array) => {
     sendInput(bytes);
     useAgentStateStore().clearSessionNotifyBadges(tab.sessionId);
@@ -90,23 +89,20 @@ export function bindTerminalInput(tab: TerminalTab) {
     return true;
   });
 
-  // マウス選択でテキストが確定したら自動的にブラウザクリップボードへコピーする。
-  // 受動的に高頻度で走るため copyText は使わない（textarea フォールバックが
-  // select() でフォーカスを奪う）。非 secure context では黙って何もしない。
-  // Wayland環境ではブラウザが書き込みで所有者になったまま他アプリの上書きを
-  // 検知できず、以後のペーストが古い選択テキストに化けることがあるため、
-  // 設定（Copy on Select）でオフにできる。
+  // マウス選択でテキストが確定したら自動的にブラウザクリップボードへコピーする。受動的に
+  // 高頻度で走るため copyText は使わない（textarea フォールバックが select() でフォーカスを
+  // 奪う）。Wayland環境ではブラウザが書き込み所有者になったまま他アプリの上書きを検知できず
+  // 以後のペーストが古い選択テキストに化けることがあるため、設定（Copy on Select）でオフにできる。
   tab.term?.onSelectionChange(() => {
     if (!useTerminalSettingsStore().terminalSettings.copyOnSelect) return;
     const text = tab.term?.getSelection();
     if (text) navigator.clipboard?.writeText(text).catch(() => {});
   });
 
-  // OSC 52: tmux が set-clipboard on のときに送ってくるクリップボード同期シーケンス。
-  // data = "c;BASE64TEXT" の形式。デコードしてブラウザのクリップボードに書き込む。
-  // 出力ストリーム起点の受動経路のため copyText のフォールバックは使わない（フォーカスを奪う）。
-  // この経路もブラウザをクリップボード所有者にするため、copyOnSelect オフ時は
-  // 書き込まない（Wayland の所有権通知問題の回避を選択時コピーと揃える）。
+  // OSC 52: tmux が set-clipboard on のときに送ってくるクリップボード同期シーケンス
+  // （data = "c;BASE64TEXT"）。デコードしてブラウザのクリップボードに書き込む。
+  // この経路もブラウザをクリップボード所有者にするため、copyOnSelect オフ時は書き込まない
+  // （Wayland の所有権通知問題の回避を選択時コピーと揃える）。
   tab.term?.parser.registerOscHandler(52, (data) => {
     if (!useTerminalSettingsStore().terminalSettings.copyOnSelect) return true;
     const semi = data.indexOf(";");

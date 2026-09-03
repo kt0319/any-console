@@ -25,11 +25,9 @@ export const useAgentStateStore = defineStore("agent-state", () => {
   const workingStartedAt: Record<string, number> = {};
 
   /**
-   * status stream WS から届いたエージェント状態をマージする。
-   * working が WORKING_MIN_DURATION_MS 以上継続してから idle に遷移した場合のみ
-   * 「done」として doneSessions に記録する。idle以外（working/blocked）が届いたら
-   * doneSessions はクリアする（新しい作業の開始、またはblockedでの入力待ちが
-   * doneより優先されるため）。
+   * status stream WS から届いたエージェント状態をマージする。idle以外
+   * （working/blocked）が届いたら doneSessions はクリアする（新しい作業の開始、
+   * またはblockedでの入力待ちがdoneより優先されるため）。
    */
   function applyAgentStates(states: Array<{ session_id: string, state: string, source?: string }>) {
     if (!Array.isArray(states)) return;
@@ -84,7 +82,6 @@ export const useAgentStateStore = defineStore("agent-state", () => {
     clearNotifyFlag(phraseNotifySessions, sessionId);
   }
 
-  // セッションが選択・アクティブ化された際に見た扱いでクリアするバッジをまとめて処理する。
   function clearSessionNotifyBadges(sessionId: string | null | undefined) {
     clearPhraseNotify(sessionId);
     clearDoneState(sessionId);

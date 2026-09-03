@@ -64,14 +64,11 @@ export const useTerminalStore = defineStore("terminal", () => {
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
   const tabFlags = reactive<Record<number, Record<string, unknown>>>({});
-  // tab は markRaw（xterm.Terminal/WebSocket等の重い実行時参照を保持するため
-  // 意図的に非リアクティブ）なので、tab.workspace のようなフィールドの変更は
-  // それ単体では画面に伝わらない。かといって tab オブジェクト自体を差し替えると
-  // connectTerminalWs/bindTerminalInput 等がこの identity をクロージャで
-  // 握っているため、ソケット/入力バインドの実行時状態が新旧オブジェクトに
-  // 分裂して壊れる（例: 入力が閉じた古いソケットへ送られ続ける）。
-  // tab の identity は変えず、フィールド変更を知りたい側がこの版数を
-  // 明示的に依存に含めることで再計算のトリガーにする。
+  // tab は markRaw（xterm.Terminal/WebSocket等の重い実行時参照を保持するため意図的に
+  // 非リアクティブ）なので、tab.workspace 等のフィールド変更は画面に伝わらない。tab
+  // オブジェクト自体を差し替えるとconnectTerminalWs等がidentityをクロージャで握っている
+  // ため実行時状態が分裂して壊れる。identityは変えず、この版数を依存に含めて再計算を
+  // トリガーする。
   const tabWorkspaceVersion = ref(0);
   // closeTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
   // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
@@ -98,12 +95,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     delete tabFlags[tabId];
   }
 
-  // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側（useSessionSync の
-  // ポーリング/WS通知、useDispatchQueue の focusSession 等）はそれぞれ
-  // 独立した非同期処理で「既存タブが無いか」を確認してから addTerminalTab を
-  // 呼ぶが、確認から呼び出しまでの await の間に別経路が同じセッションのタブを
-  // 追加してしまうレースがあり、二重タブが生成されうる。store 側の唯一の
-  // 追加窓口でチェックすることで、呼び出し側の確認タイミングに関わらず防ぐ。
+  // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側はそれぞれ独立した非同期処理で
+  // 「既存タブが無いか」を確認してから呼ぶが、確認から呼び出しまでのawaitの間に別経路が
+  // 同じセッションのタブを追加してしまうレースがあるため、store側の唯一の追加窓口でチェックする。
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }: {
     wsUrl: string,
     workspace?: string | null,
@@ -125,15 +119,14 @@ export const useTerminalStore = defineStore("terminal", () => {
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {
       if (isTouchInput() && !_longPressActive) return;
-      // WebLinksAddon はアプリ側が明示的に改行した URL（xterm の自動折返しではない）を
-      // 連結できず途中で切れることがあるため、クリック座標から改めて全体を再計算する。
+      // WebLinksAddon はアプリ側が明示的に改行したURLを連結できず途中で切れることがあるため、
+      // クリック座標から改めて全体を再計算する。
       const fullUri = findUrlInBuffer(term, e.clientX, e.clientY) || uri;
       bridgeEmit("terminal:url", { uri: fullUri });
     }, {
-      // デフォルトの内蔵regexは http(s):// のみで www. 始まりのURLを認識せず、
-      // タップしても反応しない（findUrlInBuffer側のTERMINAL_URL_REGEXと合わせて
-      // 拾えるURL形式を揃える）。WebLinksAddon側でgフラグを重複付与するため、
-      // sourceのみ渡してフラグ無しにする。
+      // デフォルトの内蔵regexはhttp(s)://のみでwww.始まりのURLを認識しない
+      // （findUrlInBuffer側のTERMINAL_URL_REGEXと合わせる。gフラグはWebLinksAddon側で
+      // 重複付与するためsourceのみ渡す）。
       urlRegex: new RegExp(TERMINAL_URL_REGEX.source),
     }));
 
@@ -218,10 +211,9 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   /**
-   * @param iconInfo 紐付け先
-   *   ワークスペースのアイコン。渡すとタブバー等のアイコン（tab.wsIcon）も
-   *   即座に切り替わる（未指定時はワークスペース名のみ更新。null許容だが
-   *   その場合アイコンは変えない＝呼び出し側がアイコン解決できない場合用）。
+   * @param iconInfo 紐付け先ワークスペースのアイコン。渡すとタブバー等のアイコン（tab.wsIcon）
+   *   も即座に切り替わる（未指定時はワークスペース名のみ更新。呼び出し側がアイコン解決できない
+   *   場合はnullを渡してアイコンを変えない）。
    */
   function setTabWorkspace(tabId: number, workspaceName: string | null, iconInfo: { icon?: string, iconColor?: string } | null = null) {
     const tab = openTabs.value.find((t) => t.id === tabId);

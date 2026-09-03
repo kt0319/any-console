@@ -54,7 +54,6 @@
         <div v-if="isLoading" class="clone-repo-empty loading-dots">Loading</div>
         <template v-else>
         <template v-for="(item, flatIdx) in (dragFlatList || flatList)" :key="item.type === 'header' ? 'h-' + item.group.id : item.ws.name">
-          <!-- グループヘッダー -->
           <div
             v-if="item.type === 'header'"
             class="picker-group-header"
@@ -80,7 +79,6 @@
               <span class="mdi mdi-pencil-outline"></span>
             </button>
           </div>
-          <!-- ワークスペース行 -->
           <WorkspaceListRow
             v-else
             :ws="item.ws"
@@ -114,7 +112,6 @@
       </template>
     </div>
 
-    <!-- グループ名入力モーダル -->
     <WorkspaceGroupDialog ref="groupDialog" />
   </div>
 </template>
@@ -147,8 +144,7 @@ import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceOrdering } from "../composables/useWorkspaceOrdering.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 
-// useModalView の各値は inject（default null はテスト用）。実行時は常に
-// provide されるため non-null で扱う。
+// default null はテスト用。実行時は常に provide されるため non-null で扱う。
 const modalView = useModalView();
 const modalTitle = modalView.modalTitle!;
 const pushView = modalView.pushView!;
@@ -172,20 +168,15 @@ const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 const wsListEl = ref<HTMLElement | null>(null);
 const collapsedGroups = reactive(_collapsedGroups);
 
-// グループダイアログ
 const groupDialog = ref<InstanceType<typeof WorkspaceGroupDialog> | null>(null);
 
 // グループなし（トップレベル）。フィルタ規則は workspacesInGroup（共通）参照。
 const ungrouped = computed(() => workspacesInGroup(workspaceStore.allWorkspaces, null));
 
-// グループ内のワークスペース
 function groupedWorkspaces(groupId: string) {
   return workspacesInGroup(workspaceStore.allWorkspaces, groupId);
 }
 
-
-// グループヘッダーとワークスペースを1本のリストに統合
-// type:'header' はグループ見出し、type:'ws' はワークスペース行
 // 要素型は useWorkspaceListDrag.ts の FlatRow と同形にする（dragFlatList と
 // 合流させてテンプレートで区別なく扱うため。header/ws の判別は item.type）。
 const flatList = computed<({ type: string } & Record<string, any>)[]>(() =>
@@ -245,14 +236,13 @@ async function loadWorkspaceOverview() {
 }
 
 function openBareTerminal() {
-  // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
-  // のopenTerminal/runJobと同様）。
+  // 開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue のopenTerminal/runJobと同様）。
   bridgeEmit("terminal:launch", {});
 }
 
-// ワークスペースを1つずつ開かなくても、ツールバーからCommon/Workspace
-// どちらのJobも作成できるようにする（Workspaceスコープの場合はJobConfig側の
-// プルダウンで対象ワークスペースを選ぶ）。
+// ワークスペースを1つずつ開かなくても、ツールバーからCommon/Workspaceどちらの
+// Jobも作成できるようにする（Workspaceスコープの場合はJobConfig側のプルダウンで
+// 対象ワークスペースを選ぶ）。
 function openAddJob() {
   pushView("JobConfig", {
     workspaceName: "",
@@ -377,7 +367,6 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-/* グループ */
 .picker-group-header:not(:first-child) {
   margin-top: 4px;
 }

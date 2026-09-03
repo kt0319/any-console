@@ -23,9 +23,8 @@ export const useLayoutStore = defineStore("layout", () => {
   const layoutPrefs = useLayoutPrefs();
   const isPanelBottom = computed({
     get: () => resolveTabPosition(layoutPrefs.value, isNarrowViewport.value) === "bottom",
-    // 呼び出し元・テストがモバイル/PCレイアウトを直接切り替えるための書き込み
-    // ショートハンド。実体はisNarrowViewportへの代入で、layoutPrefsの内容は
-    // 変更しない（既定のprefsではこの値とisPanelBottomのgetは一致する）。
+    // モバイル/PCレイアウトを直接切り替えるための書き込みショートハンド。実体は
+    // isNarrowViewportへの代入で、layoutPrefsの内容は変更しない。
     set: (v) => { isNarrowViewport.value = v; },
   });
   const keyboardBarVisible = computed(() => resolveKeyboardBarVisible(layoutPrefs.value, isNarrowViewport.value));
@@ -165,8 +164,7 @@ export const useLayoutStore = defineStore("layout", () => {
   /**
    * 分割を解除し、必ず有効な（openTabsに存在する）タブがアクティブになるようにする。
    * targetTabId未指定時は、アクティブペインの実タブ→ペイン内の最初の実タブの順に
-   * フォールバックして terminalStore.switchTab を呼ぶ。呼び出し元はswitchTabを
-   * 別途呼ぶ必要はない。
+   * フォールバックして terminalStore.switchTab を呼ぶ。呼び出し元がswitchTabを別途呼ぶ必要はない。
    */
   function exitSplitMode(targetTabId?: number | null): number | null {
     const restoreTabId = resolveExitRestoreTab(splitPaneTabIds.value, activePaneIndex.value, targetTabId);
@@ -180,9 +178,9 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   /**
-   * 指定インデックスの空きペインの隣に新しい空きペインを追加する
-   * （SplitEmptyPane の Add pane ボタンから呼ばれる）。現在のレイアウト軸は変更しない。
-   * 開いているタブ数を超えてペインを増やしても埋められないため、そこで打ち止めにする。
+   * 指定インデックスの空きペインの隣に新しい空きペインを追加する（SplitEmptyPane の
+   * Add pane ボタンから呼ばれる）。開いているタブ数を超えてペインを増やしても埋められないため
+   * そこで打ち止めにする。
    */
   function addPane(paneIndex: number) {
     if (!isSplitMode.value) return;

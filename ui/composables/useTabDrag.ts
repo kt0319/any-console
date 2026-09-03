@@ -7,13 +7,9 @@ import { DRAG_THRESHOLD } from "../utils/constants.ts";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
 /**
- * タブ1つ分のドラッグ操作（TabItem.vue から抽出）。
- * - PC: HTML5 Drag & Drop によるタブ並び替え + 分割ドロップ
- * - モバイル: 長押し無しで閾値を超えた瞬間にドラッグ開始する。タッチでの
- *   タブ並び替えは行わない（横移動は touch-action:pan-x のネイティブ
- *   スクロールに委ねる。並び替えはPCのD&Dのみ）。縦移動だけスプリット
- *   ドラッグとして扱う。
- * クローズはタブ本体のタップ/クリックでは行わず、常に tab-close ボタン経由。
+ * タブ1つ分のドラッグ操作（TabItem.vue から抽出）。PC: HTML5 D&D によるタブ並び替え +
+ * 分割ドロップ。モバイル: 縦移動のみスプリットドラッグとして扱う（横移動は
+ * touch-action:pan-x のネイティブスクロールに委ねるため、タッチでの並び替えは行わない）。
  */
 export function useTabDrag(options: {
   tabId: () => number,
@@ -112,8 +108,6 @@ export function useTabDrag(options: {
     cancelDrag();
   }
 
-  // Mobile: タッチドラッグ（縦方向のみ = 分割ドロップ専用。横方向の並び替えは
-  // 行わない。タブ並び替えはPCのHTML5 D&D経由のみ）。
   const touchTracker = createTouchTracker();
 
   function clearDragOverIndicator() {

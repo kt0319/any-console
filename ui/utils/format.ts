@@ -1,8 +1,5 @@
 import { JOB_COMMAND_PREVIEW_MAX } from "./constants.ts";
 
-/**
- * 末尾を切り詰めて "..." を付ける（超過時のみ）。
- */
 export function truncateTail(str: string | null | undefined, maxLen: number): string {
   const s = String(str || "");
   return s.length > maxLen ? s.slice(0, maxLen) + "..." : s;

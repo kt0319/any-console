@@ -24,20 +24,12 @@ export type StatusStreamMessage =
   | { type: "session_job_bound"; session_id: string; job_name: string; job_label: string; icon: string | null; icon_color: string | null };
 
 /**
- * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
- * - statuses: `{ type: "statuses", statuses: [...] }`
- * - agent_states: `{ type: "agent_states", states: [{ session_id, state }] }`
- * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }], recent: [{ id, request, outcome }] }`
- *   （items: pendingの全量スナップショット、recent: 直近に実行/破棄された項目。新しい順）
- * - phrase_notify: `{ type: "phrase_notify", session_id, phrase, workspace }`
- * - phrase_notify_clear: `{ type: "phrase_notify_clear", session_id }`
- * - session_created / session_removed: `{ type, session_id }`（ターミナルセッションの
- *   作成・削除。他クライアントでの変更をタブ一覧へ即時反映するためのnudge、server/src/session_watch.rs）
- * - session_workspace_bound: `{ type, session_id, workspace }`（素のターミナルが
- *   cwd照合で自動ワークスペース紐付けされた通知、server/src/agent_watch.rs apply_workspace_tag）
- * - session_job_bound: `{ type, session_id, job_name, job_label, icon, icon_color }`（素の
- *   ターミナルが前面ジョブのargv照合で自動ジョブタグ付けされた通知、
- *   server/src/agent_watch.rs apply_job_tag。icon/icon_colorは無ければnull）
+ * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す（型は StatusStreamMessage 参照）。
+ * dispatch_queue の items は pendingの全量スナップショット、recent は直近に実行/破棄
+ * された項目（新しい順）。session_created/session_removed は他クライアントでの変更を
+ * タブ一覧へ即時反映するためのnudge（server/src/session_watch.rs）。
+ * session_workspace_bound / session_job_bound はそれぞれ server/src/agent_watch.rs の
+ * apply_workspace_tag / apply_job_tag による自動紐付け通知。
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  */
 export function parseStatusStreamMessage(raw: unknown): StatusStreamMessage | null {

@@ -3,9 +3,6 @@
 // ここでは変化検出に必要な最小限の値（key + 見た目に影響する text）だけを扱う。
 // TerminalPane（浮遊ピル）とセッションサイドバー行の両方から共用する。
 
-/**
- * @returns key -> text のシグネチャ
- */
 export function trailingItemsSignature(items: { key: string; text: string }[]): Map<string, string> {
   return new Map((items || []).map((it) => [it.key, it.text]));
 }

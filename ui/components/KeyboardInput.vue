@@ -40,11 +40,9 @@ import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 
 const emit = defineEmits(["focused", "submitted"]);
-// フリックバーの矢印キーと同じ履歴↑↓状態を物理キーボードの矢印キーでも
-// 使うため、useInputDraftHistoryは呼び直さず親（KeyboardBar.vue）が単一
-// 生成したhistoryPrev/historyNextを受け取る（ここで別インスタンスを作ると
-// historyIndexが別々になり、フリックと物理キーを混ぜて使った時に履歴が
-// 正しく辿れなくなる）。
+// フリックバーと物理キーボードで履歴↑↓状態を共有するため、useInputDraftHistoryを
+// ここで作り直さず親（KeyboardBar.vue）が単一生成したものを受け取る（別インスタンスに
+// するとhistoryIndexが分かれ、混ぜて使った時に履歴を正しく辿れなくなる）。
 const props = defineProps({
   historyPrev: { type: Function as PropType<() => void>, required: true },
   historyNext: { type: Function as PropType<() => void>, required: true },
@@ -115,10 +113,9 @@ function onFocus() {
   layoutStore.isOsKeyboardOpen = true;
 }
 
-// v-model（vModelText）はIME変換中（compositionstart〜compositionend）は
-// draft.value への反映を止める仕様のため、hasDraft（親のsend/enterアイコン
-// 切替）が変換中の未確定文字列を拾えない。DOMのinput/compositionupdateを
-// 直接見て draft.value を追従させ、変換中でも送信ボタンをsend表示にする。
+// v-model（vModelText）はIME変換中はdraft.valueへの反映を止める仕様のため、
+// hasDraft（親のsend/enterアイコン切替）が未確定文字列を拾えない。DOMのinput/
+// compositionupdateを直接見てdraft.valueを追従させる。
 function onInput(e: Event) {
   const value = (e.target as HTMLTextAreaElement).value;
   if (draft.value !== value) draft.value = value;

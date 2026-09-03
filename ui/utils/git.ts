@@ -112,10 +112,8 @@ type GitFileLike = {
 
 /**
  * ファイル1件分の挿入/削除行数を解決する（tracked済みのinsertions/deletions →
- * diffChunkからのパース、の優先順）。buildFileNumstatHtml（1件表示）と
- * 合計numstat表示（GitChanges.vue）の両方で同じ解決順を共有するため分離。
- * 情報が全く無い場合はnull/nullを返す（buildNumstatHtmlの「両方null なら
- * 空文字列」判定と対にするため、0/0に丸めない）。
+ * diffChunkからのパース、の優先順）。情報が全く無い場合は0/0に丸めずnull/nullを返す
+ * （buildNumstatHtmlの「両方nullなら空文字列」判定と対にするため）。
  */
 export function resolveFileNumstat(file: GitFileLike, diffChunk = ""): { insertions: number | null, deletions: number | null } {
   const insertions = file.insertions ?? file.added;

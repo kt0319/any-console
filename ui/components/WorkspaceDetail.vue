@@ -146,17 +146,13 @@ const githubPrs = ref<InstanceType<typeof GitHubPRsPane> | null>(null);
 const jobsPane = ref<InstanceType<typeof WorkspaceJobsPane> | null>(null);
 const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(null);
 
-// DispatchタブでDispatchWorkspacePane（一覧）→DispatchRunView（1件の詳細/実行）
-// をローカルに切り替えるための状態。Settings側のpushViewには乗せない
-// （別レイヤーとして開いてしまい、ワークスペース詳細の外に見えてしまうため）。
+// DispatchWorkspacePane（一覧）→DispatchRunView（1件の詳細/実行）をローカルに
+// 切り替えるための状態。Settings側のpushViewには乗せない（別レイヤーとして開いてしまうため）。
 const selectedDispatchId = ref<string | null>(null);
-// このWorkspaceDetailインスタンスが開かれた時点のアクティブタブID
-// （このコンポーネントはWorkspaceDetailModal.vueで:key="activeTabId"により
-// タブ切替のたびに再マウントされるため、mount時点のIDがこのインスタンスの
-// 所属タブと一致する）。Dispatch RunでpendingワークスペースのDispatchを
-// 実行すると新規セッションが作られてアクティブタブが切り替わるため、close側で
-// 「今アクティブなタブ」を使うと切り替わった後の新タブを誤って閉じてしまう
-// （useWorkspaceDetailNav.ts参照）。
+// このWorkspaceDetailインスタンスが開かれた時点のアクティブタブID（WorkspaceDetailModal.vue
+// で:key="activeTabId"によりタブ切替のたび再マウントされるため一致する）。Dispatch Runで
+// 新規セッションが作られアクティブタブが切り替わることがあるため、close側で「今アクティブな
+// タブ」を使うと切り替わった後の新タブを誤って閉じてしまう（useWorkspaceDetailNav.ts参照）。
 const openedForTabId = useTerminalStore().activeTabId;
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
 // （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.tsのcloseをprovideする）。
@@ -164,9 +160,8 @@ const closeWorkspaceDetail = inject<((tabId?: number | null) => void) | undefine
 function onDispatchRunDone() {
   selectedDispatchId.value = null;
   closeWorkspaceDetail?.(openedForTabId);
-  // Runで既存セッションへ切り替わった場合、切替後にアクティブな別タブ側の
-  // Detailが開いた状態で残ることがあるため、そちらも念のため閉じる
-  // （openedForTabIdと同じタブなら二重呼び出しになるだけで無害）。
+  // Runで既存セッションへ切り替わった場合、切替後の別タブ側にDetailが開いたまま
+  // 残ることがあるため念のため閉じる（openedForTabIdと同じなら二重呼び出しで無害）。
   closeWorkspaceDetail?.(useTerminalStore().activeTabId);
 }
 
@@ -179,15 +174,13 @@ const {
   expand: expandBranchSection,
 } = useCollapsibleSection(loadBranchSection);
 // Changesタブに統合したStash一覧も同じパターンで既定は畳んだ状態にする
-// （旧: 独立した「Stashes」タブ。ChangesとStashは両方「今のワークツリーの
-// 未確定の変更」という同じ関心事なので1タブへ統合した）。
+// （ChangesとStashは両方「今のワークツリーの未確定の変更」という同じ関心事のため1タブへ統合）。
 const {
   expanded: stashSectionExpanded,
   toggle: toggleStashSection,
   expand: expandStashSection,
 } = useCollapsibleSection(loadStashSection);
-// コミットのファイル一覧を見ている間はBranchヘッダーを隠し、履歴の
-// 表示領域を圧迫しないようにする（GitHistoryのcommit:expanded/collapsed）。
+// コミットのファイル一覧を見ている間はBranchヘッダーを隠す（GitHistoryのcommit:expanded/collapsed）。
 const isViewingCommitFiles = ref(false);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
@@ -300,14 +293,10 @@ function handleBack() {
 function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean } | null | undefined) {
   options = options || {};
   const paneKey = options.pane || "jobs";
-  // branchピル経由（paneKey === "branch"）はHistoryタブを開くと同時に
-  // Branch一覧セクションを展開する—ただしPush/Pull件数（expandBranch）が
-  // 表示されている時だけ。件数が無ければコミット履歴を主役にして畳んだ状態
-  // で開く。expandBranch省略時（deep link等、useInfoPillActions経由でない
-  // 呼び出し）は従来通りpaneKey==="branch"を展開条件にする。
-  // History タブ自体を直接開いた場合は従来通り畳んだ状態で開始する。stashも
-  // 同様（旧Stashesタブへの外部リンク・通知経由の遷移との互換のため、
-  // paneKey === "stash" はChangesタブを開いてStashセクションを展開する）。
+  // branchピル経由（paneKey === "branch"）はHistoryタブを開くと同時にBranch一覧セクション
+  // を展開する（Push/Pull件数が表示されている時だけ。無ければ畳んだ状態で開く）。
+  // expandBranch省略時（deep link等）は従来通りpaneKey==="branch"を展開条件にする。
+  // stashも同様（旧Stashesタブとの互換のため、paneKey === "stash"はChangesタブを開いて展開）。
   const wantBranchExpanded = options.expandBranch ?? (paneKey === "branch");
   const wantStashExpanded = paneKey === "stash";
   let resolvedPane = paneKey;
@@ -346,34 +335,28 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
 type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
 
 // ペイン名の読み替え: "branch" → "history"、"stash" → "changes"
-// （Branch/StashはそれぞれHistory/Changesタブへ統合。branchピル・
-// ?pane= ディープリンクが今もこの名前で発火する）。
+// （Branch/StashはそれぞれHistory/Changesタブへ統合。branchピル・?pane= ディープリンクが
+// 今もこの名前で発火する）。
 const PANE_ALIASES: Record<string, string> = {
   branch: "history",
   stash: "changes",
 };
 
-// activePane に入りうる正当なペイン名。未知のキー（廃止済みエイリアス等）を
-// そのまま代入すると、どの v-if/v-show にも一致せず本文が空になるため、
-// switchPane でここに無いキーは jobs へフォールバックする。
+// activePane に入りうる正当なペイン名。未知のキーはどの v-if/v-show にも一致せず本文が
+// 空になるため、switchPane でここに無いキーは jobs へフォールバックする。
 const VALID_PANE_KEYS = new Set([
   "jobs", "files", "history", "changes", "issues", "actions", "prs", "dispatch", "select",
 ]);
 
-// ペイン切替時の初期化処理（issues/actions/prs は v-if + onMounted で
-// 自動ロードするためエントリ無し）。タブを追加する時は tabs のエントリと
-// あわせてここへ足す。opts はピル経由の展開指定（一覧は通常畳んだ状態で
-// 開始するが、branch/stashピル経由の場合だけ展開する）。
+// ペイン切替時の初期化処理（issues/actions/prs は v-if + onMounted で自動ロードするため
+// エントリ無し）。タブを追加する時は tabs のエントリとあわせてここへ足す。
 const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
   history: (opts) => {
     nextTick(() => {
-      // commit:expanded/collapsedの取りこぼし（タブ切替等で経由せず離脱した
-      // 場合）でBranchヘッダーが隠れたまま復帰しなくなるのを防ぐため、
-      // Historyタブに入るたびに実際の展開状態へ同期し直す。
+      // commit:expanded/collapsedの取りこぼしでBranchヘッダーが隠れたまま復帰しなくなるのを
+      // 防ぐため、Historyタブに入るたびに実際の展開状態へ同期し直す。
       isViewingCommitFiles.value = !!gitHistory.value?.hasExpanded?.();
       paneLoader.ensure("history", workspaceStore.selectedWorkspace, () => gitHistory.value?.load());
-      // 現在ブランチの行は折りたたみ時もセレクトボックスの先頭項目として
-      // 常時表示するため、展開の有無に関わらずHistoryタブに入るたび読み込む。
       loadBranchSection();
       if (opts.expandBranch) expandBranchSection();
     });
@@ -497,9 +480,8 @@ onMounted(() => {
 }
 
 
-/* HistoryタブはBranch一覧をコミット履歴の上に置くが、既定では現在の
-   ブランチ名 + シェブロンボタンだけの1行に畳んでおく（常時全部出すと
-   コミット履歴の表示領域を圧迫するため）。クリックで開閉する。 */
+/* HistoryタブのBranch一覧は既定で現在のブランチ名+シェブロンボタンの1行に畳んでおく
+   （常時全部出すとコミット履歴の表示領域を圧迫するため）。クリックで開閉する。 */
 .git-history-branch-branches {
   display: flex;
   flex-direction: column;
@@ -508,10 +490,9 @@ onMounted(() => {
   border-bottom: 1px solid var(--border);
 }
 
-/* 現在ブランチの行（GitChangeBranch.vue内）がセレクトボックスの先頭項目 兼
-   開閉トグルを兼ねるため、ここでは一覧全体を包む箱の見た目だけを持つ。
-   開閉状態は枠線色で示す（AGENTS.md: 色のみで状態を示さない → キャレット
-   の向き・アイコン変化はGitChangeBranch.vue側の行自体が担う）。 */
+/* 現在ブランチの行（GitChangeBranch.vue内）がセレクトボックスの先頭項目兼開閉トグルを
+   兼ねるため、ここは一覧全体を包む箱の見た目だけを持つ。開閉状態は枠線色で示す
+   （色のみで状態を示さない原則はGitChangeBranch.vue側のキャレット向きが担う）。 */
 .branch-summary-body {
   display: flex;
   flex-direction: column;

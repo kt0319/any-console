@@ -15,25 +15,23 @@ import { emit, on } from "../app-bridge.ts";
 type DispatchQueueItem = { id: string, request: Record<string, any> };
 type DispatchRecentItem = DispatchQueueItem & { outcome: string };
 
-// Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。
-// サーバがステータスストリーム WS（type="dispatch_queue"）で配信する全量スナップ
-// ショットをそのまま反映する。接続時・キュー変化時の両方で届くため、他端末で
-// 決定された項目が残り続けることはない。
+// Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。サーバがステータス
+// ストリーム WS（type="dispatch_queue"）で配信する全量スナップショットをそのまま
+// 反映するため、他端末で決定された項目が残り続けることはない。
 const queue = ref<DispatchQueueItem[]>([]);
 
-// 実行/破棄が決定された直近の項目（新しい順）。実行しても結果がすぐ
-// 消えてしまう問題への対応で、サーバ側が直近N件だけ一時的に
-// 残して配信する（outcome: "executed" | "discarded"）。
+// 実行/破棄が決定された直近の項目（新しい順）。実行しても結果がすぐ消えてしまう
+// 問題への対応で、サーバ側が直近N件だけ一時的に残して配信する
+// （outcome: "executed" | "discarded"）。
 const recent = ref<DispatchRecentItem[]>([]);
 
 function removeFromQueue(id: string) {
   queue.value = queue.value.filter((q) => q.id !== id);
 }
 
-// dispatchピル/一覧でjob idではなく表示用labelを出すためのジョブ定義
-// キャッシュ（/jobs/workspaces）。queue/recentと同じくモジュールスコープの
-// 単一状態にし、複数コンポーネントから同時にuseDispatchQueue()が呼ばれても
-// fetchは1回だけにする。
+// dispatchピル/一覧でjob idではなく表示用labelを出すためのジョブ定義キャッシュ
+// （/jobs/workspaces）。モジュールスコープの単一状態にし、複数コンポーネントから
+// 同時にuseDispatchQueue()が呼ばれてもfetchは1回だけにする。
 const allJobs = ref<Record<string, any>>({});
 let allJobsLoadPromise: Promise<void> | null = null;
 
@@ -43,11 +41,9 @@ on("jobs:refresh", () => {
   allJobsLoadPromise = null;
 });
 
-/**
- * ステータスストリームから受信したキュー全量で置き換える。
- * DispatchRunView を開いたまま対象が消えた場合（他端末で決定済み）に一覧へ
- * 戻れるよう、消えた項目IDを dispatch:itemRemoved で通知する。
- */
+// ステータスストリームから受信したキュー全量で置き換える。DispatchRunView を
+// 開いたまま対象が消えた場合（他端末で決定済み）に一覧へ戻れるよう、消えた
+// 項目IDを dispatch:itemRemoved で通知する。
 export function applyDispatchQueue(items: DispatchQueueItem[], recentItems?: DispatchRecentItem[]) {
   const ids = new Set(items.map((q) => q.id));
   const removed = queue.value.filter((q) => !ids.has(q.id));
@@ -102,13 +98,9 @@ export function useDispatchQueue() {
     emit("tab:select", { tab });
   }
 
-  /**
-   * DispatchRunView の Run から呼ぶ。pendingのitemでも、既に決定済みで履歴
-   * （recent）に残っているだけのitemでも同じエンドポイントで実行できる
-   * （サーバ側 dispatch_execute が dispatch_id の所在を見て振り分ける）。
-   * レスポンスが起動結果を返すため、成功時はそのままセッションへ移動する。
-   * @returns 実行できたか
-   */
+  // DispatchRunView の Run から呼ぶ。pendingのitemでも、既に決定済みで履歴
+  // （recent）に残っているだけのitemでも同じエンドポイントで実行できる
+  // （サーバ側 dispatch_execute が dispatch_id の所在を見て振り分ける）。
   async function runItem(id: string, overrides: Record<string, any>): Promise<boolean> {
     const { ok, data } = await apiPost(dispatchDecisionPath(id), {
       executed: true,
@@ -117,19 +109,16 @@ export function useDispatchQueue() {
     if (!ok) return false;
     // WS ブロードキャストでも消えるが、切断中でも一覧へ即時反映する。
     removeFromQueue(id);
-    // await必須（Codexレビュー指摘: fire-and-forgetだと、呼び出し元がrunItem完了
-    // 直後にモーダルを閉じる等で先に進んだ場合、新規セッションのタブ作成/WS接続が
-    // 完了する前に処理が終わり、pending text（TMUX_PENDING_TEXT）を流すサーバ側の
-    // flush_pending_textが呼ばれずコマンドが入力されないことがあった）。
+    // await必須（Codexレビュー指摘: fire-and-forgetだと、呼び出し元が完了直後に
+    // モーダルを閉じる等で先に進んだ場合、新規セッションのWS接続完了前に処理が
+    // 終わり、pending textを流すサーバ側flush_pending_textが呼ばれずコマンドが
+    // 入力されないことがあった）。
     await focusSession(data?.session_id, data?.workspace);
     return true;
   }
 
-  /**
-   * DispatchRunView / 一覧の×ボタンから呼ぶ。pendingのitemのみ対象
-   * （既に決定済みのitemを破棄することはできない）。
-   * @returns 破棄できたか
-   */
+  // DispatchRunView / 一覧の×ボタンから呼ぶ。pendingのitemのみ対象
+  // （既に決定済みのitemを破棄することはできない）。
   async function rejectItem(id: string): Promise<boolean> {
     const { ok } = await apiPost(dispatchDecisionPath(id), { executed: false },
       { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });

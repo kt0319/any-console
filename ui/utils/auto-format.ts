@@ -9,9 +9,6 @@ export function breakAtPunctuation(text: string): string {
     .replace(/([.!?]) +/g, "$1\n");
 }
 
-/**
- * 各行の先頭の空白（インデント）を削除する。
- */
 export function stripLeadingSpaces(text: string): string {
   return text.replace(/^[ \t]+/gm, "");
 }
@@ -37,9 +34,6 @@ export function joinWrappedLines(text: string): string {
   return out.join("\n");
 }
 
-/**
- * 行末空白の除去・連続空行の圧縮・前後の空白/空行除去でテキストを整える。
- */
 export function tidyWhitespace(text: string): string {
   return text
     .replace(/[ \t]+$/gm, "")    // 各行の末尾空白

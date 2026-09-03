@@ -25,9 +25,8 @@ export const RECONNECT_BACKOFF_BASE_MS = 1000;
 export const RECONNECT_BACKOFF_MAX = 5000;
 export const RECONNECTING_OVERLAY_MIN_ATTEMPTS = 2;
 export const DEV_SERVER_POLL_INTERVAL_MS = 10000;
-// SessionPreviewTab.vue: killで送ったSIGTERMがプロセス終了・ポートスキャン
-// 反映されるまで、既定の10秒間隔（DEV_SERVER_POLL_INTERVAL_MS）より短い間隔で
-// 数回だけ確認する（スピナー表示を早めに終わらせるため）。
+// SessionPreviewTab.vue: killのSIGTERM反映確認は既定のDEV_SERVER_POLL_INTERVAL_MS
+// より短い間隔にして、スピナー表示を早めに終わらせる。
 export const DEV_SERVER_KILL_POLL_INTERVAL_MS = 500;
 export const DEV_SERVER_KILL_POLL_TIMEOUT_MS = 5000;
 // GitHub（gh CLI経由のPR/Actions一覧）の再取得間隔。ローカルのポートスキャン
@@ -52,9 +51,8 @@ export const SIDEBAR_PILL_ROW_RESERVED_PX = 40;
 export const PANE_PILL_TRAILING_RESERVED_PX = 80;
 // 幅制限を実質かけない場合に渡す上限値（Pendingワークスペース行など）。
 export const PILL_MAX_WIDTH_UNLIMITED_PX = 9999;
-// マーキーが末尾まで流れ終えてから、peekピル自体が消えるまでの静止時間。
-// マーキーの再生時間を実際の表示時間ぴったりにすると、流れ終わった瞬間に
-// 消えてしまい最後まで読めないため、この分だけ短く設定して余裕を持たせる。
+// マーキーが末尾まで流れ終えてから、peekピル自体が消えるまでの静止時間
+// （マーキー再生時間を表示時間ぴったりにすると流れ終わった瞬間に消えて読み切れないため）。
 export const PILL_MARQUEE_END_HOLD_MS = 800;
 export const URL_COPIED_RESET_MS = 1500;
 export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
@@ -73,8 +71,6 @@ export const FIT_MAX_WAIT_MS = 1000;
 export const ACTIVE_FIT_DELAY_MS = 50;
 export const DOUBLE_TAP_ZOOM_PREVENT_MS = 300;
 export const SESSION_SYNC_INTERVAL_MS = 3000;
-// アクティブタブがベアターミナル（ワークスペース・ジョブいずれにも紐付かない）
-// の間、タブ名をカレントディレクトリ名に追従させるためのcwd再取得間隔。
 export const BARE_TERMINAL_CWD_POLL_INTERVAL_MS = 3000;
 export const PAIRING_STATUS_POLL_MS = 2000;
 export const PAIRING_COUNTDOWN_TICK_MS = 1000;
@@ -90,9 +86,8 @@ export const CONNECTIVITY_OFFLINE_THRESHOLD = 3;
 // 検知を早めるため35sから短縮（体感の「反応しない」時間を減らす）。
 export const WS_STALE_THRESHOLD_MS = 20000;
 // working→idle 遷移を「作業完了(done)」とみなすために必要な、直前のworking
-// 継続時間の下限。backendのagent_watchが実際には何も作業していないセッションを
-// 画面のちらつき等で一瞬working扱いにしてしまうことがあり、それを誤ってdone
-// （＝作業完了の通知）として扱わないためのしきい値。
+// 継続時間の下限。backendのagent_watchが画面のちらつき等で一瞬working扱いに
+// してしまうケースを、誤ってdone通知として扱わないためのしきい値。
 export const WORKING_MIN_DURATION_MS = 5000;
 
 export const LS_KEY_RECENT_JOBS = "any_console_recent_jobs";

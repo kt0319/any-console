@@ -1,8 +1,6 @@
 /**
- * worktree のブランチ名を安全な表示用文字列として返す（未指定なら空文字）。
- * 単独表示（ワークスペース名パーツと連結しない箇所）用。ベース名と連結して
- * 「ベース名 | ブランチ」にしたい場合は workspaceDisplayName / 呼び出し側で
- * 縦線区切りを付与する。
+ * worktree のブランチ名を単独表示用に返す（未指定なら空文字）。ベース名と連結して
+ * 「ベース名 | ブランチ」にしたい場合は workspaceDisplayName / 呼び出し側で縦線区切りを付与する。
  */
 export function worktreeBranchLabel(branch?: string): string {
   return branch || "";
@@ -20,10 +18,9 @@ export function worktreeConfirmLabel(wt?: { worktree_branch?: string; branch?: s
 
 /**
  * worktree 削除の確認メッセージ（削除元の画面によらず同一文言にする）。
- * residueは useWorktreeCleanup().findResidue() の結果件数
- * （openTabs+detachedSessionsはまとめて「セッション」として、devServersは
- * 別枠で明示する。どちらもディレクトリを消すだけでは自動的には片付かない
- * ため、削除に伴い一緒に閉じる/停止することを事前に伝える）。
+ * residueは useWorktreeCleanup().findResidue() の結果件数（openTabs+detachedSessionsは
+ * まとめて「セッション」として、devServersは別枠で明示する。どちらもディレクトリを消すだけ
+ * では自動的には片付かないため、削除に伴い一緒に閉じる/停止することを事前に伝える）。
  */
 export function removeWorktreeConfirmMessage(
   wt?: { worktree_branch?: string; branch?: string; name?: string; path?: string },

@@ -77,13 +77,11 @@ import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
 type SessionItem = ReturnType<typeof sessionSidebarItems>[number];
 type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number];
 
-// セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブ
-// ごとにワークスペース名・ブランチ・変更サマリ・エージェント状態・
-// Info Pillsを一覧表示する。行の組み立ては ui/utils/session-sidebar.ts
-// （純粋関数）。
-//
-// Open Session/Settingsはタブバーの「+」/歯車ボタン（useSessionOpenNav.ts/
-// useSettingsNav.ts）から独立して開くため、このビューからは直接遷移しない。
+// セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブごとに
+// ワークスペース名・ブランチ・変更サマリ・エージェント状態・Info Pillsを一覧表示する。
+// 行の組み立ては ui/utils/session-sidebar.ts（純粋関数）。
+// Open Session/Settingsはタブバーの「+」/歯車ボタンから独立して開くため、このビューからは
+// 直接遷移しない。
 
 const terminalStore = useTerminalStore();
 const agentStateStore = useAgentStateStore();
@@ -91,9 +89,8 @@ const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirmAndCloseTab } = useTabClose();
 
-// GitHub連携があるワークスペース（githubWorkspaceKeys）ごとにPR/Actionsの
-// ポーリングを回す（TerminalPaneの同種ロジックを複数ワークスペース分に
-// まとめたもの — 差分開始/停止は useGitHubPollingFor に集約）。
+// GitHub連携があるワークスペースごとにPR/Actionsのポーリングを回す（TerminalPaneの同種
+// ロジックを複数ワークスペース分にまとめたもの。差分開始/停止は useGitHubPollingFor に集約）。
 const githubWorkspaceKeys = computed(() => {
   const keys = new Set<string>();
   for (const tab of terminalStore.openTabs) {
@@ -104,16 +101,12 @@ const githubWorkspaceKeys = computed(() => {
   return [...keys];
 });
 
-// 各行のInfo Pills（TerminalPaneと同じピル群）用データ源。取得・重複排除・
-// 参照カウント式ポーリングの実装は各composable側（TerminalPaneと共有）。
 const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
 
-// 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、
-// タブ一覧の下に別枠で出す（タブが既にあるワークスペースはInfoPillRowの
-// dispatchピルで足りるため対象外）。通常のセッション行と同じ情報
-// （Branch/Changes/PR/Actions/DevServer/Dispatchの各ピル）で出すため、
+// 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、タブ一覧の下に
+// 別枠で出す（タブが既にあるワークスペースはInfoPillRowのdispatchピルで足りるため対象外）。
 // 組み立てロジックはsessionSidebarItemsと共有する（session-sidebar.ts）。
 const pendingDispatchWorkspaces = computed(() => {
   const openTabWorkspaces = new Set(terminalStore.openTabs.map((t) => t.workspace).filter((w): w is string => Boolean(w)));
@@ -134,17 +127,15 @@ function onOpenPendingDispatch(p: PendingDispatchItem) {
   emit("git:openFileModal", { pane: "dispatch", dispatchItemId });
 }
 
-// pendingワークスペース行はBranch/PR/Actions/DevServer等のピルも通常の行と
-// 同じく出すため、それぞれ対応するペインへ遷移できるよう
-// useInfoPillActionsを共有する（タブが無いのでitem.tab固定でopenPaneのみ使う）。
-// dispatchキーだけはonOpenPendingDispatchと同じ1件ショートカットを使う。
+// pendingワークスペース行のピルも対応するペインへ遷移できるようuseInfoPillActionsを共有する
+// （タブが無いのでitem.tab固定でopenPaneのみ使う）。dispatchキーはonOpenPendingDispatchと
+// 同じ1件ショートカットを使う。
 function onPendingPillOpen(p: PendingDispatchItem, key: string) {
   if (key === "dispatch") { onOpenPendingDispatch(p); return; }
   workspaceStore.selectedWorkspace = p.workspace;
   openPaneFor({ workspace: p.workspace }, p, key);
 }
 
-// useInfoPillActions を都度組み立てて対応ペインを開く（通常行 / pending行 共通）。
 function openPaneFor(
   tab: Record<string, any>,
   source: { isGitRepo: boolean; devServerEntry: Record<string, any> | null; ahead?: number; behind?: number },
@@ -186,35 +177,28 @@ function onSelect(item: SessionItem) {
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
   } else {
     // 既にアクティブなタブ（タブが1つしかない場合等）は switchTab() を経由しないため、
-    // ここで明示的にバッジをクリアする（そうしないと通知が消えないまま残る）。
+    // ここで明示的にバッジをクリアする。
     agentStateStore.clearSessionNotifyBadges(item.tab.sessionId);
   }
-  // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。
-  // 閉じるのはハンバーガー/閉じるボタン・Escでの明示操作のみにする。
+  // タブ切替えではサイドバー/オーバーレイを閉じない。閉じるのはハンバーガー/閉じるボタン・
+  // Escでの明示操作のみにする。
 }
 
-// ピルタップ：そのタブへ切替えてから対応ペインを開く（TerminalPaneの
-// ピルと同じ遷移をuseInfoPillActionsで再利用する）。
 function onPillOpen(item: SessionItem, key: string) {
   if (item.id !== terminalStore.activeTabId) {
     emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
   }
-  // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして
-  // 表示されるため、ここでサイドバー自体を閉じない（閉じると開いた直後の
-  // ビューごと隠れてしまう）。
+  // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして表示されるため、
+  // ここでサイドバー自体を閉じない（閉じると開いた直後のビューごと隠れてしまう）。
   openPaneFor(item.tab, item, key);
 }
 
-// タブを閉じる（破壊的操作のため、TerminalPaneと同じ確認ダイアログ・
-// 結果ディスパッチ（close / Refresh / Detach）を共有する）。
 async function onCloseTab(item: SessionItem) {
   await confirmAndCloseTab(item.tab);
 }
 
-// このビューはSettingsPanel.vueにより「currentView==='SessionList'」の間
-// だけマウントされる（他の設定画面を見ている間はアンマウントされる）ため、
-// ポーリングはこのコンポーネント自身のマウント/アンマウントに素直に紐付く。
-// PR/Actionsはgithub連携のあるgitワークスペースだけ、開いているタブの
+// このビューはSettingsPanel.vueにより「currentView==='SessionList'」の間だけマウントされる
+// ため、ポーリングはこのコンポーネント自身のマウント/アンマウントに紐付く。
 startPreviewPolling();
 
 onBeforeUnmount(() => {
@@ -223,17 +207,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* modal-shell.css の .modal-scroll-body は「本文全体がそのまま
-   1つスクロールする」前提のスタイル（overflow-y:auto）だが、このビューは
-   下部の.session-list-menuを固定したまま、その上の.session-list-scrollだけを
-   スクロールさせたいため、自身はスクロールさせない（overflow-y:hidden）。
+/* modal-shell.css の .modal-scroll-body は本文全体がそのまま1つスクロールする前提
+   （overflow-y:auto）だが、このビューは下部の.session-list-menuを固定したまま、その上の
+   .session-list-scrollだけをスクロールさせたいため自身はスクロールさせない。
    詳細度で負けないよう!importantで上書きする。 */
 .session-list-view {
   overflow-y: hidden !important;
-  /* ui/styles/modal-shell.css の .settings-panel-body .modal-scroll-body は
-     GitHistory/GitStash等の共通ガター(左右8px)だが、セッション行はactive背景
-     を左右の端いっぱいまで敷きたいためこのビューだけ0にする。行内テキストの
-     余白は .session-sidebar-item 自身のpadding(8px 12px)で確保する。 */
+  /* セッション行はactive背景を左右の端いっぱいまで敷きたいためこのビューだけ0にする。
+     行内テキストの余白は .session-sidebar-item 自身のpadding(8px 12px)で確保する。 */
   padding: 0 !important;
 }
 

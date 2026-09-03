@@ -3,13 +3,9 @@
     class="tab-bar-row"
     :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isNarrowViewport }"
   >
-    <!-- PC（インラインサイドバー、SessionSidebar.vue参照）はサイドバー
-         （SessionListPanel.vue）のタイトル行右端に専用の閉じるボタンがある
-         ため、サイドバーが開いている間はこのボタン自体を隠しタブだけにする。
-         モバイル（Modal.vueの全面オーバーレイ）はこのボタンだけが開閉の
-         手段のため常に出す。インラインサイドバーになるかどうかは実際の
-         画面幅（isNarrowViewport）で決まる——タブ位置設定（isPanelBottom）
-         とは独立（SessionSidebar.vue/Modal.vue参照）。 -->
+    <!-- PC（インラインサイドバー）はSessionListPanel.vue側に専用の閉じるボタンがあるため
+         サイドバー表示中はこのボタンを隠す。モバイル（Modal.vueの全面オーバーレイ）は
+         これだけが開閉手段のため常に出す。 -->
     <button
       v-if="isNarrowViewport || !isSidebarOpen"
       class="tab-menu-btn hover-bg"
@@ -88,9 +84,8 @@ const props = defineProps({
 const tabListEl = ref<HTMLElement | null>(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
-// サイドバーのインライン/全面オーバーレイ切替と同じ基準（SessionSidebar.vue/
-// Modal.vue参照）。タブ自体の幅広/幅狭（TabItem.vueのラベル表示可否）にも
-// これを使う——タブ位置設定（isPanelBottom）ではなく実際の画面幅で決まる。
+// サイドバーのインライン/全面オーバーレイ切替と同じ基準。タブ自体の幅広/幅狭
+// （TabItem.vueのラベル表示可否）にもこれを使う（タブ位置設定ではなく実際の画面幅で決まる）。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Close session list" : "Open session list"));
