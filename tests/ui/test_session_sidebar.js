@@ -91,7 +91,7 @@ describe("sessionSidebarItems", () => {
   it("ベアターミナルはラベルへフォールバックし git 情報は空になる", () => {
     const items = sessionSidebarItems(tabs, workspaces);
     const bare = items[1];
-    expect(bare.label).toBe("bare");
+    expect(bare.label).toBe("[terminal] bare");
     expect(bare.branch).toBe("");
     expect(bare.dirty).toBe(false);
     expect(bare.ahead).toBe(0);
@@ -107,9 +107,14 @@ describe("sessionSidebarItems", () => {
     expect(wt.dirty).toBe(false);
   });
 
-  it("label 未設定のベアターミナルは terminal になる", () => {
+  it("label 未設定のベアターミナルは [terminal] になる", () => {
     const items = sessionSidebarItems([{ id: 9, sessionId: "s9", workspace: null, label: "" }], []);
-    expect(items[0].label).toBe("terminal");
+    expect(items[0].label).toBe("[terminal]");
+  });
+
+  it("label 設定済みのベアターミナルは [terminal] パス名になる", () => {
+    const items = sessionSidebarItems([{ id: 9, sessionId: "s9", workspace: null, label: "any-console" }], []);
+    expect(items[0].label).toBe("[terminal] any-console");
   });
 
   it("autoDiscovered なタブは除外する（TabBar と同じ条件）", () => {

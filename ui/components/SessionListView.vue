@@ -45,7 +45,7 @@
               />
             </span>
           </span>
-          <span v-if="p.branch || p.agent" class="session-sidebar-row2" @click="onOpenPendingDispatch(p)">
+          <span class="session-sidebar-row2" @click="onOpenPendingDispatch(p)">
             <SessionRowMeta :item="p" />
           </span>
         </li>

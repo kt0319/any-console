@@ -62,7 +62,7 @@
       ><span class="mdi mdi-close"></span></button>
       </span>
     </span>
-    <span v-if="item.branch || item.agent" class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
+    <span class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
       <SessionRowMeta :item="item" />
     </span>
   </li>

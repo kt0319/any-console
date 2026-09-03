@@ -146,7 +146,12 @@ export function sessionSidebarItems(
       // worktree行はブランチを下段（session-sidebar-sub）で別表示するため、
       // タイトルはworkspaceDisplayName()の「ベース名 | ブランチ」ではなく
       // ベース名のみにする（TabItem.vue等の1行表示とは異なりここは2行使える）。
-      const label = ws?.worktree ? (ws.worktree_base || ws.name || "") : (tab.workspace || tab.label || "terminal");
+      // ワークスペース・ジョブいずれにも紐付かないベアターミナルは、他の
+      // ワークスペース名主体の行と見分けが付くよう「[terminal] パス名」の
+      // 形式にする（tab.labelはuseTerminalLifecycle.tsが実cwdのディレクトリ名を
+      // 反映する。未取得の間は"[terminal]"のみになる）。
+      const bareTerminalLabel = tab.label ? `[terminal] ${tab.label}` : "[terminal]";
+      const label = ws?.worktree ? (ws.worktree_base || ws.name || "") : (tab.workspace || bareTerminalLabel);
       const pill = buildPillFields(tab.workspace, ws, ctx);
       return {
         tab,

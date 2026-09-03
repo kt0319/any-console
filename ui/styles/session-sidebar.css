@@ -29,13 +29,10 @@
   cursor: pointer;
 }
 
-.session-sidebar-row1 {
-  min-height: 44px;
-  padding: 4px 12px 0;
-}
-
+.session-sidebar-row1,
 .session-sidebar-row2 {
-  padding: 0 12px 8px;
+  min-height: 44px;
+  padding: 0 12px;
 }
 
 .session-sidebar-row1:active,
