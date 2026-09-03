@@ -1,10 +1,8 @@
-//! config.json の読み書きエンジン（Python 側 `api/config.py` の移植）。
+//! config.json の読み書きエンジン。
 //!
 //! `config.lock` への fcntl flock（読み取り SH / 書き込み EX）で read-modify-write
-//! を直列化する（旧 Python 実装と同じロックファイルに参加する方式を維持 —
-//! CLI 等の別プロセスが同じ規約で参加すれば lost update を防げる）。
+//! を直列化する（CLI 等の別プロセスが同じ規約で参加すれば lost update を防げる）。
 //!
-//! 読み書きの挙動は Python と同一:
 //! - 読み込み: 壊れていれば .bak から復旧、正規化、バージョンマイグレーション。
 //!   復旧・マイグレーションが起きた場合はその場で書き戻す
 //! - 書き込み: 正規化（エラーがあれば拒否）→ .bak ローテーション → tmp+rename
@@ -78,7 +76,6 @@ impl ConfigStore {
         *self.cache.lock().expect("config cache lock poisoned") = None;
     }
 
-    /// Python `_file_lock` と同じ `config.lock` を flock する。
     fn file_lock(&self, exclusive: bool) -> Option<FileLock> {
         let lock_path = self.config_file.with_extension("lock");
         if let Some(parent) = lock_path.parent() {
@@ -116,8 +113,8 @@ impl ConfigStore {
         }
     }
 
-    /// Python `_read_config_unlocked` と同一の復旧・正規化・マイグレーション。
-    /// ロックの取得・書き戻しは呼び出し側の責務（`load_all`/`with_exclusive` 等）。
+    /// 復旧・正規化・マイグレーションを行う。ロックの取得・書き戻しは呼び出し側の
+    /// 責務（`load_all`/`with_exclusive` 等）。
     /// 戻り値の bool は「.bak からの復旧・バージョンマイグレーションが起きたため
     /// 書き戻しが必要」を示す。
     fn read_core(&self) -> (Map<String, Value>, bool) {
@@ -175,8 +172,8 @@ impl ConfigStore {
         self.read_core().0
     }
 
-    /// Python `_write_config_unlocked` と同一: 正規化（エラーは拒否）→ .bak
-    /// ローテーション → tmp 書き込み → rename。末尾改行付き・2スペースインデント。
+    /// 正規化（エラーは拒否）→ .bak ローテーション → tmp 書き込み → rename。
+    /// 末尾改行付き・2スペースインデント。
     fn write_unlocked(&self, config: &Map<String, Value>) -> Result<(), String> {
         // 書き込みの成否に関わらずキャッシュを破棄する（.bak ローテーション後に
         // tmp 書き込みが失敗するとファイル状態が変わったまま戻らないため、
@@ -328,8 +325,7 @@ impl ConfigStore {
         None
     }
 
-    /// workspace のエントリ dict を返す（見つからなければ空 — Python
-    /// `load_workspace_config` 相当）。
+    /// workspace のエントリ dict を返す（見つからなければ空）。
     pub fn load_workspace_config(&self, identifier: &str) -> Map<String, Value> {
         let cfg = self.load_all();
         Self::find_workspace_key(&cfg, identifier)
@@ -337,8 +333,8 @@ impl ConfigStore {
             .unwrap_or_default()
     }
 
-    /// Python `save_workspace_config` と同一: EX ロック下で read-modify-write。
-    /// 渡された config に name が無ければ既存エントリの name を引き継ぐ。
+    /// EX ロック下で read-modify-write。渡された config に name が無ければ
+    /// 既存エントリの name を引き継ぐ。
     pub fn save_workspace_config(
         &self,
         identifier: &str,
@@ -367,8 +363,8 @@ impl ConfigStore {
         self.write_unlocked(&all)
     }
 
-    /// Python `delete_workspace_config` と同一: エントリを削除し、
-    /// `__global__.workspace_order` からも取り除く。存在しなければ何もしない。
+    /// エントリを削除し、`__global__.workspace_order` からも取り除く。
+    /// 存在しなければ何もしない。
     pub fn delete_workspace_config(&self, identifier: &str) -> Result<(), String> {
         let _lock = self
             .file_lock(true)
@@ -399,9 +395,9 @@ impl ConfigStore {
         self.write_unlocked(&all)
     }
 
-    /// パスを登録済みワークスペースのパスと前方一致させ、最長一致の表示名を返す
-    /// （Python `match_workspace_by_path` 相当）。`path` は展開済みの絶対パス
-    /// （tmux/lsof 等の出力）を渡すこと — config 側の `~/...` は expand してから比較する。
+    /// パスを登録済みワークスペースのパスと前方一致させ、最長一致の表示名を返す。
+    /// `path` は展開済みの絶対パス（tmux/lsof 等の出力）を渡すこと — config 側の
+    /// `~/...` は expand してから比較する。
     pub fn match_workspace_by_path(&self, path: &str) -> Option<String> {
         if path.is_empty() {
             return None;
@@ -479,7 +475,7 @@ impl ConfigStore {
         self.write_unlocked(&all)
     }
 
-    /// Python `save_global_config_section` と同一（EX ロック下で read-modify-write）。
+    /// EX ロック下で read-modify-write。
     pub fn save_global_section(&self, key: &str, data: Value) -> Result<(), String> {
         self.update_global_map(|global| {
             global.insert(key.to_string(), data);
@@ -488,9 +484,8 @@ impl ConfigStore {
     }
 
     /// expected_current を前提に算出した new_value を、排他ロック下で再検証してから
-    /// 書き戻す（Python `compare_and_update_global_config_section` 相当）。
-    /// ロック取得後の現在値が expected と一致しなければ new_value を破棄して
-    /// その時点の現在値を返す（lost update 防止）。
+    /// 書き戻す。ロック取得後の現在値が expected と一致しなければ new_value を
+    /// 破棄してその時点の現在値を返す（lost update 防止）。
     pub fn compare_and_update_global_section(
         &self,
         key: &str,
@@ -516,7 +511,6 @@ impl ConfigStore {
         Ok(result)
     }
 
-    /// Python `check_config_health` と同一の判定。
     pub fn check_health(&self) -> Value {
         let _lock = self.file_lock(false);
         let bak = self.config_file.with_extension("bak");
@@ -579,8 +573,6 @@ impl ConfigStore {
             "supported_config_version": CONFIG_SCHEMA_VERSION,
         })
     }
-
-    // ─── 起動時ヘルパー（Phase 0 から継続）──────────────────────────────────
 
     /// `__global__.host` / `__global__.port`（未設定はデフォルト）。
     pub fn resolve_bind(&self) -> (String, u16) {

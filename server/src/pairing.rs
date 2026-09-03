@@ -207,9 +207,8 @@ fn magicdns_pairing_url(
     }
 }
 
-/// MagicDNS 名が引けない（または bind が loopback 専用）場合のフォールバック。
-/// 発行元自身が loopback アドレスで開いている場合は、QR の宛先が「スキャンした
-/// 端末自身の localhost」になってしまうため明確なエラーで拒否する。
+/// MagicDNS 名が引けない（または bind が loopback 専用）場合のフォールバック
+/// （loopback 拒否の理由はモジュール doc 参照）。
 fn fallback_pairing_url(
     headers: &HeaderMap,
     pairing_id: &str,

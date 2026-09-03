@@ -474,7 +474,6 @@ pub async fn put_auth_settings(
 /// `bearer <token>` や `BEARER <token>` のような大小文字違いも受け付ける
 /// （素朴に `strip_prefix("Bearer ")` だけだと、標準準拠のクライアントが
 /// 別の大文字小文字で送ってきた場合に Rust 側だけ 401 になってしまう）。
-/// Authorization ヘッダから Bearer トークンを取り出す（無ければ空文字）。
 pub fn bearer_from_headers(headers: &http::HeaderMap) -> &str {
     headers
         .get(http::header::AUTHORIZATION)

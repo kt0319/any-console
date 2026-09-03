@@ -1,4 +1,4 @@
-//! tmux セッション管理（Python 側 `api/tmux.py` の移植）。
+//! tmux セッション管理。
 //!
 //! セッションの作成・アタッチ（PTY 経由）・メタデータ永続化（tmux 環境変数）・
 //! ペイン状態の問い合わせを担う。クエリ系コマンドは `subprocess::run_tmux_cmd`
@@ -27,7 +27,7 @@ pub const TERMINAL_DEFAULT_ROWS: u16 = 24;
 pub const TERMINAL_TERM_TYPE: &str = "xterm-256color";
 
 /// tmux 環境変数名 → TerminalSession 属性名（永続化する属性を増やす場合は
-/// ここと `TMUX_META_ENV_NAMES` の両方に反映する — Python 側の対応コメント参照）。
+/// ここと `TMUX_META_ENV_NAMES` の両方に反映する）。
 pub const TMUX_ATTR_ENV_NAMES: &[&str] = &[
     "TMUX_WORKSPACE",
     "TMUX_ICON",
@@ -53,7 +53,7 @@ const TMUX_META_ENV_NAMES: &[&str] = &[
     "TMUX_PENDING_ENTER",
 ];
 
-// ─── hook 用環境変数（Python `agent_hooks.hook_session_env` 相当）─────────────
+// ─── hook 用環境変数 ─────────────────────────────────────────────────────────
 
 fn connect_bind_host(host: &str) -> String {
     if matches!(host, "0.0.0.0" | "::" | "") {
@@ -86,7 +86,6 @@ pub fn resolve_effective_bind(config: &ConfigStore) -> (String, u16) {
 }
 
 /// hook 専用トークンを返す（無ければ生成して `data/hook_token` に保存する。
-/// Python の `agent_hooks.get_or_create_hook_token` と同一ファイル・同一 best-effort 挙動 —
 /// 初回作成時のプロセス間競合はガードしない。0600 で保存する）。
 pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
     let path = data_dir.join("hook_token");
@@ -171,7 +170,7 @@ async fn run_session_cmd(
         .is_some_and(|r| r.success())
 }
 
-/// tmux ベースセッションを作成する（Python `create_tmux_session` 相当）。
+/// tmux ベースセッションを作成する。
 /// `systemd-run --user --scope --quiet` 経由を優先し（cgroup 隔離）、失敗時は
 /// プレーンな `tmux` 直接実行にフォールバックする。
 pub async fn create_tmux_session(
@@ -293,8 +292,7 @@ pub async fn create_tmux_session(
 
 // ─── アタッチ（PTY）───────────────────────────────────────────────────────
 
-/// ベースセッションへ独立した tmux クライアントとして PTY 経由でアタッチする
-/// （Python `attach_tmux_session` 相当）。
+/// ベースセッションへ独立した tmux クライアントとして PTY 経由でアタッチする。
 pub fn attach_tmux_session(session_name: &str, cols: u16, rows: u16) -> std::io::Result<PtyChild> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let path = std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".to_string());
@@ -474,8 +472,7 @@ pub async fn get_session_cwd(tmux_name: &str) -> Option<String> {
 }
 
 /// ペインのカレントディレクトリから最長前方一致するワークスペース名を返す
-/// （Python `detect_workspace_from_tmux` 相当。照合は
-/// `git_utils::match_workspace_with_worktree`、worktree配下も判別する）。
+/// （照合は `git_utils::match_workspace_with_worktree`、worktree配下も判別する）。
 pub async fn detect_workspace_from_tmux(config: &ConfigStore, tmux_name: &str) -> Option<String> {
     let pane_path = display_message(tmux_name, "#{pane_current_path}").await;
     match pane_path {
@@ -487,8 +484,7 @@ pub async fn detect_workspace_from_tmux(config: &ConfigStore, tmux_name: &str) -
     }
 }
 
-/// 登録済みプレフィックスの tmux セッション名から ID 一覧を返す
-/// （`agent_watch` の `_list_session_ids` 相当）。
+/// 登録済みプレフィックスの tmux セッション名から ID 一覧を返す。
 ///
 /// `None` はコマンド実行自体の失敗（tmux 不在・タイムアウト等）、
 /// `Some(vec![])` は「セッション0件」という正当な結果 —
@@ -514,8 +510,7 @@ pub async fn list_session_ids(tmux_prefix: &str) -> Option<Vec<String>> {
 /// pane_current_path, (pane_width, pane_height))。
 pub type PaneMeta = (String, String, i64, String, (i64, i64));
 
-/// 全 tmux セッションの pane メタ情報を一括で返す（`agent_watch` の
-/// `list_pane_meta` 相当）。
+/// 全 tmux セッションの pane メタ情報を一括で返す。
 ///
 /// キーはセッション名。ポーリング1周期につき1回だけ呼び、セッション数に
 /// 比例した tmux 呼び出しを避ける。本アプリはセッションごとに単一ペインで

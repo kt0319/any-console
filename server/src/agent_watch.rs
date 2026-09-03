@@ -1,4 +1,4 @@
-//! ターミナルセッションのエージェント状態判定（Python 側 `api/agent_watch.py` の移植）。
+//! ターミナルセッションのエージェント状態判定。
 //!
 //! 状態は3値（working / idle / blocked）。判定は3系統（優先度の高い順に
 //! hooks > screen manifest > 画面差分）: hooks 由来の状態（`agent_hooks::hook_state`）
@@ -6,16 +6,9 @@
 //! 画面差分の順にフォールバックする（`resolve_session_state`。hooks との合成は
 //! `collect_agent_states` 側で行う）。
 //!
-//! `collect_agent_states` はポーリング1周期分の全セッション状態判定を行う
-//! （tmux 問い合わせ→状態判定→ワークスペース/ジョブの自動紐付け→フレーズ通知判定
-//! までを1関数にまとめた、Python 版 `collect_agent_states` の直接対応）。
-//!
 //! `AgentWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `initial_snapshot` /
-//! `poll_loop` がポーリングループ本体（Python `_poll_loop`/`subscribe`/
-//! `unsubscribe`/`ensure_phrase_task` 相当）と push 通知連携
-//! （`crate::push::send_push_notification` へネイティブに委譲、`tokio::spawn`
-//! で fire-and-forget）を担う。status stream WS ハンドラの接続/切断
-//! （`status_stream.rs`）から呼ぶ。
+//! `poll_loop` がポーリングループ本体と push 通知連携を担う。status stream WS
+//! ハンドラの接続/切断（`status_stream.rs`）から呼ぶ。
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -30,7 +23,6 @@ use crate::screen_manifest::{
 };
 use crate::state::AppState;
 
-/// Python `common.py` の同名定数と同じ値。
 const AGENT_WATCH_POLL_INTERVAL_SEC: u64 = 2;
 
 /// 可視ペインの内容からセッション状態を判定する純関数。
@@ -142,10 +134,7 @@ pub fn phrase_notify_clear_payload(session_id: &str) -> Value {
     json!({"type": "phrase_notify_clear", "session_id": session_id})
 }
 
-/// フレーズ通知の検出→猶予判定の状態を保持する（Python 側の
-/// `_phrase_detected_at` / `_phrase_notified` / `_phrase_ws_notified` 相当。
-/// モジュールグローバルの代わりにポーリングループが専有するインスタンスとして
-/// 持つ設計にした）。
+/// フレーズ通知の検出→猶予判定の状態を保持する。
 #[derive(Default)]
 pub struct PhraseNotifyTracker {
     detected_at: HashMap<String, f64>,
@@ -230,7 +219,7 @@ impl PhraseNotifyTracker {
 
 // ─── ポーリング1周期分の状態収集（tmux 問い合わせ + 自動紐付け）───────────────
 
-/// `collect_agent_states` の戻り値（Python 版の4要素タプルに対応）。
+/// `collect_agent_states` の戻り値。
 pub struct CollectedStates {
     /// session_id → state。tmux コマンド自体が失敗した場合は None
     /// （呼び出し元は直前のスナップショットを保持し、空で上書きしない）。
@@ -297,8 +286,7 @@ fn job_notify_phrase(state: &AppState, workspace: Option<&str>, job_name: Option
 /// 全ターミナルセッションの状態を判定して返す（ポーリング1周期分）。
 ///
 /// `last_capture` / `tracker` はポーリングループが自身のローカル変数として
-/// 周期をまたいで保持する（Python 版のモジュールグローバル `_last_capture` /
-/// `_phrase_detected_at` 等に対応 — ここでは呼び出し元が所有するだけの違い）。
+/// 周期をまたいで保持する。
 pub async fn collect_agent_states(
     state: &AppState,
     manifest_store: &ManifestStore,
@@ -434,8 +422,7 @@ pub async fn collect_agent_states(
     }
 }
 
-// ─── 購読者連動ポーリングループ（Python 版 `subscribe`/`unsubscribe`/
-// `ensure_phrase_task`/`_poll_loop` 相当）────────────────────────────────────
+// ─── 購読者連動ポーリングループ ─────────────────────────────────────────────
 
 /// agent_watch の常駐ポーリングタスクとポーリング間で持ち越す状態を保持する。
 pub struct AgentWatchState {
@@ -445,10 +432,9 @@ pub struct AgentWatchState {
     last_pane_size: AsyncMutex<HashMap<String, (i64, i64)>>,
     tracker: AsyncMutex<PhraseNotifyTracker>,
     /// 前回配信した状態一式（`states_payload` の差分計算・新規接続への
-    /// 即時スナップショット送信に使う — Python `_last_states` 相当）。
+    /// 即時スナップショット送信に使う）。
     last_states: AsyncMutex<HashMap<String, String>>,
-    /// 前回配信した判定元一式（`last_states` と同じキー集合を保つ。
-    /// デバッグ表示専用でPython版に対応は無い）。
+    /// 前回配信した判定元一式（`last_states` と同じキー集合を保つ。デバッグ表示専用）。
     last_state_sources: AsyncMutex<HashMap<String, String>>,
 }
 
@@ -471,14 +457,12 @@ impl Default for AgentWatchState {
     }
 }
 
-/// push subscription が1件以上登録されているか（Python `push.has_subscriptions`
-/// 相当）。
 fn has_push_subscriptions(state: &AppState) -> bool {
     crate::push::has_subscriptions(&state.paths.data_dir)
 }
 
 /// 購読開始時に呼ぶ（status stream WS ハンドラから）。ポーリングタスクが
-/// 動いていなければ起動する（Python `ensure_phrase_task` 相当）。
+/// 動いていなければ起動する。
 pub fn ensure_tasks(state: &Arc<AppState>) {
     state
         .agent_watch
@@ -487,14 +471,14 @@ pub fn ensure_tasks(state: &Arc<AppState>) {
 }
 
 /// 購読解除時に呼ぶ。全体の購読者（`StatusStreamState`）・push subscription が
-/// どちらも無ければタスクを停止する（Python `unsubscribe`/`_stop_task` 相当）。
+/// どちらも無ければタスクを停止する。
 pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     if state.status_stream.subscriber_count() > 0 || has_push_subscriptions(state) {
         return;
     }
     state.agent_watch.poll_task.stop();
-    // Python `_stop_task` と同じく、タスク停止時にポーリング間の持ち越し状態も
-    // 破棄する（次回起動時はまっさらな状態から再構築する）。
+    // タスク停止時にポーリング間の持ち越し状態も破棄する（次回起動時は
+    // まっさらな状態から再構築する）。
     let state = state.clone();
     tokio::spawn(async move {
         *state.agent_watch.last_capture.lock().await = HashMap::new();
@@ -505,9 +489,7 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     });
 }
 
-/// 新規接続への即時スナップショット（Python `subscribe` が
-/// `websocket.send_json(states_payload(_last_states))` を直送する処理に対応）。
-/// 既知の状態が無ければ None（何も送らない）。
+/// 新規接続への即時スナップショット。既知の状態が無ければ None（何も送らない）。
 pub async fn initial_snapshot(state: &Arc<AppState>) -> Option<Value> {
     let last_states = state.agent_watch.last_states.lock().await;
     if last_states.is_empty() {

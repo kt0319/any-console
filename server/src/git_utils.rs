@@ -389,7 +389,6 @@ pub async fn git_worktree_list(directory: &Path) -> Vec<Value> {
 }
 
 /// worktree 表示名 '{base}:{branch}' を (base, branch) に分解する。非該当は None。
-/// worktreeのワークスペース名 "base:branch" を base/branch に分解する。
 /// コロン区切りはgitのブランチ名規則がコロンを禁止しているため、
 /// 区切り文字とブランチ名が衝突しない（非貪欲に最初の':'で区切る）。
 pub fn split_worktree_name(name: &str) -> Option<(String, String)> {

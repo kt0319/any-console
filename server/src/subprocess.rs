@@ -99,10 +99,6 @@ pub async fn run_cmd_safe(cmd: &[&str], timeout_sec: f64, cwd: Option<&Path>) ->
     }
 }
 
-/// `tailscale` バイナリを解決する。PATH 上に無い場合でも、Homebrew の
-/// 既定インストール先・macOS の Tailscale.app（GUI版はPATHへ自動で
-/// 出てこないことがある）だけは追加でフォールバック探索する
-/// （旧: any-console スクリプトの `tailscale_hostname()` と同じ規則）。
 /// PATH から実行ファイルを探す（見つかったフルパスを返す）。
 pub(crate) fn which(program: &str) -> Option<std::path::PathBuf> {
     let path = std::env::var_os("PATH")?;
@@ -111,6 +107,9 @@ pub(crate) fn which(program: &str) -> Option<std::path::PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
+/// `tailscale` バイナリを解決する。PATH 上に無い場合でも、Homebrew の
+/// 既定インストール先・macOS の Tailscale.app（GUI版はPATHへ自動で
+/// 出てこないことがある）だけは追加でフォールバック探索する。
 fn resolve_tailscale_bin() -> Option<&'static str> {
     if which("tailscale").is_some() {
         return Some("tailscale");

@@ -1,25 +1,18 @@
-//! `POST /dispatch` エンドポイント一式（Python 側 `api/routers/dispatch.py` の移植）。
+//! `POST /dispatch` エンドポイント一式。
 //!
 //! 外部から「workspace + job + テキスト」を1回のリクエストで投げて、既存セッション
 //! 再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、text の tmux 送信までを
 //! 行う。`POST /dispatch` はpendingキューへ積んで即座に 202 を返し、実行は
 //! `/dispatch/{id}/decision`（`executed: true`=実行 / `false`=破棄の二択）だけが
 //! 担う。同じエンドポイントは決定済み（pendingから外れた）itemに対しても働き、
-//! recent履歴から元のリクエストを復元して再送する（旧 `/rerun` 相当）。
-//! 旧 `direct: true` の即時実行はセキュリティモデルを単純にするため拒否する。
+//! recent履歴から元のリクエストを復元して再送する。
+//! `direct: true` の即時実行はセキュリティモデルを単純にするため拒否する。
 //!
-//! **設計判断**: 新規作成セッションに予約するテキスト（`pending_text`）は Python
-//! 版がインメモリで保持していたが、Rust 版は tmux 環境変数
+//! 新規作成セッションに予約するテキスト（`pending_text`）は tmux 環境変数
 //! （`TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER`）へ永続化する。ターミナル WS の
 //! attach 処理（`terminal.rs`）がこれを読んで flush する。プロセスをまたいでも
 //! 安全に受け渡せる（`create_registered_session` を呼ぶプロセスと WS が繋がる
 //! プロセスが一致している保証が要らなくなる）。
-//!
-//! push 通知は `crate::push::send_push_notification` へネイティブに委譲する
-//! （`tokio::spawn` で fire-and-forget）。dispatch キューの status stream 配信は
-//! `state.status_stream.broadcast`（`broadcast_queue()`）でネイティブに行う。
-//! dispatch scope API トークン検証は `Auth::verify_and_touch_api_token`（`auth.rs`）へ
-//! ネイティブに委譲する。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -133,9 +126,8 @@ async fn broadcast_queue(state: &Arc<AppState>) {
     state.status_stream.broadcast(payload);
 }
 
-/// status stream WS への新規接続時に呼ぶ（Python `dispatch.subscribe` が
-/// `_schedule_queue_broadcast()` で全購読者へ再送するのと同じ効果 — 全量
-/// スナップショットは冪等なので、既存購読者への再送は無害）。
+/// status stream WS への新規接続時に呼ぶ（全量スナップショットは冪等なので、
+/// 既存購読者への再送は無害）。
 pub async fn broadcast_current_queue(state: &Arc<AppState>) {
     broadcast_queue(state).await;
 }
@@ -168,10 +160,9 @@ async fn record_recent(
     if let Value::Object(map) = &mut request {
         map.retain(|k, _| DISPATCH_REQUEST_FIELDS.contains(&k.as_str()));
     }
-    // Python `_record_recent` と同じく、正規化後に effective_workspace を再計算して
-    // 積む（Codex レビュー指摘: 上の retain で一旦落ちるため、呼び出し元が事前に
-    // 積んでいても消えてしまい、worktree dispatch の履歴フィルタ
-    // （DispatchWorkspacePane.vue）が誤判定・取りこぼしてしまっていた）。
+    // 正規化後に effective_workspace を再計算して積む（上の retain で一旦落ちる
+    // ため、呼び出し元が事前に積んでいても消えてしまい、worktree dispatch の
+    // 履歴フィルタ（DispatchWorkspacePane.vue）が誤判定・取りこぼしてしまう）。
     if let Ok(body) = serde_json::from_value::<DispatchRequest>(request.clone()) {
         if let Value::Object(map) = &mut request {
             map.insert(
@@ -841,9 +832,8 @@ pub async fn dispatch_execute(
     JsonBody(body): JsonBody<DispatchExecute>,
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
-    // Python 版は `Depends(verify_token)` の戻り値（実際に認証された経路の
-    // ラベル）をそのまま activity ログ・再 dispatch へ渡す（Codex レビュー指摘:
-    // "main" 固定だと Tailscale/デバイス cookie 経由の認証で誤ったラベルになる）。
+    // 実際に認証された経路のラベルをそのまま activity ログ・再 dispatch へ渡す
+    // （"main" 固定だと Tailscale/デバイス cookie 経由の認証で誤ったラベルになる）。
     let auth_label = auth.0.label.as_str();
 
     // 検索(get)と削除(shift_remove)を1回のロック区間で行う（Codex レビュー指摘:
@@ -910,8 +900,7 @@ pub async fn dispatch_execute(
         return Ok(Json(result).into_response());
     }
 
-    // pendingに無ければ、決定済みの履歴（recent）から元のリクエストを復元して
-    // 再送する（旧 dispatch_rerun）。
+    // pendingに無ければ、決定済みの履歴（recent）から元のリクエストを復元して再送する。
     let item = {
         let recent = state.dispatch.recent.lock().await;
         recent.iter().find(|r| r["id"] == dispatch_id).cloned()
@@ -1072,9 +1061,9 @@ mod tests {
         assert_eq!(filtered, json!({"workspace": "proj"}));
     }
 
-    /// Python `_record_recent` と同じく、retain で一旦落ちる effective_workspace が
-    /// 正規化後に再計算されて積まれ直すこと（Codex レビュー指摘: worktree dispatch
-    /// の履歴フィルタ（DispatchWorkspacePane.vue）が依存しているフィールド）。
+    /// retain で一旦落ちる effective_workspace が正規化後に再計算されて積まれ直す
+    /// こと（worktree dispatch の履歴フィルタ（DispatchWorkspacePane.vue）が
+    /// 依存しているフィールド）。
     #[tokio::test]
     async fn record_recent_recomputes_effective_workspace_for_worktree() {
         let dir = tempfile::tempdir().unwrap();
