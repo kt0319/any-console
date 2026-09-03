@@ -62,6 +62,18 @@ rust_binary() {
   echo "$RUST_BIN"
 }
 
+# macOS: TCC（フォルダアクセス許可）はバイナリの署名IDに紐付く。cargo build
+# の成果物は未署名（再ビルドのたびにハッシュが変わる）ため、再ビルド後の
+# 起動のたびに「フォルダ内のファイルへのアクセスを許可しますか？」ダイアログ
+# が再度出やすい。起動/再起動の直前に固定identifierでad-hoc署名し直すことで、
+# TCCの許可が再ビルドをまたいで維持されやすくする（Linuxでは何もしない）。
+codesign_server_binary() {
+  is_macos || return 0
+  command -v codesign >/dev/null 2>&1 || return 0
+  [ -x "$RUST_BIN" ] || return 0
+  codesign --force --sign - --identifier "net.highedge.any-console-server" "$RUST_BIN" 2>/dev/null || true
+}
+
 # 利用可能なパッケージマネージャを1つ返す（無ければ空文字）。
 detect_pkg_manager() {
   if is_macos; then
@@ -496,6 +508,7 @@ _launchd_domain() { echo "gui/$(id -u)"; }
 
 start_service() {
   if is_macos; then
+    codesign_server_binary
     launchctl bootstrap "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null || true
     launchctl kickstart "$(_launchd_domain)/$LAUNCHD_LABEL"
   else
@@ -514,6 +527,7 @@ stop_service() {
 
 restart_service() {
   if is_macos; then
+    codesign_server_binary
     launchctl kickstart -k "$(_launchd_domain)/$LAUNCHD_LABEL"
   else
     sudo systemctl restart "$SERVICE_NAME"
