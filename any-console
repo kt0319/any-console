@@ -678,15 +678,16 @@ cmd_setup() {
 
   if is_macos && [ "$service_registered" -eq 1 ]; then
     echo ""
-    warn "macOS note: file access prompts"
+    warn "macOS note: grant Full Disk Access (recommended)"
     echo "  When any-console reads files under a TCC-protected folder (Desktop,"
-    echo "  Documents, Downloads, iCloud Drive), macOS may show a one-time"
-    echo "  permission dialog for the server process. This cannot be suppressed"
-    echo "  from code — grant access once via:"
-    echo "    System Settings > Privacy & Security > Files and Folders"
-    echo "    (or Full Disk Access) > add:"
+    echo "  Documents, Downloads, iCloud Drive), macOS shows a one-time permission"
+    echo "  dialog per folder for the server process. This cannot be suppressed"
+    echo "  from code — grant Full Disk Access once instead of approving each"
+    echo "  folder individually:"
+    echo "    System Settings > Privacy & Security > Full Disk Access > add:"
     echo "    $RUST_BIN"
-    echo "  Then: ./any-console restart"
+    echo "  ./any-console restarts re-sign the binary with a fixed identifier"
+    echo "  (see codesign_server_binary), so this grant should survive rebuilds."
   fi
   # 本体の待受は常に平文 HTTP（has_https は preview proxy 用証明書の有無で
   # あって本体ポートの HTTPS 化ではない — run / status と同じ案内に揃える）

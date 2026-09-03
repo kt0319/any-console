@@ -72,6 +72,16 @@ After this, manage the service with `./any-console start|stop|update|logs|...` (
 
 Running from a source checkout (git clone) instead of a binary release additionally requires the build toolchain: Rust (`cargo`) and Node.js (`node` / `npm`).
 
+### macOS: Full Disk Access
+
+macOS shows a one-time permission dialog whenever the server process reads a TCC-protected folder (Desktop, Documents, Downloads, iCloud Drive), and this cannot be suppressed from code. The official way to install on macOS is to grant **Full Disk Access** to the server binary once instead of approving each protected folder individually:
+
+1. System Settings > Privacy & Security > Full Disk Access
+2. Click `+` and add the server binary (its path is printed at the end of `./any-console setup`; typically `~/.any-console/any-console-server` for a binary release, or `<repo>/server/target/release/any-console-server` for a source checkout)
+3. Toggle it on
+
+`./any-console start`/`restart` re-sign the binary with a fixed identifier (ad-hoc `codesign`, see `codesign_server_binary` in the `any-console` script) before every launch, so this grant should survive rebuilds and updates without needing to be re-added.
+
 ## Authentication
 
 > **Read [SECURITY.md](SECURITY.md) before deploying.** any-console gives the browser full shell access to the host — the token must be treated like an SSH key, and the app must never be exposed to the public internet.
