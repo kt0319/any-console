@@ -439,6 +439,7 @@ reinstall_service_and_restart_if_active() {
     chmod 644 "$LAUNCHD_PLIST"
     if [ "$was_active" -eq 1 ]; then
       # 既存ロードを外してから再読み込みする（install_launchd と同じ手順）。
+      codesign_server_binary
       launchctl bootout "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null || true
       launchctl enable "$(_launchd_domain)/$LAUNCHD_LABEL"
       launchctl bootstrap "$(_launchd_domain)" "$LAUNCHD_PLIST"
