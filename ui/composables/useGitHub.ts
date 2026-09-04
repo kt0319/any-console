@@ -16,21 +16,26 @@ function setCountCache(workspace: string, key: string, count: number) {
   _countCache[`${workspace}:${key}`] = count;
 }
 
+// テキスト記号（✓/✗/◗等）はフォント・OSで字形がぶれるうえ、in_progress/queued/
+// waitingが同じ半円記号を共用しており見分けが付かないという指摘があった。
+// mdiアイコン（他のステータス表示、例: AGENT_STATE_META/session-sidebar.ts と
+// 同じ語彙）に揃え、実行中(in_progress)だけspinアニメーションを付けて
+// 「待機中」と「実行中」を視覚的にも区別する。
 const RUN_STATUS: Record<string, { icon: string, cls: string }> = {
-  success: { icon: "✓", cls: "github-run-success" },
-  failure: { icon: "✗", cls: "github-run-failure" },
-  cancelled: { icon: "○", cls: "github-run-cancelled" },
-  in_progress: { icon: "◗", cls: "github-run-progress" },
-  queued: { icon: "◗", cls: "github-run-progress" },
-  waiting: { icon: "◗", cls: "github-run-progress" },
+  success: { icon: "mdi-check-circle-outline", cls: "github-run-success" },
+  failure: { icon: "mdi-close-circle-outline", cls: "github-run-failure" },
+  cancelled: { icon: "mdi-minus-circle-outline", cls: "github-run-cancelled" },
+  in_progress: { icon: "mdi-autorenew", cls: "github-run-progress github-run-spin" },
+  queued: { icon: "mdi-clock-outline", cls: "github-run-progress" },
+  waiting: { icon: "mdi-clock-outline", cls: "github-run-progress" },
 };
 
 export function runStatusIcon(status: string) {
-  return RUN_STATUS[status]?.icon || "?";
+  return RUN_STATUS[status]?.icon || "mdi-help-circle-outline";
 }
 
 export function runStatusClass(status: string) {
-  return RUN_STATUS[status]?.cls || "";
+  return RUN_STATUS[status]?.cls || "github-run-unknown";
 }
 
 export function labelStyle(color: string | null | undefined) {

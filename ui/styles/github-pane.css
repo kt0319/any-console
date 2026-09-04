@@ -21,6 +21,13 @@
   flex-shrink: 0;
 }
 
+.github-run-status {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
 
 .github-item-meta {
   font-size: 11px;
@@ -66,6 +73,14 @@
 .github-run-failure { color: var(--error); }
 .github-run-cancelled { color: var(--text-muted); }
 .github-run-progress { color: var(--warning); }
+.github-run-unknown { color: var(--text-muted); }
+
+/* in_progressのみ回転させ、実行中であることを一目で伝える
+   （queued/waitingは同じ色だが静止したままにして区別する）。
+   @keyframes spin は ui/styles/base.css のグローバル定義を使う。 */
+.github-run-spin .mdi {
+  animation: spin 1.6s linear infinite;
+}
 
 .github-error,
 .github-loading {

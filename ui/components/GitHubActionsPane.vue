@@ -16,7 +16,7 @@
             rel="noopener noreferrer"
           >
             <span :class="['github-run-status', runStatusClass(run.conclusion || run.status)]">
-              {{ runStatusIcon(run.conclusion || run.status) }}
+              <span class="mdi" :class="runStatusIcon(run.conclusion || run.status)"></span>
             </span>
             <span class="github-item-title text-ellipsis-flex">{{ run.name }}</span>
             <span class="github-item-meta">{{ run.headBranch }}</span>
