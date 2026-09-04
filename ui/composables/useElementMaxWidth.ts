@@ -22,6 +22,9 @@ export function useElementMaxWidth(elRef: Ref<HTMLElement | null>, reservedPx: n
     ro?.disconnect();
     ro = null;
   });
-  const maxWidth = computed(() => Math.max(0, width.value - reservedPx));
+  // ピークピル（PillPeek.vue）はコミットメッセージ等の長いテキストを
+  // 1行で出すため、コンテナ幅がそのまま画面幅に近い場合（狭幅レイアウト等）
+  // 画面のほぼ全幅まで伸びてしまう。画面幅の半分を上限にする。
+  const maxWidth = computed(() => Math.max(0, Math.min(width.value - reservedPx, window.innerWidth / 2)));
   return { maxWidth };
 }
