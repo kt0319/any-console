@@ -22,6 +22,10 @@ export function mapGitHubRun(item: Record<string, any>) {
   return {
     id: item.databaseId ?? item.id,
     name: item.displayTitle || item.workflowName || item.name || "",
+    // findRunForBranch が「同じworkflowの中で最新のrunか」を判定するために
+    // 別フィールドとして保持する（nameはdisplayTitle優先でコミットメッセージ
+    // 由来になりうるため、workflow識別には使えない）。
+    workflowName: item.workflowName || "",
     status: item.status || "",
     conclusion: item.conclusion || "",
     headBranch: item.headBranch || "",
@@ -42,15 +46,27 @@ export function findPRForBranch(
  * workflow run が同時に載りうる。単純な先頭一致だと、たまたま先に完了した
  * run の陰で他の run が実行中でもピルに気づけない。noticeable な run（実行
  * 中・失敗）があればそれを優先し、無ければ先頭の一致を返す。
+ *
+ * ただし同じ workflow の中では最新の run だけを判定対象にする。runs は
+ * API から新しい順に返る前提のため、古い失敗 run が後続の成功 run で
+ * 上書きされずにいつまでも noticeable 扱いされ続ける（既に直った失敗を
+ * ピルが拾い続ける）不具合を防ぐ。
  */
 export function findRunForBranch(
-  runs: { headBranch?: string; status?: string; conclusion?: string }[] | null | undefined,
+  runs: { headBranch?: string; workflowName?: string; status?: string; conclusion?: string }[] | null | undefined,
   branch: string | null | undefined,
 ): { headBranch?: string; status?: string; conclusion?: string } | null {
   if (!Array.isArray(runs) || !branch) return null;
   const matches = runs.filter((run) => run.headBranch === branch);
   if (matches.length === 0) return null;
-  return matches.find(isNoticeableRun) || matches[0];
+  const seenWorkflows = new Set<string>();
+  const latestPerWorkflow = matches.filter((run) => {
+    const key = run.workflowName || "";
+    if (seenWorkflows.has(key)) return false;
+    seenWorkflows.add(key);
+    return true;
+  });
+  return latestPerWorkflow.find(isNoticeableRun) || matches[0];
 }
 
 /**

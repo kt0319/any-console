@@ -1,5 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../../ui/utils/github-runs.ts";
+import { findPRForBranch, findRunForBranch, isNoticeableRun, mapGitHubRun } from "../../ui/utils/github-runs.ts";
+
+describe("mapGitHubRun", () => {
+  it("workflowNameをname解決とは別に保持する（findRunForBranchのworkflow識別用）", () => {
+    const mapped = mapGitHubRun({
+      databaseId: 1,
+      displayTitle: "fix: 何か直した",
+      workflowName: "Deploy to Pi",
+      status: "completed",
+      conclusion: "failure",
+      headBranch: "main",
+      url: "https://example.com",
+    });
+    expect(mapped.name).toBe("fix: 何か直した");
+    expect(mapped.workflowName).toBe("Deploy to Pi");
+  });
+});
 
 describe("findPRForBranch", () => {
   const prs = [
@@ -40,13 +56,14 @@ describe("findRunForBranch", () => {
 
   it("同一ブランチに複数workflowのrunがある場合、実行中/失敗のrunを先頭一致より優先する", () => {
     const multi = [
-      { id: 1, headBranch: "main", status: "completed", conclusion: "success" },
-      { id: 2, headBranch: "main", status: "in_progress", conclusion: "" },
-      { id: 3, headBranch: "main", status: "completed", conclusion: "skipped" },
+      { id: 1, headBranch: "main", workflowName: "CI", status: "completed", conclusion: "success" },
+      { id: 2, headBranch: "main", workflowName: "Deploy", status: "in_progress", conclusion: "" },
+      { id: 3, headBranch: "main", workflowName: "Release Please", status: "completed", conclusion: "skipped" },
     ];
     expect(findRunForBranch(multi, "main")).toEqual({
       id: 2,
       headBranch: "main",
+      workflowName: "Deploy",
       status: "in_progress",
       conclusion: "",
     });
@@ -54,14 +71,45 @@ describe("findRunForBranch", () => {
 
   it("noticeableなrunが無ければ先頭一致を返す", () => {
     const allDone = [
-      { id: 1, headBranch: "main", status: "completed", conclusion: "success" },
-      { id: 2, headBranch: "main", status: "completed", conclusion: "skipped" },
+      { id: 1, headBranch: "main", workflowName: "CI", status: "completed", conclusion: "success" },
+      { id: 2, headBranch: "main", workflowName: "Deploy", status: "completed", conclusion: "skipped" },
     ];
     expect(findRunForBranch(allDone, "main")).toEqual({
       id: 1,
       headBranch: "main",
+      workflowName: "CI",
       status: "completed",
       conclusion: "success",
+    });
+  });
+
+  it("同一workflowの古い失敗runは、後続の成功runで上書きされnoticeable扱いされない", () => {
+    // gh run list は新しい順に返るため、配列の先頭が最新。
+    const supersededFailure = [
+      { id: 3, headBranch: "main", workflowName: "Deploy", status: "completed", conclusion: "success" },
+      { id: 2, headBranch: "main", workflowName: "Deploy", status: "completed", conclusion: "success" },
+      { id: 1, headBranch: "main", workflowName: "Deploy", status: "completed", conclusion: "failure" },
+    ];
+    expect(findRunForBranch(supersededFailure, "main")).toEqual({
+      id: 3,
+      headBranch: "main",
+      workflowName: "Deploy",
+      status: "completed",
+      conclusion: "success",
+    });
+  });
+
+  it("同一workflowの最新runが失敗なら、古い成功runがあってもnoticeable扱いする", () => {
+    const stillFailing = [
+      { id: 2, headBranch: "main", workflowName: "Deploy", status: "completed", conclusion: "failure" },
+      { id: 1, headBranch: "main", workflowName: "Deploy", status: "completed", conclusion: "success" },
+    ];
+    expect(findRunForBranch(stillFailing, "main")).toEqual({
+      id: 2,
+      headBranch: "main",
+      workflowName: "Deploy",
+      status: "completed",
+      conclusion: "failure",
     });
   });
 });
