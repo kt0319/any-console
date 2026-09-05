@@ -5,6 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0](https://github.com/kt0319/any-console/compare/v0.16.0...v0.17.0) (2026-09-05)
+
+
+### Features
+
+* Add Workspaceフォームにグループ選択セレクトボックスを追加 ([dd853ce](https://github.com/kt0319/any-console/commit/dd853cec047b10b85bc71958f5490615fafed6e2))
+* Display設定にReset to defaultsボタンを追加する ([3bf6043](https://github.com/kt0319/any-console/commit/3bf60439a04a7194094cec50387c4b8750cf6926))
+* サイドバーのセッション行をアイコン/名前+ピルの行とブランチ/ステータスの行に分ける ([02d3259](https://github.com/kt0319/any-console/commit/02d325983a680eb29573d2de40bf3752cc4d22ff))
+* サイドバーのベアターミナル表記と行の高さを統一する ([6224584](https://github.com/kt0319/any-console/commit/62245843ec09ddfce437ad79964f0ea8da113507))
+* セッションタブが幅いっぱいの時、横スクロール可能な端をフェード表示する ([3d27d44](https://github.com/kt0319/any-console/commit/3d27d449a370159a6c7cbf15ed08049b19dfabbc))
+* タイトルバー位置をOff/Top/Bottomの3値でタブ位置と独立に設定可能にし、Display設定にデバイス単位保存の注記を追加する ([967cdd7](https://github.com/kt0319/any-console/commit/967cdd791f9ff38557fee22c7242565c39e4dc71))
+* タイトルバー表示をタブ位置と独立してNarrow/Wide別に設定可能にする ([3a31df5](https://github.com/kt0319/any-console/commit/3a31df548bd47cd91dac2afa741cc0857b62aceb))
+* 折りたたみスマホ向けにタブ位置/Keyboard bar表示をSettings &gt; Displayで設定可能にする ([055f0ed](https://github.com/kt0319/any-console/commit/055f0ed4212f2c4f42f5e8ec3ac3014495e8cf49))
+
+
+### Bug Fixes
+
+* ./any-console update後のサービス再起動でもバイナリを再署名する ([00d9b32](https://github.com/kt0319/any-console/commit/00d9b326574ea728ea50012657e2642d80e0398d))
+* Actionsピルが解消済みの古い失敗runを拾い続ける不具合を修正する ([64ab4f4](https://github.com/kt0319/any-console/commit/64ab4f42dc1f13077808b356e0f6ea9ede7b905c))
+* Actions一覧のステータスアイコンをUnicode記号からmdiに統一する ([4970372](https://github.com/kt0319/any-console/commit/497037223e67ef661d15e2811a04dbd9be5eecc4))
+* DispatchのRunで既存セッションへ切替後もモーダルが閉じ残る不具合を修正 ([7917d6a](https://github.com/kt0319/any-console/commit/7917d6a90f615db44f7bc523b7e19b2ae8900ea4))
+* Dispatchモーダルでセッション/ジョブ/ブランチ情報の取得完了までRunを無効化 ([4aedfe1](https://github.com/kt0319/any-console/commit/4aedfe162df674c990f74df4d3703f840eb383f4))
+* Display設定のKeyboard barチェックボックスを各セクションの一番下に移動する ([3116e62](https://github.com/kt0319/any-console/commit/3116e62b9c445f244a048a63174b08e59cb62d99))
+* Display設定のWide/Narrow表示順を入れ替え、項目名とラジオボタンを分離する ([2194587](https://github.com/kt0319/any-console/commit/2194587886dab37b412d638beb563a0c538758f7))
+* Display設定画面のラベルを英語表記に統一する ([0772e3b](https://github.com/kt0319/any-console/commit/0772e3b86cd6d1dfdfbd5e753c1f64711c0517dd))
+* QWERTYパネルとキー行の間のボーダーを削除する ([19bd297](https://github.com/kt0319/any-console/commit/19bd297f64d2fada37da0a501f85678f44c13cec))
+* キーの背景色を非アクティブタブと同じ色にする ([c7e2493](https://github.com/kt0319/any-console/commit/c7e2493bfaa9103e4696a773a64b78b067db7c70))
+* キーボードキーのボーダー色を入力テキストと一致させる ([929212a](https://github.com/kt0319/any-console/commit/929212a8cacfa14db1f607adedb4ce57d11091c9))
+* キーボードバーとキーの背景色を入れ替える ([f165543](https://github.com/kt0319/any-console/commit/f16554313553bc577f4e345ed2d8ee6f2219e5e7))
+* サイドバー行2のステータスを行全体の右端に寄せる ([5cf39fa](https://github.com/kt0319/any-console/commit/5cf39fa5c4092b8d94b53de630c5958ada1d9b31))
+* サイドバー開閉時のタブバー崩れを修正し、タブの幅広/幅狭も実際の画面幅に連動させる ([a6a88de](https://github.com/kt0319/any-console/commit/a6a88de9cf401c246ea94e9f11a8320f7ec6b577))
+* セッションタブがボトム配置の時だけタイトルバーを表示する ([8adc01a](https://github.com/kt0319/any-console/commit/8adc01aa6f9469e2cbf706a6c1e81b1c805868c4))
+* セッションタブの×ボタンのアイコンサイズを小さくする ([661b92f](https://github.com/kt0319/any-console/commit/661b92f71e2ea2c76e4315e12ee48b1f3b6026ec))
+* セッションモーダルの閉じるボタン位置をサイドバーと一致させる ([d51448c](https://github.com/kt0319/any-console/commit/d51448cb04a888597f71e20d941f1af27feae3a2))
+* セッション一覧が最上部に来る配置で先頭項目の上の余白を削除する ([716b4fb](https://github.com/kt0319/any-console/commit/716b4fb69aeb328b275c2b31972796c16734ede7))
+* セッション一覧のサイドバー/全面オーバーレイ切替を画面幅で判定する ([76a7b16](https://github.com/kt0319/any-console/commit/76a7b164dd4f8de5e77723a909f694c5f7fc8c67))
+* ターミナルのOSキーボード表示をタップではなくクリック時のみにする ([8e30a7d](https://github.com/kt0319/any-console/commit/8e30a7d0913fff79215132ef524cfdfeb49d28d8))
+* タイトルバーがBottom配置の時は上端にボーダーを表示する ([5da19aa](https://github.com/kt0319/any-console/commit/5da19aa2b56e75983de61ab7efdd7eb49ef999bd))
+* タイトルバーがTop位置の時はセッションタブより上に表示する ([f215552](https://github.com/kt0319/any-console/commit/f215552f891d5b18c8e3c5816961b13770d02ac3))
+* バーごとのボーダーをやめてターミナルとの境目にのみボーダーを表示する ([5f31db4](https://github.com/kt0319/any-console/commit/5f31db43640b9d3bfb469e3f900102e6838a6dbd))
+* ピークピルの最大幅を画面幅の半分までに制限する ([94fbd31](https://github.com/kt0319/any-console/commit/94fbd317834a015e3435c0f65afd3cfa924f8439))
+* モーダルのヘッダー位置を画面幅判定からセッションタブの位置設定に連動させる ([de04d58](https://github.com/kt0319/any-console/commit/de04d586bc30d2d19bd728c14271a267a486f884))
+* ワークスペース詳細モーダルのタイトルタップで閉じる不具合を修正 ([0cb39b2](https://github.com/kt0319/any-console/commit/0cb39b206f2be6283a5025ae580dfab629965bcd))
+* 分岐取得失敗時にlocalBranchesLoadedが立たずRunが恒久disableになる不具合を修正 ([2d9647e](https://github.com/kt0319/any-console/commit/2d9647e8c88fd97223d14504fae8eb13c99021eb))
+* 確認ダイアログをタップで閉じた後のタブ切替でOSキーボードが開く不具合を修正 ([1c7bcbb](https://github.com/kt0319/any-console/commit/1c7bcbb3af87fe83db18e85f8d02329846a6fe63))
+
+
+### Refactor
+
+* DispatchRunViewの非同期取得状態をAsyncState&lt;T&gt;に統一する ([ad71924](https://github.com/kt0319/any-console/commit/ad71924b3adfd931bf608716343ea835ba88482b))
+* FileHistoryPane/GitChangesの取得状態をAsyncState&lt;T&gt;に統一する ([ddbf620](https://github.com/kt0319/any-console/commit/ddbf620769b64f89bdda65be254ec6a1f141d814))
+* GitHubペイン取得系の状態管理をAsyncState&lt;T&gt;に統一する ([fe15a76](https://github.com/kt0319/any-console/commit/fe15a769e7086a15bb0aa2d17579f98957693821))
+* server/src配下の冗長なコメントを整理する ([fb00ef9](https://github.com/kt0319/any-console/commit/fb00ef96424a2b57ac66a9e7b866464ad3f7cdcc))
+* server/tests配下の冗長なコメントを整理する ([ddd6a45](https://github.com/kt0319/any-console/commit/ddd6a45b8cadf83f15a7a6dcf59289a0d5c9c605))
+* tests配下の冗長なコメントを整理する ([7c7e235](https://github.com/kt0319/any-console/commit/7c7e235cf34cf30c5ad165c12dbf6b27f475fa75))
+* ui配下の冗長なコメントを整理する ([caafc1f](https://github.com/kt0319/any-console/commit/caafc1f9d4ba822157119e081d4b3967e9363b56))
+* サイドバー/モーダルのヘッダーをModalHeader.vueとして共通化する ([00e0d14](https://github.com/kt0319/any-console/commit/00e0d14cea8d39a5f79acffa95e2be116ef03279))
+* タッチの横ドラッグによるタブ並び替えを廃止しシンプルにする ([936bc1f](https://github.com/kt0319/any-console/commit/936bc1fb8e5c03672b7c1b13c8e99fd3e673974d))
+* 冗長なterm.focus上書きを削除してフォーカスガードを簡略化する ([630acb9](https://github.com/kt0319/any-console/commit/630acb986f50ede76f16f0b963965413a1ef6beb))
+
+
+### Documentation
+
+* AGENTS.mdを実体ファイルにしCLAUDE.mdは@AGENTS.mdのインポートのみにする ([d3298f2](https://github.com/kt0319/any-console/commit/d3298f2e58afaeaefc81e7c5588ee13182e7d3f0))
+* Debug mode説明文にTitle bar依存を明記する ([23c5e07](https://github.com/kt0319/any-console/commit/23c5e07456d9c903766869a5d3acdcd590afba74))
+* macOSのFull Disk Access付与を公式のインストール手順として案内する ([559b107](https://github.com/kt0319/any-console/commit/559b1077d85e99b393fd7eded8e18b8c5c137874))
+
+
+### Build
+
+* macOS起動時にサーババイナリを固定identifierでad-hoc署名する ([453c391](https://github.com/kt0319/any-console/commit/453c391db30c92354fcd5c52c8a1f0a845f368ef))
+* release-pleaseのPRをdraftで作成する ([fa0dbd2](https://github.com/kt0319/any-console/commit/fa0dbd2cc305c0e967ca5d64d18be2f218a10def))
+
 ## [0.16.0](https://github.com/kt0319/any-console/compare/v0.15.0...v0.16.0) (2026-08-29)
 
 
