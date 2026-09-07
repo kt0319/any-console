@@ -1,0 +1,35 @@
+.docker-item {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.docker-run-status {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+.docker-item-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.docker-state-running { color: var(--success); }
+.docker-state-paused { color: var(--warning); }
+.docker-state-exited { color: var(--text-muted); }
+.docker-state-unknown { color: var(--text-muted); }
+
+/* restartingのみ回転させる（GitHub Actionsのin_progressと同じ語彙）。
+   @keyframes spin は ui/styles/base.css のグローバル定義を使う。 */
+.docker-run-spin .mdi {
+  animation: spin 1.6s linear infinite;
+}

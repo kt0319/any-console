@@ -42,6 +42,7 @@ export function buildTrailingPeekItems(
     branchPR?: { number: number; title: string } | null;
     branchAction?: { id: string | number; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
+    dockerContainers?: { name?: string; state?: string }[];
     dispatchItems?: { id: string }[];
   },
   infoPillConfig: Record<string, boolean>,
@@ -61,6 +62,7 @@ export function buildTrailingPeekItems(
     branchPR = null,
     branchAction = null,
     devServerEntry = null,
+    dockerContainers = [],
     dispatchItems = [],
   } = fields || {};
   const items: { key: string; text: string }[] = [];
@@ -83,6 +85,10 @@ export function buildTrailingPeekItems(
   if (devServerEntry && infoPillConfig.devserver) {
     items.push({ key: "devserver", text: `Server:${devServerEntry.proxy_port}` });
   }
+  const runningDockerContainers = dockerContainers.filter((c) => c.state === "running");
+  if (runningDockerContainers.length > 0 && infoPillConfig.docker) {
+    items.push({ key: "docker", text: `Docker:${runningDockerContainers.map((c) => c.name).join(",")}` });
+  }
   if (!hasWorkspace && hasSession && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
   }
@@ -103,6 +109,7 @@ export function buildPeekText(
     branchPR?: { number: number; title: string } | null;
     branchAction?: { name?: string; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
+    dockerContainers?: { name?: string; state?: string }[];
     dispatchTooltip?: string;
   },
 ): string {
@@ -111,6 +118,7 @@ export function buildPeekText(
     branchPR = null,
     branchAction = null,
     devServerEntry = null,
+    dockerContainers = [],
     dispatchTooltip = "",
   } = fields || {};
   switch (peekingKey) {
@@ -121,6 +129,10 @@ export function buildPeekText(
       : "";
     case "devserver": return devServerEntry ? `Dev Server :${devServerEntry.proxy_port}` : "Server";
     case "devserver-stop": return "Dev Server Stop";
+    case "docker": {
+      const running = dockerContainers.filter((c) => c.state === "running");
+      return running.length ? `Docker: ${running.map((c) => c.name).join(", ")}` : "Docker";
+    }
     case "add": return "Add";
     case "dispatch": return dispatchTooltip;
     case "workspace": return workspaceLabel;

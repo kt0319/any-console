@@ -102,6 +102,9 @@
    neutral（cancelled/skipped等の実害の無い終了）の4段階に丸め、必ず
    いずれかの色が付く。 */
 .pill-peek-brown .pill-peek-icon { color: #8c6c50; }
+/* Dockerは公式ロゴカラー（#2496ed）をアイコンだけに固定する（アクセントと
+   同系統だが別の状態を示すため、独自の色にして混同を避ける）。 */
+.pill-peek-docker .pill-peek-icon { color: #2496ed; }
 .pill-peek-actions-name { color: var(--text-primary); }
 .pill-peek-actions-status {
   color: var(--text-muted);
@@ -273,6 +276,10 @@
 
 .pill-server-btn .mdi {
   color: var(--lime);
+}
+
+.pill-docker-btn .mdi {
+  color: #2496ed;
 }
 
 .pill-files-btn .mdi {

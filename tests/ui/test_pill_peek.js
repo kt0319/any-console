@@ -15,6 +15,7 @@ const ALL_ON = {
   prs: true,
   actions: true,
   devserver: true,
+  docker: true,
   add: true,
   dispatch: true,
 };
@@ -93,23 +94,35 @@ describe("buildTrailingPeekItems", () => {
     expect(items.find((i) => i.key === "branch")).toEqual({ key: "branch", text: "main:1:2" });
   });
 
-  it("prs/actions/devserverはそれぞれの値が無ければ出ない", () => {
+  it("prs/actions/devserver/dockerはそれぞれの値が無ければ出ない", () => {
     const empty = buildTrailingPeekItems({}, ALL_ON);
     expect(empty.some((i) => i.key === "prs")).toBe(false);
     expect(empty.some((i) => i.key === "actions")).toBe(false);
     expect(empty.some((i) => i.key === "devserver")).toBe(false);
+    expect(empty.some((i) => i.key === "docker")).toBe(false);
 
     const filled = buildTrailingPeekItems(
       {
         branchPR: { number: 12, title: "Fix bug" },
         branchAction: { id: 9, status: "completed", conclusion: "success" },
         devServerEntry: { proxy_port: 3001 },
+        dockerContainers: [{ name: "web-1", state: "running" }, { name: "redis-1", state: "exited" }],
       },
       ALL_ON,
     );
     expect(filled.find((i) => i.key === "prs")).toEqual({ key: "prs", text: "12:Fix bug" });
     expect(filled.find((i) => i.key === "actions")).toEqual({ key: "actions", text: "9:completed:success" });
     expect(filled.find((i) => i.key === "devserver")).toEqual({ key: "devserver", text: "Server:3001" });
+    // exited状態のコンテナはtextに含めない(実行中のみ)。
+    expect(filled.find((i) => i.key === "docker")).toEqual({ key: "docker", text: "Docker:web-1" });
+  });
+
+  it("dockerはstate=runningのコンテナが無ければ出ない", () => {
+    const items = buildTrailingPeekItems(
+      { dockerContainers: [{ name: "redis-1", state: "exited" }] },
+      ALL_ON,
+    );
+    expect(items.some((i) => i.key === "docker")).toBe(false);
   });
 
   it("addはワークスペース未紐付け・セッションありの時だけ出る", () => {
@@ -138,6 +151,8 @@ describe("buildPeekText", () => {
     expect(buildPeekText("devserver", { devServerEntry: { proxy_port: 3000 } })).toBe("Dev Server :3000");
     expect(buildPeekText("devserver", {})).toBe("Server");
     expect(buildPeekText("devserver-stop", {})).toBe("Dev Server Stop");
+    expect(buildPeekText("docker", { dockerContainers: [{ name: "web-1", state: "running" }] })).toBe("Docker: web-1");
+    expect(buildPeekText("docker", {})).toBe("Docker");
     expect(buildPeekText("add", {})).toBe("Add");
     expect(buildPeekText("dispatch", { dispatchTooltip: "Run pending" })).toBe("Run pending");
     expect(buildPeekText("workspace", { workspaceLabel: "my-ws" })).toBe("my-ws");

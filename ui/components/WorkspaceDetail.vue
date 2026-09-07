@@ -71,6 +71,9 @@
       <div v-if="activePane === 'actions'" class="file-modal-pane pane-fill">
         <GitHubActionsPane ref="githubActions" />
       </div>
+      <div v-if="activePane === 'docker'" class="file-modal-pane pane-fill">
+        <DockerPane ref="dockerPane" />
+      </div>
       <div v-if="activePane === 'prs'" class="file-modal-pane pane-fill">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
@@ -100,6 +103,7 @@ import GitStash from "./GitStash.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
+import DockerPane from "./DockerPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
 import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import DispatchRunView from "./DispatchRunView.vue";
@@ -115,6 +119,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
 import { useCollapsibleSection } from "../composables/useCollapsibleSection.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
+import { useDockerContainers } from "../composables/useDockerContainers.ts";
 import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { workspaceDisplayName, baseWorkspaceName } from "../utils/worktree.ts";
 
@@ -142,6 +147,7 @@ const gitBranch = ref<InstanceType<typeof GitChangeBranch> | null>(null);
 const gitStash = ref<InstanceType<typeof GitStash> | null>(null);
 const githubIssues = ref<InstanceType<typeof GitHubIssuesPane> | null>(null);
 const githubActions = ref<InstanceType<typeof GitHubActionsPane> | null>(null);
+const dockerPane = ref<InstanceType<typeof DockerPane> | null>(null);
 const githubPrs = ref<InstanceType<typeof GitHubPRsPane> | null>(null);
 const jobsPane = ref<InstanceType<typeof WorkspaceJobsPane> | null>(null);
 const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(null);
@@ -188,6 +194,14 @@ const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
 const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchQueue();
+// Dockerタブの表示可否はInfoPillRowのDockerピルと同じ基準（このワークスペースの
+// ディレクトリでrunning状態のコンテナがあるか）。ポーリング自体はピル側
+// （TerminalPane/SessionListView）が既に回しているため、ここではその共有結果を読むだけ。
+const { containers: dockerContainers } = useDockerContainers();
+const hasDocker = computed(() => {
+  const ws = workspaceStore.selectedWorkspace;
+  return !!ws && dockerContainers.value.some((c) => c.workspace === ws && c.state === "running");
+});
 // タブのバッジ数字は承認待ち（pending）件数のみでよい（実行済みrecentは
 // 件数に含めない）。ただしタブ自体の表示可否はrecentしか無い場合でも
 // 履歴を見返せるよう、pending/recentのどちらかがあれば出す。
@@ -235,6 +249,7 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, showCount: false, iconColor: hasBranchPR.value ? "var(--purple)" : undefined, hidden: !isGit || !hasGitHub.value || !prsCount.value },
     { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: hasRunningAction.value ? "#8c6c50" : undefined, hidden: !isGit || !hasGitHub.value },
+    { key: "docker", icon: "mdi-docker", label: "Docker", iconColor: hasDocker.value ? "#2496ed" : undefined, hidden: !hasDocker.value },
     { key: "dispatch", icon: "mdi-inbox-arrow-down-outline", label: "Dispatch", iconColor: dispatchPendingCount.value ? "var(--pink)" : undefined, count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
@@ -345,11 +360,11 @@ const PANE_ALIASES: Record<string, string> = {
 // activePane に入りうる正当なペイン名。未知のキーはどの v-if/v-show にも一致せず本文が
 // 空になるため、switchPane でここに無いキーは jobs へフォールバックする。
 const VALID_PANE_KEYS = new Set([
-  "jobs", "files", "history", "changes", "issues", "actions", "prs", "dispatch", "select",
+  "jobs", "files", "history", "changes", "issues", "actions", "docker", "prs", "dispatch", "select",
 ]);
 
-// ペイン切替時の初期化処理（issues/actions/prs は v-if + onMounted で自動ロードするため
-// エントリ無し）。タブを追加する時は tabs のエントリとあわせてここへ足す。
+// ペイン切替時の初期化処理（issues/actions/docker/prs は v-if + onMounted で自動ロードする
+// ためエントリ無し）。タブを追加する時は tabs のエントリとあわせてここへ足す。
 const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
   history: (opts) => {
     nextTick(() => {

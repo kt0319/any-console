@@ -7,6 +7,7 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey("prs")).toBe("pill-peek-purple");
     expect(peekColorForKey("branch")).toEqual(["pill-peek-success", "pill-peek-icon-only"]);
     expect(peekColorForKey("devserver")).toBe("pill-peek-accent");
+    expect(peekColorForKey("docker")).toBe("pill-peek-docker");
     expect(peekColorForKey("dispatch")).toBe("pill-peek-pink");
     expect(peekColorForKey("actions")).toBe("pill-peek-brown");
   });
@@ -65,7 +66,7 @@ describe("INFO_PILLS", () => {
     // バックエンド server/src/settings.rs の INFO_PILL_FIELDS と同じキー集合を
     // 保つこと（あちらは settings.rs 内のユニットテストで検証）。
     expect(INFO_PILL_FIELDS).toEqual([
-      "files", "changes", "branch", "prs", "actions", "devserver", "add", "dispatch",
+      "files", "changes", "branch", "prs", "actions", "devserver", "docker", "add", "dispatch",
     ]);
   });
 });
@@ -74,6 +75,7 @@ describe("peekIconForKey", () => {
   it("ピルのキーに対応するアイコンを返す", () => {
     expect(peekIconForKey("branch")).toBe("mdi-source-branch");
     expect(peekIconForKey("devserver")).toBe("mdi-server");
+    expect(peekIconForKey("docker")).toBe("mdi-docker");
   });
 
   it("peek専用キー（devserver-stop）にもアイコンを返す", () => {

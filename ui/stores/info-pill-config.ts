@@ -15,13 +15,14 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const actions = ref(true);
   const changes = ref(true);
   const devserver = ref(true);
+  const docker = ref(true);
   const files = ref(true);
   const add = ref(true);
   const dispatch = ref(true);
   const order = ref<string[]>([...DEFAULT_ORDER]);
   const loaded = ref(false);
 
-  const fieldRefs: Record<string, Ref<boolean>> = { branch, prs, actions, changes, devserver, files, add, dispatch };
+  const fieldRefs: Record<string, Ref<boolean>> = { branch, prs, actions, changes, devserver, docker, files, add, dispatch };
 
   // load のリトライ・loaded 確定の方針は createServerSettings 参照。
   const { load, save } = createServerSettings(EP_SETTINGS_INFO_PILLS, {
@@ -52,5 +53,5 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     save();
   }
 
-  return { branch, prs, actions, changes, devserver, files, add, dispatch, order, loaded, load, save, reorder };
+  return { branch, prs, actions, changes, devserver, docker, files, add, dispatch, order, loaded, load, save, reorder };
 });

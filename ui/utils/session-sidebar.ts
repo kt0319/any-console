@@ -48,12 +48,13 @@ function buildPillFields(
     prsByWorkspace?: Record<string, any[]>;
     runsByWorkspace?: Record<string, any[]>;
     previewPorts?: any[];
+    dockerContainers?: any[];
     dispatchQueue?: { request: Record<string, any> }[];
     dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
     hostname?: string;
   },
 ) {
-  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
+  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dockerContainers = [], dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
   const isGitRepo = ws?.is_git_repo === true;
   const branch = ws?.branch || "";
   const ahead = ws?.ahead || 0;
@@ -69,6 +70,9 @@ function buildPillFields(
   const devServerEntry = wsName
     ? (previewPorts.find((p) => p.workspace === wsName && p.proxy_port) || null)
     : null;
+  const workspaceDockerContainers = wsName
+    ? dockerContainers.filter((c) => c.workspace === wsName)
+    : [];
   const dispatchItems = wsName
     ? dispatchQueue.filter((item) => dispatchWorkspaceLabel(item.request) === wsName)
     : [];
@@ -90,6 +94,8 @@ function buildPillFields(
     branchAction,
     hasDevServer: !!devServerEntry,
     devServerEntry,
+    hasDocker: workspaceDockerContainers.some((c) => c.state === "running"),
+    dockerContainers: workspaceDockerContainers,
     dispatchCount: dispatchItems.length,
     dispatchItems,
     lastCommitMessage: ws?.last_commit_message,
@@ -99,6 +105,7 @@ function buildPillFields(
       changedFiles, insertions, deletions,
       lastCommitMessage: ws?.last_commit_message,
       devServerEntry, hostname,
+      dockerContainers: workspaceDockerContainers,
       dispatchItems, dispatchAllJobs,
       branchPR, branchAction,
     }),
@@ -126,6 +133,7 @@ export function sessionSidebarItems(
     prsByWorkspace?: Record<string, any[]>;
     runsByWorkspace?: Record<string, any[]>;
     previewPorts?: any[];
+    dockerContainers?: any[];
     dispatchQueue?: { request: Record<string, any> }[];
     dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
     hostname?: string;

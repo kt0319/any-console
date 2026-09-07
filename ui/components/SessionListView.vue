@@ -39,6 +39,7 @@
                 :has-pr="p.hasPr"
                 :has-action="p.hasAction"
                 :has-dev-server="p.hasDevServer"
+                :has-docker="p.hasDocker"
                 :dispatch-count="p.dispatchCount"
                 :tooltips="p.tooltips"
                 @open="onPendingPillOpen(p, $event)"
@@ -64,6 +65,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { sessionSidebarItems, pendingDispatchSidebarItems } from "../utils/session-sidebar.ts";
 import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { useDockerContainers } from "../composables/useDockerContainers.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
@@ -103,6 +105,7 @@ const githubWorkspaceKeys = computed(() => {
 
 const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
+const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling } = useDockerContainers();
 const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
 
 // 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、タブ一覧の下に
@@ -114,6 +117,7 @@ const pendingDispatchWorkspaces = computed(() => {
     prsByWorkspace: prsByWorkspace.value,
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
+    dockerContainers: dockerContainers.value,
     dispatchQueue: dispatchQueue.value,
     dispatchAllJobs: dispatchAllJobs.value,
     hostname: location.hostname,
@@ -165,6 +169,7 @@ const items = computed(() => {
     prsByWorkspace: prsByWorkspace.value,
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
+    dockerContainers: dockerContainers.value,
     dispatchQueue: dispatchQueue.value,
     dispatchAllJobs: dispatchAllJobs.value,
     hostname: location.hostname,
@@ -200,9 +205,11 @@ async function onCloseTab(item: SessionItem) {
 // このビューはSettingsPanel.vueにより「currentView==='SessionList'」の間だけマウントされる
 // ため、ポーリングはこのコンポーネント自身のマウント/アンマウントに紐付く。
 startPreviewPolling();
+startDockerPolling();
 
 onBeforeUnmount(() => {
   stopPreviewPolling();
+  stopDockerPolling();
 });
 </script>
 

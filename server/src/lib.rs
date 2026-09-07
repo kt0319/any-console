@@ -13,6 +13,7 @@ pub mod config_migrations;
 pub mod config_schema;
 pub mod devices;
 pub mod dispatch;
+pub mod docker;
 pub mod errors;
 pub mod fallback;
 pub mod foreground;
@@ -366,6 +367,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         // ─── dev server ポートプレビュー ────────────────────────────────────
         .route("/preview/ports", get(preview::list_detected_ports))
+        // ─── Docker コンテナ検出 ─────────────────────────────────────────
+        .route("/docker/containers", get(docker::list_detected_containers))
         // ─── 認証ドメイン（devices.json / auth.json） ───────────────────────
         // devices.json・auth.json への書き込みが Python/Rust の両方から起きる
         // split-brain を避けるため、この一群は同時に配線する（atomic cutover —

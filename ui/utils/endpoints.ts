@@ -44,6 +44,7 @@ export const EP_RECENT_JOBS = "/recent-jobs";
 export const EP_UPLOAD_IMAGE = "/upload-image";
 export const EP_CLIENT_ERRORS = "/client-errors";
 export const EP_PREVIEW_PORTS = "/preview/ports";
+export const EP_DOCKER_CONTAINERS = "/docker/containers";
 
 export function dispatchDecisionPath(dispatchId: string): string {
   return `/dispatch/${encodeURIComponent(dispatchId)}/decision`;

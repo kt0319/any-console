@@ -38,6 +38,14 @@ export function devServerTooltip(entry: { scheme?: string; proxy_port?: number }
   return `Dev Server: ${devServerOrigin(entry, hostname)}`;
 }
 
+export function dockerTooltip(containers: { name?: string; state?: string }[]): string {
+  if (!containers.length) return "Docker";
+  const running = containers.filter((c) => c.state === "running").length;
+  return running === 1
+    ? `Docker: ${containers.find((c) => c.state === "running")?.name}`
+    : `Docker: ${running} containers running`;
+}
+
 /**
  * job名（request.jobはlabelではなくジョブ定義のキー＝job id相当のため、
  * allJobsで人間向けlabelに解決する）とブランチ名の両方を表示する。
@@ -77,6 +85,7 @@ export function buildInfoPillTooltips({
   changedFiles = 0, insertions = 0, deletions = 0,
   lastCommitMessage = null,
   devServerEntry = null, hostname = "",
+  dockerContainers = [],
   dispatchItems = [],
   dispatchAllJobs = {},
   branchPR = null, branchAction = null,
@@ -86,6 +95,7 @@ export function buildInfoPillTooltips({
   changedFiles?: number; insertions?: number; deletions?: number;
   lastCommitMessage?: string | null;
   devServerEntry?: any; hostname?: string;
+  dockerContainers?: { name?: string; state?: string }[];
   dispatchItems?: { request: Record<string, any> }[];
   dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
   branchPR?: any; branchAction?: any;
@@ -95,6 +105,7 @@ export function buildInfoPillTooltips({
     changes: changesTooltip({ changedFiles, insertions, deletions }),
     branch: branchTooltip({ branch, ahead, behind, hasUpstream, lastCommitMessage }),
     devserver: devServerTooltip(devServerEntry, hostname),
+    docker: dockerTooltip(dockerContainers),
     dispatch: dispatchTooltip(dispatchItems, dispatchAllJobs),
     prs: prsTooltip(branchPR),
     actions: actionsTooltip(branchAction),

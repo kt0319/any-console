@@ -54,6 +54,13 @@ export const INFO_PILLS = [
     peekColor: "pill-peek-accent",
   },
   {
+    key: "docker",
+    label: "Docker",
+    note: "Only shown while a Docker Compose container from this workspace's directory is running.",
+    peekIcon: "mdi-docker",
+    peekColor: "pill-peek-docker",
+  },
+  {
     key: "add",
     label: "Add / Open",
     note: "Register or open the current directory as a workspace. Only shown for terminals not yet tied to a Git workspace.",

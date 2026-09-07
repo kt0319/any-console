@@ -55,6 +55,7 @@
           :has-pr="!!branchPR"
           :has-action="!!visibleBranchAction"
           :has-dev-server="!!devServerEntry"
+          :has-docker="hasDocker"
           :dispatch-count="tabDispatchItems.length"
           :tooltips="tooltips"
           @open="openPane"
@@ -102,6 +103,7 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
+import { useDockerContainers } from "../composables/useDockerContainers.ts";
 import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
@@ -169,6 +171,28 @@ const devServerEntry = computed(() => {
   return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
 });
 
+// Dockerピルも Dev Server と同じ立て付け（ポーリング集約 + workspace一致でフィルタ）。
+const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling, fetchContainers: fetchDockerContainers } = useDockerContainers();
+let dockerPollingStarted = false;
+
+function syncDockerPolling() {
+  const shouldPoll = !!props.tab.workspace;
+  if (shouldPoll && !dockerPollingStarted) {
+    dockerPollingStarted = true;
+    startDockerPolling();
+  } else if (!shouldPoll && dockerPollingStarted) {
+    dockerPollingStarted = false;
+    stopDockerPolling();
+  }
+}
+
+const workspaceDockerContainers = computed(() => {
+  terminalStore.tabWorkspaceVersion;
+  if (!props.tab.workspace) return [];
+  return dockerContainers.value.filter((c) => c.workspace === props.tab.workspace);
+});
+const hasDocker = computed(() => workspaceDockerContainers.value.some((c) => c.state === "running"));
+
 const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
@@ -233,6 +257,7 @@ const tooltips = computed(() => buildInfoPillTooltips({
   deletions: deletions.value,
   lastCommitMessage: paneWorkspace.value?.last_commit_message,
   devServerEntry: devServerEntry.value,
+  dockerContainers: workspaceDockerContainers.value,
   hostname: location.hostname,
   dispatchItems: tabDispatchItems.value,
   dispatchAllJobs: dispatchAllJobs.value,
@@ -264,6 +289,7 @@ const peekFields = computed<Record<string, any>>(() => ({
   branchPR: branchPR.value,
   branchAction: branchAction.value,
   devServerEntry: devServerEntry.value,
+  dockerContainers: workspaceDockerContainers.value,
   dispatchItems: tabDispatchItems.value,
   dispatchTooltip: tooltips.value.dispatch,
 }));
@@ -434,6 +460,7 @@ onMounted(() => {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
   syncPreviewPolling();
+  syncDockerPolling();
 });
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
@@ -442,6 +469,8 @@ onMounted(() => {
 watch(() => terminalStore.tabWorkspaceVersion, () => {
   syncPreviewPolling();
   if (previewPollingStarted) fetchPreviewPorts();
+  syncDockerPolling();
+  if (dockerPollingStarted) fetchDockerContainers();
 });
 
 watch(isActive, async (active) => {
@@ -469,6 +498,7 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
+  if (dockerPollingStarted) stopDockerPolling();
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }

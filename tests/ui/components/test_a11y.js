@@ -253,6 +253,7 @@ describe("a11y: InfoPillRow", () => {
         hasPr: true,
         hasAction: true,
         hasDevServer: true,
+        hasDocker: true,
         dispatchCount: 2,
         tooltips: {
           files: "ws1  ·  Browse files",
@@ -262,6 +263,7 @@ describe("a11y: InfoPillRow", () => {
           prs: "GitHub PR #1: feat",
           actions: "GitHub Actions: CI (in_progress)",
           devserver: "Dev Server: http://localhost:23000",
+          docker: "Docker: web-1",
           dispatch: "Dispatch: 2 pending",
         },
       },
