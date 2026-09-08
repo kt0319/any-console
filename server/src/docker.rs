@@ -50,6 +50,9 @@ fn parse_docker_ps_output(stdout: &str) -> Vec<(String, String, String, String, 
 
 /// `docker` コマンドが無い・daemonが動いていない環境では空一覧を返す
 /// （dev server 検出の `ss`/`lsof` 同様、失敗を握りつぶして機能自体を無効化する）。
+///
+/// `docker ps` に `-a` を付けていないため、停止済み（exited/dead/created）の
+/// コンテナは自然に除外され、running/restarting/paused のみが返る。
 pub async fn list_containers(config: &ConfigStore) -> Vec<DetectedContainer> {
     let Some(stdout) = run_cmd_safe(
         &["docker", "ps", "--format", DOCKER_PS_FORMAT],

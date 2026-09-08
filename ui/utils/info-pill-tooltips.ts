@@ -4,6 +4,7 @@
 // 展開しないと現在値を確認できないため。
 
 import { firstCommitLine } from "./git.ts";
+import { isDockerContainerActive } from "./docker.ts";
 import { devServerOrigin } from "./preview-url.ts";
 import { dispatchBranchLabel, resolveDispatchJobLabel } from "./dispatch-request.ts";
 
@@ -40,10 +41,10 @@ export function devServerTooltip(entry: { scheme?: string; proxy_port?: number }
 
 export function dockerTooltip(containers: { name?: string; state?: string }[]): string {
   if (!containers.length) return "Docker";
-  const running = containers.filter((c) => c.state === "running").length;
-  return running === 1
-    ? `Docker: ${containers.find((c) => c.state === "running")?.name}`
-    : `Docker: ${running} containers running`;
+  const active = containers.filter((c) => isDockerContainerActive(c.state));
+  return active.length === 1
+    ? `Docker: ${active[0].name}`
+    : `Docker: ${active.length} containers active`;
 }
 
 /**

@@ -104,6 +104,7 @@ import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDockerContainers } from "../composables/useDockerContainers.ts";
+import { isDockerContainerActive } from "../utils/docker.ts";
 import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
@@ -191,7 +192,7 @@ const workspaceDockerContainers = computed(() => {
   if (!props.tab.workspace) return [];
   return dockerContainers.value.filter((c) => c.workspace === props.tab.workspace);
 });
-const hasDocker = computed(() => workspaceDockerContainers.value.some((c) => c.state === "running"));
+const hasDocker = computed(() => workspaceDockerContainers.value.some((c) => isDockerContainerActive(c.state)));
 
 const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 

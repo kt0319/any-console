@@ -211,6 +211,13 @@ describe("sessionSidebarItems: Info Pills用データ（PR/Actions/Dev Server/Di
     expect(items.find((i) => i.id === 2).hasDocker).toBe(false);
   });
 
+  it("restarting状態のコンテナだけでもhasDockerが立つ", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      dockerContainers: [{ workspace: "app", state: "restarting", name: "web-1" }],
+    });
+    expect(items.find((i) => i.id === 1).hasDocker).toBe(true);
+  });
+
   it("dispatchQueueをworkspaceで絞り込みdispatchCountに反映する", () => {
     const items = sessionSidebarItems(tabs, workspaces, {
       dispatchQueue: [{ request: { workspace: "app" } }, { request: { workspace: "other" } }],

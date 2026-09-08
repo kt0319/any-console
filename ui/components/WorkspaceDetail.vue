@@ -120,6 +120,7 @@ import { usePaneLoader } from "../composables/usePaneLoader.ts";
 import { useCollapsibleSection } from "../composables/useCollapsibleSection.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useDockerContainers } from "../composables/useDockerContainers.ts";
+import { isDockerContainerActive } from "../utils/docker.ts";
 import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { workspaceDisplayName, baseWorkspaceName } from "../utils/worktree.ts";
 
@@ -194,13 +195,14 @@ const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
 const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchQueue();
-// Dockerタブの表示可否はInfoPillRowのDockerピルと同じ基準（このワークスペースの
-// ディレクトリでrunning状態のコンテナがあるか）。ポーリング自体はピル側
-// （TerminalPane/SessionListView）が既に回しているため、ここではその共有結果を読むだけ。
+// Dockerタブの出現自体はActionsタブと同じ考え方で静的な能力（has_compose_file）に
+// 揃え、hasDockerはアイコン色だけを担うライブ状態にする（running/restartingが
+// あるか）。ポーリング自体はピル側（TerminalPane/SessionListView）が既に回している
+// ため、ここではその共有結果を読むだけ。
 const { containers: dockerContainers } = useDockerContainers();
 const hasDocker = computed(() => {
   const ws = workspaceStore.selectedWorkspace;
-  return !!ws && dockerContainers.value.some((c) => c.workspace === ws && c.state === "running");
+  return !!ws && dockerContainers.value.some((c) => c.workspace === ws && isDockerContainerActive(c.state));
 });
 // タブのバッジ数字は承認待ち（pending）件数のみでよい（実行済みrecentは
 // 件数に含めない）。ただしタブ自体の表示可否はrecentしか無い場合でも
@@ -249,7 +251,7 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, showCount: false, iconColor: hasBranchPR.value ? "var(--purple)" : undefined, hidden: !isGit || !hasGitHub.value || !prsCount.value },
     { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: hasRunningAction.value ? "#8c6c50" : undefined, hidden: !isGit || !hasGitHub.value },
-    { key: "docker", icon: "mdi-docker", label: "Docker", iconColor: hasDocker.value ? "#2496ed" : undefined, hidden: !hasDocker.value },
+    { key: "docker", icon: "mdi-docker", label: "Docker", iconColor: hasDocker.value ? "#2496ed" : undefined, hidden: !workspaceStore.currentWorkspace?.has_compose_file },
     { key: "dispatch", icon: "mdi-inbox-arrow-down-outline", label: "Dispatch", iconColor: dispatchPendingCount.value ? "var(--pink)" : undefined, count: dispatchPendingCount.value || 0, hidden: !!terminalSessionId.value || (!dispatchPendingCount.value && !dispatchRecentCount.value) },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];

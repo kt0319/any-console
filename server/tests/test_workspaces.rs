@@ -115,6 +115,7 @@ async fn list_workspaces_returns_summary() {
     assert_eq!(ws["name"], "repo");
     assert_eq!(ws["path"].as_str(), front.ws_path.to_str());
     assert_eq!(ws["is_git_repo"], true);
+    assert_eq!(ws["has_compose_file"], false);
     assert_eq!(ws["branch"], "main");
     assert_eq!(ws["exists"], true);
     // アイコン未設定でも空文字ではなくデフォルト値で埋まる（未設定のままだと
@@ -126,6 +127,26 @@ async fn list_workspaces_returns_summary() {
     // remote 未設定なので github_url / default_branch は含まれない
     assert!(ws.get("github_url").is_none());
     assert!(ws.get("default_branch").is_none());
+}
+
+#[tokio::test]
+async fn list_workspaces_detects_compose_file_at_workspace_root() {
+    let front = spawn_front().await;
+    std::fs::write(front.ws_path.join("compose.yaml"), "services: {}\n").unwrap();
+    let body = get_json(&front, "/workspaces").await;
+    let items = body.as_array().unwrap();
+    assert_eq!(items[0]["has_compose_file"], true);
+}
+
+#[tokio::test]
+async fn list_workspaces_ignores_compose_file_in_subdirectory() {
+    let front = spawn_front().await;
+    let sub = front.ws_path.join(".devcontainer");
+    std::fs::create_dir_all(&sub).unwrap();
+    std::fs::write(sub.join("docker-compose.yml"), "services: {}\n").unwrap();
+    let body = get_json(&front, "/workspaces").await;
+    let items = body.as_array().unwrap();
+    assert_eq!(items[0]["has_compose_file"], false);
 }
 
 #[tokio::test]

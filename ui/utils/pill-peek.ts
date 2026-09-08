@@ -3,6 +3,8 @@
 // ここでは変化検出に必要な最小限の値（key + 見た目に影響する text）だけを扱う。
 // TerminalPane（浮遊ピル）とセッションサイドバー行の両方から共用する。
 
+import { isDockerContainerActive } from "./docker.ts";
+
 export function trailingItemsSignature(items: { key: string; text: string }[]): Map<string, string> {
   return new Map((items || []).map((it) => [it.key, it.text]));
 }
@@ -85,9 +87,9 @@ export function buildTrailingPeekItems(
   if (devServerEntry && infoPillConfig.devserver) {
     items.push({ key: "devserver", text: `Server:${devServerEntry.proxy_port}` });
   }
-  const runningDockerContainers = dockerContainers.filter((c) => c.state === "running");
-  if (runningDockerContainers.length > 0 && infoPillConfig.docker) {
-    items.push({ key: "docker", text: `Docker:${runningDockerContainers.map((c) => c.name).join(",")}` });
+  const activeDockerContainers = dockerContainers.filter((c) => isDockerContainerActive(c.state));
+  if (activeDockerContainers.length > 0 && infoPillConfig.docker) {
+    items.push({ key: "docker", text: `Docker:${activeDockerContainers.map((c) => c.name).join(",")}` });
   }
   if (!hasWorkspace && hasSession && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
@@ -130,8 +132,8 @@ export function buildPeekText(
     case "devserver": return devServerEntry ? `Dev Server :${devServerEntry.proxy_port}` : "Server";
     case "devserver-stop": return "Dev Server Stop";
     case "docker": {
-      const running = dockerContainers.filter((c) => c.state === "running");
-      return running.length ? `Docker: ${running.map((c) => c.name).join(", ")}` : "Docker";
+      const active = dockerContainers.filter((c) => isDockerContainerActive(c.state));
+      return active.length ? `Docker: ${active.map((c) => c.name).join(", ")}` : "Docker";
     }
     case "add": return "Add";
     case "dispatch": return dispatchTooltip;

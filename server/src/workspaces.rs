@@ -63,6 +63,22 @@ fn workspace_entries(all_config: &Map<String, Value>) -> impl Iterator<Item = (&
 
 // ─── GET /workspaces ────────────────────────────────────────────────────────
 
+/// ワークスペース直下（サブディレクトリは見ない）に Docker Compose の既定
+/// ファイル名のいずれかがあるか。Compose 自身のデフォルト探索範囲に合わせる。
+const COMPOSE_FILE_NAMES: &[&str] = &[
+    "compose.yaml",
+    "compose.yml",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+];
+
+fn workspace_has_compose_file(ws_path: &std::path::Path) -> bool {
+    ws_path.is_dir()
+        && COMPOSE_FILE_NAMES
+            .iter()
+            .any(|name| ws_path.join(name).is_file())
+}
+
 /// Python `_workspace_summary` 相当（expanduser しないバグ互換パス判定）。
 async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     let raw_path = config.get("path").and_then(Value::as_str).unwrap_or("");
@@ -73,6 +89,7 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     } else {
         false
     };
+    let has_compose_file = workspace_has_compose_file(&ws_path);
     let branch = if is_git {
         git_branch(&ws_path).await
     } else {
@@ -99,6 +116,7 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
         "name": crate::config::workspace_display_name(config.get("name"), ws_id),
         "path": path_str,
         "is_git_repo": is_git,
+        "has_compose_file": has_compose_file,
         "branch": branch,
         "icon": crate::git_utils::workspace_icon_or_default(config.get("icon")),
         "icon_color": config.get("icon_color").and_then(Value::as_str).unwrap_or(""),
@@ -529,6 +547,30 @@ pub async fn suggest_workspace_dirs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_has_compose_file_detects_any_known_name_at_root_only() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!workspace_has_compose_file(dir.path()));
+
+        for name in COMPOSE_FILE_NAMES {
+            let sub = tempfile::tempdir().unwrap();
+            std::fs::write(sub.path().join(name), "services: {}\n").unwrap();
+            assert!(
+                workspace_has_compose_file(sub.path()),
+                "{name} should be detected"
+            );
+        }
+
+        let nested = tempfile::tempdir().unwrap();
+        std::fs::create_dir(nested.path().join("sub")).unwrap();
+        std::fs::write(nested.path().join("sub/compose.yaml"), "services: {}\n").unwrap();
+        assert!(!workspace_has_compose_file(nested.path()));
+
+        assert!(!workspace_has_compose_file(
+            &dir.path().join("does-not-exist")
+        ));
+    }
 
     #[test]
     fn suggest_base_resolution() {

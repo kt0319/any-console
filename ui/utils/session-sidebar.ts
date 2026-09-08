@@ -1,6 +1,7 @@
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "./github-runs.ts";
 import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
 import { buildInfoPillTooltips } from "./info-pill-tooltips.ts";
+import { isDockerContainerActive } from "./docker.ts";
 
 // セッションサイドバー（TabBar のハンバーガーから開く一覧）の表示行を
 // 組み立てる純粋関数群。SessionListView.vue から使う。
@@ -94,7 +95,7 @@ function buildPillFields(
     branchAction,
     hasDevServer: !!devServerEntry,
     devServerEntry,
-    hasDocker: workspaceDockerContainers.some((c) => c.state === "running"),
+    hasDocker: workspaceDockerContainers.some((c) => isDockerContainerActive(c.state)),
     dockerContainers: workspaceDockerContainers,
     dispatchCount: dispatchItems.length,
     dispatchItems,

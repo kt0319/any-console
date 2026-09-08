@@ -113,16 +113,24 @@ describe("buildTrailingPeekItems", () => {
     expect(filled.find((i) => i.key === "prs")).toEqual({ key: "prs", text: "12:Fix bug" });
     expect(filled.find((i) => i.key === "actions")).toEqual({ key: "actions", text: "9:completed:success" });
     expect(filled.find((i) => i.key === "devserver")).toEqual({ key: "devserver", text: "Server:3001" });
-    // exited状態のコンテナはtextに含めない(実行中のみ)。
+    // exited状態のコンテナはtextに含めない(running/restartingのみ)。
     expect(filled.find((i) => i.key === "docker")).toEqual({ key: "docker", text: "Docker:web-1" });
   });
 
-  it("dockerはstate=runningのコンテナが無ければ出ない", () => {
+  it("dockerはrunning/restarting以外なら出ない", () => {
     const items = buildTrailingPeekItems(
       { dockerContainers: [{ name: "redis-1", state: "exited" }] },
       ALL_ON,
     );
     expect(items.some((i) => i.key === "docker")).toBe(false);
+  });
+
+  it("dockerはrestarting単体でも出て、textに含まれる", () => {
+    const items = buildTrailingPeekItems(
+      { dockerContainers: [{ name: "web-1", state: "restarting" }] },
+      ALL_ON,
+    );
+    expect(items.find((i) => i.key === "docker")).toEqual({ key: "docker", text: "Docker:web-1" });
   });
 
   it("addはワークスペース未紐付け・セッションありの時だけ出る", () => {
@@ -152,6 +160,8 @@ describe("buildPeekText", () => {
     expect(buildPeekText("devserver", {})).toBe("Server");
     expect(buildPeekText("devserver-stop", {})).toBe("Dev Server Stop");
     expect(buildPeekText("docker", { dockerContainers: [{ name: "web-1", state: "running" }] })).toBe("Docker: web-1");
+    expect(buildPeekText("docker", { dockerContainers: [{ name: "web-1", state: "restarting" }] })).toBe("Docker: web-1");
+    expect(buildPeekText("docker", { dockerContainers: [{ name: "redis-1", state: "exited" }] })).toBe("Docker");
     expect(buildPeekText("docker", {})).toBe("Docker");
     expect(buildPeekText("add", {})).toBe("Add");
     expect(buildPeekText("dispatch", { dispatchTooltip: "Run pending" })).toBe("Run pending");

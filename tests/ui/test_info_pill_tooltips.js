@@ -94,6 +94,28 @@ describe("dispatchTooltip", () => {
   });
 });
 
+describe("dockerTooltip", () => {
+  it("コンテナが無ければDockerのみ", () => {
+    expect(dockerTooltip([])).toBe("Docker");
+  });
+
+  it("active(running/restarting)が1件ならコンテナ名を出す", () => {
+    expect(dockerTooltip([{ name: "web-1", state: "running" }])).toBe("Docker: web-1");
+    expect(dockerTooltip([{ name: "web-1", state: "restarting" }])).toBe("Docker: web-1");
+  });
+
+  it("activeが複数ならrunning/restartingを区別せず件数のみ", () => {
+    expect(dockerTooltip([
+      { name: "web-1", state: "running" },
+      { name: "worker-1", state: "restarting" },
+    ])).toBe("Docker: 2 containers active");
+  });
+
+  it("exited等の非activeはカウントしない", () => {
+    expect(dockerTooltip([{ name: "web-1", state: "exited" }])).toBe("Docker: 0 containers active");
+  });
+});
+
 describe("branchTooltip", () => {
   it("最終コミットの1行目をブランチ表記に併記する", () => {
     expect(branchTooltip({ branch: "main", lastCommitMessage: "feat: 追加\n\n本文" }))
