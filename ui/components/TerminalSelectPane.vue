@@ -18,9 +18,14 @@
       <label class="format-option"><input type="checkbox" v-model="format.breakLines"> Break at punctuation</label>
       <label class="format-option"><input type="checkbox" v-model="format.tidy"> Tidy whitespace</label>
     </div>
-    <button type="button" class="primary copy-full-btn" @mousedown.prevent @click="copySelection">
-      <span class="mdi mdi-content-copy"></span> Copy
-    </button>
+    <div class="copy-row">
+      <button type="button" class="primary copy-full-btn" @mousedown.prevent @click="copySelection">
+        <span class="mdi mdi-content-copy"></span> Copy
+      </button>
+      <button type="button" class="copy-full-btn" @mousedown.prevent @click="copyTrimmed(trimAll)">
+        <span class="mdi mdi-content-copy"></span> Copy with Trim
+      </button>
+    </div>
   </div>
 </template>
 
@@ -53,14 +58,43 @@ function refresh() {
 
 defineExpose({ refresh });
 
-async function copySelection() {
+// readonly textarea でも選択自体はできる。選択状態を別途追従する仕組み
+// （selectionchange等）はiOS Safariで発火が不安定だったため、ボタンは常に
+// 有効にし、押された時点の選択有無をそのまま見る単純な方式にする。
+function currentSelection(): string {
   const el = textareaEl.value;
-  const target = el && el.selectionStart !== el.selectionEnd
-    ? el.value.slice(el.selectionStart, el.selectionEnd)
-    : displayText.value;
-  const ok = await copyText(target);
+  if (!el || el.selectionStart === el.selectionEnd) return "";
+  return el.value.slice(el.selectionStart, el.selectionEnd);
+}
+
+function trimNewlines(text: string): string {
+  return text.replace(/\r?\n/g, "");
+}
+
+function trimSpaces(text: string): string {
+  return text.replace(/[ \t]/g, "");
+}
+
+function trimAll(text: string): string {
+  return trimSpaces(trimNewlines(text));
+}
+
+async function copyAndNotify(text: string) {
+  const ok = await copyText(text);
   if (ok) toast.success("Copied");
   else toast.error("Failed to copy");
+}
+
+async function copySelection() {
+  const target = currentSelection();
+  if (!target) { toast.error("Select text first"); return; }
+  await copyAndNotify(target);
+}
+
+async function copyTrimmed(transform: (text: string) => string) {
+  const target = currentSelection();
+  if (!target) { toast.error("Select text first"); return; }
+  await copyAndNotify(transform(target));
 }
 </script>
 
@@ -82,9 +116,15 @@ async function copySelection() {
   flex-shrink: 0;
 }
 
-.copy-full-btn {
-  width: auto;
+.copy-row {
+  display: flex;
+  gap: 8px;
   margin-top: 8px;
+}
+
+.copy-full-btn {
+  flex: 1;
+  width: auto;
   display: flex;
   align-items: center;
   justify-content: center;
