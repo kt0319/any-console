@@ -80,11 +80,19 @@ describe("findUrlInBuffer", () => {
     expect(findUrlInBuffer({ element: null }, 0, 0)).toBeNull();
   });
 
-  it("returns null when click is outside element bounds", () => {
+  it("returns null when click is far outside element bounds", () => {
     const term = makeTermWithRect({ lines: ["see https://example.com/"] });
     expect(findUrlInBuffer(term, -10, 0)).toBeNull();
     expect(findUrlInBuffer(term, 0, -10)).toBeNull();
     expect(findUrlInBuffer(term, 10000, 10000)).toBeNull();
+  });
+
+  it("矩形からわずかにはみ出た座標でもクランプして検出する（長押し確定時のレイアウトずれ対策）", () => {
+    const line = "see https://example.com/path here";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: { left: 0, top: 0, width: line.length * 10, height: 20 } });
+    // URL の直上（x = 4*10+5）だが Y がわずかに矩形の下端をはみ出している。
+    const url = findUrlInBuffer(term, 4 * 10 + 5, 25);
+    expect(url).toBe("https://example.com/path");
   });
 
   it("returns matched URL when click is on it", () => {
@@ -129,6 +137,60 @@ describe("findUrlInBuffer", () => {
     // 2行目の "u" をクリック → URL全体が返る
     const url = findUrlInBuffer(term, 0, 25);
     expect(url).toBe("https://github.com/kt0319/actions/runners/new");
+  });
+
+  it("継続行の先頭インデント（シェルの折返し表示）を挟んでも正しく復元する", () => {
+    // 実機（tmux配下のシェル）で確認した実際のパターン: 折返し継続行は行頭に
+    // 字下げ用の空白が入り、直前行の末尾もそれに揃えてスペースで埋められる。
+    // 末尾だけトリムして直結すると行頭の空白が本物の空白として残り、そこで
+    // URL が打ち切られていた（実際に長押し検出が1行目だけで途切れる不具合の
+    // 根本原因）。
+    const part1 = "https://cloud.ouraring.com/oauth/authorize?response_ty";
+    const part2 = "  pe=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164";
+    const cols = Math.max(part1.length, part2.length);
+    const lineObjects = [
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        translateToString: () => part1 + "  " },
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        translateToString: () => part2 },
+    ];
+    const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
+    const element = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+    const term = {
+      cols, rows: 2, element,
+      buffer: { active: { viewportY: 0, length: 2, getLine: (i) => lineObjects[i] || null } },
+    };
+    const url = findUrlInBuffer(term, 10, 5);
+    expect(url).toBe("https://cloud.ouraring.com/oauth/authorize?response_type=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164");
+  });
+
+  it("1行目末尾だけ本物の空白文字がある折返しURLでも正しく復元する", () => {
+    // 実際に報告されたケース: TUI の再描画で1行目だけ行末までスペースで
+    // クリアされ、本物のスペース文字が残ることがある（後続行には無い）。
+    // WebLinksAddon 自身の判定はこのスペースで打ち切られる
+    // （node_modules/@xterm/addon-web-links の lines.join('') は未トリム）ため、
+    // findUrlInBuffer 側で正しく trimEnd 復元できることを固定化する。
+    const part1 = "https://cloud.ouraring.com/oauth/authorize?response_ty ";
+    const part2 = "pe=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164";
+    const cols = Math.max(part1.length, part2.length);
+    const lineObjects = [
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        translateToString: () => part1 },
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        translateToString: () => part2 },
+    ];
+    const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
+    const element = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+    const term = {
+      cols, rows: 2, element,
+      buffer: { active: { viewportY: 0, length: 2, getLine: (i) => lineObjects[i] || null } },
+    };
+    const url = findUrlInBuffer(term, 10, 5);
+    expect(url).toBe("https://cloud.ouraring.com/oauth/authorize?response_type=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164");
   });
 
   it("isWrapped=false（アプリ側の明示的な改行）でも前後の行を束ねてURLを検出する", () => {

@@ -17,9 +17,14 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
   if (!term || !term.element) return null;
   const screen = term.element.querySelector(".xterm-screen") || term.element;
   const rect = screen.getBoundingClientRect();
-  const relX = clientX - rect.left;
-  const relY = clientY - rect.top;
-  if (relX < 0 || relY < 0 || relX > rect.width || relY > rect.height) return null;
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  // モバイル長押し確定時はスクロール/レイアウト再計算のタイミングずれで座標が
+  // 矩形からわずかにはみ出すことがある。ここで null にすると WebLinksAddon 側の
+  // 行をまたがない検出結果にフォールバックし、折返し URL が途中で切れて返る
+  // ため、矩形内にクランプしてから判定を続ける（実バッファ範囲外の行は後段の
+  // buf.getLine(lineIdx) チェックで従来通り null になる）。
+  const relX = Math.min(Math.max(clientX - rect.left, 0), rect.width - 1);
+  const relY = Math.min(Math.max(clientY - rect.top, 0), rect.height - 1);
   const cols = term.cols;
   const rows = term.rows;
   if (!cols || !rows) return null;
@@ -39,13 +44,18 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
   for (let i = startIdx; i <= endIdx; i++) {
     const cur = buf.getLine(i);
     if (!cur) break;
-    lineOffsets[i] = text.length;
-    // 折り返し行の末尾スペースパディングを除いてから結合する。
-    // xterm は折り返し行の余白をスペースで埋めるため、そのまま結合すると
-    // 正規表現がスペースで URL を途切れさせる。
+    // シェルの折返し表示は継続行の先頭に字下げ用の空白を入れることがある
+    // （tmux配下の実ターミナルで確認済み。例: 直前行末尾を2スペースで埋め、
+    // 次行の先頭にも2スペースを入れて視覚的に揃える）。末尾だけトリムして
+    // 直結すると、この先頭インデントが本物の空白として残り、正規表現が
+    // そこでURLを打ち切ってしまう。先頭も削り、削った分だけ lineOffsets を
+    // 前倒しして col（元の生の列番号）とのズレを補正する。
     const lineText = cur.translateToString(true);
+    const leadingTrimmed = lineText.trimStart();
+    const strippedLeading = lineText.length - leadingTrimmed.length;
+    lineOffsets[i] = text.length - strippedLeading;
     // 最終行以外は末尾スペースをトリムして継続結合する。
-    text += (i < endIdx) ? lineText.trimEnd() : lineText;
+    text += (i < endIdx) ? leadingTrimmed.trimEnd() : leadingTrimmed;
   }
 
   const absPos = (lineOffsets[lineIdx] || 0) + col;

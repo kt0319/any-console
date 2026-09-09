@@ -1,5 +1,4 @@
 import type { Ref } from "vue";
-import { setLongPressActive } from "../stores/terminal.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { createTouchTracker } from "../utils/gesture.ts";
@@ -53,7 +52,6 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
   function onTouchStart(e: TouchEvent) {
     if (isOnPill(e.target)) return;
     paneTouch.start(e);
-    setLongPressActive(false);
     const t = e.touches?.[0];
     startX = t?.clientX || 0;
     startY = t?.clientY || 0;
@@ -127,6 +125,10 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
   }
 
   function onMouseDown(e: MouseEvent) {
+    if (e.button === 0) {
+      onUrlClickMouseDown(e);
+      return;
+    }
     if (e.button !== 2 || isOnPill(e.target)) return;
     mouseStartX = e.clientX;
     mouseStartY = e.clientY;
@@ -150,6 +152,29 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
     };
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
+  }
+
+  // PC向け: クリックで URL を開く。ドラッグ選択は移動量チェック（TAP_MAX_DELTA_PX）
+  // で除外されるため、通常クリックでも選択操作とは衝突しない。
+  let urlClickStartX = 0;
+  let urlClickStartY = 0;
+  let onUrlClickMouseUp: ((ev: MouseEvent) => void) | null = null;
+
+  function onUrlClickMouseDown(e: MouseEvent) {
+    if (isOnPill(e.target)) return;
+    urlClickStartX = e.clientX;
+    urlClickStartY = e.clientY;
+    onUrlClickMouseUp = (ev) => {
+      document.removeEventListener("mouseup", onUrlClickMouseUp!);
+      onUrlClickMouseUp = null;
+      const dx = ev.clientX - urlClickStartX;
+      const dy = ev.clientY - urlClickStartY;
+      if (Math.hypot(dx, dy) > TAP_MAX_DELTA_PX) return;
+      const url = findUrlInBuffer(tab.value?.term, urlClickStartX, urlClickStartY);
+      if (!url) return;
+      emit("terminal:url", { uri: url });
+    };
+    document.addEventListener("mouseup", onUrlClickMouseUp);
   }
 
   return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onMouseDown };

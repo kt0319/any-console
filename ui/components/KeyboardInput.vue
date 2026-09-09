@@ -157,16 +157,18 @@ function submit() {
   // IME変換中はVueのv-model（compositionstart〜endの間はDOMへの反映を
   // 自前で止める仕様）が追従しないため draft.value が変換中の文字列を
   // 反映していないことがある。実際に画面に出ている el.value を直接読む。
-  const text = (el ? el.value : draft.value).trim();
-  // テキストが空なら Enter 単体送信、あれば text のみ送信（Enter は付けない）。
-  if (!text) {
+  const raw = el ? el.value : draft.value;
+  // テキストが空（空白のみ含む）なら Enter 単体送信。ある場合は先頭・末尾の
+  // 空白を落とさず raw のまま送信する（HISTCONTROL=ignorespace 等、先頭
+  // スペース付きコマンドを打つユースケースがあるため）。
+  if (!raw.trim()) {
     draft.value = "";
     if (el) el.value = "";
     sendKeyToTerminal({ key: "Enter" });
     return;
   }
-  sendTextToTerminal(text);
-  inputStore.addInputHistory(text);
+  sendTextToTerminal(raw);
+  inputStore.addInputHistory(raw);
   draft.value = "";
   // draft.value を空にしても IME 変換中（el.composing）はVue側がDOM更新を
   // スキップするため、el.value も直接空にしてIME入力中の未確定文字列を消す。

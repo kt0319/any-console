@@ -2,18 +2,11 @@ import { defineStore } from "pinia";
 import { ref, reactive, computed, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LS_KEY_ACTIVE_SESSION } from "../utils/constants.ts";
-import { emit as bridgeEmit } from "../app-bridge.ts";
-import { isTouchInput } from "../utils/device.ts";
-import { findUrlInBuffer, TERMINAL_URL_REGEX } from "../utils/terminal-buffer-text.ts";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.ts";
 import { useAuthStore } from "./auth.ts";
 import { useAgentStateStore } from "./agent-state.ts";
 import { useTerminalSettingsStore } from "./terminal-settings.ts";
-
-let _longPressActive = false;
-export function setLongPressActive(v: boolean) { _longPressActive = !!v; }
 
 export interface TerminalTab {
   id: number;
@@ -117,18 +110,6 @@ export const useTerminalStore = defineStore("terminal", () => {
     const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.loadAddon(new WebLinksAddon((e, uri) => {
-      if (isTouchInput() && !_longPressActive) return;
-      // WebLinksAddon はアプリ側が明示的に改行したURLを連結できず途中で切れることがあるため、
-      // クリック座標から改めて全体を再計算する。
-      const fullUri = findUrlInBuffer(term, e.clientX, e.clientY) || uri;
-      bridgeEmit("terminal:url", { uri: fullUri });
-    }, {
-      // デフォルトの内蔵regexはhttp(s)://のみでwww.始まりのURLを認識しない
-      // （findUrlInBuffer側のTERMINAL_URL_REGEXと合わせる。gフラグはWebLinksAddon側で
-      // 重複付与するためsourceのみ渡す）。
-      urlRegex: new RegExp(TERMINAL_URL_REGEX.source),
-    }));
 
     const id = ++terminalIdCounter.value;
     const label = jobLabel || workspace || "terminal";
