@@ -38,6 +38,13 @@ export function runStatusClass(status: string) {
   return RUN_STATUS[status]?.cls || "github-run-unknown";
 }
 
+// GitHub本家のissue一覧アイコン（issue-opened/issue-closed octicon）に合わせた
+// 状態別の色。closedは基本 gh issue list --json では取得対象外（デフォルトopen
+// のみ）だが、将来closedも表示する場合に備えて分岐しておく。
+export function issueStateColor(state: string): string {
+  return state === "closed" ? "var(--purple)" : "var(--success)";
+}
+
 export function labelStyle(color: string | null | undefined) {
   if (!color) return {};
   const c = color.replace(/^#/, "");
@@ -94,8 +101,11 @@ export function useGitHub() {
   const loadIssues = _makeLoader("github/issues", "issues", (item) => ({
     number: item.number,
     title: item.title,
+    state: String(item.state || "").toLowerCase(),
     author: item.author?.login || "",
     labels: item.labels || [],
+    commentCount: item.comments?.length || 0,
+    createdAt: item.createdAt || null,
   }));
 
   const loadPRs = _makeLoader("github/pulls", "prs", mapGitHubPR);

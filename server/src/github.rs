@@ -82,7 +82,7 @@ pub async fn issues(
             "--limit",
             "30",
             "--json",
-            "number,title,state,author,labels,createdAt,updatedAt",
+            "number,title,state,author,labels,comments,createdAt,updatedAt",
         ],
         "Failed to fetch issues",
     )

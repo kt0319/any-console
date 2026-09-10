@@ -252,7 +252,7 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-source-branch", label: "History", iconColor: "var(--success)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, showCount: false, iconColor: changesCount.value ? "#f5a623" : undefined, hidden: !isGit },
-    { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
+    { key: "issues", icon: "mdi-ticket-confirmation-outline", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGitHub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, showCount: false, iconColor: hasBranchPR.value ? "var(--purple)" : undefined, hidden: !isGit || !hasGitHub.value || !prsCount.value },
     { key: "actions", icon: "mdi-cog-play-outline", label: "Actions", iconColor: hasRunningAction.value ? "#8c6c50" : undefined, hidden: !isGit || !hasGitHub.value },
     { key: "docker", icon: "mdi-docker", label: "Docker", iconColor: hasDocker.value ? "#2496ed" : undefined, hidden: !workspaceStore.currentWorkspace?.has_compose_file },
