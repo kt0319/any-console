@@ -166,6 +166,36 @@ describe("findUrlInBuffer", () => {
     expect(url).toBe("https://cloud.ouraring.com/oauth/authorize?response_type=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164");
   });
 
+  it("空行を挟んだ次の段落の文字列とURLを誤って連結しない", () => {
+    // 実際に報告されたケース: URL行の直後に空行、その次の段落が数字始まりの
+    // 文章だと、空行が0文字で連結され URL 末尾と次段落の数字が直結して
+    // 誤ったURLになっていた（"...pullRequests/181" + "1462のときと..." →
+    // "...pullRequests/1811462" のように誤検出）。
+    const part1 = "https://artpresto1.backlog.com/git/DW_JOY_DEV/dw-joy-src-api/pullRequests/181";
+    const blank = "";
+    const part3 = "1462のときと同様、旧PRのクローズ依頼と";
+    const cols = 60;
+    const lineObjects = [
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        translateToString: () => part1 },
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => blank[i] || " " }),
+        translateToString: () => blank },
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part3[i] || " " }),
+        translateToString: () => part3 },
+    ];
+    const rect = { left: 0, top: 0, width: cols * 10, height: 60 };
+    const element = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+    const term = {
+      cols, rows: 3, element,
+      buffer: { active: { viewportY: 0, length: 3, getLine: (i) => lineObjects[i] || null } },
+    };
+    const url = findUrlInBuffer(term, 10, 5);
+    expect(url).toBe("https://artpresto1.backlog.com/git/DW_JOY_DEV/dw-joy-src-api/pullRequests/181");
+  });
+
   it("1行目末尾だけ本物の空白文字がある折返しURLでも正しく復元する", () => {
     // 実際に報告されたケース: TUI の再描画で1行目だけ行末までスペースで
     // クリアされ、本物のスペース文字が残ることがある（後続行には無い）。

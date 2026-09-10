@@ -54,8 +54,16 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
     const leadingTrimmed = lineText.trimStart();
     const strippedLeading = lineText.length - leadingTrimmed.length;
     lineOffsets[i] = text.length - strippedLeading;
-    // 最終行以外は末尾スペースをトリムして継続結合する。
-    text += (i < endIdx) ? leadingTrimmed.trimEnd() : leadingTrimmed;
+    if (i >= endIdx) {
+      text += leadingTrimmed;
+      continue;
+    }
+    const trimmed = leadingTrimmed.trimEnd();
+    // 完全に空白な行（段落間の空行）は、前後が0文字で直結すると別々の
+    // テキストが1つのURLとして誤って繋がってしまう（例: URL末尾の"181"と
+    // 次の段落の"1462"が空行を挟んで"1811462"になる）。空行は区切り文字を
+    // 挟んでハードな境界にする。
+    text += trimmed ? trimmed : "\n";
   }
 
   const absPos = (lineOffsets[lineIdx] || 0) + col;
