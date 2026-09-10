@@ -3,10 +3,20 @@
     <div class="modal-scroll-body">
       <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
+        <div class="issue-filter-bar">
+          <button
+            v-for="opt in ISSUE_FILTERS"
+            :key="opt.value"
+            type="button"
+            class="issue-filter-btn"
+            :class="{ active: issueFilter === opt.value }"
+            @click="setIssueFilter(opt.value)"
+          >{{ opt.label }}</button>
+        </div>
         <div class="github-section-body">
           <div v-if="isLoading" class="github-loading loading-dots">Loading</div>
           <div v-else-if="error" class="github-error">{{ error }}</div>
-          <div v-else-if="!items.length" class="text-muted-center">No open issues</div>
+          <div v-else-if="!items.length" class="text-muted-center">{{ emptyMessage }}</div>
           <a
             v-for="item in items"
             :key="item.number"
@@ -43,15 +53,37 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from "vue";
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
-import { useGitHub, labelStyle, issueStateColor } from "../composables/useGitHub.ts";
+import { useGitHub, labelStyle, issueStateColor, type GitHubIssue } from "../composables/useGitHub.ts";
 import { formatRelativeTime } from "../utils/format.ts";
+
+const ISSUE_FILTERS = [
+  { value: "open", label: "Open" },
+  { value: "closed", label: "Closed" },
+  { value: "all", label: "All" },
+];
 
 const emit = defineEmits(["count"]);
 const { loadIssues } = useGitHub();
-const { githubUrl, items, isLoading, error, reload } = useGitHubPane(loadIssues, {
-  onLoaded: (v) => emit("count", v.length),
-});
+const issueFilter = ref("open");
+const emptyMessage = computed(() => `No ${issueFilter.value === "all" ? "" : issueFilter.value + " "}issues`);
+// loadIssues(filter) はローダー関数を返すファクトリ。useGitHubPane 自体は
+// loaderFn を1つに固定するため、ラップして呼び出すたびに issueFilter.value を
+// 読み直すことでフィルタ切替に対応する（reload()自体はuseGitHubPane側で提供）。
+// countイベントはWorkspaceDetail.vueのIssuesタブの件数バッジ・表示条件（open issue数の
+// 前提）に使われるため、open以外のフィルタ表示中は発火しない（closed/all選択中に
+// バッジやタブの表示/非表示がその場で変わってしまうのを防ぐ）。
+const { githubUrl, items, isLoading, error, reload } = useGitHubPane<GitHubIssue>(
+  (stateRef) => loadIssues(issueFilter.value)(stateRef),
+  { onLoaded: (v) => { if (issueFilter.value === "open") emit("count", v.length); } },
+);
+
+function setIssueFilter(value: string) {
+  if (issueFilter.value === value) return;
+  issueFilter.value = value;
+  reload();
+}
 
 // createdAt は gh CLI からの ISO 8601 文字列。formatRelativeTime は
 // epoch秒を取るため変換する。
@@ -64,6 +96,31 @@ defineExpose({ reload });
 
 <style scoped>
 @import "../styles/github-pane.css";
+
+.issue-filter-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 0;
+}
+
+.issue-filter-btn {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.issue-filter-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-bg-12);
+  color: var(--accent);
+}
 
 .issue-item {
   flex-direction: column;

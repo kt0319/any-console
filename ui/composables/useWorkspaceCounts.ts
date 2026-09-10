@@ -70,7 +70,7 @@ export function useWorkspaceCounts() {
     const prState = ref<AsyncState<any[]>>(asyncIdle());
     const actionState = ref<AsyncState<any[]>>(asyncIdle());
     await Promise.all([
-      loadIssues(issueState),
+      loadIssues()(issueState),
       loadPRs(prState),
       loadActions(actionState),
     ]);

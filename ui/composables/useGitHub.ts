@@ -45,6 +45,16 @@ export function issueStateColor(state: string): string {
   return state === "closed" ? "var(--purple)" : "var(--success)";
 }
 
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  state: string;
+  author: string;
+  labels: Array<{ name: string, color?: string }>;
+  commentCount: number;
+  createdAt: string | null;
+}
+
 export function labelStyle(color: string | null | undefined) {
   if (!color) return {};
   const c = color.replace(/^#/, "");
@@ -98,7 +108,7 @@ export function useGitHub() {
     return (stateRef: Ref<AsyncState<T[]>>) => _loadList(endpoint, countKey, mapper, stateRef);
   }
 
-  const loadIssues = _makeLoader("github/issues", "issues", (item) => ({
+  const mapIssue = (item: any): GitHubIssue => ({
     number: item.number,
     title: item.title,
     state: String(item.state || "").toLowerCase(),
@@ -106,7 +116,15 @@ export function useGitHub() {
     labels: item.labels || [],
     commentCount: item.comments?.length || 0,
     createdAt: item.createdAt || null,
-  }));
+  });
+
+  // issueFilter: "open"(既定) | "closed" | "all"。IssuesQuery（server/src/github.rs）に
+  // クエリ文字列で渡す。countCache（getCachedCount経由で他画面のIssuesバッジ等が参照）は
+  // 「open issue数」を表す前提のため、open以外のフィルタでは別キーに逃がして上書きしない。
+  function loadIssues(issueFilter: string = "open") {
+    const countKey = issueFilter === "open" ? "issues" : `issues:${issueFilter}`;
+    return _makeLoader(`github/issues?state=${issueFilter}`, countKey, mapIssue);
+  }
 
   const loadPRs = _makeLoader("github/pulls", "prs", mapGitHubPR);
 

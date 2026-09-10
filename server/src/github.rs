@@ -7,8 +7,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::auth::RequireAuth;
@@ -67,18 +68,36 @@ async fn github_fetch(
     }))
 }
 
+#[derive(Deserialize)]
+pub struct IssuesQuery {
+    state: Option<String>,
+}
+
+/// gh CLI の --state に渡せる値へ絞る（open/closed/all以外は既定のopenへフォールバック）。
+fn normalize_issue_state(state: Option<&str>) -> &'static str {
+    match state {
+        Some("closed") => "closed",
+        Some("all") => "all",
+        _ => "open",
+    }
+}
+
 pub async fn issues(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
+    Query(query): Query<IssuesQuery>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
+    let issue_state = normalize_issue_state(query.state.as_deref());
     github_fetch(
         &state,
         &name,
-        "issues",
+        &format!("issues:{issue_state}"),
         &[
             "issue",
             "list",
+            "--state",
+            issue_state,
             "--limit",
             "30",
             "--json",
