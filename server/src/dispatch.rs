@@ -1182,6 +1182,6 @@ mod tests {
 
     async fn test_state(dir: &tempfile::TempDir) -> Arc<AppState> {
         // rate_limit はテストの連続リクエストが制限に触れないよう引き上げる。
-        Arc::new(crate::state::test_app_state(dir.path(), "ac-test-", 10_000))
+        Arc::new(crate::state::test_app_state(dir.path(), "test-", 10_000))
     }
 }

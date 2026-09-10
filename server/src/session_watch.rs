@@ -64,7 +64,7 @@ mod tests {
 
     fn test_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let state = crate::state::test_app_state(dir.path(), "ac-", 1000);
+        let state = crate::state::test_app_state(dir.path(), "test-", 1000);
         (state, dir)
     }
 

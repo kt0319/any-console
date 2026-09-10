@@ -716,7 +716,7 @@ mod tests {
         }
         let dir = tempfile::tempdir().unwrap();
         let config = ConfigStore::new(dir.path().join("config.json"));
-        let name = format!("ac-test-{}", crate::util::token_hex(4));
+        let name = format!("test-{}", crate::util::token_hex(4));
 
         create_tmux_session(dir.path(), &config, None, &name)
             .await
@@ -761,7 +761,7 @@ mod tests {
         }
         let dir = tempfile::tempdir().unwrap();
         let config = ConfigStore::new(dir.path().join("config.json"));
-        let name = format!("ac-test-ready-{}", crate::util::token_hex(4));
+        let name = format!("test-ready-{}", crate::util::token_hex(4));
 
         create_tmux_session(dir.path(), &config, None, &name)
             .await

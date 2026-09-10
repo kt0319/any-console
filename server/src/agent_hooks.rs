@@ -186,7 +186,7 @@ mod tests {
 
     fn test_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let state = crate::state::test_app_state(dir.path(), "ac-", 1000);
+        let state = crate::state::test_app_state(dir.path(), "test-", 1000);
         (state, dir)
     }
 
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn tmux_prefix_is_stripped() {
         let (state, _dir) = test_state();
-        record_event(&state, "ac-s2", "Notification", "needs your permission");
+        record_event(&state, "test-s2", "Notification", "needs your permission");
         assert_eq!(hook_state(&state, "s2").as_deref(), Some("blocked"));
     }
 

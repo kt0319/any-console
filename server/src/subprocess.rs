@@ -192,7 +192,7 @@ mod tests {
         {
             return;
         }
-        let name = format!("ac-test-{}", crate::util::token_hex(4));
+        let name = format!("test-{}", crate::util::token_hex(4));
         let created =
             run_subprocess_safe(&["tmux", "new-session", "-d", "-s", &name], 5.0, None).await;
         if !created.is_some_and(|r| r.success()) {

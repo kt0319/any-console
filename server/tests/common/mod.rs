@@ -84,7 +84,7 @@ pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
 
 /// 実 tmux を使うテスト同士がセッション名で衝突しないためのユニークプレフィックス。
 pub fn unique_tmux_prefix() -> String {
-    format!("ac-test-{}-", any_console_server::util::token_hex(3))
+    format!("test-{}-", any_console_server::util::token_hex(3))
 }
 
 /// Router を空きポートで起動してアドレスを返す。

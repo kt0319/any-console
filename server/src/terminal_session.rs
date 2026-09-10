@@ -441,7 +441,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config = ConfigStore::new(dir.path().join("config.json"));
         let registry = TerminalRegistry::new();
-        let prefix = format!("ac-test-{}-", crate::util::token_hex(3));
+        let prefix = format!("test-{}-", crate::util::token_hex(3));
 
         let (session_id, session_arc) = registry
             .create_registered_session(
@@ -517,7 +517,7 @@ mod tests {
                 .await;
         }
         let result = registry
-            .create_registered_session(dir.path(), &config, "ac-", NewSessionSpec::default())
+            .create_registered_session(dir.path(), &config, "test-", NewSessionSpec::default())
             .await;
         match result {
             Err(e) => assert_eq!(e.status, axum::http::StatusCode::TOO_MANY_REQUESTS),
@@ -538,7 +538,7 @@ mod tests {
         }
         let dir = tempfile::tempdir().unwrap();
         let config = ConfigStore::new(dir.path().join("config.json"));
-        let prefix = format!("ac-test-{}-", crate::util::token_hex(3));
+        let prefix = format!("test-{}-", crate::util::token_hex(3));
         let session_id = "cold-race";
         let tmux_name = format!("{prefix}{session_id}");
         crate::subprocess::run_subprocess_safe(
@@ -583,7 +583,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let registry = TerminalRegistry::new();
         let result = registry
-            .get_or_register(&config, "ac-test-missing-", "nope")
+            .get_or_register(&config, "test-missing-", "nope")
             .await;
         match result {
             Err(e) => assert_eq!(e.status, axum::http::StatusCode::NOT_FOUND),

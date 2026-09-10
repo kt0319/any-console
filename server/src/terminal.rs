@@ -742,7 +742,7 @@ mod tests {
         if crate::tmux::skip_if_no_tmux() {
             return;
         }
-        let name = format!("ac-test-pending-{}", crate::util::token_hex(4));
+        let name = format!("test-pending-{}", crate::util::token_hex(4));
         crate::subprocess::run_subprocess_safe(
             &["tmux", "new-session", "-d", "-s", &name],
             5.0,
@@ -758,7 +758,7 @@ mod tests {
         assert!(tmux::wait_pane_ready(&name, 2.0).await);
 
         let dir = tempfile::tempdir().unwrap();
-        let state = Arc::new(crate::state::test_app_state(dir.path(), "ac-test-", 1000));
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
         flush_pending_text(&state, &name, "test-session").await;
 
         let meta = tmux::load_tmux_metadata(&name).await;
