@@ -78,8 +78,11 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
   }
 
   // 件数によらず常にDispatchタブを開く（個別詳細はDispatchタブの行から進む）。
+  // このピルのタブ自身のsessionIdを渡し、実行時のSession選択のデフォルトに使う
+  // （split modeで非アクティブなペインのピルを押した場合、terminalStore.activeTab
+  // 頼りだと押したタブと異なるセッションを見てしまうため）。
   function openDispatch() {
-    openWorkspacePane("dispatch");
+    openWorkspacePane("dispatch", { sessionId: tab.value.sessionId || null });
   }
 
   // devserver-stopは「検出されなくなった」通知のみで遷移先が無いためdefaultへ。

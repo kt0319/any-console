@@ -81,6 +81,7 @@
         <DispatchRunView
           v-if="selectedDispatchId"
           :item-id="selectedDispatchId"
+          :preferred-session-id="dispatchPillSessionId"
           @back="selectedDispatchId = null"
           @done="onDispatchRunDone"
         />
@@ -156,6 +157,9 @@ const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(n
 // DispatchWorkspacePane（一覧）→DispatchRunView（1件の詳細/実行）をローカルに
 // 切り替えるための状態。Settings側のpushViewには乗せない（別レイヤーとして開いてしまうため）。
 const selectedDispatchId = ref<string | null>(null);
+// dispatchピルを押したタブ自身のsessionId（open()のsessionIdオプション経由）。
+// DispatchRunViewのSession選択のデフォルトに使う。
+const dispatchPillSessionId = ref<string | null>(null);
 // このWorkspaceDetailインスタンスが開かれた時点のアクティブタブID（WorkspaceDetailModal.vue
 // で:key="activeTabId"によりタブ切替のたび再マウントされるため一致する）。Dispatch Runで
 // 新規セッションが作られアクティブタブが切り替わることがあるため、close側で「今アクティブな
@@ -307,7 +311,7 @@ function handleBack() {
   return false;
 }
 
-function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean } | null | undefined) {
+function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean, sessionId?: string | null } | null | undefined) {
   options = options || {};
   const paneKey = options.pane || "jobs";
   // branchピル経由（paneKey === "branch"）はHistoryタブを開くと同時にBranch一覧セクション
@@ -344,8 +348,9 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
 
   switchPane(resolvedPane, { expandBranch: wantBranchExpanded, expandStash: wantStashExpanded });
   // dispatch通知タップ等、特定の1件を直接開きたい場合（vue-main.ts参照）。
-  if (resolvedPane === "dispatch" && options.dispatchItemId) {
-    selectedDispatchId.value = options.dispatchItemId;
+  if (resolvedPane === "dispatch") {
+    if (options.dispatchItemId) selectedDispatchId.value = options.dispatchItemId;
+    dispatchPillSessionId.value = options.sessionId || null;
   }
 }
 

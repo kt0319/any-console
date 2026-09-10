@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch, type PropType } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
@@ -114,6 +114,10 @@ const NEW_SESSION_VALUE = "__new_session__";
 // pushViewスタックには乗せない（サイドバー側に別レイヤーとして出てしまうため）。
 const props = defineProps({
   itemId: { type: String, required: true },
+  // dispatchピルを押したタブ自身のsessionId（WorkspaceDetail.vue参照）。
+  // サーバー側で既存セッションが見つからず existing_session_id が無い場合の
+  // Session選択のデフォルトに使う。
+  preferredSessionId: { type: String as PropType<string | null>, default: null },
 });
 const emits = defineEmits(["back", "done"]);
 
@@ -192,7 +196,7 @@ function initFromRequest(req: Record<string, any> | null) {
   text.value = req?.text || "";
   selectedWorkspace.value = req?.workspace || "";
   selectedJob.value = req?.job || "terminal";
-  selectedSessionId.value = req?.existing_session_id || NEW_SESSION_VALUE;
+  selectedSessionId.value = req?.existing_session_id || props.preferredSessionId || NEW_SESSION_VALUE;
   createMode.value = req?.create_branch ? "branch" : "";
 }
 
