@@ -61,13 +61,22 @@ export function useRecentJobs() {
     }
   }
 
+  // 実行したジョブを一覧の先頭（ピン留めグループの直後）へ移動する。
+  // 新規記録（recordJob）・既存項目の再実行（runRecentJob）の両方で使う共通処理。
+  function _touch(item: RecentJob) {
+    const rest = recentJobs.value.filter((j) => j.key !== item.key);
+    recentJobs.value = _sortAndTrim([item, ...rest]);
+    _save();
+    _syncToServer();
+  }
+
   function recordJob(
     ws: Record<string, any>,
     job: { name: string, label?: string, icon?: string, icon_color?: string, command?: string, confirm?: boolean, detached?: boolean },
   ) {
     const key = `${ws.name}:${job.name}`;
     const existing = recentJobs.value.find((j) => j.key === key);
-    const item = {
+    _touch({
       key,
       workspace: ws.name,
       wsIcon: ws.icon || "",
@@ -80,11 +89,7 @@ export function useRecentJobs() {
       jobConfirm: job.confirm ?? null,
       jobDetached: !!job.detached,
       pinned: existing?.pinned || false,
-    };
-    const rest = recentJobs.value.filter((j) => j.key !== key);
-    recentJobs.value = _sortAndTrim([item, ...rest]);
-    _save();
-    _syncToServer();
+    });
   }
 
   async function togglePin(key: string) {
@@ -117,6 +122,8 @@ export function useRecentJobs() {
       const preview = jobCommandPreview(recent.jobCommand, recent.jobName);
       if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
     }
+    // 再実行時も最新実行として先頭へ移動する（recordJobと同じ並び替え）。
+    _touch(recent);
     // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
     // のopenTerminal/runJobと同様）。
     emit("terminal:launch", {

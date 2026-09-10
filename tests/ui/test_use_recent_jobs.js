@@ -148,6 +148,41 @@ describe("useRecentJobs: サーバーとの同期", () => {
   });
 });
 
+describe("useRecentJobs: 再実行時の並び替え", () => {
+  it("runRecentJob で選んだ項目を先頭へ移動する", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { recent_jobs: [job("ws1:build"), job("ws2:deploy"), job("ws3:test")] },
+    });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    await runRecentJob(recentJobs.value.find((j) => j.key === "ws3:test"));
+
+    expect(recentJobs.value.map((j) => j.key)).toEqual(["ws3:test", "ws1:build", "ws2:deploy"]);
+    expect(apiPutMock).toHaveBeenCalledWith(
+      "/recent-jobs",
+      { recent_jobs: expect.arrayContaining([expect.objectContaining({ key: "ws3:test" })]) },
+      expect.objectContaining({ errorMessage: expect.any(String) }),
+    );
+  });
+
+  it("runRecentJob はピン留めグループより前には移動しない", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { recent_jobs: [job("ws1:build", { pinned: true }), job("ws2:deploy"), job("ws3:test")] },
+    });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    await runRecentJob(recentJobs.value.find((j) => j.key === "ws3:test"));
+
+    expect(recentJobs.value.map((j) => j.key)).toEqual(["ws1:build", "ws3:test", "ws2:deploy"]);
+  });
+});
+
 describe("useRecentJobs: jobDetached の読み込み", () => {
   it("サーバー応答の jobDetached をそのまま保持する", async () => {
     apiGetMock.mockResolvedValue({
