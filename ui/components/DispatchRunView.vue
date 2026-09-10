@@ -283,9 +283,20 @@ watch(() => request.value?.retry_count, (count) => {
 onMounted(() => {
   sessionsState.value = asyncLoading();
   apiGet(EP_TERMINAL_SESSIONS).then((res) => {
-    sessionsState.value = res.ok && Array.isArray(res.data)
-      ? asyncReady(res.data.filter((s) => !s.detached))
-      : asyncError("Failed to load sessions");
+    if (res.ok && Array.isArray(res.data)) {
+      const list = res.data.filter((s) => !s.detached);
+      sessionsState.value = asyncReady(list);
+      // dispatch投入時点で記録された existing_session_id は、実行しようとした
+      // 時点では既にセッションが閉じられ/detachされて選択肢に無いことがある。
+      // その場合 select が「一致するoptionが無い空欄」のまま表示されてしまう
+      // ため、+ New session にフォールバックする。
+      if (selectedSessionId.value !== NEW_SESSION_VALUE
+          && !list.some((s) => s.session_id === selectedSessionId.value)) {
+        selectedSessionId.value = NEW_SESSION_VALUE;
+      }
+    } else {
+      sessionsState.value = asyncError("Failed to load sessions");
+    }
   });
 });
 
