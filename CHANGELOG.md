@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0](https://github.com/kt0319/any-console/compare/v0.17.0...v0.18.0) (2026-09-11)
+
+
+### Features
+
+* Dockerピル・詳細タブを追加する ([74518d5](https://github.com/kt0319/any-console/commit/74518d55af8c09c6c2bb99633bf69e4b66f8a2cf))
+* Dockerピルのアクティブ判定をrunning/restartingに広げ、Dockerタブの表示条件をcompose有無に変更 ([41fcc7c](https://github.com/kt0319/any-console/commit/41fcc7c09e674ac508acbedf3d3181486ac0a0bb))
+* GitHub Issuesタブの表示をチケットアイコン・2行構成に変更する ([d0044a6](https://github.com/kt0319/any-console/commit/d0044a6a3c25beb2a627bdbc141d13467ca1ff3d))
+* Issuesタブに Open/Closed/All の表示切り替えを追加する ([0f474d5](https://github.com/kt0319/any-console/commit/0f474d5e43fba12942873c7497268b6a8bbbda55))
+* Select & CopyペインにCopy with Trimを追加する ([cb0d25b](https://github.com/kt0319/any-console/commit/cb0d25b7f5fe26edf268d9a168002e5510b0eec6))
+* 既存セッションのdispatchピルを押した時にそのセッションを既定選択する ([279553e](https://github.com/kt0319/any-console/commit/279553e6c571cc706fcb92127ffef1be8a00d9fd))
+
+
+### Bug Fixes
+
+* DispatchのSessionが対象セッション消滅時に空欄表示になる不具合を修正 ([c6d47d4](https://github.com/kt0319/any-console/commit/c6d47d486eddb5c325e1a6514438668571ad7e5c))
+* E2E/ストレステストのtmuxプレフィックスも本番に混入しないよう修正 ([a3e25d5](https://github.com/kt0319/any-console/commit/a3e25d54196af53042f98407d10b70f297695496))
+* info_pills_normalize_orderのフィールド数期待値をdocker追加分に合わせる ([3ab0511](https://github.com/kt0319/any-console/commit/3ab05118504b9611cc6f9a75f51f5ad5ff5dcaa7))
+* Recent Jobs一覧から再実行した時も最新実行として先頭へ移動する ([3011134](https://github.com/kt0319/any-console/commit/3011134805dce4ef33655c2db55dc856975c00cd))
+* セッションサイドバーを開くとKeyboardBar/タイトルバーが隠れる不具合を修正 ([d4ee4b3](https://github.com/kt0319/any-console/commit/d4ee4b357c6fcb78021cb14ba92cc9a427d88477))
+* ターミナルURL検出で空行を挟んだ次の段落と誤って連結しないよう修正 ([c9d6494](https://github.com/kt0319/any-console/commit/c9d64944af8de204ec7def7266fb2d3fd044badf))
+* ターミナルURL長押し検出で折返しURLが途中で切れる不具合を修正 ([f6a3fe3](https://github.com/kt0319/any-console/commit/f6a3fe3ff223976355048098a19a3163ac6194e2))
+* テスト用tmuxセッションが本番セッション一覧に混入するのを防ぐ ([a3fee06](https://github.com/kt0319/any-console/commit/a3fee062c87d9df9dd99568146a0e71d224ea7be))
+* モバイル横画面でタイトルバーの中央寄せとピル位置が崩れる不具合を修正 ([9580a48](https://github.com/kt0319/any-console/commit/9580a485740ef7ca80c02f45ce3a2b6ca526cec1))
+
+
+### Refactor
+
+* WorkspaceDetail.vueの責務をcomposableへ分割する ([c5ea214](https://github.com/kt0319/any-console/commit/c5ea2146378896e30abee677ecdca5f50ec57039))
+
+
+### Tests
+
+* DispatchタブのE2Eカバレッジを新規追加する ([01a9da0](https://github.com/kt0319/any-console/commit/01a9da07c708b0c6b9cdb93f66c8becd7497c8be))
+* 座標クランプとCopy系動作の回帰テストを追加 ([6f453f3](https://github.com/kt0319/any-console/commit/6f453f3075d499956c41caca63990db88c7d2d2b))
+
 ## [0.17.0](https://github.com/kt0319/any-console/compare/v0.16.0...v0.17.0) (2026-09-05)
 
 
