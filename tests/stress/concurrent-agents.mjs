@@ -134,7 +134,10 @@ async function main() {
 
   const port = await allocateFreePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "any-console-stress-"));
-  const tmuxPrefix = `ac-stress${crypto.randomBytes(3).toString("hex")}-`;
+  // 実運用サーバはセッション名が "ac-" で始まるかどうかで自分のものと判定する
+  // （server/src/tmux.rs の list_session_ids）ため、"ac-" で始まらない値にする
+  // （同一ホストで実運用サーバが動いている時に一時セッションが本番の一覧に混入するため）。
+  const tmuxPrefix = `stress${crypto.randomBytes(3).toString("hex")}-`;
   const token = "stress-ephemeral-token";
   const baseUrl = `http://127.0.0.1:${port}`;
 

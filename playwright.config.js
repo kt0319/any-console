@@ -48,7 +48,12 @@ if (!process.env.ANY_CONSOLE_URL && !LIST_ONLY) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), E2E_DATA_DIR_PREFIX));
   // tmux セッション名前空間もランごとに分離する（既定の "ac-" のままだと
   // ホスト tmux を共有する並行ランや実運用のセッションを列挙・巻き込みうるため）。
-  const tmuxPrefix = `ac-e2e${crypto.randomBytes(3).toString("hex")}-`;
+  // 実運用サーバはセッション名が "ac-" で始まるかどうかで自分のものと判定する
+  // （server/src/tmux.rs の list_session_ids）ため、"ac-" で始まらない値にする
+  // （"ac-e2e..." のように "ac-" を含めると、実運用サーバから見て前方一致してしまい
+  // 同一ホストで実運用サーバが動いている時にE2E用の一時セッションが本番のセッション
+  // 一覧に混入する）。
+  const tmuxPrefix = `e2e${crypto.randomBytes(3).toString("hex")}-`;
   fs.writeFileSync(path.join(dataDir, "auth.json"), JSON.stringify({ token: E2E_TOKEN }));
   // bind 先とポートは隔離側 config.json で指定する（実運用の config.json は読まれない）
   fs.writeFileSync(
