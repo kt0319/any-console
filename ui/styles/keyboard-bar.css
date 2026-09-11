@@ -7,6 +7,14 @@
   touch-action: none;
 }
 
+/* PCでセッションサイドバーを開いている間は、TabBar.vueの.tab-bar-row-sidebar-open
+   と同じ理由・同じ幅（--session-sidebar-width）でサイドバーぶん右へ縮める
+   （SessionSidebar.vueはposition:absoluteでmain-panel全高に重なるオーバーレイの
+   ため、KeyboardBar側で明示的に避ける必要がある）。 */
+.keyboard-bar-sidebar-open {
+  margin-left: var(--session-sidebar-width);
+}
+
 .keyboard-bar .quick-extra-panel {
   padding: 4px;
 }

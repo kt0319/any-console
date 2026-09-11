@@ -4,7 +4,11 @@
     <!-- PCのサイドバーはTabBarの行とヘッダー高さを揃えるため.content-area配下ではなく
          .main-panel直下に置く（.content-area内だとactive-tab-title分だけ下にずれる）。 -->
     <SessionSidebar />
-    <div class="active-tab-title" :class="{ 'title-bar-at-bottom': titleBarAtBottom }" v-show="titleBarVisible">
+    <div
+      class="active-tab-title"
+      :class="{ 'title-bar-at-bottom': titleBarAtBottom, 'active-tab-title-sidebar-open': isSessionSidebarOpen && !isNarrowViewport }"
+      v-show="titleBarVisible"
+    >
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
@@ -27,7 +31,7 @@
       <TerminalSettingsModal />
       <WorkspaceDetailModal />
     </div>
-    <KeyboardBar :visible="keyboardBarVisible" />
+    <KeyboardBar :visible="keyboardBarVisible" :class="{ 'keyboard-bar-sidebar-open': isSessionSidebarOpen && !isNarrowViewport }" />
     <div v-if="booting || isLaunching" class="block-layer"></div>
 
   </div>
@@ -300,6 +304,14 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* PCでセッションサイドバーを開いている間は、TabBar.vueの.tab-bar-row-sidebar-open
+   と同じ理由・同じ幅（--session-sidebar-width）でサイドバーぶん右へ縮める
+   （SessionSidebar.vueはposition:absoluteでmain-panel全高に重なるオーバーレイの
+   ため、タイトルバー側で明示的に避ける必要がある）。 */
+.active-tab-title-sidebar-open {
+  margin-left: var(--session-sidebar-width);
 }
 
 .active-tab-title > * {
