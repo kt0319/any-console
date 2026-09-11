@@ -484,3 +484,16 @@
     bottom: 20px;
   }
 }
+
+/* モバイル横画面等、ビューポート高さが低い時はターミナルの表示領域自体が
+   狭く、右下固定のピルがKeyboard bar直前の行（CLIのステータス行等、実際に
+   読みたい内容が出やすい場所）に常時重なってしまう。高さが無い時だけ、
+   Position設定・幅に関わらず上端へ固定して衝突を避ける（上の
+   @media (min-width: 769px) と詳細度が同じため、そちらより後ろに置いて
+   幅が広い横画面でも確実に上書きする）。 */
+@media (max-height: 480px) {
+  .pill-group.pill-group-bottom {
+    top: 6px;
+    bottom: auto;
+  }
+}

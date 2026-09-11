@@ -307,6 +307,10 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  /* flexアイテムの既定min-width:autoはnowrapテキストの実幅を下限にするため、
+     横幅が足りない時に縮まずjustify-content:centerで左右へはみ出し、
+     省略記号の出ないまま親のoverflow:hiddenで切れてしまっていた。 */
+  min-width: 0;
 }
 
 .active-tab-debug {
