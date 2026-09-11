@@ -87,11 +87,28 @@ describe("findUrlInBuffer", () => {
     expect(findUrlInBuffer(term, 10000, 10000)).toBeNull();
   });
 
-  it("矩形からわずかにはみ出た座標でもクランプして検出する（長押し確定時のレイアウトずれ対策）", () => {
+  it("矩形の下端をわずかにはみ出た座標でもクランプして検出する（長押し確定時のレイアウトずれ対策）", () => {
     const line = "see https://example.com/path here";
     const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: { left: 0, top: 0, width: line.length * 10, height: 20 } });
     // URL の直上（x = 4*10+5）だが Y がわずかに矩形の下端をはみ出している。
     const url = findUrlInBuffer(term, 4 * 10 + 5, 25);
+    expect(url).toBe("https://example.com/path");
+  });
+
+  it("矩形の左上をわずかにはみ出た座標でもクランプして検出する", () => {
+    const line = "https://example.com/path here";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: { left: 0, top: 0, width: line.length * 10, height: 20 } });
+    // URL先頭付近（col=0）だが X/Y ともにわずかに矩形の左上をはみ出している。
+    const url = findUrlInBuffer(term, -3, -2);
+    expect(url).toBe("https://example.com/path");
+  });
+
+  it("矩形の右端をわずかにはみ出た座標でもクランプして検出する", () => {
+    const line = "see https://example.com/path";
+    const width = line.length * 10;
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: { left: 0, top: 0, width, height: 20 } });
+    // URL末尾付近だが X が矩形の右端をわずかにはみ出している。
+    const url = findUrlInBuffer(term, width + 5, 5);
     expect(url).toBe("https://example.com/path");
   });
 

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { breakAtPunctuation, stripLeadingSpaces, joinWrappedLines, tidyWhitespace, applyFormat } from "../../ui/utils/auto-format.ts";
+import { breakAtPunctuation, stripLeadingSpaces, joinWrappedLines, tidyWhitespace, applyFormat, trimNewlines, trimSpaces, trimAll } from "../../ui/utils/auto-format.ts";
 
 describe("breakAtPunctuation", () => {
   it("句点で改行し、読点はそのまま", () => {
@@ -59,6 +59,36 @@ describe("tidyWhitespace", () => {
 
   it("前後の空白/空行を除去する", () => {
     expect(tidyWhitespace("\n\n  hi  \n\n")).toBe("hi");
+  });
+});
+
+describe("trimNewlines", () => {
+  it("改行（LF/CRLF）を除去して1行にする", () => {
+    expect(trimNewlines("a\nb\r\nc")).toBe("abc");
+  });
+
+  it("改行が無ければそのまま", () => {
+    expect(trimNewlines("abc")).toBe("abc");
+  });
+});
+
+describe("trimSpaces", () => {
+  it("半角スペース・タブを除去する（改行は残す）", () => {
+    expect(trimSpaces("a b\tc\n d")).toBe("abc\nd");
+  });
+
+  it("全角スペースは対象外", () => {
+    expect(trimSpaces("a　b")).toBe("a　b");
+  });
+});
+
+describe("trimAll", () => {
+  it("改行とスペースの両方を除去する（折返しURLの1行化用途）", () => {
+    expect(trimAll("https://example.com/path?a=1\n  &b=2")).toBe("https://example.com/path?a=1&b=2");
+  });
+
+  it("何も除去対象が無ければ原文のまま", () => {
+    expect(trimAll("abc")).toBe("abc");
   });
 });
 

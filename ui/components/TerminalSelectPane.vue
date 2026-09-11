@@ -34,7 +34,7 @@ import { ref, reactive, computed } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { copyText } from "../utils/clipboard.ts";
-import { applyFormat } from "../utils/auto-format.ts";
+import { applyFormat, trimAll } from "../utils/auto-format.ts";
 import { useToast } from "../composables/useToast.ts";
 
 const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"] as const;
@@ -65,18 +65,6 @@ function currentSelection(): string {
   const el = textareaEl.value;
   if (!el || el.selectionStart === el.selectionEnd) return "";
   return el.value.slice(el.selectionStart, el.selectionEnd);
-}
-
-function trimNewlines(text: string): string {
-  return text.replace(/\r?\n/g, "");
-}
-
-function trimSpaces(text: string): string {
-  return text.replace(/[ \t]/g, "");
-}
-
-function trimAll(text: string): string {
-  return trimSpaces(trimNewlines(text));
 }
 
 async function copyAndNotify(text: string) {
