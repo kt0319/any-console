@@ -4,21 +4,24 @@
       <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
         <div class="issue-filter-bar">
-          <button
-            v-for="opt in ISSUE_FILTERS"
-            :key="opt.value"
-            type="button"
-            class="issue-filter-btn"
-            :class="{ active: issueFilter === opt.value }"
-            @click="setIssueFilter(opt.value)"
-          >{{ opt.label }}</button>
+          <label class="issue-filter-check">
+            <input type="checkbox" v-model="showOpen" />
+            Open <span class="issue-filter-count">({{ openCount }})</span>
+          </label>
+          <label class="issue-filter-check">
+            <input type="checkbox" v-model="showClosed" />
+            Closed <span class="issue-filter-count">({{ closedCount }})</span>
+          </label>
+          <select v-model="sortBy" class="issue-sort-select" aria-label="Sort issues" data-tooltip="Sort issues">
+            <option v-for="opt in SORT_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
         </div>
         <div class="github-section-body">
           <div v-if="isLoading" class="github-loading loading-dots">Loading</div>
           <div v-else-if="error" class="github-error">{{ error }}</div>
-          <div v-else-if="!items.length" class="text-muted-center">{{ emptyMessage }}</div>
+          <div v-else-if="!sortedItems.length" class="text-muted-center">{{ emptyMessage }}</div>
           <a
-            v-for="item in items"
+            v-for="item in sortedItems"
             :key="item.number"
             class="github-item issue-item"
             :href="githubUrl + '/issues/' + item.number"
@@ -58,32 +61,50 @@ import { useGitHubPane } from "../composables/useGitHubPane.ts";
 import { useGitHub, labelStyle, issueStateColor, type GitHubIssue } from "../composables/useGitHub.ts";
 import { formatRelativeTime } from "../utils/format.ts";
 
-const ISSUE_FILTERS = [
-  { value: "open", label: "Open" },
-  { value: "closed", label: "Closed" },
-  { value: "all", label: "All" },
+const SORT_OPTIONS = [
+  { value: "created-desc", label: "Newest" },
+  { value: "created-asc", label: "Oldest" },
+  { value: "comments-desc", label: "Most commented" },
 ];
 
 const emit = defineEmits(["count"]);
 const { loadIssues } = useGitHub();
-const issueFilter = ref("open");
-const emptyMessage = computed(() => `No ${issueFilter.value === "all" ? "" : issueFilter.value + " "}issues`);
-// loadIssues(filter) はローダー関数を返すファクトリ。useGitHubPane 自体は
-// loaderFn を1つに固定するため、ラップして呼び出すたびに issueFilter.value を
-// 読み直すことでフィルタ切替に対応する（reload()自体はuseGitHubPane側で提供）。
-// countイベントはWorkspaceDetail.vueのIssuesタブの件数バッジ・表示条件（open issue数の
-// 前提）に使われるため、open以外のフィルタ表示中は発火しない（closed/all選択中に
-// バッジやタブの表示/非表示がその場で変わってしまうのを防ぐ）。
+// Open/Closedは排他ではなくチェックボックスで独立に切替える（両方ONで従来のAll相当
+// になるため専用のAllオプションは不要）。gh issue list --state=all を1回だけ取得し、
+// 件数・絞り込み・並び替えはすべてクライアント側の computed で行う（チェック切替の
+// たびに再フェッチしない）。
 const { githubUrl, items, isLoading, error, reload } = useGitHubPane<GitHubIssue>(
-  (stateRef) => loadIssues(issueFilter.value)(stateRef),
-  { onLoaded: (v) => { if (issueFilter.value === "open") emit("count", v.length); } },
+  loadIssues("all"),
+  { onLoaded: (v) => emit("count", v.filter((i) => i.state === "open").length) },
 );
 
-function setIssueFilter(value: string) {
-  if (issueFilter.value === value) return;
-  issueFilter.value = value;
-  reload();
-}
+const showOpen = ref(true);
+const showClosed = ref(false);
+const sortBy = ref("created-desc");
+
+const openCount = computed(() => items.value.filter((i) => i.state === "open").length);
+const closedCount = computed(() => items.value.filter((i) => i.state === "closed").length);
+
+const filteredItems = computed(() => items.value.filter((i) =>
+  (showOpen.value && i.state === "open") || (showClosed.value && i.state === "closed")));
+
+const sortedItems = computed(() => {
+  const list = [...filteredItems.value];
+  switch (sortBy.value) {
+    case "created-asc":
+      return list.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+    case "comments-desc":
+      return list.sort((a, b) => b.commentCount - a.commentCount);
+    default:
+      return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+});
+
+const emptyMessage = computed(() => {
+  if (!showOpen.value && !showClosed.value) return "Select Open or Closed to show issues";
+  if (showOpen.value && showClosed.value) return "No issues";
+  return showOpen.value ? "No open issues" : "No closed issues";
+});
 
 // createdAt は gh CLI からの ISO 8601 文字列。formatRelativeTime は
 // epoch秒を取るため変換する。
@@ -99,27 +120,44 @@ defineExpose({ reload });
 
 .issue-filter-bar {
   display: flex;
-  gap: 6px;
-  padding: 8px 12px 0;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
 }
 
-.issue-filter-btn {
-  flex: 1;
+.issue-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   min-height: 32px;
-  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.issue-filter-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent, currentColor);
+}
+
+.issue-filter-count {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.issue-sort-select {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.issue-filter-btn.active {
-  border-color: var(--accent);
-  background: var(--accent-bg-12);
-  color: var(--accent);
 }
 
 .issue-item {
