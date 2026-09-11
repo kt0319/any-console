@@ -5,10 +5,12 @@ import { getCachedCount, useGitHub } from "./useGitHub.ts";
 import { getStashCachedCount, setStashCache } from "./useStashCache.ts";
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
 import { type AsyncState, asyncIdle } from "../utils/async-state.ts";
+import { useDockerContainers } from "./useDockerContainers.ts";
+import { isDockerContainerActive } from "../utils/docker.ts";
 
 /**
  * ワークスペース詳細のタブに表示するバッジ件数（changes / stash / branch /
- * issues / PRs）の保持とロードをまとめる composable。WorkspaceDetail から
+ * issues / PRs / Docker）の保持とロードをまとめる composable。WorkspaceDetail から
  * 件数管理の責務を切り出したもの。
  */
 export function useWorkspaceCounts() {
@@ -40,6 +42,16 @@ export function useWorkspaceCounts() {
   // （現在のブランチに対応するPR・実行中/失敗中のrunがあるか）で色を付ける。
   const hasBranchPR = computed(() => !!findPRForBranch(prItems.value, currentBranch.value));
   const hasRunningAction = computed(() => isNoticeableRun(findRunForBranch(actionItems.value, currentBranch.value) as { status?: string, conclusion?: string } | null));
+
+  // Dockerタブの出現自体はActionsタブと同じ考え方で静的な能力（has_compose_file）に
+  // 揃え、hasDockerはアイコン色だけを担うライブ状態にする（running/restartingが
+  // あるか）。ポーリング自体はピル側（TerminalPane/SessionListView）が既に回している
+  // ため、ここではその共有結果を読むだけ。
+  const { containers: dockerContainers } = useDockerContainers();
+  const hasDocker = computed(() => {
+    const ws = workspaceStore.selectedWorkspace;
+    return !!ws && dockerContainers.value.some((c) => c.workspace === ws && isDockerContainerActive(c.state));
+  });
 
   /** キャッシュ済みの件数で即座に初期表示する。 */
   function primeFromCache(workspace: string) {
@@ -88,6 +100,7 @@ export function useWorkspaceCounts() {
     hasGitHub,
     hasBranchPR,
     hasRunningAction,
+    hasDocker,
     primeFromCache,
     loadCounts,
   };

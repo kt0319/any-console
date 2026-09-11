@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, inject, nextTick, onMounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitChanges from "./GitChanges.vue";
@@ -109,26 +109,17 @@ import GitHubPRsPane from "./GitHubPRsPane.vue";
 import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import DispatchRunView from "./DispatchRunView.vue";
 import TerminalSelectPane from "./TerminalSelectPane.vue";
-import { on } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useTerminalStore } from "../stores/terminal.ts";
-import { useApi } from "../composables/useApi.ts";
-import { useToast } from "../composables/useToast.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
+import { useWorkspaceDetailDiff } from "../composables/useWorkspaceDetailDiff.ts";
+import { useWorkspaceDetailDispatch } from "../composables/useWorkspaceDetailDispatch.ts";
+import { useWorkspaceDetailEvents } from "../composables/useWorkspaceDetailEvents.ts";
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
 import { useCollapsibleSection } from "../composables/useCollapsibleSection.ts";
-import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
-import { useDockerContainers } from "../composables/useDockerContainers.ts";
-import { isDockerContainerActive } from "../utils/docker.ts";
-import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
-import { workspaceDisplayName, baseWorkspaceName } from "../utils/worktree.ts";
+import { workspaceDisplayName } from "../utils/worktree.ts";
 
 const workspaceStore = useWorkspaceStore();
-const { apiCommand, wsEndpoint } = useApi();
-const toast = useToast();
-const { confirm } = useConfirm();
 const { modalTitle, viewState, modalBranch, updateViewState } = useModalView();
 const {
   issuesCount,
@@ -138,6 +129,7 @@ const {
   hasGitHub,
   hasBranchPR,
   hasRunningAction,
+  hasDocker,
   primeFromCache,
   loadCounts,
 } = useWorkspaceCounts();
@@ -154,27 +146,30 @@ const githubPrs = ref<InstanceType<typeof GitHubPRsPane> | null>(null);
 const jobsPane = ref<InstanceType<typeof WorkspaceJobsPane> | null>(null);
 const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(null);
 
-// DispatchWorkspacePane（一覧）→DispatchRunView（1件の詳細/実行）をローカルに
-// 切り替えるための状態。Settings側のpushViewには乗せない（別レイヤーとして開いてしまうため）。
-const selectedDispatchId = ref<string | null>(null);
-// dispatchピルを押したタブ自身のsessionId（open()のsessionIdオプション経由）。
-// DispatchRunViewのSession選択のデフォルトに使う。
-const dispatchPillSessionId = ref<string | null>(null);
-// このWorkspaceDetailインスタンスが開かれた時点のアクティブタブID（WorkspaceDetailModal.vue
-// で:key="activeTabId"によりタブ切替のたび再マウントされるため一致する）。Dispatch Runで
-// 新規セッションが作られアクティブタブが切り替わることがあるため、close側で「今アクティブな
-// タブ」を使うと切り替わった後の新タブを誤って閉じてしまう（useWorkspaceDetailNav.ts参照）。
-const openedForTabId = useTerminalStore().activeTabId;
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
 // （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.tsのcloseをprovideする）。
 const closeWorkspaceDetail = inject<((tabId?: number | null) => void) | undefined>("closeWorkspaceDetail");
-function onDispatchRunDone() {
-  selectedDispatchId.value = null;
-  closeWorkspaceDetail?.(openedForTabId);
-  // Runで既存セッションへ切り替わった場合、切替後の別タブ側にDetailが開いたまま
-  // 残ることがあるため念のため閉じる（openedForTabIdと同じなら二重呼び出しで無害）。
-  closeWorkspaceDetail?.(useTerminalStore().activeTabId);
-}
+
+const {
+  selectedDispatchId,
+  dispatchPillSessionId,
+  dispatchPendingCount,
+  dispatchRecentCount,
+  openDispatchItem,
+  resetSelection: resetDispatchSelection,
+  onDispatchRunDone,
+} = useWorkspaceDetailDispatch(closeWorkspaceDetail);
+
+const {
+  selectedDiffFile,
+  diffMessage,
+  selectedDiffIsWorkingTree,
+  selectedDiffCommitHash,
+  filesBrowsing,
+  onFileBrowserState,
+  clearDiffSelection,
+  selectDiffFile,
+} = useWorkspaceDetailDiff();
 
 const activePane = ref("jobs");
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
@@ -193,47 +188,9 @@ const {
 } = useCollapsibleSection(loadStashSection);
 // コミットのファイル一覧を見ている間はBranchヘッダーを隠す（GitHistoryのcommit:expanded/collapsed）。
 const isViewingCommitFiles = ref(false);
-const selectedDiffFile = ref("");
-const diffMessage = ref("");
-const selectedDiffIsWorkingTree = ref(false);
-const selectedDiffCommitHash = ref("");
 
-const { queue: dispatchQueue, recent: dispatchRecent } = useDispatchQueue();
-// Dockerタブの出現自体はActionsタブと同じ考え方で静的な能力（has_compose_file）に
-// 揃え、hasDockerはアイコン色だけを担うライブ状態にする（running/restartingが
-// あるか）。ポーリング自体はピル側（TerminalPane/SessionListView）が既に回している
-// ため、ここではその共有結果を読むだけ。
-const { containers: dockerContainers } = useDockerContainers();
-const hasDocker = computed(() => {
-  const ws = workspaceStore.selectedWorkspace;
-  return !!ws && dockerContainers.value.some((c) => c.workspace === ws && isDockerContainerActive(c.state));
-});
-// タブのバッジ数字は承認待ち（pending）件数のみでよい（実行済みrecentは
-// 件数に含めない）。ただしタブ自体の表示可否はrecentしか無い場合でも
-// 履歴を見返せるよう、pending/recentのどちらかがあれば出す。
-const dispatchPendingCount = computed(() => {
-  const ws = workspaceStore.selectedWorkspace;
-  if (!ws) return 0;
-  return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === ws).length;
-});
-// recentはworktreeと元のディレクトリで履歴を共有する（DispatchWorkspacePane.vue
-// と同じ規則。ベースワークスペース名同士で突き合わせる）。
-const dispatchRecentCount = computed(() => {
-  const ws = workspaceStore.selectedWorkspace;
-  if (!ws) return 0;
-  const base = baseWorkspaceName(ws);
-  return dispatchRecent.value.filter((item) => dispatchBaseWorkspaceLabel(item.request) === base).length;
-});
-
-const fileBrowserDeep = ref(false);
 const terminalSessionId = computed(() => viewState!.value?.detail?.terminalSessionId || "");
 const fileBrowserRootLabel = computed(() => viewState!.value?.detail?.rootLabel || "");
-
-function onFileBrowserState({ atRoot, fileOpen }: { atRoot: boolean, fileOpen: boolean }) {
-  fileBrowserDeep.value = !atRoot || fileOpen;
-}
-
-const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
 const isGitWorkspace = computed(() => !terminalSessionId.value && !!workspaceStore.currentWorkspace?.is_git_repo);
 
@@ -286,16 +243,9 @@ function loadStashSection() {
   nextTick(() => gitStash.value?.load());
 }
 
-function clearDiffSelection() {
-  selectedDiffFile.value = "";
-  diffMessage.value = "";
-  selectedDiffIsWorkingTree.value = false;
-  selectedDiffCommitHash.value = "";
-}
-
 function handleBack() {
   if (activePane.value === "dispatch" && selectedDispatchId.value) {
-    selectedDispatchId.value = null;
+    resetDispatchSelection();
     return true;
   }
   if (activePane.value === "history" && gitHistory.value?.hasExpanded?.()) {
@@ -343,15 +293,11 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
     branchSectionExpanded.value = false;
     stashSectionExpanded.value = false;
     isViewingCommitFiles.value = false;
-    selectedDispatchId.value = null;
+    resetDispatchSelection();
   });
 
   switchPane(resolvedPane, { expandBranch: wantBranchExpanded, expandStash: wantStashExpanded });
-  // dispatch通知タップ等、特定の1件を直接開きたい場合（vue-main.ts参照）。
-  if (resolvedPane === "dispatch") {
-    if (options.dispatchItemId) selectedDispatchId.value = options.dispatchItemId;
-    dispatchPillSessionId.value = options.sessionId || null;
-  }
+  if (resolvedPane === "dispatch") openDispatchItem(options.dispatchItemId, options.sessionId);
 }
 
 type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
@@ -419,68 +365,17 @@ function onCommitCollapsed() {
   updateViewTitle();
 }
 
-const _offHandlers = [
-  on("git:openFileModal", (detail) => {
-    open(detail);
-  }),
-
-  on("worktree:open", ({ name, pane } = {}) => {
-    if (name) workspaceStore.selectedWorkspace = name;
-    open({ pane: pane || "jobs" });
-  }),
-
-  on("git:selectDirty", () => {
-    clearDiffSelection();
-  }),
-
-  on("git:selectDiffFile", ({ path, isWorkingTree, commitHash }) => {
-    switchPane("files");
-    selectedDiffFile.value = path;
-    diffMessage.value = "";
-    selectedDiffIsWorkingTree.value = !!isWorkingTree;
-    selectedDiffCommitHash.value = commitHash || "";
-  }),
-
-  on("git:browseToFolder", ({ path }) => {
-    activePane.value = "files";
-    clearDiffSelection();
-    // navigateToPath が読み込みを担うため、files ペインはロード済み扱いにする
-    paneLoader.markLoaded("files", workspaceStore.selectedWorkspace);
-    updateViewTitle();
-    nextTick(() => fileBrowser.value?.navigateToPath(path));
-  }),
-
-  on("git:commitDone", () => {
-    if (activePane.value === "history") {
-      gitHistory.value?.reload();
-    } else {
-      paneLoader.invalidate("history");
-    }
-  }),
-
-  on("git:checkoutBranch", async ({ branch, remote }) => {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
-    if (!ok) return;
-    workspaceStore.fetchStatuses();
-    closeWorkspaceDetail?.();
-    toast.success(`Switched branch to "${branch}"`);
-  }),
-
-  on("git:stashSave", async () => {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
-    if (!ok) return;
-    const msg = data?.stdout?.trim() || "Stash saved";
-    toast.success(msg);
-    gitHistory.value?.reload();
-  }),
-];
-
-onUnmounted(() => {
-  _offHandlers.forEach((off) => off());
+useWorkspaceDetailEvents({
+  open,
+  switchPane,
+  activePane,
+  clearDiffSelection,
+  selectDiffFile,
+  fileBrowser,
+  gitHistory,
+  paneLoader,
+  updateViewTitle,
+  closeWorkspaceDetail,
 });
 
 defineExpose({ handleBack });
