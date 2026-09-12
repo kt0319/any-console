@@ -55,6 +55,18 @@ export interface GitHubIssue {
   createdAt: string | null;
 }
 
+// useWorkspaceIssues.ts（ワークスペースピル用ポーリング）とuseGitHub内部の
+// 両方から使う純粋関数のため、composableのクロージャの外に出しておく。
+export const mapIssue = (item: any): GitHubIssue => ({
+  number: item.number,
+  title: item.title,
+  state: String(item.state || "").toLowerCase(),
+  author: item.author?.login || "",
+  labels: item.labels || [],
+  commentCount: item.comments?.length || 0,
+  createdAt: item.createdAt || null,
+});
+
 export function labelStyle(color: string | null | undefined) {
   if (!color) return {};
   const c = color.replace(/^#/, "");
@@ -107,16 +119,6 @@ export function useGitHub() {
   function _makeLoader<T>(endpoint: string, countKey: string, mapper: (item: any) => T) {
     return (stateRef: Ref<AsyncState<T[]>>) => _loadList(endpoint, countKey, mapper, stateRef);
   }
-
-  const mapIssue = (item: any): GitHubIssue => ({
-    number: item.number,
-    title: item.title,
-    state: String(item.state || "").toLowerCase(),
-    author: item.author?.login || "",
-    labels: item.labels || [],
-    commentCount: item.comments?.length || 0,
-    createdAt: item.createdAt || null,
-  });
 
   // issueFilter: "open"(既定) | "closed" | "all"。IssuesQuery（server/src/github.rs）に
   // クエリ文字列で渡す。countCache（getCachedCount経由で他画面のIssuesバッジ等が参照）は

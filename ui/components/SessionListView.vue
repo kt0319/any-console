@@ -40,6 +40,7 @@
                 :has-action="p.hasAction"
                 :has-dev-server="p.hasDevServer"
                 :has-docker="p.hasDocker"
+                :issues-count="p.issuesCount"
                 :dispatch-count="p.dispatchCount"
                 :tooltips="p.tooltips"
                 @open="onPendingPillOpen(p, $event)"
@@ -103,7 +104,7 @@ const githubWorkspaceKeys = computed(() => {
   return [...keys];
 });
 
-const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
+const { prsByWorkspace, runsByWorkspace, issuesByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling } = useDockerContainers();
 const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
@@ -118,6 +119,7 @@ const pendingDispatchWorkspaces = computed(() => {
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
     dockerContainers: dockerContainers.value,
+    issuesByWorkspace: issuesByWorkspace.value,
     dispatchQueue: dispatchQueue.value,
     dispatchAllJobs: dispatchAllJobs.value,
     hostname: location.hostname,
@@ -170,6 +172,7 @@ const items = computed(() => {
     runsByWorkspace: runsByWorkspace.value,
     previewPorts: previewPorts.value,
     dockerContainers: dockerContainers.value,
+    issuesByWorkspace: issuesByWorkspace.value,
     dispatchQueue: dispatchQueue.value,
     dispatchAllJobs: dispatchAllJobs.value,
     hostname: location.hostname,

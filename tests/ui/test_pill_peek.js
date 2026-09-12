@@ -16,6 +16,7 @@ const ALL_ON = {
   actions: true,
   devserver: true,
   docker: true,
+  issues: true,
   add: true,
   dispatch: true,
 };
@@ -133,6 +134,15 @@ describe("buildTrailingPeekItems", () => {
     expect(items.find((i) => i.key === "docker")).toEqual({ key: "docker", text: "Docker:web-1" });
   });
 
+  it("issuesはopen issueが無ければ出ない", () => {
+    expect(buildTrailingPeekItems({ issuesCount: 0 }, ALL_ON).some((i) => i.key === "issues")).toBe(false);
+  });
+
+  it("issuesはopen issueがあれば件数付きで出る", () => {
+    const items = buildTrailingPeekItems({ issuesCount: 3 }, ALL_ON);
+    expect(items.find((i) => i.key === "issues")).toEqual({ key: "issues", text: "Issues:3" });
+  });
+
   it("addはワークスペース未紐付け・セッションありの時だけ出る", () => {
     expect(buildTrailingPeekItems({ hasWorkspace: false, hasSession: true }, ALL_ON).some((i) => i.key === "add")).toBe(true);
     expect(buildTrailingPeekItems({ hasWorkspace: true, hasSession: true }, ALL_ON).some((i) => i.key === "add")).toBe(false);
@@ -163,6 +173,8 @@ describe("buildPeekText", () => {
     expect(buildPeekText("docker", { dockerContainers: [{ name: "web-1", state: "restarting" }] })).toBe("Docker: web-1");
     expect(buildPeekText("docker", { dockerContainers: [{ name: "redis-1", state: "exited" }] })).toBe("Docker");
     expect(buildPeekText("docker", {})).toBe("Docker");
+    expect(buildPeekText("issues", { issuesCount: 3 })).toBe("GitHub Issues: 3 open");
+    expect(buildPeekText("issues", {})).toBe("GitHub Issues");
     expect(buildPeekText("add", {})).toBe("Add");
     expect(buildPeekText("dispatch", { dispatchTooltip: "Run pending" })).toBe("Run pending");
     expect(buildPeekText("workspace", { workspaceLabel: "my-ws" })).toBe("my-ws");

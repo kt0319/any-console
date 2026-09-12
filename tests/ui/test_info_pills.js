@@ -66,7 +66,7 @@ describe("INFO_PILLS", () => {
     // バックエンド server/src/settings.rs の INFO_PILL_FIELDS と同じキー集合を
     // 保つこと（あちらは settings.rs 内のユニットテストで検証）。
     expect(INFO_PILL_FIELDS).toEqual([
-      "files", "changes", "branch", "prs", "actions", "devserver", "docker", "add", "dispatch",
+      "files", "changes", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch",
     ]);
   });
 });

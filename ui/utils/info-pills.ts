@@ -61,6 +61,14 @@ export const INFO_PILLS = [
     peekColor: "pill-peek-docker",
   },
   {
+    key: "issues",
+    label: "GitHub Issues",
+    note: "Only shown while the workspace has open GitHub issues.",
+    // アイコン・色ともWorkspaceDetail.vueのIssuesタブと揃える（issue有りで黄色）。
+    peekIcon: "mdi-ticket-confirmation-outline",
+    peekColor: "pill-peek-warning",
+  },
+  {
     key: "add",
     label: "Add / Open",
     note: "Register or open the current directory as a workspace. Only shown for terminals not yet tied to a Git workspace.",

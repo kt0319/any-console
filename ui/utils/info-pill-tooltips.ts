@@ -65,6 +65,10 @@ export function dispatchTooltip(
   return items.length ? `Dispatch: ${items.length} pending` : "Dispatch";
 }
 
+export function issuesTooltip(count: number): string {
+  return count > 0 ? `GitHub Issues: ${count} open` : "GitHub Issues";
+}
+
 export function prsTooltip(pr: { number?: number; title?: string } | null | undefined): string {
   return pr ? `GitHub PR #${pr.number}: ${pr.title}` : "GitHub PRs";
 }
@@ -87,6 +91,7 @@ export function buildInfoPillTooltips({
   lastCommitMessage = null,
   devServerEntry = null, hostname = "",
   dockerContainers = [],
+  issuesCount = 0,
   dispatchItems = [],
   dispatchAllJobs = {},
   branchPR = null, branchAction = null,
@@ -97,6 +102,7 @@ export function buildInfoPillTooltips({
   lastCommitMessage?: string | null;
   devServerEntry?: any; hostname?: string;
   dockerContainers?: { name?: string; state?: string }[];
+  issuesCount?: number;
   dispatchItems?: { request: Record<string, any> }[];
   dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
   branchPR?: any; branchAction?: any;
@@ -107,6 +113,7 @@ export function buildInfoPillTooltips({
     branch: branchTooltip({ branch, ahead, behind, hasUpstream, lastCommitMessage }),
     devserver: devServerTooltip(devServerEntry, hostname),
     docker: dockerTooltip(dockerContainers),
+    issues: issuesTooltip(issuesCount),
     dispatch: dispatchTooltip(dispatchItems, dispatchAllJobs),
     prs: prsTooltip(branchPR),
     actions: actionsTooltip(branchAction),

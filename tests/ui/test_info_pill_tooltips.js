@@ -9,6 +9,7 @@ import {
   dispatchTooltip,
   dockerTooltip,
   filesTooltip,
+  issuesTooltip,
   prsTooltip,
 } from "../../ui/utils/info-pill-tooltips.ts";
 
@@ -16,7 +17,7 @@ describe("buildInfoPillTooltips", () => {
   it("既定値（すべて未指定）でも全キーの文言を返す", () => {
     const tooltips = buildInfoPillTooltips({});
     expect(Object.keys(tooltips).sort()).toEqual([
-      "actions", "add", "branch", "changes", "devserver", "dispatch", "docker", "files", "prs",
+      "actions", "add", "branch", "changes", "devserver", "dispatch", "docker", "files", "issues", "prs",
     ]);
     expect(tooltips.branch).toBe("Branches: ");
     expect(tooltips.devserver).toBe("Dev Server");
@@ -41,6 +42,7 @@ describe("buildInfoPillTooltips", () => {
       devServerEntry: { scheme: "http", proxy_port: 25173 },
       hostname: "host.example",
       dockerContainers: [{ name: "web-1", state: "running" }],
+      issuesCount: 3,
       dispatchItems: [{ request: { job: "build" } }],
       branchPR: { number: 7, title: "My PR" },
       branchAction: { name: "CI", status: "in_progress", conclusion: null },
@@ -51,6 +53,7 @@ describe("buildInfoPillTooltips", () => {
     expect(tooltips.branch).toBe(branchTooltip({ branch: "main", ahead: 2, behind: 1, hasUpstream: true, lastCommitMessage: data.lastCommitMessage }));
     expect(tooltips.devserver).toBe(devServerTooltip(data.devServerEntry, "host.example"));
     expect(tooltips.docker).toBe(dockerTooltip(data.dockerContainers));
+    expect(tooltips.issues).toBe(issuesTooltip(data.issuesCount));
     expect(tooltips.dispatch).toBe(dispatchTooltip(data.dispatchItems));
     expect(tooltips.prs).toBe(prsTooltip(data.branchPR));
     expect(tooltips.actions).toBe(actionsTooltip(data.branchAction));
@@ -113,6 +116,16 @@ describe("dockerTooltip", () => {
 
   it("exited等の非activeはカウントしない", () => {
     expect(dockerTooltip([{ name: "web-1", state: "exited" }])).toBe("Docker: 0 containers active");
+  });
+});
+
+describe("issuesTooltip", () => {
+  it("0件はGitHub Issuesのみ", () => {
+    expect(issuesTooltip(0)).toBe("GitHub Issues");
+  });
+
+  it("open issueがあれば件数を出す", () => {
+    expect(issuesTooltip(3)).toBe("GitHub Issues: 3 open");
   });
 });
 

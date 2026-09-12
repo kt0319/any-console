@@ -45,6 +45,7 @@ export function buildTrailingPeekItems(
     branchAction?: { id: string | number; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
     dockerContainers?: { name?: string; state?: string }[];
+    issuesCount?: number;
     dispatchItems?: { id: string }[];
   },
   infoPillConfig: Record<string, boolean>,
@@ -65,6 +66,7 @@ export function buildTrailingPeekItems(
     branchAction = null,
     devServerEntry = null,
     dockerContainers = [],
+    issuesCount = 0,
     dispatchItems = [],
   } = fields || {};
   const items: { key: string; text: string }[] = [];
@@ -91,6 +93,9 @@ export function buildTrailingPeekItems(
   if (activeDockerContainers.length > 0 && infoPillConfig.docker) {
     items.push({ key: "docker", text: `Docker:${activeDockerContainers.map((c) => c.name).join(",")}` });
   }
+  if (issuesCount > 0 && infoPillConfig.issues) {
+    items.push({ key: "issues", text: `Issues:${issuesCount}` });
+  }
   if (!hasWorkspace && hasSession && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
   }
@@ -112,6 +117,7 @@ export function buildPeekText(
     branchAction?: { name?: string; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
     dockerContainers?: { name?: string; state?: string }[];
+    issuesCount?: number;
     dispatchTooltip?: string;
   },
 ): string {
@@ -121,6 +127,7 @@ export function buildPeekText(
     branchAction = null,
     devServerEntry = null,
     dockerContainers = [],
+    issuesCount = 0,
     dispatchTooltip = "",
   } = fields || {};
   switch (peekingKey) {
@@ -135,6 +142,7 @@ export function buildPeekText(
       const active = dockerContainers.filter((c) => isDockerContainerActive(c.state));
       return active.length ? `Docker: ${active.map((c) => c.name).join(", ")}` : "Docker";
     }
+    case "issues": return issuesCount > 0 ? `GitHub Issues: ${issuesCount} open` : "GitHub Issues";
     case "add": return "Add";
     case "dispatch": return dispatchTooltip;
     case "workspace": return workspaceLabel;

@@ -210,6 +210,7 @@ const INFO_PILL_FIELDS: &[&str] = &[
     "actions",
     "devserver",
     "docker",
+    "issues",
     "add",
     "dispatch",
 ];
@@ -245,6 +246,8 @@ pub struct InfoPillSettings {
     #[serde(default = "yes")]
     docker: bool,
     #[serde(default = "yes")]
+    issues: bool,
+    #[serde(default = "yes")]
     files: bool,
     #[serde(default = "yes")]
     add: bool,
@@ -265,6 +268,7 @@ impl InfoPillSettings {
             "changes" => self.changes,
             "devserver" => self.devserver,
             "docker" => self.docker,
+            "issues" => self.issues,
             "files" => self.files,
             "add" => self.add,
             "dispatch" => self.dispatch,

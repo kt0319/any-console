@@ -1,31 +1,36 @@
 import { onBeforeUnmount, watch, type ComputedRef } from "vue";
 import { useWorkspacePRs } from "./useWorkspacePRs.ts";
 import { useWorkspaceRuns } from "./useWorkspaceRuns.ts";
+import { useWorkspaceIssues } from "./useWorkspaceIssues.ts";
 
-// GitHub PR / Actions ピルのデータ源はどの利用箇所でも必ずペアで
-// 取得・ポーリング開始・停止するため、その4点セットをまとめる薄いラッパー。
+// GitHub PR / Actions / Issues ピルのデータ源はどの利用箇所でも必ずセットで
+// 取得・ポーリング開始・停止するため、その3種類をまとめる薄いラッパー。
 // TerminalPane.vue（ワークスペース1つ）と SessionListView.vue（開いている
 // タブのワークスペース集合）が共用する。個別の取得・重複排除・参照カウント式
-// ポーリングの実装は useWorkspacePRs / useWorkspaceRuns（それぞれ
-// useWorkspaceResourcePoll.ts の共通ファクトリ）のまま。
+// ポーリングの実装は useWorkspacePRs / useWorkspaceRuns / useWorkspaceIssues
+// （それぞれ useWorkspaceResourcePoll.ts の共通ファクトリ）のまま。
 export function useGitHubPolling() {
   const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
   const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceRuns();
+  const { issuesByWorkspace, fetchIssues, startPolling: startIssuesPolling, stopPolling: stopIssuesPolling } = useWorkspaceIssues();
 
   /** 取得してからポーリングを開始する。 */
   function startGitHubPolling(workspace: string) {
     fetchPRs(workspace);
     fetchRuns(workspace);
+    fetchIssues(workspace);
     startPRsPolling(workspace);
     startActionsPolling(workspace);
+    startIssuesPolling(workspace);
   }
 
   function stopGitHubPolling(workspace: string) {
     stopPRsPolling(workspace);
     stopActionsPolling(workspace);
+    stopIssuesPolling(workspace);
   }
 
-  return { prsByWorkspace, runsByWorkspace, startGitHubPolling, stopGitHubPolling };
+  return { prsByWorkspace, runsByWorkspace, issuesByWorkspace, startGitHubPolling, stopGitHubPolling };
 }
 
 /**

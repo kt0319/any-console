@@ -282,6 +282,16 @@
   color: #2496ed;
 }
 
+/* WorkspaceDetail.vueのIssuesタブ・Changesピル（.pill-numstat-btn）と同じ
+   黄色（#f5a623）で「issueがある＝注意を引く」ことを示す。 */
+.pill-issues-btn .mdi {
+  color: #f5a623;
+}
+
+.pill-issues-btn .pill-branch-count {
+  color: #f5a623;
+}
+
 .pill-files-btn .mdi {
   color: #14b8a6;
 }

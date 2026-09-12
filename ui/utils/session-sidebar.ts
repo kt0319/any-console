@@ -50,12 +50,13 @@ function buildPillFields(
     runsByWorkspace?: Record<string, any[]>;
     previewPorts?: any[];
     dockerContainers?: any[];
+    issuesByWorkspace?: Record<string, any[]>;
     dispatchQueue?: { request: Record<string, any> }[];
     dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
     hostname?: string;
   },
 ) {
-  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dockerContainers = [], dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
+  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dockerContainers = [], issuesByWorkspace = {}, dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
   const isGitRepo = ws?.is_git_repo === true;
   const branch = ws?.branch || "";
   const ahead = ws?.ahead || 0;
@@ -77,6 +78,7 @@ function buildPillFields(
   const dispatchItems = wsName
     ? dispatchQueue.filter((item) => dispatchWorkspaceLabel(item.request) === wsName)
     : [];
+  const issuesCount = wsName ? (issuesByWorkspace[wsName] || []).length : 0;
   return {
     // wsが見つかっているか。TerminalPane.vueのpaneWorkspaceと同じ「解決済みかどうか」を
     // peek側の初回誤検知ガードに渡すために必要（usePillPeek参照）。
@@ -97,6 +99,7 @@ function buildPillFields(
     devServerEntry,
     hasDocker: workspaceDockerContainers.some((c) => isDockerContainerActive(c.state)),
     dockerContainers: workspaceDockerContainers,
+    issuesCount,
     dispatchCount: dispatchItems.length,
     dispatchItems,
     lastCommitMessage: ws?.last_commit_message,
@@ -107,6 +110,7 @@ function buildPillFields(
       lastCommitMessage: ws?.last_commit_message,
       devServerEntry, hostname,
       dockerContainers: workspaceDockerContainers,
+      issuesCount,
       dispatchItems, dispatchAllJobs,
       branchPR, branchAction,
     }),
@@ -135,6 +139,7 @@ export function sessionSidebarItems(
     runsByWorkspace?: Record<string, any[]>;
     previewPorts?: any[];
     dockerContainers?: any[];
+    issuesByWorkspace?: Record<string, any[]>;
     dispatchQueue?: { request: Record<string, any> }[];
     dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
     hostname?: string;

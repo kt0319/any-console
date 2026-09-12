@@ -48,6 +48,7 @@
           :has-action="item.hasAction"
           :has-dev-server="item.hasDevServer"
           :has-docker="item.hasDocker"
+          :issues-count="item.issuesCount"
           :dispatch-count="item.dispatchCount"
           :tooltips="item.tooltips"
           @open="emits('pillOpen', $event)"

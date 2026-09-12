@@ -218,6 +218,14 @@ describe("sessionSidebarItems: Info Pills用データ（PR/Actions/Dev Server/Di
     expect(items.find((i) => i.id === 1).hasDocker).toBe(true);
   });
 
+  it("issuesByWorkspaceをworkspaceで絞り込みissuesCountに反映する", () => {
+    const items = sessionSidebarItems(tabs, workspaces, {
+      issuesByWorkspace: { app: [{ number: 1 }, { number: 2 }], other: [{ number: 3 }] },
+    });
+    expect(items.find((i) => i.id === 1).issuesCount).toBe(2);
+    expect(items.find((i) => i.id === 2).issuesCount).toBe(0);
+  });
+
   it("dispatchQueueをworkspaceで絞り込みdispatchCountに反映する", () => {
     const items = sessionSidebarItems(tabs, workspaces, {
       dispatchQueue: [{ request: { workspace: "app" } }, { request: { workspace: "other" } }],

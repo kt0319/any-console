@@ -97,6 +97,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
       case "prs":
       case "actions":
       case "docker":
+      case "issues":
         return openWorkspacePane(key);
       case "devserver":
         return openDevServer();

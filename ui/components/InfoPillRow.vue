@@ -92,6 +92,19 @@
           <span class="mdi" :class="peekIconForKey('docker')"></span>
         </button>
         <button
+          v-else-if="key === 'issues' && issuesCount > 0 && infoPillConfig.issues"
+          type="button"
+          class="pill-chip pill-devserver-btn pill-issues-btn"
+          :class="pillActivityClass"
+          :aria-label="tooltips.issues"
+          :data-tooltip="tooltips.issues"
+          @pointerdown.stop
+          @click.stop="emits('open', 'issues')"
+        >
+          <span class="mdi" :class="peekIconForKey('issues')"></span>
+          <span v-if="issuesCount > 1" class="pill-branch-count">{{ issuesCount }}</span>
+        </button>
+        <button
           v-else-if="key === 'add' && !tab.workspace && tab.sessionId && infoPillConfig.add"
           type="button"
           class="pill-chip pill-devserver-btn pill-add-btn"
@@ -147,6 +160,7 @@ const props = defineProps({
   hasAction: { type: Boolean, default: false },
   hasDevServer: { type: Boolean, default: false },
   hasDocker: { type: Boolean, default: false },
+  issuesCount: { type: Number, default: 0 },
   dispatchCount: { type: Number, default: 0 },
   // キーごとのツールチップ文言（ui/utils/info-pill-tooltips.ts で組み立て）。
   tooltips: { type: Object, required: true },

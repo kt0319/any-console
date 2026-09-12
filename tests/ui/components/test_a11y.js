@@ -254,6 +254,7 @@ describe("a11y: InfoPillRow", () => {
         hasAction: true,
         hasDevServer: true,
         hasDocker: true,
+        issuesCount: 2,
         dispatchCount: 2,
         tooltips: {
           files: "ws1  ·  Browse files",
@@ -264,6 +265,7 @@ describe("a11y: InfoPillRow", () => {
           actions: "GitHub Actions: CI (in_progress)",
           devserver: "Dev Server: http://localhost:23000",
           docker: "Docker: web-1",
+          issues: "GitHub Issues: 2 open",
           dispatch: "Dispatch: 2 pending",
         },
       },

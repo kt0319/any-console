@@ -56,6 +56,7 @@
           :has-action="!!visibleBranchAction"
           :has-dev-server="!!devServerEntry"
           :has-docker="hasDocker"
+          :issues-count="workspaceOpenIssuesCount"
           :dispatch-count="tabDispatchItems.length"
           :tooltips="tooltips"
           @open="openPane"
@@ -197,8 +198,9 @@ const hasDocker = computed(() => workspaceDockerContainers.value.some((c) => isD
 const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
-// （無関係なPRの存在では出さない）。PR/Actionsのポーリング開始・停止は useGitHubPollingFor に集約。
-const { prsByWorkspace, runsByWorkspace } = useGitHubPollingFor(
+// （無関係なPRの存在では出さない）。PR/Actions/Issuesのポーリング開始・停止は
+// useGitHubPollingFor に集約。
+const { prsByWorkspace, runsByWorkspace, issuesByWorkspace } = useGitHubPollingFor(
   computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
 const branchPR = computed<Record<string, any> | null>(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
@@ -215,6 +217,13 @@ const branchAction = computed<Record<string, any> | null>(() => {
 const visibleBranchAction = computed(() =>
   isNoticeableRun(branchAction.value) ? branchAction.value : null,
 );
+
+// Issuesピルは「ワークスペースにopen issueがある時」だけ表示する
+// （github/issuesはサーバ側既定でopenのみ返す。server/src/github.rs参照）。
+const workspaceOpenIssuesCount = computed(() => {
+  if (!isGitRepo.value || !props.tab.workspace) return 0;
+  return (issuesByWorkspace.value[props.tab.workspace] || []).length;
+});
 
 const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
 const tabDispatchItems = computed(() => {
@@ -259,6 +268,7 @@ const tooltips = computed(() => buildInfoPillTooltips({
   lastCommitMessage: paneWorkspace.value?.last_commit_message,
   devServerEntry: devServerEntry.value,
   dockerContainers: workspaceDockerContainers.value,
+  issuesCount: workspaceOpenIssuesCount.value,
   hostname: location.hostname,
   dispatchItems: tabDispatchItems.value,
   dispatchAllJobs: dispatchAllJobs.value,
@@ -291,6 +301,7 @@ const peekFields = computed<Record<string, any>>(() => ({
   branchAction: branchAction.value,
   devServerEntry: devServerEntry.value,
   dockerContainers: workspaceDockerContainers.value,
+  issuesCount: workspaceOpenIssuesCount.value,
   dispatchItems: tabDispatchItems.value,
   dispatchTooltip: tooltips.value.dispatch,
 }));
