@@ -20,6 +20,13 @@ use crate::subprocess::run_subprocess_safe;
 
 const GITHUB_CLI_TIMEOUT_SEC: f64 = 8.0;
 const PER_WORKSPACE_TTL_SEC: u64 = 30;
+/// 単一state（open/closed）指定時のissue取得件数。
+const ISSUES_LIST_LIMIT: &str = "30";
+/// state=all指定時の取得件数。GitHubIssuesPane.vueはこれを1回だけ取得し
+/// open/closedの件数・絞り込みをクライアント側で行うため、issueピル
+/// （state=open・ISSUES_LIST_LIMIT件）のopen件数と食い違わないよう、
+/// closed issueに埋もれてopenが取りこぼされない程度に十分広く取る。
+const ISSUES_LIST_LIMIT_ALL: &str = "200";
 
 /// GitHub CLI 応答のワークスペース単位 TTL キャッシュを生成する
 /// （AppState.gh_cache）。
@@ -89,6 +96,11 @@ pub async fn issues(
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
     let issue_state = normalize_issue_state(query.state.as_deref());
+    let limit = if issue_state == "all" {
+        ISSUES_LIST_LIMIT_ALL
+    } else {
+        ISSUES_LIST_LIMIT
+    };
     github_fetch(
         &state,
         &name,
@@ -99,7 +111,7 @@ pub async fn issues(
             "--state",
             issue_state,
             "--limit",
-            "30",
+            limit,
             "--json",
             "number,title,state,author,labels,comments,createdAt,updatedAt",
         ],
