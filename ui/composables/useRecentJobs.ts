@@ -63,9 +63,16 @@ export function useRecentJobs() {
 
   // 実行したジョブを一覧の先頭（ピン留めグループの直後）へ移動する。
   // 新規記録（recordJob）・既存項目の再実行（runRecentJob）の両方で使う共通処理。
+  // ピン留め済み項目は起動しても並び順を変えない（手動で並べた順を保持するため）。
   function _touch(item: RecentJob) {
-    const rest = recentJobs.value.filter((j) => j.key !== item.key);
-    recentJobs.value = _sortAndTrim([item, ...rest]);
+    let jobs;
+    if (item.pinned) {
+      jobs = recentJobs.value.map((j) => (j.key === item.key ? item : j));
+    } else {
+      const rest = recentJobs.value.filter((j) => j.key !== item.key);
+      jobs = [item, ...rest];
+    }
+    recentJobs.value = _sortAndTrim(jobs);
     _save();
     _syncToServer();
   }

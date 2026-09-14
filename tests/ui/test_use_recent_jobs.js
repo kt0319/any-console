@@ -181,6 +181,26 @@ describe("useRecentJobs: 再実行時の並び替え", () => {
 
     expect(recentJobs.value.map((j) => j.key)).toEqual(["ws1:build", "ws3:test", "ws2:deploy"]);
   });
+
+  it("runRecentJob はピン留め項目自体を起動しても並び順を変えない", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: {
+        recent_jobs: [
+          job("ws1:build", { pinned: true }),
+          job("ws2:deploy", { pinned: true }),
+          job("ws3:test"),
+        ],
+      },
+    });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    await runRecentJob(recentJobs.value.find((j) => j.key === "ws2:deploy"));
+
+    expect(recentJobs.value.map((j) => j.key)).toEqual(["ws1:build", "ws2:deploy", "ws3:test"]);
+  });
 });
 
 describe("useRecentJobs: jobDetached の読み込み", () => {
