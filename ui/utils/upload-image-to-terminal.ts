@@ -1,4 +1,4 @@
-import { EP_UPLOAD_IMAGE } from "./endpoints.ts";
+import { uploadImageFile } from "./upload-image.ts";
 
 const encoder = new TextEncoder();
 
@@ -15,15 +15,12 @@ export async function uploadImageToTerminal({ file, apiFetch, ws, notify }: {
   }
 
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await apiFetch(EP_UPLOAD_IMAGE, { method: "POST", body: formData });
-    if (!res || !res.ok) throw new Error("Upload failed");
-    const data = await res.json();
-    if (data.clipboard) {
+    const uploaded = await uploadImageFile({ file, apiFetch });
+    if (!uploaded) throw new Error("Upload failed");
+    if (uploaded.clipboard) {
       ws.send(encoder.encode("\x16"));
     } else {
-      ws.send(encoder.encode(data.path));
+      ws.send(encoder.encode(uploaded.path));
     }
     return true;
   } catch (err) {

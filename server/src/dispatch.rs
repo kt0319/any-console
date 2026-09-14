@@ -201,6 +201,7 @@ const DISPATCH_REQUEST_FIELDS: &[&str] = &[
     "direct",
     "dedup_key",
     "received_at",
+    "image_paths",
 ];
 
 // ─── リクエストモデル ────────────────────────────────────────────────────────
@@ -230,6 +231,8 @@ pub struct DispatchRequest {
     pub direct: bool,
     #[serde(default)]
     pub dedup_key: Option<String>,
+    #[serde(default)]
+    pub image_paths: Vec<String>,
 }
 
 fn default_job() -> String {
@@ -276,6 +279,9 @@ impl DispatchRequest {
         if let Some(sid) = &overrides.session_id {
             self.session_id = Some(sid.clone());
         }
+        if let Some(paths) = &overrides.image_paths {
+            self.image_paths = paths.clone();
+        }
     }
 }
 
@@ -299,6 +305,8 @@ struct DispatchOverrides {
     create_branch: Option<bool>,
     #[serde(default)]
     session_id: Option<String>,
+    #[serde(default)]
+    image_paths: Option<Vec<String>>,
 }
 
 /// `POST /dispatch/{id}/decision` のリクエストボディ。`executed: true` で実行、
@@ -489,6 +497,25 @@ async fn resolve_session(
     find_existing_session(state, effective_ws, &body.job, &body.match_mode).await
 }
 
+/// 貼り付けられた画像パスを送信テキストへ埋め込む。CLIエージェント（Claude Code等）は
+/// テキスト中のファイルパス言及から Read ツールで画像を読みに行くため、tmux 環境変数
+/// 経由ではなく本文に含める必要がある。
+fn compose_text_with_images(text: &str, image_paths: &[String]) -> String {
+    if image_paths.is_empty() {
+        return text.to_string();
+    }
+    let mut composed = text.to_string();
+    if !composed.is_empty() {
+        composed.push_str("\n\n");
+    }
+    for path in image_paths {
+        composed.push_str("Image: ");
+        composed.push_str(path);
+        composed.push('\n');
+    }
+    composed.trim_end().to_string()
+}
+
 /// 新規作成セッションへ pending text を予約する（tmux 環境変数経由 — モジュール
 /// 冒頭の設計判断コメント参照）。
 async fn set_pending_text(tmux_name: &str, text: &str, enter: bool) {
@@ -534,11 +561,13 @@ async fn resolve_and_launch_session(
         .await?;
     }
 
+    let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
     let (session_id, created) = match existing {
         Some((sid, sess)) => {
-            if !body.text.is_empty() {
+            if has_input {
+                let text = compose_text_with_images(&body.text, &body.image_paths);
                 let tmux_name = { sess.lock().await.tmux_session_name.clone() };
-                if !tmux::send_keys_to_tmux(&tmux_name, &body.text, body.enter).await {
+                if !tmux::send_keys_to_tmux(&tmux_name, &text, body.enter).await {
                     tracing::warn!("dispatch text send-keys failed session={sid}");
                 }
             }
@@ -559,8 +588,9 @@ async fn resolve_and_launch_session(
                     tracing::warn!("dispatch job launch send-keys failed session={sid}");
                 }
             }
-            if !body.text.is_empty() {
-                set_pending_text(&tmux_name, &body.text, body.enter).await;
+            if has_input {
+                let text = compose_text_with_images(&body.text, &body.image_paths);
+                set_pending_text(&tmux_name, &text, body.enter).await;
             }
             (sid, true)
         }
@@ -638,6 +668,10 @@ fn dispatch_notification_body(
     }
     if let Some(b) = body.branch.as_deref().filter(|b| !b.is_empty()) {
         detail_parts.push(b.to_string());
+    }
+    if !body.image_paths.is_empty() {
+        let n = body.image_paths.len();
+        detail_parts.push(format!("{n} image{}", if n == 1 { "" } else { "s" }));
     }
     let mut notif_body = effective_ws.to_string();
     if !detail_parts.is_empty() {
@@ -962,6 +996,7 @@ mod tests {
             base_branch: None,
             direct: false,
             dedup_key: None,
+            image_paths: Vec::new(),
         }
     }
 
@@ -989,6 +1024,7 @@ mod tests {
             match_mode: None,
             create_branch: None,
             session_id: None,
+            image_paths: None,
         };
         req.apply_overrides(&overrides);
         // workspace が変わると worktree は持ち越さない
@@ -997,6 +1033,18 @@ mod tests {
         assert_eq!(req.text, "hello");
         // 未指定（None）の branch はそのまま
         assert_eq!(req.branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn apply_overrides_updates_image_paths_when_provided() {
+        let mut req = base_request();
+        req.image_paths = vec!["/tmp/old.png".to_string()];
+        let overrides = DispatchOverrides {
+            image_paths: Some(vec!["/tmp/new.png".to_string()]),
+            ..Default::default()
+        };
+        req.apply_overrides(&overrides);
+        assert_eq!(req.image_paths, vec!["/tmp/new.png".to_string()]);
     }
 
     #[test]
@@ -1012,6 +1060,41 @@ mod tests {
         req.apply_overrides(&overrides);
         assert_eq!(req.branch, None);
         assert_eq!(req.base_branch, None);
+    }
+
+    #[test]
+    fn compose_text_with_images_no_images_returns_text_unchanged() {
+        assert_eq!(compose_text_with_images("hello", &[]), "hello");
+        assert_eq!(compose_text_with_images("", &[]), "");
+    }
+
+    #[test]
+    fn compose_text_with_images_appends_paths_after_text() {
+        let paths = vec!["/tmp/a.png".to_string(), "/tmp/b.png".to_string()];
+        assert_eq!(
+            compose_text_with_images("look at this", &paths),
+            "look at this\n\nImage: /tmp/a.png\nImage: /tmp/b.png"
+        );
+    }
+
+    #[test]
+    fn compose_text_with_images_with_empty_text_omits_leading_blank_line() {
+        let paths = vec!["/tmp/a.png".to_string()];
+        assert_eq!(compose_text_with_images("", &paths), "Image: /tmp/a.png");
+    }
+
+    #[test]
+    fn dispatch_notification_body_includes_image_count() {
+        let mut req = base_request();
+        req.image_paths = vec!["/tmp/a.png".to_string(), "/tmp/b.png".to_string()];
+        let job_def = JobDef {
+            command: String::new(),
+            label: "Terminal".to_string(),
+            icon: String::new(),
+            icon_color: String::new(),
+        };
+        let body = dispatch_notification_body("proj", &req, &job_def);
+        assert_eq!(body, "proj\n2 images");
     }
 
     #[test]

@@ -66,7 +66,28 @@
 
       <div class="ws-settings-row ws-settings-row-stack">
         <span class="ws-settings-label">Input</span>
-        <textarea v-model="text" class="form-input dispatch-run-input" rows="4" autocomplete="off" spellcheck="false"></textarea>
+        <textarea
+          v-model="text"
+          class="form-input dispatch-run-input"
+          rows="4"
+          autocomplete="off"
+          spellcheck="false"
+          @paste="onImagePaste"
+        ></textarea>
+        <ul v-if="imagePaths.length" class="dispatch-run-image-list">
+          <li v-for="path in imagePaths" :key="path" class="dispatch-run-image-chip">
+            <span class="dispatch-run-image-name">{{ path.split('/').pop() }}</span>
+            <button
+              type="button"
+              class="dispatch-run-image-remove"
+              aria-label="Remove image"
+              data-tooltip="Remove image"
+              @click="removeImage(path)"
+            >
+              <span class="mdi mdi-close"></span>
+            </button>
+          </li>
+        </ul>
       </div>
 
       <div v-if="missingBranchBlockReason" class="job-config-error">{{ missingBranchBlockReason }}</div>
@@ -99,6 +120,7 @@
 import { computed, onMounted, onUnmounted, ref, watch, type PropType } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
+import { useDispatchImagePaste } from "../composables/useDispatchImagePaste.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useToast } from "../composables/useToast.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
@@ -124,6 +146,7 @@ const emits = defineEmits(["back", "done"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { queue, recent, runItem, rejectItem } = useDispatchQueue();
+const { imagePaths, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
 const toast = useToast();
@@ -194,6 +217,7 @@ function initFromRequest(req: Record<string, any> | null) {
   }
   baseBranch.value = req?.base_branch || "";
   text.value = req?.text || "";
+  imagePaths.value = Array.isArray(req?.image_paths) ? [...req.image_paths] : [];
   selectedWorkspace.value = req?.workspace || "";
   selectedJob.value = req?.job || "terminal";
   selectedSessionId.value = req?.existing_session_id || props.preferredSessionId || NEW_SESSION_VALUE;
@@ -366,6 +390,8 @@ function buildOverrides() {
   // 基準にすると「+ New session」を選んでも変化なしと誤判定されoverrideが送られない。
   const origIsNew = (orig.match || "any") === "none";
   const origCreateBranch = !!orig.create_branch;
+  const origImagePaths = Array.isArray(orig.image_paths) ? orig.image_paths : [];
+  const imagePathsChanged = JSON.stringify(imagePaths.value) !== JSON.stringify(origImagePaths);
   return {
     workspace: selectedWorkspace.value !== (orig.workspace || "") ? selectedWorkspace.value : null,
     branch: effectiveBranch.value !== (orig.branch || "") ? effectiveBranch.value : null,
@@ -375,6 +401,7 @@ function buildOverrides() {
     match: isNewSession.value !== origIsNew ? (isNewSession.value ? "none" : "any") : null,
     session_id: !isNewSession.value && selectedSessionId.value !== (orig.existing_session_id || null) ? selectedSessionId.value : null,
     create_branch: selectedCreateBranch.value !== origCreateBranch ? selectedCreateBranch.value : null,
+    image_paths: imagePathsChanged ? imagePaths.value : null,
   };
 }
 
@@ -496,5 +523,53 @@ async function discard() {
 .dispatch-run-input {
   resize: vertical;
   font-family: monospace;
+}
+
+.dispatch-run-image-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dispatch-run-image-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  font-size: 12px;
+  color: var(--text-primary);
+  max-width: 220px;
+}
+
+.dispatch-run-image-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dispatch-run-image-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dispatch-run-image-remove:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
 }
 </style>
