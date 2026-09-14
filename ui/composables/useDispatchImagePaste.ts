@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { onBeforeUnmount, ref } from "vue";
 import { useAuthStore } from "../stores/auth.ts";
 import { uploadImageFile } from "../utils/upload-image.ts";
 import { useToast } from "./useToast.ts";
@@ -9,6 +9,17 @@ export function useDispatchImagePaste() {
   const toast = useToast();
   const auth = useAuthStore();
   const imagePaths = ref<string[]>([]);
+  // サムネイル表示用。ペースト直後のFileから作るためサーバへの再取得は不要（Rerun時に
+  // 引き継いだ既存パスはFileが無いためエントリが無く、その場合はファイル名のみ表示になる）。
+  const previewUrls = ref<Record<string, string>>({});
+
+  function revokePreview(path: string) {
+    const url = previewUrls.value[path];
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    const { [path]: _removed, ...rest } = previewUrls.value;
+    previewUrls.value = rest;
+  }
 
   async function onPaste(e: ClipboardEvent) {
     const files = e.clipboardData?.files;
@@ -24,11 +35,17 @@ export function useDispatchImagePaste() {
       return;
     }
     imagePaths.value = [...imagePaths.value, uploaded.path];
+    previewUrls.value = { ...previewUrls.value, [uploaded.path]: URL.createObjectURL(imageFile) };
   }
 
   function removeImage(path: string) {
     imagePaths.value = imagePaths.value.filter((p) => p !== path);
+    revokePreview(path);
   }
 
-  return { imagePaths, onPaste, removeImage };
+  onBeforeUnmount(() => {
+    for (const url of Object.values(previewUrls.value)) URL.revokeObjectURL(url);
+  });
+
+  return { imagePaths, previewUrls, onPaste, removeImage };
 }

@@ -76,6 +76,7 @@
         ></textarea>
         <ul v-if="imagePaths.length" class="dispatch-run-image-list">
           <li v-for="path in imagePaths" :key="path" class="dispatch-run-image-chip">
+            <img v-if="previewUrls[path]" :src="previewUrls[path]" class="dispatch-run-image-thumb" alt="" />
             <span class="dispatch-run-image-name">{{ path.split('/').pop() }}</span>
             <button
               type="button"
@@ -146,7 +147,7 @@ const emits = defineEmits(["back", "done"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { queue, recent, runItem, rejectItem } = useDispatchQueue();
-const { imagePaths, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
+const { imagePaths, previewUrls, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
 const toast = useToast();
@@ -538,12 +539,20 @@ async function discard() {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px 2px 8px;
+  padding: 2px 4px 2px 4px;
   border-radius: 4px;
   background: var(--bg-tertiary);
   font-size: 12px;
   color: var(--text-primary);
   max-width: 220px;
+}
+
+.dispatch-run-image-thumb {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .dispatch-run-image-name {

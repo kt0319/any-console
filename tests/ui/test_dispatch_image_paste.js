@@ -26,12 +26,13 @@ describe("useDispatchImagePaste", () => {
 
   it("uploads pasted image and appends its path", async () => {
     uploadImageFile.mockResolvedValue({ path: "/tmp/a.png", clipboard: false });
-    const { imagePaths, onPaste } = useDispatchImagePaste();
+    const { imagePaths, previewUrls, onPaste } = useDispatchImagePaste();
     const event = makePasteEvent([makeImageFile()]);
     const preventDefaultSpy = vi.spyOn(event, "preventDefault");
     await onPaste(event);
     expect(preventDefaultSpy).toHaveBeenCalled();
     expect(imagePaths.value).toEqual(["/tmp/a.png"]);
+    expect(previewUrls.value["/tmp/a.png"]).toMatch(/^blob:/);
   });
 
   it("accumulates multiple pastes", async () => {
@@ -51,14 +52,16 @@ describe("useDispatchImagePaste", () => {
     expect(imagePaths.value).toEqual([]);
   });
 
-  it("removeImage drops the given path only", async () => {
+  it("removeImage drops the given path and its preview url", async () => {
     uploadImageFile
       .mockResolvedValueOnce({ path: "/tmp/a.png", clipboard: false })
       .mockResolvedValueOnce({ path: "/tmp/b.png", clipboard: false });
-    const { imagePaths, onPaste, removeImage } = useDispatchImagePaste();
+    const { imagePaths, previewUrls, onPaste, removeImage } = useDispatchImagePaste();
     await onPaste(makePasteEvent([makeImageFile()]));
     await onPaste(makePasteEvent([makeImageFile()]));
     removeImage("/tmp/a.png");
     expect(imagePaths.value).toEqual(["/tmp/b.png"]);
+    expect(previewUrls.value["/tmp/a.png"]).toBeUndefined();
+    expect(previewUrls.value["/tmp/b.png"]).toMatch(/^blob:/);
   });
 });
