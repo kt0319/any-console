@@ -13,6 +13,12 @@
 //! attach 処理（`terminal.rs`）がこれを読んで flush する。プロセスをまたいでも
 //! 安全に受け渡せる（`create_registered_session` を呼ぶプロセスと WS が繋がる
 //! プロセスが一致している保証が要らなくなる）。
+//!
+//! `image_paths`（サーバーローカルのファイルパス。`POST /upload-image`で事前に
+//! アップロードして得る）はバイナリとして送るのではなく、`compose_text_with_images`
+//! が `text` の末尾へ `Image: <path>` 行として展開してから tmux へ送る。セッション内の
+//! CLIエージェント（Claude Code等）がそのパス言及を見て自分のファイルツールで画像を
+//! 読みに行く前提。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;

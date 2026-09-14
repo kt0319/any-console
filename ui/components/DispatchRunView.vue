@@ -74,21 +74,24 @@
           spellcheck="false"
           @paste="onImagePaste"
         ></textarea>
-        <ul v-if="imagePaths.length" class="dispatch-run-image-list">
-          <li v-for="path in imagePaths" :key="path" class="dispatch-run-image-chip">
-            <img v-if="previewUrls[path]" :src="previewUrls[path]" class="dispatch-run-image-thumb" alt="" />
-            <span class="dispatch-run-image-name">{{ path.split('/').pop() }}</span>
-            <button
-              type="button"
-              class="dispatch-run-image-remove"
-              aria-label="Remove image"
-              data-tooltip="Remove image"
-              @click="removeImage(path)"
-            >
-              <span class="mdi mdi-close"></span>
-            </button>
-          </li>
-        </ul>
+        <template v-if="imagePaths.length">
+          <ul class="dispatch-run-image-list">
+            <li v-for="path in imagePaths" :key="path" class="dispatch-run-image-chip">
+              <img v-if="previewUrls[path]" :src="previewUrls[path]" class="dispatch-run-image-thumb" alt="" />
+              <span class="dispatch-run-image-name">{{ path.split('/').pop() }}</span>
+              <button
+                type="button"
+                class="dispatch-run-image-remove"
+                aria-label="Remove image"
+                data-tooltip="Remove image"
+                @click="removeImage(path)"
+              >
+                <span class="mdi mdi-close"></span>
+              </button>
+            </li>
+          </ul>
+          <p class="dispatch-run-image-hint">Images are sent as file path references appended to the text, not as binary data.</p>
+        </template>
       </div>
 
       <div v-if="missingBranchBlockReason" class="job-config-error">{{ missingBranchBlockReason }}</div>
@@ -533,6 +536,12 @@ async function discard() {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.dispatch-run-image-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .dispatch-run-image-chip {

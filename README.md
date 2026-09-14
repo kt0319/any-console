@@ -158,6 +158,7 @@ Key fields on the request body (`server/src/dispatch.rs`):
 | `text` | Text to send to the session (e.g. a shell command) |
 | `branch` | Checkout this branch before running (rejected with 400 if the workspace has uncommitted changes and the branch differs from the current one) |
 | `dedup_key` | Opaque string; a new request with the same key replaces the still-pending one instead of queuing a duplicate (useful for repeated CI-failure dispatches) |
+| `image_paths` | Server-local file paths (e.g. from `POST /upload-image`); on run, they're appended to `text` as `Image: <path>` lines so CLI agents in the session can read them with their own file tools — they are not sent as binary data |
 
 For CI/automation, use a **scoped dispatch token** instead of your main token — create one from Settings > Auth > API Tokens. It can only queue dispatch requests and cannot approve queue items or access anything else, so a leaked CI secret can't be used to run arbitrary commands on its own.
 
