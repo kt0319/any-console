@@ -20,6 +20,18 @@ export function useSplitDropDrag() {
     layoutStore.isShowDropZones = true;
   }
 
+  // PC（HTML5 D&D）用: ドラッグ追跡だけ開始し、オーバーレイはまだ出さない。タブバー上
+  // での並び替え目的の移動でドロップゾーンが即座に表示されてしまうのを避けるため、
+  // 表示自体はターミナル領域へのdragover（showDropZones）まで遅らせる
+  // （TerminalBase.vueの.output-containerが呼ぶ）。
+  function startTrackingDrag(tabId: number) {
+    layoutStore.dragTabId = tabId;
+  }
+
+  function showDropZones() {
+    layoutStore.isShowDropZones = true;
+  }
+
   function updateHover(clientX: number, clientY: number) {
     getDropZones().forEach((zone) => {
       const rect = zone.getBoundingClientRect();
@@ -77,6 +89,8 @@ export function useSplitDropDrag() {
 
   return {
     beginDrag,
+    startTrackingDrag,
+    showDropZones,
     updateHover,
     detectDropZone,
     applySplitDrop,

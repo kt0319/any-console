@@ -2,6 +2,7 @@
   <div
     class="output-container"
     :class="splitContainerClasses"
+    @dragover="onContainerDragOver"
   >
     <TerminalSplitDropZones v-if="isShowDropZones" />
 
@@ -64,6 +65,8 @@ import SplitEmptyPane from "./SplitEmptyPane.vue";
 import TerminalSplitDropZones from "./TerminalSplitDropZones.vue";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { useTerminalSplitPanes } from "../composables/useTerminalSplitPanes.ts";
+import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
 
 defineProps({
@@ -90,6 +93,15 @@ const {
 // TerminalPane の tab prop は TerminalTab として受けるため型上は TerminalTab に
 // 揃える（従来からの挙動そのままで、型のためのラッパー）。
 const getTabById = (tabId: number | string) => getTabByIdBase(tabId) as TerminalTab;
+
+// PC（HTML5 D&D）でタブをドラッグ中、カーソルがターミナル表示領域に入って初めて分割
+// ドロップゾーンを出す（タブバー上での並び替え中は表示しない。useTabDrag.tsのonDragStart
+// 参照）。dragTabIdが無ければ無関係なドラッグ（OSファイルドロップ等）なので何もしない。
+const layoutStore = useLayoutStore();
+const { showDropZones } = useSplitDropDrag();
+function onContainerDragOver() {
+  if (layoutStore.dragTabId != null) showDropZones();
+}
 
 defineExpose({ fitAllTerminals, selectPane });
 </script>

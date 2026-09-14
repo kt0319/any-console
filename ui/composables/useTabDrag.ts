@@ -20,7 +20,7 @@ export function useTabDrag(options: {
   const { tabId, pillEl, isClosePending } = options;
   const layoutStore = useLayoutStore();
   const terminalStore = useTerminalStore();
-  const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
+  const { beginDrag, startTrackingDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 
   const isDragging = ref(false);
   const dropSide = ref("");
@@ -47,7 +47,7 @@ export function useTabDrag(options: {
     e.dataTransfer!.setData("text/plain", String(tabId()));
     e.dataTransfer!.effectAllowed = "move";
     isDragging.value = true;
-    beginDrag(tabId());
+    startTrackingDrag(tabId());
   }
 
   function onDragEnd(e: DragEvent) {
