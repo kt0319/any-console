@@ -1,5 +1,8 @@
+// @vitest-environment happy-dom
 // @ts-check
 import { describe, it, expect } from "vitest";
+import { mount } from "@vue/test-utils";
+import { ref, computed, defineComponent, h, nextTick } from "vue";
 import {
   trailingItemsSignature,
   findChangedTrailingItems,
@@ -7,6 +10,7 @@ import {
   buildPeekText,
   buildPeekSignature,
 } from "../../ui/utils/pill-peek.ts";
+import { usePillPeek } from "../../ui/composables/usePillPeek.ts";
 
 const ALL_ON = {
   files: true,
@@ -179,6 +183,52 @@ describe("buildPeekText", () => {
     expect(buildPeekText("dispatch", { dispatchTooltip: "Run pending" })).toBe("Run pending");
     expect(buildPeekText("workspace", { workspaceLabel: "my-ws" })).toBe("my-ws");
     expect(buildPeekText("unknown-key", {})).toBe("");
+  });
+});
+
+describe("usePillPeek", () => {
+  function mountPillPeek() {
+    const branch = ref("main");
+    const ahead = ref(3);
+    const behind = ref(0);
+    const trailingPeekItems = computed(() => [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }]);
+    const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value }));
+    let peek;
+    const Comp = defineComponent({
+      setup() {
+        peek = usePillPeek({
+          trailingPeekItems,
+          paneWorkspace: computed(() => ({})),
+          workspaceKey: () => "ws1",
+          prsByWorkspace: ref({}),
+          runsByWorkspace: ref({}),
+          devServerEntry: computed(() => null),
+          ahead,
+          behind,
+          peekFields,
+        });
+        return () => h("div");
+      },
+    });
+    const wrapper = mount(Comp);
+    return { wrapper, peek, branch, ahead, behind };
+  }
+
+  it("同一ブランチでahead>0から0へ変わったらpush完了として件数を出す", async () => {
+    const { peek, ahead } = mountPillPeek();
+    ahead.value = 0;
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("branch");
+    expect(peek.branchPushCount.value).toBe(3);
+  });
+
+  it("ブランチ切替でahead>0から0へ変わってもpush完了扱いにしない", async () => {
+    const { peek, branch, ahead } = mountPillPeek();
+    branch.value = "feature";
+    ahead.value = 0;
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("branch");
+    expect(peek.branchPushCount.value).toBe(0);
   });
 });
 

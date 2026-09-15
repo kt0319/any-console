@@ -115,11 +115,15 @@ export function usePillPeek({
         if (changed.key === "branch") {
           // 直前のシグネチャ（branch:ahead:behind）と比べahead/behindが>0から0へ
           // 変わった＝push/pull完了の瞬間。直前の値がそのまま送信/取得されたコミット数になる。
-          const [, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
+          // ブランチ名が変わっている場合はブランチ切替（別ブランチのahead/behindを見ている
+          // だけ）であってpush/pull完了ではないため対象外にする。
+          const [prevBranch, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
           const prevAhead = Number(prevAheadStr) || 0;
           const prevBehind = Number(prevBehindStr) || 0;
-          if (prevAhead > 0 && ahead.value === 0) pushCount = prevAhead;
-          if (prevBehind > 0 && behind.value === 0) pullCount = prevBehind;
+          if (prevBranch === peekFields.value?.branch) {
+            if (prevAhead > 0 && ahead.value === 0) pushCount = prevAhead;
+            if (prevBehind > 0 && behind.value === 0) pullCount = prevBehind;
+          }
         }
         triggerPeek(changed.key, pushCount, pullCount);
       }
