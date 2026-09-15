@@ -87,7 +87,7 @@
             @focusin="activePillField = item.field"
             @focusout="clearActivePillField(item.field)"
           >
-            <input type="checkbox" :checked="getPillField(item.field)" @change="setPillField(item.field, ($event.target as HTMLInputElement).checked)" />
+            <input type="checkbox" :checked="getPillField(item.field)" @change="onPillToggle(item.field, ($event.target as HTMLInputElement).checked)" />
             <span class="mdi" :class="item.icon"></span>
             {{ item.label }}
           </label>
@@ -144,14 +144,21 @@ const orderedPillToggles = computed(() =>
   infoPillConfig.order.map((field) => PILL_TOGGLES.find((t) => t.field === field)).filter((t): t is (typeof PILL_TOGGLES)[number] => !!t),
 );
 
-// 各ピルの説明は個別に出さず、hover/フォーカス中の1件だけを共通のヒント欄
-// （pill-toggle-hint）に出す。mouseleave/focusoutは「今表示中のフィールドが
-// 自分の時だけ」クリアする（hoverからfocusへ移った時等に誤って消さないため）。
+// 各ピルの説明は個別に出さず、hover/フォーカス中またはチェック操作した1件
+// だけを共通のヒント欄（pill-toggle-hint）に出す。mouseleave/focusoutは
+// 「今表示中のフィールドが自分の時だけ」クリアする（hoverからfocusへ移った
+// 時等に誤って消さないため）。タップしかできないモバイルはhover/focusが
+// 効かないため、チェック操作時にも明示的に立てる（onPillToggle）。
 const activePillField = ref<string | null>(null);
 const activePillNote = computed(() => PILL_TOGGLES.find((t) => t.field === activePillField.value)?.note || "");
 
 function clearActivePillField(field: string) {
   if (activePillField.value === field) activePillField.value = null;
+}
+
+function onPillToggle(field: string, checked: boolean) {
+  setPillField(field, checked);
+  activePillField.value = field;
 }
 
 function getPillField(field: string): boolean {
