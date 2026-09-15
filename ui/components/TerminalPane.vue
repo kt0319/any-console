@@ -13,12 +13,19 @@
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeypad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
-    <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
-      <div
-        class="pill-group"
-        :class="{ 'pill-group-bottom': layoutStore.isPanelBottom }"
-        ref="pillEl"
-      >
+    <!-- barモードは各ペイン上部にフローの一部として帯を固定するため、絶対配置基準
+         である.terminal-frameの外（兄弟）に置く。floatモードでも.pill-groupは
+         position:absoluteのままなので、.terminal-frame(inset:0)基準から
+         .terminal-pane(position:relative)基準に変わるだけで見た目は変わらない。 -->
+    <div
+      v-if="infoPillConfig.displayMode !== 'off'"
+      class="pill-group"
+      :class="{
+        'pill-group-bottom': layoutStore.isPanelBottom && infoPillConfig.displayMode !== 'bar',
+        'pill-group-bar': infoPillConfig.displayMode === 'bar',
+      }"
+      ref="pillEl"
+    >
         <Transition name="pill-fade" mode="out-in">
         <PillPeek
           v-if="peekingKey"
@@ -83,8 +90,13 @@
         ><span class="mdi mdi-close"></span></button>
         </div>
         </Transition>
-      </div>
     </div>
+    <div
+      :id="'frame-' + tab.id"
+      class="terminal-frame"
+      :class="{ 'terminal-frame-bar-mode': infoPillConfig.displayMode === 'bar' }"
+      ref="frameEl"
+    ></div>
   </div>
 </template>
 
@@ -96,6 +108,7 @@ import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useTerminalSettingsStore } from "../stores/terminal-settings.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
 import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
@@ -134,6 +147,7 @@ const tabRef = toRef(props, "tab");
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
+const infoPillConfig = useInfoPillConfigStore();
 const { confirmAndCloseTab } = useTabClose();
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
@@ -544,6 +558,18 @@ defineExpose({
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+
+/* Info Pills（bar表示）が.terminal-frameの前に帯として実要素で並ぶため、
+   絶対配置で親全体を覆う代わりに.terminal-pane（flex-direction:column）の
+   残り高さを占めるフローアイテムにする。ResizeObserver（observeFrameResize）
+   がこのサイズ変化を検知してxtermを自動fitする。 */
+.terminal-frame.terminal-frame-bar-mode {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 
 .terminal-frame :deep(.xterm) {

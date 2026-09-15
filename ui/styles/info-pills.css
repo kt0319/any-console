@@ -31,6 +31,22 @@
   bottom: 10px;
 }
 
+/* Info Pills設定のDisplayで「Bar」を選んだ場合。ターミナルに重ねて浮かせる
+   floatと違い、.terminal-pane（display:flex; flex-direction:column）の
+   フロー内に実要素として置き、幅いっぱいの帯にする（TerminalPane.vue側で
+   .terminal-frame を .terminal-frame-bar-mode にしてこの帯の高さぶん縮める）。 */
+.pill-group.pill-group-bar {
+  position: static;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  z-index: auto;
+}
+
 /* peekピル（pill-peek-wide）と、展開ボタン群・ワークスペースピル本体・
    閉じるボタンをまとめた .pill-normal-group は、1つの Transition
    (mode="out-in") のv-if/v-elseで排他的に表示される。ワークスペースピル・

@@ -2,6 +2,15 @@
   <div class="modal-scroll-body">
     <div v-if="!infoPillConfig.loaded" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
+      <div class="settings-item">
+        <span class="settings-item-label">Display</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="infoPillConfig.displayMode" value="off" @change="infoPillConfig.save()" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="infoPillConfig.displayMode" value="float" @change="infoPillConfig.save()" /> Float</label>
+          <label class="form-check-label"><input type="radio" v-model="infoPillConfig.displayMode" value="bar" @change="infoPillConfig.save()" /> Bar</label>
+        </div>
+        <span class="settings-note">Float overlays the terminal at the top/bottom corner. Bar reserves a fixed strip at the top of each pane.</span>
+      </div>
       <label
         v-for="(item, idx) in orderedToggles"
         :key="item.field"
@@ -10,6 +19,7 @@
           'drag-source': dragFromIdx === idx,
           'drag-over-above': dragOverIdx === idx && dragFromIdx !== null && dragFromIdx > idx,
           'drag-over-below': dragOverIdx === idx && dragFromIdx !== null && dragFromIdx < idx,
+          'display-settings-disabled': infoPillConfig.displayMode === 'off',
         }"
       >
         <span class="drag-handle" aria-hidden="true" @pointerdown.prevent="onDragStart($event, idx)">

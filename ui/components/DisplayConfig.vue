@@ -128,13 +128,6 @@ onMounted(() => { modalTitle!.value = "Display"; });
   color: var(--text-secondary);
 }
 
-.display-settings-radio-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 4px;
-}
-
 .display-settings-level-list {
   display: flex;
   gap: 12px;
@@ -161,11 +154,6 @@ onMounted(() => { modalTitle!.value = "Display"; });
 .debug-level-error { color: var(--error); }
 .debug-level-info { color: var(--accent); }
 .debug-level-log { color: var(--text-secondary); }
-
-.display-settings-disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
 
 .display-settings-actions {
   display: flex;
