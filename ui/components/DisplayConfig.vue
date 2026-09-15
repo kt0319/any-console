@@ -77,20 +77,22 @@
     <template v-else>
       <div class="settings-item">
         <span class="settings-item-label">Pills</span>
-        <div class="pill-toggle-grid">
+        <div class="display-settings-radio-row">
           <label
             v-for="item in orderedPillToggles"
             :key="item.field"
-            class="pill-toggle-card"
+            class="form-check-label pill-toggle-label"
+            @mouseenter="activePillField = item.field"
+            @mouseleave="clearActivePillField(item.field)"
+            @focusin="activePillField = item.field"
+            @focusout="clearActivePillField(item.field)"
           >
-            <span class="form-check-label pill-toggle-label">
-              <input type="checkbox" :checked="getPillField(item.field)" @change="setPillField(item.field, ($event.target as HTMLInputElement).checked)" />
-              <span class="mdi" :class="item.icon"></span>
-              {{ item.label }}
-            </span>
-            <span class="pill-toggle-note">{{ item.note }}</span>
+            <input type="checkbox" :checked="getPillField(item.field)" @change="setPillField(item.field, ($event.target as HTMLInputElement).checked)" />
+            <span class="mdi" :class="item.icon"></span>
+            {{ item.label }}
           </label>
         </div>
+        <span class="settings-note pill-toggle-hint">{{ activePillNote || " " }}</span>
       </div>
     </template>
     <label class="settings-item settings-toggle">
@@ -116,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.ts";
 import { useLayoutPrefs } from "../composables/useLayoutPrefs.ts";
 import { DEFAULT_LAYOUT_PREFS } from "../utils/layout-prefs.ts";
@@ -141,6 +143,16 @@ const PILL_TOGGLES = INFO_PILLS.map(({ key, label, note, peekIcon }) => ({ field
 const orderedPillToggles = computed(() =>
   infoPillConfig.order.map((field) => PILL_TOGGLES.find((t) => t.field === field)).filter((t): t is (typeof PILL_TOGGLES)[number] => !!t),
 );
+
+// 各ピルの説明は個別に出さず、hover/フォーカス中の1件だけを共通のヒント欄
+// （pill-toggle-hint）に出す。mouseleave/focusoutは「今表示中のフィールドが
+// 自分の時だけ」クリアする（hoverからfocusへ移った時等に誤って消さないため）。
+const activePillField = ref<string | null>(null);
+const activePillNote = computed(() => PILL_TOGGLES.find((t) => t.field === activePillField.value)?.note || "");
+
+function clearActivePillField(field: string) {
+  if (activePillField.value === field) activePillField.value = null;
+}
 
 function getPillField(field: string): boolean {
   return (infoPillConfig as unknown as Record<string, boolean>)[field];
@@ -168,30 +180,14 @@ onMounted(() => { modalTitle!.value = "Display"; });
 </script>
 
 <style scoped>
-.pill-toggle-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 4px;
-}
-
-.pill-toggle-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 220px;
-  cursor: pointer;
-}
-
 .pill-toggle-label .mdi {
   font-size: 16px;
   color: var(--text-secondary);
 }
 
-.pill-toggle-note {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.4;
+.pill-toggle-hint {
+  display: block;
+  min-height: 1.4em;
 }
 
 .display-settings-device-note {
