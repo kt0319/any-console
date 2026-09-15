@@ -23,7 +23,6 @@ import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
-import InfoPillConfig from "../../../ui/components/InfoPillConfig.vue";
 import InfoPillRow from "../../../ui/components/InfoPillRow.vue";
 import PillPeek from "../../../ui/components/PillPeek.vue";
 import FileBrowser from "../../../ui/components/FileBrowser.vue";
@@ -213,32 +212,6 @@ describe("a11y: AuthConfig (API Tokens section)", () => {
   });
 });
 
-describe("a11y: InfoPillConfig", () => {
-  function jsonResponse(data) {
-    return Promise.resolve({ ok: true, status: 200, json: async () => data });
-  }
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("Info Pills 設定画面（Loading / 読み込み後）に a11y 違反が無い", async () => {
-    setActivePinia(createPinia());
-    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({})));
-
-    const wrapper = mount(InfoPillConfig, {
-      global: { provide: { modalTitle: ref("") } },
-      attachTo: document.body,
-    });
-    await expectNoA11yViolations(wrapper.element);
-
-    await flushPromises();
-    await expectNoA11yViolations(wrapper.element);
-
-    wrapper.unmount();
-  });
-});
-
 describe("a11y: InfoPillRow", () => {
   it("全ピル表示状態でアクセシブルネーム等に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
@@ -414,13 +387,29 @@ describe("a11y: TabBar", () => {
 });
 
 describe("a11y: DisplayConfig", () => {
+  function jsonResponse(data) {
+    return Promise.resolve({ ok: true, status: 200, json: async () => data });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("Narrow/Wideのタブ位置・Keyboard bar設定に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({})));
+
     const wrapper = mount(DisplayConfig, {
       global: { provide: { modalTitle: ref("") } },
       attachTo: document.body,
     });
     await nextTick();
     await expectNoA11yViolations(wrapper.element);
+
+    // Info Pillsセクション（サーバ設定のload完了後）も検査する。
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+
     wrapper.unmount();
   });
 });

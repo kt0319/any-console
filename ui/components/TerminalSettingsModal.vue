@@ -31,7 +31,6 @@ import SendSnippet from "./SendSnippet.vue";
 import SendHistory from "./SendHistory.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeypadConfig from "./CircleKeypadConfig.vue";
-import InfoPillConfig from "./InfoPillConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 
 // タブバーの歯車ボタンから開くSettings系列専用の全面オーバーレイ。
@@ -65,7 +64,6 @@ const VIEWS: Record<string, unknown> = {
   SendHistory,
   NotificationConfig,
   CircleKeypadConfig,
-  InfoPillConfig,
   ConfigFile,
 };
 

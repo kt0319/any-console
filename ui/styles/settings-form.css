@@ -50,8 +50,7 @@
 }
 
 /* off/A/B等の排他選択を横並びラジオ行で表す共通レイアウト
-   （DisplayConfig.vue のTab bar/Title bar/Keyboard bar、InfoPillConfig.vue の
-   Display など）。 */
+   （DisplayConfig.vue のTab bar/Title bar/Keyboard bar/Info Pills Display等）。 */
 .display-settings-radio-row {
   display: flex;
   flex-wrap: wrap;
@@ -60,7 +59,7 @@
 }
 
 /* ラジオ選択の結果、下位の項目が意味を持たなくなる時にグレーアウトする
-   （DisplayConfig.vue のLog levels、InfoPillConfig.vue のピル個別トグル等）。 */
+   （DisplayConfig.vue のLog levels、Info Pillsのピル個別トグル等）。 */
 .display-settings-disabled {
   opacity: 0.4;
   pointer-events: none;
