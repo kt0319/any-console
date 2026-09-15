@@ -270,6 +270,19 @@ function onSettingsClick() {
   background: var(--border);
 }
 
+/* 左端のセッションサイドバー開閉ボタンとタブの間にも、上の「+」ボタンと同じ
+   縦線を出す（先頭タブがアクティブでない時だけ）。隙間はボタンのmargin-right(4px)
+   +.tab-barのpadding-left(8px)=12pxのため -(12+1)/2 = -6px で中央にする。 */
+.tab-bar-row:has(.tab-bar-tabs .tab-btn):not(:has(.tab-bar-tabs .tab-btn.active:first-child)) > .tab-menu-btn:first-child::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--border);
+}
+
 .tab-menu-btn:active {
   background: var(--bg-tertiary);
 }
