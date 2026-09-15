@@ -77,16 +77,18 @@
     <template v-else>
       <div class="settings-item">
         <span class="settings-item-label">Pills</span>
-        <div class="display-settings-radio-row">
+        <div class="pill-toggle-grid">
           <label
             v-for="item in orderedPillToggles"
             :key="item.field"
-            class="form-check-label pill-toggle-label"
-            :data-tooltip="item.note"
+            class="pill-toggle-card"
           >
-            <input type="checkbox" :checked="getPillField(item.field)" @change="setPillField(item.field, ($event.target as HTMLInputElement).checked)" />
-            <span class="mdi" :class="item.icon"></span>
-            {{ item.label }}
+            <span class="form-check-label pill-toggle-label">
+              <input type="checkbox" :checked="getPillField(item.field)" @change="setPillField(item.field, ($event.target as HTMLInputElement).checked)" />
+              <span class="mdi" :class="item.icon"></span>
+              {{ item.label }}
+            </span>
+            <span class="pill-toggle-note">{{ item.note }}</span>
           </label>
         </div>
       </div>
@@ -166,9 +168,30 @@ onMounted(() => { modalTitle!.value = "Display"; });
 </script>
 
 <style scoped>
+.pill-toggle-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.pill-toggle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 220px;
+  cursor: pointer;
+}
+
 .pill-toggle-label .mdi {
   font-size: 16px;
   color: var(--text-secondary);
+}
+
+.pill-toggle-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .display-settings-device-note {
