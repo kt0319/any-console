@@ -482,6 +482,14 @@
   background-image: none;
 }
 
+/* 分割モードは非アクティブペインが常時見えているため、working pulseが
+   複数ペインで同時に動いて騒がしくなる。分割中は（active/非activeを問わず）
+   一律で止める。 */
+.main-panel.split-mode .pill-chip.pill-working {
+  animation: none;
+  background-image: none;
+}
+
 
 /* 既知エージェントの承認・入力待ち（blocked）。タブの通知点滅と同じ青・同じリズムで
    点滅する（working の「流れるグラデーション」とは動きの種類で区別する）。
