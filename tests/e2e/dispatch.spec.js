@@ -55,6 +55,26 @@ test.describe("dispatch", () => {
     expect(res.ok()).toBeTruthy();
   }
 
+  // 1x1 transparent PNG（アップロード可能な最小の有効な画像バイナリ）。
+  const TINY_PNG_BASE64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+  /** POST /upload-image で画像をアップロードし、サーバローカルパスを返す（cookie認証）。 */
+  async function uploadImage(page, filename = "e2e.png") {
+    const res = await page.request.post(`${BASE_URL}/upload-image`, {
+      multipart: {
+        file: {
+          name: filename,
+          mimeType: "image/png",
+          buffer: Buffer.from(TINY_PNG_BASE64, "base64"),
+        },
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+    const data = await res.json();
+    return data.path;
+  }
+
   /**
    * Dispatch タブを開く。"dispatch" はディープリンクのpaneクエリ対応外
    * （ui/composables/useDeepLink.ts の VALID_PANES。push通知タップ時の
@@ -104,5 +124,35 @@ test.describe("dispatch", () => {
 
     // 一覧へ戻り（emits("back")）、Pendingが無くなっていること。
     await expect(page.locator(".dispatch-queue-pending-row")).toHaveCount(0, { timeout: 10_000 });
+  });
+
+  test("画像添付dispatchのRunで、Image:行が実際にターミナルへ流し込まれる（受付〜CLI側読取のE2E）", async ({ page }) => {
+    const imagePath = await uploadImage(page);
+    await postDispatch(page, {
+      text: "",
+      image_paths: [imagePath],
+      dedup_key: `e2e-image-${Date.now()}`,
+    });
+    await openDispatchTab(page);
+
+    const pendingRow = page.locator(".dispatch-queue-pending-row").first();
+    await expect(pendingRow).toBeVisible({ timeout: 10_000 });
+    await pendingRow.click();
+
+    const runBtn = page.getByRole("button", { name: /Run$/ });
+    await expect(runBtn).toBeVisible({ timeout: 10_000 });
+    await runBtn.click();
+    await expect(page.locator(".modal-title")).toBeHidden({ timeout: 10_000 });
+
+    // Run成功時は新規セッションのターミナルタブへ自動遷移する（useDispatchQueue.ts
+    // の focusSession）。実CLIエージェントは起動せず、tmuxへ実際に送られた
+    // テキストに compose_text_with_images（server/src/dispatch.rs）が組み立てた
+    // `Image: <path>` 行が含まれることを、シェルのエコーバックで確認する
+    // （job-auto-detect.spec.js / terminal.spec.js と同じ、素のシェル入力で
+    // 検証する既存パターンを踏襲）。
+    const imageName = imagePath.split("/").pop();
+    const term = page.locator(".xterm >> visible=true").first();
+    await expect(term).toContainText("Image:", { timeout: 10_000 });
+    await expect(term).toContainText(imageName, { timeout: 10_000 });
   });
 });

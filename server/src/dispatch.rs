@@ -20,6 +20,8 @@
 //! CLIエージェント（Claude Code等）がそのパス言及を見て自分のファイルツールで画像を
 //! 読みに行く前提。
 
+use std::collections::HashSet;
+use std::ffi::OsString;
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
@@ -46,6 +48,10 @@ use crate::util::{now_epoch, JsonBody};
 const RECENT_LIMIT: usize = 10;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
 const API_TOKEN_SCOPE_LABEL_PREFIX: &str = "token:";
+/// 決定（実行/破棄）済みdispatchの添付画像を保持する期間。超過分は
+/// `sweep_expired_dispatch_images` が削除し、Recent側の `image_paths` を
+/// 空にした上で `images_expired: true` を立てる。
+const DISPATCH_IMAGE_TTL_SEC: i64 = 24 * 60 * 60;
 
 // ─── 永続化状態 ──────────────────────────────────────────────────────────────
 
@@ -95,6 +101,7 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
             .collect();
         *state.dispatch.recent.lock().await = valid;
     }
+    sweep_expired_dispatch_images(state).await;
     broadcast_queue(state).await;
 }
 
@@ -503,6 +510,107 @@ async fn resolve_session(
     find_existing_session(state, effective_ws, &body.job, &body.match_mode).await
 }
 
+// ─── 添付画像のライフサイクル ────────────────────────────────────────────────
+
+/// dispatch 1件の添付画像を、`uploads_dir()` などの一時領域から
+/// `dispatch_images_dir(dispatch_id)` へ集約する（idempotent）。既にそこに
+/// あるファイルは移動せず、現在の `image_paths` に含まれなくなったフォルダ内の
+/// 孤立ファイル（Run前の差し替え・削除分）は削除する。戻り値は移動後のパス
+/// （移動に失敗した分は元のパスのまま、ベストエフォート）。
+async fn sync_dispatch_image_dir(
+    paths: &Paths,
+    dispatch_id: &str,
+    image_paths: &[String],
+) -> Vec<String> {
+    if image_paths.is_empty() {
+        return Vec::new();
+    }
+    let dir = paths.dispatch_images_dir(dispatch_id);
+    if let Err(e) = tokio::fs::create_dir_all(&dir).await {
+        tracing::warn!("dispatch image dir create failed ({}): {e}", dir.display());
+        return image_paths.to_vec();
+    }
+    let mut result = Vec::with_capacity(image_paths.len());
+    let mut keep_names: HashSet<OsString> = HashSet::new();
+    for src in image_paths {
+        let src_path = PathBuf::from(src);
+        if src_path.parent() == Some(dir.as_path()) {
+            if let Some(name) = src_path.file_name() {
+                keep_names.insert(name.to_os_string());
+            }
+            result.push(src.clone());
+            continue;
+        }
+        let Some(name) = src_path.file_name() else {
+            result.push(src.clone());
+            continue;
+        };
+        let dest = dir.join(name);
+        match tokio::fs::rename(&src_path, &dest).await {
+            Ok(()) => {
+                keep_names.insert(name.to_os_string());
+                result.push(dest.to_string_lossy().into_owned());
+            }
+            Err(e) => {
+                tracing::warn!("dispatch image move failed ({src}): {e}");
+                result.push(src.clone());
+            }
+        }
+    }
+    if let Ok(mut entries) = tokio::fs::read_dir(&dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if !keep_names.contains(&entry.file_name()) {
+                let _ = tokio::fs::remove_file(entry.path()).await;
+            }
+        }
+    }
+    result
+}
+
+/// 決定済み（実行/破棄）dispatchの添付画像を、TTL（`DISPATCH_IMAGE_TTL_SEC`）
+/// 超過分だけ削除する。`upload_image.rs::prune_old_uploads` と同じく能動的な
+/// バックグラウンドタイマーは持たず、起動時・新規dispatch受付の都度呼び出す
+/// アクセス時lazy sweep方式。
+async fn sweep_expired_dispatch_images(state: &Arc<AppState>) {
+    let now = now_epoch();
+    let mut expired_ids: Vec<String> = Vec::new();
+    {
+        let mut recent = state.dispatch.recent.lock().await;
+        for item in recent.iter_mut() {
+            let has_images = item["request"]["image_paths"]
+                .as_array()
+                .map(|a| !a.is_empty())
+                .unwrap_or(false);
+            if !has_images {
+                continue;
+            }
+            let decided_at = item["request"]["decided_at"].as_i64().unwrap_or(0);
+            if now - decided_at < DISPATCH_IMAGE_TTL_SEC {
+                continue;
+            }
+            let Some(id) = item.get("id").and_then(Value::as_str).map(str::to_string) else {
+                continue;
+            };
+            if let Some(req_obj) = item.get_mut("request").and_then(Value::as_object_mut) {
+                req_obj.insert("image_paths".to_string(), json!([]));
+                req_obj.insert("images_expired".to_string(), json!(true));
+            }
+            expired_ids.push(id);
+        }
+    }
+    for id in &expired_ids {
+        let dir = state.paths.dispatch_images_dir(id);
+        if let Err(e) = tokio::fs::remove_dir_all(&dir).await {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!("dispatch image dir cleanup failed ({}): {e}", dir.display());
+            }
+        }
+    }
+    if !expired_ids.is_empty() {
+        persist_recent(state).await;
+    }
+}
+
 /// 貼り付けられた画像パスを送信テキストへ埋め込む。CLIエージェント（Claude Code等）は
 /// テキスト中のファイルパス言及から Read ツールで画像を読みに行くため、tmux 環境変数
 /// 経由ではなく本文に含める必要がある。
@@ -777,6 +885,8 @@ async fn dispatch_core(
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
 
+    sweep_expired_dispatch_images(state).await;
+
     if body.direct {
         return Err(bad_request(
             "Direct dispatch execution is no longer supported; submit to the approval queue instead",
@@ -851,6 +961,17 @@ async fn dispatch_core(
         ]),
     );
 
+    // 最終的に採用された dispatch_id（dedup coalesce時は既存id）が確定してから
+    // 添付画像を専用領域へ集約する。uploads_dir() の件数上限プルーニングの
+    // 対象から外れ、pending中に消えなくなる。
+    if !body.image_paths.is_empty() {
+        let synced = sync_dispatch_image_dir(&state.paths, &dispatch_id, &body.image_paths).await;
+        let mut pending = state.dispatch.pending.lock().await;
+        if let Some(req_obj) = pending.get_mut(&dispatch_id).and_then(Value::as_object_mut) {
+            req_obj.insert("image_paths".to_string(), json!(synced));
+        }
+    }
+
     persist_and_broadcast(state).await;
 
     Ok((
@@ -902,6 +1023,11 @@ pub async fn dispatch_execute(
         let mut dispatch_body: DispatchRequest =
             serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
         dispatch_body.apply_overrides(&body.overrides);
+        if !dispatch_body.image_paths.is_empty() {
+            dispatch_body.image_paths =
+                sync_dispatch_image_dir(&state.paths, &dispatch_id, &dispatch_body.image_paths)
+                    .await;
+        }
 
         let result = match launch(&state, &dispatch_body).await {
             Ok(r) => r,
@@ -965,6 +1091,14 @@ pub async fn dispatch_execute(
     req.session_id = None;
     req.apply_overrides(&body.overrides);
 
+    // 履歴からの再実行は新規 dispatch_id を持つ扱いなので、添付画像もその
+    // dispatch_id 専用領域へ集約してから launch する（古い決定済みitemの
+    // フォルダから移されるため、そちらは以後空になる）。
+    let new_id = crate::util::token_urlsafe(8);
+    if !req.image_paths.is_empty() {
+        req.image_paths = sync_dispatch_image_dir(&state.paths, &new_id, &req.image_paths).await;
+    }
+
     let result = match launch(&state, &req).await {
         Ok(r) => r,
         Err(e) => {
@@ -973,7 +1107,6 @@ pub async fn dispatch_execute(
         }
     };
     log_dispatch_executed(&state, &result, auth_label);
-    let new_id = crate::util::token_urlsafe(8);
     let mut request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
     // 履歴からの再実行は新規dispatchとして扱い、受付時刻も再送された「今」にする。
     if let Value::Object(map) = &mut request_value {
@@ -1272,5 +1405,114 @@ mod tests {
     async fn test_state(dir: &tempfile::TempDir) -> Arc<AppState> {
         // rate_limit はテストの連続リクエストが制限に触れないよう引き上げる。
         Arc::new(crate::state::test_app_state(dir.path(), "test-", 10_000))
+    }
+
+    #[tokio::test]
+    async fn sync_dispatch_image_dir_moves_new_files_into_dispatch_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let uploads = state.paths.uploads_dir();
+        std::fs::create_dir_all(&uploads).unwrap();
+        let src = uploads.join("a.png");
+        std::fs::write(&src, b"x").unwrap();
+
+        let synced =
+            sync_dispatch_image_dir(&state.paths, "disp1", &[src.to_string_lossy().into_owned()])
+                .await;
+
+        assert_eq!(synced.len(), 1);
+        assert!(!src.exists(), "元ファイルは移動されて残らない");
+        let expected = state.paths.dispatch_images_dir("disp1").join("a.png");
+        assert_eq!(synced[0], expected.to_string_lossy());
+        assert!(expected.exists());
+    }
+
+    #[tokio::test]
+    async fn sync_dispatch_image_dir_is_noop_for_already_placed_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let img_dir = state.paths.dispatch_images_dir("disp1");
+        std::fs::create_dir_all(&img_dir).unwrap();
+        let path = img_dir.join("a.png");
+        std::fs::write(&path, b"x").unwrap();
+        let path_str = path.to_string_lossy().into_owned();
+
+        let synced =
+            sync_dispatch_image_dir(&state.paths, "disp1", std::slice::from_ref(&path_str)).await;
+
+        assert_eq!(synced, vec![path_str]);
+        assert!(path.exists());
+    }
+
+    #[tokio::test]
+    async fn sync_dispatch_image_dir_removes_orphaned_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let img_dir = state.paths.dispatch_images_dir("disp1");
+        std::fs::create_dir_all(&img_dir).unwrap();
+        let kept = img_dir.join("keep.png");
+        let stale = img_dir.join("stale.png");
+        std::fs::write(&kept, b"x").unwrap();
+        std::fs::write(&stale, b"x").unwrap();
+
+        let synced = sync_dispatch_image_dir(
+            &state.paths,
+            "disp1",
+            &[kept.to_string_lossy().into_owned()],
+        )
+        .await;
+
+        assert_eq!(synced, vec![kept.to_string_lossy().into_owned()]);
+        assert!(kept.exists(), "現在参照されているファイルは残る");
+        assert!(!stale.exists(), "参照が外れたファイルは削除される");
+    }
+
+    #[tokio::test]
+    async fn sweep_expired_dispatch_images_keeps_items_within_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let img_dir = state.paths.dispatch_images_dir("disp1");
+        std::fs::create_dir_all(&img_dir).unwrap();
+        let img_path = img_dir.join("a.png").to_string_lossy().into_owned();
+        state.dispatch.recent.lock().await.push(json!({
+            "id": "disp1",
+            "request": {"image_paths": [img_path], "decided_at": now_epoch()},
+            "outcome": "executed",
+        }));
+
+        sweep_expired_dispatch_images(&state).await;
+
+        let recent = state.dispatch.recent.lock().await;
+        assert_eq!(
+            recent[0]["request"]["image_paths"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(recent[0]["request"]["images_expired"].is_null());
+        assert!(state.paths.dispatch_images_dir("disp1").exists());
+    }
+
+    #[tokio::test]
+    async fn sweep_expired_dispatch_images_clears_paths_and_removes_dir_past_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let img_dir = state.paths.dispatch_images_dir("disp1");
+        std::fs::create_dir_all(&img_dir).unwrap();
+        let img_path = img_dir.join("a.png").to_string_lossy().into_owned();
+        let old_decided_at = now_epoch() - DISPATCH_IMAGE_TTL_SEC - 1;
+        state.dispatch.recent.lock().await.push(json!({
+            "id": "disp1",
+            "request": {"image_paths": [img_path], "decided_at": old_decided_at},
+            "outcome": "executed",
+        }));
+
+        sweep_expired_dispatch_images(&state).await;
+
+        let recent = state.dispatch.recent.lock().await;
+        assert_eq!(recent[0]["request"]["image_paths"], json!([]));
+        assert_eq!(recent[0]["request"]["images_expired"], json!(true));
+        assert!(!state.paths.dispatch_images_dir("disp1").exists());
     }
 }

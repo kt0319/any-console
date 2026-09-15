@@ -145,6 +145,14 @@ impl Paths {
     pub fn uploads_dir(&self) -> PathBuf {
         self.data_dir.join("uploads")
     }
+
+    /// dispatch 1件分の添付画像の保存先。受付が確定した dispatch_id 単位で
+    /// 隔離することで、`uploads_dir()` の件数上限プルーニング（アップロード
+    /// 側の一時領域）の対象から外し、pending中に消えないようにする
+    /// （dispatch.rs の `sync_dispatch_image_dir` 参照）。
+    pub fn dispatch_images_dir(&self, dispatch_id: &str) -> PathBuf {
+        self.data_dir.join("dispatch-images").join(dispatch_id)
+    }
 }
 
 #[cfg(test)]
@@ -164,6 +172,10 @@ mod tests {
             tmux_prefix: "ac-".to_string(),
         };
         assert_eq!(paths.uploads_dir(), PathBuf::from("/tmp/isolated/uploads"));
+        assert_eq!(
+            paths.dispatch_images_dir("abc123"),
+            PathBuf::from("/tmp/isolated/dispatch-images/abc123")
+        );
     }
 
     #[test]

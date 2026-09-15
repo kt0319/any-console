@@ -92,6 +92,7 @@
           </ul>
           <p class="dispatch-run-image-hint">Images are sent as file path references appended to the text, not as binary data.</p>
         </template>
+        <p v-else-if="imagesExpired" class="dispatch-run-image-hint">Attached images have expired and were removed.</p>
       </div>
 
       <div v-if="missingBranchBlockReason" class="job-config-error">{{ missingBranchBlockReason }}</div>
@@ -209,6 +210,9 @@ const localBranches = computed(() => asyncValueOr(branchesState.value, [] as str
 const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
+// TTL経過でサーバ側が添付画像を削除した後のRecent item（`images_expired`
+// フラグ、server/src/dispatch.rs の sweep_expired_dispatch_images 参照）。
+const imagesExpired = ref(false);
 
 function initFromRequest(req: Record<string, any> | null) {
   // create_branch時のbranchは「新規ブランチ名」、それ以外は「切替先ブランチ」を意味する。
@@ -222,6 +226,7 @@ function initFromRequest(req: Record<string, any> | null) {
   baseBranch.value = req?.base_branch || "";
   text.value = req?.text || "";
   imagePaths.value = Array.isArray(req?.image_paths) ? [...req.image_paths] : [];
+  imagesExpired.value = !!req?.images_expired;
   selectedWorkspace.value = req?.workspace || "";
   selectedJob.value = req?.job || "terminal";
   selectedSessionId.value = req?.existing_session_id || props.preferredSessionId || NEW_SESSION_VALUE;
