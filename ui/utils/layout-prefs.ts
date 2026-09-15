@@ -14,6 +14,9 @@ export interface LayoutPrefs {
   wideTabPosition: TabPosition;
   narrowKeyboardBar: boolean;
   wideKeyboardBar: boolean;
+  // セッションサイドバーはワイド画面でのみ開けるため、Keyboard barの幅モードも
+  // ワイドのみ持たせる（狭い画面では常にフル幅表示になり選択の余地が無い）。
+  wideKeyboardBarFullWidth: boolean;
   narrowTitleBarPosition: TitleBarPosition;
   wideTitleBarPosition: TitleBarPosition;
 }
@@ -26,6 +29,7 @@ export const DEFAULT_LAYOUT_PREFS: LayoutPrefs = {
   wideTabPosition: "top",
   narrowKeyboardBar: true,
   wideKeyboardBar: false,
+  wideKeyboardBarFullWidth: false,
   narrowTitleBarPosition: "bottom",
   wideTitleBarPosition: "off",
 };
@@ -51,6 +55,7 @@ export function normalizeLayoutPrefs(raw: unknown): LayoutPrefs {
     wideTabPosition: normalizeTabPosition(r.wideTabPosition, DEFAULT_LAYOUT_PREFS.wideTabPosition),
     narrowKeyboardBar: normalizeBoolean(r.narrowKeyboardBar, DEFAULT_LAYOUT_PREFS.narrowKeyboardBar),
     wideKeyboardBar: normalizeBoolean(r.wideKeyboardBar, DEFAULT_LAYOUT_PREFS.wideKeyboardBar),
+    wideKeyboardBarFullWidth: normalizeBoolean(r.wideKeyboardBarFullWidth, DEFAULT_LAYOUT_PREFS.wideKeyboardBarFullWidth),
     narrowTitleBarPosition: normalizeTitleBarPosition(r.narrowTitleBarPosition, DEFAULT_LAYOUT_PREFS.narrowTitleBarPosition),
     wideTitleBarPosition: normalizeTitleBarPosition(r.wideTitleBarPosition, DEFAULT_LAYOUT_PREFS.wideTitleBarPosition),
   };

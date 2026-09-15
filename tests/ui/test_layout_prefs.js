@@ -16,6 +16,7 @@ describe("normalizeLayoutPrefs", () => {
       wideTabPosition: "bottom",
       narrowKeyboardBar: false,
       wideKeyboardBar: true,
+      wideKeyboardBarFullWidth: true,
       narrowTitleBarPosition: "top",
       wideTitleBarPosition: "bottom",
     })).toEqual({
@@ -23,9 +24,14 @@ describe("normalizeLayoutPrefs", () => {
       wideTabPosition: "bottom",
       narrowKeyboardBar: false,
       wideKeyboardBar: true,
+      wideKeyboardBarFullWidth: true,
       narrowTitleBarPosition: "top",
       wideTitleBarPosition: "bottom",
     });
+  });
+
+  it("wideKeyboardBarFullWidthの不正な値は既定値にフォールバックする", () => {
+    expect(normalizeLayoutPrefs({ wideKeyboardBarFullWidth: "yes" })).toEqual(DEFAULT_LAYOUT_PREFS);
   });
 
   it("部分的な値は既定値とマージする", () => {

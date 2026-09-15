@@ -29,6 +29,8 @@ export const useLayoutStore = defineStore("layout", () => {
     set: (v) => { isNarrowViewport.value = v; },
   });
   const keyboardBarVisible = computed(() => resolveKeyboardBarVisible(layoutPrefs.value, isNarrowViewport.value));
+  // 狭い画面ではサイドバー自体が開けないため常にフル幅（考慮不要）。
+  const keyboardBarFullWidth = computed(() => isNarrowViewport.value || layoutPrefs.value.wideKeyboardBarFullWidth);
   const titleBarPosition = computed(() => resolveTitleBarPosition(layoutPrefs.value, isNarrowViewport.value));
   const titleBarVisible = computed(() => titleBarPosition.value !== "off");
   const titleBarAtBottom = computed(() => titleBarPosition.value === "bottom");
@@ -229,6 +231,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isPanelBottom,
     isNarrowViewport,
     keyboardBarVisible,
+    keyboardBarFullWidth,
     titleBarVisible,
     titleBarAtBottom,
     isTouchDevice,

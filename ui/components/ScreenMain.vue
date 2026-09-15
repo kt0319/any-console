@@ -31,7 +31,7 @@
       <TerminalSettingsModal />
       <WorkspaceDetailModal />
     </div>
-    <KeyboardBar :visible="keyboardBarVisible" :class="{ 'keyboard-bar-sidebar-open': isSessionSidebarOpen && !isNarrowViewport }" />
+    <KeyboardBar :visible="keyboardBarVisible" :class="{ 'keyboard-bar-sidebar-open': isSessionSidebarOpen && !isNarrowViewport && !layoutStore.keyboardBarFullWidth }" />
     <div v-if="booting || isLaunching" class="block-layer"></div>
 
   </div>
