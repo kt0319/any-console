@@ -129,32 +129,39 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding-right: 24px;
   box-sizing: border-box;
   /* KeyboardBar.vue（ui/styles/keyboard-bar.css の .keyboard-bar）と同じ背景色に揃える。 */
   background: var(--bg-tertiary);
-  border-right: 1px solid var(--border);
 }
 .sidebar-resize-handle {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 24px;
+  width: 12px;
   cursor: col-resize;
   touch-action: none;
   user-select: none;
-  border-right: 2px solid var(--border);
+  outline: none;
 }
-.sidebar-resize-handle:focus-visible,
-.sidebar-resize-handle.resizing {
+.sidebar-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
   background: var(--border);
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  pointer-events: none;
+}
+.sidebar-resize-handle:focus-visible::after,
+.sidebar-resize-handle.resizing::after {
+  background: var(--accent);
+  width: 2px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .sidebar-resize-handle:hover {
-    background: var(--border);
+  .sidebar-resize-handle:hover::after {
+    background: var(--accent);
   }
 }
 </style>
