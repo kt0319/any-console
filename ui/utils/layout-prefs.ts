@@ -8,15 +8,17 @@ export type TabPosition = "top" | "bottom";
 // TabPositionとは別の3値にする。"off"は非表示、それ以外はタブバー位置と
 // 独立に画面のTop/Bottomどちらに出すかを表す。
 export type TitleBarPosition = "off" | "top" | "bottom";
+// Keyboard bar（ワイド画面）はタイトルバーと同じくOff/表示の2値に加え、表示時の
+// 幅（セッションサイドバー分を空けるか、全体幅にするか）も持つため3値にする。
+// セッションサイドバーはワイド画面でのみ開けるため、この幅モードもワイドのみ
+// 持たせる（狭い画面では常にフル幅表示になり選択の余地が無い）。
+export type WideKeyboardBarMode = "off" | "sidebar" | "full";
 
 export interface LayoutPrefs {
   narrowTabPosition: TabPosition;
   wideTabPosition: TabPosition;
   narrowKeyboardBar: boolean;
-  wideKeyboardBar: boolean;
-  // セッションサイドバーはワイド画面でのみ開けるため、Keyboard barの幅モードも
-  // ワイドのみ持たせる（狭い画面では常にフル幅表示になり選択の余地が無い）。
-  wideKeyboardBarFullWidth: boolean;
+  wideKeyboardBarMode: WideKeyboardBarMode;
   narrowTitleBarPosition: TitleBarPosition;
   wideTitleBarPosition: TitleBarPosition;
 }
@@ -28,8 +30,7 @@ export const DEFAULT_LAYOUT_PREFS: LayoutPrefs = {
   narrowTabPosition: "bottom",
   wideTabPosition: "top",
   narrowKeyboardBar: true,
-  wideKeyboardBar: false,
-  wideKeyboardBarFullWidth: false,
+  wideKeyboardBarMode: "off",
   narrowTitleBarPosition: "bottom",
   wideTitleBarPosition: "off",
 };
@@ -40,6 +41,10 @@ function normalizeTabPosition(value: unknown, fallback: TabPosition): TabPositio
 
 function normalizeTitleBarPosition(value: unknown, fallback: TitleBarPosition): TitleBarPosition {
   return value === "off" || value === "top" || value === "bottom" ? value : fallback;
+}
+
+function normalizeWideKeyboardBarMode(value: unknown, fallback: WideKeyboardBarMode): WideKeyboardBarMode {
+  return value === "off" || value === "sidebar" || value === "full" ? value : fallback;
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -54,8 +59,7 @@ export function normalizeLayoutPrefs(raw: unknown): LayoutPrefs {
     narrowTabPosition: normalizeTabPosition(r.narrowTabPosition, DEFAULT_LAYOUT_PREFS.narrowTabPosition),
     wideTabPosition: normalizeTabPosition(r.wideTabPosition, DEFAULT_LAYOUT_PREFS.wideTabPosition),
     narrowKeyboardBar: normalizeBoolean(r.narrowKeyboardBar, DEFAULT_LAYOUT_PREFS.narrowKeyboardBar),
-    wideKeyboardBar: normalizeBoolean(r.wideKeyboardBar, DEFAULT_LAYOUT_PREFS.wideKeyboardBar),
-    wideKeyboardBarFullWidth: normalizeBoolean(r.wideKeyboardBarFullWidth, DEFAULT_LAYOUT_PREFS.wideKeyboardBarFullWidth),
+    wideKeyboardBarMode: normalizeWideKeyboardBarMode(r.wideKeyboardBarMode, DEFAULT_LAYOUT_PREFS.wideKeyboardBarMode),
     narrowTitleBarPosition: normalizeTitleBarPosition(r.narrowTitleBarPosition, DEFAULT_LAYOUT_PREFS.narrowTitleBarPosition),
     wideTitleBarPosition: normalizeTitleBarPosition(r.wideTitleBarPosition, DEFAULT_LAYOUT_PREFS.wideTitleBarPosition),
   };
@@ -66,7 +70,13 @@ export function resolveTabPosition(prefs: LayoutPrefs, isNarrow: boolean): TabPo
 }
 
 export function resolveKeyboardBarVisible(prefs: LayoutPrefs, isNarrow: boolean): boolean {
-  return isNarrow ? prefs.narrowKeyboardBar : prefs.wideKeyboardBar;
+  return isNarrow ? prefs.narrowKeyboardBar : prefs.wideKeyboardBarMode !== "off";
+}
+
+// ワイド画面でKeyboard barを表示する時、セッションサイドバー分の幅を空けず
+// 画面全体に広げるかどうか（狭い画面はサイドバー自体が無いため常にtrue）。
+export function resolveKeyboardBarFullWidth(prefs: LayoutPrefs, isNarrow: boolean): boolean {
+  return isNarrow || prefs.wideKeyboardBarMode === "full";
 }
 
 export function resolveTitleBarPosition(prefs: LayoutPrefs, isNarrow: boolean): TitleBarPosition {

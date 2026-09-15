@@ -23,13 +23,11 @@
         </div>
       </div>
       <div class="display-settings-field">
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.wideKeyboardBar" /> Show keyboard bar</label>
-      </div>
-      <div class="display-settings-field" :class="{ 'display-settings-disabled': !layoutPrefs.wideKeyboardBar }">
-        <span class="display-settings-field-label">Keyboard bar width</span>
+        <span class="display-settings-field-label">Keyboard bar</span>
         <div class="display-settings-radio-row">
-          <label class="form-check-label"><input type="radio" :disabled="!layoutPrefs.wideKeyboardBar" v-model="layoutPrefs.wideKeyboardBarFullWidth" :value="false" /> Beside session sidebar</label>
-          <label class="form-check-label"><input type="radio" :disabled="!layoutPrefs.wideKeyboardBar" v-model="layoutPrefs.wideKeyboardBarFullWidth" :value="true" /> Full width</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideKeyboardBarMode" value="off" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideKeyboardBarMode" value="sidebar" /> Beside sidebar</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideKeyboardBarMode" value="full" /> Full width</label>
         </div>
       </div>
     </div>
