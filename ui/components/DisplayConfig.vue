@@ -50,7 +50,11 @@
         </div>
       </div>
       <div class="display-settings-field">
-        <label class="form-check-label"><input type="checkbox" v-model="layoutPrefs.narrowKeyboardBar" /> Show keyboard bar</label>
+        <span class="display-settings-field-label">Keyboard bar</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowKeyboardBar" :value="false" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowKeyboardBar" :value="true" /> On</label>
+        </div>
       </div>
     </div>
     <label class="settings-item settings-toggle">
