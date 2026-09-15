@@ -6,7 +6,7 @@ import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-p
 import { buildPanesWithTabAt, cornerToGridIndex, resolveExitRestoreTab, soleRemainingTab } from "../utils/split-panes.ts";
 import { isTouchInput } from "../utils/device.ts";
 import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
-import { resolveTabPosition, resolveKeyboardBarVisible, resolveKeyboardBarFullWidth, resolveTitleBarPosition } from "../utils/layout-prefs.ts";
+import { resolveTabPosition, resolveKeyboardBarVisible, resolveKeyboardBarFullWidth, resolveTitleBarPosition, resolveInfoPillDisplayMode } from "../utils/layout-prefs.ts";
 import { useLayoutPrefs } from "../composables/useLayoutPrefs.ts";
 import { useTerminalStore } from "./terminal.ts";
 import type { TerminalTab } from "./terminal.ts";
@@ -30,6 +30,7 @@ export const useLayoutStore = defineStore("layout", () => {
   });
   const keyboardBarVisible = computed(() => resolveKeyboardBarVisible(layoutPrefs.value, isNarrowViewport.value));
   const keyboardBarFullWidth = computed(() => resolveKeyboardBarFullWidth(layoutPrefs.value, isNarrowViewport.value));
+  const infoPillDisplayMode = computed(() => resolveInfoPillDisplayMode(layoutPrefs.value, isNarrowViewport.value));
   const titleBarPosition = computed(() => resolveTitleBarPosition(layoutPrefs.value, isNarrowViewport.value));
   const titleBarVisible = computed(() => titleBarPosition.value !== "off");
   const titleBarAtBottom = computed(() => titleBarPosition.value === "bottom");
@@ -231,6 +232,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isNarrowViewport,
     keyboardBarVisible,
     keyboardBarFullWidth,
+    infoPillDisplayMode,
     titleBarVisible,
     titleBarAtBottom,
     isTouchDevice,

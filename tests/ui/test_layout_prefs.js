@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeLayoutPrefs, resolveTabPosition, resolveKeyboardBarVisible, resolveKeyboardBarFullWidth, resolveTitleBarPosition, DEFAULT_LAYOUT_PREFS } from "../../ui/utils/layout-prefs.ts";
+import { normalizeLayoutPrefs, resolveTabPosition, resolveKeyboardBarVisible, resolveKeyboardBarFullWidth, resolveTitleBarPosition, resolveInfoPillDisplayMode, DEFAULT_LAYOUT_PREFS } from "../../ui/utils/layout-prefs.ts";
 
 describe("normalizeLayoutPrefs", () => {
   it("nullの場合は既定値をそのまま返す", () => {
@@ -18,6 +18,8 @@ describe("normalizeLayoutPrefs", () => {
       wideKeyboardBarMode: "full",
       narrowTitleBarPosition: "top",
       wideTitleBarPosition: "bottom",
+      narrowInfoPillMode: "bar",
+      wideInfoPillMode: "off",
     })).toEqual({
       narrowTabPosition: "top",
       wideTabPosition: "bottom",
@@ -25,7 +27,13 @@ describe("normalizeLayoutPrefs", () => {
       wideKeyboardBarMode: "full",
       narrowTitleBarPosition: "top",
       wideTitleBarPosition: "bottom",
+      narrowInfoPillMode: "bar",
+      wideInfoPillMode: "off",
     });
+  });
+
+  it("infoPillModeの不正な値は既定値にフォールバックする", () => {
+    expect(normalizeLayoutPrefs({ narrowInfoPillMode: "invalid", wideInfoPillMode: 123 })).toEqual(DEFAULT_LAYOUT_PREFS);
   });
 
   it("部分的な値は既定値とマージする", () => {
@@ -71,5 +79,11 @@ describe("resolveTabPosition / resolveKeyboardBarVisible / resolveKeyboardBarFul
 
   it("狭い画面ではセッションサイドバーが無いため常にフル幅扱いになる", () => {
     expect(resolveKeyboardBarFullWidth(DEFAULT_LAYOUT_PREFS, true)).toBe(true);
+  });
+
+  it("Info Pillsの表示モードは狭い/広い画面で独立して設定できる", () => {
+    const prefs = { ...DEFAULT_LAYOUT_PREFS, narrowInfoPillMode: "off", wideInfoPillMode: "bar" };
+    expect(resolveInfoPillDisplayMode(prefs, true)).toBe("off");
+    expect(resolveInfoPillDisplayMode(prefs, false)).toBe("bar");
   });
 });

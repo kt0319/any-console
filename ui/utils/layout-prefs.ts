@@ -13,6 +13,11 @@ export type TitleBarPosition = "off" | "top" | "bottom";
 // セッションサイドバーはワイド画面でのみ開けるため、この幅モードもワイドのみ
 // 持たせる（狭い画面では常にフル幅表示になり選択の余地が無い）。
 export type WideKeyboardBarMode = "off" | "sidebar" | "full";
+// Info Pills（ターミナルペインのステータスアイコン群）の表示モード。
+// off=非表示、float=ターミナルに重ねて浮かせる、bar=各ペイン上部に帯で固定表示。
+// Keyboard barと異なりセッションサイドバーとは無関係な機能のため、narrow/wide
+// どちらも同じ3値を独立して持てる。
+export type InfoPillDisplayMode = "off" | "float" | "bar";
 
 export interface LayoutPrefs {
   narrowTabPosition: TabPosition;
@@ -21,6 +26,8 @@ export interface LayoutPrefs {
   wideKeyboardBarMode: WideKeyboardBarMode;
   narrowTitleBarPosition: TitleBarPosition;
   wideTitleBarPosition: TitleBarPosition;
+  narrowInfoPillMode: InfoPillDisplayMode;
+  wideInfoPillMode: InfoPillDisplayMode;
 }
 
 // 現状の自動判定（MOBILE_BREAKPOINT_PXを境に下タブ+Keyboard bar表示+タイトル
@@ -33,6 +40,8 @@ export const DEFAULT_LAYOUT_PREFS: LayoutPrefs = {
   wideKeyboardBarMode: "off",
   narrowTitleBarPosition: "bottom",
   wideTitleBarPosition: "off",
+  narrowInfoPillMode: "float",
+  wideInfoPillMode: "float",
 };
 
 function normalizeTabPosition(value: unknown, fallback: TabPosition): TabPosition {
@@ -45,6 +54,10 @@ function normalizeTitleBarPosition(value: unknown, fallback: TitleBarPosition): 
 
 function normalizeWideKeyboardBarMode(value: unknown, fallback: WideKeyboardBarMode): WideKeyboardBarMode {
   return value === "off" || value === "sidebar" || value === "full" ? value : fallback;
+}
+
+function normalizeInfoPillDisplayMode(value: unknown, fallback: InfoPillDisplayMode): InfoPillDisplayMode {
+  return value === "off" || value === "float" || value === "bar" ? value : fallback;
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -62,6 +75,8 @@ export function normalizeLayoutPrefs(raw: unknown): LayoutPrefs {
     wideKeyboardBarMode: normalizeWideKeyboardBarMode(r.wideKeyboardBarMode, DEFAULT_LAYOUT_PREFS.wideKeyboardBarMode),
     narrowTitleBarPosition: normalizeTitleBarPosition(r.narrowTitleBarPosition, DEFAULT_LAYOUT_PREFS.narrowTitleBarPosition),
     wideTitleBarPosition: normalizeTitleBarPosition(r.wideTitleBarPosition, DEFAULT_LAYOUT_PREFS.wideTitleBarPosition),
+    narrowInfoPillMode: normalizeInfoPillDisplayMode(r.narrowInfoPillMode, DEFAULT_LAYOUT_PREFS.narrowInfoPillMode),
+    wideInfoPillMode: normalizeInfoPillDisplayMode(r.wideInfoPillMode, DEFAULT_LAYOUT_PREFS.wideInfoPillMode),
   };
 }
 
@@ -81,4 +96,8 @@ export function resolveKeyboardBarFullWidth(prefs: LayoutPrefs, isNarrow: boolea
 
 export function resolveTitleBarPosition(prefs: LayoutPrefs, isNarrow: boolean): TitleBarPosition {
   return isNarrow ? prefs.narrowTitleBarPosition : prefs.wideTitleBarPosition;
+}
+
+export function resolveInfoPillDisplayMode(prefs: LayoutPrefs, isNarrow: boolean): InfoPillDisplayMode {
+  return isNarrow ? prefs.narrowInfoPillMode : prefs.wideInfoPillMode;
 }

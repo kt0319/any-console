@@ -31,7 +31,7 @@
   bottom: 10px;
 }
 
-/* Info Pills設定のDisplayで「Bar」を選んだ場合。ターミナルに重ねて浮かせる
+/* Display設定のInfo Pillsで「Bar」を選んだ場合。ターミナルに重ねて浮かせる
    floatと違い、.terminal-pane（display:flex; flex-direction:column）の
    フロー内に実要素として置き、幅いっぱいの帯にする（TerminalPane.vue側で
    .terminal-frame を .terminal-frame-bar-mode にしてこの帯の高さぶん縮める）。 */

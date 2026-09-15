@@ -9,16 +9,7 @@ import { createServerSettings } from "../utils/server-settings.ts";
 const FIELDS = INFO_PILL_FIELDS;
 const DEFAULT_ORDER = INFO_PILL_FIELDS;
 
-// off: 非表示。float: 従来通りターミナル右上/右下に絶対配置で浮かせる。
-// bar: 各ペイン上部にフローの一部として帯で固定表示する（ターミナル領域を圧迫する）。
-export type InfoPillDisplayMode = "off" | "float" | "bar";
-
-function normalizeDisplayMode(value: unknown): InfoPillDisplayMode {
-  return value === "off" || value === "float" || value === "bar" ? value : "float";
-}
-
 export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
-  const displayMode = ref<InfoPillDisplayMode>("float");
   const branch = ref(true);
   const prs = ref(true);
   const actions = ref(true);
@@ -42,10 +33,9 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
         fieldRefs[field].value = data?.[field] !== false;
       }
       order.value = Array.isArray(data?.order) && data.order.length ? data.order : [...DEFAULT_ORDER];
-      displayMode.value = normalizeDisplayMode(data?.displayMode);
     },
     serialize() {
-      const body: Record<string, any> = { order: order.value, displayMode: displayMode.value };
+      const body: Record<string, any> = { order: order.value };
       for (const field of FIELDS) body[field] = fieldRefs[field].value;
       return body;
     },
@@ -64,5 +54,5 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     save();
   }
 
-  return { displayMode, branch, prs, actions, changes, devserver, docker, issues, files, add, dispatch, order, loaded, load, save, reorder };
+  return { branch, prs, actions, changes, devserver, docker, issues, files, add, dispatch, order, loaded, load, save, reorder };
 });

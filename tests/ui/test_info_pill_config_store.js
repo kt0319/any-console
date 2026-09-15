@@ -74,20 +74,8 @@ describe("info-pill-config store: load 堅牢化", () => {
     await store.save();
     expect(auth.apiFetch).toHaveBeenCalledWith("/settings/info-pills", {
       method: "PUT",
-      body: { ...ALL_TRUE, branch: false, devserver: false, order: DEFAULT_ORDER, displayMode: "float" },
+      body: { ...ALL_TRUE, branch: false, devserver: false, order: DEFAULT_ORDER },
     });
-  });
-
-  it("displayModeはload時にoff/float/bar以外の値をfloatにフォールバックする", async () => {
-    auth.apiFetch = vi.fn().mockResolvedValue(okRes({ ...ALL_TRUE, displayMode: "invalid" }));
-    await store.load();
-    expect(store.displayMode).toBe("float");
-  });
-
-  it("displayModeはload時にサーバの値をそのまま反映する", async () => {
-    auth.apiFetch = vi.fn().mockResolvedValue(okRes({ ...ALL_TRUE, displayMode: "bar" }));
-    await store.load();
-    expect(store.displayMode).toBe("bar");
   });
 
   it("reorderは指定インデックスへ並べ替えてsaveする（useListDragSortのonReorder互換）", async () => {

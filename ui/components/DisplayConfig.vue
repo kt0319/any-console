@@ -30,6 +30,14 @@
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideKeyboardBarMode" value="full" /> Full width</label>
         </div>
       </div>
+      <div class="display-settings-field">
+        <span class="display-settings-field-label">Info Pills</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="off" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="float" /> Float</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="bar" /> Bar</label>
+        </div>
+      </div>
     </div>
     <div class="settings-item">
       <span class="settings-item-label">Narrow screen (folded / portrait phone, etc.)</span>
@@ -56,22 +64,18 @@
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowKeyboardBar" :value="true" /> On</label>
         </div>
       </div>
-    </div>
-    <div class="settings-category-head">
-      <span class="settings-category-title">Info Pills</span>
+      <div class="display-settings-field">
+        <span class="display-settings-field-label">Info Pills</span>
+        <div class="display-settings-radio-row">
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="off" /> Off</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="float" /> Float</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="bar" /> Bar</label>
+        </div>
+      </div>
     </div>
     <div v-if="!infoPillConfig.loaded" class="text-muted-center loading-dots">Loading</div>
     <template v-else>
       <div class="settings-item">
-        <span class="settings-item-label">Display</span>
-        <div class="display-settings-radio-row">
-          <label class="form-check-label"><input type="radio" v-model="infoPillConfig.displayMode" value="off" @change="infoPillConfig.save()" /> Off</label>
-          <label class="form-check-label"><input type="radio" v-model="infoPillConfig.displayMode" value="float" @change="infoPillConfig.save()" /> Float</label>
-          <label class="form-check-label"><input type="radio" v-model="infoPillConfig.displayMode" value="bar" @change="infoPillConfig.save()" /> Bar</label>
-        </div>
-        <span class="settings-note">Float overlays the terminal at the top/bottom corner. Bar reserves a fixed strip at the top of each pane.</span>
-      </div>
-      <div class="settings-item" :class="{ 'display-settings-disabled': infoPillConfig.displayMode === 'off' }">
         <span class="settings-item-label">Pills</span>
         <div class="display-settings-radio-row">
           <label

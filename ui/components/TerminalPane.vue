@@ -18,11 +18,11 @@
          position:absoluteのままなので、.terminal-frame(inset:0)基準から
          .terminal-pane(position:relative)基準に変わるだけで見た目は変わらない。 -->
     <div
-      v-if="infoPillConfig.displayMode !== 'off'"
+      v-if="layoutStore.infoPillDisplayMode !== 'off'"
       class="pill-group"
       :class="{
-        'pill-group-bottom': layoutStore.isPanelBottom && infoPillConfig.displayMode !== 'bar',
-        'pill-group-bar': infoPillConfig.displayMode === 'bar',
+        'pill-group-bottom': layoutStore.isPanelBottom && layoutStore.infoPillDisplayMode !== 'bar',
+        'pill-group-bar': layoutStore.infoPillDisplayMode === 'bar',
       }"
       ref="pillEl"
     >
@@ -94,7 +94,7 @@
     <div
       :id="'frame-' + tab.id"
       class="terminal-frame"
-      :class="{ 'terminal-frame-bar-mode': infoPillConfig.displayMode === 'bar' }"
+      :class="{ 'terminal-frame-bar-mode': layoutStore.infoPillDisplayMode === 'bar' }"
       ref="frameEl"
     ></div>
   </div>
@@ -108,7 +108,6 @@ import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useTerminalSettingsStore } from "../stores/terminal-settings.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
 import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
@@ -147,7 +146,6 @@ const tabRef = toRef(props, "tab");
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
-const infoPillConfig = useInfoPillConfigStore();
 const { confirmAndCloseTab } = useTabClose();
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
