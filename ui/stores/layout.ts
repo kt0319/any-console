@@ -1,10 +1,11 @@
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
-import { MOBILE_BREAKPOINT_PX, LS_KEY_SESSION_SIDEBAR_OPEN } from "../utils/constants.ts";
+import { MOBILE_BREAKPOINT_PX, LS_KEY_SESSION_SIDEBAR_OPEN, LS_KEY_SESSION_SIDEBAR_WIDTH, SESSION_SIDEBAR_DEFAULT_WIDTH_PX } from "../utils/constants.ts";
+import { clampSidebarWidth } from "../utils/sidebar-width.ts";
 import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.ts";
 import { buildPanesWithTabAt, cornerToGridIndex, resolveExitRestoreTab, soleRemainingTab } from "../utils/split-panes.ts";
 import { isTouchInput } from "../utils/device.ts";
-import { safeFlagLoad, safeFlagSave } from "../utils/storage.ts";
+import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
 import { resolveTabPosition, resolveKeyboardBarVisible, resolveTitleBarPosition } from "../utils/layout-prefs.ts";
 import { useLayoutPrefs } from "../composables/useLayoutPrefs.ts";
 import { useTerminalStore } from "./terminal.ts";
@@ -41,7 +42,11 @@ export const useLayoutStore = defineStore("layout", () => {
   const isOsKeyboardOpen = ref(false);
 
   // タブバー左端のハンバーガーで開くセッションサイドバー（SessionSidebar.vue）。
-  // 開閉状態はlocalStorageへ保存し、リロード後も復元する。
+  // 開閉状態と幅はlocalStorageへ保存し、リロード後も復元する。
+  const sessionSidebarWidth = ref(clampSidebarWidth(safeJsonLoad(
+    LS_KEY_SESSION_SIDEBAR_WIDTH, SESSION_SIDEBAR_DEFAULT_WIDTH_PX,
+  )));
+  watch(sessionSidebarWidth, (width) => safeJsonSave(LS_KEY_SESSION_SIDEBAR_WIDTH, width));
   const isSessionSidebarOpen = ref(safeFlagLoad(LS_KEY_SESSION_SIDEBAR_OPEN));
   watch(isSessionSidebarOpen, (v) => {
     safeFlagSave(LS_KEY_SESSION_SIDEBAR_OPEN, v);
@@ -230,6 +235,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isPwa,
     isSettingsOpen,
     isOsKeyboardOpen,
+    sessionSidebarWidth,
     isSessionSidebarOpen,
     toggleSessionSidebar,
     closeSessionSidebar,

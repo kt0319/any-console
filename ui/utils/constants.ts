@@ -146,3 +146,10 @@ export const TOAST_SWIPE_DISMISS_PX = 40;
 export const TOAST_TAP_MAX_DELTA_PX = 5;
 // IconPicker のグリッド最大表示件数
 export const ICON_GRID_MAX_DISPLAY = 200;
+
+export const SESSION_SIDEBAR_DEFAULT_WIDTH_PX = 320;
+export const SESSION_SIDEBAR_MIN_WIDTH_PX = 240;
+export const SESSION_SIDEBAR_MAX_WIDTH_PX = 640;
+export const SESSION_SIDEBAR_MAX_VIEWPORT_RATIO = 0.5;
+export const SESSION_SIDEBAR_RESIZE_STEP_PX = 16;
+export const LS_KEY_SESSION_SIDEBAR_WIDTH = "any_console_session_sidebar_width";

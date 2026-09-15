@@ -1,5 +1,5 @@
 <template>
-  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
+  <div class="main-panel" :style="{ '--session-sidebar-width': `min(${layoutStore.sessionSidebarWidth}px, 50vw)` }" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
     <!-- PCのサイドバーはTabBarの行とヘッダー高さを揃えるため.content-area配下ではなく
          .main-panel直下に置く（.content-area内だとactive-tab-title分だけ下にずれる）。 -->

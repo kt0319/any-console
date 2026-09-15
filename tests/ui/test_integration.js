@@ -963,6 +963,41 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     return { layoutStore, terminalStore };
   }
 
+  it("幅をキー操作で変更・保存し、狭い画面ではハンドルを表示しない", async () => {
+    const { layoutStore } = seedSidebar();
+    layoutStore.sessionSidebarWidth = 320;
+    const handle = wrapper.find('[role="separator"]');
+    await handle.trigger("keydown", { key: "ArrowRight" });
+    expect(layoutStore.sessionSidebarWidth).toBe(336);
+    expect(handle.attributes("aria-valuenow")).toBe("336");
+    expect(JSON.parse(localStorage.getItem("any_console_session_sidebar_width"))).toBe(336);
+    await handle.trigger("keydown", { key: "Home" });
+    expect(layoutStore.sessionSidebarWidth).toBe(240);
+    await handle.trigger("keydown", { key: "End" });
+    expect(Number(handle.attributes("aria-valuenow"))).toBe(Number(handle.attributes("aria-valuemax")));
+    layoutStore.isNarrowViewport = true;
+    await flushPromises();
+    expect(wrapper.find('[role="separator"]').exists()).toBe(false);
+    localStorage.removeItem("any_console_session_sidebar_width");
+  });
+
+  it("ドラッグで幅を変更し、終了後は追従を止める", async () => {
+    const { layoutStore } = seedSidebar();
+    layoutStore.sessionSidebarWidth = 320;
+    const handle = wrapper.find('[role="separator"]');
+    handle.element.setPointerCapture = vi.fn();
+    handle.element.hasPointerCapture = vi.fn(() => true);
+    handle.element.releasePointerCapture = vi.fn();
+    await handle.trigger("pointerdown", { button: 0, pointerId: 1, clientX: 320 });
+    await handle.trigger("pointermove", { pointerId: 1, clientX: 400 });
+    expect(layoutStore.sessionSidebarWidth).toBe(400);
+    await handle.trigger("pointerup", { pointerId: 1 });
+    await handle.trigger("pointermove", { pointerId: 1, clientX: 450 });
+    expect(layoutStore.sessionSidebarWidth).toBe(400);
+    expect(handle.element.releasePointerCapture).toHaveBeenCalledWith(1);
+    localStorage.removeItem("any_console_session_sidebar_width");
+  });
+
   it("エージェント状態がある行は行2にブランチ名とステータスを両方表示する", async () => {
     const { terminalStore } = seedSidebar();
     useAgentStateStore().agentStates.s1 = "working";
