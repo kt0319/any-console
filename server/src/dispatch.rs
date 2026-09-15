@@ -512,11 +512,50 @@ async fn resolve_session(
 
 // ─── 添付画像のライフサイクル ────────────────────────────────────────────────
 
+/// `image_paths` はクライアントが指定した生のファイルパス（将来的には生パスでは
+/// なく `POST /upload-image` が発行する不透明なアップロードIDへ置き換えたい）。
+/// それまでの間、`sync_dispatch_image_dir` へ渡す前に「`uploads_dir()` 直下の
+/// 通常ファイルか」を実体パス（symlink解決込み）で検証する。ここを通さずに
+/// リネーム対象・`compose_text_with_images` 埋め込み対象に使うと、任意ファイルの
+/// 移動やCLIエージェントへの読み取り誘導（`Image: <path>` 経由）につながる。
+enum DispatchImageSrc {
+    /// `uploads_dir()` 直下の通常ファイル。移動対象。
+    InUploads(PathBuf),
+    /// 既に対象 dispatch の画像ディレクトリ直下にある通常ファイル。移動不要。
+    AlreadyPlaced(PathBuf),
+}
+
+/// `src` を検証し、移動対象 / 移動不要のいずれかに分類する。範囲外・symlink・
+/// 走査パス・非通常ファイルは `None` で拒否する。
+async fn validate_dispatch_image_src(
+    uploads_dir: &FsPath,
+    dispatch_dir: &FsPath,
+    src: &str,
+) -> Option<DispatchImageSrc> {
+    let canonical_src = tokio::fs::canonicalize(src).await.ok()?;
+    let metadata = tokio::fs::metadata(&canonical_src).await.ok()?;
+    if !metadata.is_file() {
+        return None;
+    }
+    if let Ok(canonical_dispatch_dir) = tokio::fs::canonicalize(dispatch_dir).await {
+        if canonical_src.parent() == Some(canonical_dispatch_dir.as_path()) {
+            return Some(DispatchImageSrc::AlreadyPlaced(canonical_src));
+        }
+    }
+    let canonical_uploads_dir = tokio::fs::canonicalize(uploads_dir).await.ok()?;
+    if canonical_src.parent() == Some(canonical_uploads_dir.as_path()) {
+        return Some(DispatchImageSrc::InUploads(canonical_src));
+    }
+    None
+}
+
 /// dispatch 1件の添付画像を、`uploads_dir()` などの一時領域から
 /// `dispatch_images_dir(dispatch_id)` へ集約する（idempotent）。既にそこに
 /// あるファイルは移動せず、現在の `image_paths` に含まれなくなったフォルダ内の
-/// 孤立ファイル（Run前の差し替え・削除分）は削除する。戻り値は移動後のパス
-/// （移動に失敗した分は元のパスのまま、ベストエフォート）。
+/// 孤立ファイル（Run前の差し替え・削除分）は削除する。戻り値は移動後のパス。
+/// `uploads_dir()` 直下の通常ファイルでない `src`（範囲外パス・symlink・
+/// 走査パス等）は `validate_dispatch_image_src` で拒否し、結果から丸ごと除外する
+/// （移動失敗時と違い元パスのまま残さない — テキストへの埋め込みに使われるため）。
 async fn sync_dispatch_image_dir(
     paths: &Paths,
     dispatch_id: &str,
@@ -528,32 +567,39 @@ async fn sync_dispatch_image_dir(
     let dir = paths.dispatch_images_dir(dispatch_id);
     if let Err(e) = tokio::fs::create_dir_all(&dir).await {
         tracing::warn!("dispatch image dir create failed ({}): {e}", dir.display());
-        return image_paths.to_vec();
+        return Vec::new();
     }
+    let uploads_dir = paths.uploads_dir();
     let mut result = Vec::with_capacity(image_paths.len());
     let mut keep_names: HashSet<OsString> = HashSet::new();
     for src in image_paths {
-        let src_path = PathBuf::from(src);
-        if src_path.parent() == Some(dir.as_path()) {
-            if let Some(name) = src_path.file_name() {
-                keep_names.insert(name.to_os_string());
-            }
-            result.push(src.clone());
-            continue;
-        }
-        let Some(name) = src_path.file_name() else {
-            result.push(src.clone());
+        let Some(validated) = validate_dispatch_image_src(&uploads_dir, &dir, src).await else {
+            tracing::warn!("dispatch image path rejected (outside uploads dir): {src}");
             continue;
         };
-        let dest = dir.join(name);
-        match tokio::fs::rename(&src_path, &dest).await {
-            Ok(()) => {
-                keep_names.insert(name.to_os_string());
-                result.push(dest.to_string_lossy().into_owned());
-            }
-            Err(e) => {
-                tracing::warn!("dispatch image move failed ({src}): {e}");
+        match validated {
+            DispatchImageSrc::AlreadyPlaced(path) => {
+                if let Some(name) = path.file_name() {
+                    keep_names.insert(name.to_os_string());
+                }
+                // 実体は移動していないため、`src` の表記ゆれ（canonicalize による
+                // シンボリックリンク解決等）を持ち込まず元の文字列をそのまま返す。
                 result.push(src.clone());
+            }
+            DispatchImageSrc::InUploads(src_path) => {
+                let Some(name) = src_path.file_name() else {
+                    continue;
+                };
+                let dest = dir.join(name);
+                match tokio::fs::rename(&src_path, &dest).await {
+                    Ok(()) => {
+                        keep_names.insert(name.to_os_string());
+                        result.push(dest.to_string_lossy().into_owned());
+                    }
+                    Err(e) => {
+                        tracing::warn!("dispatch image move failed ({}): {e}", src_path.display());
+                    }
+                }
             }
         }
     }
@@ -1465,6 +1511,84 @@ mod tests {
         assert_eq!(synced, vec![kept.to_string_lossy().into_owned()]);
         assert!(kept.exists(), "現在参照されているファイルは残る");
         assert!(!stale.exists(), "参照が外れたファイルは削除される");
+    }
+
+    #[tokio::test]
+    async fn sync_dispatch_image_dir_rejects_path_outside_uploads_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        std::fs::create_dir_all(state.paths.uploads_dir()).unwrap();
+        // uploads_dir の外（別ディレクトリ）に置かれたファイルを image_paths に
+        // 直接指定するケース（例: /etc/passwd 等の任意ファイルを指す想定）。
+        let outside_dir = tempfile::tempdir().unwrap();
+        let outside_file = outside_dir.path().join("secret.txt");
+        std::fs::write(&outside_file, b"secret").unwrap();
+
+        let synced = sync_dispatch_image_dir(
+            &state.paths,
+            "disp1",
+            &[outside_file.to_string_lossy().into_owned()],
+        )
+        .await;
+
+        assert!(synced.is_empty(), "範囲外パスは結果から除外される");
+        assert!(outside_file.exists(), "範囲外ファイルは移動・削除されない");
+    }
+
+    #[tokio::test]
+    async fn sync_dispatch_image_dir_rejects_traversal_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let uploads = state.paths.uploads_dir();
+        std::fs::create_dir_all(&uploads).unwrap();
+        // uploads_dir の親（data_dir直下）に置かれた、`../` 走査で参照できて
+        // しまうファイル。
+        let sibling_file = uploads.parent().unwrap().join("secret.txt");
+        std::fs::write(&sibling_file, b"secret").unwrap();
+        let traversal = uploads.join("..").join("secret.txt");
+
+        let synced = sync_dispatch_image_dir(
+            &state.paths,
+            "disp1",
+            &[traversal.to_string_lossy().into_owned()],
+        )
+        .await;
+
+        assert!(synced.is_empty(), "走査パスは結果から除外される");
+        assert!(
+            sibling_file.exists(),
+            "走査パスの参照先は移動・削除されない"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn sync_dispatch_image_dir_rejects_symlink_escape() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = test_state(&dir).await;
+        let uploads = state.paths.uploads_dir();
+        std::fs::create_dir_all(&uploads).unwrap();
+        let outside_dir = tempfile::tempdir().unwrap();
+        let outside_file = outside_dir.path().join("secret.txt");
+        std::fs::write(&outside_file, b"secret").unwrap();
+        let link = uploads.join("link.png");
+        std::os::unix::fs::symlink(&outside_file, &link).unwrap();
+
+        let synced = sync_dispatch_image_dir(
+            &state.paths,
+            "disp1",
+            &[link.to_string_lossy().into_owned()],
+        )
+        .await;
+
+        assert!(
+            synced.is_empty(),
+            "uploads_dir外を指すsymlinkは結果から除外される"
+        );
+        assert!(
+            outside_file.exists(),
+            "symlink先の実ファイルは移動・削除されない"
+        );
     }
 
     #[tokio::test]
