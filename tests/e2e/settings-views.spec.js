@@ -11,7 +11,6 @@ import { test, expect, loadToken, login, openSettingsModal, openSettingsView, op
 // Send Snippet/Send Historyはソフトキーボード上段のHistory/Snippetタブに一本化済みのため対象外（keyboard-bar系スペックで別途扱う）。
 const SETTINGS_VIEWS = [
   ["Terminal", "Terminal"],
-  ["Info Pills", "Info Pills"],
   ["Editor", "Editor"],
   ["Display", "Display"],
   ["Circle Keypad", "Circle Keypad"],
