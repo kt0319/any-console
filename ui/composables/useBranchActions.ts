@@ -111,7 +111,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
 
   async function deleteBranch(branch: BranchEntry) {
     await withWorkspace(async (workspace) => {
-      const label = branch.remote ? "remote branch" : "branch";
+      const label = branch.remote ? "remote branch" : "local branch";
       if (!await confirmIrreversible(confirm, `Delete ${label} "${branch.name}"?`)) return;
       const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
       if (!ok) return;
