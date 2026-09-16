@@ -3,12 +3,13 @@ import { useApi } from "./useApi.ts";
 import { useWorkspace } from "./useWorkspace.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
+import { confirmDeleteBranch } from "../utils/branch-delete-confirm.ts";
 import { useToast } from "./useToast.ts";
 import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useWorktreeCleanup } from "./useWorktreeCleanup.ts";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeWorkspaceName } from "../utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, worktreeResidueNote, worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
@@ -28,7 +29,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
   const workspaceStore = useWorkspaceStore();
   const { findResidue, cleanupResidue } = useWorktreeCleanup();
 
-  const { loadBranchList, loadWorktrees, loadRemoteBranches, remoteLoaded, invalidateRemoteCache } = branchList;
+  const { loadBranchList, loadWorktrees, loadRemoteBranches, remoteLoaded, invalidateRemoteCache, linkedWorktree } = branchList;
 
   const isFetchingRemote = ref(false);
 
@@ -64,25 +65,14 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     });
   }
 
-  async function removeWorktree(wt: WorktreeEntry) {
-    await withWorkspace(async (workspace) => {
-      // wt（/worktrees API由来）はconfig.jsonに明示登録されたworktreeでしか
-      // workspace/nameが埋まらないため、通常はここで base+branch から
-      // "base:branch" 形式を組み立てて補う（findResidueが
-      // wt.workspace||wt.name を見るだけだと常に空でタブが見つからなかった）。
-      const wsName = wt.workspace || wt.name || worktreeWorkspaceName(workspace, wt.branch);
-      const residue = await findResidue(wt, wsName);
-      if (!await confirm(removeWorktreeConfirmMessage(wt, {
-        openTabs: residue.openTabs.length,
-        detachedSessions: residue.detachedSessions.length,
-        devServers: residue.devServers.length,
-      }))) return;
-      if (!await removeWorktreeRequest(workspace, wt)) return;
-      await cleanupResidue(residue);
-      await workspaceStore.fetchWorkspaces();
-      await loadWorktrees();
-      toast.success(`Worktree removed: ${workspace}:${worktreeConfirmLabel(wt)}`);
-    });
+  type Residue = { openTabs: any[], detachedSessions: any[], devServers: any[] };
+
+  async function removeWorktreeNow(workspace: string, wt: WorktreeEntry, residue: Residue) {
+    if (!await removeWorktreeRequest(workspace, wt)) return;
+    await cleanupResidue(residue);
+    await workspaceStore.fetchWorkspaces();
+    await loadWorktrees();
+    toast.success(`Worktree removed: ${workspace}:${worktreeConfirmLabel(wt)}`);
   }
 
   async function pushBranch(branch: BranchEntry) {
@@ -109,13 +99,62 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     });
   }
 
+  async function performDeleteBranch(workspace: string, branch: BranchEntry, remote: boolean): Promise<boolean> {
+    const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote }, {
+      errorMessage: remote ? "Failed to delete remote branch" : "Failed to delete branch",
+    });
+    if (ok && remote) invalidateRemoteCache(workspace);
+    return ok;
+  }
+
+  /** リモートブランチ一覧（branch.remote: true）側の単独削除ボタン用。 */
   async function deleteBranch(branch: BranchEntry) {
     await withWorkspace(async (workspace) => {
       const label = branch.remote ? "remote branch" : "local branch";
       if (!await confirmIrreversible(confirm, `Delete ${label} "${branch.name}"?`)) return;
-      const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
-      if (!ok) return;
-      if (branch.remote) invalidateRemoteCache(workspace);
+      if (!await performDeleteBranch(workspace, branch, !!branch.remote)) return;
+      await loadBranchList();
+      emit("git:commitDone");
+      await fetchRemote();
+    });
+  }
+
+  /**
+   * ローカルブランチ一覧側の削除ボタン用。worktreeが紐づく場合も同じボタン・
+   * 確認ダイアログに統合し、選択肢（Local only / Local + remote /
+   * Remove worktree）で分岐する。
+   */
+  async function deleteLocalBranch(branch: BranchEntry) {
+    // useBranchList.tsのlinkedWorktreeは（git-branch.tsのWorktree型、index
+    // signature由来でunknown）を返すが、実体はremoveWorktreeRequest等と同じ
+    // worktree APIオブジェクトのため、他の箇所と同じくWorktreeEntryとして扱う。
+    const wt = linkedWorktree(branch) as WorktreeEntry | null;
+    await withWorkspace(async (workspace) => {
+      let residue: Residue | null = null;
+      let worktreeDesc: string | undefined;
+      if (wt) {
+        const wsName = wt.workspace || wt.name || worktreeWorkspaceName(workspace, wt.branch);
+        residue = await findResidue(wt, wsName);
+        const note = worktreeResidueNote({
+          openTabs: residue.openTabs.length,
+          detachedSessions: residue.detachedSessions.length,
+          devServers: residue.devServers.length,
+        });
+        worktreeDesc = note
+          ? `The working tree directory will be deleted. ${note}`
+          : "The working tree directory will be deleted.";
+      }
+      const choice = await confirmDeleteBranch(confirm, branch, { worktreeDesc });
+      if (choice === false) return;
+      if (choice === "worktree") {
+        if (!wt || !residue) return;
+        await removeWorktreeNow(workspace, wt, residue);
+        return;
+      }
+      if (!await performDeleteBranch(workspace, branch, false)) return;
+      if (choice === "remote") {
+        await performDeleteBranch(workspace, branch, true);
+      }
       await loadBranchList();
       emit("git:commitDone");
       await fetchRemote();
@@ -157,10 +196,10 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     isPushing,
     createBranch,
     createWorktree,
-    removeWorktree,
     pushBranch,
     pullBranch,
     deleteBranch,
+    deleteLocalBranch,
     backgroundFetch,
     fetchRemote,
   };

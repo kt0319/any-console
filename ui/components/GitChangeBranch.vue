@@ -74,20 +74,12 @@
               @action="pushBranch(branch)"
             />
             <button
-              v-if="linkedWorktree(branch)"
-              type="button"
-              class="commit-action-item commit-action-danger branch-delete-btn"
-              aria-label="Remove worktree"
-              data-tooltip="Remove worktree"
-              @click="removeWorktree(linkedWorktree(branch)!)"
-            ><span class="mdi mdi-trash-can-outline"></span></button>
-            <button
-              v-if="!branch.current && !worktreeByBranch[branch.name]"
+              v-if="!branch.current"
               type="button"
               class="commit-action-item commit-action-danger branch-delete-btn"
               aria-label="Delete branch"
               data-tooltip="Delete branch"
-              @click="deleteBranch(branch)"
+              @click="deleteLocalBranch(branch)"
             ><span class="mdi mdi-trash-can-outline"></span></button>
           </div>
           <span
@@ -164,7 +156,6 @@ const {
   remoteBranches,
   remoteLoaded,
   isSwitchingBranch,
-  worktreeByBranch,
   branches,
   linkedWorktree,
   loadBranchList,
@@ -176,10 +167,10 @@ const {
   isPushing,
   createBranch,
   createWorktree,
-  removeWorktree,
   pushBranch,
   pullBranch,
   deleteBranch,
+  deleteLocalBranch,
   backgroundFetch,
   fetchRemote,
 } = useBranchActions(branchList);

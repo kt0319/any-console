@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName } from "../../ui/utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeResidueNote, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -62,6 +62,19 @@ describe("removeWorktreeConfirmMessage", () => {
   it("セッション・dev server両方ある時は両方明示する", () => {
     expect(removeWorktreeConfirmMessage({ branch: "feature/x", path: "/tmp/wt" }, { openTabs: 1, devServers: 1 })).toBe(
       'Remove worktree "feature/x"? The working tree directory will be deleted. This cannot be undone. Its open session will also be closed. Its dev server process will also be stopped.',
+    );
+  });
+});
+
+describe("worktreeResidueNote", () => {
+  it("該当が無ければ空文字", () => {
+    expect(worktreeResidueNote()).toBe("");
+    expect(worktreeResidueNote({})).toBe("");
+  });
+
+  it("removeWorktreeConfirmMessageと同じ一文を返す（残骸部分のみ切り出し）", () => {
+    expect(worktreeResidueNote({ openTabs: 1, devServers: 1 })).toBe(
+      "Its open session will also be closed. Its dev server process will also be stopped.",
     );
   });
 });

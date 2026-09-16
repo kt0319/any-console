@@ -17,16 +17,14 @@ export function worktreeConfirmLabel(wt?: { worktree_branch?: string; branch?: s
 }
 
 /**
- * worktree 削除の確認メッセージ（削除元の画面によらず同一文言にする）。
- * residueは useWorktreeCleanup().findResidue() の結果件数（openTabs+detachedSessionsは
- * まとめて「セッション」として、devServersは別枠で明示する。どちらもディレクトリを消すだけ
- * では自動的には片付かないため、削除に伴い一緒に閉じる/停止することを事前に伝える）。
+ * worktree削除に伴い一緒に閉じる/停止する残骸（開いているセッション・dev server
+ * プロセス）を説明する一文。ディレクトリを消すだけでは自動的に片付かないため、
+ * 削除確認の文言・確認ダイアログのdescの両方から使う（removeWorktreeConfirmMessage /
+ * useBranchActions.tsのdeleteLocalBranch）。該当が無ければ空文字。
  */
-export function removeWorktreeConfirmMessage(
-  wt?: { worktree_branch?: string; branch?: string; name?: string; path?: string },
+export function worktreeResidueNote(
   residue: { openTabs?: number; detachedSessions?: number; devServers?: number } = {},
 ): string {
-  const base = `Remove worktree "${worktreeConfirmLabel(wt)}"? The working tree directory will be deleted. This cannot be undone.`;
   const sessionCount = (residue.openTabs || 0) + (residue.detachedSessions || 0);
   const parts: string[] = [];
   if (sessionCount > 0) {
@@ -35,7 +33,20 @@ export function removeWorktreeConfirmMessage(
   if (residue.devServers) {
     parts.push(`Its ${residue.devServers === 1 ? "dev server process" : `${residue.devServers} dev server processes`} will also be stopped.`);
   }
-  return parts.length ? `${base} ${parts.join(" ")}` : base;
+  return parts.join(" ");
+}
+
+/**
+ * worktree 削除の確認メッセージ（削除元の画面によらず同一文言にする）。
+ * residueは useWorktreeCleanup().findResidue() の結果件数。
+ */
+export function removeWorktreeConfirmMessage(
+  wt?: { worktree_branch?: string; branch?: string; name?: string; path?: string },
+  residue: { openTabs?: number; detachedSessions?: number; devServers?: number } = {},
+): string {
+  const base = `Remove worktree "${worktreeConfirmLabel(wt)}"? The working tree directory will be deleted. This cannot be undone.`;
+  const note = worktreeResidueNote(residue);
+  return note ? `${base} ${note}` : base;
 }
 
 /**

@@ -1,9 +1,10 @@
 /**
  * worktreeのセッション連動E2E。
  *
- * 回帰対象: worktree削除（Branchesタブの「Remove worktree」ボタン、
- * ui/composables/useBranchActions.ts の removeWorktree）で、そのworktreeを
- * 開いているセッションのタブが確認の上で閉じることを検証する。
+ * 回帰対象: worktree削除（Branchesタブのブランチ削除ボタン→確認ダイアログの
+ * 「Remove worktree」選択肢、ui/composables/useBranchActions.ts の
+ * deleteLocalBranch/removeWorktreeNow）で、そのworktreeを開いている
+ * セッションのタブが確認の上で閉じることを検証する。
  * これはユニットテスト（findOpenTabsForWorktree単体）だけでは検出できない
  * バグだった — /worktrees API由来のwtオブジェクトはworkspace/nameフィールドを
  * 持たず、呼び出し側で "base [branch]" 形式を組み立てないとタブが常に
@@ -110,13 +111,13 @@ test.describe("worktree削除とセッションタブの連動", () => {
     await expect(branchRow).toBeVisible({ timeout: 10_000 });
     await expect(branchRow.locator(".branch-worktree-icon")).toBeVisible();
 
-    await branchRow.locator('[aria-label="Remove worktree"]').click();
+    await branchRow.locator('[aria-label="Delete branch"]').click();
     const removeDialog = page.locator(".confirm-dialog");
     await expect(removeDialog).toBeVisible({ timeout: 5000 });
     // 開いているセッションが閉じられることを確認文言で明示している
-    // （removeWorktreeConfirmMessage、ui/utils/worktree.ts）。
+    // （worktreeResidueNote、ui/utils/worktree.ts）。
     await expect(removeDialog).toContainText("Its open session will also be closed.");
-    await removeDialog.locator(".dialog-btn-ok").click();
+    await removeDialog.locator(".confirm-btn-extra2").click();
 
     await expect(branchRow).toBeHidden({ timeout: 10_000 });
 
