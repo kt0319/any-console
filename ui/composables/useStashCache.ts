@@ -1,7 +1,6 @@
 import { STASH_CACHE_TTL_MS } from "../utils/constants.ts";
 
-// GitStash.vue の StashEntry 相当（stash 一覧のキャッシュ用途のみ、詳細フィールドは不要）。
-type StashEntry = { ref: string, message: string, time?: string };
+export type StashEntry = { ref: string, message: string, time?: string };
 
 const _cache: Record<string, { data: StashEntry[], ts: number }> = {};
 

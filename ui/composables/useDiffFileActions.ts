@@ -8,13 +8,10 @@ import { copyText } from "../utils/clipboard.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
 import { workspaceCommitMessagePath } from "../utils/endpoints.ts";
 
-// useToast は未型付けのため、利用するメソッドの型をここで明示する。
-type ToastFn = (message: string, opts?: { duration?: number, action?: string | object }) => void;
-
 export function useDiffFileActions({ selectedCommit }: { selectedCommit: Ref<Record<string, any> | null> }) {
   const { apiGet } = useApi();
   const { getWorkspace } = useWorkspace();
-  const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
+  const toast = useToast();
 
   const isWorkingTreeDiff = computed(() => selectedCommit.value?.hash === "__dirty__");
 

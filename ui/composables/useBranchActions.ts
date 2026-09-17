@@ -13,9 +13,6 @@ import { worktreeBranchLabel, worktreeConfirmLabel, worktreeResidueNote, worktre
 import { emit } from "../app-bridge.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
-// useToast は未型付けのため、利用するメソッドの型をここで明示する。
-type ToastFn = (message: string, opts?: { duration?: number, action?: string | object }) => void;
-
 type BranchEntry = { name: string, current?: boolean, remote?: boolean };
 type WorktreeEntry = { worktree_branch?: string, branch?: string, name?: string, path?: string, workspace?: string };
 
@@ -24,7 +21,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
   const { removeWorktreeRequest } = useWorktreeRemove();
   const { withWorkspace } = useWorkspace();
   const { confirm } = useConfirm();
-  const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
+  const toast = useToast();
   const { gitAction, isRunning } = useGitRemoteAction();
   const workspaceStore = useWorkspaceStore();
   const { findResidue, cleanupResidue } = useWorktreeCleanup();

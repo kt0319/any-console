@@ -16,9 +16,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
   behind?: Ref<number> | ComputedRef<number>,
 }) {
   const workspaceStore = useWorkspaceStore();
-  const { apiGet } = useApi() as {
-    apiGet: (endpoint: string, opts?: { errorMessage?: string }) => Promise<{ ok: boolean, data: any }>,
-  };
+  const { apiGet } = useApi();
   const { confirmOpenDevServer } = useDevServerOpen();
 
   function openWorkspacePane(pane: string, extra: Record<string, any> = {}) {

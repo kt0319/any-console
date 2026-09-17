@@ -25,11 +25,7 @@ export function createWorkspaceResourcePoll({ resourcePath, mapItem }: {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   return function useWorkspaceResourcePoll() {
-    // apiGet の opts は useApi 側が省略可能として扱うため、型上も省略可にする。
-    const { apiGet, wsEndpoint }: {
-      apiGet: (endpoint: string, opts?: { errorMessage?: string }) => Promise<{ ok: boolean, data: any }>,
-      wsEndpoint: (workspace: string, path: string) => string,
-    } = useApi();
+    const { apiGet, wsEndpoint } = useApi();
 
     async function fetchItems(workspace: string): Promise<Record<string, any>[]> {
       if (!workspace) return [];

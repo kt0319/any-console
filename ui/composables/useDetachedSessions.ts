@@ -3,7 +3,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { useApi } from "./useApi.ts";
-import { buildDetachedSessionList } from "../utils/detached-sessions.ts";
+import { buildDetachedSessionList, type DetachedSession } from "../utils/detached-sessions.ts";
 import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import {
@@ -15,18 +15,6 @@ import {
   terminalSessionDetachedPath,
 } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
-
-// utils/detached-sessions.ts の DetachedSession 相当（非 export のためローカルに複製）。
-type DetachedSession = {
-  session_id: string | null,
-  tmux_name: string,
-  workspace: string | null,
-  icon?: string,
-  icon_color?: string,
-  job_name?: string,
-  job_label?: string,
-  external: boolean,
-};
 
 // モジュールスコープの単一状態（useRecentJobs.tsと同じパターン）。
 // WorkspaceOpen.vue（カテゴリ見出しのv-if判定用）とDetachedSessionsList.vue

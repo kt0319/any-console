@@ -15,11 +15,7 @@ import { isDockerContainerActive } from "../utils/docker.ts";
  */
 export function useWorkspaceCounts() {
   const workspaceStore = useWorkspaceStore();
-  // apiGet の opts は useApi 側が省略可能として扱うため、型上も省略可にする。
-  const { apiGet, wsEndpoint }: {
-    apiGet: (endpoint: string, opts?: { errorMessage?: string }) => Promise<{ ok: boolean, data: any }>,
-    wsEndpoint: (workspace: string, path: string) => string,
-  } = useApi();
+  const { apiGet, wsEndpoint } = useApi();
   const { loadWorkspaceGitHubUrl, loadIssues, loadPRs, loadActions } = useGitHub();
 
   const issuesCount = ref<number | null>(null);

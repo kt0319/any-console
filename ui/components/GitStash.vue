@@ -26,18 +26,12 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
-import { setStashCache, invalidateStashCache } from "../composables/useStashCache.ts";
+import { setStashCache, invalidateStashCache, type StashEntry } from "../composables/useStashCache.ts";
 
 const emit = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { withWorkspace } = useWorkspace();
-
-interface StashEntry {
-  ref: string;
-  message: string;
-  time?: string;
-}
 
 const stashEntries = ref<StashEntry[]>([]);
 const isStashListLoading = ref(false);

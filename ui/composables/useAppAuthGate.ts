@@ -2,9 +2,6 @@ import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.ts";
 import { useToast } from "./useToast.ts";
 
-// useToast は未型付けのため、利用するメソッドの型をここで明示する。
-type ToastFn = (message: string, opts?: { duration?: number, action?: string | object }) => void;
-
 /**
  * App.vue の認証ゲート。
  * - 起動時のトークン検証
@@ -12,7 +9,7 @@ type ToastFn = (message: string, opts?: { duration?: number, action?: string | o
  */
 export function useAppAuthGate() {
   const auth = useAuthStore();
-  const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
+  const toast = useToast();
 
   const showLogin = ref(false);
   const authenticated = ref(false);

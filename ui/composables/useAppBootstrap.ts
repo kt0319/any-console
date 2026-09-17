@@ -10,9 +10,6 @@ import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.ts";
 import { on } from "../app-bridge.ts";
 
-// useToast は未型付けのため、利用するメソッドの型をここで明示する。
-type ToastFn = (message: string, opts?: { duration?: number, action?: string | object }) => void;
-
 function waitForNextEvent(eventName: string) {
   return new Promise((resolve) => {
     const cleanup = on(eventName, (detail) => {
@@ -28,7 +25,7 @@ export function useAppBootstrap() {
   const terminalStore = useTerminalStore();
   const { restoreExistingSessions } = useSessionSync();
   const statusStream = useStatusStream();
-  const toast: Record<"success" | "error" | "info" | "warning", ToastFn> = useToast();
+  const toast = useToast();
 
   const booting = ref(true);
   const bootMessage = ref("Loading...");

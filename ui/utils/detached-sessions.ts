@@ -19,7 +19,7 @@ export interface OwnedSession {
   job_label?: string;
 }
 
-interface DetachedSession {
+export interface DetachedSession {
   session_id: string | null;
   tmux_name: string;
   workspace: string | null;

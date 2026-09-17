@@ -1,12 +1,9 @@
-import { formatGitTime, parseGitRefs } from "./git.ts";
+import { formatGitTime, parseGitRefs, type GitRef } from "./git.ts";
 
 export const GRAPH_ROW_HEIGHT = 28;
 export const GRAPH_COL_WIDTH = 8;
 const HALF = GRAPH_ROW_HEIGHT / 2;
 const COLORS = ["#7aa2f7", "#9ece6a", "#f7768e", "#e0af68", "#bb9af7", "#7dcfff", "#ff9e64", "#c0caf5"];
-
-// git.ts の parseGitRefs が返す ref バッジ1件分。
-type GitRef = { label: string, type: string, icon: string, synced?: boolean };
 
 type GitGraphEntry = {
   hash: string,
