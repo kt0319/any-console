@@ -108,7 +108,7 @@ const rowStateClasses = computed(() => ({
 // pills-row自身（中身に応じて伸縮する）を基準にすると、maxWidthで中身が
 // 決まり中身でmaxWidthが決まる循環参照になり0に収束してしまうため使わない。
 const row1El = ref<HTMLElement | null>(null);
-const { maxWidth: pillsMaxWidth } = useElementMaxWidth(row1El, SIDEBAR_PILL_ROW_RESERVED_PX);
+const { maxWidth: pillsMaxWidth } = useElementMaxWidth(row1El, SIDEBAR_PILL_ROW_RESERVED_PX, true);
 
 const peekFields = computed(() => ({
   workspaceLabel: props.item.tab.workspace || props.item.tab.label || "",

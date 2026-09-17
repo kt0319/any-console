@@ -14,11 +14,11 @@ class FakeResizeObserver {
   disconnect() {}
 }
 
-function mountWithMaxWidth(reservedPx) {
+function mountWithMaxWidth(reservedPx, capToSelfHalf = false) {
   const el = ref(null);
   const wrapper = mount(defineComponent({
     setup() {
-      const { maxWidth } = useElementMaxWidth(el, reservedPx);
+      const { maxWidth } = useElementMaxWidth(el, reservedPx, capToSelfHalf);
       return { maxWidth };
     },
     render() { return h("div", { ref: (r) => { el.value = r; } }); },
@@ -63,6 +63,16 @@ describe("useElementMaxWidth", () => {
     roCallback([{ contentRect: { width: 100 } }]);
     await wrapper.vm.$nextTick();
     expect(wrapper.vm.maxWidth).toBe(0);
+    wrapper.unmount();
+  });
+
+  it("capToSelfHalf指定時は基準要素自身の幅の半分を上限にする（画面幅は無視）", async () => {
+    global.ResizeObserver = FakeResizeObserver;
+    window.innerWidth = 2000;
+    const { wrapper } = mountWithMaxWidth(40, true);
+    roCallback([{ contentRect: { width: 300 } }]);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.maxWidth).toBe(150);
     wrapper.unmount();
   });
 });
