@@ -126,6 +126,8 @@ const peekFields = computed(() => ({
   branchPR: props.item.branchPR,
   branchAction: props.item.branchAction,
   devServerEntry: props.item.devServerEntry,
+  dockerContainers: props.item.dockerContainers,
+  issuesCount: props.item.issuesCount,
   dispatchItems: props.item.dispatchItems,
   dispatchTooltip: props.item.tooltips?.dispatch,
 }));
