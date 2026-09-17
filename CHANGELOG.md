@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0](https://github.com/kt0319/any-console/compare/v0.18.0...v0.19.0) (2026-09-17)
+
+
+### Features
+
+* Dispatchの実行失敗をキューへ戻さず履歴にfailedとして残し履歴から再実行する ([0411558](https://github.com/kt0319/any-console/commit/04115588f4a7c9ad72c9d2c282d223553b27099d))
+
+
+### Bug Fixes
+
+* ~形式のパスで登録したワークスペースが一覧でgit管理外・存在しない扱いになる不具合を修正 ([deb791f](https://github.com/kt0319/any-console/commit/deb791fe63e20c73587eb4d1cc410b02724537dd))
+* Dispatch実行画面でワークスペース切替前の古い一覧取得結果がJob・ブランチ選択肢を上書きする不具合を修正 ([a4019b9](https://github.com/kt0319/any-console/commit/a4019b962b120bf03329c0aebb941da466aad728))
+* dispatch画像の削除失敗をログに残しシグナル登録失敗で即終了しないようにする ([2fabf8e](https://github.com/kt0319/any-console/commit/2fabf8efb6ccadc7c1c1cd81206b16b34e0c483b))
+* hook_tokenとserver_keyを作成時点から0600で書き込み権限が緩む瞬間をなくす ([cae499d](https://github.com/kt0319/any-console/commit/cae499ddb622fba77c48057a90a7e624ba83d8f4))
+* Info Pills・サークルキーパッド設定の保存失敗時にエラートーストを表示する ([033dc45](https://github.com/kt0319/any-console/commit/033dc4527f5384418feea13d19b78a2b8eaf7058))
+* セッションサイドバーでDockerとIssuesの変化がpeek表示されない不具合を修正 ([5cbb197](https://github.com/kt0319/any-console/commit/5cbb19770f2ce5a6d0f1351816e44e5e982446f4))
+* タブの閉じるボタンにaria-labelとツールチップを追加する ([2f9df58](https://github.com/kt0319/any-console/commit/2f9df587280c7419da86cada9f151055653e8653))
+
+
+### Refactor
+
+* agent_watchのポーリング間で持ち越す状態を1つのロックにまとめ停止時のリセットを原子的にする ([4f8758d](https://github.com/kt0319/any-console/commit/4f8758d8050ae7fdacf3cde9e80dcc47910ec7a6))
+* config.jsonとClaude設定のアトミック書き込みをjson_storeの共通関数に寄せる ([a2d612c](https://github.com/kt0319/any-console/commit/a2d612cc74459daf37844f51a4a6690ffdfa131d))
+* Dev Server・Dockerのポーリング処理を共通ファクトリにまとめstart/stopを冪等にする ([d139acb](https://github.com/kt0319/any-console/commit/d139acb685f9f1f3ab3b8951930b22812fc68b34))
+* dispatch実行時のJSON変換の握りつぶしとlaunch前後のログ処理の重複をなくす ([f4c12f3](https://github.com/kt0319/any-console/commit/f4c12f33324fb1eb553dce445cae12743355d5dc))
+* Dispatch実行画面のJob・ブランチ選択肢の取得をcomposableに切り出す ([eced2b6](https://github.com/kt0319/any-console/commit/eced2b65b47ff60e9770572e9d9414f38605ec4c))
+* gitコマンドの実行結果を型付きのGitOutputで受け渡しJSON化を応答組み立て時に限定する ([c8e2cdb](https://github.com/kt0319/any-console/commit/c8e2cdb01631b1e12101ecc693df8f825c6315d1))
+* v4未満のconfig自動変換とジョブAPIのdetached_tab互換を削除する ([f9e840c](https://github.com/kt0319/any-console/commit/f9e840c6fffdb6b1a0e0b004595aced77028653b))
+* タイトルバーとセッションサイドバーのピル表示値とpeek対象を共通の組み立て関数に統一する ([c3e208d](https://github.com/kt0319/any-console/commit/c3e208dad3bd90b172eede39bbd6b799aea126d9))
+* ディープリンクとDispatch実行後のセッションタブ選択処理を共通化する ([aa62ebc](https://github.com/kt0319/any-console/commit/aa62ebc716462e5785f8a1b86b15814eddfcb8d3))
+* ディープリンクのセッション取得URLをエンドポイント定数に置き換える ([174ed3b](https://github.com/kt0319/any-console/commit/174ed3b79310d11b97aed049f20e120c9037239a))
+* バックエンドで結果を捨てているlet _に無視してよい理由を明記する ([6c2edb6](https://github.com/kt0319/any-console/commit/6c2edb673a65eb930037c6c4f82545721a31c139))
+* バックエンドで自ファイル内だけで使うpub関数を非公開にし未使用のブランチ変更判定を削除する ([3e2d75d](https://github.com/kt0319/any-console/commit/3e2d75d2057bcd4f3edbdda8d9c8dffeaa95a6fc))
+* ピルの色とdirtyバッジ・回転アニメーションのCSSを共通の変数とクラスにまとめる ([328a638](https://github.com/kt0319/any-console/commit/328a638a3e2a1dfd52a4c378ed776289c29b5e23))
+* フロントエンドの未使用のimport・変数・分割代入を削除する ([244de89](https://github.com/kt0319/any-console/commit/244de89f7ae47937e2c4df5f33ccb4d2a95e3e6c))
+* フロントエンドの重複した型定義と不要なuseApiの型注釈を削除する ([0cdd09c](https://github.com/kt0319/any-console/commit/0cdd09cf688c52c92d3ebc0d0e672064003651c4))
+* ワークスペース詳細のペイン名・git必須・ディープリンク可否の定義を1つの表に集約する ([dc42fdb](https://github.com/kt0319/any-console/commit/dc42fdb7795ccf6dd858ed0a4ac42891818e338c))
+* 画像アップロードのクリップボード書き込みをsubprocessヘルパー経由に統一する ([970a0d2](https://github.com/kt0319/any-console/commit/970a0d23fa426bb84ab599044a99ecb6349a373a))
+
+
+### Tests
+
+* git_infoとgit_watchのテスト用sh_gitヘルパーを共通化する ([0a7b5c0](https://github.com/kt0319/any-console/commit/0a7b5c0e41cce10f2e24542e22e506601c7da971))
+* 統合テストが作ったtmuxセッションをテスト終了時にプレフィックス単位で必ず終了する ([85d19c5](https://github.com/kt0319/any-console/commit/85d19c5abdf75085e75d7041435616072b2985c8))
+
 ## [0.18.0](https://github.com/kt0319/any-console/compare/v0.17.0...v0.18.0) (2026-09-17)
 
 
