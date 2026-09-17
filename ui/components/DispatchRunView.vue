@@ -127,6 +127,7 @@ import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchImagePaste } from "../composables/useDispatchImagePaste.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
+import { useDispatchRunOptions } from "../composables/useDispatchRunOptions.ts";
 import { useToast } from "../composables/useToast.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
@@ -199,14 +200,8 @@ const branchSelectValue = computed({
 // Change branchではbranch（select由来の切替先）を使う。
 const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
 
-type JobOption = { key: string, label: string };
-
-const jobsState = ref<AsyncState<JobOption[]>>(asyncIdle());
-const jobs = computed(() => asyncValueOr(jobsState.value, [] as JobOption[]));
 const sessionsState = ref<AsyncState<Record<string, any>[]>>(asyncIdle());
 const sessions = computed(() => asyncValueOr(sessionsState.value, [] as Record<string, any>[]));
-const branchesState = ref<AsyncState<string[]>>(asyncIdle());
-const localBranches = computed(() => asyncValueOr(branchesState.value, [] as string[]));
 const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
@@ -352,18 +347,6 @@ watch(selectedSessionId, (id) => {
   selectedJob.value = s.job_name || "terminal";
 });
 
-watch(selectedWorkspace, async (ws) => {
-  jobsState.value = asyncLoading();
-  if (!ws) { jobsState.value = asyncReady([]); return; }
-  const res = await apiGet(wsEndpoint(ws, "jobs"));
-  jobsState.value = res.ok && res.data
-    ? asyncReady(Object.entries(res.data as Record<string, any>).map(([key, def]) => ({ key, label: def.label || key })))
-    : asyncError("Failed to load jobs");
-  if (selectedJob.value !== "terminal" && !jobs.value.some((j) => j.key === selectedJob.value)) {
-    selectedJob.value = "terminal";
-  }
-}, { immediate: true });
-
 // Base branch のブランチ一覧: 選択中セッションのワークスペースまたは選択中のワークスペース
 const baseBranchWorkspace = computed(() => {
   if (!isNewSession.value && selectedSessionId.value) {
@@ -373,23 +356,12 @@ const baseBranchWorkspace = computed(() => {
   return selectedWorkspace.value;
 });
 
-watch(baseBranchWorkspace, async (ws) => {
-  branchesState.value = asyncLoading();
-  if (!ws) { branchesState.value = asyncReady([]); return; }
-  const res = await apiGet(wsEndpoint(ws, "branches"));
-  if (res.ok && Array.isArray(res.data)) {
-    // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
-    // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
-    const current = res.data.find((b) => b.current);
-    const rest = res.data.filter((b) => !b.current).map((b) => b.name);
-    branchesState.value = asyncReady(current ? [current.name, ...rest] : rest);
-  } else {
-    branchesState.value = asyncError("Failed to load branches");
-  }
-  if (baseBranch.value && !localBranches.value.includes(baseBranch.value)) {
-    baseBranch.value = "";
-  }
-}, { immediate: true });
+const { jobsState, jobs, branchesState, localBranches } = useDispatchRunOptions({
+  jobWorkspace: selectedWorkspace,
+  selectedJob,
+  branchWorkspace: baseBranchWorkspace,
+  baseBranch,
+});
 
 function buildOverrides() {
   const orig = request.value || {};
