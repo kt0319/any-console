@@ -104,6 +104,7 @@ struct TestFront {
     scoped_token: String,
     push_calls: Arc<StdMutex<Vec<ReceivedPush>>>,
     _dir: tempfile::TempDir,
+    _tmux_cleanup: common::TmuxSessionCleanup,
 }
 
 fn dispatch_router(state: Arc<AppState>) -> Router {
@@ -147,7 +148,7 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let tmux_prefix = common::unique_tmux_prefix();
+    let (tmux_prefix, tmux_cleanup) = common::unique_tmux_prefix();
 
     let ws_path = dir.path().join("proj");
     make_repo(&ws_path);
@@ -200,6 +201,7 @@ async fn spawn_front() -> TestFront {
         scoped_token,
         push_calls,
         _dir: dir,
+        _tmux_cleanup: tmux_cleanup,
     }
 }
 

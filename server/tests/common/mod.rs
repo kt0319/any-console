@@ -82,9 +82,36 @@ pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
     })
 }
 
-/// 実 tmux を使うテスト同士がセッション名で衝突しないためのユニークプレフィックス。
-pub fn unique_tmux_prefix() -> String {
-    format!("test-{}-", any_console_server::util::token_hex(3))
+/// 実 tmux を使うテスト同士がセッション名で衝突しないためのユニークプレフィックスと、
+/// そのプレフィックスのセッションを drop 時に終了するガード。ガードはテスト用サーバと
+/// 同じ寿命で保持する（テストが途中で失敗しても、kill 漏れのセッションが残らないように）。
+pub fn unique_tmux_prefix() -> (String, TmuxSessionCleanup) {
+    let prefix = format!("test-{}-", any_console_server::util::token_hex(3));
+    (prefix.clone(), TmuxSessionCleanup { prefix })
+}
+
+pub struct TmuxSessionCleanup {
+    prefix: String,
+}
+
+impl Drop for TmuxSessionCleanup {
+    fn drop(&mut self) {
+        let Ok(out) = std::process::Command::new("tmux")
+            .args(["list-sessions", "-F", "#{session_name}"])
+            .output()
+        else {
+            // tmux 未導入の環境ではセッションも作られていない
+            return;
+        };
+        let names = String::from_utf8_lossy(&out.stdout);
+        for name in names.lines().filter(|n| n.starts_with(&self.prefix)) {
+            // `=` で完全一致させる（tmux の -t は前方一致でも解決してしまうため）。
+            // テスト内で既に終了済みなら失敗するだけなので結果は見ない。
+            let _ = std::process::Command::new("tmux")
+                .args(["kill-session", "-t", &format!("={name}")])
+                .output();
+        }
+    }
 }
 
 /// Router を空きポートで起動してアドレスを返す。

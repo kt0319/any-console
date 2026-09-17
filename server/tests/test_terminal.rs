@@ -26,6 +26,7 @@ struct TestFront {
     addr: SocketAddr,
     state: Arc<AppState>,
     _dir: tempfile::TempDir,
+    _tmux_cleanup: common::TmuxSessionCleanup,
 }
 
 fn terminal_router(state: Arc<AppState>) -> Router {
@@ -63,7 +64,7 @@ async fn spawn_front() -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
-    let tmux_prefix = common::unique_tmux_prefix();
+    let (tmux_prefix, tmux_cleanup) = common::unique_tmux_prefix();
 
     let state = common::test_app_state(
         dir.path(),
@@ -87,6 +88,7 @@ async fn spawn_front() -> TestFront {
         addr,
         state,
         _dir: dir,
+        _tmux_cleanup: tmux_cleanup,
     }
 }
 
