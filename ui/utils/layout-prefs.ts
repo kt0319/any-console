@@ -14,10 +14,13 @@ export type TitleBarPosition = "off" | "top" | "bottom";
 // 持たせる（狭い画面では常にフル幅表示になり選択の余地が無い）。
 export type WideKeyboardBarMode = "off" | "sidebar" | "full";
 // Info Pills（ターミナルペインのステータスアイコン群）の表示モード。
-// off=非表示、float=ターミナルに重ねて浮かせる、bar=各ペイン上部に帯で固定表示。
+// off=非表示、float-top/float-bottom=ターミナルに重ねて浮かせる、
+// bar-top/bar-bottom=各ペインの上部/下部に帯で固定表示。Keyboard barの
+// wideKeyboardBarMode（off/sidebar/full）と同じく、モードと表示位置を
+// 1つのフラットな値にまとめている。
 // Keyboard barと異なりセッションサイドバーとは無関係な機能のため、narrow/wide
-// どちらも同じ3値を独立して持てる。
-export type InfoPillDisplayMode = "off" | "float" | "bar";
+// どちらも同じ5値を独立して持てる。
+export type InfoPillDisplayMode = "off" | "float-top" | "float-bottom" | "bar-top" | "bar-bottom";
 
 export interface LayoutPrefs {
   narrowTabPosition: TabPosition;
@@ -40,8 +43,12 @@ export const DEFAULT_LAYOUT_PREFS: LayoutPrefs = {
   wideKeyboardBarMode: "off",
   narrowTitleBarPosition: "bottom",
   wideTitleBarPosition: "off",
-  narrowInfoPillMode: "float",
-  wideInfoPillMode: "float",
+  // 従来のfloatは「タブバーがbottomならpillもbottom」に自動追従していた
+  // （狭い画面の既定タブ位置はbottom、広い画面はtop）。位置を明示選択制に
+  // した後もこの既定の見た目を保つため、narrow/wideそれぞれの初期値を
+  // その結果に合わせて分ける。
+  narrowInfoPillMode: "float-bottom",
+  wideInfoPillMode: "float-top",
 };
 
 function normalizeTabPosition(value: unknown, fallback: TabPosition): TabPosition {
@@ -56,8 +63,19 @@ function normalizeWideKeyboardBarMode(value: unknown, fallback: WideKeyboardBarM
   return value === "off" || value === "sidebar" || value === "full" ? value : fallback;
 }
 
-function normalizeInfoPillDisplayMode(value: unknown, fallback: InfoPillDisplayMode): InfoPillDisplayMode {
-  return value === "off" || value === "float" || value === "bar" ? value : fallback;
+// 旧バージョンで保存された値（位置選択が無かった頃の唯一のfloat/bar値）を
+// 読み替える。legacyFloatは呼び出し側（narrow/wide）の既定位置に合わせる
+// （DEFAULT_LAYOUT_PREFSの初期値決定と同じ理由）。
+function normalizeInfoPillDisplayMode(
+  value: unknown,
+  fallback: InfoPillDisplayMode,
+  legacyFloat: "float-top" | "float-bottom",
+): InfoPillDisplayMode {
+  if (value === "bar") return "bar-top";
+  if (value === "float") return legacyFloat;
+  return value === "off" || value === "float-top" || value === "float-bottom" || value === "bar-top" || value === "bar-bottom"
+    ? value
+    : fallback;
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -75,8 +93,8 @@ export function normalizeLayoutPrefs(raw: unknown): LayoutPrefs {
     wideKeyboardBarMode: normalizeWideKeyboardBarMode(r.wideKeyboardBarMode, DEFAULT_LAYOUT_PREFS.wideKeyboardBarMode),
     narrowTitleBarPosition: normalizeTitleBarPosition(r.narrowTitleBarPosition, DEFAULT_LAYOUT_PREFS.narrowTitleBarPosition),
     wideTitleBarPosition: normalizeTitleBarPosition(r.wideTitleBarPosition, DEFAULT_LAYOUT_PREFS.wideTitleBarPosition),
-    narrowInfoPillMode: normalizeInfoPillDisplayMode(r.narrowInfoPillMode, DEFAULT_LAYOUT_PREFS.narrowInfoPillMode),
-    wideInfoPillMode: normalizeInfoPillDisplayMode(r.wideInfoPillMode, DEFAULT_LAYOUT_PREFS.wideInfoPillMode),
+    narrowInfoPillMode: normalizeInfoPillDisplayMode(r.narrowInfoPillMode, DEFAULT_LAYOUT_PREFS.narrowInfoPillMode, "float-bottom"),
+    wideInfoPillMode: normalizeInfoPillDisplayMode(r.wideInfoPillMode, DEFAULT_LAYOUT_PREFS.wideInfoPillMode, "float-top"),
   };
 }
 
@@ -100,4 +118,8 @@ export function resolveTitleBarPosition(prefs: LayoutPrefs, isNarrow: boolean): 
 
 export function resolveInfoPillDisplayMode(prefs: LayoutPrefs, isNarrow: boolean): InfoPillDisplayMode {
   return isNarrow ? prefs.narrowInfoPillMode : prefs.wideInfoPillMode;
+}
+
+export function isInfoPillBarMode(mode: InfoPillDisplayMode): boolean {
+  return mode === "bar-top" || mode === "bar-bottom";
 }

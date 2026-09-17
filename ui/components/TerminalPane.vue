@@ -13,16 +13,19 @@
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeypad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
-    <!-- barモードは各ペイン上部にフローの一部として帯を固定するため、絶対配置基準
-         である.terminal-frameの外（兄弟）に置く。floatモードでも.pill-groupは
-         position:absoluteのままなので、.terminal-frame(inset:0)基準から
-         .terminal-pane(position:relative)基準に変わるだけで見た目は変わらない。 -->
+    <!-- barモードは各ペインの上部/下部にフローの一部として帯を固定するため、
+         絶対配置基準である.terminal-frameの外（兄弟）に置き、bar-bottomは
+         order:1（下記CSS）で.terminal-frameの後ろへ回す。floatモードでも
+         .pill-groupはposition:absoluteのままなので、.terminal-frame(inset:0)
+         基準から.terminal-pane(position:relative)基準に変わるだけで見た目は
+         変わらない。 -->
     <div
       v-if="layoutStore.infoPillDisplayMode !== 'off'"
       class="pill-group"
       :class="{
-        'pill-group-bottom': layoutStore.isPanelBottom && layoutStore.infoPillDisplayMode !== 'bar',
-        'pill-group-bar': layoutStore.infoPillDisplayMode === 'bar',
+        'pill-group-bottom': layoutStore.infoPillDisplayMode === 'float-bottom',
+        'pill-group-bar': layoutStore.isInfoPillBar,
+        'pill-group-bar-bottom': layoutStore.infoPillDisplayMode === 'bar-bottom',
       }"
       ref="pillEl"
     >
@@ -94,7 +97,7 @@
     <div
       :id="'frame-' + tab.id"
       class="terminal-frame"
-      :class="{ 'terminal-frame-bar-mode': layoutStore.infoPillDisplayMode === 'bar' }"
+      :class="{ 'terminal-frame-bar-mode': layoutStore.isInfoPillBar }"
       ref="frameEl"
     ></div>
   </div>

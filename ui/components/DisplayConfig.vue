@@ -34,8 +34,10 @@
         <span class="display-settings-field-label">Info Pills</span>
         <div class="display-settings-radio-row">
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="off" /> Off</label>
-          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="float" /> Float</label>
-          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="bar" /> Bar</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="float-top" /> Float (Top)</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="float-bottom" /> Float (Bottom)</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="bar-top" /> Bar (Top)</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.wideInfoPillMode" value="bar-bottom" /> Bar (Bottom)</label>
         </div>
       </div>
     </div>
@@ -68,8 +70,10 @@
         <span class="display-settings-field-label">Info Pills</span>
         <div class="display-settings-radio-row">
           <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="off" /> Off</label>
-          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="float" /> Float</label>
-          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="bar" /> Bar</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="float-top" /> Float (Top)</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="float-bottom" /> Float (Bottom)</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="bar-top" /> Bar (Top)</label>
+          <label class="form-check-label"><input type="radio" v-model="layoutPrefs.narrowInfoPillMode" value="bar-bottom" /> Bar (Bottom)</label>
         </div>
       </div>
     </div>

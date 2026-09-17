@@ -24,17 +24,18 @@
   max-width: min(80vw, 450px);
 }
 
-/* Info Pills設定の「Position」で右下配置を選んだ場合。right はそのまま
+/* Display設定のInfo Pillsで「Float (Bottom)」を選んだ場合。right はそのまま
    固定値を使い、上下だけ入れ替える。 */
 .pill-group.pill-group-bottom {
   top: auto;
   bottom: 10px;
 }
 
-/* Display設定のInfo Pillsで「Bar」を選んだ場合。ターミナルに重ねて浮かせる
-   floatと違い、.terminal-pane（display:flex; flex-direction:column）の
-   フロー内に実要素として置き、幅いっぱいの帯にする（TerminalPane.vue側で
-   .terminal-frame を .terminal-frame-bar-mode にしてこの帯の高さぶん縮める）。 */
+/* Display設定のInfo Pillsで「Bar (Top/Bottom)」を選んだ場合。ターミナルに
+   重ねて浮かせるfloatと違い、.terminal-pane（display:flex; flex-direction:
+   column）のフロー内に実要素として置き、幅いっぱいの帯にする（TerminalPane.vue
+   側で .terminal-frame を .terminal-frame-bar-mode にしてこの帯の高さぶん
+   縮める）。 */
 .pill-group.pill-group-bar {
   position: static;
   width: 100%;
@@ -45,6 +46,15 @@
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
   z-index: auto;
+}
+
+/* Display設定のInfo Pillsで「Bar (Bottom)」を選んだ場合。.terminal-frame
+   （order指定なし、既定0）より後ろに回すだけで、DOM順は変えずに帯の位置だけ
+   下へ入れ替える。区切り線も接する辺（上）に付け替える。 */
+.pill-group.pill-group-bar-bottom {
+  order: 1;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
 }
 
 /* peekピル（pill-peek-wide）と、展開ボタン群・ワークスペースピル本体・
