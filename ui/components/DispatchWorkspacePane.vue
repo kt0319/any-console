@@ -14,13 +14,13 @@
       </template>
 
       <template v-if="recent.length">
-        <div class="settings-section-label dispatch-queue-recent-label">Recently executed</div>
+        <div class="settings-section-label dispatch-queue-recent-label">Recently decided</div>
         <ul class="dispatch-queue-list">
           <li v-for="item in recent" :key="item.id" class="dispatch-queue-row">
             <button
               type="button"
               class="dispatch-queue-row-main dispatch-queue-recent-row"
-              :class="item.outcome === 'executed' ? 'dispatch-queue-recent-executed' : 'dispatch-queue-recent-discarded'"
+              :class="`dispatch-queue-recent-${item.outcome}`"
               @click="emits('select', item.id)"
             >
               <DispatchQueueRowBody :request="item.request" :outcome="item.outcome" />

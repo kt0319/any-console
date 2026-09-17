@@ -19,7 +19,7 @@ const queue = ref<DispatchQueueItem[]>([]);
 
 // 実行/破棄が決定された直近の項目（新しい順）。実行しても結果がすぐ消えてしまう
 // 問題への対応で、サーバ側が直近N件だけ一時的に残して配信する
-// （outcome: "executed" | "discarded"）。
+// （outcome: "executed" | "discarded" | "failed"。failed は値を直して履歴から再実行する）。
 const recent = ref<DispatchRecentItem[]>([]);
 
 function removeFromQueue(id: string) {

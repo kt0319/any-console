@@ -1093,45 +1093,19 @@ pub async fn dispatch_execute(
             return Ok(Json(json!({"status": "ok"})).into_response());
         }
 
-        let mut dispatch_body: DispatchRequest =
+        let request: DispatchRequest =
             serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
-        dispatch_body.apply_overrides(&body.overrides);
-        if !dispatch_body.image_paths.is_empty() {
-            dispatch_body.image_paths =
-                sync_dispatch_image_dir(&state.paths, &dispatch_id, &dispatch_body.image_paths)
-                    .await;
-        }
-
-        let result = match launch_logged(&state, &dispatch_body, auth_label).await {
-            Ok(r) => r,
-            Err(e) => {
-                // 失敗した項目はキューに残し、値を修正して再度executed/discardを
-                // やり直せるようにする（Python 版と同じ挙動）。上でクレーム済み
-                // のため戻す。
-                state
-                    .dispatch
-                    .pending
-                    .lock()
-                    .await
-                    .insert(dispatch_id.clone(), payload);
-                persist_and_broadcast(&state).await;
-                return Err(e);
-            }
-        };
-        let mut executed_request = dispatch_body.to_json_map();
-        // received_atはDispatchRequestのフィールドではないためto_json_mapでは
-        // 失われる。pending時点のpayloadから引き継ぐ。
-        if let Some(received_at) = payload.get("received_at") {
-            executed_request.insert("received_at".to_string(), received_at.clone());
-        }
-        record_recent(
+        // received_atはDispatchRequestのフィールドではないためpayloadから引き継ぐ。
+        let received_at = payload.get("received_at").cloned();
+        let result = execute_and_record(
             &state,
             &dispatch_id,
-            Value::Object(executed_request),
-            "executed",
+            request,
+            received_at,
+            &body.overrides,
+            auth_label,
         )
-        .await;
-        persist_and_broadcast(&state).await;
+        .await?;
         return Ok(Json(result).into_response());
     }
 
@@ -1153,28 +1127,49 @@ pub async fn dispatch_execute(
         ));
     }
 
-    let mut req: DispatchRequest =
+    let mut request: DispatchRequest =
         serde_json::from_value(item["request"].clone()).map_err(|e| server_error(e.to_string()))?;
-    req.direct = false;
-    req.dedup_key = None;
-    req.session_id = None;
-    req.apply_overrides(&body.overrides);
-
-    // 履歴からの再実行は新規 dispatch_id を持つ扱いなので、添付画像もその
-    // dispatch_id 専用領域へ集約してから launch する（古い決定済みitemの
-    // フォルダから移されるため、そちらは以後空になる）。
-    let new_id = crate::util::token_urlsafe(8);
-    if !req.image_paths.is_empty() {
-        req.image_paths = sync_dispatch_image_dir(&state.paths, &new_id, &req.image_paths).await;
-    }
-
-    let result = launch_logged(&state, &req, auth_label).await?;
-    let mut request = req.to_json_map();
-    // 履歴からの再実行は新規dispatchとして扱い、受付時刻も再送された「今」にする。
-    request.insert("received_at".to_string(), json!(now_epoch()));
-    record_recent(&state, &new_id, Value::Object(request), "executed").await;
-    broadcast_queue(&state).await;
+    request.direct = false;
+    request.dedup_key = None;
+    request.session_id = None;
+    // 履歴からの再実行は新規dispatchとして扱う（新しいID・受付時刻は再送された「今」）。
+    let result = execute_and_record(
+        &state,
+        &crate::util::token_urlsafe(8),
+        request,
+        Some(json!(now_epoch())),
+        &body.overrides,
+        auth_label,
+    )
+    .await?;
     Ok(Json(result).into_response())
+}
+
+/// 上書きを適用して launch し、成否（executed / failed）を履歴に記録する。
+/// 失敗した項目はキューに戻さず、履歴から値を直して再実行する。
+async fn execute_and_record(
+    state: &Arc<AppState>,
+    dispatch_id: &str,
+    mut request: DispatchRequest,
+    received_at: Option<Value>,
+    overrides: &DispatchOverrides,
+    auth_label: &str,
+) -> Result<Value, ApiError> {
+    request.apply_overrides(overrides);
+    // 添付画像は記録先 dispatch_id の専用領域へ集約してから launch する。
+    if !request.image_paths.is_empty() {
+        request.image_paths =
+            sync_dispatch_image_dir(&state.paths, dispatch_id, &request.image_paths).await;
+    }
+    let result = launch_logged(state, &request, auth_label).await;
+    let mut recorded = request.to_json_map();
+    if let Some(received_at) = received_at {
+        recorded.insert("received_at".to_string(), received_at);
+    }
+    let outcome = if result.is_ok() { "executed" } else { "failed" };
+    record_recent(state, dispatch_id, Value::Object(recorded), outcome).await;
+    persist_and_broadcast(state).await;
+    result
 }
 
 #[cfg(test)]

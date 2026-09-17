@@ -299,8 +299,11 @@ onMounted(() => {
   initialRetryCount.value = request.value?.retry_count ?? 1;
 });
 
+// 実行に失敗した項目は同じIDで履歴（failed）へ移るので、画面を閉じずに再実行モードとして続ける。
 const offItemRemoved = on("dispatch:itemRemoved", ({ id }) => {
-  if (id === itemId) emits("back");
+  if (id !== itemId) return;
+  if (recent.value.some((r) => r.id === itemId && r.outcome === "failed")) return;
+  emits("back");
 });
 onUnmounted(offItemRemoved);
 

@@ -967,6 +967,75 @@ async fn dispatch_stamps_received_at_and_decided_at() {
     assert!(decided_at >= received_at);
 }
 
+/// 実行に失敗した承認待ち項目はキューに戻さず、同じIDで履歴に failed として残り、
+/// その履歴から値を直して再実行できること。
+#[tokio::test]
+async fn failed_execution_is_recorded_as_failed_and_rerunnable_from_history() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let resp = common::client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&json!({"workspace": "proj", "match": "none"}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dispatch_id = body["id"].as_str().unwrap().to_string();
+    let received_at = {
+        let pending = front.state.dispatch.pending.lock().await;
+        pending[&dispatch_id]["received_at"].clone()
+    };
+
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"executed": true, "workspace": "no-such-workspace"}))
+        .send()
+        .await
+        .unwrap();
+    assert!(resp.status().is_client_error(), "status={}", resp.status());
+
+    assert!(front.state.dispatch.pending.lock().await.is_empty());
+    {
+        let recent = front.state.dispatch.recent.lock().await;
+        assert_eq!(recent[0]["id"], dispatch_id);
+        assert_eq!(recent[0]["outcome"], "failed");
+        assert_eq!(recent[0]["request"]["workspace"], "no-such-workspace");
+        assert_eq!(recent[0]["request"]["received_at"], received_at);
+    }
+
+    let resp = common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"executed": true, "workspace": "proj"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    let session_id = body["session_id"].as_str().unwrap().to_string();
+    {
+        let recent = front.state.dispatch.recent.lock().await;
+        assert_eq!(recent[0]["outcome"], "executed");
+        assert_ne!(recent[0]["id"], dispatch_id);
+        assert_eq!(recent[1]["id"], dispatch_id);
+    }
+    any_console_server::subprocess::kill_tmux_by_name(&format!(
+        "{}{session_id}",
+        front.state.paths.tmux_prefix
+    ))
+    .await;
+}
+
 /// 破棄（discarded）でもreceived_at/decided_atがrecent履歴へ残ること。
 #[tokio::test]
 async fn discarded_dispatch_keeps_received_at_and_stamps_decided_at() {

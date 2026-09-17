@@ -1,7 +1,7 @@
 <template>
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
-      <span class="mdi" :class="outcome === 'executed' ? 'mdi-check-circle-outline' : 'mdi-close-circle-outline'"></span>
+      <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
       <span v-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
@@ -19,8 +19,8 @@ import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 // Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
 // のタブ（DispatchWorkspacePane.vue）で既にワークスペースが絞られているため、
 // ワークスペース名・ジョブ名は表示しない。
-// pending 行と Recently executed 行で同じ表示ルールを共有する。
-// outcome（executed/decided）がある時だけ先頭に結果アイコンを付ける。
+// pending 行と Recently decided 行で同じ表示ルールを共有する。
+// outcome（executed/discarded/failed）がある時だけ先頭に結果アイコンを付ける。
 
 const props = defineProps({
   request: { type: Object, required: true },
@@ -36,6 +36,13 @@ const relevantAt = computed(() => {
 });
 
 const timeLabel = computed(() => formatMinutesAgo(relevantAt.value));
+
+const OUTCOME_ICONS: Record<string, string> = {
+  executed: "mdi-check-circle-outline",
+  failed: "mdi-alert-circle-outline",
+  discarded: "mdi-close-circle-outline",
+};
+const outcomeIcon = computed(() => OUTCOME_ICONS[props.outcome] || OUTCOME_ICONS.discarded);
 
 const timeTooltip = computed(() => {
   const label = props.outcome ? "Decided at" : "Received at";
@@ -95,5 +102,9 @@ const timeTooltip = computed(() => {
 
 .dispatch-queue-recent-discarded .dispatch-queue-recent-head .mdi {
   color: var(--text-muted);
+}
+
+.dispatch-queue-recent-failed .dispatch-queue-recent-head .mdi {
+  color: var(--error);
 }
 </style>

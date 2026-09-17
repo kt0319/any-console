@@ -109,6 +109,30 @@ test.describe("dispatch", () => {
     await expect(page.locator(".modal-title")).toBeHidden({ timeout: 10_000 });
   });
 
+  test("Runが失敗しても画面は閉じずRerunモードになり、履歴にfailedとして残る", async ({ page }) => {
+    await postDispatch(page, { dedup_key: `e2e-failed-${Date.now()}` });
+    await openDispatchTab(page);
+
+    const pendingRow = page.locator(".dispatch-queue-pending-row").first();
+    await expect(pendingRow).toBeVisible({ timeout: 10_000 });
+    await pendingRow.click();
+    const runBtn = page.getByRole("button", { name: /Run$/ });
+    await expect(runBtn).toBeEnabled({ timeout: 10_000 });
+
+    // launch 時にワークスペースのパス解決が失敗するよう、Run直前にディレクトリを退避する。
+    const movedDir = `${wsDir}-moved`;
+    fs.renameSync(wsDir, movedDir);
+    try {
+      await runBtn.click();
+      await expect(page.locator(".dispatch-run-title")).toHaveText("Rerun Dispatch", { timeout: 10_000 });
+    } finally {
+      fs.renameSync(movedDir, wsDir);
+    }
+
+    await page.getByRole("button", { name: "Back to dispatch list" }).click();
+    await expect(page.locator(".dispatch-queue-recent-failed").first()).toBeVisible({ timeout: 10_000 });
+  });
+
   test("Discardで承認待ちが削除される（確認ダイアログあり）", async ({ page }) => {
     await postDispatch(page, { dedup_key: `e2e-discard-${Date.now()}` });
     await openDispatchTab(page);
