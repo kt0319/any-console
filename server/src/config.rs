@@ -149,12 +149,6 @@ impl ConfigStore {
             Map::new()
         };
 
-        // マイグレーション → 正規化の順で行う。正規化はスキーマ既定値と等しい
-        // 値（例: `detached: false`）をエントリから落とすため、先に正規化すると
-        // マイグレーションが「新キーが明示されているか」を判定できない
-        // （v3 で `detached_tab: true` と `detached: false` が併存する config を
-        // 読むと、新キー側の false が消えて legacy の true が採用されてしまう —
-        // Codex レビュー指摘）。生の config を変換してから検証する。
         let (migrated, did_migrate) = migrate_config_version(raw);
         let (normalized, errors) =
             normalize_loaded_config(&Value::Object(migrated), GLOBAL_CONFIG_KEY);
@@ -713,51 +707,17 @@ mod tests {
     }
 
     #[test]
-    fn old_version_migrates_on_read() {
+    fn old_version_is_stamped_and_written_back_on_read() {
         let dir = tempfile::tempdir().unwrap();
         write_file(
             &dir,
             "config.json",
-            r#"{"__global__": {"pinned_jobs": [{"key": "k1"}]}}"#,
-        );
-        let s = store(&dir);
-        let cfg = s.load_all();
-        let global = cfg[GLOBAL_CONFIG_KEY].as_object().unwrap();
-        assert_eq!(global["config_version"], json!(4));
-        assert_eq!(
-            global["recent_jobs"],
-            json!([{"key": "k1", "pinned": true}])
-        );
-        // マイグレーション結果が書き戻されている
-        let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
-        assert!(text.contains("recent_jobs"));
-    }
-
-    /// v3 config に legacy `detached_tab: true` と新キー `detached: false` が
-    /// 併存する場合、新キー側（false）が勝つこと。正規化を先に走らせると
-    /// 既定値どおりの `detached: false` が消えて legacy の true が復活するため、
-    /// read_core は「マイグレーション → 正規化」の順であることを検証する
-    /// （Codex レビュー指摘）。
-    #[test]
-    fn migration_prefers_explicit_new_key_over_legacy() {
-        let dir = tempfile::tempdir().unwrap();
-        write_file(
-            &dir,
-            "config.json",
-            r#"{
-                "__global__": {"config_version": 3},
-                "ws_a": {
-                    "path": "/tmp/a",
-                    "jobs": {"dev": {"command": "x", "detached_tab": true, "detached": false}}
-                }
-            }"#,
+            r#"{"__global__": {"config_version": 3}, "ws_a": {"path": "/tmp/a"}}"#,
         );
         let cfg = store(&dir).load_all();
-        let job = cfg["ws_a"]["jobs"]["dev"].as_object().unwrap();
-        assert!(!job.contains_key("detached_tab"));
-        // 新キー側の明示値 false が採用される
-        // （detached_tab: true が detached: true として残らないことが本題）。
-        assert_eq!(job.get("detached"), Some(&json!(false)));
+        assert_eq!(cfg[GLOBAL_CONFIG_KEY]["config_version"], json!(4));
+        let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
+        assert!(text.contains("\"config_version\": 4"));
     }
 
     #[test]

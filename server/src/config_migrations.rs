@@ -1,4 +1,4 @@
-//! config.json のスキーマ・マイグレーション（Python 側 `api/config_migrations.py` の移植）。
+//! config.json のスキーマバージョン管理。
 //!
 //! ファイル I/O やロックは持たず、config dict を受け取って変換後の dict を返す
 //! 純粋関数のみを置く。
@@ -31,117 +31,10 @@ fn set_config_version(mut config: Map<String, Value>, version: i64) -> Map<Strin
     config
 }
 
-/// v1 -> v2: サークルキーパッド設定の旧セクション名 radial を circle_keypad へ改名。
-/// circle_keypad に既に設定がある場合はそちらを正とし、radial は破棄する。
-fn migrate_radial_to_circle_keypad(mut config: Map<String, Value>) -> Map<String, Value> {
-    let Some(global) = config.get(GLOBAL_CONFIG_KEY).and_then(Value::as_object) else {
-        return config;
-    };
-    if !global.contains_key("radial") {
-        return config;
-    }
-    let mut global = global.clone();
-    let legacy = global.remove("radial").unwrap_or(Value::Null);
-    let current_empty = global
-        .get("circle_keypad")
-        .and_then(Value::as_object)
-        .is_none_or(|o| o.is_empty());
-    if current_empty {
-        if let Some(legacy_obj) = legacy.as_object() {
-            if !legacy_obj.is_empty() {
-                global.insert("circle_keypad".to_string(), legacy);
-            }
-        }
-    }
-    config.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(global));
-    config
-}
-
-/// v2 -> v3: pinned_jobs を recent_jobs へ統合（pinned=true を付与）。
-fn migrate_pinned_jobs_to_recent_jobs(mut config: Map<String, Value>) -> Map<String, Value> {
-    let Some(global) = config.get(GLOBAL_CONFIG_KEY).and_then(Value::as_object) else {
-        return config;
-    };
-    if !global.contains_key("pinned_jobs") {
-        return config;
-    }
-    let mut global = global.clone();
-    let legacy = global.remove("pinned_jobs").unwrap_or(Value::Null);
-    let recent_jobs: Vec<Value> = legacy
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    let obj = item.as_object()?;
-                    if obj
-                        .get("key")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .is_empty()
-                    {
-                        return None;
-                    }
-                    let mut merged = obj.clone();
-                    merged.insert("pinned".to_string(), Value::Bool(true));
-                    Some(Value::Object(merged))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    global.insert("recent_jobs".to_string(), Value::Array(recent_jobs));
-    config.insert(GLOBAL_CONFIG_KEY.to_string(), Value::Object(global));
-    config
-}
-
-/// v3 -> v4: ジョブ定義の `detached_tab` を `detached` へ、recent_jobs の
-/// `jobDetachedTab` を `jobDetached` へ改名する（セッション状態側の `detached` と
-/// 用語を統一するため）。両キーが併存する場合は新キー側を正とする。
-fn migrate_detached_tab_to_detached(mut config: Map<String, Value>) -> Map<String, Value> {
-    fn rename_key(obj: &mut Map<String, Value>, old: &str, new: &str) {
-        if let Some(v) = obj.remove(old) {
-            obj.entry(new).or_insert(v);
-        }
-    }
-    fn rename_jobs(jobs: &mut Map<String, Value>) {
-        for job in jobs.values_mut() {
-            if let Some(obj) = job.as_object_mut() {
-                rename_key(obj, "detached_tab", "detached");
-            }
-        }
-    }
-    for (key, entry) in config.iter_mut() {
-        if key == GLOBAL_CONFIG_KEY {
-            continue;
-        }
-        if let Some(jobs) = entry
-            .as_object_mut()
-            .and_then(|e| e.get_mut("jobs"))
-            .and_then(Value::as_object_mut)
-        {
-            rename_jobs(jobs);
-        }
-    }
-    if let Some(global) = config
-        .get_mut(GLOBAL_CONFIG_KEY)
-        .and_then(Value::as_object_mut)
-    {
-        if let Some(jobs) = global.get_mut("jobs").and_then(Value::as_object_mut) {
-            rename_jobs(jobs);
-        }
-        if let Some(items) = global.get_mut("recent_jobs").and_then(Value::as_array_mut) {
-            for item in items {
-                if let Some(obj) = item.as_object_mut() {
-                    rename_key(obj, "jobDetachedTab", "jobDetached");
-                }
-            }
-        }
-    }
-    config
-}
-
-/// config を CONFIG_SCHEMA_VERSION まで段階的にマイグレーションする。
-/// 戻り値の bool はマイグレーションを行った（書き戻しが必要）かどうか。
+/// config の config_version を CONFIG_SCHEMA_VERSION に揃える。
+/// v4 未満からのキー変換（radial / pinned_jobs / detached_tab）は打ち切ったため、
+/// 旧バージョンの config はバージョンだけ付け直し、旧キーの設定は引き継がない。
+/// 戻り値の bool は書き戻しが必要かどうか。
 pub fn migrate_config_version(config: Map<String, Value>) -> (Map<String, Value>, bool) {
     if config.is_empty() {
         return (config, false);
@@ -158,24 +51,14 @@ pub fn migrate_config_version(config: Map<String, Value>) -> (Map<String, Value>
     if current == CONFIG_SCHEMA_VERSION {
         return (config, false);
     }
-    let mut migrated = config;
-    let mut version = current;
-    while version < CONFIG_SCHEMA_VERSION {
-        migrated = match version {
-            1 => migrate_radial_to_circle_keypad(migrated),
-            2 => migrate_pinned_jobs_to_recent_jobs(migrated),
-            3 => migrate_detached_tab_to_detached(migrated),
-            _ => migrated,
-        };
-        version += 1;
+    if current > 0 {
+        tracing::warn!(
+            "config_version {} is no longer migrated; settings stored under pre-v{} keys are ignored",
+            current,
+            CONFIG_SCHEMA_VERSION
+        );
     }
-    migrated = set_config_version(migrated, CONFIG_SCHEMA_VERSION);
-    tracing::info!(
-        "migrated config schema v{} -> v{}",
-        current,
-        CONFIG_SCHEMA_VERSION
-    );
-    (migrated, true)
+    (set_config_version(config, CONFIG_SCHEMA_VERSION), true)
 }
 
 #[cfg(test)]
@@ -212,84 +95,15 @@ mod tests {
     }
 
     #[test]
-    fn old_config_migrates_stepwise() {
-        // v0: radial + pinned_jobs の両方を持つ
+    fn old_version_is_stamped_without_converting_legacy_keys() {
         let cfg = as_map(json!({
-            "__global__": {
-                "radial": {"keys": [{"key": "a"}]},
-                "pinned_jobs": [{"key": "k1", "jobName": "j"}, {"no_key": true}],
-            }
+            "__global__": {"config_version": 2, "pinned_jobs": [{"key": "k1"}]},
         }));
         let (out, migrated) = migrate_config_version(cfg);
         assert!(migrated);
         let global = out["__global__"].as_object().unwrap();
-        assert_eq!(global["config_version"], json!(4));
-        assert!(!global.contains_key("radial"));
-        assert!(!global.contains_key("pinned_jobs"));
-        assert_eq!(global["circle_keypad"], json!({"keys": [{"key": "a"}]}));
-        assert_eq!(
-            global["recent_jobs"],
-            json!([{"key": "k1", "jobName": "j", "pinned": true}])
-        );
-    }
-
-    #[test]
-    fn detached_tab_renamed_to_detached() {
-        let cfg = as_map(json!({
-            "__global__": {
-                "config_version": 3,
-                "jobs": {"build": {"command": "make", "detached_tab": true}},
-                "recent_jobs": [
-                    {"key": "k1", "jobDetachedTab": true},
-                    // 新旧併存時は新キー側を正とする
-                    {"key": "k2", "jobDetachedTab": true, "jobDetached": false},
-                ],
-            },
-            "ws_a": {
-                "path": "/tmp/a",
-                "jobs": {
-                    "dev": {"command": "npm run dev", "detached_tab": true},
-                    "test": {"command": "npm test"},
-                },
-            },
-        }));
-        let (out, migrated) = migrate_config_version(cfg);
-        assert!(migrated);
-        let global = out["__global__"].as_object().unwrap();
-        assert_eq!(global["config_version"], json!(4));
-        assert_eq!(
-            global["jobs"]["build"],
-            json!({"command": "make", "detached": true})
-        );
-        assert_eq!(
-            global["recent_jobs"],
-            json!([
-                {"key": "k1", "jobDetached": true},
-                {"key": "k2", "jobDetached": false},
-            ])
-        );
-        let ws_jobs = out["ws_a"]["jobs"].as_object().unwrap();
-        assert_eq!(
-            ws_jobs["dev"],
-            json!({"command": "npm run dev", "detached": true})
-        );
-        assert_eq!(ws_jobs["test"], json!({"command": "npm test"}));
-    }
-
-    #[test]
-    fn existing_circle_keypad_wins_over_radial() {
-        let cfg = as_map(json!({
-            "__global__": {
-                "config_version": 1,
-                "radial": {"keys": ["legacy"]},
-                "circle_keypad": {"keys": ["current"]},
-            }
-        }));
-        let (out, _) = migrate_config_version(cfg);
-        assert_eq!(
-            out["__global__"]["circle_keypad"],
-            json!({"keys": ["current"]})
-        );
+        assert_eq!(global["config_version"], json!(CONFIG_SCHEMA_VERSION));
+        assert!(!global.contains_key("recent_jobs"));
     }
 
     #[test]

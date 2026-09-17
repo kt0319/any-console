@@ -44,7 +44,7 @@ server/                       Backend (Rust, axum)
   src/foreground.rs            Foreground process group argv inspection (/proc on Linux, ps on macOS)
   src/job_match.rs             Match foreground argv against job definitions (auto-tag manual runs)
   src/config.rs / config_schema.rs  config.json read/write, schema validation
-  src/config_migrations.rs     config.json schema versioning + auto-migration
+  src/config_migrations.rs     config.json schema versioning
   src/activity.rs              Operation log (data/activity/{workspace}/{date}.jsonl)
   src/rate_limit.rs            In-process rate limiter
   src/preview.rs               Dev server detection store + HTTP probing + TCP/TLS proxy for
