@@ -7,8 +7,7 @@ import { useConfirm } from "./useConfirm.ts";
 import { usePrompt } from "./usePrompt.ts";
 import { emit } from "../app-bridge.ts";
 import { buildActionSummary } from "../utils/action-summary.ts";
-import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
-import { EP_JOBS_WORKSPACES, EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
+import { useSessionTabAttach } from "./useSessionTabAttach.ts";
 import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.ts";
 import { worktreeWorkspaceName } from "../utils/worktree.ts";
 
@@ -22,6 +21,7 @@ export function useDeepLink() {
   const { apiGet, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
+  const { attachSessionTab: attachSession } = useSessionTabAttach();
 
   async function fetchBranchStatus(ws: string, branch: string, currentBranch: string) {
     if (branch === currentBranch) return "current";
@@ -81,24 +81,9 @@ export function useDeepLink() {
   }
 
   async function attachSessionTab(sessionId: string) {
-    const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId);
-    if (existing) {
-      emit("tab:select", { tab: existing });
-      return true;
-    }
-    const [sessionsRes, jobsRes] = await Promise.all([
-      getWithRetry(apiGet, EP_TERMINAL_SESSIONS),
-      getWithRetry(apiGet, EP_JOBS_WORKSPACES),
-    ]);
-    if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return false;
-    const meta = sessionsRes.data.find((s) => s.session_id === sessionId);
-    if (!meta) return false;
-    const allJobs = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
-    const tab = terminalStore.addTerminalTab({
-      ...buildSessionTabParamsWithCache(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
-      restored: true,
-    });
-    emit("tab:select", { tab });
+    const attached = await attachSession(sessionId, { restored: true });
+    if (!attached) return false;
+    if (!attached.created) return true;
     await nextTick();
     emit("layout:fitAll");
     setTimeout(() => emit("layout:fitAll"), DEEPLINK_REFIT_DELAY_MS);

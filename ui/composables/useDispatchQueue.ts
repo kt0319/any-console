@@ -1,14 +1,11 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { useTerminalStore } from "../stores/terminal.ts";
-import { useWorkspaceStore } from "../stores/workspace.ts";
 import {
   dispatchDecisionPath,
   EP_JOBS_WORKSPACES,
-  EP_TERMINAL_SESSIONS,
 } from "../utils/endpoints.ts";
-import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
+import { useSessionTabAttach } from "./useSessionTabAttach.ts";
 import { resolveDispatchJobLabel } from "../utils/dispatch-request.ts";
 import { emit, on } from "../app-bridge.ts";
 
@@ -54,8 +51,7 @@ export function applyDispatchQueue(items: DispatchQueueItem[], recentItems?: Dis
 
 export function useDispatchQueue() {
   const { apiPost, apiGet } = useApi();
-  const terminalStore = useTerminalStore();
-  const workspaceStore = useWorkspaceStore();
+  const { attachSessionTab } = useSessionTabAttach();
 
   function loadAllJobs(): Promise<void> {
     if (!allJobsLoadPromise) {
@@ -77,25 +73,7 @@ export function useDispatchQueue() {
 
   async function focusSession(sessionId?: string, workspace?: string) {
     if (!sessionId) return;
-    const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId);
-    if (existing) {
-      emit("tab:select", { tab: existing });
-      return;
-    }
-    const [sessionsRes, jobsRes] = await Promise.all([
-      getWithRetry(apiGet, EP_TERMINAL_SESSIONS),
-      getWithRetry(apiGet, EP_JOBS_WORKSPACES),
-    ]);
-    if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return;
-    const meta = sessionsRes.data.find((s) => s.session_id === sessionId);
-    if (!meta) return;
-    if (workspace) workspaceStore.selectedWorkspace = workspace;
-    const allJobs = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
-    const tab = terminalStore.addTerminalTab({
-      ...buildSessionTabParamsWithCache(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
-      restored: false,
-    });
-    emit("tab:select", { tab });
+    await attachSessionTab(sessionId, { restored: false, workspace });
   }
 
   // DispatchRunView の Run から呼ぶ。pendingのitemでも、既に決定済みで履歴
