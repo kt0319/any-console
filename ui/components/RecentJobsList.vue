@@ -18,7 +18,7 @@
         <span class="recent-jobs-item-name">{{ recent.jobLabel || recent.jobName }}</span>
       </span>
       <span
-        v-if="!editMode"
+        v-if="!editMode && showPinToggle"
         class="recent-jobs-item-pin hover-bg-text"
         :class="{ pinned: recent.pinned }"
         role="button"
@@ -29,7 +29,7 @@
         @keydown.enter.space.stop.prevent="togglePin(recent.key)"
       ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
       <span
-        v-else
+        v-else-if="editMode"
         class="recent-jobs-item-pin recent-jobs-item-delete hover-bg-text"
         role="button"
         tabindex="0"
@@ -64,6 +64,9 @@ const props = defineProps({
   // ScreenEmpty.vue）が「Recent Jobs」既存見出しと同じスタイルで別々に出す。
   variant: { type: String, default: "recent" },
   editMode: { type: Boolean, default: false },
+  showPinToggle: { type: Boolean, default: true },
+  // pinned variant限定の表示件数上限。未指定なら無制限（recent variantはRECENT_JOBS_MAX固定のため対象外）。
+  max: { type: Number, default: null },
 });
 
 const { recentJobs, runRecentJob, togglePin, removeRecentJob } = useRecentJobs();
@@ -90,7 +93,10 @@ const visibleCount = ref(RECENT_JOBS_PAGE_SIZE);
 const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinned).slice(0, RECENT_JOBS_MAX));
 const hasMoreRecentJobs = computed(() => props.variant === "recent" && unpinnedRecentJobs.value.length > visibleCount.value);
 const visibleRecentJobs = computed(() => {
-  if (props.variant === "pinned") return recentJobs.value.filter((j) => j.pinned);
+  if (props.variant === "pinned") {
+    const pinned = recentJobs.value.filter((j) => j.pinned);
+    return props.max != null ? pinned.slice(0, props.max) : pinned;
+  }
   return unpinnedRecentJobs.value.slice(0, visibleCount.value);
 });
 function showMore() {

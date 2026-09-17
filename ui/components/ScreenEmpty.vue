@@ -20,7 +20,7 @@
               v-for="item in setupItems"
               :key="item.label"
               type="button"
-              class="screen-empty-menu-item"
+              class="screen-empty-menu-item hover-bg"
               :class="{ 'screen-empty-menu-item-done': item.done }"
               @click="item.onClick"
             >
@@ -33,17 +33,12 @@
 
         <div class="screen-empty-section">
           <div class="screen-empty-section-label">Get Started</div>
-          <button type="button" class="screen-empty-menu-item" @click="openTerminal">
+          <button type="button" class="screen-empty-menu-item hover-bg" @click="openTerminal">
             <span class="mdi mdi-console screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">New Terminal</span>
             <span class="screen-empty-menu-shortcut">⌘⇧T</span>
           </button>
-          <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
-            <span class="mdi mdi-plus screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Open Session</span>
-            <span class="screen-empty-menu-shortcut">⌘⇧N</span>
-          </button>
-          <button type="button" class="screen-empty-menu-item" @click="openSettings">
+          <button type="button" class="screen-empty-menu-item hover-bg" @click="openSettings">
             <span class="mdi mdi-cog screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">Settings</span>
             <span class="screen-empty-menu-shortcut">⌘⇧.</span>
@@ -51,14 +46,15 @@
         </div>
       </div>
 
-      <div v-if="recentJobs.length" class="screen-empty-column screen-empty-column-right">
-        <div v-if="pinnedJobs.length" class="screen-empty-section">
+      <div v-if="pinnedJobs.length" class="screen-empty-column screen-empty-column-right">
+        <div class="screen-empty-section">
           <div class="screen-empty-section-label">Pinned Jobs</div>
-          <RecentJobsList variant="pinned" />
-        </div>
-        <div v-if="unpinnedRecentJobs.length" class="screen-empty-section">
-          <div class="screen-empty-section-label">Recent Jobs</div>
-          <RecentJobsList variant="recent" />
+          <RecentJobsList variant="pinned" :show-pin-toggle="false" :max="SCREEN_EMPTY_PINNED_JOBS_MAX" />
+          <button type="button" class="screen-empty-menu-item hover-bg" @click="$emit('openWorkspace')">
+            <span class="mdi mdi-plus screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Open Session</span>
+            <span class="screen-empty-menu-shortcut">⌘⇧N</span>
+          </button>
         </div>
       </div>
 
@@ -86,6 +82,7 @@ import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints
 import { useLayoutStore } from "../stores/layout.ts";
 import { usePushNotification } from "../composables/usePushNotification.ts";
 import { usePwaInstall } from "../composables/usePwaInstall.ts";
+import { SCREEN_EMPTY_PINNED_JOBS_MAX } from "../utils/constants.ts";
 import StatusOverlay from "./StatusOverlay.vue";
 import RecentJobsList from "./RecentJobsList.vue";
 
@@ -99,7 +96,6 @@ const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/
 
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const pinnedJobs = computed(() => recentJobs.value.filter((j) => j.pinned));
-const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinned));
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();

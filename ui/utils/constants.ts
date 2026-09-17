@@ -37,6 +37,7 @@ export const INPUT_HISTORY_MAX = 100;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 export const RECENT_JOBS_MAX = 100;
 export const RECENT_JOBS_PAGE_SIZE = 5;
+export const SCREEN_EMPTY_PINNED_JOBS_MAX = 10;
 export const CIRCLE_KEYPAD_WHEEL_LINES = 80;
 export const CIRCLE_KEYPAD_SCROLL_LINES = 20;
 
