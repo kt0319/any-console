@@ -134,7 +134,6 @@ import { buildReconnectLabel } from "../utils/terminal-ws.ts";
 import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.ts";
-import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
 import { getLastPointerType } from "../utils/pointer-type.ts";
 
 const props = defineProps({
@@ -311,7 +310,6 @@ const peekFields = computed<Record<string, any>>(() => ({
 // trailingPeekItems の組み立て・変化検出・キュー・タイマーは usePeekPills に集約
 // （SessionSidebarRow と共用）。
 const {
-  trailingPeekItems,
   peekingKey,
   peekDurationMs,
   branchPushCount,

@@ -140,8 +140,6 @@ export function bindTerminalElement(tab: TerminalTab) {
   if (!termEl || tab._elementBound) return;
   tab._elementBound = true;
 
-  const terminalStore = useTerminalStore();
-
   termEl.addEventListener("wheel", (e) => {
     e.preventDefault();
   }, { passive: false });

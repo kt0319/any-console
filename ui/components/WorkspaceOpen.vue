@@ -131,7 +131,7 @@ import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useToast } from "../composables/useToast.ts";
-import { workspaceDisplayName, removeWorktreeConfirmMessage } from "../utils/worktree.ts";
+import { removeWorktreeConfirmMessage } from "../utils/worktree.ts";
 import { useWorktreeRemove } from "../composables/useWorktreeRemove.ts";
 import { useWorktreeCleanup } from "../composables/useWorktreeCleanup.ts";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";

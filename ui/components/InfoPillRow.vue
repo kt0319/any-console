@@ -136,7 +136,6 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { renderIconStr } from "../utils/render-icon.ts";
 import { peekIconForKey } from "../utils/info-pills.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { useAgentStateStore } from "../stores/agent-state.ts";

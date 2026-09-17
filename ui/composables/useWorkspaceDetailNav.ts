@@ -66,7 +66,6 @@ const isOpen = makeField("isOpen");
 const detail = makeField("detail");
 const modalTitle = makeField("modalTitle");
 const modalBranch = makeField("modalBranch");
-const currentPaneRef = makeField("currentPaneRef");
 
 const viewState = computed(() => ({ detail: detail.value }));
 

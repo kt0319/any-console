@@ -56,7 +56,7 @@ export function useApi() {
     { successMessage, errorMessage, onSuccess }: { successMessage: string, errorMessage: string, onSuccess?: () => void },
   ) {
     try {
-      const { ok, data } = await apiCommand(endpoint, body, { errorMessage });
+      const { ok } = await apiCommand(endpoint, body, { errorMessage });
       if (!ok) return false;
       toast.success(successMessage);
       onSuccess?.();

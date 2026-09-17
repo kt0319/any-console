@@ -137,7 +137,7 @@ const {
 
 const {
   editorUrlTemplate, fetchEditorSettings,
-  buildEditorUrl, openInEditor,
+  openInEditor,
 } = useEditorIntegration();
 
 // エディタ連携（vscode://等のカスタムURLスキーム）はローカルのデスクトップ
@@ -169,7 +169,6 @@ const {
 const {
   isDropActive,
   onDragEnter, onDragOver, onDragLeave, onDropFiles,
-  onWindowDrop, onWindowDragLeave,
   onUploadInputChange,
   setupWindowListeners, cleanupWindowListeners,
 } = useFileDragDrop({

@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionRowMeta from "./SessionRowMeta.vue";
 import InfoPillRow from "./InfoPillRow.vue";
@@ -133,7 +133,6 @@ const peekFields = computed(() => ({
 // trailingPeekItems の組み立てと peek 派生値の算出は usePeekPills に集約
 //（TerminalPane と共用）。
 const {
-  trailingPeekItems,
   peekingKey,
   peekDurationMs,
   branchPushCount,

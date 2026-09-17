@@ -1,7 +1,6 @@
 import { computed, reactive } from "vue";
 import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
-import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
@@ -11,7 +10,6 @@ import { CIRCLE_KEYPAD_SCROLL_LINES, CIRCLE_KEYPAD_WHEEL_LINES } from "../utils/
 import {
   CIRCLE_KEYPAD_ANGLES,
   SPECIAL_POSITIONS,
-  SPECIAL_BUTTON_SIZE,
   specialIdAt,
   sectorIndexFromDelta,
 } from "../utils/circle-keypad-geometry.ts";

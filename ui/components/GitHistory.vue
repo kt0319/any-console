@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 
 import DiffFileItem from "./DiffFileItem.vue";
 import DiffTotalNumstat from "./DiffTotalNumstat.vue";
