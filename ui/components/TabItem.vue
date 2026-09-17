@@ -20,13 +20,13 @@
   >
     <span v-if="wsIconHtml" class="tab-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
-      <span v-if="isDirty" class="tab-dirty-badge" aria-label="uncommitted changes"></span>
+      <span v-if="isDirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
     <span v-if="iconHtml" class="tab-icon-slot tab-icon-badge-wrap">
       <span v-html="iconHtml"></span>
-      <span v-if="!wsIconHtml && isDirty" class="tab-dirty-badge" aria-label="uncommitted changes"></span>
+      <span v-if="!wsIconHtml && isDirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
-    <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
+    <span v-if="isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span class="tab-extra">
       {{ label }}
       <span
@@ -106,7 +106,7 @@ const label = computed(() => {
   terminalStore.tabWorkspaceVersion;
   if (props.tab.workspace) {
     const ws = tabWorkspace.value;
-    // worktreeアイコン(tab-worktree-icon)で既に判別できるため、タブ名には
+    // worktreeアイコン(worktree-icon)で既に判別できるため、タブ名には
     // worktree名（"ベース名 | ブランチ"）を出さずベース名だけにする。
     if (ws?.worktree) return ws.worktree_base || props.tab.workspace;
     return props.tab.workspace;
@@ -262,23 +262,6 @@ function onClosePress() {
   display: inline-flex;
   align-items: center;
   line-height: 1;
-}
-
-.tab-dirty-badge {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f5a623;
-  border: 1px solid var(--bg-secondary);
-}
-
-.tab-worktree-icon {
-  font-size: 13px;
-  color: var(--accent);
-  flex-shrink: 0;
 }
 
 .tab-narrow { justify-content: center; }

@@ -2,11 +2,11 @@
   <span class="session-sidebar-main">
     <span v-if="wsIconHtml" class="session-sidebar-icon session-sidebar-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
-      <span v-if="item.dirty" class="session-sidebar-dirty-badge" aria-label="uncommitted changes"></span>
+      <span v-if="item.dirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
     <span v-if="jobIconHtml" class="session-sidebar-icon" v-html="jobIconHtml"></span>
     <span v-if="!wsIconHtml && !jobIconHtml" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
-    <span v-if="item.isWorktree" class="mdi mdi-file-tree session-sidebar-worktree" aria-label="worktree"></span>
+    <span v-if="item.isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree"></span>
     <span class="session-sidebar-label" :class="{ 'session-sidebar-label-dim': dim }">{{ item.label }}</span>
     <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
   </span>
@@ -56,23 +56,6 @@ const jobIconHtml = computed(() => (props.item.jobIcon ? renderIconStr(props.ite
 
 .session-sidebar-icon-badge-wrap {
   position: relative;
-}
-
-.session-sidebar-dirty-badge {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f5a623;
-  border: 1px solid var(--bg-secondary);
-}
-
-.session-sidebar-worktree {
-  font-size: 13px;
-  color: var(--accent);
-  flex-shrink: 0;
 }
 
 .session-sidebar-label {

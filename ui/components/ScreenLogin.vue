@@ -32,7 +32,7 @@
       </div>
       <video ref="videoEl" v-show="!scanClaiming && !scanError" class="scan-video" muted playsinline></video>
       <div v-if="scanClaiming" class="scan-status">
-        <span class="mdi mdi-loading scan-spin"></span>
+        <span class="mdi mdi-loading spin"></span>
         Signing in...
       </div>
       <template v-else-if="scanError">
@@ -330,8 +330,5 @@ defineExpose({ show, hide, visible });
 .scan-retry-btn {
   width: 100%;
   margin-top: 12px;
-}
-.scan-spin {
-  animation: spin 0.6s linear infinite;
 }
 </style>

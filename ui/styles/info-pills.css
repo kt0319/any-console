@@ -127,10 +127,10 @@
    する）。info-pills.tsのACTIONS_STATUS_COLOR_BUCKETが実行中/成功/失敗/
    neutral（cancelled/skipped等の実害の無い終了）の4段階に丸め、必ず
    いずれかの色が付く。 */
-.pill-peek-brown .pill-peek-icon { color: #8c6c50; }
-/* Dockerは公式ロゴカラー（#2496ed）をアイコンだけに固定する（アクセントと
+.pill-peek-brown .pill-peek-icon { color: var(--brown); }
+/* Dockerは公式ロゴカラー（--docker-blue）をアイコンだけに固定する（アクセントと
    同系統だが別の状態を示すため、独自の色にして混同を避ける）。 */
-.pill-peek-docker .pill-peek-icon { color: #2496ed; }
+.pill-peek-docker .pill-peek-icon { color: var(--docker-blue); }
 .pill-peek-actions-name { color: var(--text-primary); }
 .pill-peek-actions-status {
   color: var(--text-muted);
@@ -290,7 +290,7 @@
    （iconColor）と揃える。状態は常にブラウン固定（peekやActionsタブ側で
    確認する前提）で、ここでは色を変えない。 */
 .pill-actions-btn .mdi {
-  color: #8c6c50;
+  color: var(--brown);
 }
 
 /* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが
@@ -305,21 +305,21 @@
 }
 
 .pill-docker-btn .mdi {
-  color: #2496ed;
+  color: var(--docker-blue);
 }
 
 /* WorkspaceDetail.vueのIssuesタブ・Changesピル（.pill-numstat-btn）と同じ
-   黄色（#f5a623）で「issueがある＝注意を引く」ことを示す。 */
+   黄色（--amber）で「issueがある＝注意を引く」ことを示す。 */
 .pill-issues-btn .mdi {
-  color: #f5a623;
+  color: var(--amber);
 }
 
 .pill-issues-btn .pill-branch-count {
-  color: #f5a623;
+  color: var(--amber);
 }
 
 .pill-files-btn .mdi {
-  color: #14b8a6;
+  color: var(--teal);
 }
 
 .pill-add-btn .mdi {
@@ -350,7 +350,7 @@
    （ワークスペースピルのダーティドットと同じ色に揃える）。 */
 .pill-numstat-btn .mdi {
   font-size: 14px;
-  color: #f5a623;
+  color: var(--amber);
 }
 
 .pill-branch-btn {

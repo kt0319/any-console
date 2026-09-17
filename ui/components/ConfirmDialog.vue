@@ -25,7 +25,7 @@
           :disabled="busy"
           @click="onOk"
         >
-          <span v-if="busy" class="mdi mdi-loading confirm-btn-spin"></span>
+          <span v-if="busy" class="mdi mdi-loading spin"></span>
           <span v-else-if="okButton?.icon" class="mdi" :class="okButton.icon"></span>
           {{ busy ? (busyLabel || "Removing...") : (okButton?.label || "OK") }}
         </button>
@@ -94,10 +94,6 @@ const {
   color: var(--text-muted);
   line-height: 1.5;
   margin: -8px 0 0;
-}
-
-.confirm-btn-spin {
-  animation: spin 0.6s linear infinite;
 }
 
 </style>

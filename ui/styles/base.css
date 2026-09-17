@@ -16,6 +16,10 @@
   --purple: #8b5cf6;
   --pink: #ff79c6;
   --lime: #a3e635;
+  --amber: #f5a623;
+  --teal: #14b8a6;
+  --brown: #8c6c50;
+  --docker-blue: #2496ed;
   --border: #3b4261;
   --radius: 8px;
   --accent-bg-20: rgba(130, 170, 255, 0.2);
@@ -67,6 +71,29 @@ body {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ローディングアイコン（mdi-loading 等）を回す */
+.spin {
+  animation: spin 0.6s linear infinite;
+}
+
+/* ワークスペースアイコン右下の未コミット変更ドット（親に position: relative が必要） */
+.dirty-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  border: 1px solid var(--bg-secondary);
+}
+
+.worktree-icon {
+  font-size: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 /* working（出力中）の「右→左に流れるグラデーション」共通アニメーション

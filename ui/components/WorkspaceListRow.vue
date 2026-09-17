@@ -243,7 +243,7 @@ function pushActionFor(ws: Record<string, any>) {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #f5a623;
+  background: var(--amber);
   flex-shrink: 0;
 }
 

@@ -25,7 +25,7 @@
         :disabled="action.loading || action.disabled?.()"
         @click="action.handler"
       >
-        <span v-if="action.loading" class="mdi mdi-loading diff-action-spin"></span>
+        <span v-if="action.loading" class="mdi mdi-loading spin"></span>
         <template v-else>{{ action.label }}</template>
       </button>
     </div>
@@ -148,10 +148,6 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   font-size: 13px;
   padding: 7px 14px;
   min-height: 0;
-}
-
-.diff-action-spin {
-  animation: spin 0.6s linear infinite;
 }
 
 

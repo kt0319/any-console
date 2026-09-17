@@ -3,7 +3,7 @@
     <div class="pair-box">
       <h2>any-console</h2>
       <div class="pair-claim-status" v-if="claiming">
-        <span class="mdi mdi-loading pair-claim-spin"></span>
+        <span class="mdi mdi-loading spin"></span>
         Signing in...
       </div>
       <template v-else-if="errorMessage">
@@ -96,8 +96,5 @@ onMounted(async () => {
 }
 .pair-claim-success {
   color: var(--success);
-}
-.pair-claim-spin {
-  animation: spin 0.6s linear infinite;
 }
 </style>
