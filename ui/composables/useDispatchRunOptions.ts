@@ -8,6 +8,8 @@ export type JobOption = { key: string, label: string };
  * Dispatch 実行画面（DispatchRunView.vue）の Job / Branch セレクトの選択肢を、
  * 対象ワークスペースの変化に追従して取得する。
  * 取り直した結果に今の選択値が無ければ、Job は terminal、Base branch は空に戻す。
+ * 取得中にワークスペースが切り替わった場合、先に出した古いリクエストの応答は捨てる
+ * （後から届いた古い一覧で選択肢と選択値を上書きしないため）。
  */
 export function useDispatchRunOptions(options: {
   jobWorkspace: Ref<string>,
@@ -22,10 +24,13 @@ export function useDispatchRunOptions(options: {
   const branchesState = ref<AsyncState<string[]>>(asyncIdle());
   const localBranches = computed(() => asyncValueOr(branchesState.value, [] as string[]));
 
-  watch(options.jobWorkspace, async (ws) => {
+  watch(options.jobWorkspace, async (ws, _prev, onCleanup) => {
+    let superseded = false;
+    onCleanup(() => { superseded = true; });
     jobsState.value = asyncLoading();
     if (!ws) { jobsState.value = asyncReady([]); return; }
     const res = await apiGet(wsEndpoint(ws, "jobs"));
+    if (superseded) return;
     jobsState.value = res.ok && res.data
       ? asyncReady(Object.entries(res.data as Record<string, any>).map(([key, def]) => ({ key, label: def.label || key })))
       : asyncError("Failed to load jobs");
@@ -34,10 +39,13 @@ export function useDispatchRunOptions(options: {
     }
   }, { immediate: true });
 
-  watch(options.branchWorkspace, async (ws) => {
+  watch(options.branchWorkspace, async (ws, _prev, onCleanup) => {
+    let superseded = false;
+    onCleanup(() => { superseded = true; });
     branchesState.value = asyncLoading();
     if (!ws) { branchesState.value = asyncReady([]); return; }
     const res = await apiGet(wsEndpoint(ws, "branches"));
+    if (superseded) return;
     if (res.ok && Array.isArray(res.data)) {
       // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
       // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
