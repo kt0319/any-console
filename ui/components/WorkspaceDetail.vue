@@ -118,6 +118,7 @@ import { useWorkspaceDetailEvents } from "../composables/useWorkspaceDetailEvent
 import { usePaneLoader } from "../composables/usePaneLoader.ts";
 import { useCollapsibleSection } from "../composables/useCollapsibleSection.ts";
 import { workspaceDisplayName } from "../utils/worktree.ts";
+import { DEFAULT_PANE, paneRequiresGit, resolvePaneKey } from "../utils/workspace-panes.ts";
 
 const workspaceStore = useWorkspaceStore();
 const { modalTitle, viewState, modalBranch, updateViewState } = useModalView();
@@ -263,7 +264,7 @@ function handleBack() {
 
 function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean, sessionId?: string | null } | null | undefined) {
   options = options || {};
-  const paneKey = options.pane || "jobs";
+  const paneKey = options.pane || DEFAULT_PANE;
   // branchピル経由（paneKey === "branch"）はHistoryタブを開くと同時にBranch一覧セクション
   // を展開する（Push/Pull件数が表示されている時だけ。無ければ畳んだ状態で開く）。
   // expandBranch省略時（deep link等）は従来通りpaneKey==="branch"を展開条件にする。
@@ -271,9 +272,7 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
   const wantBranchExpanded = options.expandBranch ?? (paneKey === "branch");
   const wantStashExpanded = paneKey === "stash";
   let resolvedPane = paneKey;
-  // 非 git ワークスペースで git 専用ペインが指定された場合は files にフォールバック
-  const gitOnlyPanes = new Set(["jobs", "history", "changes", "branch", "stash", "issues", "actions", "prs"]);
-  if (gitOnlyPanes.has(resolvedPane) && !workspaceStore.currentWorkspace?.is_git_repo) {
+  if (paneRequiresGit(resolvedPane) && !workspaceStore.currentWorkspace?.is_git_repo) {
     resolvedPane = "files";
   }
   clearDiffSelection();
@@ -302,22 +301,8 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
 
 type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
 
-// ペイン名の読み替え: "branch" → "history"、"stash" → "changes"
-// （Branch/StashはそれぞれHistory/Changesタブへ統合。branchピル・?pane= ディープリンクが
-// 今もこの名前で発火する）。
-const PANE_ALIASES: Record<string, string> = {
-  branch: "history",
-  stash: "changes",
-};
-
-// activePane に入りうる正当なペイン名。未知のキーはどの v-if/v-show にも一致せず本文が
-// 空になるため、switchPane でここに無いキーは jobs へフォールバックする。
-const VALID_PANE_KEYS = new Set([
-  "jobs", "files", "history", "changes", "issues", "actions", "docker", "prs", "dispatch", "select",
-]);
-
 // ペイン切替時の初期化処理（issues/actions/docker/prs は v-if + onMounted で自動ロードする
-// ためエントリ無し）。タブを追加する時は tabs のエントリとあわせてここへ足す。
+// ためエントリ無し）。タブを追加する時は tabs のエントリ・utils/workspace-panes.ts とあわせてここへ足す。
 const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
   history: (opts) => {
     nextTick(() => {
@@ -348,8 +333,7 @@ const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
 };
 
 function switchPane(rawKey: string, opts: SwitchPaneOpts = {}) {
-  const resolved = PANE_ALIASES[rawKey] ?? rawKey;
-  const key = VALID_PANE_KEYS.has(resolved) ? resolved : "jobs";
+  const key = resolvePaneKey(rawKey);
   activePane.value = key;
   updateViewState?.({ detail: { ...(viewState!.value?.detail || {}), pane: key } });
   updateViewTitle();

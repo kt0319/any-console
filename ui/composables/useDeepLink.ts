@@ -10,10 +10,7 @@ import { buildActionSummary } from "../utils/action-summary.ts";
 import { useSessionTabAttach } from "./useSessionTabAttach.ts";
 import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.ts";
 import { worktreeWorkspaceName } from "../utils/worktree.ts";
-
-const VALID_PANES = new Set([
-  "history", "files", "changes", "branch", "jobs", "stash", "issues", "actions", "prs",
-]);
+import { isDeepLinkablePane } from "../utils/workspace-panes.ts";
 
 export function useDeepLink() {
   const workspaceStore = useWorkspaceStore();
@@ -109,7 +106,7 @@ export function useDeepLink() {
     }
     history.replaceState({}, "", location.pathname);
 
-    const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
+    const resolvedPane = pane && isDeepLinkablePane(pane) ? pane : null;
     let branchStatus: "current" | "exists" | "missing" | "unknown" | null = null;
     if (branch && effectiveWs && !worktree) {
       branchStatus = await fetchBranchStatus(effectiveWs, branch, found?.branch || "");
