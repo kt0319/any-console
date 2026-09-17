@@ -40,12 +40,12 @@
           :signature="peekSignature"
           :tab="tab"
           :max-width="trailingMaxWidth"
-          :changed-files="changedFiles"
-          :insertions="insertions"
-          :deletions="deletions"
-          :branch-name="paneWorkspace?.branch || ''"
-          :ahead="ahead"
-          :behind="behind"
+          :changed-files="pill.changedFiles"
+          :insertions="pill.insertions"
+          :deletions="pill.deletions"
+          :branch-name="pill.branch"
+          :ahead="pill.ahead"
+          :behind="pill.behind"
           :push-count="branchPushCount"
           :pull-count="branchPullCount"
           :action-name="peekActionName"
@@ -57,18 +57,18 @@
         <InfoPillRow
           :tab="tab"
           :max-width="trailingMaxWidth"
-          :is-git-repo="isGitRepo"
+          :is-git-repo="pill.isGitRepo"
           :is-worktree="!!paneWorkspace?.worktree"
-          :is-dirty="isDirty"
-          :ahead="ahead"
-          :behind="behind"
-          :has-pr="!!branchPR"
-          :has-action="!!visibleBranchAction"
-          :has-dev-server="!!devServerEntry"
-          :has-docker="hasDocker"
-          :issues-count="workspaceOpenIssuesCount"
-          :dispatch-count="tabDispatchItems.length"
-          :tooltips="tooltips"
+          :is-dirty="pill.dirty"
+          :ahead="pill.ahead"
+          :behind="pill.behind"
+          :has-pr="pill.hasPr"
+          :has-action="pill.hasAction"
+          :has-dev-server="pill.hasDevServer"
+          :has-docker="pill.hasDocker"
+          :issues-count="pill.issuesCount"
+          :dispatch-count="pill.dispatchCount"
+          :tooltips="pill.tooltips"
           @open="openPane"
         />
         <button
@@ -117,10 +117,8 @@ import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.ts";
 import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
-import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDockerContainers } from "../composables/useDockerContainers.ts";
-import { isDockerContainerActive } from "../utils/docker.ts";
 import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
@@ -131,9 +129,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.ts";
-import { findPRForBranch, findRunForBranch, isNoticeableRun } from "../utils/github-runs.ts";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
-import { buildInfoPillTooltips } from "../utils/info-pill-tooltips.ts";
+import { buildPeekFields, buildPillFields } from "../utils/pill-fields.ts";
 import { getLastPointerType } from "../utils/pointer-type.ts";
 
 const props = defineProps({
@@ -158,22 +154,11 @@ const paneWorkspace = computed(() => {
   terminalStore.tabWorkspaceVersion;
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
-// ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, isGitRepo, hasUpstream, ahead, behind, changedFiles, insertions, deletions } = useWorkspaceGitStatus(paneWorkspace);
 
 // Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
 // 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
 // devServerEntry を絶対に持てない（下記参照）ため、それらのタブはポーリングに参加しない。
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
-
-const devServerEntry = computed(() => {
-  // tab は markRaw のため tab.workspace 単体の変更は追跡されない（paneWorkspace と同じ理由）。
-  terminalStore.tabWorkspaceVersion;
-  // ワークスペース未紐付けのベアターミナルでは workspace===null 同士がマッチしてしまい、
-  // 無関係な（他のベアターミナルから検出された）dev server が出てしまうため対象外にする。
-  if (!props.tab.workspace) return null;
-  return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
-});
 
 // Dockerピルも Dev Server と同じ立て付け（ポーリング集約 + workspace一致でフィルタ）。
 const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling, fetchContainers: fetchDockerContainers } = useDockerContainers();
@@ -189,48 +174,32 @@ function syncWorkspacePolling() {
   }
 }
 
-const workspaceDockerContainers = computed(() => {
-  terminalStore.tabWorkspaceVersion;
-  if (!props.tab.workspace) return [];
-  return dockerContainers.value.filter((c) => c.workspace === props.tab.workspace);
-});
-const hasDocker = computed(() => workspaceDockerContainers.value.some((c) => isDockerContainerActive(c.state)));
-
-const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
+const githubWorkspaceKey = computed(() => (paneWorkspace.value?.is_git_repo === true && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
 
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
 // （無関係なPRの存在では出さない）。PR/Actions/Issuesのポーリング開始・停止は
 // useGitHubPollingFor に集約。
 const { prsByWorkspace, runsByWorkspace, issuesByWorkspace } = useGitHubPollingFor(
   computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
-const branchPR = computed<Record<string, any> | null>(() => {
-  if (!isGitRepo.value || !props.tab.workspace) return null;
-  return findPRForBranch(prsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
-});
-
-// GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
-const branchAction = computed<Record<string, any> | null>(() => {
-  if (!isGitRepo.value || !props.tab.workspace) return null;
-  return findRunForBranch(runsByWorkspace.value[props.tab.workspace], paneWorkspace.value?.branch);
-});
-
-// failure以外で完了したrunはピル自体を表示しない（判定はisNoticeableRun参照）。
-const visibleBranchAction = computed(() =>
-  isNoticeableRun(branchAction.value) ? branchAction.value : null,
-);
-
-// Issuesピルは「ワークスペースにopen issueがある時」だけ表示する
-// （github/issuesはサーバ側既定でopenのみ返す。server/src/github.rs参照）。
-const workspaceOpenIssuesCount = computed(() => {
-  if (!isGitRepo.value || !props.tab.workspace) return 0;
-  return (issuesByWorkspace.value[props.tab.workspace] || []).length;
-});
 
 const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
-const tabDispatchItems = computed(() => {
-  if (!props.tab.workspace) return [];
-  return dispatchQueue.value.filter((item) => dispatchWorkspaceLabel(item.request) === props.tab.workspace);
-});
+
+// ピルの表示値はセッションサイドバーと同じ buildPillFields で組み立てる。paneWorkspace が
+// tabWorkspaceVersion に依存しているため、ワークスペースの紐付け変更でも再計算される。
+const pill = computed(() => buildPillFields(props.tab.workspace, paneWorkspace.value, {
+  prsByWorkspace: prsByWorkspace.value,
+  runsByWorkspace: runsByWorkspace.value,
+  previewPorts: previewPorts.value,
+  dockerContainers: dockerContainers.value,
+  issuesByWorkspace: issuesByWorkspace.value,
+  dispatchQueue: dispatchQueue.value,
+  dispatchAllJobs: dispatchAllJobs.value,
+  hostname: location.hostname,
+}, props.tab.workspace || props.tab.label || ""));
+const isGitRepo = computed(() => pill.value.isGitRepo);
+const ahead = computed(() => pill.value.ahead);
+const behind = computed(() => pill.value.behind);
+const devServerEntry = computed(() => pill.value.devServerEntry);
 
 const { openPane } = useInfoPillActions({
   tab: tabRef as Ref<Record<string, any>>,
@@ -256,56 +225,10 @@ let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 // 届かなくなるため、実測したペイン幅から閉じるボタン等を差し引いた残りを上限にする。
 const { maxWidth: trailingMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
 
-const tooltips = computed(() => buildInfoPillTooltips({
-  name: props.tab.workspace || props.tab.label || "",
-  isGitRepo: isGitRepo.value,
-  branch: paneWorkspace.value?.branch || "",
-  ahead: ahead.value,
-  behind: behind.value,
-  hasUpstream: hasUpstream.value,
-  changedFiles: changedFiles.value,
-  insertions: insertions.value,
-  deletions: deletions.value,
-  lastCommitMessage: paneWorkspace.value?.last_commit_message,
-  devServerEntry: devServerEntry.value,
-  dockerContainers: workspaceDockerContainers.value,
-  issuesCount: workspaceOpenIssuesCount.value,
-  hostname: location.hostname,
-  dispatchItems: tabDispatchItems.value,
-  dispatchAllJobs: dispatchAllJobs.value,
-  branchPR: branchPR.value,
-  branchAction: branchAction.value,
-}));
-
 // ピルは常にアイコンのみ表示し、値が更新された時だけピル行を隠して変化した
 // キーの情報を1本の長いピル（PillPeek.vue）に数秒だけ差し替える（peekingKey）。
 
-// peekの変化検出対象フィールド。組み立てはSessionSidebarRow.vueと共用する
-// pill-peek.tsの純粋関数に集約する（2箇所に分けるとフィールド追加時のズレが起きるため）。
-// branchのtextは画面回転で変わる省略表示形式ではなく生のブランチ名を使う
-// （回転しただけで「ブランチが変わった」と誤検知するのを防ぐ）。actionsは成功完了の
-// 瞬間もpeekで知らせたいため、フィルタ前のbranchActionを変化検出に使う。
-const peekFields = computed<Record<string, any>>(() => ({
-  workspaceLabel: props.tab.workspace || props.tab.label || "",
-  isGitRepo: isGitRepo.value,
-  hasSession: !!props.tab.sessionId,
-  hasWorkspace: !!props.tab.workspace,
-  isDirty: isDirty.value,
-  changedFiles: changedFiles.value,
-  insertions: insertions.value,
-  deletions: deletions.value,
-  branch: paneWorkspace.value?.branch || "",
-  ahead: ahead.value,
-  behind: behind.value,
-  lastCommitMessage: paneWorkspace.value?.last_commit_message,
-  branchPR: branchPR.value,
-  branchAction: branchAction.value,
-  devServerEntry: devServerEntry.value,
-  dockerContainers: workspaceDockerContainers.value,
-  issuesCount: workspaceOpenIssuesCount.value,
-  dispatchItems: tabDispatchItems.value,
-  dispatchTooltip: tooltips.value.dispatch,
-}));
+const peekFields = computed(() => buildPeekFields(props.tab, pill.value));
 
 // trailingPeekItems の組み立て・変化検出・キュー・タイマーは usePeekPills に集約
 // （SessionSidebarRow と共用）。

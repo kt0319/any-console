@@ -77,6 +77,7 @@ import SessionRowMeta from "./SessionRowMeta.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { usePeekPills } from "../composables/usePeekPills.ts";
+import { buildPeekFields, type PillFields } from "../utils/pill-fields.ts";
 import { useElementMaxWidth } from "../composables/useElementMaxWidth.ts";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 
@@ -110,27 +111,7 @@ const rowStateClasses = computed(() => ({
 const row1El = ref<HTMLElement | null>(null);
 const { maxWidth: pillsMaxWidth } = useElementMaxWidth(row1El, SIDEBAR_PILL_ROW_RESERVED_PX, true);
 
-const peekFields = computed(() => ({
-  workspaceLabel: props.item.tab.workspace || props.item.tab.label || "",
-  isGitRepo: props.item.isGitRepo,
-  hasSession: !!props.item.tab.sessionId,
-  hasWorkspace: !!props.item.tab.workspace,
-  isDirty: props.item.dirty,
-  changedFiles: props.item.changedFiles,
-  insertions: props.item.insertions,
-  deletions: props.item.deletions,
-  branch: props.item.branch || "",
-  ahead: props.item.ahead,
-  behind: props.item.behind,
-  lastCommitMessage: props.item.lastCommitMessage,
-  branchPR: props.item.branchPR,
-  branchAction: props.item.branchAction,
-  devServerEntry: props.item.devServerEntry,
-  dockerContainers: props.item.dockerContainers,
-  issuesCount: props.item.issuesCount,
-  dispatchItems: props.item.dispatchItems,
-  dispatchTooltip: props.item.tooltips?.dispatch,
-}));
+const peekFields = computed(() => buildPeekFields(props.item.tab, props.item as PillFields));
 
 // trailingPeekItems の組み立てと peek 派生値の算出は usePeekPills に集約
 //（TerminalPane と共用）。

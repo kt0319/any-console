@@ -1,7 +1,5 @@
-import { findPRForBranch, findRunForBranch, isNoticeableRun } from "./github-runs.ts";
 import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
-import { buildInfoPillTooltips } from "./info-pill-tooltips.ts";
-import { isDockerContainerActive } from "./docker.ts";
+import { buildPillFields, type PillFieldsContext } from "./pill-fields.ts";
 
 // セッションサイドバー（TabBar のハンバーガーから開く一覧）の表示行を
 // 組み立てる純粋関数群。SessionListView.vue から使う。
@@ -37,87 +35,6 @@ export function agentStateDescriptor(state?: string | null): { icon: string; lab
 }
 
 /**
- * InfoPillRow用の派生フィールド（Branch/Changes/PR/Actions/DevServer/Dispatch）をワークスペース
- * 名単位でまとめて計算する。sessionSidebarItems と pendingDispatchSidebarItems の両方から共有する
- * （同じワークスペースなら同じピルが同じ内容で出るようにするため）。
- * @param ws workspaceStore.allWorkspaces の該当エントリ（無ければ undefined）
- */
-function buildPillFields(
-  wsName: string | null | undefined,
-  ws: any,
-  ctx: {
-    prsByWorkspace?: Record<string, any[]>;
-    runsByWorkspace?: Record<string, any[]>;
-    previewPorts?: any[];
-    dockerContainers?: any[];
-    issuesByWorkspace?: Record<string, any[]>;
-    dispatchQueue?: { request: Record<string, any> }[];
-    dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
-    hostname?: string;
-  },
-) {
-  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dockerContainers = [], issuesByWorkspace = {}, dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
-  const isGitRepo = ws?.is_git_repo === true;
-  const branch = ws?.branch || "";
-  const ahead = ws?.ahead || 0;
-  const behind = ws?.behind || 0;
-  const changedFiles = ws?.changed_files || 0;
-  const insertions = ws?.insertions || 0;
-  const deletions = ws?.deletions || 0;
-  // findPRForBranch/findRunForBranchの戻り値型はマッチ用フィールドのみの狭い形だが、
-  // 実際のオブジェクトはnumber/title/status/conclusion等も持つため any 扱いにする。
-  const branchPR: any = isGitRepo && wsName ? findPRForBranch(prsByWorkspace[wsName], branch) : null;
-  const branchAction: any = isGitRepo && wsName ? findRunForBranch(runsByWorkspace[wsName], branch) : null;
-  const visibleBranchAction = isNoticeableRun(branchAction) ? branchAction : null;
-  const devServerEntry = wsName
-    ? (previewPorts.find((p) => p.workspace === wsName && p.proxy_port) || null)
-    : null;
-  const workspaceDockerContainers = wsName
-    ? dockerContainers.filter((c) => c.workspace === wsName)
-    : [];
-  const dispatchItems = wsName
-    ? dispatchQueue.filter((item) => dispatchWorkspaceLabel(item.request) === wsName)
-    : [];
-  const issuesCount = wsName ? (issuesByWorkspace[wsName] || []).length : 0;
-  return {
-    // wsが見つかっているか。TerminalPane.vueのpaneWorkspaceと同じ「解決済みかどうか」を
-    // peek側の初回誤検知ガードに渡すために必要（usePillPeek参照）。
-    wsResolved: !!ws,
-    isGitRepo,
-    branch,
-    dirty: ws?.clean === false,
-    ahead,
-    behind,
-    changedFiles,
-    insertions,
-    deletions,
-    hasPr: !!branchPR,
-    branchPR,
-    hasAction: !!visibleBranchAction,
-    branchAction,
-    hasDevServer: !!devServerEntry,
-    devServerEntry,
-    hasDocker: workspaceDockerContainers.some((c) => isDockerContainerActive(c.state)),
-    dockerContainers: workspaceDockerContainers,
-    issuesCount,
-    dispatchCount: dispatchItems.length,
-    dispatchItems,
-    lastCommitMessage: ws?.last_commit_message,
-    tooltips: buildInfoPillTooltips({
-      name: wsName || "", isGitRepo,
-      branch, ahead, behind, hasUpstream: ws?.has_upstream !== false,
-      changedFiles, insertions, deletions,
-      lastCommitMessage: ws?.last_commit_message,
-      devServerEntry, hostname,
-      dockerContainers: workspaceDockerContainers,
-      issuesCount,
-      dispatchItems, dispatchAllJobs,
-      branchPR, branchAction,
-    }),
-  };
-}
-
-/**
  * サイドバーの表示行を組み立てる。TabBar と同じく autoDiscovered なタブは除外し、
  * 並び順も openTabs のまま（タブバーと一致）にする。
  *
@@ -130,19 +47,11 @@ function buildPillFields(
 export function sessionSidebarItems(
   tabs: any[],
   workspaces: any[],
-  ctx: {
+  ctx: PillFieldsContext & {
     tabFlags?: Record<string | number, any>;
     agentStates?: Record<string, string>;
     doneSessions?: Record<string, boolean>;
     phraseNotifySessions?: Record<string, boolean>;
-    prsByWorkspace?: Record<string, any[]>;
-    runsByWorkspace?: Record<string, any[]>;
-    previewPorts?: any[];
-    dockerContainers?: any[];
-    issuesByWorkspace?: Record<string, any[]>;
-    dispatchQueue?: { request: Record<string, any> }[];
-    dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
-    hostname?: string;
   } = {},
 ) {
   const { tabFlags = {}, agentStates = {}, doneSessions = {}, phraseNotifySessions = {} } = ctx;
