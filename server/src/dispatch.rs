@@ -606,7 +606,14 @@ async fn sync_dispatch_image_dir(
     if let Ok(mut entries) = tokio::fs::read_dir(&dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
             if !keep_names.contains(&entry.file_name()) {
-                let _ = tokio::fs::remove_file(entry.path()).await;
+                if let Err(e) = tokio::fs::remove_file(entry.path()).await {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        tracing::warn!(
+                            "dispatch image cleanup failed ({}): {e}",
+                            entry.path().display()
+                        );
+                    }
+                }
             }
         }
     }

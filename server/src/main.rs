@@ -141,7 +141,11 @@ async fn main() {
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
-        let _ = tokio::signal::ctrl_c().await;
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            // ここで return すると起動直後に graceful shutdown が走ってしまうため待ち続ける
+            tracing::error!("ctrl_c handler install failed: {e}");
+            std::future::pending::<()>().await;
+        }
     })
     .await
     .expect("server error");
