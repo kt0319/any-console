@@ -10,19 +10,16 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
 
 use axum::extract::{Multipart, State};
 use serde_json::{json, Value};
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
 
 use crate::auth::RequireAuth;
 use crate::errors::{bad_request, too_large, ApiError};
-use crate::subprocess::which;
+use crate::subprocess::{run_subprocess_with_stdin, which};
 use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
-const CLIPBOARD_WRITE_TIMEOUT_SEC: u64 = 3;
+const CLIPBOARD_WRITE_TIMEOUT_SEC: f64 = 3.0;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
 /// 保持するアップロード画像の最大件数。ターミナルへ貼り付けてエージェントに
 /// 読ませるための一時ファイルなので直近数件あれば十分（保存先が data/ 配下で
@@ -116,38 +113,22 @@ thePasteboard's clearContents()
 thePasteboard's writeObjects:{theImage}
 "#;
 
-async fn write_via_stdin_then_wait(
-    mut command: Command,
-    stdin_data: &[u8],
-) -> Option<std::process::ExitStatus> {
-    command.stdin(std::process::Stdio::piped());
-    command.stdout(std::process::Stdio::null());
-    command.stderr(std::process::Stdio::piped());
-    command.kill_on_drop(true);
-    let mut child = command.spawn().ok()?;
-    let mut stdin = child.stdin.take()?;
-    if stdin.write_all(stdin_data).await.is_err() {
-        return None;
-    }
-    drop(stdin);
-    let wait = tokio::time::timeout(
-        Duration::from_secs(CLIPBOARD_WRITE_TIMEOUT_SEC),
-        child.wait(),
-    )
-    .await;
-    match wait {
-        Ok(Ok(status)) => Some(status),
-        _ => None,
-    }
-}
-
 async fn write_image_to_clipboard_macos(filepath: &Path) -> bool {
     if which("osascript").is_none() {
         return false;
     }
-    let mut command = Command::new("osascript");
-    command.arg("-").env("AC_IMAGE_PATH", filepath);
-    match write_via_stdin_then_wait(command, MACOS_CLIPBOARD_SCRIPT.as_bytes()).await {
+    let env = [(
+        "AC_IMAGE_PATH".to_string(),
+        filepath.to_string_lossy().into_owned(),
+    )];
+    match run_subprocess_with_stdin(
+        &["osascript", "-"],
+        MACOS_CLIPBOARD_SCRIPT.as_bytes(),
+        CLIPBOARD_WRITE_TIMEOUT_SEC,
+        &env,
+    )
+    .await
+    {
         Some(status) if status.success() => {
             tracing::info!("osascript clipboard ok");
             true
@@ -176,8 +157,8 @@ async fn write_image_to_clipboard_linux(filepath: &Path, content_type: &str) -> 
     let Ok(data) = tokio::fs::read(filepath).await else {
         return false;
     };
-    let mut command = Command::new("sudo");
-    command.args([
+    let cmd = [
+        "sudo",
         "-u",
         &user,
         "env",
@@ -187,8 +168,8 @@ async fn write_image_to_clipboard_linux(filepath: &Path, content_type: &str) -> 
         "clipboard",
         "-t",
         &mime,
-    ]);
-    match write_via_stdin_then_wait(command, &data).await {
+    ];
+    match run_subprocess_with_stdin(&cmd, &data, CLIPBOARD_WRITE_TIMEOUT_SEC, &[]).await {
         Some(status) if status.success() => {
             tracing::info!("xclip ok user={user}");
             true

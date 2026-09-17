@@ -89,6 +89,61 @@ pub async fn run_subprocess_with_env(
     })
 }
 
+/// stdin にデータを流し込み、終了ステータスだけを待つ variant（クリップボード書き込み等）。
+/// xclip のように自身を常駐化するコマンドは子がパイプを保持し続けるため、
+/// stdout / stderr は読まずに捨てる（読むと EOF 待ちでタイムアウトまで固まる）。
+pub async fn run_subprocess_with_stdin(
+    cmd: &[&str],
+    stdin_data: &[u8],
+    timeout_sec: f64,
+    env: &[(String, String)],
+) -> Option<std::process::ExitStatus> {
+    use std::process::Stdio;
+    use tokio::io::AsyncWriteExt;
+
+    let (program, args) = cmd.split_first()?;
+    let mut command = tokio::process::Command::new(program);
+    command
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
+    coerce_c_locale(&mut command);
+    for (k, v) in env {
+        command.env(k, v);
+    }
+    let run = async {
+        let mut child = match command.spawn() {
+            Ok(child) => child,
+            Err(e) => {
+                tracing::debug!("subprocess spawn failed {}: {}", program, e);
+                return None;
+            }
+        };
+        let mut stdin = child.stdin.take()?;
+        if let Err(e) = stdin.write_all(stdin_data).await {
+            tracing::debug!("subprocess stdin write failed {}: {}", program, e);
+            return None;
+        }
+        drop(stdin);
+        match child.wait().await {
+            Ok(status) => Some(status),
+            Err(e) => {
+                tracing::debug!("subprocess wait failed {}: {}", program, e);
+                None
+            }
+        }
+    };
+    match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), run).await {
+        Ok(result) => result,
+        Err(_) => {
+            tracing::debug!("subprocess timeout {}", program);
+            None
+        }
+    }
+}
+
 /// returncode == 0 のときだけ stdout を返す（`system.py` の `_run_cmd_safe`）。
 pub async fn run_cmd_safe(cmd: &[&str], timeout_sec: f64, cwd: Option<&Path>) -> Option<String> {
     let result = run_subprocess_safe(cmd, timeout_sec, cwd).await?;
@@ -179,6 +234,38 @@ mod tests {
     #[tokio::test]
     async fn timeout_returns_none() {
         assert!(run_subprocess_safe(&["sleep", "5"], 0.2, None)
+            .await
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn stdin_variant_passes_data_env_and_exit_code() {
+        let env = [("AC_TEST_EXPECT".to_string(), "hello".to_string())];
+        let ok = run_subprocess_with_stdin(
+            &["sh", "-c", r#"[ "$(cat)" = "$AC_TEST_EXPECT" ]"#],
+            b"hello",
+            5.0,
+            &env,
+        )
+        .await
+        .unwrap();
+        assert!(ok.success());
+
+        let failed =
+            run_subprocess_with_stdin(&["sh", "-c", "cat >/dev/null; exit 3"], b"x", 5.0, &[])
+                .await
+                .unwrap();
+        assert_eq!(failed.code(), Some(3));
+    }
+
+    #[tokio::test]
+    async fn stdin_variant_missing_command_and_timeout_return_none() {
+        assert!(
+            run_subprocess_with_stdin(&["no-such-command-xyz"], b"", 2.0, &[])
+                .await
+                .is_none()
+        );
+        assert!(run_subprocess_with_stdin(&["sleep", "5"], b"", 0.2, &[])
             .await
             .is_none());
     }
