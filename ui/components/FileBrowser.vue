@@ -200,7 +200,7 @@ const {
   openFileGitHubUrl, openCurrentFileGitHub, openCurrentFileInEditor,
   onEntryClick,
 } = useFileEntryMenu({
-  currentPath, fileContent,
+  currentPath, entries, fileContent,
   navigateToPath, openFile,
   editorUrlTemplate, openInEditor,
 });
