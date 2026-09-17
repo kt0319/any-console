@@ -96,15 +96,9 @@ pub(crate) fn get_or_create_hook_token(data_dir: &Path) -> String {
         }
     }
     let token = crate::util::token_urlsafe(24);
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if std::fs::write(&path, format!("{token}\n")).is_ok() {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
-        }
+    // 保存に失敗してもこのプロセス内のhookはメモリ上のトークンで動く（次回起動で再生成）
+    if let Err(e) = crate::util::write_secret_file(&path, format!("{token}\n").as_bytes()) {
+        tracing::warn!("hook_token write failed ({}): {e}", path.display());
     }
     token
 }

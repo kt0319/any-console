@@ -199,6 +199,32 @@ pub fn token_urlsafe(n_bytes: usize) -> String {
     base64url_encode(&buf)
 }
 
+/// 秘密情報ファイルを所有者のみ読み書き可（0600）で書き込む。
+/// 書き込み後に chmod すると一瞬だけ既定の umask 権限で読める状態になるため、
+/// 作成時点で mode を指定する。既存ファイルの権限が緩い場合に備えて明示的にも揃える。
+pub fn write_secret_file(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        options.mode(0o600);
+        let mut file = options.open(path)?;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        file.write_all(data)?;
+    }
+    #[cfg(not(unix))]
+    {
+        options.open(path)?.write_all(data)?;
+    }
+    Ok(())
+}
+
 /// 標準 base64（パディング有り）。data URL 用（Python `base64.b64encode` 相当）。
 pub fn base64_standard(data: &[u8]) -> String {
     use base64::Engine;
@@ -278,6 +304,24 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn write_secret_file_creates_parent_and_restricts_existing_permissions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested").join("secret");
+        write_secret_file(&path, b"first").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"first");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+            write_secret_file(&path, b"second").unwrap();
+            let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+        assert_eq!(std::fs::read(&path).unwrap(), b"second");
+    }
 
     #[test]
     fn split_whitespace_max_python_semantics() {

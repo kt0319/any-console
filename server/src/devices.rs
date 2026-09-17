@@ -79,21 +79,10 @@ fn load_or_create_server_key<'a>(data_dir: &Path, state: &'a DevicesState) -> &'
         }
         let mut key = vec![0u8; 32];
         getrandom::fill(&mut key).expect("os rng");
-        if let Some(parent) = path.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                tracing::error!("server_key dir create failed: {e}");
-            }
-        }
-        if let Err(e) = std::fs::write(&path, &key) {
+        if let Err(e) = crate::util::write_secret_file(&path, &key) {
             // 永続化に失敗してもプロセス生存中はメモリ上の鍵で自己一貫させる
             //（次回起動で全デバイス再認証にはなるが、稼働中の全断は避ける）。
             tracing::error!("server_key write failed ({}): {e}", path.display());
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            // 書き込み失敗時はファイルが無いだけなので、権限設定の失敗は無視してよい
-            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
         }
         key
     })
