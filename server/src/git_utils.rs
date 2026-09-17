@@ -333,7 +333,7 @@ pub fn parse_github_url(remote_url: &str) -> Option<String> {
 // ─── worktree ───────────────────────────────────────────────────────────────
 
 /// `git worktree list --porcelain` の出力をパースする純粋関数。
-pub fn parse_worktree_porcelain(output: &str) -> Vec<Value> {
+fn parse_worktree_porcelain(output: &str) -> Vec<Value> {
     let new_entry = |path: &str| {
         json!({
             "path": path, "branch": Value::Null, "head": Value::Null,
@@ -412,7 +412,7 @@ pub fn worktree_base_of(name: &str) -> String {
 }
 
 /// '{base}:{branch}' 形式の動的worktree名からパスを返す（config 未登録の worktree 用）。
-pub async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Option<PathBuf> {
+async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Option<PathBuf> {
     let (base_name, branch) = split_worktree_name(name)?;
     for entry in store.list_workspace_entries().values() {
         if entry.get("name").and_then(Value::as_str) != Some(base_name.as_str()) {

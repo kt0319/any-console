@@ -19,7 +19,7 @@ pub(crate) fn split_lines(text: &str) -> Vec<&str> {
         .collect()
 }
 
-pub fn is_horizontal_rule(line: &str) -> bool {
+fn is_horizontal_rule(line: &str) -> bool {
     let trimmed = line.trim();
     if trimmed.is_empty() {
         return false;

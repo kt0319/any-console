@@ -85,12 +85,12 @@ pub fn resolve_session_state(
 /// blocked（許可待ち）への遷移かどうかを判定する純関数。直前が既に blocked
 /// だった場合は false（画面差分等で同じ blocked が続けて評価されても、
 /// 実際に許可待ちへ入った瞬間の1回だけ通知したいため）。
-pub fn entered_blocked(new_state: &str, prev_state: Option<&str>) -> bool {
+fn entered_blocked(new_state: &str, prev_state: Option<&str>) -> bool {
     new_state == STATE_BLOCKED && prev_state != Some(STATE_BLOCKED)
 }
 
 /// 前回配信から状態が変わったセッションだけを取り出す純関数。
-pub fn diff_states(
+fn diff_states(
     previous: &HashMap<String, String>,
     current: &HashMap<String, String>,
 ) -> HashMap<String, String> {
@@ -104,10 +104,7 @@ pub fn diff_states(
 /// `sources` は session_id → 判定元文字列（"hook"/"manifest"/"screen"）。
 /// `states` に無いキーは無視し、`states` にあって `sources` に無いキーは
 /// 空文字を送る（デバッグ表示側は空文字を「不明」として扱えばよい）。
-pub fn states_payload(
-    states: &HashMap<String, String>,
-    sources: &HashMap<String, String>,
-) -> Value {
+fn states_payload(states: &HashMap<String, String>, sources: &HashMap<String, String>) -> Value {
     let entries: Vec<Value> = states
         .iter()
         .map(|(session_id, state)| {
@@ -121,7 +118,7 @@ pub fn states_payload(
     json!({"type": "agent_states", "states": entries})
 }
 
-pub fn phrase_notify_payload(session_id: &str, phrase: &str, workspace: Option<&str>) -> Value {
+fn phrase_notify_payload(session_id: &str, phrase: &str, workspace: Option<&str>) -> Value {
     json!({
         "type": "phrase_notify",
         "session_id": session_id,
@@ -130,7 +127,7 @@ pub fn phrase_notify_payload(session_id: &str, phrase: &str, workspace: Option<&
     })
 }
 
-pub fn phrase_notify_clear_payload(session_id: &str) -> Value {
+fn phrase_notify_clear_payload(session_id: &str) -> Value {
     json!({"type": "phrase_notify_clear", "session_id": session_id})
 }
 

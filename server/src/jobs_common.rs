@@ -47,7 +47,7 @@ fn icon_pattern_matches(icon: &str) -> bool {
     false
 }
 
-pub async fn validate_icon(state: &AppState, icon: &str) -> Result<String, ApiError> {
+async fn validate_icon(state: &AppState, icon: &str) -> Result<String, ApiError> {
     let icon = icon.trim();
     if icon.is_empty() {
         return Ok(String::new());
@@ -64,7 +64,7 @@ pub async fn validate_icon(state: &AppState, icon: &str) -> Result<String, ApiEr
     Ok(normalized)
 }
 
-pub fn validate_icon_color(color: &str) -> Result<String, ApiError> {
+fn validate_icon_color(color: &str) -> Result<String, ApiError> {
     let color = color.trim();
     if color.is_empty() {
         return Ok(String::new());
@@ -303,7 +303,7 @@ pub fn check_max_len(field: &str, value: &str, max: usize) -> Result<(), ApiErro
     Ok(())
 }
 
-pub fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
+fn check_job_request_lengths(body: &JobRequest) -> Result<(), ApiError> {
     for (v, max, field) in [
         (&body.label, MAX_LABEL_LENGTH, "label"),
         (&body.command, MAX_COMMAND_LENGTH, "command"),

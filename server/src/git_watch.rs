@@ -2,8 +2,7 @@
 //!
 //! - `WatchTarget` / `collect_watch_targets`: 登録済み git ワークスペース + 動的
 //!   worktree を集める（`/workspaces/statuses` が返す集合と一致させる）
-//! - `is_relevant_change` / `touches_branch_change`: FS イベントのパスが git
-//!   ステータスに影響しうるか・ブランチ切替相当かを判定する純関数
+//! - `is_relevant_change`: FS イベントのパスが git ステータスに影響しうるかを判定する純関数
 //! - `match_workspaces` / `watch_roots`: 変更パス集合を再計算すべきワークスペース名
 //!   へ対応付け、監視すべきルートパス集合を組み立てる
 //! - `GitWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `nudge_workspace` /
@@ -63,8 +62,6 @@ const GIT_WATCH_BASENAMES: &[&str] = &[
     "index",
     "packed-refs",
 ];
-/// ブランチ切替・作成やリモート追跡ブランチの更新を表すファイル。
-const BRANCH_CHANGE_BASENAMES: &[&str] = &["HEAD", "ORIG_HEAD", "packed-refs"];
 
 fn ignore_entity_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -89,7 +86,7 @@ fn git_inner_parts(parts: &[String]) -> Option<&[String]> {
 }
 
 /// FS イベントのパスが git ステータスに影響しうるか判定する純関数。
-pub fn is_relevant_change(path_str: &str) -> bool {
+fn is_relevant_change(path_str: &str) -> bool {
     let parts = path_parts(path_str);
     if parts.is_empty() {
         return false;
@@ -108,24 +105,6 @@ pub fn is_relevant_change(path_str: &str) -> bool {
         return false;
     }
     !ignore_entity_re().is_match(parts.last().unwrap())
-}
-
-/// 変更パス群に HEAD/ORIG_HEAD/packed-refs や refs/ 配下の変更が含まれるか判定する。
-///
-/// 含まれる場合、checkout/switch やブランチ作成・リモート追跡ブランチ更新の
-/// 可能性が高く、git_info キャッシュを無効化してブランチ名等をフル再計算させる
-/// 必要がある。
-pub fn touches_branch_change(paths: &HashSet<String>) -> bool {
-    paths.iter().any(|p| {
-        let parts = path_parts(p);
-        match git_inner_parts(&parts) {
-            None => false,
-            Some(inner) => {
-                BRANCH_CHANGE_BASENAMES.contains(&inner.last().unwrap().as_str())
-                    || inner.iter().any(|x| x == "refs")
-            }
-        }
-    })
 }
 
 /// 監視対象1件（登録済みワークスペース or 動的 worktree）。
@@ -202,7 +181,7 @@ async fn worktree_git_dirs(path: &Path) -> Option<(PathBuf, PathBuf)> {
 /// `/workspaces/statuses` が返す集合と一致させる。登録済みワークスペース自体が
 /// linked worktree の場合は、git 状態の実体である専用 gitdir / 共有 .git も記録し、
 /// ベースが登録済みならその表示名を base に載せる（監視・マッピングに使う）。
-pub async fn collect_watch_targets(store: &ConfigStore) -> Vec<WatchTarget> {
+async fn collect_watch_targets(store: &ConfigStore) -> Vec<WatchTarget> {
     let registered = list_git_workspace_paths(store).await;
     let name_by_path: HashMap<String, String> = registered
         .iter()
@@ -247,7 +226,7 @@ pub async fn collect_watch_targets(store: &ConfigStore) -> Vec<WatchTarget> {
 ///
 /// 作業ツリーに加え、作業ツリー群でカバーされない worktree の共有 .git / 専用
 /// gitdir（ベースが未登録のケース）も監視する。ネスト・重複は取り除く。
-pub fn watch_roots(targets: &[WatchTarget]) -> Vec<PathBuf> {
+fn watch_roots(targets: &[WatchTarget]) -> Vec<PathBuf> {
     let roots: Vec<String> = targets
         .iter()
         .map(|t| t.path.to_string_lossy().into_owned())
@@ -327,10 +306,7 @@ fn names_for_hit(
 ///
 /// - 最長プレフィックス一致で持ち主を決める（作業ツリー・専用 gitdir・共有 .git）
 /// - 展開の内訳は `names_for_hit` を参照
-pub fn match_workspaces(
-    changed_paths: &HashSet<String>,
-    targets: &[WatchTarget],
-) -> HashSet<String> {
+fn match_workspaces(changed_paths: &HashSet<String>, targets: &[WatchTarget]) -> HashSet<String> {
     let mut candidates: Vec<(String, &WatchTarget, &'static str)> = Vec::new();
     for t in targets {
         candidates.push((t.path.to_string_lossy().into_owned(), t, "path"));

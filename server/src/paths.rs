@@ -76,7 +76,7 @@ fn absolutize(p: PathBuf) -> PathBuf {
 ///
 /// strip 相当の空白判定は空値の検出のみに使い、パスには生の値を使う
 /// （前後に空白を含む正当なディレクトリ名を別パスへ化けさせないため）。
-pub fn resolve_data_paths(project_root: &Path, env_value: Option<&str>) -> (PathBuf, PathBuf) {
+fn resolve_data_paths(project_root: &Path, env_value: Option<&str>) -> (PathBuf, PathBuf) {
     if let Some(v) = env_value {
         if !v.trim().is_empty() {
             let data_dir = absolutize(expand_user(v));
@@ -97,7 +97,7 @@ pub fn project_root_from_env() -> PathBuf {
 }
 
 /// tmux セッション名のプレフィックス（未設定は "ac-"）。`resolve_tmux_prefix` と同一。
-pub fn resolve_tmux_prefix(env_value: Option<&str>) -> String {
+fn resolve_tmux_prefix(env_value: Option<&str>) -> String {
     match env_value {
         Some(v) if !v.trim().is_empty() => v.to_string(),
         _ => "ac-".to_string(),

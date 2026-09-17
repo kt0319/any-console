@@ -26,7 +26,7 @@ type PsRow = (i32, i32, i32, Vec<String>);
 
 /// `/proc/<pid>/stat` から (pgrp, tpgid) を取り出す。
 /// comm フィールドは空白・括弧を含みうるため、最後の ')' より後を分割する。
-pub fn parse_stat_pgrp_tpgid(stat_text: &str) -> Option<(i32, i32)> {
+fn parse_stat_pgrp_tpgid(stat_text: &str) -> Option<(i32, i32)> {
     let end = stat_text.rfind(')')?;
     let fields: Vec<&str> = stat_text[end + 1..].split_whitespace().collect();
     if fields.len() < 6 {
@@ -38,7 +38,7 @@ pub fn parse_stat_pgrp_tpgid(stat_text: &str) -> Option<(i32, i32)> {
 }
 
 /// `ps -axo pid=,pgid=,tpgid=,command=` の出力を (pid, pgid, tpgid, argv) に変換する。
-pub fn parse_ps_lines(text: &str) -> Vec<PsRow> {
+fn parse_ps_lines(text: &str) -> Vec<PsRow> {
     let mut rows = Vec::new();
     for line in text.lines() {
         let parts = crate::util::split_whitespace_max(line, 3);

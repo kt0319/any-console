@@ -48,7 +48,7 @@ fn normalize_text(text: &str) -> String {
 }
 
 /// ジョブコマンドを照合単位のステップ（正規化済み文字列）に分割する。
-pub fn command_steps(command: &str) -> Vec<String> {
+fn command_steps(command: &str) -> Vec<String> {
     let joined = command
         .lines()
         .filter(|line| !comment_line_re().is_match(line))
@@ -64,7 +64,7 @@ pub fn command_steps(command: &str) -> Vec<String> {
 /// ステップ文字列を照合用の fullmatch 正規表現へ変換する。
 ///
 /// `[[var]]` はワイルドカード、それ以外はリテラル。空白は正規化済み前提。
-pub fn step_to_pattern(step: &str) -> Regex {
+fn step_to_pattern(step: &str) -> Regex {
     let mut pattern = String::from(r"\A");
     let mut last = 0;
     for m in placeholder_re().find_iter(step) {

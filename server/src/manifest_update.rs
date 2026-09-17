@@ -42,7 +42,7 @@ pub const AGENT_MANIFEST_MAX_FETCH_BYTES: usize = 256 * 1024;
 pub const AGENT_MANIFEST_UPDATE_INTERVAL_SEC: u64 = 24 * 60 * 60;
 pub const AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC: u64 = 300;
 
-pub fn catalog_url() -> String {
+fn catalog_url() -> String {
     std::env::var(CATALOG_URL_ENV)
         .ok()
         .filter(|v| !v.is_empty())
@@ -64,7 +64,7 @@ fn base_url(url: &str) -> Result<String, String> {
 }
 
 /// URL からテキストを取得する（サイズ上限・タイムアウト付き）。
-pub async fn fetch_text(url: String) -> Result<String, String> {
+async fn fetch_text(url: String) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs_f64(
             AGENT_MANIFEST_FETCH_TIMEOUT_SEC,
@@ -93,7 +93,7 @@ pub async fn fetch_text(url: String) -> Result<String, String> {
 ///
 /// `known_ids` に無いエージェントは同梱マニフェストが無いとみなしスキップする
 /// （herdr と同じ）。
-pub fn parse_catalog(
+fn parse_catalog(
     content: &str,
     known_ids: &std::collections::HashSet<String>,
 ) -> Result<Vec<(String, String)>, String> {
@@ -159,7 +159,7 @@ fn cached_remote_version(path: &Path) -> Option<Vec<u64>> {
 /// 取得したマニフェストを検証してコミットする。更新があれば `Ok(true)`。
 ///
 /// 検証失敗・バージョン後退・version bump なしの内容変更はエラー。
-pub fn process_agent_manifest(
+fn process_agent_manifest(
     store: &ManifestStore,
     agent_id: &str,
     content: &str,
@@ -214,7 +214,7 @@ fn status_path(store: &ManifestStore) -> std::path::PathBuf {
         .join("status.json")
 }
 
-pub fn load_status(store: &ManifestStore) -> Map<String, Value> {
+fn load_status(store: &ManifestStore) -> Map<String, Value> {
     load_json_file(&status_path(store), json!({}), None)
         .as_object()
         .cloned()
@@ -287,7 +287,7 @@ where
 ///
 /// エージェント単位のエラーは status に記録して続行する。カタログ自体の
 /// 取得・解釈失敗は last_result に記録する。
-pub async fn check_and_update<F, Fut>(
+async fn check_and_update<F, Fut>(
     store: &ManifestStore,
     catalog_url: &str,
     fetch: F,
@@ -327,7 +327,7 @@ where
     status
 }
 
-pub fn remote_update_enabled(config: &ConfigStore) -> bool {
+fn remote_update_enabled(config: &ConfigStore) -> bool {
     let Some(raw) = config.load_global_section("agent_detection") else {
         return true;
     };

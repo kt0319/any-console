@@ -131,7 +131,7 @@ pub fn clear_session(state: &AppState, session_id: &str) {
         .remove(session_id);
 }
 
-pub fn verify_hook_token(state: &AppState, provided: &str) -> bool {
+fn verify_hook_token(state: &AppState, provided: &str) -> bool {
     if provided.is_empty() {
         return false;
     }

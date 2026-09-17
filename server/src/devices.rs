@@ -287,7 +287,7 @@ pub fn revoke_device(data_dir: &Path, state: &DevicesState, device_id: &str) -> 
 }
 
 /// `secret_hash` を除いた一覧を返す（UI 表示用）。
-pub fn list_devices(data_dir: &Path) -> Vec<Value> {
+fn list_devices(data_dir: &Path) -> Vec<Value> {
     devices_array(&load_unlocked(data_dir))
         .into_iter()
         .map(strip_secret_hash)

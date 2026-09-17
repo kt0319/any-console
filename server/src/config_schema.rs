@@ -254,14 +254,14 @@ fn global_specs() -> Vec<FieldSpec> {
     ]
 }
 
-pub fn validate_workspace_config(data: &Value) -> Result<Map<String, Value>, String> {
+fn validate_workspace_config(data: &Value) -> Result<Map<String, Value>, String> {
     dump_model(data, &workspace_specs())
 }
 
 /// グローバルセクションの検証。検証エラーになった該当箇所だけを取り除く。
 /// jobs は該当ジョブのみ、snippets / recent_jobs は該当インデックスのみを落とし、
 /// 宣言スカラーはキーごと削除してデフォルトに委ね、extra フィールドは触らない。
-pub fn validate_global_config(data: &Value) -> Result<Map<String, Value>, String> {
+fn validate_global_config(data: &Value) -> Result<Map<String, Value>, String> {
     let obj = data.as_object().ok_or("expected object")?;
     let specs = global_specs();
     let mut out = Map::new();

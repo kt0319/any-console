@@ -482,7 +482,7 @@ pub fn bearer_from_headers(headers: &http::HeaderMap) -> &str {
         .unwrap_or("")
 }
 
-pub fn extract_bearer_token(value: &str) -> &str {
+fn extract_bearer_token(value: &str) -> &str {
     match value.split_once(' ') {
         Some((scheme, token)) if scheme.eq_ignore_ascii_case("bearer") => token,
         _ => "",

@@ -53,7 +53,7 @@ fn parse_docker_ps_output(stdout: &str) -> Vec<(String, String, String, String, 
 ///
 /// `docker ps` に `-a` を付けていないため、停止済み（exited/dead/created）の
 /// コンテナは自然に除外され、running/restarting/paused のみが返る。
-pub async fn list_containers(config: &ConfigStore) -> Vec<DetectedContainer> {
+async fn list_containers(config: &ConfigStore) -> Vec<DetectedContainer> {
     let Some(stdout) = run_cmd_safe(
         &["docker", "ps", "--format", DOCKER_PS_FORMAT],
         SYSTEM_CMD_TIMEOUT_SEC,

@@ -127,7 +127,7 @@ fn load_vapid_sub(data_dir: &Path) -> String {
 }
 
 /// VAPID の `sub` claim（連絡先 URL）を更新してファイルに永続化する。
-pub fn set_vapid_sub(data_dir: &Path, sub: &str) {
+fn set_vapid_sub(data_dir: &Path, sub: &str) {
     if std::fs::create_dir_all(data_dir).is_err() {
         return;
     }
@@ -168,7 +168,7 @@ fn vapid_keys<'a>(push: &'a PushState, data_dir: &Path) -> Option<&'a VapidKeys>
 }
 
 /// VAPID 公開鍵を返す（push が利用不可ならエラー）。
-pub fn get_vapid_public_key(push: &PushState, data_dir: &Path) -> Option<String> {
+fn get_vapid_public_key(push: &PushState, data_dir: &Path) -> Option<String> {
     vapid_keys(push, data_dir).map(|k| k.public_key_b64.clone())
 }
 
@@ -191,7 +191,7 @@ pub fn has_subscriptions(data_dir: &Path) -> bool {
     !load_subscriptions(data_dir).is_empty()
 }
 
-pub fn add_subscription(state: &std::sync::Arc<AppState>, sub: Value) {
+fn add_subscription(state: &std::sync::Arc<AppState>, sub: Value) {
     let endpoint = sub
         .get("endpoint")
         .and_then(Value::as_str)
@@ -212,7 +212,7 @@ pub fn add_subscription(state: &std::sync::Arc<AppState>, sub: Value) {
     crate::agent_watch::ensure_tasks(state);
 }
 
-pub fn remove_subscription(push: &PushState, data_dir: &Path, endpoint: &str) {
+fn remove_subscription(push: &PushState, data_dir: &Path, endpoint: &str) {
     let _guard = push.subscriptions_lock.lock().expect("push lock poisoned");
     let mut subs = load_subscriptions(data_dir);
     let before = subs.len();
@@ -432,7 +432,7 @@ pub fn spawn_push_notification(
     });
 }
 
-pub async fn send_push_notification(
+async fn send_push_notification(
     state: &std::sync::Arc<AppState>,
     title: &str,
     body: &str,

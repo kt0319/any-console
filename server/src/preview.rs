@@ -56,7 +56,7 @@ const HTTP_PROBE_RETRY_SEC: i64 = 30;
 /// プローブすると空振りしやすい。初回プローブは検出からこの秒数だけ待つ。
 const INITIAL_PROBE_DELAY_SEC: i64 = 10;
 
-pub fn proxy_port_for(target: u16) -> Option<u16> {
+fn proxy_port_for(target: u16) -> Option<u16> {
     if (PROXY_MIN_TARGET..=PROXY_MAX_TARGET).contains(&target) {
         Some(target + PROXY_OFFSET)
     } else {
@@ -170,7 +170,7 @@ async fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<Stri
 /// cwd 読み取り・workspace 照合は非同期 I/O のため、`detected` の Mutex を
 /// 保持したまま `.await` しない（std::sync::Mutex は非同期処理を跨いで
 /// 保持しない設計上の原則 — 変化検出→非同期ルックアップ→書き込み、の3段で行う）。
-pub async fn scan_once(state: &Arc<AppState>) {
+async fn scan_once(state: &Arc<AppState>) {
     let preview = &state.preview;
     let now = now_epoch();
     let proxy_ports: HashSet<u16> = preview
@@ -274,7 +274,7 @@ pub async fn scan_once(state: &Arc<AppState>) {
 /// UI に返す一覧（Python `list_ports` 相当）。自分自身は常に含める（識別用 —
 /// ボタンは表示側で出さない）。proxy が立たないポート・非 HTTP と判定された
 /// ポート（adb/RTSP/HTTPS upstream 等）は除外する。
-pub fn list_ports(state: &PreviewState) -> Vec<DetectedPort> {
+fn list_ports(state: &PreviewState) -> Vec<DetectedPort> {
     let detected = state.detected.lock().expect("detected lock poisoned");
     let mut items: Vec<DetectedPort> = detected
         .values()

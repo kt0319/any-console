@@ -97,7 +97,7 @@ async fn commits_not_on_any_remote(ws_path: &FsPath) -> Result<Value, ApiError> 
 
 // ─── upstream 追跡情報のパース ──────────────────────────────────────────────
 
-pub fn parse_upstream_track(track: &str) -> Value {
+fn parse_upstream_track(track: &str) -> Value {
     let mut body = track.trim();
     if body.starts_with('[') && body.ends_with(']') {
         body = &body[1..body.len() - 1];
@@ -158,7 +158,7 @@ async fn branch_tracking_info(ws_path: &FsPath) -> Result<Map<String, Value>, Ap
 
 /// upstream 未設定ブランチの「未 push 件数」を 1 回の rev-list --parents で数える
 /// （Python `_unpublished_commit_counts` と同一アルゴリズム）。
-pub fn count_unpublished(parents_output: &str, tips: &Map<String, Value>) -> Map<String, Value> {
+fn count_unpublished(parents_output: &str, tips: &Map<String, Value>) -> Map<String, Value> {
     let mut parents: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
     for line in parents_output.lines() {
         let mut hashes = line.split_whitespace();

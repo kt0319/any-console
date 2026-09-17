@@ -62,7 +62,7 @@ fn resolve_rename_path(path: &str) -> String {
     format!("{}{}{}", &path[..start], new_name.trim(), &path[end + 1..])
 }
 
-pub fn parse_numstat(stdout: &str) -> Map<String, Value> {
+fn parse_numstat(stdout: &str) -> Map<String, Value> {
     let mut stats = Map::new();
     for line in stdout.lines() {
         if line.trim().is_empty() {

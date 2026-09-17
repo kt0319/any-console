@@ -76,7 +76,7 @@ pub const IS_MACOS: bool = cfg!(target_os = "macos");
 
 /// バックグラウンドタスクが起動済みかつ未終了かを判定する
 /// （`SupervisedTask` 内部と一部テストで共用）。
-pub fn task_running(task: &Option<tokio::task::JoinHandle<()>>) -> bool {
+fn task_running(task: &Option<tokio::task::JoinHandle<()>>) -> bool {
     task.as_ref().is_some_and(|h| !h.is_finished())
 }
 
