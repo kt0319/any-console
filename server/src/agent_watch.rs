@@ -421,29 +421,31 @@ pub async fn collect_agent_states(
 
 // ─── 購読者連動ポーリングループ ─────────────────────────────────────────────
 
+/// ポーリング間で持ち越す状態。1つのロックでまとめて扱い、停止時のリセットを原子的にする。
+#[derive(Default)]
+struct PollCarry {
+    last_capture: HashMap<String, String>,
+    /// リサイズ検知用の前回ペインサイズ（`collect_agent_states` 参照）。
+    last_pane_size: HashMap<String, (i64, i64)>,
+    tracker: PhraseNotifyTracker,
+    /// 前回配信した状態一式（`states_payload` の差分計算・新規接続への
+    /// 即時スナップショット送信に使う）。
+    last_states: HashMap<String, String>,
+    /// 前回配信した判定元一式（`last_states` と同じキー集合を保つ。デバッグ表示専用）。
+    last_state_sources: HashMap<String, String>,
+}
+
 /// agent_watch の常駐ポーリングタスクとポーリング間で持ち越す状態を保持する。
 pub struct AgentWatchState {
     poll_task: crate::util::SupervisedTask,
-    last_capture: AsyncMutex<HashMap<String, String>>,
-    /// リサイズ検知用の前回ペインサイズ（`collect_agent_states` 参照）。
-    last_pane_size: AsyncMutex<HashMap<String, (i64, i64)>>,
-    tracker: AsyncMutex<PhraseNotifyTracker>,
-    /// 前回配信した状態一式（`states_payload` の差分計算・新規接続への
-    /// 即時スナップショット送信に使う）。
-    last_states: AsyncMutex<HashMap<String, String>>,
-    /// 前回配信した判定元一式（`last_states` と同じキー集合を保つ。デバッグ表示専用）。
-    last_state_sources: AsyncMutex<HashMap<String, String>>,
+    carry: AsyncMutex<PollCarry>,
 }
 
 impl AgentWatchState {
     pub fn new() -> Self {
         Self {
             poll_task: crate::util::SupervisedTask::new(),
-            last_capture: AsyncMutex::new(HashMap::new()),
-            last_pane_size: AsyncMutex::new(HashMap::new()),
-            tracker: AsyncMutex::new(PhraseNotifyTracker::new()),
-            last_states: AsyncMutex::new(HashMap::new()),
-            last_state_sources: AsyncMutex::new(HashMap::new()),
+            carry: AsyncMutex::new(PollCarry::default()),
         }
     }
 }
@@ -478,22 +480,20 @@ pub fn maybe_stop_tasks(state: &Arc<AppState>) {
     // まっさらな状態から再構築する）。
     let state = state.clone();
     tokio::spawn(async move {
-        *state.agent_watch.last_capture.lock().await = HashMap::new();
-        *state.agent_watch.last_pane_size.lock().await = HashMap::new();
-        *state.agent_watch.tracker.lock().await = PhraseNotifyTracker::new();
-        *state.agent_watch.last_states.lock().await = HashMap::new();
-        *state.agent_watch.last_state_sources.lock().await = HashMap::new();
+        *state.agent_watch.carry.lock().await = PollCarry::default();
     });
 }
 
 /// 新規接続への即時スナップショット。既知の状態が無ければ None（何も送らない）。
 pub async fn initial_snapshot(state: &Arc<AppState>) -> Option<Value> {
-    let last_states = state.agent_watch.last_states.lock().await;
-    if last_states.is_empty() {
+    let carry = state.agent_watch.carry.lock().await;
+    if carry.last_states.is_empty() {
         None
     } else {
-        let last_state_sources = state.agent_watch.last_state_sources.lock().await;
-        Some(states_payload(&last_states, &last_state_sources))
+        Some(states_payload(
+            &carry.last_states,
+            &carry.last_state_sources,
+        ))
     }
 }
 
@@ -504,35 +504,30 @@ async fn poll_loop(state: Arc<AppState>) {
             return;
         }
         let now = crate::util::now_epoch_f64();
-        let mut last_states = state.agent_watch.last_states.lock().await;
-        let mut last_state_sources = state.agent_watch.last_state_sources.lock().await;
-        let collected = {
-            let mut last_capture = state.agent_watch.last_capture.lock().await;
-            let mut last_pane_size = state.agent_watch.last_pane_size.lock().await;
-            let mut tracker = state.agent_watch.tracker.lock().await;
-            collect_agent_states(
-                &state,
-                &state.manifest_store,
-                &mut last_capture,
-                &mut last_pane_size,
-                &mut tracker,
-                &last_states,
-                now,
-            )
-            .await
-        };
+        let mut carry_guard = state.agent_watch.carry.lock().await;
+        let carry = &mut *carry_guard;
+        let collected = collect_agent_states(
+            &state,
+            &state.manifest_store,
+            &mut carry.last_capture,
+            &mut carry.last_pane_size,
+            &mut carry.tracker,
+            &carry.last_states,
+            now,
+        )
+        .await;
         let Some(states) = collected.states else {
             // tmux コマンド自体が一時的に失敗。直前のスナップショットを保持して
             // 次の周期に委ね、状態を空で上書きしない。
             continue;
         };
         let sources = collected.state_sources.unwrap_or_default();
-        let changed = diff_states(&last_states, &states);
-        *last_states = states;
-        *last_state_sources = sources;
-        let sources_snapshot = last_state_sources.clone();
-        drop(last_states);
-        drop(last_state_sources);
+        let changed = diff_states(&carry.last_states, &states);
+        carry.last_states = states;
+        carry.last_state_sources = sources;
+        let sources_snapshot = carry.last_state_sources.clone();
+        // 以降の配信中に新規接続の initial_snapshot を待たせない。
+        drop(carry_guard);
         if !changed.is_empty() {
             state
                 .status_stream
