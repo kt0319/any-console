@@ -53,11 +53,6 @@
       </div>
     </div>
 
-    <button v-if="!isLoading" type="button" class="si-copy-btn" @click="copyAll">
-      <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>
-      {{ copied ? "Copied!" : "Copy" }}
-    </button>
-
     <div v-if="!isLoading" class="si-card">
       <div class="settings-card-head">
         <span class="settings-card-title">Backup & Restore</span>
@@ -84,7 +79,6 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.ts";
 import { useModalView } from "../composables/useModalView.ts";
-import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 import { useToast } from "../composables/useToast.ts";
 import { triggerBlobDownload } from "../utils/download.ts";
 
@@ -94,7 +88,6 @@ modalTitle!.value = "System Info";
 const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
-const { copied, copy } = useCopyFeedback();
 const toast = useToast();
 const configFileInput = ref<HTMLInputElement | null>(null);
 
@@ -233,17 +226,6 @@ async function load() {
   isLoading.value = false;
 }
 
-function buildSummaryText() {
-  return sections.value
-    .filter((s) => !s.error && s.rows.length)
-    .map((s) => `${s.label}\n${s.rows.map((r) => `${r.label}: ${r.values.join(" ")}`).join("\n")}`)
-    .join("\n\n");
-}
-
-async function copyAll() {
-  await copy(buildSummaryText());
-}
-
 async function downloadConfig() {
   const { ok, data } = await getWithRetry(apiGet, EP_SETTINGS_EXPORT, { errorMessage: "Failed to load config" });
   if (!ok) return;
@@ -297,19 +279,5 @@ defineExpose({ load });
   background: transparent;
   color: var(--text-primary);
   flex: 1;
-}
-.si-copy-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 16px 0;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
 }
 </style>
