@@ -223,6 +223,7 @@ impl TerminalSession {
                 match reader_pty.read(&mut buf).await {
                     Ok(0) => {
                         tracing::info!("PTY EOF detected, closing client session={session_id}");
+                        // 受信側（WS クライアント）が既に切断済みなら届け先が無いだけ
                         let _ = outgoing.send(PtyEvent::Eof);
                         break;
                     }

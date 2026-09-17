@@ -79,6 +79,7 @@ impl ConfigStore {
     fn file_lock(&self, exclusive: bool) -> Option<FileLock> {
         let lock_path = self.config_file.with_extension("lock");
         if let Some(parent) = lock_path.parent() {
+            // 失敗しても直後の open が失敗して None になるので、ここでは扱わない
             let _ = std::fs::create_dir_all(parent);
         }
         let file = std::fs::OpenOptions::new()

@@ -529,6 +529,7 @@ async fn watch_loop(state: Arc<AppState>) {
             Duration::from_millis(GIT_WATCH_DEBOUNCE_MS),
             None,
             move |result: DebounceEventResult| {
+                // 受信側（監視タスク）が停止済みなら捨ててよい
                 let _ = tx.send(result);
             },
         ) {

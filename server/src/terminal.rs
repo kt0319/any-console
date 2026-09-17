@@ -417,6 +417,7 @@ pub async fn terminal_ws(
 }
 
 async fn close_ws(socket: &mut WebSocket, code: u16, reason: &str) {
+    // クライアント側で既に切断されていれば Err になるだけ
     let _ = socket
         .send(Message::Close(Some(CloseFrame {
             code,
@@ -622,6 +623,7 @@ async fn handle_terminal_ws(
         tracing::info!("PTY EOF detected, closing client session={session_id}");
         close_ws(&mut socket, WS_CLOSE_SESSION_EXITED, "session exited").await;
     } else {
+        // クライアント側で既に切断されていれば Err になるだけ
         let _ = socket.close().await;
     }
 }

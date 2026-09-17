@@ -244,6 +244,7 @@ pub fn terminate(pid: Pid) {
     if still_alive {
         // Python の 0.1 秒猶予と同一
         std::thread::sleep(std::time::Duration::from_millis(100));
+        // 猶予中に終了していれば ESRCH / ECHILD になるだけ
         let _ = kill(pid, Signal::SIGKILL);
         let _ = waitpid(pid, Some(WaitPidFlag::WNOHANG));
     }

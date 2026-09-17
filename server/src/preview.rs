@@ -389,6 +389,7 @@ async fn pipe_bidirectional<A>(mut client: A, mut upstream: TcpStream)
 where
     A: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
+    // どちらかの切断で終わるのが正常系で、エラーも切断理由でしかない
     let _ = tokio::io::copy_bidirectional(&mut client, &mut upstream).await;
 }
 

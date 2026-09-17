@@ -206,6 +206,7 @@ pub async fn tmux_session_exists(name: &str) -> bool {
 }
 
 pub async fn kill_tmux_by_name(name: &str) {
+    // セッションが既に無いケースを含むベストエフォート
     let _ = run_tmux_cmd(&["kill-session", "-t", name]).await;
 }
 

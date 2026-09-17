@@ -40,6 +40,7 @@ pub fn load_tls_server_config(
     key: &Path,
 ) -> Option<Arc<tokio_rustls::rustls::ServerConfig>> {
     use tokio_rustls::rustls;
+    // 2回目以降は「既にインストール済み」の Err になるだけ
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
     let cert_pem = std::fs::read(cert).ok()?;
     let key_pem = std::fs::read(key).ok()?;

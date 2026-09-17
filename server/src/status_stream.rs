@@ -192,6 +192,7 @@ async fn handle_status_stream_ws(
     }
     crate::git_watch::maybe_stop_tasks(&state);
     crate::agent_watch::maybe_stop_tasks(&state);
+    // クライアント側で既に切断されていれば Err になるだけ
     let _ = socket.close().await;
     tracing::info!("status stream disconnected");
 }
