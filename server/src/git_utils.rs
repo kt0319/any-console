@@ -632,6 +632,24 @@ pub async fn resolve_workspace_path(
     )))
 }
 
+/// テスト用リポジトリで git を実行する（失敗は即 assert）。コミット日時を固定し、
+/// 時刻依存の表示を決定的にする（git_info / git_watch のテストから使う）。
+#[cfg(test)]
+pub(crate) fn sh_git(repo: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(repo)
+        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
+        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

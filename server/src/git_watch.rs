@@ -615,21 +615,7 @@ async fn auto_fetch_loop(state: Arc<AppState>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn sh_git(repo: &Path, args: &[&str]) {
-        let out = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00+00:00")
-            .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
-            .output()
-            .unwrap();
-        assert!(
-            out.status.success(),
-            "git {args:?}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
+    use crate::git_utils::sh_git;
 
     fn set(items: &[&str]) -> HashSet<String> {
         items.iter().map(|s| s.to_string()).collect()

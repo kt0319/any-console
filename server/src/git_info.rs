@@ -364,6 +364,7 @@ pub async fn git_info_to_status_json(cache: &GitInfoCache, directory: &Path, nam
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::git_utils::sh_git;
 
     #[test]
     fn shortstat_extraction() {
@@ -385,19 +386,6 @@ mod tests {
     fn revlist_pair_parse() {
         assert_eq!(parse_revlist_pair("2\t3\n"), Some((2, 3)));
         assert_eq!(parse_revlist_pair("garbage"), None);
-    }
-
-    fn sh_git(repo: &Path, args: &[&str]) {
-        let out = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .output()
-            .unwrap();
-        assert!(
-            out.status.success(),
-            "git {args:?}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
     }
 
     #[tokio::test]
