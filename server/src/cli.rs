@@ -565,11 +565,9 @@ fn cmd_hooks_install_claude() -> i32 {
         Ok(t) => t,
         Err(e) => return usage_error(&e.to_string()),
     };
-    let tmp = settings_path.with_extension("json.tmp");
-    if let Err(e) = std::fs::write(&tmp, format!("{text}\n")) {
-        return usage_error(&e.to_string());
-    }
-    if let Err(e) = std::fs::rename(&tmp, &settings_path) {
+    if let Err(e) =
+        crate::json_store::write_file_atomic(&settings_path, format!("{text}\n").as_bytes())
+    {
         return usage_error(&e.to_string());
     }
 

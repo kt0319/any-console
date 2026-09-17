@@ -37,6 +37,12 @@ pub fn load_json_file(
 /// rename が競合する。フォーマットは Python の `json.dumps(indent=2, ensure_ascii=False)`
 /// と互換（2スペースインデント・非ASCII文字は生のまま）。
 pub fn save_json_file(path: &Path, data: &Value) -> std::io::Result<()> {
+    let text = serde_json::to_string_pretty(data)?;
+    write_file_atomic(path, text.as_bytes())
+}
+
+/// 同じディレクトリのユニーク名 tmp に書いてから rename する（親ディレクトリを自動作成）。
+pub fn write_file_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let parent = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(parent)?;
     let mut tmp = tempfile::Builder::new()
@@ -46,8 +52,7 @@ pub fn save_json_file(path: &Path, data: &Value) -> std::io::Result<()> {
         ))
         .suffix(".tmp")
         .tempfile_in(parent)?;
-    let text = serde_json::to_string_pretty(data)?;
-    tmp.write_all(text.as_bytes())?;
+    tmp.write_all(contents)?;
     tmp.persist(path).map_err(|e| e.error)?;
     Ok(())
 }

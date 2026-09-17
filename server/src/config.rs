@@ -7,7 +7,6 @@
 //!   復旧・マイグレーションが起きた場合はその場で書き戻す
 //! - 書き込み: 正規化（エラーがあれば拒否）→ .bak ローテーション → tmp+rename
 
-use std::io::Write;
 use std::path::PathBuf;
 
 use serde_json::{Map, Value};
@@ -194,15 +193,10 @@ impl ConfigStore {
         if self.config_file.exists() {
             std::fs::rename(&self.config_file, &bak).map_err(|e| e.to_string())?;
         }
-        let tmp = self.config_file.with_extension("tmp");
         let text =
             serde_json::to_string_pretty(&Value::Object(normalized)).map_err(|e| e.to_string())?;
-        let mut f = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
-        f.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
-        f.write_all(b"\n").map_err(|e| e.to_string())?;
-        drop(f);
-        std::fs::rename(&tmp, &self.config_file).map_err(|e| e.to_string())?;
-        Ok(())
+        crate::json_store::write_file_atomic(&self.config_file, format!("{text}\n").as_bytes())
+            .map_err(|e| e.to_string())
     }
 
     pub fn load_all(&self) -> Map<String, Value> {
@@ -236,7 +230,7 @@ impl ConfigStore {
             }
             return config;
         }
-        // .bak からの復旧・バージョンマイグレーションの書き戻しは config.bak/config.tmp
+        // .bak からの復旧・バージョンマイグレーションの書き戻しは config.bak と一時ファイル
         // を触るため、共有ロックのままでは他の読み手の書き戻しと競合しうる。
         // 排他ロックへ昇格し、その下で読み直してから書く（他プロセスが既に
         // 書き戻し済みなら再度の書き戻しは不要）。ロック自体が取得できない
