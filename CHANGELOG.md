@@ -5,6 +5,82 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0](https://github.com/kt0319/any-console/compare/v0.17.0...v0.18.0) (2026-09-17)
+
+
+### Features
+
+* Dispatch機能で画像貼り付けに対応 ([b73a117](https://github.com/kt0319/any-console/commit/b73a1172e061143d7530d69549586a55912e1962))
+* Dispatch添付画像をID単位で管理しTTL削除・E2E検証を追加 ([62e6dcd](https://github.com/kt0319/any-console/commit/62e6dcd1c844c9caff59fa45b73de3d8cc9cd241))
+* Dispatch画像添付のプレビューにサムネイルを追加 ([0d10549](https://github.com/kt0319/any-console/commit/0d10549f3a1d0662f58bfaaec27eea0dda3947be))
+* Dockerピル・詳細タブを追加する ([74518d5](https://github.com/kt0319/any-console/commit/74518d55af8c09c6c2bb99633bf69e4b66f8a2cf))
+* Dockerピルのアクティブ判定をrunning/restartingに広げ、Dockerタブの表示条件をcompose有無に変更 ([41fcc7c](https://github.com/kt0319/any-console/commit/41fcc7c09e674ac508acbedf3d3181486ac0a0bb))
+* GitHub Issuesタブの表示をチケットアイコン・2行構成に変更する ([d0044a6](https://github.com/kt0319/any-console/commit/d0044a6a3c25beb2a627bdbc141d13467ca1ff3d))
+* Info PillsのFloat/Barを上下(Top/Bottom)個別に選べるようにする ([5bca0e9](https://github.com/kt0319/any-console/commit/5bca0e946dcdf1abbfdf8fa82b1f6db2a5e19ecc))
+* Info PillsをOff/Float/Barの3モードで表示切替できるようにする ([614eeee](https://github.com/kt0319/any-console/commit/614eeeeaa0777966311154eeb97ab3be33a2816a))
+* Issuesタブに Open/Closed/All の表示切り替えを追加する ([0f474d5](https://github.com/kt0319/any-console/commit/0f474d5e43fba12942873c7497268b6a8bbbda55))
+* IssuesタブのOpen/Closed切替をチェックボックスにしソート選択を追加する ([99de923](https://github.com/kt0319/any-console/commit/99de923de28022b8223c121b6df3e526d0db3487))
+* Issuesピルを追加しIssuesタブアイコンをissueあり時に黄色にする ([7bc6889](https://github.com/kt0319/any-console/commit/7bc688985c7190cf7c2d95c546cdd73f3956cc85))
+* Keyboard barの幅をサイドバー考慮/全体幅から選択できるようにする ([c5553d2](https://github.com/kt0319/any-console/commit/c5553d2d1ec2becddb739452bb583c4556d9d66e))
+* Select & CopyペインにCopy with Trimを追加する ([cb0d25b](https://github.com/kt0319/any-console/commit/cb0d25b7f5fe26edf268d9a168002e5510b0eec6))
+* セッションサイドバー開閉ボタンとタブの間にボーダーを追加 ([5be2fd7](https://github.com/kt0319/any-console/commit/5be2fd71a6b7d2a32affae282dc9a74ba968a39c))
+* ローカルブランチ削除ボタンをLocal only/Local + remote/Remove worktreeの選択式に統合 ([200e058](https://github.com/kt0319/any-console/commit/200e0587555564a21fa67daed1ca318f301f25ec))
+* ワイド画面でサイドバーの幅を調整可能にする ([5f51618](https://github.com/kt0319/any-console/commit/5f516180970920e9c308c878281cccd878bc8e62))
+* 既存セッションのdispatchピルを押した時にそのセッションを既定選択する ([279553e](https://github.com/kt0319/any-console/commit/279553e6c571cc706fcb92127ffef1be8a00d9fd))
+
+
+### Bug Fixes
+
+* DispatchのSessionが対象セッション消滅時に空欄表示になる不具合を修正 ([c6d47d4](https://github.com/kt0319/any-console/commit/c6d47d486eddb5c325e1a6514438668571ad7e5c))
+* dispatch添付画像のパス検証で任意ファイル移動・読み取り誘導を防止 ([0f653ec](https://github.com/kt0319/any-console/commit/0f653ec832e58a44f1955e2a05c1339c41c43908))
+* E2E/ストレステストのtmuxプレフィックスも本番に混入しないよう修正 ([a3e25d5](https://github.com/kt0319/any-console/commit/a3e25d54196af53042f98407d10b70f297695496))
+* gitignore対象ファイルのプレビューでGitHubボタンを表示しない ([b2d53bc](https://github.com/kt0319/any-console/commit/b2d53bc3a5d3422abca5659b1f276bc119d390ea))
+* info_pills_normalize_orderのフィールド数期待値をdocker追加分に合わせる ([3ab0511](https://github.com/kt0319/any-console/commit/3ab05118504b9611cc6f9a75f51f5ad5ff5dcaa7))
+* Issuesピル追加によるinfo-pillsのorder件数期待値をCIで更新 ([8f235e6](https://github.com/kt0319/any-console/commit/8f235e6297f6268a9c6969bb817e5dbced6fbc03))
+* issue一覧のstate=all取得件数を広げてopen件数の食い違いを解消 ([ef2554b](https://github.com/kt0319/any-console/commit/ef2554bbb51d15ca7d96f30027afebb9ee1ff9b2))
+* Open SessionボタンがPinned Jobs未登録時に消える不具合を修正 ([09e08ab](https://github.com/kt0319/any-console/commit/09e08ab37064b75baf6893f1a8f7faf3ca45e435))
+* Recent Jobs一覧から再実行した時も最新実行として先頭へ移動する ([3011134](https://github.com/kt0319/any-console/commit/3011134805dce4ef33655c2db55dc856975c00cd))
+* settings-views E2EからInfo Pillsの独立メニュー項目参照を削除 ([e485c8b](https://github.com/kt0319/any-console/commit/e485c8b00168d3e084e278357cfbf2986c834215))
+* サイドバーのpeekピル最大幅をサイドバー幅の半分に制限する ([d332ae0](https://github.com/kt0319/any-console/commit/d332ae006b993b221ea6d5183cec94006c271e7a))
+* サイドバーのリサイズハンドルの見た目を細い境界線に調整 ([823cde7](https://github.com/kt0319/any-console/commit/823cde72227c341399c1dc4f2accd35b288d4fe5))
+* セッションサイドバーを開くとKeyboardBar/タイトルバーが隠れる不具合を修正 ([d4ee4b3](https://github.com/kt0319/any-console/commit/d4ee4b357c6fcb78021cb14ba92cc9a427d88477))
+* ターミナルURL検出で空行を挟んだ次の段落と誤って連結しないよう修正 ([c9d6494](https://github.com/kt0319/any-console/commit/c9d64944af8de204ec7def7266fb2d3fd044badf))
+* ターミナルURL長押し検出で折返しURLが途中で切れる不具合を修正 ([f6a3fe3](https://github.com/kt0319/any-console/commit/f6a3fe3ff223976355048098a19a3163ac6194e2))
+* タブドラッグ中の分割ドロップゾーンをターミナル領域に入るまで表示しない ([d349345](https://github.com/kt0319/any-console/commit/d349345e5928b4a50a7f174c8ddbbdc67ec76215))
+* テスト用tmuxセッションが本番セッション一覧に混入するのを防ぐ ([a3fee06](https://github.com/kt0319/any-console/commit/a3fee062c87d9df9dd99568146a0e71d224ea7be))
+* ピン留めしたジョブは起動しても並び順を変えないよう修正 ([e7fbfeb](https://github.com/kt0319/any-console/commit/e7fbfeb8346e86ecc305b66890756e2ca32dc68c))
+* ブランチ切替時にInfo PillsのPeekが誤ってPushed扱いになる不具合を修正 ([f6f0652](https://github.com/kt0319/any-console/commit/f6f065218c8cb4c993f14daf48eee061d889738d))
+* モバイルでもInfo Pillsのヒントをチェック操作時に表示する ([43e2790](https://github.com/kt0319/any-console/commit/43e2790ee8f228224e0ae286752c7002803446dc))
+* モバイル横画面でタイトルバーの中央寄せとピル位置が崩れる不具合を修正 ([9580a48](https://github.com/kt0319/any-console/commit/9580a485740ef7ca80c02f45ce3a2b6ca526cec1))
+* ローカルブランチ削除確認ダイアログの文言を明示 ([5dbe1d5](https://github.com/kt0319/any-console/commit/5dbe1d55eea09e12036fcad7cb5c942afe75c6b0))
+* 分割モードでInfo Pillsのworkingアニメーションを止める ([ab13fea](https://github.com/kt0319/any-console/commit/ab13fead1d4f534978af70cfb7d862d1f82cf1db))
+
+
+### Refactor
+
+* Config File画面をBackup & RestoreとしてSystem Infoに統合 ([d096165](https://github.com/kt0319/any-console/commit/d09616511043b296e8457c4bf00b70c698b1536e))
+* Empty画面をPinned Jobsのみ表示しOpen Sessionをその列に統合する ([b11f24b](https://github.com/kt0319/any-console/commit/b11f24b933407535505290ade5339660c35f74ad))
+* Info Pillsのトグルをアイコン付き横並びチェックボックスにする ([d607717](https://github.com/kt0319/any-console/commit/d607717e0197fbb7aa31e4e51a7ea2ffe552472d))
+* Info Pillsの表示モードをWide/Narrowで個別設定できるようにする ([ae4c892](https://github.com/kt0319/any-console/commit/ae4c8927381b0705376f8cd580d4001056d10147))
+* Info Pillsの説明をホバーツールチップから常時表示に変更 ([75a8bac](https://github.com/kt0319/any-console/commit/75a8bac0570973ac7fab742de573c864ebf3d4f0))
+* Info Pillsの説明を共通の1つのヒント欄に統一表示する ([7a9eb2f](https://github.com/kt0319/any-console/commit/7a9eb2fab2910381cdfccd6a94a31642c2f57d5e))
+* Info Pills設定をDisplay設定画面に統合する ([88c53f0](https://github.com/kt0319/any-console/commit/88c53f000970d12acc3cae1ef674c3dc894bb736))
+* Keyboard bar設定をTitle barと同じ単一ラジオボタン形式に統一 ([2abc7f1](https://github.com/kt0319/any-console/commit/2abc7f13db8a3991bcb08e0afdccc603acf4b37d))
+* Narrow screenのKeyboard bar設定もラジオボタン形式に統一 ([804547d](https://github.com/kt0319/any-console/commit/804547d7f8b749b73ff1c10430649a585e55fb7a))
+* System InfoのCopyボタンを削除 ([548041d](https://github.com/kt0319/any-console/commit/548041dbcbbdb5445721433d216f939a215d387e))
+* WorkspaceDetail.vueの責務をcomposableへ分割する ([c5ea214](https://github.com/kt0319/any-console/commit/c5ea2146378896e30abee677ecdca5f50ec57039))
+
+
+### Documentation
+
+* Dispatch画像添付がテキストのパス展開であることを明記 ([a35b1c5](https://github.com/kt0319/any-console/commit/a35b1c5f9f656d25e945efa44eb2133d4c5c1d7e))
+
+
+### Tests
+
+* DispatchタブのE2Eカバレッジを新規追加する ([01a9da0](https://github.com/kt0319/any-console/commit/01a9da07c708b0c6b9cdb93f66c8becd7497c8be))
+* 座標クランプとCopy系動作の回帰テストを追加 ([6f453f3](https://github.com/kt0319/any-console/commit/6f453f3075d499956c41caca63990db88c7d2d2b))
+
 ## [0.17.0](https://github.com/kt0319/any-console/compare/v0.16.0...v0.17.0) (2026-09-05)
 
 
