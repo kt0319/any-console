@@ -14,7 +14,8 @@ use crate::git_helpers::{
     execute_git_action, is_stash_ref, resolve_workspace_file, validate_commit_ref,
 };
 use crate::git_utils::{
-    resolve_workspace_path, run_git_command, GIT_SHORT_TIMEOUT_SEC, GIT_STANDARD_TIMEOUT_SEC,
+    resolve_workspace_path, run_git_command, GitOutput, GIT_SHORT_TIMEOUT_SEC,
+    GIT_STANDARD_TIMEOUT_SEC,
 };
 use crate::state::AppState;
 use crate::util::{JsonBody, QueryParams};
@@ -90,14 +91,11 @@ fn parse_numstat(stdout: &str) -> Map<String, Value> {
     stats
 }
 
-fn parse_numstat_result(result: &Value) -> Map<String, Value> {
-    if result["exit_code"] != 0 {
+fn parse_numstat_result(result: &GitOutput) -> Map<String, Value> {
+    if !result.success() {
         return Map::new();
     }
-    result["stdout"]
-        .as_str()
-        .map(parse_numstat)
-        .unwrap_or_default()
+    parse_numstat(&result.stdout)
 }
 
 fn build_file_entry(name: &str, numstat: &Map<String, Value>, status: Option<&str>) -> Value {
@@ -122,10 +120,10 @@ fn build_file_entry(name: &str, numstat: &Map<String, Value>, status: Option<&st
     Value::Object(entry)
 }
 
-fn build_file_list(files_result: &Value, numstat: &Map<String, Value>) -> Vec<Value> {
+fn build_file_list(files_result: &GitOutput, numstat: &Map<String, Value>) -> Vec<Value> {
     let mut files = Vec::new();
-    if files_result["exit_code"] == 0 {
-        for f in files_result["stdout"].as_str().unwrap_or("").lines() {
+    if files_result.success() {
+        for f in files_result.stdout.lines() {
             let file_name = f.trim();
             if !file_name.is_empty() {
                 files.push(build_file_entry(file_name, numstat, None));
@@ -173,10 +171,10 @@ async fn build_diff_response(
     .await?;
     let files = build_file_list(&name_only_result, &parse_numstat_result(&numstat_result));
     Ok(json!({
-        "status": diff_result["status"],
+        "status": diff_result.status_label(),
         "files": files,
-        "diff": truncate_diff(diff_result["stdout"].as_str().unwrap_or("")),
-        "stderr": diff_result["stderr"],
+        "diff": truncate_diff(&diff_result.stdout),
+        "stderr": diff_result.stderr,
     }))
 }
 
@@ -240,10 +238,10 @@ pub async fn file_commit_diff(
     )
     .await?;
     Ok(Json(json!({
-        "status": diff_result["status"],
-        "diff": truncate_diff(diff_result["stdout"].as_str().unwrap_or("")),
-        "stderr": diff_result["stderr"],
-        "exit_code": diff_result["exit_code"],
+        "status": diff_result.status_label(),
+        "diff": truncate_diff(&diff_result.stdout),
+        "stderr": diff_result.stderr,
+        "exit_code": diff_result.code,
     })))
 }
 
@@ -281,8 +279,8 @@ pub async fn workspace_diff(
     .await?;
     let mut numstat = parse_numstat_result(&numstat_result);
     let mut files = Vec::new();
-    if status_result["exit_code"] == 0 {
-        for line in status_result["stdout"].as_str().unwrap_or("").lines() {
+    if status_result.success() {
+        for line in status_result.stdout.lines() {
             if line.len() > 3 {
                 let status_code = line[..2].trim();
                 let file_name = &line[3..];
@@ -301,9 +299,8 @@ pub async fn workspace_diff(
     }
     let mut parts = Vec::new();
     for r in [&diff_staged_result, &diff_result] {
-        let stdout = r["stdout"].as_str().unwrap_or("");
-        if r["exit_code"] == 0 && !stdout.is_empty() {
-            parts.push(stdout.to_string());
+        if r.success() && !r.stdout.is_empty() {
+            parts.push(r.stdout.clone());
         }
     }
     let diff_text = parts.join("\n");
@@ -334,7 +331,7 @@ pub async fn discard(
         &format!("path={}", body.path),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 #[cfg(test)]

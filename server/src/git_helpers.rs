@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 use crate::activity::log_activity;
 use crate::errors::{bad_request, ApiError};
 use crate::git_utils::{
-    resolve_workspace_path, rev_parse_head, run_git_command, GIT_LONG_TIMEOUT_SEC,
+    resolve_workspace_path, rev_parse_head, run_git_command, GitOutput, GIT_LONG_TIMEOUT_SEC,
 };
 use crate::state::AppState;
 
@@ -85,7 +85,7 @@ pub async fn execute_git_action(
     operation: &str,
     env: &[(&str, &str)],
     log_extra: &str,
-) -> Result<Value, ApiError> {
+) -> Result<GitOutput, ApiError> {
     let _guard = state.git_locks.acquire(name).await?;
     let result = run_git_command(args, ws_path, GIT_LONG_TIMEOUT_SEC, operation, env).await?;
     let extra = if log_extra.is_empty() {
@@ -98,7 +98,7 @@ pub async fn execute_git_action(
         operation,
         name,
         extra,
-        result["exit_code"]
+        result.code
     );
     invalidate_and_publish_git_info(state, name, ws_path);
     Ok(result)
@@ -114,7 +114,7 @@ pub async fn execute_git_action_by_name(
     operation: &str,
     env: &[(&str, &str)],
     log_extra: &str,
-) -> Result<Value, ApiError> {
+) -> Result<GitOutput, ApiError> {
     let ws_path = resolve_workspace_path(&state.config, name).await?;
     execute_git_action(state, name, &ws_path, args, operation, env, log_extra).await
 }
@@ -127,9 +127,9 @@ pub fn invalidate_and_publish_git_info(state: &Arc<AppState>, name: &str, ws_pat
 }
 
 /// `run_git_command` の結果が失敗なら stderr（空なら fallback 文言）を 400 で返す。
-pub fn ensure_git_result_ok(result: &Value, fallback: &str) -> Result<(), ApiError> {
-    if result["exit_code"] != 0 {
-        let stderr = result["stderr"].as_str().unwrap_or("").trim();
+pub fn ensure_git_result_ok(result: &GitOutput, fallback: &str) -> Result<(), ApiError> {
+    if !result.success() {
+        let stderr = result.stderr.trim();
         return Err(bad_request(if stderr.is_empty() {
             fallback.to_string()
         } else {
@@ -163,9 +163,9 @@ pub async fn execute_git_action_with_activity(
     log_extra: &str,
     resolve_head: bool,
     mut activity_fields: Map<String, Value>,
-) -> Result<Value, ApiError> {
+) -> Result<GitOutput, ApiError> {
     let result = execute_git_action(state, name, ws_path, args, operation, env, log_extra).await?;
-    if result["status"] == "ok" {
+    if result.success() {
         if resolve_head {
             let head = rev_parse_head(ws_path).await;
             activity_fields.insert("commit".to_string(), Value::String(head));

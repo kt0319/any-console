@@ -57,6 +57,26 @@ impl GitOutput {
     pub fn success(&self) -> bool {
         self.code == 0
     }
+
+    /// API 応答の `status` フィールド値。
+    pub fn status_label(&self) -> &'static str {
+        if self.success() {
+            "ok"
+        } else {
+            "error"
+        }
+    }
+
+    /// API 応答用の定型 dict（Python `command_result_dict` 相当）。応答の形はここだけで決める。
+    pub fn to_response_json(&self) -> Value {
+        json!({
+            "status": self.status_label(),
+            "exit_code": self.code,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+            "detail": self.stderr,
+        })
+    }
 }
 
 /// Python の TimeoutExpired / OSError に対応するエラー分類。
@@ -122,17 +142,6 @@ pub async fn run_git_query(args: &[&str], cwd: &Path, timeout_sec: f64) -> Optio
     }
 }
 
-/// API 応答用の定型 dict（Python `command_result_dict` 相当）。
-fn command_result_json(out: &GitOutput) -> Value {
-    json!({
-        "status": if out.code == 0 { "ok" } else { "error" },
-        "exit_code": out.code,
-        "stdout": out.stdout,
-        "stderr": out.stderr,
-        "detail": out.stderr,
-    })
-}
-
 /// `GitError` を API エラーへ写像する共通規則: タイムアウトは 504
 /// `"{op_label} timed out"`、OS エラーは 500 `"{op_label} failed: {e}"`。
 /// 呼び出し箇所ごとに文言がばらけないよう、変換は必ずここを通す。
@@ -143,17 +152,17 @@ pub fn map_git_error(e: GitError, op_label: &str) -> ApiError {
     }
 }
 
-/// git コマンドを実行し定型 dict を返す（Python `run_git_command` 相当）。
-/// タイムアウトは 504、OS エラーは 500 に写像する。
+/// git コマンドを実行する（Python `run_git_command` 相当）。非0終了は Ok のまま返し、
+/// タイムアウトは 504、OS エラーは 500 に写像する。応答にする時は `to_response_json`。
 pub async fn run_git_command(
     args: &[&str],
     cwd: &Path,
     timeout_sec: f64,
     operation: &str,
     env: &[(&str, &str)],
-) -> Result<Value, ApiError> {
+) -> Result<GitOutput, ApiError> {
     match run_git_raw(args, cwd, timeout_sec, env).await {
-        Ok(out) => Ok(command_result_json(&out)),
+        Ok(out) => Ok(out),
         Err(e) => {
             let label = if operation.is_empty() {
                 args.iter().take(2).copied().collect::<Vec<_>>().join(" ")
@@ -655,6 +664,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn git_output_response_json_keeps_wire_format() {
+        let ok = GitOutput {
+            code: 0,
+            stdout: "out".into(),
+            stderr: "".into(),
+        };
+        assert_eq!(
+            ok.to_response_json(),
+            json!({"status": "ok", "exit_code": 0, "stdout": "out", "stderr": "", "detail": ""})
+        );
+        let failed = GitOutput {
+            code: 128,
+            stdout: "".into(),
+            stderr: "fatal".into(),
+        };
+        assert_eq!(
+            failed.to_response_json(),
+            json!({"status": "error", "exit_code": 128, "stdout": "", "stderr": "fatal", "detail": "fatal"})
+        );
+    }
+
+    #[test]
     fn github_url_parsing() {
         assert_eq!(
             parse_github_url("git@github.com:owner/repo.git").as_deref(),
@@ -714,8 +745,8 @@ mod tests {
         let cmd = run_git_command(&["log", "--oneline"], p, 10.0, "log", &[])
             .await
             .unwrap();
-        assert_eq!(cmd["status"], "ok");
-        assert!(cmd["stdout"].as_str().unwrap().contains("first"));
+        assert!(cmd.success());
+        assert!(cmd.stdout.contains("first"));
     }
 
     async fn init_repo_with_worktree(dir: &Path, wt_dir: &Path) {

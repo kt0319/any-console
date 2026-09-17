@@ -97,7 +97,7 @@ pub async fn git_log(
     }
     run_git_command(&args, &ws_path, GIT_STANDARD_TIMEOUT_SEC, "log", &[])
         .await
-        .map(Json)
+        .map(|out| Json(out.to_response_json()))
 }
 
 // ─── GET /workspaces/{name}/unpulled-log ────────────────────────────────────
@@ -134,7 +134,7 @@ pub async fn unpulled_log(
     args.push("HEAD..@{u}");
     run_git_command(&args, &ws_path, GIT_STANDARD_TIMEOUT_SEC, "log", &[])
         .await
-        .map(Json)
+        .map(|out| Json(out.to_response_json()))
 }
 
 // ─── GET /workspaces/{name}/file-history ────────────────────────────────────
@@ -174,7 +174,7 @@ pub async fn file_history(
         &[],
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 // ─── GET /workspaces/{name}/commit-message ──────────────────────────────────
@@ -200,8 +200,8 @@ pub async fn commit_message(
         &[],
     )
     .await?;
-    let message = if result["status"] == "ok" {
-        result["stdout"].as_str().unwrap_or("").trim().to_string()
+    let message = if result.success() {
+        result.stdout.trim().to_string()
     } else {
         String::new()
     };
@@ -236,7 +236,7 @@ async fn execute_commit_action(
         activity_fields(&[("source_commit", json!(h))]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn cherry_pick(
@@ -301,7 +301,7 @@ async fn branch_action(
         ]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn merge(
@@ -353,7 +353,7 @@ pub async fn reset(
         ]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 // ─── commit ─────────────────────────────────────────────────────────────────
@@ -377,8 +377,8 @@ pub async fn commit(
         &[],
     )
     .await?;
-    if add_result["exit_code"] != 0 {
-        return Ok(Json(add_result));
+    if !add_result.success() {
+        return Ok(Json(add_result.to_response_json()));
     }
     execute_git_action_with_activity(
         &state,
@@ -393,7 +393,7 @@ pub async fn commit(
         activity_fields(&[("message", json!(message))]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 // ─── stash ──────────────────────────────────────────────────────────────────
@@ -412,11 +412,11 @@ pub async fn stash_list(
         &[],
     )
     .await?;
-    if result["exit_code"] != 0 {
-        return Ok(Json(result));
+    if !result.success() {
+        return Ok(Json(result.to_response_json()));
     }
     let mut entries = Vec::new();
-    for line in result["stdout"].as_str().unwrap_or("").lines() {
+    for line in result.stdout.lines() {
         if line.trim().is_empty() {
             continue;
         }
@@ -449,7 +449,7 @@ pub async fn stash_drop(
         activity_fields(&[("ref", json!(r))]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn stash_pop_ref(
@@ -468,7 +468,7 @@ pub async fn stash_pop_ref(
         &format!("ref={r}"),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn stash(
@@ -498,7 +498,7 @@ pub async fn stash(
     }
     execute_git_action_by_name(&state, &name, &args, "stash", &[], "")
         .await
-        .map(Json)
+        .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn stash_pop(
@@ -508,5 +508,5 @@ pub async fn stash_pop(
 ) -> Result<Json<Value>, ApiError> {
     execute_git_action_by_name(&state, &name, &["stash", "pop"], "stash pop", &[], "")
         .await
-        .map(Json)
+        .map(|out| Json(out.to_response_json()))
 }

@@ -65,21 +65,11 @@ async fn commits_for(ws_path: &FsPath, revs: &[&str]) -> Result<Value, ApiError>
         &[],
     )
     .await?;
-    if log["exit_code"] != 0 || count_res["exit_code"] != 0 {
+    if !log.success() || !count_res.success() {
         return Ok(json!({"count": 0, "messages": []}));
     }
-    let count = count_res["stdout"]
-        .as_str()
-        .unwrap_or("")
-        .trim()
-        .parse::<i64>()
-        .unwrap_or(0);
-    let messages: Vec<&str> = log["stdout"]
-        .as_str()
-        .unwrap_or("")
-        .lines()
-        .filter(|l| !l.is_empty())
-        .collect();
+    let count = count_res.stdout.trim().parse::<i64>().unwrap_or(0);
+    let messages: Vec<&str> = log.stdout.lines().filter(|l| !l.is_empty()).collect();
     Ok(json!({"count": count, "messages": messages}))
 }
 
@@ -135,10 +125,10 @@ async fn branch_tracking_info(ws_path: &FsPath) -> Result<Map<String, Value>, Ap
     )
     .await?;
     let mut info = Map::new();
-    if res["exit_code"] != 0 {
+    if !res.success() {
         return Ok(info);
     }
-    for line in res["stdout"].as_str().unwrap_or("").lines() {
+    for line in res.stdout.lines() {
         let parts: Vec<&str> = line.splitn(4, '|').collect();
         if parts.len() != 4 {
             continue;
@@ -229,13 +219,13 @@ pub async fn list_branches(
             &[],
         )
         .await?;
-        if res["exit_code"] != 0 {
+        if !res.success() {
             no_upstream_tips
                 .keys()
                 .map(|b| (b.clone(), json!(0)))
                 .collect()
         } else {
-            count_unpublished(res["stdout"].as_str().unwrap_or(""), &no_upstream_tips)
+            count_unpublished(&res.stdout, &no_upstream_tips)
         }
     };
 
@@ -318,7 +308,7 @@ pub async fn delete_branch(
             ]),
         )
         .await
-        .map(Json);
+        .map(|out| Json(out.to_response_json()));
     }
     if branch == get_current_branch(&ws_path).await? {
         return Err(bad_request("Cannot delete the current branch"));
@@ -341,7 +331,7 @@ pub async fn delete_branch(
         ]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn create_branch(
@@ -372,7 +362,7 @@ pub async fn create_branch(
         activity_fields(&[("branch", json!(branch))]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn checkout_branch(
@@ -403,7 +393,7 @@ pub async fn checkout_branch(
         activity_fields(&[("branch", json!(branch))]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 // ─── pull / push / fetch ────────────────────────────────────────────────────
@@ -417,17 +407,18 @@ async fn stash_if_dirty(ws_path: &FsPath, env: &[(&str, &str)]) -> Result<bool, 
         &[],
     )
     .await?;
-    if dirty["stdout"].as_str().unwrap_or("").trim().is_empty() {
+    if dirty.stdout.trim().is_empty() {
         return Ok(false);
     }
     let result = run_git_command(&["stash"], ws_path, GIT_LONG_TIMEOUT_SEC, "stash", env).await?;
-    Ok(result["exit_code"] == 0)
+    Ok(result.success())
 }
 
+/// stash pop に失敗したら応答 JSON の stderr だけに警告を追記する（detail は git の元の stderr のまま）。
 async fn unstash(
     ws_path: &FsPath,
     env: &[(&str, &str)],
-    result: &mut Value,
+    response: &mut Value,
 ) -> Result<(), ApiError> {
     let pop = run_git_command(
         &["stash", "pop"],
@@ -437,12 +428,9 @@ async fn unstash(
         env,
     )
     .await?;
-    if pop["exit_code"] != 0 {
-        let stderr = result["stderr"].as_str().unwrap_or("").to_string();
-        result["stderr"] = json!(format!(
-            "{stderr}\n⚠️ stash pop failed:\n{}",
-            pop["stderr"].as_str().unwrap_or("")
-        ));
+    if !pop.success() {
+        let stderr = response["stderr"].as_str().unwrap_or("").to_string();
+        response["stderr"] = json!(format!("{stderr}\n⚠️ stash pop failed:\n{}", pop.stderr));
     }
     Ok(())
 }
@@ -461,7 +449,7 @@ pub async fn pull(
     let before_hash = rev_parse(&ws_path, "HEAD").await;
     let before_upstream = rev_parse(&ws_path, "@{u}").await;
     let stashed = stash_if_dirty(&ws_path, &env).await?;
-    let mut result = run_git_command(
+    let result = run_git_command(
         &["pull", "--rebase"],
         &ws_path,
         GIT_LONG_TIMEOUT_SEC,
@@ -469,13 +457,14 @@ pub async fn pull(
         &env,
     )
     .await?;
-    tracing::info!("git pull workspace={} rc={}", name, result["exit_code"]);
+    tracing::info!("git pull workspace={} rc={}", name, result.code);
+    let mut response = result.to_response_json();
     // Python は execute_git_action 内で invalidate する（unstash より前）
     crate::git_helpers::invalidate_and_publish_git_info(&state, &name, &ws_path);
     if stashed {
-        unstash(&ws_path, &env, &mut result).await?;
+        unstash(&ws_path, &env, &mut response).await?;
     }
-    if result["status"] == "ok" && !before_hash.is_empty() {
+    if result.success() && !before_hash.is_empty() {
         let after_upstream = if before_upstream.is_empty() {
             String::new()
         } else {
@@ -489,7 +478,7 @@ pub async fn pull(
         // 依らず正しく数えられ、--rebaseでローカル未push分のハッシュが
         // 書き換わっても（それらはafter_upstreamに含まれないため）誤カウント
         // しない。
-        result["commits"] = if !after_upstream.is_empty() {
+        response["commits"] = if !after_upstream.is_empty() {
             commits_between(&ws_path, &format!("{before_hash}..{after_upstream}")).await?
         } else {
             commits_between(&ws_path, &format!("{before_hash}..HEAD")).await?
@@ -505,7 +494,7 @@ pub async fn pull(
             ]),
         );
     }
-    Ok(Json(result))
+    Ok(Json(response))
 }
 
 pub async fn push(
@@ -517,7 +506,7 @@ pub async fn push(
     let before_hash = rev_parse(&ws_path, "@{u}").await;
     let pending = commits_between(&ws_path, "@{u}..HEAD").await?;
     let env_owned = ssh_env_additions();
-    let mut result = execute_git_action(
+    let result = execute_git_action(
         &state,
         &name,
         &ws_path,
@@ -527,8 +516,9 @@ pub async fn push(
         "",
     )
     .await?;
-    if result["status"] == "ok" {
-        result["commits"] = pending;
+    let mut response = result.to_response_json();
+    if result.success() {
+        response["commits"] = pending;
         let commit = rev_parse(&ws_path, "HEAD").await;
         log_activity(
             &state.paths.data_dir,
@@ -540,7 +530,7 @@ pub async fn push(
             ]),
         );
     }
-    Ok(Json(result))
+    Ok(Json(response))
 }
 
 #[derive(Deserialize)]
@@ -560,7 +550,7 @@ pub async fn push_branch(
     let pending = commits_between(&ws_path, &format!("origin/{branch}..{branch}")).await?;
     let env_owned = ssh_env_additions();
     let refspec = format!("{branch}:{branch}");
-    let mut result = execute_git_action(
+    let result = execute_git_action(
         &state,
         &name,
         &ws_path,
@@ -570,8 +560,9 @@ pub async fn push_branch(
         &format!("branch={branch}"),
     )
     .await?;
-    if result["status"] == "ok" {
-        result["commits"] = pending;
+    let mut response = result.to_response_json();
+    if result.success() {
+        response["commits"] = pending;
         let commit = rev_parse(&ws_path, &branch).await;
         log_activity(
             &state.paths.data_dir,
@@ -584,7 +575,7 @@ pub async fn push_branch(
             ]),
         );
     }
-    Ok(Json(result))
+    Ok(Json(response))
 }
 
 pub async fn set_upstream(
@@ -609,7 +600,7 @@ pub async fn set_upstream(
         activity_fields(&[("branch", json!(branch))]),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn push_upstream(
@@ -620,7 +611,7 @@ pub async fn push_upstream(
     let ws_path = resolve_workspace_path(&state.config, &name).await?;
     let pending = commits_not_on_any_remote(&ws_path).await?;
     let env_owned = ssh_env_additions();
-    let mut result = execute_git_action_with_activity(
+    let result = execute_git_action_with_activity(
         &state,
         &name,
         &ws_path,
@@ -633,10 +624,11 @@ pub async fn push_upstream(
         Map::new(),
     )
     .await?;
-    if result["status"] == "ok" {
-        result["commits"] = pending;
+    let mut response = result.to_response_json();
+    if result.success() {
+        response["commits"] = pending;
     }
-    Ok(Json(result))
+    Ok(Json(response))
 }
 
 pub async fn fetch(
@@ -659,7 +651,7 @@ pub async fn fetch(
         Map::new(),
     )
     .await
-    .map(Json)
+    .map(|out| Json(out.to_response_json()))
 }
 
 #[cfg(test)]
