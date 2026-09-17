@@ -38,6 +38,11 @@
             <span class="screen-empty-menu-label">New Terminal</span>
             <span class="screen-empty-menu-shortcut">⌘⇧T</span>
           </button>
+          <button type="button" class="screen-empty-menu-item hover-bg" @click="$emit('openWorkspace')">
+            <span class="mdi mdi-plus screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Open Session</span>
+            <span class="screen-empty-menu-shortcut">⌘⇧N</span>
+          </button>
           <button type="button" class="screen-empty-menu-item hover-bg" @click="openSettings">
             <span class="mdi mdi-cog screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">Settings</span>
@@ -50,11 +55,6 @@
         <div class="screen-empty-section">
           <div class="screen-empty-section-label">Pinned Jobs</div>
           <RecentJobsList variant="pinned" :show-pin-toggle="false" :max="SCREEN_EMPTY_PINNED_JOBS_MAX" />
-          <button type="button" class="screen-empty-menu-item hover-bg" @click="$emit('openWorkspace')">
-            <span class="mdi mdi-plus screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Open Session</span>
-            <span class="screen-empty-menu-shortcut">⌘⇧N</span>
-          </button>
         </div>
       </div>
 
