@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useInfoPillConfigStore } from "../../ui/stores/info-pill-config.ts";
 import { useAuthStore } from "../../ui/stores/auth.ts";
+import { on } from "../../ui/app-bridge.ts";
 
 const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
@@ -76,6 +77,24 @@ describe("info-pill-config store: load 堅牢化", () => {
       method: "PUT",
       body: { ...ALL_TRUE, branch: false, devserver: false, order: DEFAULT_ORDER },
     });
+  });
+
+  it("saveは成功時にtrueを返しトーストを出さない", async () => {
+    auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
+    const toasts = [];
+    const off = on("toast:show", (payload) => toasts.push(payload));
+    expect(await store.save()).toBe(true);
+    off();
+    expect(toasts).toEqual([]);
+  });
+
+  it("saveは失敗時にfalseを返しエラートーストを出す", async () => {
+    auth.apiFetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ detail: "boom" }) });
+    const toasts = [];
+    const off = on("toast:show", (payload) => toasts.push(payload));
+    expect(await store.save()).toBe(false);
+    off();
+    expect(toasts).toEqual([expect.objectContaining({ type: "error" })]);
   });
 
   it("reorderは指定インデックスへ並べ替えてsaveする（useListDragSortのonReorder互換）", async () => {

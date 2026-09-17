@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { useAuthStore } from "../stores/auth.ts";
+import { useApi } from "../composables/useApi.ts";
 
 /**
  * サーバ設定エンドポイント（GET/PUT の /settings/*）の load/save 共通実装。
@@ -32,8 +33,9 @@ export function createServerSettings(
   }
 
   async function save() {
-    const auth = useAuthStore();
-    await auth.apiFetch(endpoint, { method: "PUT", body: serialize() });
+    const { apiPut } = useApi();
+    const { ok } = await apiPut(endpoint, serialize(), { errorMessage: "Failed to save settings" });
+    return ok;
   }
 
   return { load, save };
