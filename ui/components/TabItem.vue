@@ -31,6 +31,8 @@
       {{ label }}
       <span
         class="tab-close hover-bg-text"
+        aria-label="Close tab"
+        data-tooltip="Close tab"
         draggable="false"
         @mousedown.stop.prevent="onClosePress"
         @mouseup.stop="onCloseUp"
