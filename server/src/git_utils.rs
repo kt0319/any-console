@@ -574,8 +574,7 @@ async fn worktree_entries_for_workspace(
 /// config に登録されていない worktree のみを返す。
 ///
 /// `is_git_repo_map` が渡された場合、git リポジトリ判定はその値を再利用する
-/// （Python と同じく /workspaces のサマリ結果 — expanduser しないパスでの判定 —
-/// をそのまま引き継ぐ。バグ互換のため Rust 側でも再判定しない）。
+/// （/workspaces のサマリで判定済みの結果を引き継ぎ、git サブプロセスを二重に起動しない）。
 /// `include_github_url` は /workspaces（都度取得、頻度低）でのみ true にする —
 /// /workspaces/statuses は git_info() が別途 github_url を解決するため二重に呼ばない。
 ///

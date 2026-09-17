@@ -139,6 +139,41 @@ async fn list_workspaces_detects_compose_file_at_workspace_root() {
 }
 
 #[tokio::test]
+async fn list_workspaces_expands_tilde_path_for_git_and_existence_checks() {
+    let front = spawn_front().await;
+    // HOME を書き換えると並列テストに波及するため、実 HOME 直下の一時領域を ~ 形式で登録する。
+    let home = std::path::PathBuf::from(std::env::var_os("HOME").unwrap());
+    let home_dir = tempfile::Builder::new()
+        .prefix("any-console-test-")
+        .tempdir_in(&home)
+        .unwrap();
+    make_repo(home_dir.path());
+    let tilde_path = format!(
+        "~/{}",
+        home_dir.path().file_name().unwrap().to_string_lossy()
+    );
+    let store = ConfigStore::new(front.config_file.clone());
+    let mut cfg = store.load_all();
+    cfg.insert(
+        "ws_tilde".to_string(),
+        json!({"name": "tilde", "path": tilde_path}),
+    );
+    store.save_all(&cfg).unwrap();
+
+    let body = get_json(&front, "/workspaces").await;
+    let tilde = body
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|w| w["id"] == "ws_tilde")
+        .unwrap();
+    assert_eq!(tilde["exists"], true);
+    assert_eq!(tilde["is_git_repo"], true);
+    assert_eq!(tilde["branch"], "main");
+    assert_eq!(tilde["path"], tilde_path);
+}
+
+#[tokio::test]
 async fn list_workspaces_ignores_compose_file_in_subdirectory() {
     let front = spawn_front().await;
     let sub = front.ws_path.join(".devcontainer");

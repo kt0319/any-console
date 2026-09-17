@@ -1,11 +1,8 @@
 //! ワークスペースの一覧・ステータス・登録・設定・削除・候補
 //! （Python 側 `api/routers/workspaces.py` の移植）。
 //!
-//! - GET /workspaces のサマリは Python と同じく **expanduser しない**パスで
-//!   判定する（`Path(config["path"])` 直参照のバグ互換 — `~/...` 形式で保存された
-//!   ワークスペースは is_git_repo=false / exists=false になる）。
-//! - GET /workspaces/statuses は expanduser 済みパス（`list_git_workspace_paths`）
-//!   で git_info を並列取得する。
+//! - GET /workspaces のサマリ・GET /workspaces/statuses とも、`~/...` 形式で保存された
+//!   パスは展開してから判定する（応答の `path` は保存された文字列のまま返す）。
 //! - 登録・変更・削除は `git_watch::notify_workspaces_changed()` で監視タスクへ
 //!   再収集を促し、status stream へ即時反映する。
 
@@ -79,10 +76,9 @@ fn workspace_has_compose_file(ws_path: &std::path::Path) -> bool {
             .any(|name| ws_path.join(name).is_file())
 }
 
-/// Python `_workspace_summary` 相当（expanduser しないバグ互換パス判定）。
 async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     let raw_path = config.get("path").and_then(Value::as_str).unwrap_or("");
-    let ws_path = PathBuf::from(raw_path);
+    let ws_path = expand_user_path(raw_path);
     let is_dir = ws_path.is_dir();
     let is_git = if is_dir {
         git_is_repo(&ws_path).await
@@ -109,7 +105,7 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     let path_str = if raw_path.is_empty() {
         ".".to_string()
     } else {
-        ws_path.to_string_lossy().into_owned()
+        raw_path.to_string()
     };
     let mut info = json!({
         "id": ws_id,
