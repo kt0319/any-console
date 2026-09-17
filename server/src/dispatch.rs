@@ -259,6 +259,14 @@ fn default_match() -> String {
 }
 
 impl DispatchRequest {
+    /// フィールドが String/bool/Vec/Option のみのため、JSON 化は失敗しない。
+    fn to_json_map(&self) -> Map<String, Value> {
+        match serde_json::to_value(self).expect("DispatchRequest is always serializable") {
+            Value::Object(map) => map,
+            _ => unreachable!("DispatchRequest serializes to a JSON object"),
+        }
+    }
+
     fn effective_workspace(&self) -> String {
         match self.worktree.as_deref().filter(|w| !w.is_empty()) {
             Some(wt) => worktree_display_name(&self.workspace, wt),
@@ -897,10 +905,6 @@ async fn verify_dispatch_auth(
     Err(crate::errors::unauthorized("Invalid token"))
 }
 
-fn bearer_from_headers(headers: &http::HeaderMap) -> String {
-    crate::auth::bearer_from_headers(headers).to_string()
-}
-
 // ─── ルート ─────────────────────────────────────────────────────────────────
 
 pub async fn dispatch(
@@ -908,12 +912,11 @@ pub async fn dispatch(
     headers: http::HeaderMap,
     JsonBody(body): JsonBody<DispatchRequest>,
 ) -> Result<axum::response::Response, ApiError> {
-    let bearer = bearer_from_headers(&headers);
-    let (auth_label, is_scoped_token) = verify_dispatch_auth(&state, &bearer, &headers).await?;
+    let bearer = crate::auth::bearer_from_headers(&headers);
+    let (auth_label, is_scoped_token) = verify_dispatch_auth(&state, bearer, &headers).await?;
     dispatch_core(&state, body, &auth_label, is_scoped_token).await
 }
 
-/// `POST /dispatch` の本体（認証確定後）。
 /// dispatch 実行成功時の activity 記録（`dispatch_execute`のpending実行・履歴からの
 /// 再送実行の両方で共用する定型）。
 fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
@@ -930,6 +933,25 @@ fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
     );
 }
 
+/// launch し、成否に応じて activity を記録する（pending 実行・履歴からの再実行で共用）。
+async fn launch_logged(
+    state: &Arc<AppState>,
+    req: &DispatchRequest,
+    auth_label: &str,
+) -> Result<Value, ApiError> {
+    match launch(state, req).await {
+        Ok(result) => {
+            log_dispatch_executed(state, &result, auth_label);
+            Ok(result)
+        }
+        Err(e) => {
+            log_dispatch_failed(state, &req.workspace, &e.detail);
+            Err(e)
+        }
+    }
+}
+
+/// `POST /dispatch` の本体（認証確定後）。
 async fn dispatch_core(
     state: &Arc<AppState>,
     mut body: DispatchRequest,
@@ -955,26 +977,24 @@ async fn dispatch_core(
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
 
-    let mut payload = serde_json::to_value(&body).unwrap_or_else(|_| json!({}));
-    if let Value::Object(map) = &mut payload {
-        map.insert("effective_workspace".to_string(), json!(effective_ws));
-        map.insert("received_at".to_string(), json!(now_epoch()));
-        if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
-            map.insert(
-                "branch_status".to_string(),
-                json!(branch_status(&ws_path, branch).await),
-            );
-        }
-        if let Some((pre_sid, pre_sess)) =
-            find_existing_session(state, &effective_ws, &body.job, &body.match_mode).await
-        {
-            let job_name = { pre_sess.lock().await.job_name.clone() };
-            map.insert(
-                "job".to_string(),
-                json!(job_name.unwrap_or_else(|| TERMINAL_JOB_KEY.to_string())),
-            );
-            map.insert("existing_session_id".to_string(), json!(pre_sid));
-        }
+    let mut payload = body.to_json_map();
+    payload.insert("effective_workspace".to_string(), json!(effective_ws));
+    payload.insert("received_at".to_string(), json!(now_epoch()));
+    if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
+        payload.insert(
+            "branch_status".to_string(),
+            json!(branch_status(&ws_path, branch).await),
+        );
+    }
+    if let Some((pre_sid, pre_sess)) =
+        find_existing_session(state, &effective_ws, &body.job, &body.match_mode).await
+    {
+        let job_name = { pre_sess.lock().await.job_name.clone() };
+        payload.insert(
+            "job".to_string(),
+            json!(job_name.unwrap_or_else(|| TERMINAL_JOB_KEY.to_string())),
+        );
+        payload.insert("existing_session_id".to_string(), json!(pre_sid));
     }
 
     let dispatch_id = crate::util::token_urlsafe(8);
@@ -993,7 +1013,7 @@ async fn dispatch_core(
         state,
         dispatch_id.clone(),
         body.dedup_key.as_deref(),
-        payload,
+        Value::Object(payload),
     )
     .await;
     if should_notify {
@@ -1082,10 +1102,9 @@ pub async fn dispatch_execute(
                     .await;
         }
 
-        let result = match launch(&state, &dispatch_body).await {
+        let result = match launch_logged(&state, &dispatch_body, auth_label).await {
             Ok(r) => r,
             Err(e) => {
-                log_dispatch_failed(&state, &dispatch_body.workspace, &e.detail);
                 // 失敗した項目はキューに残し、値を修正して再度executed/discardを
                 // やり直せるようにする（Python 版と同じ挙動）。上でクレーム済み
                 // のため戻す。
@@ -1099,22 +1118,19 @@ pub async fn dispatch_execute(
                 return Err(e);
             }
         };
-        log_dispatch_executed(&state, &result, auth_label);
-        let mut executed_payload =
-            serde_json::to_value(&dispatch_body).unwrap_or_else(|_| json!({}));
-        if let Value::Object(map) = &mut executed_payload {
-            map.insert(
-                "effective_workspace".to_string(),
-                json!(dispatch_body.effective_workspace()),
-            );
-            // received_atはDispatchRequestのフィールドではないため
-            // serde_json::to_value(&dispatch_body)では失われる。pending時点の
-            // payloadから引き継ぐ。
-            if let Some(received_at) = payload.get("received_at") {
-                map.insert("received_at".to_string(), received_at.clone());
-            }
+        let mut executed_request = dispatch_body.to_json_map();
+        // received_atはDispatchRequestのフィールドではないためto_json_mapでは
+        // 失われる。pending時点のpayloadから引き継ぐ。
+        if let Some(received_at) = payload.get("received_at") {
+            executed_request.insert("received_at".to_string(), received_at.clone());
         }
-        record_recent(&state, &dispatch_id, executed_payload, "executed").await;
+        record_recent(
+            &state,
+            &dispatch_id,
+            Value::Object(executed_request),
+            "executed",
+        )
+        .await;
         persist_and_broadcast(&state).await;
         return Ok(Json(result).into_response());
     }
@@ -1152,20 +1168,11 @@ pub async fn dispatch_execute(
         req.image_paths = sync_dispatch_image_dir(&state.paths, &new_id, &req.image_paths).await;
     }
 
-    let result = match launch(&state, &req).await {
-        Ok(r) => r,
-        Err(e) => {
-            log_dispatch_failed(&state, &req.workspace, &e.detail);
-            return Err(e);
-        }
-    };
-    log_dispatch_executed(&state, &result, auth_label);
-    let mut request_value = serde_json::to_value(&req).unwrap_or_else(|_| json!({}));
+    let result = launch_logged(&state, &req, auth_label).await?;
+    let mut request = req.to_json_map();
     // 履歴からの再実行は新規dispatchとして扱い、受付時刻も再送された「今」にする。
-    if let Value::Object(map) = &mut request_value {
-        map.insert("received_at".to_string(), json!(now_epoch()));
-    }
-    record_recent(&state, &new_id, request_value, "executed").await;
+    request.insert("received_at".to_string(), json!(now_epoch()));
+    record_recent(&state, &new_id, Value::Object(request), "executed").await;
     broadcast_queue(&state).await;
     Ok(Json(result).into_response())
 }
