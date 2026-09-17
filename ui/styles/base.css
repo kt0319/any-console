@@ -274,17 +274,6 @@ button:disabled {
   background: var(--bg-secondary);
 }
 
-#config-file-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.split-tab-content:has(.config-file-code) {
-  flex: 1;
-}
-
 .git-ref {
   flex-shrink: 1;
   min-width: 0;

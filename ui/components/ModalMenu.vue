@@ -34,9 +34,6 @@
             <span class="settings-menu-warn-text">No token</span>
           </span>
         </button>
-        <button type="button" class="settings-menu-item" @click="pushView('ConfigFile')">
-          <span class="mdi mdi-file-cog"></span> Config File
-        </button>
         <button type="button" class="settings-menu-item" @click="pushView('SessionPreview')">
           <span class="mdi mdi-server"></span> Server Processes
         </button>

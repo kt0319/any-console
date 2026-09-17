@@ -57,6 +57,22 @@
       <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>
       {{ copied ? "Copied!" : "Copy" }}
     </button>
+
+    <div v-if="!isLoading" class="si-card">
+      <div class="settings-card-head">
+        <span class="settings-card-title">Backup & Restore</span>
+      </div>
+      <p class="si-backup-desc">Download the current config as a JSON file, or restore it from a previously downloaded file.</p>
+      <div class="si-backup-toolbar">
+        <button type="button" class="si-backup-btn" @click="downloadConfig">
+          <span class="mdi mdi-download"></span> Download
+        </button>
+        <button type="button" class="si-backup-btn" @click="triggerConfigUpload">
+          <span class="mdi mdi-upload"></span> Upload
+        </button>
+        <input ref="configFileInput" type="file" accept=".json" style="display:none" @change="uploadConfig" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -66,9 +82,11 @@ import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
-import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.ts";
+import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
+import { useToast } from "../composables/useToast.ts";
+import { triggerBlobDownload } from "../utils/download.ts";
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "System Info";
@@ -77,6 +95,8 @@ const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
 const { copied, copy } = useCopyFeedback();
+const toast = useToast();
+const configFileInput = ref<HTMLInputElement | null>(null);
 
 const upd = reactive({
   checking: false,
@@ -224,6 +244,35 @@ async function copyAll() {
   await copy(buildSummaryText());
 }
 
+async function downloadConfig() {
+  const { ok, data } = await getWithRetry(apiGet, EP_SETTINGS_EXPORT, { errorMessage: "Failed to load config" });
+  if (!ok) return;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  triggerBlobDownload(blob, "any-console-config.json");
+  toast.success("Config downloaded");
+}
+
+function triggerConfigUpload() {
+  if (configFileInput.value) {
+    configFileInput.value.value = "";
+    configFileInput.value.click();
+  }
+}
+
+async function uploadConfig() {
+  const file = configFileInput.value?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const { ok } = await apiPost(EP_SETTINGS_IMPORT, data, { errorMessage: "Import failed" });
+    if (!ok) return;
+    toast.success("Config imported");
+  } catch (e) {
+    toast.error(e.message);
+  }
+}
+
 onMounted(() => { load(); updCheck(); });
 defineExpose({ load });
 </script>
@@ -238,6 +287,17 @@ defineExpose({ load });
 .si-vals { display: flex; gap: 16px; color: var(--text-primary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
+.si-backup-desc { margin: 0; padding: 10px 12px 0; font-size: 13px; color: var(--text-secondary); }
+.si-backup-toolbar { display: flex; gap: 8px; padding: 10px 12px; }
+.si-backup-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  flex: 1;
+}
 .si-copy-btn {
   display: flex;
   align-items: center;

@@ -2,7 +2,7 @@
  * 設定モーダルの全ビューの E2E スモーク。
  * すべてのメニュー項目が開けて（各ビューがマウント時にクラッシュしない）、
  * タイトル（戻るボタン）でメニューへ戻れることを確認する。
- * Auth / Config File / System Info は代表的な表示内容も検証する（読み取りのみ・状態変更なし）。
+ * Auth / System Info（末尾の Backup & Restore セクション含む）は代表的な表示内容も検証する（読み取りのみ・状態変更なし）。
  */
 import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
@@ -16,7 +16,6 @@ const SETTINGS_VIEWS = [
   ["Circle Keypad", "Circle Keypad"],
   ["Notifications", "Notifications"],
   ["Auth", "Auth"],
-  ["Config File", "Config File"],
   ["Server Processes", "Server Processes"],
   ["System Info", "System Info"],
 ];
@@ -59,16 +58,7 @@ test.describe("settings views", () => {
     await expect(currentDevice).toBeVisible({ timeout: 10_000 });
   });
 
-  test("Config File ビューに設定 JSON が表示される", async ({ page }) => {
-    await openSettingsView(page, "Config File");
-    await expect(page.locator(".modal-title")).toHaveText("Config File", { timeout: 10_000 });
-    await expect(page.locator(".config-file-code")).toBeVisible({ timeout: 10_000 });
-    // Download / Upload の操作ボタンが提供されている
-    await expect(page.locator(".config-file-btn", { hasText: "Download" })).toBeVisible();
-    await expect(page.locator(".config-file-btn", { hasText: "Upload" })).toBeVisible();
-  });
-
-  test("System Info ビューにホスト名が表示される", async ({ page }) => {
+  test("System Info ビューにホスト名と末尾の Backup & Restore が表示される", async ({ page }) => {
     const infoRes = await page.request.get("/system/info");
     const info = infoRes.ok() ? await infoRes.json() : null;
     test.skip(!info?.hostname, "system/info からホスト名が取れない");
@@ -76,5 +66,9 @@ test.describe("settings views", () => {
     await openSettingsView(page, "System Info");
     await expect(page.locator(".modal-title")).toContainText("System Info", { timeout: 10_000 });
     await expect(page.locator(".si-body")).toContainText(info.hostname, { timeout: 10_000 });
+
+    // 末尾の Backup & Restore セクション
+    await expect(page.locator(".si-backup-btn", { hasText: "Download" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".si-backup-btn", { hasText: "Upload" })).toBeVisible();
   });
 });
