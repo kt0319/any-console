@@ -8,11 +8,11 @@ import { GITHUB_POLL_INTERVAL_MS } from "../utils/constants.ts";
 //
 // - 複数の TerminalPane が同じワークスペースを開いている場合、それぞれが独立に
 //   fetch すると同じエンドポイントへの重複リクエストが同時に飛ぶ
-//   （usePreviewPorts.ts と同じ問題）。ワークスペース名ごとに結果と実行中の
+//   （useSharedResourcePoll.ts と同じ問題）。ワークスペース名ごとに結果と実行中の
 //   fetch をファクトリ内スコープで共有し、同時呼び出しを1本にまとめる。
 // - 値の変化をピルに反映するため、表示中のワークスペースだけ定期的に再取得する。
 //   同じワークスペースを複数のペインが開いていてもタイマーは1本にまとめる
-//   （usePreviewPorts.ts と同じ方針。ただしポート一覧と違い取得先がワークスペース
+//   （useSharedResourcePoll.ts と同じ方針。ただしポート一覧と違い取得先がワークスペース
 //   ごとに異なるため、参照カウントはワークスペース単位で持つ）。
 
 export function createWorkspaceResourcePoll({ resourcePath, mapItem }: {

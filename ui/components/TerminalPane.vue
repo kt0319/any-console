@@ -166,18 +166,6 @@ const { isDirty, isGitRepo, hasUpstream, ahead, behind, changedFiles, insertions
 // 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
 // devServerEntry を絶対に持てない（下記参照）ため、それらのタブはポーリングに参加しない。
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
-let previewPollingStarted = false;
-
-function syncPreviewPolling() {
-  const shouldPoll = !!props.tab.workspace;
-  if (shouldPoll && !previewPollingStarted) {
-    previewPollingStarted = true;
-    startPreviewPolling();
-  } else if (!shouldPoll && previewPollingStarted) {
-    previewPollingStarted = false;
-    stopPreviewPolling();
-  }
-}
 
 const devServerEntry = computed(() => {
   // tab は markRaw のため tab.workspace 単体の変更は追跡されない（paneWorkspace と同じ理由）。
@@ -190,15 +178,14 @@ const devServerEntry = computed(() => {
 
 // Dockerピルも Dev Server と同じ立て付け（ポーリング集約 + workspace一致でフィルタ）。
 const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling, fetchContainers: fetchDockerContainers } = useDockerContainers();
-let dockerPollingStarted = false;
 
-function syncDockerPolling() {
-  const shouldPoll = !!props.tab.workspace;
-  if (shouldPoll && !dockerPollingStarted) {
-    dockerPollingStarted = true;
+// start/stop は冪等なので、ワークスペースの有無に合わせて毎回呼んでよい。
+function syncWorkspacePolling() {
+  if (props.tab.workspace) {
+    startPreviewPolling();
     startDockerPolling();
-  } else if (!shouldPoll && dockerPollingStarted) {
-    dockerPollingStarted = false;
+  } else {
+    stopPreviewPolling();
     stopDockerPolling();
   }
 }
@@ -486,18 +473,17 @@ onMounted(() => {
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
-  syncPreviewPolling();
-  syncDockerPolling();
+  syncWorkspacePolling();
 });
 
 // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
 // tabWorkspaceVersion（setTabWorkspace が進める）を watch し、実際の
-// 値の読み取りは syncPreviewPolling 内で props.tab.workspace を直接見る。
+// 値の読み取りは syncWorkspacePolling 内で props.tab.workspace を直接見る。
 watch(() => terminalStore.tabWorkspaceVersion, () => {
-  syncPreviewPolling();
-  if (previewPollingStarted) fetchPreviewPorts();
-  syncDockerPolling();
-  if (dockerPollingStarted) fetchDockerContainers();
+  syncWorkspacePolling();
+  if (!props.tab.workspace) return;
+  fetchPreviewPorts();
+  fetchDockerContainers();
 });
 
 watch(isActive, async (active) => {
@@ -524,8 +510,8 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
-  if (previewPollingStarted) stopPreviewPolling();
-  if (dockerPollingStarted) stopDockerPolling();
+  stopPreviewPolling();
+  stopDockerPolling();
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }
