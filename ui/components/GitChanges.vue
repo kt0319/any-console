@@ -38,12 +38,14 @@ import DiffFileItem from "./DiffFileItem.vue";
 import DiffTotalNumstat from "./DiffTotalNumstat.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { useGitDiff } from "../composables/useGitDiff.ts";
+import { useGitWorkspaceActions } from "../composables/useGitWorkspaceActions.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
 import { emit } from "../app-bridge.ts";
 import { type AsyncState, asyncError, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { getWorkspace } = useWorkspace();
+const { stashSave } = useGitWorkspaceActions();
 
 interface DiffFileRow {
   path: string;
@@ -92,7 +94,16 @@ async function loadWorkingTreeDiff() {
     label: "Stash",
     loading: false,
     disabled: () => isStashDisabled.value,
-    handler: async () => { stashBtn.loading = true; emit("git:stashSave"); },
+    handler: async () => {
+      const workspace = getWorkspace();
+      if (!workspace) return;
+      stashBtn.loading = true;
+      try {
+        if (await stashSave(workspace)) await loadWorkingTreeDiff();
+      } finally {
+        stashBtn.loading = false;
+      }
+    },
   };
   actionButtons.value = [
     { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },

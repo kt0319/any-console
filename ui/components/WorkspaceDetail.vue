@@ -359,7 +359,6 @@ useWorkspaceDetailEvents({
   gitHistory,
   paneLoader,
   updateViewTitle,
-  closeWorkspaceDetail,
 });
 
 defineExpose({ handleBack });

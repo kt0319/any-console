@@ -1,8 +1,6 @@
 import { nextTick, onUnmounted, type Ref } from "vue";
 import { on } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
-import { useApi } from "./useApi.ts";
-import { useToast } from "./useToast.ts";
 import type { usePaneLoader } from "./usePaneLoader.ts";
 
 /**
@@ -21,11 +19,8 @@ export function useWorkspaceDetailEvents(deps: {
   gitHistory: Ref<{ reload: () => void } | null>,
   paneLoader: ReturnType<typeof usePaneLoader>,
   updateViewTitle: () => void,
-  closeWorkspaceDetail: ((tabId?: number | null) => void) | undefined,
 }) {
   const workspaceStore = useWorkspaceStore();
-  const { apiCommand, wsEndpoint } = useApi();
-  const toast = useToast();
 
   const offHandlers = [
     on("git:openFileModal", (detail) => {
@@ -63,25 +58,6 @@ export function useWorkspaceDetailEvents(deps: {
       }
     }),
 
-    on("git:checkoutBranch", async ({ branch, remote }) => {
-      const workspace = workspaceStore.selectedWorkspace;
-      if (!workspace) return;
-      const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
-      if (!ok) return;
-      workspaceStore.fetchStatuses();
-      deps.closeWorkspaceDetail?.();
-      toast.success(`Switched branch to "${branch}"`);
-    }),
-
-    on("git:stashSave", async () => {
-      const workspace = workspaceStore.selectedWorkspace;
-      if (!workspace) return;
-      const { ok, data } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
-      if (!ok) return;
-      const msg = data?.stdout?.trim() || "Stash saved";
-      toast.success(msg);
-      deps.gitHistory.value?.reload();
-    }),
   ];
 
   onUnmounted(() => {

@@ -130,11 +130,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, inject, watch } from "vue";
 import { useBranchList } from "../composables/useBranchList.ts";
 import { useBranchActions } from "../composables/useBranchActions.ts";
 import { useBranchAddDialog } from "../composables/useBranchAddDialog.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
+import { useGitWorkspaceActions } from "../composables/useGitWorkspaceActions.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import BaseDialog from "./BaseDialog.vue";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -149,6 +150,8 @@ const branchEmit = defineEmits(["count", "toggle"]);
 
 const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
+const { checkoutBranch } = useGitWorkspaceActions();
+const closeWorkspaceDetail = inject<((tabId?: number | null) => void) | undefined>("closeWorkspaceDetail", undefined);
 
 const branchList = useBranchList();
 const {
@@ -206,8 +209,16 @@ async function selectBranch(branch: LocalBranch | RemoteBranch) {
     openWorktree(wt);
     return;
   }
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
   isSwitchingBranch.value = true;
-  emit("git:checkoutBranch", { branch: branch.name, remote: branch.remote });
+  let switched = false;
+  try {
+    switched = await checkoutBranch(workspace, branch.name, branch.remote);
+  } finally {
+    isSwitchingBranch.value = false;
+  }
+  if (switched) closeWorkspaceDetail?.();
 }
 
 function switchToWorkspace(name: string) {

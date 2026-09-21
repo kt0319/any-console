@@ -4,6 +4,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "./useConfirm.ts";
+import { useGitWorkspaceActions } from "./useGitWorkspaceActions.ts";
 import { usePrompt } from "./usePrompt.ts";
 import { emit } from "../app-bridge.ts";
 import { buildActionSummary } from "../utils/action-summary.ts";
@@ -17,6 +18,7 @@ export function useDeepLink() {
   const terminalStore = useTerminalStore();
   const { apiGet, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
+  const { checkoutBranch } = useGitWorkspaceActions();
   const { prompt } = usePrompt();
   const { attachSessionTab: attachSession } = useSessionTabAttach();
 
@@ -58,7 +60,7 @@ export function useDeepLink() {
   ) {
     if (branchStatus === "current") return;
     if (branchStatus === "exists") {
-      emit("git:checkoutBranch", { branch, remote: false });
+      await checkoutBranch(ws, branch, false);
       return;
     }
     const base = baseBranch || currentBranch || "current branch";
@@ -74,7 +76,7 @@ export function useDeepLink() {
     if (baseBranch) body.base_branch = baseBranch;
     const res = await apiCommand(wsEndpoint(ws, "create-branch"), body, { errorMessage: "Failed to create branch" });
     if (!res.ok) return;
-    emit("git:checkoutBranch", { branch: newName, remote: false });
+    await checkoutBranch(ws, newName, false);
   }
 
   async function attachSessionTab(sessionId: string) {
