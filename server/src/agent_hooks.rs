@@ -1,5 +1,4 @@
-//! エージェント hooks によるセッション状態のイベント駆動更新（Python 側
-//! `api/agent_hooks.py` + `api/routers/agent_hooks.py` の移植）。
+//! エージェント hooks によるセッション状態のイベント駆動更新。
 //!
 //! Claude Code 等のエージェントの hooks（Notification / Stop / PreToolUse ...）から
 //! `POST /agent-hooks/events` を叩いてもらい、セッション状態

@@ -1,5 +1,4 @@
-//! `POST /upload-image`（Python 側 `api/main.py` の画像アップロード + クリップボード
-//! 書き込みの移植）。
+//! `POST /upload-image`（画像アップロード + クリップボード書き込み）。
 //!
 //! ターミナルへの画像貼り付け（`useTerminalPaste`/`useQwertyCamera`）用に、
 //! アップロードされた画像を一時ディレクトリへ保存し、可能ならホスト OS の

@@ -1,5 +1,4 @@
-//! ターミナルセッションのレジストリと per-client PTY ブリッジ
-//! （Python 側 `api/terminal_session.py` の移植）。
+//! ターミナルセッションのレジストリと per-client PTY ブリッジ。
 //!
 //! tmux ベースセッション（＝1シェル）ごとに `TerminalSession` を持ち、各 WebSocket
 //! クライアントは `ClientBridge` としてベースセッションへ独立した tmux クライアント

@@ -1,4 +1,4 @@
-//! Web Push 通知（Python 側 `api/push.py` + `api/routers/push.py` の移植）。
+//! Web Push 通知。
 //!
 //! VAPID（RFC 8292、ES256 JWT 署名）と本文暗号化（RFC 8291、`aes128gcm`
 //! content-coding）を pure-Rust の RustCrypto ファミリ（`p256`/`aes-gcm`/`hkdf`）
@@ -148,7 +148,6 @@ impl Default for PushState {
             subscriptions_lock: Mutex::new(()),
             vapid: OnceLock::new(),
             // push サービス（fcm.googleapis.com 等）は外部インターネット上のため、
-            // migration_bridge 用クライアント（proxy.rs、no_proxy 固定）とは違い、
             // 環境のプロキシ設定にはそのまま従わせる（既定の reqwest::Client）。
             client: reqwest::Client::new(),
         }
@@ -402,7 +401,7 @@ fn should_skip_for_viewing(
         .is_some_and(|device_id| status_stream.is_device_viewing(device_id, session_id))
 }
 
-/// 全サブスクリプションへ Push 通知を送信する（`api/push.py` `send_push_notification`）。
+/// 全サブスクリプションへ Push 通知を送信する。
 ///
 /// `session_id` を渡すと、そのセッションを今まさに見ている端末（購読時に
 /// 記録した `device_id` と `StatusStreamState::is_device_viewing` で判定）
@@ -473,7 +472,7 @@ async fn send_push_notification(
     remove_subscriptions_by_endpoints(&state.push, &state.paths.data_dir, &failed_endpoints);
 }
 
-// ─── HTTP エンドポイント（`api/routers/push.py` の移植） ─────────────────────
+// ─── HTTP エンドポイント ─────────────────────
 
 pub async fn vapid_public_key(
     State(state): State<std::sync::Arc<AppState>>,
@@ -488,8 +487,8 @@ pub async fn vapid_public_key(
 }
 
 /// Origin / Referer ヘッダからスキーム＋ホスト（ポート除く）を取り出す
-/// （`api/routers/push.py` `_extract_sub` と同じ正規表現 `(https?://[^/:]+)` を
-/// 手書きパースで再現 — ポート番号は意図的に含めない）。
+/// （正規表現 `(https?://[^/:]+)` 相当を手書きパースで再現 — ポート番号は
+/// 意図的に含めない）。
 fn extract_sub_origin(headers: &HeaderMap) -> Option<String> {
     let origin = headers
         .get(axum::http::header::ORIGIN)

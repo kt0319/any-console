@@ -1,4 +1,4 @@
-//! ブランチ操作 API（Python 側 `api/routers/git_branches.py` の移植）。
+//! ブランチ操作 API。
 //!
 //! push / pull / fetch は SSH agent ソケットの補完（`ssh_env_additions`）付きで
 //! 実行する。pull は Python の RLock 再入に相当する箇所をロック1回取得の

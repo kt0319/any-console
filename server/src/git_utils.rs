@@ -1,4 +1,4 @@
-//! git subprocess 実行と低レベルクエリ（Python 側 `api/git_utils.py` の移植）。
+//! git subprocess 実行と低レベルクエリ。
 //!
 //! Git はライブラリを使わず subprocess のみ（docs/DECISIONS.md）。出力の
 //! デコードは UTF-8 + 置換（Python の errors="replace" 相当 = from_utf8_lossy）。

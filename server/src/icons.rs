@@ -1,4 +1,4 @@
-//! アイコンの正規化・保存（Python 側 `api/icons.py` の移植）。
+//! アイコンの正規化・保存。
 //!
 //! data URI は data/icons へ保存して `icon:<hash>.<ext>` 参照に変換し、
 //! `favicon:<domain>` は Google favicon サービスから取得して同様に保存する

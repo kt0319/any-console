@@ -1,7 +1,6 @@
-//! HTTP ミドルウェア群（Python 側 security_headers.py / rate_limiter.py /
-//! client_log.py の各 Middleware に対応）。
+//! HTTP ミドルウェア群。
 //!
-//! 適用順は Python (`main.py` の add_middleware 逆順) と同じ:
+//! 適用順:
 //! SecurityHeaders が最外殻 → RateLimit → ClientLog → ハンドラ。
 
 use std::net::SocketAddr;

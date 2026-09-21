@@ -1,5 +1,4 @@
-//! git ルーター共通ヘルパー（Python 側 `api/routers/git_helpers.py` +
-//! `api/validators.py` の該当分の移植）。
+//! git ルーター共通ヘルパー（ref 検証・ロック付き git 実行・activity 記録）。
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -13,7 +12,7 @@ use crate::git_utils::{
 };
 use crate::state::AppState;
 
-// ─── validators（api/validators.py）────────────────────────────────────────
+// ─── validators ────────────────────────────────────────────────────────────
 
 pub fn validate_workspace_name(name: &str) -> Result<String, ApiError> {
     let name = name.trim();

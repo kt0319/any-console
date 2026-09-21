@@ -1,4 +1,4 @@
-//! 小物ユーティリティ（Python 側 `api/common.py` の文字列系ヘルパー等に対応）。
+//! 小物ユーティリティ（文字列ヘルパー・TTL キャッシュ・JSON 抽出等）。
 
 use axum::extract::{FromRequest, Request};
 use serde::de::DeserializeOwned;

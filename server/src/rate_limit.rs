@@ -1,4 +1,4 @@
-//! インプロセス固定窓レートリミッタ（Python 側 `api/rate_limiter.py` と同一規則）。
+//! インプロセス固定窓レートリミッタ。
 
 use std::collections::HashMap;
 use std::sync::Mutex;

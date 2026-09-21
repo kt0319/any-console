@@ -1,6 +1,5 @@
 //! ワークスペース git ステータス／エージェント状態のリアルタイム配信 WebSocket の
-//! 共有基盤（Python 側 `api/ws_broadcast.py` + `api/routers/status_stream.py` の
-//! 移植のうち、購読者管理の基盤部分）。
+//! 共有基盤（購読者管理）。
 //!
 //! Python 版は git_watch / agent_watch / session_watch / dispatch の各モジュールが
 //! それぞれ独自の購読者 set（`set[WebSocket]`）を持ち、`call_soon_threadsafe` で
@@ -35,7 +34,6 @@ use tokio::sync::broadcast;
 use crate::state::AppState;
 use crate::util::QueryParams;
 
-/// Python `WS_PING_INTERVAL_SEC`（`api/common.py`）と同じ間隔。
 const WS_PING_INTERVAL_SEC: u64 = 15;
 
 /// 既定のバッファ容量。broadcast channel は受信が遅い購読者がこの件数分
@@ -133,8 +131,7 @@ pub struct WsQuery {
     token: String,
 }
 
-/// `GET /workspaces/statuses/ws`（Python 側 `routers/status_stream.py` の
-/// `workspace_statuses_ws` 相当）。認証確認後にアップグレードし、以後は
+/// `GET /workspaces/statuses/ws`。認証確認後にアップグレードし、以後は
 /// `StatusStreamState` への配信をそのままクライアントへ中継する。
 pub async fn status_stream_ws(
     State(state): State<Arc<AppState>>,

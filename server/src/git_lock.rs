@@ -1,4 +1,4 @@
-//! ワークスペース単位の git 書き込みロック（Python 側 `api/git_lock.py` の移植）。
+//! ワークスペース単位の git 書き込みロック。
 //!
 //! プロセス内の API 起点 git 操作同士を直列化する（旧 Python 実装の
 //! `workspace_write_lock` と同じくプロセス内ロックのみ。dispatch の checkout

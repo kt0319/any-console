@@ -1,4 +1,4 @@
-//! ワークスペースの git ステータス収集パイプライン（Python 側 `api/git_info.py` の移植）。
+//! ワークスペースの git ステータス収集パイプライン。
 //!
 //! 複数の git クエリを並列実行し、branch / upstream / ahead-behind / diff 統計を
 //! 1つの dict に集約する。結果は 5 秒 TTL でキャッシュし、checkout 等の直後の

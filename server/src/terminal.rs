@@ -1,5 +1,4 @@
-//! ターミナルセッションの HTTP エンドポイントと WebSocket（Python 側
-//! `api/routers/terminal.py` の移植）。`terminal_session.rs`（レジストリ）・
+//! ターミナルセッションの HTTP エンドポイントと WebSocket。`terminal_session.rs`（レジストリ）・
 //! `tmux.rs`・`pty.rs` の上に構築する。全ハンドラは `build_router`（lib.rs）で
 //! 配線済み。
 

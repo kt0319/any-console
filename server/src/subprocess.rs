@@ -1,5 +1,4 @@
-//! subprocess 実行ヘルパー（Python 側 `api/common.py` の `run_subprocess_safe` /
-//! `run_tailscale_json` に対応）。
+//! subprocess 実行ヘルパー。
 //!
 //! タイムアウト・コマンド不在・OS エラーはすべて None に落とし、呼び出し側が
 //! None ケースを自分で扱う。終了コードに関わらず結果を返す（stderr を見るため）。
@@ -144,7 +143,7 @@ pub async fn run_subprocess_with_stdin(
     }
 }
 
-/// returncode == 0 のときだけ stdout を返す（`system.py` の `_run_cmd_safe`）。
+/// returncode == 0 のときだけ stdout を返す。
 pub async fn run_cmd_safe(cmd: &[&str], timeout_sec: f64, cwd: Option<&Path>) -> Option<String> {
     let result = run_subprocess_safe(cmd, timeout_sec, cwd).await?;
     if result.success() {
@@ -191,7 +190,7 @@ pub async fn run_tailscale_json(args: &[&str]) -> Option<Value> {
     data.is_object().then_some(data)
 }
 
-// ─── tmux ヘルパー（`api/tmux.py` のサブセット）────────────────────────────
+// ─── tmux ヘルパー ───────────────────────────────────────────────────────
 
 pub async fn run_tmux_cmd(args: &[&str]) -> Option<CmdResult> {
     let mut cmd = vec!["tmux"];

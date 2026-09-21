@@ -1,5 +1,4 @@
-//! 操作ログを data/activity/{workspace}/{YYYY-MM-DD}.jsonl に追記する
-//! （Python 側 `api/activity.py` の移植）。
+//! 操作ログを data/activity/{workspace}/{YYYY-MM-DD}.jsonl に追記する。
 //!
 //! O_APPEND の行単位追記のため、複数プロセスが同じファイルへ追記しても安全
 //! （フォーマットは旧 Python 実装と同一: ensure_ascii=False 相当）。

@@ -40,8 +40,8 @@ import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dis
 import { baseWorkspaceName } from "../utils/worktree.ts";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
-// WorkspaceDetail.vueの「Dispatch」タブの中身。旧SessionDispatchesTab.vue
-// （全ワークスペース横断のグローバル一覧、Settings配下の独立画面）を廃止し、
+// WorkspaceDetail.vueの「Dispatch」タブの中身。全ワークスペース横断の
+// グローバル一覧（Settings配下の独立画面）を廃止し、
 // 対応するワークスペースの項目だけに絞ってここへ統合した
 // （GitHubActionsPane.vue等、他のGitHub系タブと同じ「ワークスペース詳細内の
 // タブ」パターンに揃える）。1件選ぶとDispatchRunViewを表示するが、Settings側

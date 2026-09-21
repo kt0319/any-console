@@ -1,10 +1,7 @@
-//! ターミナルセッション作成・削除のリアルタイム配信（Python 側
-//! `api/session_watch.py` の移植）。
+//! ターミナルセッション作成・削除のリアルタイム配信。
 //!
-//! Python 版が持っていた「同期ハンドラのスレッドから安全にイベントループへ
-//! スケジュールする」ための `call_threadsafe` パターンは、`AppState` が保持する
-//! `tokio::sync::broadcast::Sender`（`status_stream.rs`）へ直接 `send()` するだけで
-//! 不要になる（マルチスレッドから安全に呼べる）。
+//! 配信は `AppState` が保持する `tokio::sync::broadcast::Sender`（`status_stream.rs`）
+//! へ直接 `send()` する（マルチスレッドから安全に呼べる）。
 //!
 //! 呼び出し元はセッション作成（`job_runner.rs`・`dispatch.rs`）・削除
 //! （`terminal.rs`）・エージェント自動紐付け（`agent_watch.rs`）で、

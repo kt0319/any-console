@@ -1,4 +1,4 @@
-//! 差分系 API（Python 側 `api/routers/git_diff.py` + `git_diff_utils.py` の移植）。
+//! 差分系 API。
 
 use std::path::Path as FsPath;
 use std::sync::Arc;
@@ -46,7 +46,7 @@ pub fn count_file_lines(path: &FsPath) -> i64 {
     }
 }
 
-// ─── numstat / ファイルリスト整形（git_diff_utils.py）───────────────────────
+// ─── numstat / ファイルリスト整形 ─────────────────────────────────────────
 
 fn resolve_rename_path(path: &str) -> String {
     // `{old => new}` 形式を new で置換する

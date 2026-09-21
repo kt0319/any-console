@@ -1,4 +1,4 @@
-//! QR コードデバイスペアリング（Python 側 `api/routers/pairing.py` の移植）。
+//! QR コードデバイスペアリング。
 //!
 //! 既に認証済みの端末から、新しいデバイスを QR コードスキャンだけでログインさせる
 //! ためのエンドポイント群（`docs/DECISIONS.md` ADR28 参照）。
@@ -104,8 +104,7 @@ fn sweep_expired_locked(pairings: &mut HashMap<String, PairingEntry>, now: i64) 
     pairings.retain(|_, entry| !is_expired(entry, now));
 }
 
-/// host が loopback（localhost / 127.x / ::1）かを判定する純関数
-/// （`api/common.py` `is_loopback_host`）。
+/// host が loopback（localhost / 127.x / ::1）かを判定する純関数。
 fn is_loopback_host(host: &str) -> bool {
     if host.is_empty() {
         return false;
@@ -170,7 +169,7 @@ fn scheme_default_port(scheme: &str) -> u16 {
 }
 
 /// リクエストが実際に使ったポートを返す。`Host` ヘッダに明示的なポートが無ければ
-/// スキームの標準ポートを補う（`api/routers/pairing.py` `_effective_port`）。
+/// スキームの標準ポートを補う。
 fn effective_port(headers: &HeaderMap, scheme: &str) -> Option<u16> {
     parse_host_header(headers)
         .1
@@ -182,7 +181,7 @@ fn bind_is_loopback_only(state: &AppState) -> bool {
     is_loopback_host(&host)
 }
 
-/// この端末の Tailscale MagicDNS ホスト名を返す（`api/auth.py` `_resolve_tailscale_name`）。
+/// この端末の Tailscale MagicDNS ホスト名を返す。
 async fn resolve_tailscale_name() -> Option<String> {
     let data = crate::subprocess::run_tailscale_json(&["status", "--json"]).await?;
     let dns_name = data.get("Self")?.get("DNSName")?.as_str()?;

@@ -1,5 +1,4 @@
-//! herdr の screen manifest によるエージェント状態判定（Python 側
-//! `api/screen_manifest.py` の移植）。
+//! herdr の screen manifest によるエージェント状態判定。
 //!
 //! ベンダリングした TOML マニフェスト（`agent_manifests/` —
 //! ogulcancelik/herdr 由来、Apache-2.0）を可視ペイン内容と照合し、既知

@@ -1,4 +1,4 @@
-//! ワークスペースジョブ / 共通ジョブの CRUD（Python 側 `api/routers/jobs.py` の移植）。
+//! ワークスペースジョブ / 共通ジョブの CRUD。
 //!
 //! ジョブ実行は `/run`（`job_runner.rs`）と `/dispatch`（`dispatch.rs`）が担う。
 //! ここは config.json のジョブ定義 CRUD と一覧のみ。

@@ -1,4 +1,4 @@
-//! ワークスペースグループの CRUD（Python 側 `api/routers/groups.py` の移植）。
+//! ワークスペースグループの CRUD。
 //!
 //! グループは config.json の `__global__.groups` に保存される。
 //! ワークスペースへの割り当ては workspace エントリの group_id フィールドで管理する。

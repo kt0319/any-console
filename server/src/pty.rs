@@ -1,4 +1,4 @@
-//! PTY 起動・非同期 I/O の低レベルプリミティブ（Python 側 `api/terminal_pty.py` の移植）。
+//! PTY 起動・非同期 I/O の低レベルプリミティブ。
 //!
 //! `nix::pty::forkpty`（glibc の `forkpty(3)` 相当 = openpty + fork + login_tty を
 //! 1ステップで行う）を使い、CPython の `os.forkpty()` と同じ土台に乗る。fork 後の

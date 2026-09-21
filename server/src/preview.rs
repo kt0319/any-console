@@ -1,5 +1,4 @@
-//! ローカル dev server のポート検出と検出結果ストア（Python 側 `api/preview.py` +
-//! `api/routers/preview.py` の移植）。
+//! ローカル dev server のポート検出と検出結果ストア。
 //!
 //! Linux では `ss -ltnp`（無い・失敗する環境では `lsof` にフォールバック）、
 //! macOS では `lsof -iTCP -sTCP:LISTEN` で 127.0.0.1 /

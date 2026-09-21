@@ -1,5 +1,4 @@
-//! ワークスペースのファイル閲覧・操作 API（Python 側 `api/routers/git_files.py` +
-//! `git_file_utils.py` の移植）。
+//! ワークスペースのファイル閲覧・操作 API。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -78,7 +77,7 @@ async fn run_raw_git_bytes(args: &[&str], cwd: &FsPath) -> Result<(i32, Vec<u8>)
         .map_err(|e| crate::git_utils::map_git_error(e, "Git operation"))
 }
 
-// ─── コンテンツ応答の組み立て（git_file_utils.py）───────────────────────────
+// ─── コンテンツ応答の組み立て ─────────────────────────────────────────────
 
 fn build_content_response(path: &str, ext: &str, raw: &[u8], size: u64) -> Value {
     let filename = FsPath::new(path)
@@ -125,7 +124,7 @@ pub(crate) fn read_file_content_response(path: &str, target: &FsPath) -> Result<
     Ok(build_content_response(path, &ext, &raw, size))
 }
 
-// ─── ディレクトリ一覧（git_file_utils.py）───────────────────────────────────
+// ─── ディレクトリ一覧 ─────────────────────────────────────────────────────
 
 async fn gitignored_names(target: &FsPath) -> std::collections::HashSet<String> {
     let result = run_git_raw(

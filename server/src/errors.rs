@@ -1,5 +1,5 @@
-//! API エラー応答。エラーフィールドは `detail` を使用する（Backend API ルール、
-//! Python 側 `api/errors.py` と同一のワイヤフォーマット）。
+//! API エラー応答。エラーフィールドは `detail` を使用する（Backend API ルール。
+//! ワイヤフォーマットは tests/e2e/api-contract.spec.js が検証する）。
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};

@@ -1,5 +1,5 @@
 //! Trusted Device 認証用の保存・検証ロジックと `/devices/*` エンドポイント
-//! （Python 側 `api/devices.py` + `api/routers/devices.py` の移植）。
+//! 。
 //!
 //! 新規登録時はメイントークンで本人確認し、デバイスごとに固有のシークレットを
 //! 発行する。クライアントは secret を HttpOnly cookie で保持し、以降の認証に使う。
@@ -88,7 +88,7 @@ fn load_or_create_server_key<'a>(data_dir: &Path, state: &'a DevicesState) -> &'
     })
 }
 
-/// HMAC-SHA256(data/server_key, secret) の hex（`api/devices.py` `_hash_secret`）。
+/// HMAC-SHA256(data/server_key, secret) の hex。
 /// `api_tokens`（`server/src/auth.rs`）も同じ鍵・同じハッシュ方式を共有する。
 pub fn hash_secret(data_dir: &Path, state: &DevicesState, raw_secret: &str) -> String {
     let key = load_or_create_server_key(data_dir, state);
@@ -132,8 +132,7 @@ fn save_unlocked(data_dir: &Path, data: &Value) {
     crate::json_store::save_or_warn(&devices_path(data_dir), data, "devices.json");
 }
 
-/// User-Agent から `Chrome on macOS` のような簡潔な名前を生成する
-/// （`api/devices.py` `autoname_from_user_agent`）。
+/// User-Agent から `Chrome on macOS` のような簡潔な名前を生成する。
 pub fn autoname_from_user_agent(user_agent: &str) -> String {
     let ua = user_agent.trim();
     if ua.is_empty() {

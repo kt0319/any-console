@@ -1,4 +1,4 @@
-//! データディレクトリ・設定ファイルのパス解決（Python 側 `api/common.py` と同一規則）。
+//! データディレクトリ・設定ファイルのパス解決。
 //!
 //! `ANY_CONSOLE_DATA_DIR` による隔離（E2E 使い捨てサーバ）を Rust 側でも一級で
 //! サポートする。設定されていれば data/ も config.json もその配下、未設定なら
@@ -72,7 +72,7 @@ fn absolutize(p: PathBuf) -> PathBuf {
     }
 }
 
-/// (DATA_DIR, CONFIG_FILE) を決める。`api/common.py` の `resolve_data_paths` と同一。
+/// (DATA_DIR, CONFIG_FILE) を決める。
 ///
 /// strip 相当の空白判定は空値の検出のみに使い、パスには生の値を使う
 /// （前後に空白を含む正当なディレクトリ名を別パスへ化けさせないため）。
@@ -121,9 +121,8 @@ impl Paths {
         let (data_dir, config_file) = resolve_data_paths(&project_root, env_value.as_deref());
         let tmux_prefix =
             resolve_tmux_prefix(std::env::var("ANY_CONSOLE_TMUX_PREFIX").ok().as_deref());
-        // Python main.py の DIST_DIR と同じ場所（vite.config.js の outDir =
-        // PROJECT_ROOT/dist）。ビルド済み dist の配信のみサポートする
-        // （ソースモード = ui/ 直接配信 + キャッシュバスト書き換えは移植していない）。
+        // vite.config.js の outDir（PROJECT_ROOT/dist）。ビルド済み dist の配信のみ
+        // サポートする（ui/ の直接配信は無い）。
         let dist = project_root.join("dist");
         Self {
             frontend_dir: dist,

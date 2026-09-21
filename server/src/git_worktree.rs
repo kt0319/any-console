@@ -1,4 +1,4 @@
-//! git worktree の作成・一覧・削除（Python 側 `api/routers/git_worktree.py` の移植）。
+//! git worktree の作成・一覧・削除。
 //!
 //! worktree を作成すると、その作業ツリーは動的 worktree 名（'{base}:{branch}'）で
 //! 参照できる。作成・削除後は Python と同じ位置で `invalidate_and_publish_git_info`

@@ -1,5 +1,4 @@
-//! screen manifest のリモート更新（Python 側 `api/manifest_update.py` の移植。
-//! herdr の `manifest_update.rs` に対応）。
+//! screen manifest のリモート更新（herdr の `manifest_update.rs` に対応）。
 //!
 //! herdr.dev のカタログ（`index.toml`: schema_version = 1 と `[[agents]]` id/path）を
 //! 取得し、エージェントごとのマニフェスト TOML を検証してから
@@ -15,10 +14,8 @@
 //!
 //! 定期実行ループ（`run_update_loop`、`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC`
 //! 後に開始し以後 `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごと）は `main.rs` から
-//! 起動時に一度 `tokio::spawn` される。Python 側の同名ループ（`start_updater`/
-//! `stop_updater`）は `api/main.py` の `lifespan()` から呼び出しを削除済み —
-//! 同じ `data/agent-detection/remote/` への二重書き込みを避けるための一括切替
-//! （`push.py` の `ensure_phrase_task` 削除と同じ理由）。
+//! 起動時に一度 `tokio::spawn` される（`data/agent-detection/remote/` への書き込みは
+//! このループだけが行う）。
 
 use std::path::Path;
 use std::sync::Arc;

@@ -1,4 +1,4 @@
-//! 認証コア（Python 側 `api/auth.py` の `_authenticate` と同一の判定順・規則）。
+//! 認証コア。
 //!
 //! auth.json（メイントークン + api_tokens）の読み書きはこのファイルが担う。
 //! devices.json への読み書きは `crate::devices`（`DevicesState` 経由で排他制御）
@@ -30,7 +30,7 @@ pub const API_TOKEN_MAX_NAME_LEN: usize = 80;
 /// 高頻度呼び出し（CI連携等）でのディスク I/O・ロック保持時間を抑える目的で間引く。
 const API_TOKEN_LAST_USED_THROTTLE_SEC: i64 = 60;
 
-/// どの経路で認証されたか（`api/auth.py` の `AuthResult.kind` に対応）。
+/// どの経路で認証されたか。
 /// 文字列プレフィックスの推測に頼らないための構造化。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthKind {
@@ -283,7 +283,7 @@ impl Auth {
         self.save_auth_file_raw(&data);
     }
 
-    /// 新規スコープ付き API トークンを発行する（`api/auth.py` `create_api_token`）。
+    /// 新規スコープ付き API トークンを発行する。
     /// (secret_hash を除いたメタデータ, raw トークン) を返す。raw トークンは
     /// ここでしか取得できず、サーバには devices.json と同じ HMAC-SHA256 ハッシュ
     /// （data/server_key）のみを保存する。
@@ -357,7 +357,7 @@ impl Auth {
 
     /// raw_token がどれかの api_tokens エントリと一致すれば last_used を
     /// スロットリング付きで更新して返す（secret_hash を含む生の entry）。
-    /// 一致しなければ None（`api/auth.py` `_verify_api_token`）。
+    /// 一致しなければ None。
     pub fn verify_and_touch_api_token(&self, raw_token: &str) -> Option<Value> {
         if raw_token.is_empty() {
             return None;
@@ -381,7 +381,7 @@ impl Auth {
     }
 }
 
-// ─── /api-tokens/*（`api/routers/api_tokens.py` の移植）───────────────────────
+// ─── /api-tokens/* ───────────────────────────────────────────────────────
 //
 // すべてメイントークン認証（`RequireAuth`）のみを要求する。dispatch scope の
 // API トークン自身でこれらのエンドポイントを呼ぶことはできない
@@ -429,7 +429,7 @@ pub async fn revoke_api_token(
     Ok(Json(json!({"ok": true})))
 }
 
-// ─── /settings/auth（`api/routers/settings.py` の該当部分の移植）─────────────
+// ─── /settings/auth ───────────────────────────────────────────────────────
 
 pub async fn get_auth_settings(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
@@ -538,7 +538,7 @@ pub fn parse_cookies(headers: &http::HeaderMap) -> HashMap<String, String> {
     out
 }
 
-// ─── /auth/check・/auth/logout（`api/main.py` の同名ハンドラの移植）───────────
+// ─── /auth/check・/auth/logout ───────────────────────────────────────────
 
 /// `GET /auth/check`。フロントエンドの起動時セッション確認（トークン/デバイス
 /// cookie のいずれかで認証できればログイン状態とみなす）。

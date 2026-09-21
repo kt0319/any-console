@@ -1,4 +1,4 @@
-//! システム情報・自己更新・tmux 管理 API（Python 側 `api/routers/system.py` の移植）。
+//! システム情報・自己更新・tmux 管理 API。
 //!
 //! 全エンドポイントとも共有 JSON ファイルへの書き込みを持たないため、Phase 1 の
 //! 最初の Rust ネイティブ移行対象。Linux / macOS の二系統分岐は Python と同じ

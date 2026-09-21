@@ -1,8 +1,7 @@
-//! data/ 配下の JSON ファイル読み書き（Python 側 `api/common.py` の
-//! `load_json_file` / `save_json_file` と同一セマンティクス）。
+//! data/ 配下の JSON ファイル読み書き。
 //!
-//! 書き込みはアトミック（tmp ファイル → rename）。Python プロセスと同じファイルを
-//! 並行して読み書きする移行期間中も、リーダーが書き込み途中の内容を読むことはない。
+//! 書き込みはアトミック（tmp ファイル → rename）。別プロセスが同じファイルを
+//! 並行して読んでも、書き込み途中の内容を読むことはない。
 
 use std::io::Write;
 use std::path::Path;

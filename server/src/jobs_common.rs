@@ -1,5 +1,4 @@
-//! ジョブ系ルーターの共有ロジック（Python 側 `api/routers/jobs_common.py` +
-//! `api/job_models.py` + `api/validators.py` のアイコン検証の移植）。
+//! ジョブ系ルーターの共有ロジック（モデル・検証・永続化）。
 
 use std::time::Duration;
 
@@ -19,7 +18,7 @@ pub const MAX_ICON_VALUE_LENGTH: usize = 200_000;
 pub const COMMON_JOBS_CACHE_KEY: &str = "__common_jobs__";
 pub const TERMINAL_JOB_KEY: &str = "terminal";
 
-// ─── アイコン検証（validators.py）───────────────────────────────────────────
+// ─── アイコン検証 ─────────────────────────────────────────────────────────
 
 /// ICON_PATTERN 相当: mdi- / favicon: / data:image/ / icon:<hash16>.<ext>
 fn icon_pattern_matches(icon: &str) -> bool {

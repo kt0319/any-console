@@ -1,4 +1,4 @@
-//! `POST /run` エンドポイント（Python 側 `api/routers/job_runner.py` の移植）。
+//! `POST /run` エンドポイント。
 //!
 //! `TERMINAL_JOB`（tmux セッション生成）を扱う。ジョブのコマンドはセッション
 //! 作成後に tmux へ送り込まれて実行される（自動実行）。

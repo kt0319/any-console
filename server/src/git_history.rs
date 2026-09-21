@@ -1,4 +1,4 @@
-//! 履歴・コミット・スタッシュ系 API（Python 側 `api/routers/git_history.py` の移植）。
+//! 履歴・コミット・スタッシュ系 API。
 
 use std::sync::Arc;
 
