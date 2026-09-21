@@ -15,7 +15,9 @@ For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
 server/                       Backend (Rust, axum)
   src/main.rs                 App init (CLI dispatch → singleton lock → HTTP bind)
   src/lib.rs                   Library crate root — module declarations + build_router() (all axum
-                               route wiring lives here, not in main.rs); shared with integration tests
+                               route wiring lives here, not in main.rs, split into per-domain
+                               builders: system / settings / git / jobs / workspace / terminal /
+                               auth / push); shared with integration tests
   src/cli.rs                  Lightweight CLI subcommands (config / workspaces / jobs / hooks / auth /
                                tailscale / paths) used by the ./any-console launcher instead of spawning a server
   src/paths.rs                 Resolves data_dir / config_file / project_root (all persistent-file
@@ -95,6 +97,6 @@ this to keep test state fully isolated from a real deployment.
 | `stores/*.ts` | Referenced by many components. Renaming exports has wide impact. |
 | `composables/useApi.ts` | Shared API layer. Response format changes affect all callers. |
 | `utils/constants.ts` | Grep all references before changing a value. |
-| `app-bridge.ts` | Event bus. Renaming events requires updating both `emit` and `on` sides. |
+| `app-bridge.ts` | Event bus. Renaming events requires updating both `emit` and `on` sides. Subscribe from components/composables via `composables/useBusListener.ts` (auto-unsubscribes on scope dispose); call `on` directly only for app-lifetime singleton listeners. |
 | `composables/useListDragSort.ts` | Shared drag-sort for vertical lists (info-pill config, workspace group headers). Uses pointer events + hit-detection. New sortable lists should use this instead of a custom implementation. Workspace rows (`useWorkspaceListDrag.ts`, cross-group dragging) and tab reordering (native HTML5 DnD in `TabItem.vue`) are separate implementations. |
 | `styles/drag-utils.css` | Global CSS for `.drag-handle`, `.drag-source`, `.drag-over-above/below`. All vertical-list drag rows must use these classes (tabs use their own local styles). |

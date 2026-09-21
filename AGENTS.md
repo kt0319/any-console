@@ -272,6 +272,10 @@ JS class 切替で表現。
 
 `setTimeout` / `setInterval` 等の時間値、ブレークポイント等の数値定数は `ui/utils/constants.ts` に定義する (**MUST** — 直書き禁止)。
 
+## Event bus 購読
+
+コンポーネント・composable から `app-bridge` を購読する時は `ui/composables/useBusListener.ts` を使う (**SHOULD** — scope 破棄時に自動解除される。`on` を直接呼ぶのはアプリ全体で生きるシングルトン購読のみ)。API 呼び出しの結果を待ちたいミューテーション（checkout / stash 等）はバスで飛ばさず composable を直接 `await` する。
+
 ## API error
 
 優先:
