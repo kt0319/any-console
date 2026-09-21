@@ -393,7 +393,7 @@ pub struct CreateApiTokenBody {
     pub name: String,
 }
 
-pub async fn create_api_token_route(
+pub async fn create_api_token(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
     crate::util::JsonBody(body): crate::util::JsonBody<CreateApiTokenBody>,
@@ -411,14 +411,14 @@ pub async fn create_api_token_route(
     Json(meta)
 }
 
-pub async fn list_api_tokens_route(
+pub async fn list_api_tokens(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
 ) -> Json<Vec<Value>> {
     Json(state.auth.list_api_tokens())
 }
 
-pub async fn revoke_api_token_route(
+pub async fn revoke_api_token(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     axum::extract::Path(token_id): axum::extract::Path<String>,
     _auth: RequireAuth,

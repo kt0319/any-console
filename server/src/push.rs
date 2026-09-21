@@ -475,7 +475,7 @@ async fn send_push_notification(
 
 // ─── HTTP エンドポイント（`api/routers/push.py` の移植） ─────────────────────
 
-pub async fn vapid_public_key_route(
+pub async fn vapid_public_key(
     State(state): State<std::sync::Arc<AppState>>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
@@ -519,7 +519,7 @@ pub struct PushSubscriptionBody {
     pub keys: Value,
 }
 
-pub async fn subscribe_route(
+pub async fn subscribe(
     State(state): State<std::sync::Arc<AppState>>,
     auth: RequireAuth,
     headers: HeaderMap,
@@ -548,7 +548,7 @@ pub struct UnsubscribeBody {
     pub endpoint: String,
 }
 
-pub async fn unsubscribe_route(
+pub async fn unsubscribe(
     State(state): State<std::sync::Arc<AppState>>,
     _auth: RequireAuth,
     JsonBody(body): JsonBody<UnsubscribeBody>,

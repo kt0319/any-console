@@ -428,12 +428,9 @@ fn auth_routes() -> AppRouter {
         .route("/devices/{device_id}", delete(devices::revoke))
         .route(
             "/api-tokens",
-            post(auth::create_api_token_route).get(auth::list_api_tokens_route),
+            post(auth::create_api_token).get(auth::list_api_tokens),
         )
-        .route(
-            "/api-tokens/{token_id}",
-            delete(auth::revoke_api_token_route),
-        )
+        .route("/api-tokens/{token_id}", delete(auth::revoke_api_token))
         .route(
             "/settings/auth",
             get(auth::get_auth_settings).put(auth::put_auth_settings),
@@ -451,9 +448,9 @@ fn auth_routes() -> AppRouter {
 
 fn push_routes() -> AppRouter {
     Router::new()
-        .route("/push/vapid-public-key", get(push::vapid_public_key_route))
+        .route("/push/vapid-public-key", get(push::vapid_public_key))
         .route(
             "/push/subscribe",
-            post(push::subscribe_route).delete(push::unsubscribe_route),
+            post(push::subscribe).delete(push::unsubscribe),
         )
 }

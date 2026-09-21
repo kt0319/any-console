@@ -10,6 +10,7 @@ use crate::config::ConfigStore;
 use crate::errors::{bad_request, not_found, server_error, too_large, ApiError};
 use crate::git_utils::split_worktree_name;
 use crate::state::AppState;
+use crate::util::default_true;
 
 const WORKSPACE_JOBS_CACHE_TTL_SEC: u64 = 60;
 pub const MAX_LABEL_LENGTH: usize = 200;
@@ -265,16 +266,12 @@ pub struct JobRequest {
     pub icon: String,
     #[serde(default)]
     pub icon_color: String,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     pub confirm: bool,
     #[serde(default)]
     pub detached: bool,
     #[serde(default)]
     pub notify_phrase: String,
-}
-
-fn yes() -> bool {
-    true
 }
 
 #[derive(Deserialize)]

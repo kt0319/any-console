@@ -18,7 +18,7 @@ use crate::config::{ConfigStore, GLOBAL_CONFIG_KEY};
 use crate::errors::{bad_request, too_large, ApiError};
 use crate::jobs_common::{check_max_len, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH};
 use crate::state::AppState;
-use crate::util::{truncate_chars, JsonBody};
+use crate::util::{default_true, truncate_chars, JsonBody};
 
 const LABEL_PREVIEW_LEN: usize = 20;
 const MAX_IMPORT_SIZE: usize = 1024 * 1024;
@@ -233,25 +233,25 @@ fn normalize_pill_order(order: &[String]) -> Vec<String> {
 
 #[derive(Deserialize)]
 pub struct InfoPillSettings {
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     branch: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     prs: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     actions: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     changes: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     devserver: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     docker: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     issues: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     files: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     add: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     dispatch: bool,
     #[serde(default)]
     order: Vec<String>,
@@ -275,10 +275,6 @@ impl InfoPillSettings {
             _ => unreachable!("unknown info pill field: {key}"),
         }
     }
-}
-
-fn yes() -> bool {
-    true
 }
 
 pub async fn get_info_pills(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
@@ -372,7 +368,7 @@ pub struct CircleKeypadSettings {
     keys: Vec<CircleKeypadKeyDef>,
     #[serde(default)]
     specials: Vec<CircleKeypadSpecialDef>,
-    #[serde(default = "yes")]
+    #[serde(default = "default_true")]
     enabled: bool,
 }
 

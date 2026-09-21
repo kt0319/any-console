@@ -5,6 +5,11 @@ use serde::de::DeserializeOwned;
 
 use crate::errors::ApiError;
 
+/// `#[serde(default = "default_true")]` 用（省略時 true のフラグ）。
+pub fn default_true() -> bool {
+    true
+}
+
 /// TTL 付きの単純なインプロセスキャッシュ
 /// （`GitInfoCache` / `JobsCache` / `GhCache` が共用する get/set の実体）。
 pub struct TtlCache<V> {

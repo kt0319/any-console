@@ -43,7 +43,7 @@ use crate::paths::Paths;
 use crate::state::AppState;
 use crate::terminal_session::TerminalSession;
 use crate::tmux;
-use crate::util::{now_epoch, JsonBody};
+use crate::util::{default_true, now_epoch, JsonBody};
 
 const RECENT_LIMIT: usize = 10;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
@@ -250,9 +250,6 @@ pub struct DispatchRequest {
 
 fn default_job() -> String {
     TERMINAL_JOB_KEY.to_string()
-}
-fn default_true() -> bool {
-    true
 }
 fn default_match() -> String {
     "any".to_string()
