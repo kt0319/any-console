@@ -82,7 +82,7 @@ watch(
    ui/styles/modal-shell.css（グローバル）で他のオーバーレイと共用する。
    ここには全面オーバーレイ型シェルの差分だけを置く。 */
 .modal {
-  background: color-mix(in srgb, var(--bg-secondary) 85%, transparent);
+  background: var(--bg-secondary);
   width: 100%;
   max-width: 100%;
   height: 100%;

@@ -88,7 +88,7 @@ const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 // （TabItem.vueのラベル表示可否）にもこれを使う（タブ位置設定ではなく実際の画面幅で決まる）。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
-const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Close session list" : "Open session list"));
+const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Hide session list" : "Show session list"));
 const sortedItems = computed(() => {
   return props.tabs
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)

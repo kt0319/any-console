@@ -154,7 +154,8 @@ const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 // インラインサイドバー vs Modal.vueの全面オーバーレイの出し分けは、タブ位置設定ではなく
 // 実際の画面幅で判定する。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
-const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible);
+// 送信先のターミナルが無い間（空画面）はキーボードバーを出さない。
+const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible && hasAnyTab.value);
 const titleBarVisible = computed(() => layoutStore.titleBarVisible);
 const titleBarAtBottom = computed(() => layoutStore.titleBarAtBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
