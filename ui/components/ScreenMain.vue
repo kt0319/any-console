@@ -216,7 +216,7 @@ useBusListener("connectivity:back", () => {
   }
 });
 
-useBusListener("notification:open-session", ({ sessionId }) => { attachSessionTab(sessionId); });
+useBusListener("notification:openSession", ({ sessionId }) => { attachSessionTab(sessionId); });
 
 onMounted(() => {
   loadSnippetCache();

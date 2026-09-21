@@ -131,7 +131,7 @@ if ("serviceWorker" in navigator) {
     .catch(() => {});
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type === "notification-navigate") {
-      emit("notification:open-session", { sessionId: event.data.sessionId });
+      emit("notification:openSession", { sessionId: event.data.sessionId });
     } else if (event.data?.type === "notification-open-dispatch-queue") {
       // sw.js へ受信を ack する（届いていればURL遷移フォールバックを起こさせないため）。
       event.ports?.[0]?.postMessage("ack");

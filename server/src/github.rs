@@ -1,4 +1,4 @@
-//! GitHub CLI 連携 API（Python 側 `api/routers/github.py` + `api/gh_utils.py` の移植）。
+//! GitHub CLI 連携 API。
 //!
 //! `gh` CLI を subprocess で叩き、ワークスペース単位で 30 秒 TTL キャッシュする
 //! （Actions/PR ピルの 30 秒ポーリング `GITHUB_POLL_INTERVAL_MS` と同周期にし、
@@ -89,7 +89,7 @@ fn normalize_issue_state(state: Option<&str>) -> &'static str {
     }
 }
 
-pub async fn issues(
+pub async fn list_issues(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     Query(query): Query<IssuesQuery>,
@@ -120,7 +120,7 @@ pub async fn issues(
     .await
 }
 
-pub async fn pulls(
+pub async fn list_pulls(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     _auth: RequireAuth,
@@ -142,7 +142,7 @@ pub async fn pulls(
     .await
 }
 
-pub async fn runs(
+pub async fn list_runs(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     _auth: RequireAuth,

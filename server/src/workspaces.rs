@@ -1,5 +1,4 @@
-//! ワークスペースの一覧・ステータス・登録・設定・削除・候補
-//! （Python 側 `api/routers/workspaces.py` の移植）。
+//! ワークスペースの一覧・ステータス・登録・設定・削除・候補。
 //!
 //! - GET /workspaces のサマリ・GET /workspaces/statuses とも、`~/...` 形式で保存された
 //!   パスは展開してから判定する（応答の `path` は保存された文字列のまま返す）。
@@ -368,7 +367,7 @@ pub struct AddWorkspaceRequest {
     group_id: Option<String>,
 }
 
-pub async fn add_workspace(
+pub async fn create_workspace(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
     JsonBody(body): JsonBody<AddWorkspaceRequest>,

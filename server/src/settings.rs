@@ -1,5 +1,4 @@
-//! 設定 API（Python 側 `api/routers/settings.py` のサブセット移植 +
-//! `api/routers/workspaces.py` の PUT /workspace-order）。
+//! 設定 API（各種グローバル設定の GET/PUT + PUT /workspace-order）。
 //!
 //! config.json のグローバルセクションを読み書きするルートを移行する。
 //! GET/PUT /settings/auth（auth.json ドメイン）は `crate::auth` 側に実装がある
@@ -33,7 +32,10 @@ fn save_global(store: &ConfigStore, key: &str, value: Value) -> Result<(), ApiEr
 
 // ─── /settings/config-health・/settings/export・/settings/import ────────────
 
-pub async fn config_health(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+pub async fn get_config_health(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+) -> Json<Value> {
     Json(state.config.check_health())
 }
 
@@ -695,7 +697,7 @@ pub async fn put_recent_jobs(
     Ok(Json(json!({"status": "ok", "recent_jobs": recent_jobs})))
 }
 
-// ─── PUT /workspace-order（workspaces.py から）──────────────────────────────
+// ─── PUT /workspace-order ───────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct WorkspaceOrderRequest {

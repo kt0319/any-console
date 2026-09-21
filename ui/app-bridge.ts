@@ -22,7 +22,7 @@ export const BUS_EVENTS = Object.freeze([
   "keyboard:setDraft",
   "layout:fitAll",
   "modal:close",
-  "notification:open-session",
+  "notification:openSession",
   "settings:open",
   "tab:close",
   "tab:refresh",

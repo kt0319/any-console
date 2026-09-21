@@ -1,7 +1,7 @@
 //! any-console Rust バックエンド（全ルートをネイティブ実装 — 移行の経緯は docs/RUST_MIGRATION.md）。
 //!
 //! バイナリ（main.rs）と統合テストが共有するライブラリ部。モジュール構成は
-//! Python 側 `api/` のファイル構成に対応させている（移植元の追跡を容易にするため）。
+//! 移植元だった Python `api/` のファイル構成に由来する。
 
 pub mod activity;
 pub mod agent_hooks;
@@ -123,8 +123,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .merge(auth_routes())
         .merge(push_routes())
         .fallback(fallback::handle)
-        // Python main.py の add_middleware 順（後着が外殻）を踏襲:
-        // SecurityHeaders → RateLimit → ClientLog → ルート
+        // 後着の layer が外殻になる: SecurityHeaders → RateLimit → ClientLog → ルート
         .layer(axum::middleware::from_fn(middleware::client_log))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
@@ -157,7 +156,7 @@ fn system_routes() -> AppRouter {
 
 fn settings_routes() -> AppRouter {
     Router::new()
-        .route("/settings/config-health", get(settings::config_health))
+        .route("/settings/config-health", get(settings::get_config_health))
         .route("/settings/export", get(settings::export_settings))
         .route("/settings/import", post(settings::import_settings))
         .route(
@@ -305,9 +304,9 @@ fn git_routes() -> AppRouter {
                 .post(git_worktree::create_worktree)
                 .delete(git_worktree::delete_worktree),
         )
-        .route("/workspaces/{name}/github/issues", get(github::issues))
-        .route("/workspaces/{name}/github/pulls", get(github::pulls))
-        .route("/workspaces/{name}/github/runs", get(github::runs))
+        .route("/workspaces/{name}/github/issues", get(github::list_issues))
+        .route("/workspaces/{name}/github/pulls", get(github::list_pulls))
+        .route("/workspaces/{name}/github/runs", get(github::list_runs))
 }
 
 fn jobs_routes() -> AppRouter {
@@ -345,7 +344,7 @@ fn workspace_routes() -> AppRouter {
     Router::new()
         .route(
             "/workspaces",
-            get(workspaces::list_workspaces).post(workspaces::add_workspace),
+            get(workspaces::list_workspaces).post(workspaces::create_workspace),
         )
         .route(
             "/workspaces/statuses",
