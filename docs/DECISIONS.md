@@ -86,12 +86,13 @@
 
 ### 7. CLAUDE.md を主とし AGENTS.md は symlink
 
-- **Status**: Accepted
+- **Status**: Superseded（下記 Update 参照）
 - **Date**: 2026-02
 - **Context**: AI コーディングエージェントが読む規約ファイルの命名が `CLAUDE.md`（Claude Code）と `AGENTS.md`（他ツール）で分かれている状況。
 - **Decision**: `CLAUDE.md` を実体ファイルとし、`AGENTS.md` はそのシンボリックリンクにする。
 - **Consequences**: どちらの命名規則にも対応しつつ、内容の二重管理を避けられる。
 - **Alternatives considered**: 両方を実体ファイルにする — 内容の乖離が生じやすい。`AGENTS.md` のみにする — Claude Code が読めない。
+- **Update**: 現行は逆構成。`AGENTS.md` を実体ファイルとし、`CLAUDE.md` は `@AGENTS.md` の1行だけを置いて Claude Code の import 機能で読み込む（symlink は使わない）。他ツールが標準で読む `AGENTS.md` を正にしつつ、Claude Code からも同じ内容が見える。
 
 ---
 
@@ -104,7 +105,7 @@
 - **Consequences**: `tomllib` 標準化・`TaskGroup`・型ヒントの改善・パフォーマンス向上の恩恵を受けられる。古い環境への対応コストを払わなくて済む。個人ツールなので LTS 範囲であれば十分。
 - **Alternatives considered**: 3.9 / 3.10 — 対応バージョンは広がるが、型ヒントの表現力と標準ライブラリの充実度で 3.11 が明確に優れる。
 - **Update (2026-08, RUST_MIGRATION.md Phase 6)**: バックエンドは Rust へ完全移行し `api/` は削除済み。Python 3.11+ の要件自体は残るが、対象は `./any-console` ランチャー自身の JSON 操作ヘルパーのみ（バージョン非依存の処理のため実際には撤廃してもよいが、要件を変えるメリットが薄く現状維持）。バックエンドとしての Python 依存は無くなった。
-- **Update (2026-08)**: ランチャーの JSON 操作ヘルパーも `any-console-server` 自身の CLI サブコマンド（`server/src/cli.rs` — config / workspaces / jobs / auth / tailscale / paths）へ統合し、python3 のランタイム依存を完全に撤廃した。Python バージョン要件はもう存在しない。
+- **Update (2026-08)**: ランチャーの JSON 操作ヘルパーも `any-console-server` 自身の CLI サブコマンド（`server/src/cli.rs` — config / workspaces / jobs / hooks / auth / tailscale / paths）へ統合し、python3 のランタイム依存を完全に撤廃した。Python バージョン要件はもう存在しない。
 
 ---
 
@@ -121,7 +122,7 @@
 
 ### 10. PWA (Service Worker + manifest) の採用
 
-- **Status**: Accepted
+- **Status**: Accepted（オフラインキャッシュ部分は廃止済み — 下記 Update 参照。現行の `ui/sw.js` はプッシュ通知のみ）
 - **Date**: 2026-05
 - **Context**: モバイルファースト (ADR #5) の帰結として、ホーム画面への追加・standalone 表示・Tailscale 経由でのコールドスタート短縮が必要だった。
 - **Decision**: `manifest.json` + `ui/sw.js` を採用。キャッシュ名は `any-console-{git-short-hash}` とし、ビルド時に vite.config.js が置換することでデプロイごとに自動で cache busting される。キャッシュ対象は API を denylist で除外するのではなく、**静的アセットを allowlist する**方式とする（`isCacheableAsset`：ナビゲーション・`STATIC_ASSET_PATHS`・`STATIC_ASSET_PREFIXES` のみ network-first でキャッシュし、該当しないリクエスト＝API ルート・動的リソースは素通し）。precache 一覧（`ASSETS_TO_CACHE`）はビルド時に vite.config.js の `closeBundle` が `dist/` を再帰走査して `__PRECACHE_ASSETS__` プレースホルダへ注入し、手で保守しない（sw.js 自身は除外、ナビゲーション用に `./` を補う）。
@@ -224,7 +225,7 @@
   2. **gh CLI タイムアウトを 30 秒→8 秒に短縮**（`api/common.py` の `GITHUB_CLI_TIMEOUT_SEC`）: スレッド占有時間の上限を下げてプール枯渇を緩和する。8 秒は遅い回線でも gh が正常応答する十分な時間。
   3. **バイナリ diff を文字化けで通過させる**（`api/git_utils.py` の `run_git_raw`）: `encoding="utf-8", errors="replace"` を指定し、バイナリバイトを `U+FFFD` に置換して続行する。diff 内容として意味はないが 500 エラーは出なくなる。
   4. **WebSocket ping 設定を明示**（`api/main.py`）: `ws_ping_interval=30, ws_ping_timeout=60` を uvicorn.run に追加。デフォルト（interval=20s, timeout=20s）より長くして、短い中断でターミナルセッションが切断されないようにする。
-  5. **フロント疎通判定閾値を緩和**（`ui/utils/constants.js`）: `CONNECTIVITY_PING_TIMEOUT_MS: 2000→5000`、`CONNECTIVITY_OFFLINE_THRESHOLD: 2→3`。RPi の一時的な高負荷（2〜3 秒）を「オフライン」と誤判定しなくなる。
+  5. **フロント疎通判定閾値を緩和**（`ui/utils/constants.js`、現 `constants.ts`）: `CONNECTIVITY_PING_TIMEOUT_MS: 2000→5000`、`CONNECTIVITY_OFFLINE_THRESHOLD: 2→3`。RPi の一時的な高負荷（2〜3 秒）を「オフライン」と誤判定しなくなる。
 - **Consequences**: dotfiles ワークスペースを開いても「connection lost」が発生しなくなった。gh CLI が詰まっても `/auth/check` はスレッドプールを使わないため疎通確認が影響を受けない。バイナリファイルを含む diff は文字化けになるが、UI に表示する差分として許容範囲。ping timeout を長くしたことで、ネットワークが数十秒切断した場合にセッション終了の検知が遅れる可能性はあるが、モバイル運用では誤検知コストの方が大きいと判断した。
 - **Alternatives considered**: **スレッドプールを拡張**（`asyncio.get_event_loop().set_default_executor(ThreadPoolExecutor(max_workers=N))`）— 根本対策ではなく、gh CLI タスクが増えると同じ問題が再発する。**gh CLI 呼び出しをキャッシュ**— 有効だが実装コストが高く、今回はタイムアウト短縮と async 化で十分だった。**gh CLI を非同期プロセスに変更**（`asyncio.create_subprocess_exec`）— より根本的だが全呼び出し箇所の改修が必要。現状のタイムアウト短縮で実用上問題ないため先送り。
 ---

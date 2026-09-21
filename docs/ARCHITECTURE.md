@@ -58,9 +58,9 @@ server/                       Backend (Rust, axum)
                                execute_git_action wrappers with activity logging
   src/git_info.rs              Per-workspace git-status collection pipeline (parallel queries,
                                TTL cache with stale-overwrite guard)
-  src/{workspaces,groups,jobs,terminal,system,system_info,system_update,settings,github,dispatch,job_runner,pairing,upload_image}.rs
+  src/{workspaces,groups,jobs,terminal,system,system_info,system_update,settings,github,docker,dispatch,job_runner,pairing,upload_image}.rs
                                Route handlers (system = tmux management; system_info = /system/info
-                               probes; system_update = git-based self-update; pairing = QR code
+                               probes; system_update = git-based self-update; docker = container detection; pairing = QR code
                                device pairing; short-lived, single-use tokens — see DECISIONS.md #28)
   src/git_{branches,diff,files,history,worktree}.rs  Git route handlers (branch ops, diffs,
                                file browse/upload/download, log/commit/stash, worktrees)
@@ -98,5 +98,5 @@ this to keep test state fully isolated from a real deployment.
 | `composables/useApi.ts` | Shared API layer. Response format changes affect all callers. |
 | `utils/constants.ts` | Grep all references before changing a value. |
 | `app-bridge.ts` | Event bus. Renaming events requires updating both `emit` and `on` sides. Subscribe from components/composables via `composables/useBusListener.ts` (auto-unsubscribes on scope dispose); call `on` directly only for app-lifetime singleton listeners. |
-| `composables/useListDragSort.ts` | Shared drag-sort for vertical lists (info-pill config, workspace group headers). Uses pointer events + hit-detection. New sortable lists should use this instead of a custom implementation. Workspace rows (`useWorkspaceListDrag.ts`, cross-group dragging) and tab reordering (native HTML5 DnD in `TabItem.vue`) are separate implementations. |
+| `composables/useListDragSort.ts` | Shared drag-sort for vertical lists (workspace group headers via `useWorkspaceOrdering.ts`). Uses pointer events + hit-detection. New sortable lists should use this instead of a custom implementation. Workspace rows (`useWorkspaceListDrag.ts`, cross-group dragging) and tab reordering (native HTML5 DnD in `TabItem.vue`) are separate implementations. |
 | `styles/drag-utils.css` | Global CSS for `.drag-handle`, `.drag-source`, `.drag-over-above/below`. All vertical-list drag rows must use these classes (tabs use their own local styles). |

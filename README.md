@@ -157,6 +157,8 @@ Key fields on the request body (`server/src/dispatch.rs`):
 | `job` | Job key to launch (default: `terminal`) |
 | `text` | Text to send to the session (e.g. a shell command) |
 | `branch` | Checkout this branch before running (rejected with 400 if the workspace has uncommitted changes and the branch differs from the current one) |
+| `create_branch` / `base_branch` | Create `branch` (from `base_branch`, default: current HEAD) when it does not exist yet, instead of failing |
+| `worktree` | Target the git worktree of `workspace` that has this branch checked out, instead of the base checkout |
 | `dedup_key` | Opaque string; a new request with the same key replaces the still-pending one instead of queuing a duplicate (useful for repeated CI-failure dispatches) |
 | `image_paths` | Server-local file paths (e.g. from `POST /upload-image`); on run, they're appended to `text` as `Image: <path>` lines so CLI agents in the session can read them with their own file tools — they are not sent as binary data |
 
@@ -246,7 +248,7 @@ any-console started as a tool built for daily real-world use, and it stays close
 to that origin: pragmatic, opinionated, and focused on what actually gets used.
 
 - **Issues and PRs are welcome.** Responses may take a while, but they are read.
-- **The project has a clear design philosophy** (see `CLAUDE.md`). Contributions
+- **The project has a clear design philosophy** (see `AGENTS.md`). Contributions
   that fit that direction are the easiest to land; ones that pull elsewhere may
   work better as a fork — that is the spirit of MIT.
 - **Releases come when they're ready.** A quiet month does not mean the project is

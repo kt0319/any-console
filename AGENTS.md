@@ -118,6 +118,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（Stash は Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへの他者コミットの反映
   - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること
+  - `dispatch.spec.js`: Dispatch（POST /dispatch でキューに投入した項目）のワークスペース詳細 Dispatch タブでの一覧表示・Run・Discard（一時 git リポジトリをワークスペース登録し、afterAll で後始末）
   - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（Job detected トースト・タブアイコンの即時切替え）
   - `split.spec.js`: タブドラッグによるターミナル分割（SplitModeSelector での軸切替えは `tests/ui/components/test_SplitModeSelector.js` で担保）
   - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログの Open からの proxy 経由アクセス
@@ -294,7 +295,7 @@ apiGet(..., {
 
 ## リストの並べ替え
 
-並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。InfoPill 設定（`InfoPillConfig.vue`）/ workspace Groups（`WorkspaceOpen.vue`）が既存例。Tabs はネイティブ HTML5 DnD の別実装)
+並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。workspace Groups（`WorkspaceOpen.vue` / `useWorkspaceOrdering.ts`）が既存例。Tabs はネイティブ HTML5 DnD の別実装)
 
 ---
 

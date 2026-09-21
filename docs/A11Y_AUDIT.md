@@ -99,7 +99,7 @@
 
 ## 追加で確立した規約
 
-監査後に CLAUDE.md（UIルール → アクセシビリティ）に追記したルール:
+監査後に AGENTS.md（CSSルール → アクセシビリティ）に追記したルール:
 
 - アイコンのみのボタンには `aria-label` に加え、**`data-tooltip` も併設**して PC では hover でヒント表示する（**SHOULD**）
 - `data-tooltip` と `aria-label` は同じ文言を使う（ネイティブ `title` は表示が小さく遅いため使わず、`ui/utils/tooltip.ts` の共通ツールチップを使う — 当初は `title` 併設ルールだったが後日変更）
