@@ -26,7 +26,7 @@ import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
-import { on } from "../app-bridge.ts";
+import { useBusListener } from "../composables/useBusListener.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useAppConnectivity } from "../composables/useAppConnectivity.ts";
 import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.ts";
@@ -54,10 +54,10 @@ useAppConnectivity();
 const { showLogin, authenticated, onAuthenticated, checkAuthOnBoot } = useAppAuthGate();
 const appToast = ref<InstanceType<typeof AppToast> | null>(null);
 
+useBusListener("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
+
 onMounted(async () => {
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
-
-  on("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
 
   // ペアリング画面は未認証で開くページなので、通常の認証チェック(未認証トースト等)
   // は不要かつログイン画面のちらつきの原因になるためスキップする。

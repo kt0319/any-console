@@ -69,7 +69,8 @@ import { useSessionResume } from "../composables/useSessionResume.ts";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
-import { on, emit } from "../app-bridge.ts";
+import { emit } from "../app-bridge.ts";
+import { useBusListener } from "../composables/useBusListener.ts";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
@@ -177,50 +178,47 @@ function openWorkspaceSelection() {
   emit("workspace:openModal");
 }
 
-const bridgeCleanups: (() => void)[] = [];
+useBusListener("layout:fitAll", (detail) => {
+    connectDeferredTabs();
+  terminalBaseView.value?.fitAllTerminals(detail);
+});
+
+useBusListener("tab:select", ({ tab, skipFocus }) => {
+  activateTerminalTab(tab.id, { focus: !skipFocus });
+  if (tab.workspace) {
+    workspaceStore.selectedWorkspace = tab.workspace;
+  }
+});
+
+useBusListener("tab:close", ({ tab }) => {
+  closeTab(tab);
+  const activeTab = terminalStore.activeTab;
+  workspaceStore.selectedWorkspace = activeTab?.workspace || null;
+});
+
+useBusListener("tab:refresh", ({ tab }) => {
+  refreshTab(tab);
+});
+
+useBusListener("terminal:launch", (detail) => {
+  launchTerminal(detail);
+});
+
+useBusListener("connectivity:back", () => {
+  // サーバ復活直後、bach-off で待ち状態にある WS タブを即時再接続させる。
+  for (const tab of terminalStore.openTabs) {
+    if (tab._wsDisposed || tab.ws) continue;
+    if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
+    tab._reconnectTimer = null;
+    tab._reconnectAttempts = 0;
+    refreshTab(tab);
+  }
+});
+
+useBusListener("notification:open-session", ({ sessionId }) => { attachSessionTab(sessionId); });
 
 onMounted(() => {
-  bridgeCleanups.push(on("layout:fitAll", (detail) => {
-    connectDeferredTabs();
-    terminalBaseView.value?.fitAllTerminals(detail);
-  }));
-
-  bridgeCleanups.push(on("tab:select", ({ tab, skipFocus }) => {
-    activateTerminalTab(tab.id, { focus: !skipFocus });
-    if (tab.workspace) {
-      workspaceStore.selectedWorkspace = tab.workspace;
-    }
-  }));
-
-  bridgeCleanups.push(on("tab:close", ({ tab }) => {
-    closeTab(tab);
-    const activeTab = terminalStore.activeTab;
-    workspaceStore.selectedWorkspace = activeTab?.workspace || null;
-  }));
-
-  bridgeCleanups.push(on("tab:refresh", ({ tab }) => {
-    refreshTab(tab);
-  }));
-
-  bridgeCleanups.push(on("terminal:launch", (detail) => {
-    launchTerminal(detail);
-  }));
-
   loadSnippetCache();
-
-  bridgeCleanups.push(on("connectivity:back", () => {
-    // サーバ復活直後、bach-off で待ち状態にある WS タブを即時再接続させる。
-    for (const tab of terminalStore.openTabs) {
-      if (tab._wsDisposed || tab.ws) continue;
-      if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
-      tab._reconnectTimer = null;
-      tab._reconnectAttempts = 0;
-      refreshTab(tab);
-    }
-  }));
-
-  bridgeCleanups.push(on("notification:open-session", ({ sessionId }) => { attachSessionTab(sessionId); }));
-
   initViewport((opts) => {
     terminalBaseView.value?.fitAllTerminals(opts);
   });
@@ -241,7 +239,6 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  bridgeCleanups.forEach((cleanup) => cleanup());
   stopSyncPolling();
 });
 

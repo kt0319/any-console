@@ -1,5 +1,5 @@
-import { nextTick, onUnmounted, type Ref } from "vue";
-import { on } from "../app-bridge.ts";
+import { nextTick, type Ref } from "vue";
+import { useBusListener } from "./useBusListener.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import type { usePaneLoader } from "./usePaneLoader.ts";
 
@@ -22,45 +22,38 @@ export function useWorkspaceDetailEvents(deps: {
 }) {
   const workspaceStore = useWorkspaceStore();
 
-  const offHandlers = [
-    on("git:openFileModal", (detail) => {
-      deps.open(detail);
-    }),
+  useBusListener("git:openFileModal", (detail) => {
+    deps.open(detail);
+  });
 
-    on("worktree:open", ({ name, pane } = {}) => {
-      if (name) workspaceStore.selectedWorkspace = name;
-      deps.open({ pane: pane || "jobs" });
-    }),
+  useBusListener("worktree:open", ({ name, pane } = {}) => {
+    if (name) workspaceStore.selectedWorkspace = name;
+    deps.open({ pane: pane || "jobs" });
+  });
 
-    on("git:selectDirty", () => {
-      deps.clearDiffSelection();
-    }),
+  useBusListener("git:selectDirty", () => {
+    deps.clearDiffSelection();
+  });
 
-    on("git:selectDiffFile", (detail) => {
-      deps.switchPane("files");
-      deps.selectDiffFile(detail);
-    }),
+  useBusListener("git:selectDiffFile", (detail) => {
+    deps.switchPane("files");
+    deps.selectDiffFile(detail);
+  });
 
-    on("git:browseToFolder", ({ path }) => {
-      deps.activePane.value = "files";
-      deps.clearDiffSelection();
-      // navigateToPath が読み込みを担うため、files ペインはロード済み扱いにする
-      deps.paneLoader.markLoaded("files", workspaceStore.selectedWorkspace);
-      deps.updateViewTitle();
-      nextTick(() => deps.fileBrowser.value?.navigateToPath(path));
-    }),
+  useBusListener("git:browseToFolder", ({ path }) => {
+    deps.activePane.value = "files";
+    deps.clearDiffSelection();
+    // navigateToPath が読み込みを担うため、files ペインはロード済み扱いにする
+    deps.paneLoader.markLoaded("files", workspaceStore.selectedWorkspace);
+    deps.updateViewTitle();
+    nextTick(() => deps.fileBrowser.value?.navigateToPath(path));
+  });
 
-    on("git:commitDone", () => {
-      if (deps.activePane.value === "history") {
-        deps.gitHistory.value?.reload();
-      } else {
-        deps.paneLoader.invalidate("history");
-      }
-    }),
-
-  ];
-
-  onUnmounted(() => {
-    offHandlers.forEach((off) => off());
+  useBusListener("git:commitDone", () => {
+    if (deps.activePane.value === "history") {
+      deps.gitHistory.value?.reload();
+    } else {
+      deps.paneLoader.invalidate("history");
+    }
   });
 }

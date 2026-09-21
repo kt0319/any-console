@@ -17,9 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { on } from "../app-bridge.ts";
+import { useBusListener } from "../composables/useBusListener.ts";
 import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 import { openExternal } from "../utils/open-external.ts";
 
@@ -36,9 +36,7 @@ async function doUrlCopy() {
   await copy(terminalUrl.value);
 }
 
-onMounted(() => {
-  on("terminal:url", ({ uri }) => { terminalUrl.value = uri; copied.value = false; });
-});
+useBusListener("terminal:url", ({ uri }) => { terminalUrl.value = uri; copied.value = false; });
 </script>
 
 <style scoped>

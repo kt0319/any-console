@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, type PropType } from "vue";
+import { computed, onMounted, ref, watch, type PropType } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchImagePaste } from "../composables/useDispatchImagePaste.ts";
@@ -132,7 +132,7 @@ import { useToast } from "../composables/useToast.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
-import { on } from "../app-bridge.ts";
+import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 // Session select の「新規セッション」を表す特別値。
@@ -300,12 +300,11 @@ onMounted(() => {
 });
 
 // 実行に失敗した項目は同じIDで履歴（failed）へ移るので、画面を閉じずに再実行モードとして続ける。
-const offItemRemoved = on("dispatch:itemRemoved", ({ id }) => {
+useBusListener("dispatch:itemRemoved", ({ id }) => {
   if (id !== itemId) return;
   if (recent.value.some((r) => r.id === itemId && r.outcome === "failed")) return;
   emits("back");
 });
-onUnmounted(offItemRemoved);
 
 watch(() => request.value?.retry_count, (count) => {
   if (initialRetryCount.value !== null && count !== undefined && count !== initialRetryCount.value) {

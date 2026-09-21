@@ -31,13 +31,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
+import { ref, computed, inject, onMounted, watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useRecentJobs } from "../composables/useRecentJobs.ts";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
-import { emit, on } from "../app-bridge.ts";
+import { emit } from "../app-bridge.ts";
+import { useBusListener } from "../composables/useBusListener.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_COMMON_JOBS } from "../utils/endpoints.ts";
 import { jobCommandPreview } from "../utils/format.ts";
@@ -166,14 +167,13 @@ function startEditJob(job: Job, isCommon: boolean) {
   });
 }
 
-const offJobsRefresh = on("jobs:refresh", () => {
+useBusListener("jobs:refresh", () => {
   commonJobsCache = null;
   for (const key of Object.keys(wsJobsCache)) delete wsJobsCache[key];
   load();
 });
 
 onMounted(() => load());
-onBeforeUnmount(() => offJobsRefresh());
 
 watch(workspace, () => load());
 

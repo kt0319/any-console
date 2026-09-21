@@ -1,5 +1,6 @@
-import { ref, computed, nextTick, onUnmounted, watch, type Ref } from "vue";
-import { on, emit } from "../app-bridge.ts";
+import { ref, computed, nextTick, watch, type Ref } from "vue";
+import { emit } from "../app-bridge.ts";
+import { useBusListener } from "./useBusListener.ts";
 
 /**
  * KeyboardBar の入力 / スニペット状態とキーボード開閉を管理する。
@@ -70,13 +71,10 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }: {
     hideInput();
   }
 
-  const cleanups = [
-    on("keyboard:deactivate", hideInput),
-    on("keyboard:setDraft", ({ command }) => {
-      draft.value = command;
-    }),
-  ];
-  onUnmounted(() => cleanups.forEach((fn) => fn()));
+  useBusListener("keyboard:deactivate", hideInput);
+  useBusListener("keyboard:setDraft", ({ command }) => {
+    draft.value = command;
+  });
 
   // 入力モード切替で keyboard-bar の高さが変わると terminal 領域も縮む / 広がる。
   // ResizeObserver の debounce を待たず、即座に fit を要求して旧サイズでの描画を最小化する。
