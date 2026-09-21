@@ -103,13 +103,39 @@ async fn serve_static_or_404(state: Arc<AppState>, path: &str) -> Response {
         .into_response()
 }
 
+type AppRouter = Router<Arc<AppState>>;
+
+/// 画像アップロード（dispatch 添付・ワークスペースへのファイル投入）の本文上限。
+const UPLOAD_BODY_LIMIT_BYTES: usize = 12 * 1024 * 1024;
+
 pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(index))
         // QRペアリング画面は "/" と同じ SPA シェル（解釈はフロント側が行う）
         .route("/pair/{pairing_id}", get(index))
         .route("/sw.js", get(sw_js))
-        // ─── system ─────────────────────────────────────────────────────────
+        .merge(system_routes())
+        .merge(settings_routes())
+        .merge(git_routes())
+        .merge(jobs_routes())
+        .merge(workspace_routes())
+        .merge(terminal_routes())
+        .merge(auth_routes())
+        .merge(push_routes())
+        .fallback(fallback::handle)
+        // Python main.py の add_middleware 順（後着が外殻）を踏襲:
+        // SecurityHeaders → RateLimit → ClientLog → ルート
+        .layer(axum::middleware::from_fn(middleware::client_log))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            middleware::rate_limit,
+        ))
+        .layer(axum::middleware::from_fn(middleware::security_headers))
+        .with_state(state)
+}
+
+fn system_routes() -> AppRouter {
+    Router::new()
         .route("/system/info", get(system_info::info))
         .route("/system/processes", get(system::processes))
         .route("/system/process/kill", post(system::process_kill))
@@ -121,10 +147,16 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/client-errors", post(system::client_errors))
         .route(
             "/upload-image",
-            post(upload_image::upload_image)
-                .layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
+            post(upload_image::upload_image).layer(axum::extract::DefaultBodyLimit::max(
+                UPLOAD_BODY_LIMIT_BYTES,
+            )),
         )
-        // ─── settings / groups ──────────────────────────────────────────────
+        .route("/preview/ports", get(preview::list_detected_ports))
+        .route("/docker/containers", get(docker::list_detected_containers))
+}
+
+fn settings_routes() -> AppRouter {
+    Router::new()
         .route("/settings/config-health", get(settings::config_health))
         .route("/settings/export", get(settings::export_settings))
         .route("/settings/import", post(settings::import_settings))
@@ -164,7 +196,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             put(groups::update_group).delete(groups::delete_group),
         )
         .route("/group-order", put(groups::update_group_order))
-        // ─── git 履歴/差分/コミット/スタッシュ ──────────────────────────────
+}
+
+/// `/workspaces/{name}/...` 配下の git 操作（履歴・差分・ブランチ・ファイル・worktree・GitHub）。
+fn git_routes() -> AppRouter {
+    Router::new()
         .route("/workspaces/{name}/git-log", get(git_history::git_log))
         .route(
             "/workspaces/{name}/unpulled-log",
@@ -211,7 +247,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(git_diff::file_commit_diff),
         )
         .route("/workspaces/{name}/git/discard", post(git_diff::discard))
-        // ─── git ブランチ/ファイル/worktree/GitHub ──────────────────────────
         .route(
             "/workspaces/{name}/branches",
             get(git_branches::list_branches),
@@ -254,7 +289,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         .route(
             "/workspaces/{name}/upload",
-            post(git_files::upload).layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
+            post(git_files::upload).layer(axum::extract::DefaultBodyLimit::max(
+                UPLOAD_BODY_LIMIT_BYTES,
+            )),
         )
         .route("/workspaces/{name}/rename", post(git_files::rename))
         .route(
@@ -271,7 +308,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/workspaces/{name}/github/issues", get(github::issues))
         .route("/workspaces/{name}/github/pulls", get(github::pulls))
         .route("/workspaces/{name}/github/runs", get(github::runs))
-        // ─── ジョブ CRUD / recent-jobs
+}
+
+fn jobs_routes() -> AppRouter {
+    Router::new()
         .route("/jobs/workspaces", get(jobs::list_all_workspace_jobs))
         .route(
             "/workspaces/{name}/jobs",
@@ -298,7 +338,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/recent-jobs",
             get(settings::get_recent_jobs).put(settings::put_recent_jobs),
         )
-        // ─── ワークスペース一覧/登録/設定 + status stream ───────────────────
+}
+
+/// ワークスペース一覧/登録/設定 + status stream。
+fn workspace_routes() -> AppRouter {
+    Router::new()
         .route(
             "/workspaces",
             get(workspaces::list_workspaces).post(workspaces::add_workspace),
@@ -320,7 +364,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/workspaces/{name}/config",
             put(workspaces::update_workspace_config),
         )
-        // ─── ターミナル / dispatch / run + agent-hooks ───
+}
+
+/// ターミナル / dispatch / run + agent-hooks。
+fn terminal_routes() -> AppRouter {
+    Router::new()
         .route("/terminal/sessions", get(terminal::list_terminal_sessions))
         .route(
             "/terminal/sessions/{session_id}/history",
@@ -365,14 +413,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/agent-hooks/events",
             post(agent_hooks::post_agent_hook_event),
         )
-        // ─── dev server ポートプレビュー ────────────────────────────────────
-        .route("/preview/ports", get(preview::list_detected_ports))
-        // ─── Docker コンテナ検出 ─────────────────────────────────────────
-        .route("/docker/containers", get(docker::list_detected_containers))
-        // ─── 認証ドメイン（devices.json / auth.json） ───────────────────────
-        // devices.json・auth.json への書き込みが Python/Rust の両方から起きる
-        // split-brain を避けるため、この一群は同時に配線する（atomic cutover —
-        // `server/src/devices.rs` / `server/src/pairing.rs` の module doc 参照）。
+}
+
+/// 認証ドメイン（devices.json / auth.json / pairing）。
+/// devices.json・auth.json への書き込みが Python/Rust の両方から起きる
+/// split-brain を避けるため、この一群は同時に配線する（atomic cutover —
+/// `server/src/devices.rs` / `server/src/pairing.rs` の module doc 参照）。
+fn auth_routes() -> AppRouter {
+    Router::new()
         .route("/auth/check", get(auth::auth_check))
         .route("/auth/logout", post(auth::auth_logout))
         .route("/devices/register", post(devices::register))
@@ -399,21 +447,13 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/auth/pairing/{pairing_id}/claim",
             post(pairing::claim_pairing),
         )
-        // ─── Web Push ───────────────────────────────────────────────────────
+}
+
+fn push_routes() -> AppRouter {
+    Router::new()
         .route("/push/vapid-public-key", get(push::vapid_public_key_route))
         .route(
             "/push/subscribe",
             post(push::subscribe_route).delete(push::unsubscribe_route),
         )
-        // ────────────────────────────────────────────────────────────────
-        .fallback(fallback::handle)
-        // Python main.py の add_middleware 順（後着が外殻）を踏襲:
-        // SecurityHeaders → RateLimit → ClientLog → ルート
-        .layer(axum::middleware::from_fn(middleware::client_log))
-        .layer(axum::middleware::from_fn_with_state(
-            state.clone(),
-            middleware::rate_limit,
-        ))
-        .layer(axum::middleware::from_fn(middleware::security_headers))
-        .with_state(state)
 }
