@@ -55,7 +55,7 @@ watch(
    WorkspaceDetailModal.vue と共用する。 */
 .modal {
   position: relative;
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
   padding: 12px 0 0;
   width: 100%;
   max-width: 100%;
