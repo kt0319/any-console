@@ -57,4 +57,25 @@ describe("useEditorIntegration: openInEditor のモバイル挙動", () => {
     expect(emitMock).not.toHaveBeenCalled();
     windowOpenSpy.mockRestore();
   });
+
+  it("workspace_pathが`~/`始まりでも{host}と連結する前に絶対パスへ展開する", async () => {
+    isTouchInputMock.mockReturnValue(false);
+    const windowOpenSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { useEditorIntegration } = await freshModule();
+    const { openInEditor, editorUrlTemplate, systemInfo } = useEditorIntegration();
+    editorUrlTemplate.value = "zed://ssh/{user}@{host}{workspace_path}";
+    systemInfo.value = { user: "k-takasaki", hostname: "mini.local", home_dir: "/Users/k-takasaki" };
+    const workspaceStore = useWorkspaceStore();
+    workspaceStore.allWorkspaces = [{ name: "any-console", path: "~/work/any-console" }];
+    workspaceStore.selectedWorkspace = "any-console";
+
+    openInEditor("");
+
+    expect(windowOpenSpy).toHaveBeenCalledWith(
+      "zed://ssh/k-takasaki@mini.local/Users/k-takasaki/work/any-console",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    windowOpenSpy.mockRestore();
+  });
 });

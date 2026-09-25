@@ -13,7 +13,7 @@ export function useEditorIntegration() {
   const { apiGet } = useApi();
 
   const editorUrlTemplate = ref("");
-  const systemInfo = ref<{ user?: string, hostname?: string }>({});
+  const systemInfo = ref<{ user?: string, hostname?: string, home_dir?: string }>({});
 
   async function fetchEditorSettings() {
     try {
@@ -34,7 +34,14 @@ export function useEditorIntegration() {
     const tmpl = editorUrlTemplate.value;
     if (!tmpl) return "";
     const workspace = workspaceStore.selectedWorkspace || "";
-    const workspacePath = workspaceStore.currentWorkspace?.path || "";
+    const rawWorkspacePath = workspaceStore.currentWorkspace?.path || "";
+    // ワークスペースpathはサーバーから `~/...` 形式（表示用）で返る。
+    // {host}{workspace_path} をそのまま連結すると `mini.local~/...` のような
+    // 不正なホスト名になってしまうため、絶対パスに展開してから埋め込む。
+    const homeDir = systemInfo.value.home_dir || "";
+    const workspacePath = homeDir && rawWorkspacePath.startsWith("~/")
+      ? homeDir + rawWorkspacePath.slice(1)
+      : rawWorkspacePath;
     let url = tmpl
       .replace(/\{user\}/g, systemInfo.value.user || "")
       .replace(/\{host\}/g, systemInfo.value.hostname || "")
@@ -58,6 +65,7 @@ export function useEditorIntegration() {
 
   return {
     editorUrlTemplate,
+    systemInfo,
     fetchEditorSettings,
     buildEditorUrl,
     openInEditor,

@@ -285,6 +285,12 @@ pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Jso
     let mut info = Map::new();
     info.insert("hostname".into(), Value::String(hostname()));
     info.insert("user".into(), Value::String(current_user()));
+    if let Some(home) = std::env::var_os("HOME") {
+        info.insert(
+            "home_dir".into(),
+            Value::String(home.to_string_lossy().into_owned()),
+        );
+    }
     info.insert(
         "install_dir".into(),
         Value::String(root.to_string_lossy().into_owned()),

@@ -66,6 +66,7 @@ async fn system_info_served_natively() {
     assert!(body["hostname"].is_string());
     assert!(body["user"].is_string());
     assert!(body["install_dir"].is_string());
+    assert!(body["home_dir"].is_string());
     // Linux では disk / memory も取れるはず
     assert!(body["disk"].as_str().unwrap_or("").contains("GB"));
     assert!(body["memory"].as_str().unwrap_or("").contains("GB"));
