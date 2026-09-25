@@ -43,9 +43,19 @@ export function useRecentJobs() {
     safeJsonSave(LS_KEY_RECENT_JOBS, recentJobs.value);
   }
 
-  async function _syncToServer() {
+  // PUTをawaitせず連打すると、後発のリクエストが先に完了して古い並び順で
+  // サーバー側を上書きしてしまうことがある（実行順とレスポンス順が一致しない
+  // ネットワークの逆転）。同時に1本しか投げないようにし、既に送信中なら
+  // その完了を待ってから次を送る（先頭の呼び出しは同期的にすぐ送る）。
+  let _inFlight: Promise<unknown> | null = null;
+  function _syncToServer() {
     const recent_jobs = recentJobs.value;
-    await apiPut(EP_RECENT_JOBS, { recent_jobs }, { errorMessage: "Failed to save recent jobs" });
+    const send = () => apiPut(EP_RECENT_JOBS, { recent_jobs }, { errorMessage: "Failed to save recent jobs" });
+    const run = _inFlight ? _inFlight.then(send, send) : send();
+    _inFlight = run.finally(() => {
+      if (_inFlight === run) _inFlight = null;
+    });
+    return _inFlight;
   }
 
   async function loadRecentJobs() {
