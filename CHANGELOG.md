@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1](https://github.com/kt0319/any-console/compare/v0.19.0...v0.19.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* Recent Jobs保存PUTの逆転レースでピン留め順が巻き戻る不具合を修正 ([83c080b](https://github.com/kt0319/any-console/commit/83c080b782a08998ed1189d0f7ddd3fd9541605d))
+* 閉じるピルにtouch-actionを指定しAndroidでのタップ判定を改善 ([13ed4a5](https://github.com/kt0319/any-console/commit/13ed4a5c7182ffc77ece0c40a5c50451863b496c))
+
 ## [0.19.0](https://github.com/kt0319/any-console/compare/v0.18.0...v0.19.0) (2026-09-25)
 
 
