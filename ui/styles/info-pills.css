@@ -427,6 +427,10 @@
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
+  /* .pill-trailing の pan-x と違い兄弟要素で継承されないため個別指定。
+     Android Chromeはviewportのuser-scalable=noを無視するため、これが無いと
+     ダブルタップズーム判定でタップが遅延・誤判定されることがある。 */
+  touch-action: manipulation;
 }
 
 .pill-minus-btn {
