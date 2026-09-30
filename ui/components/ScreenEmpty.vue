@@ -82,6 +82,7 @@ import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints
 import { useLayoutStore } from "../stores/layout.ts";
 import { usePushNotification } from "../composables/usePushNotification.ts";
 import { usePwaInstall } from "../composables/usePwaInstall.ts";
+import { useToast } from "../composables/useToast.ts";
 import { SCREEN_EMPTY_PINNED_JOBS_MAX } from "../utils/constants.ts";
 import StatusOverlay from "./StatusOverlay.vue";
 import RecentJobsList from "./RecentJobsList.vue";
@@ -126,6 +127,7 @@ const { promptInstall } = usePwaInstall();
 // PWAインストール済み(=isPwa)の場合に出すpush通知の導線。
 // PWA未インストールの間はブラウザ通知の信頼性が低いため、インストール後に出す。
 const push = usePushNotification();
+const toast = useToast();
 const eligibleEnableNotifications = computed(() =>
   layoutStore.isPwa && push.isSupported && push.permission.value !== "denied"
 );
@@ -208,7 +210,8 @@ async function installPwa() {
 }
 
 async function enableNotifications() {
-  await push.subscribe();
+  const result = await push.subscribe();
+  if (!result.ok) toast.error(result.message);
 }
 
 function openTerminal() {

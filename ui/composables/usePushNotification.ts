@@ -7,6 +7,8 @@ const _supported = typeof PushManager !== "undefined" && "serviceWorker" in navi
 const permission = ref<"default" | "granted" | "denied">(typeof Notification !== "undefined" ? Notification.permission : "denied");
 const subscription = ref<PushSubscription | null>(null);
 
+export type SubscribeResult = { ok: true } | { ok: false, message: string };
+
 /** base64url → Uint8Array（VAPID applicationServerKey 変換用） */
 function _urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -40,35 +42,49 @@ export function usePushNotification() {
     return data.publicKey;
   }
 
-  async function subscribe() {
-    if (!_supported) return false;
+  async function subscribe(): Promise<SubscribeResult> {
+    if (!_supported) return { ok: false, message: "Push notifications aren't supported in this browser." };
     try {
       const perm = await Notification.requestPermission();
       permission.value = perm;
-      if (perm !== "granted") return false;
+      if (perm !== "granted") {
+        return {
+          ok: false,
+          message: perm === "denied"
+            ? "Notification permission was denied. Allow it in your browser/OS settings and try again."
+            : "Notification permission wasn't granted.",
+        };
+      }
 
       const reg = await _getRegistration();
-      if (!reg) return false;
+      if (!reg) return { ok: false, message: "Service worker isn't ready yet. Try again in a moment." };
 
       const vapidKey = await _fetchVapidKey();
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: _urlBase64ToUint8Array(vapidKey),
       });
-      subscription.value = sub;
 
       const subJson = sub.toJSON();
-      await auth.apiFetch(EP_PUSH_SUBSCRIBE, {
+      const res = await auth.apiFetch(EP_PUSH_SUBSCRIBE, {
         method: "POST",
         body: {
           endpoint: subJson.endpoint,
           keys: subJson.keys,
         },
       });
-      return true;
+      if (!res?.ok) {
+        // ブラウザ側の購読だけ残ると「Setup完了」表示のまま実際には通知が
+        // 届かない状態になる。サーバ登録に失敗したら購読自体を戻す。
+        await sub.unsubscribe().catch(() => {});
+        return { ok: false, message: "Failed to register with the server. Please try again." };
+      }
+      subscription.value = sub;
+      return { ok: true };
     } catch (e) {
       console.error("Push subscribe failed:", e);
-      return false;
+      const detail = e instanceof Error ? e.message : String(e);
+      return { ok: false, message: `Failed to enable push notifications: ${detail}` };
     }
   }
 

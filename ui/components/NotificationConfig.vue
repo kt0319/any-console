@@ -63,6 +63,7 @@
 import { ref, onMounted, watch } from "vue";
 import { usePushNotification } from "../composables/usePushNotification.ts";
 import { useApi } from "../composables/useApi.ts";
+import { useToast } from "../composables/useToast.ts";
 import { EP_SETTINGS_NOTIFICATIONS } from "../utils/endpoints.ts";
 import {
   LS_KEY_NOTIF_PREFS,
@@ -78,6 +79,7 @@ modalTitle!.value = "Notifications";
 
 const { isSupported, isSubscribed, permission, subscribe, unsubscribe, init } = usePushNotification();
 const { apiGet, apiPut } = useApi();
+const toast = useToast();
 const loading = ref(false);
 const graceSec = ref(PHRASE_NOTIFY_GRACE_SEC_DEFAULT);
 let graceSecLoaded = false;
@@ -128,7 +130,8 @@ async function onToggle() {
   if (isSubscribed.value) {
     await unsubscribe();
   } else {
-    await subscribe();
+    const result = await subscribe();
+    if (!result.ok) toast.error(result.message);
   }
   loading.value = false;
 }
