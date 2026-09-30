@@ -28,7 +28,7 @@ let loaded = false;
 
 export function useRecentJobs() {
   const { confirm } = useConfirm();
-  const { apiGet, apiPut } = useApi();
+  const { apiGet, apiPut, wsEndpoint } = useApi();
 
   // ピン留め済みを先頭にまとめ、そのあとを実行が新しい順にする。
   // 上限 RECENT_JOBS_MAX は非ピン留め分にのみ適用し、ピン留めは何件でも保持する。
@@ -133,26 +133,46 @@ export function useRecentJobs() {
     await _syncToServer();
   }
 
-  /** Recent Jobs 一覧から選んだジョブをターミナルとして起動する。 */
+  /**
+   * Recent Jobs 一覧から選んだジョブをターミナルとして起動する。
+   * 保存済みの jobCommand は記録時点のスナップショットで古びる可能性があるため、
+   * 起動直前にワークスペースの現在のジョブ定義を取り直して上書きする
+   * （ジョブが改名・削除されていた場合はスナップショットのまま実行する）。
+   */
   async function runRecentJob(recent: RecentJob) {
-    if (recent.jobConfirm !== false) {
-      const preview = jobCommandPreview(recent.jobCommand, recent.jobName);
-      if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
+    const { ok, data } = await apiGet(wsEndpoint(recent.workspace, "jobs"));
+    const latest = ok ? data?.[recent.jobName] : null;
+    const current = latest
+      ? {
+          ...recent,
+          jobLabel: latest.label || "",
+          jobIcon: latest.icon || "",
+          jobIconColor: latest.icon_color || "",
+          jobCommand: latest.command || "",
+          jobConfirm: latest.confirm ?? null,
+          jobDetached: !!latest.detached,
+        }
+      : recent;
+
+    if (current.jobConfirm !== false) {
+      const preview = jobCommandPreview(current.jobCommand, current.jobName);
+      if (!await confirm(`${current.jobLabel || current.jobName}\n\n${preview}`)) return;
     }
     // 再実行時も最新実行として先頭へ移動する（recordJobと同じ並び替え）。
-    _touch(recent);
+    // 取り直した最新定義で保存内容も更新しておく。
+    _touch(current);
     // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
     // のopenTerminal/runJobと同様）。
     emit("terminal:launch", {
-      workspace: recent.workspace,
-      icon: recent.wsIcon,
-      iconColor: recent.wsIconColor,
-      jobName: recent.jobName,
-      jobLabel: recent.jobLabel,
-      jobIcon: recent.jobIcon,
-      jobIconColor: recent.jobIconColor,
-      initialCommand: recent.jobCommand,
-      detached: !!recent.jobDetached,
+      workspace: current.workspace,
+      icon: current.wsIcon,
+      iconColor: current.wsIconColor,
+      jobName: current.jobName,
+      jobLabel: current.jobLabel,
+      jobIcon: current.jobIcon,
+      jobIconColor: current.jobIconColor,
+      initialCommand: current.jobCommand,
+      detached: !!current.jobDetached,
     });
   }
 

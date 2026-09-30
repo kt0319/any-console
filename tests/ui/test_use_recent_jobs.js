@@ -11,7 +11,11 @@ const apiGetMock = vi.fn();
 const apiPutMock = vi.fn(async () => ({ ok: true, data: { status: "ok" } }));
 
 vi.mock("../../ui/composables/useApi.ts", () => ({
-  useApi: () => ({ apiGet: apiGetMock, apiPut: apiPutMock }),
+  useApi: () => ({
+    apiGet: apiGetMock,
+    apiPut: apiPutMock,
+    wsEndpoint: (workspace, path) => `/workspaces/${workspace}/${path}`,
+  }),
 }));
 
 vi.mock("../../ui/composables/useConfirm.ts", () => ({
@@ -200,6 +204,55 @@ describe("useRecentJobs: 再実行時の並び替え", () => {
     await runRecentJob(recentJobs.value.find((j) => j.key === "ws2:deploy"));
 
     expect(recentJobs.value.map((j) => j.key)).toEqual(["ws1:build", "ws2:deploy", "ws3:test"]);
+  });
+});
+
+describe("useRecentJobs: 起動時の最新ジョブ定義取得", () => {
+  it("runRecentJob は保存済みスナップショットでなくワークスペースの現在のジョブ定義で起動する", async () => {
+    apiGetMock.mockImplementation(async (endpoint) => {
+      if (endpoint === "/recent-jobs") {
+        return {
+          ok: true,
+          data: { recent_jobs: [job("ws1:build", { jobCommand: "old command", jobConfirm: false })] },
+        };
+      }
+      if (endpoint === "/workspaces/ws1/jobs") {
+        return { ok: true, data: { build: { label: "Build", command: "new command", confirm: false, detached: false } } };
+      }
+      return { ok: true, data: {} };
+    });
+    const { emit } = await import("../../ui/app-bridge.ts");
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    await runRecentJob(recentJobs.value.find((j) => j.key === "ws1:build"));
+
+    expect(emit).toHaveBeenCalledWith("terminal:launch", expect.objectContaining({ initialCommand: "new command" }));
+    expect(recentJobs.value.find((j) => j.key === "ws1:build").jobCommand).toBe("new command");
+  });
+
+  it("ジョブが改名・削除済みの場合は保存済みスナップショットのまま起動する", async () => {
+    apiGetMock.mockImplementation(async (endpoint) => {
+      if (endpoint === "/recent-jobs") {
+        return {
+          ok: true,
+          data: { recent_jobs: [job("ws1:build", { jobCommand: "old command", jobConfirm: false })] },
+        };
+      }
+      if (endpoint === "/workspaces/ws1/jobs") {
+        return { ok: true, data: {} };
+      }
+      return { ok: true, data: {} };
+    });
+    const { emit } = await import("../../ui/app-bridge.ts");
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    await runRecentJob(recentJobs.value.find((j) => j.key === "ws1:build"));
+
+    expect(emit).toHaveBeenCalledWith("terminal:launch", expect.objectContaining({ initialCommand: "old command" }));
   });
 });
 
