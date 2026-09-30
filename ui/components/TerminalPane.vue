@@ -1,7 +1,7 @@
 <template>
   <div
     class="terminal-pane"
-    :class="{ active: isActive }"
+    :class="{ active: isActive, 'terminal-pane-drop-active': isImageDropActive }"
     ref="paneEl"
     @pointerdown.capture="onPointerDown"
     @touchstart="onTouchStart"
@@ -10,6 +10,10 @@
     @touchcancel="onTouchCancel"
     @contextmenu="onContextMenu"
     @mousedown="onMouseDown"
+    @dragenter="onImageDragEnter"
+    @dragover="onImageDragOver"
+    @dragleave="onImageDragLeave"
+    @drop="onImageDrop"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeypad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
@@ -114,6 +118,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { ACTIVE_FIT_DELAY_MS, PANE_PILL_TRAILING_RESERVED_PX } from "../utils/constants.ts";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.ts";
 import { useTerminalPaste } from "../composables/useTerminalPaste.ts";
+import { useTerminalImageDrop } from "../composables/useTerminalImageDrop.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.ts";
 import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
@@ -282,6 +287,13 @@ const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onM
   onSelectPane: (idx) => emits("select-pane", idx),
 });
 useTerminalPaste({ tab: tabRef, isActive });
+const {
+  isDropActive: isImageDropActive,
+  onDragEnter: onImageDragEnter,
+  onDragOver: onImageDragOver,
+  onDragLeave: onImageDragLeave,
+  onDrop: onImageDrop,
+} = useTerminalImageDrop({ tab: tabRef });
 
 function clearActiveFitTimer() {
   if (activeFitTimer) {
@@ -456,6 +468,23 @@ defineExpose({
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.terminal-pane-drop-active::after {
+  content: "Drop image to paste";
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: rgba(76, 175, 80, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .terminal-frame {
