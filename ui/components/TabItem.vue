@@ -283,9 +283,13 @@ function onClosePress() {
   line-height: 1;
 }
 
-/* 画面が狭い時はアイコンのみ表示にするため、ラベルは常に畳む。 */
+/* 画面が狭い時はアイコンのみ表示にするため、ラベルは常に畳む。
+   max-widthだけでなくmax-heightも0にする — 閉じるボタン（.tab-close、24px固定）
+   が幅は畳まれても高さ方向はそのまま残り、タブの実高さを押し上げてタブバーが
+   タブの有無で高さが変わってしまう原因になっていた。 */
 .tab-btn.tab-narrow .tab-extra {
   max-width: 0;
+  max-height: 0;
   margin-left: -6px;
   opacity: 0;
 }

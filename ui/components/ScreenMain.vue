@@ -368,10 +368,9 @@ defineExpose({
   order: 2;
   position: relative;
   padding-bottom: 0;
-  /* モバイルの.tab-btn（padding 12px 16px）はTabBar.vue既定のmin-height(37px)
-     より実高さが大きく、タブが1件も無い時（.tab-barが空）だけ37pxに縮んで
+  /* タブが1件も無い時（.tab-barが空）は行の実高さがpaddingだけで縮んで
      見えてしまう。タブ有無で行の高さが変わらないよう、タップターゲットの
-     推奨サイズ（44px）をここで床にする。 */
+     推奨サイズ（44px）をTabBar.vue既定値と同じ値でここでも床にする。 */
   min-height: 44px;
 }
 
