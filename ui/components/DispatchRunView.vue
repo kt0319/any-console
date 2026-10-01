@@ -9,7 +9,7 @@
     <div v-if="request" class="ws-settings-section">
       <div class="ws-settings-row">
         <span class="ws-settings-label">Session</span>
-        <select v-model="selectedSessionId" class="form-input">
+        <select v-model="selectedSessionId" class="form-input" :disabled="isAsyncPending(sessionsState)">
           <option :value="NEW_SESSION_VALUE">+ New session</option>
           <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
             {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}{{ s.session_id === currentSessionId ? ' (this session)' : '' }}
