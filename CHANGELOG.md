@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0](https://github.com/kt0319/any-console/compare/v0.19.0...v0.20.0) (2026-10-02)
+
+
+### Features
+
+* ターミナルへの画像ドラッグ&ドロップ貼り付けに対応 ([59a4ce0](https://github.com/kt0319/any-console/commit/59a4ce06c1a55928cd21ee0f0099ab4dfdb50a0e))
+
+
+### Bug Fixes
+
+* Dispatch実行画面のSession選択をセッション一覧読み込み中は操作不可に修正 ([19cb462](https://github.com/kt0319/any-console/commit/19cb462802feb92bcead7dad1605ce83b6477727))
+* Job起動を連打した時に多重にタブが開いてしまう不具合を修正 ([a510880](https://github.com/kt0319/any-console/commit/a5108806f89414d53facb6a02c6ac365c81f78b6))
+* Recent Jobs保存PUTの逆転レースでピン留め順が巻き戻る不具合を修正 ([83c080b](https://github.com/kt0319/any-console/commit/83c080b782a08998ed1189d0f7ddd3fd9541605d))
+* Recent Jobs起動時に古いコマンドのまま実行されないよう最新のジョブ定義を取り直すよう修正 ([7604afb](https://github.com/kt0319/any-console/commit/7604afb55766da526e3e98ffe0372af2d351c994))
+* Stash Popを連打した時に多重実行されてしまう不具合を修正 ([b00d6de](https://github.com/kt0319/any-console/commit/b00d6debfa4217115e360c8b995d047d512d8754))
+* タブが0件の時だけタブバーの高さが縮む不具合を修正 ([5f276bf](https://github.com/kt0319/any-console/commit/5f276bf5c660d5be98cce2b1f7d9271df73a66b8))
+* 通知有効化の失敗を可視化しサーバ未登録の購読を残さないよう修正 ([0898764](https://github.com/kt0319/any-console/commit/08987647cd57832c717e7e84f3a588aaea5375d5))
+* 閉じるピルにtouch-actionを指定しAndroidでのタップ判定を改善 ([13ed4a5](https://github.com/kt0319/any-console/commit/13ed4a5c7182ffc77ece0c40a5c50451863b496c))
+
 ## [0.19.0](https://github.com/kt0319/any-console/compare/v0.18.0...v0.19.0) (2026-09-25)
 
 
