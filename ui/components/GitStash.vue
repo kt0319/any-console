@@ -10,8 +10,8 @@
           <span v-if="entry.time" class="stash-entry-time">{{ entry.time }}</span>
         </div>
         <div class="stash-entry-actions">
-          <button type="button" class="commit-action-item" @click="stashPop(entry)">Pop</button>
-          <button type="button" class="commit-action-item commit-action-danger" @click="stashDrop(entry)">Drop</button>
+          <button type="button" class="commit-action-item" :disabled="popping" @click="stashPop(entry)">Pop</button>
+          <button type="button" class="commit-action-item commit-action-danger" :disabled="popping" @click="stashDrop(entry)">Drop</button>
         </div>
       </div>
     </div>
@@ -36,6 +36,9 @@ const { withWorkspace } = useWorkspace();
 const stashEntries = ref<StashEntry[]>([]);
 const isStashListLoading = ref(false);
 const stashListEl = ref<HTMLElement | null>(null);
+// Pop中は一覧がズレる（popしたエントリが消える）ため、連打での多重popや
+// 入れ替わり後の誤ったエントリへのDropを防ぐためPop/Drop両方をブロックする。
+const popping = ref(false);
 
 async function loadStashList() {
   await withWorkspace(async (workspace) => {
@@ -56,13 +59,19 @@ async function loadStashList() {
 }
 
 async function stashPop(entry: StashEntry) {
-  await withWorkspace(async (workspace) => {
-    const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash pop failed" });
-    if (!ok) return;
-    invalidateStashCache(workspace);
-    await loadStashList();
-    bridgeEmit("git:commitDone");
-  });
+  if (popping.value) return;
+  popping.value = true;
+  try {
+    await withWorkspace(async (workspace) => {
+      const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash pop failed" });
+      if (!ok) return;
+      invalidateStashCache(workspace);
+      await loadStashList();
+      bridgeEmit("git:commitDone");
+    });
+  } finally {
+    popping.value = false;
+  }
 }
 
 async function stashDrop(entry: StashEntry) {
