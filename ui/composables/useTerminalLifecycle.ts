@@ -108,12 +108,16 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
   });
 
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, detached }: LaunchTerminalOptions) {
+    // 起動ボタン側は個別にdisabled化していないため、ここで多重起動を防ぐ
+    // （collectCommandVarsのawait前に連打されると素通りしてしまうため、
+    // フラグは呼び出し直後に立てる。タブ生成・activate後は解除してよい
+    // ので、以降のnextTick/fitAllTerminals/waitForNextPaintの間は
+    // ブロックしない — 連続して別タブを開く正当な操作まで阻害しないため）。
+    if (isLaunching.value) return;
+    isLaunching.value = true;
     try {
       const commandVars = await collectCommandVars(initialCommand, prompt);
       if (commandVars === null) return; // プレースホルダー入力がキャンセルされた
-      // タブがまだ存在しない間、現在のアクティブタブを操作できてしまわないよう
-      // タブ作成完了までブロックする。
-      isLaunching.value = true;
       // セッションに紐付ける（TMUX_ICONとして永続化され、他デバイスやServer
       // Processes等サーバ側の情報からも見える）アイコンは、ジョブ固有のものが
       // あればそちらを優先する（タブ表示側は従来通り両方使うため見た目には影響しない）。
@@ -173,6 +177,7 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       // ベアターミナル（ワークスペース・ジョブどちらにも紐付かない）のみ対象。
       // ワークスペース/ジョブに紐付く場合はラベルが既に意味を持つため上書きしない。
       if (!workspace && !jobName && !jobLabel) applyBareTerminalCwdLabel(tab.id, data.session_id);
+      isLaunching.value = false;
       await nextTick();
       terminalBaseView.value?.fitAllTerminals();
       activateTerminalTab(tab.id);
