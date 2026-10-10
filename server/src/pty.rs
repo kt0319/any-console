@@ -227,27 +227,47 @@ impl AsyncPty {
     }
 }
 
-/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る（Python
-/// `close_pty` の後半部分相当）。fd のクローズは呼び出し側の責務
-/// （`Arc<AsyncPty>` 等、複数箇所が参照を共有する場合は最後の drop で自然に
-/// close されるため、ここでは pid の刈り取りだけを独立して行えるようにする）。
-pub fn terminate(pid: Pid) {
-    use nix::sys::signal::{kill, Signal};
+/// SIGTERM 後に自然終了を待つ猶予（Python の 0.1 秒猶予と同一）。
+const TERMINATE_GRACE: std::time::Duration = std::time::Duration::from_millis(100);
+/// SIGKILL 後の刈り取りを待つ上限。SIGKILL は即座に効くが、カーネルが
+/// プロセスをゾンビにするまで数 ms 掛かる（直後の WNOHANG は StillAlive になる）。
+const REAP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+const REAP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(5);
+
+/// 子の終了を刈り取り済みか（終了済みを今回刈り取った、または既に刈り取り済み）。
+fn try_reap(pid: Pid) -> bool {
     use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
-    if kill(pid, Signal::SIGTERM).is_err() {
-        return;
-    }
-    let still_alive = matches!(
+    !matches!(
         waitpid(pid, Some(WaitPidFlag::WNOHANG)),
         Ok(WaitStatus::StillAlive)
-    );
-    if still_alive {
-        // Python の 0.1 秒猶予と同一
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        // 猶予中に終了していれば ESRCH / ECHILD になるだけ
-        let _ = kill(pid, Signal::SIGKILL);
-        let _ = waitpid(pid, Some(WaitPidFlag::WNOHANG));
+    )
+}
+
+/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送り、確実に刈り取る
+/// （Python `close_pty` の後半部分相当）。fd のクローズは呼び出し側の責務
+/// （`Arc<AsyncPty>` 等、複数箇所が参照を共有する場合は最後の drop で自然に
+/// close されるため、ここでは pid の刈り取りだけを独立して行えるようにする）。
+/// 刈り取りを SIGKILL 直後の1回で諦めると、終了処理中の子がゾンビとして残り続ける。
+pub fn terminate(pid: Pid) {
+    use nix::sys::signal::{kill, Signal};
+    // 既に終了・刈り取り済み（ESRCH）でも waitpid は試す
+    let _ = kill(pid, Signal::SIGTERM);
+    if try_reap(pid) {
+        return;
     }
+    std::thread::sleep(TERMINATE_GRACE);
+    if try_reap(pid) {
+        return;
+    }
+    let _ = kill(pid, Signal::SIGKILL);
+    let deadline = std::time::Instant::now() + REAP_TIMEOUT;
+    while std::time::Instant::now() < deadline {
+        if try_reap(pid) {
+            return;
+        }
+        std::thread::sleep(REAP_POLL_INTERVAL);
+    }
+    tracing::warn!("child not reaped after SIGKILL pid={pid}");
 }
 
 /// PTY をクローズし、子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る
@@ -281,6 +301,31 @@ mod tests {
                 || resolve_in_path("/usr/bin/sh", "").is_some()
         );
         assert!(resolve_in_path("/no/such/path-xyz", "").is_none());
+    }
+
+    /// SIGTERM を無視する子（終了に時間が掛かる tmux クライアント相当）でも、
+    /// `terminate` が返った時点で刈り取り済み（ゾンビが残らない）であること。
+    /// master は開いたまま呼ぶ（本番の `close_client_bridge` と同じ順序）。
+    #[test]
+    fn terminate_reaps_child_that_ignores_sigterm() {
+        use nix::errno::Errno;
+        use nix::sys::wait::{waitpid, WaitPidFlag};
+        let spec = ExecSpec::resolve(
+            "sh",
+            &["-c", "trap '' TERM HUP; while :; do sleep 1; done"],
+            &[("PATH", "/usr/bin:/bin")],
+        )
+        .unwrap();
+        let child = spawn(&spec, 80, 24).unwrap();
+        let pid = child.pid;
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        terminate(pid);
+        assert_eq!(
+            waitpid(pid, Some(WaitPidFlag::WNOHANG)),
+            Err(Errno::ECHILD),
+            "child must already be reaped by terminate()"
+        );
+        drop(child.master);
     }
 
     #[tokio::test]
