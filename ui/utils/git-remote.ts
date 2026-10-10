@@ -22,6 +22,20 @@ const ZERO_COMMIT_TEXT: Record<RemoteLabel, string> = {
 };
 const DETAIL_SEPARATOR = " • ";
 
+/**
+ * コミット件名を連結する。total が件名数より多い時は末尾に残件数を付ける。
+ * （サーバ応答の commits.messages / git-log の先頭N件のどちらにも使う）
+ */
+export function formatCommitSubjects(subjects: string[], total: number): string {
+  if (!subjects.length) return "";
+  const parts = [...subjects];
+  const remaining = total - subjects.length;
+  if (remaining > 0) {
+    parts.push(`… and ${remaining} more`);
+  }
+  return parts.join(DETAIL_SEPARATOR);
+}
+
 export function buildRemoteResult(
   label: RemoteLabel,
   data: { commits?: { count?: number, messages?: unknown[] } } | null | undefined,
@@ -33,13 +47,9 @@ export function buildRemoteResult(
   }
   const messages = Array.isArray(commits?.messages) ? commits.messages : [];
   const subjects = messages.map((m) => String(m).split("\n")[0]);
-  const remaining = count - subjects.length;
-  if (remaining > 0) {
-    subjects.push(`… and ${remaining} more`);
-  }
   return {
     kind: label === "Pull" ? "pull" : "push",
     headline: `${count} ${PAST_TENSE_VERB[label]}`,
-    detail: subjects.join(DETAIL_SEPARATOR),
+    detail: formatCommitSubjects(subjects, count),
   };
 }

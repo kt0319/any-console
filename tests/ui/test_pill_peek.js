@@ -188,10 +188,10 @@ describe("buildPeekText", () => {
 });
 
 describe("usePillPeek", () => {
-  function mountPillPeek() {
+  function mountPillPeek(opts = {}) {
     const branch = ref("main");
-    const ahead = ref(3);
-    const behind = ref(0);
+    const ahead = ref(opts.ahead ?? 3);
+    const behind = ref(opts.behind ?? 0);
     const branchPillOn = ref(true);
     const trailingPeekItems = computed(() => branchPillOn.value
       ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }]
@@ -210,6 +210,7 @@ describe("usePillPeek", () => {
           ahead,
           behind,
           peekFields,
+          fetchRecentSubjects: opts.fetchRecentSubjects,
         });
         return () => h("div");
       },
@@ -290,6 +291,42 @@ describe("usePillPeek", () => {
       await vi.advanceTimersByTimeAsync(3000);
       expect(peek.peekingKey.value).toBe("branch");
       expect(peek.branchRemoteResult.value).toEqual(result);
+    });
+  });
+  describe("CLI・エージェント経由のpush/pull（件名の取得）", () => {
+    it("push完了の検出で件名を取得してpeekに添える", async () => {
+      const fetchRecentSubjects = vi.fn(async () => ["feat: a", "fix: b", "docs: c"]);
+      const { peek, ahead } = mountPillPeek({ ahead: 3, fetchRecentSubjects });
+      ahead.value = 0;
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("branch");
+      expect(peek.branchRemoteResult.value).toMatchObject({ kind: "push", headline: "3 Pushed" });
+      expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 3);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2022 fix: b \u2022 docs: c");
+      expect(peek.peekSignature.value).toContain("feat: a");
+    });
+
+    it("pull完了の検出でも件名を添える（件名数が件数より少なければ残件数を付ける）", async () => {
+      const fetchRecentSubjects = vi.fn(async () => ["feat: a", "fix: b", "docs: c"]);
+      const { peek, behind } = mountPillPeek({ ahead: 0, behind: 5, fetchRecentSubjects });
+      behind.value = 0;
+      await nextTick();
+      expect(peek.branchRemoteResult.value).toMatchObject({ kind: "pull", headline: "5 Pulled" });
+      expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 3);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2022 fix: b \u2022 docs: c \u2022 \u2026 and 2 more");
+    });
+
+    it("件名の取得に失敗（空配列）しても「N Pushed」のpeekは出る", async () => {
+      const { peek, ahead } = mountPillPeek({ ahead: 2, fetchRecentSubjects: async () => [] });
+      ahead.value = 0;
+      await nextTick();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(peek.branchRemoteResult.value).toMatchObject({ kind: "push", headline: "2 Pushed", detail: "" });
     });
   });
 });

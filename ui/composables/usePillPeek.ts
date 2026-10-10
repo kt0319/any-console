@@ -1,6 +1,6 @@
-import { computed, ref, watch, onBeforeUnmount, type ComputedRef, type Ref } from "vue";
-import { PILL_PEEK_DURATION_MS, PILL_PEEK_REMOTE_DURATION_MS, PILL_PEEK_REMOTE_DEDUP_MS } from "../utils/constants.ts";
-import type { RemoteResult } from "../utils/git-remote.ts";
+import { computed, reactive, ref, watch, onBeforeUnmount, type ComputedRef, type Ref } from "vue";
+import { PILL_PEEK_DURATION_MS, PILL_PEEK_REMOTE_DURATION_MS, PILL_PEEK_REMOTE_DEDUP_MS, PILL_PEEK_SUBJECT_MAX } from "../utils/constants.ts";
+import { formatCommitSubjects, type RemoteResult } from "../utils/git-remote.ts";
 import { useBusListener } from "./useBusListener.ts";
 import {
   trailingItemsSignature,
@@ -23,6 +23,7 @@ export function usePillPeek({
   ahead,
   behind,
   peekFields,
+  fetchRecentSubjects,
 }: {
   trailingPeekItems: ComputedRef<{ key: string, text: string }[]>,
   paneWorkspace: ComputedRef<Record<string, any> | undefined>,
@@ -33,6 +34,9 @@ export function usePillPeek({
   ahead: Ref<number>,
   behind: Ref<number>,
   peekFields: ComputedRef<Record<string, any>>,
+  // HEADから新しい順に先頭count件のコミット件名を返す（失敗時は空配列）。CLI・エージェント
+  // 経由のpush/pull（APIの結果が無い検出ベースのpeek）に件名を添えるために使う。
+  fetchRecentSubjects?: (workspace: string, count: number) => Promise<string[]>,
 }) {
   const peekingKey = ref<string | null>(null);
   // このpeekが実際に表示される時間（キューで分割された場合はPILL_PEEK_DURATION_MSより
@@ -149,6 +153,22 @@ export function usePillPeek({
         const coveredByRemoteResult = (pushCount > 0 || pullCount > 0)
           && Date.now() - lastRemoteResultAt < PILL_PEEK_REMOTE_DEDUP_MS;
         if (coveredByRemoteResult) continue;
+        const workspace = workspaceKey();
+        const exactlyOneDirection = (pushCount > 0) !== (pullCount > 0);
+        if (changed.key === "branch" && exactlyOneDirection && fetchRecentSubjects && workspace) {
+          // 件名は取得でき次第detailへ反映する（取得前・失敗時は「N Pushed/Pulled」のみ）。
+          const total = pushCount || pullCount;
+          const remote = reactive<RemoteResult>({
+            kind: pushCount > 0 ? "push" : "pull",
+            headline: `${total} ${pushCount > 0 ? "Pushed" : "Pulled"}`,
+            detail: "",
+          });
+          triggerPeek("branch", 0, 0, remote);
+          void fetchRecentSubjects(workspace, Math.min(total, PILL_PEEK_SUBJECT_MAX)).then((subjects) => {
+            remote.detail = formatCommitSubjects(subjects, total);
+          });
+          continue;
+        }
         triggerPeek(changed.key, pushCount, pullCount);
       }
     }

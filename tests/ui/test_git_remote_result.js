@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildRemoteResult } from "../../ui/utils/git-remote.ts";
+import { buildRemoteResult, formatCommitSubjects } from "../../ui/utils/git-remote.ts";
 
 describe("buildRemoteResult", () => {
   it("コミットなしのPullはPulledと区別できる専用文言", () => {
@@ -49,5 +49,19 @@ describe("buildRemoteResult", () => {
       detail: "feat: first push",
     });
     expect(buildRemoteResult("Push (set upstream)", {}).headline).toBe("Nothing to push");
+  });
+});
+
+describe("formatCommitSubjects", () => {
+  it("件名を区切り文字で連結する", () => {
+    expect(formatCommitSubjects(["a", "b"], 2)).toBe("a \u2022 b");
+  });
+
+  it("件名が総数より少なければ残件数を付ける", () => {
+    expect(formatCommitSubjects(["a", "b", "c"], 5)).toBe("a \u2022 b \u2022 c \u2022 \u2026 and 2 more");
+  });
+
+  it("件名が空なら空文字（総数だけでは何も出さない）", () => {
+    expect(formatCommitSubjects([], 4)).toBe("");
   });
 });

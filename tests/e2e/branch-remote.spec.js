@@ -142,4 +142,43 @@ test.describe("branch modal push/pull と History の連動", () => {
     await expect(peek).toContainText("test: e2e ローカルコミット (push確認用)");
     await expect(pushBtn).not.toBeVisible({ timeout: 10_000 });
   });
+  test("CLIでpush/pullしても、ピークピルに件数とコミット件名が出る", async ({ page }) => {
+    await createWorkspaceSession(page);
+    await page.goto("/");
+    // ピルのあるターミナルタブが出るまで待ち、初期表示のpeekが落ち着くのを待つ
+    await expect(page.locator(".tab-btn").first()).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(5000);
+
+    // UIを介さず（エージェント等がターミナルで実行する想定）pushする
+    const pushSubject = "test: e2e CLIからpushしたコミット";
+    fs.appendFileSync(path.join(wsDir, "README.md"), "\ncli push\n");
+    git(wsDir, "add", ".");
+    git(wsDir, "commit", "-m", pushSubject);
+    // aheadがUIに反映された（ブランチピルに↑1が出る）状態でpushする。反映前にpushすると
+    // 「ahead>0から0へ」の変化を観測できない
+    const aheadCount = page.locator(".pill-branch-btn .push-count");
+    await expect(aheadCount).toBeVisible({ timeout: 20_000 });
+    git(wsDir, "push", "-q", "origin", "main");
+
+    const peek = page.locator(".pill-peek-wide");
+    await expect(peek).toContainText("1 Pushed", { timeout: 20_000 });
+    await expect(peek).toContainText(pushSubject, { timeout: 10_000 });
+    await page.waitForTimeout(6500);
+
+    // 他クローンの新規コミットをCLIでpullする
+    const pullSubject = "feat: 他クローンから積んだCLI pull用コミット";
+    // 他クローンはこのテストのCLI pushを取り込んでからコミットする（取り込まないとpushが拒否される）
+    git(otherCloneDir, "pull", "-q", "--ff-only", "origin", "main");
+    fs.writeFileSync(path.join(otherCloneDir, "cli-pull.txt"), "x\n");
+    git(otherCloneDir, "add", ".");
+    git(otherCloneDir, "commit", "-m", pullSubject);
+    git(otherCloneDir, "push", "-q", "origin", "main");
+    git(wsDir, "fetch", "-q", "origin");
+    // behindがUIに反映された（ブランチピルに↓1が出る）状態でpullする
+    await expect(page.locator(".pill-branch-btn .pull-count")).toBeVisible({ timeout: 20_000 });
+    git(wsDir, "pull", "-q", "--ff-only", "origin", "main");
+
+    await expect(peek).toContainText("1 Pulled", { timeout: 20_000 });
+    await expect(peek).toContainText(pullSubject, { timeout: 10_000 });
+  });
 });
