@@ -10,9 +10,11 @@ import {
   EP_TERMINAL_SESSIONS,
   EP_SYSTEM_TMUX_INFO,
   EP_SYSTEM_TMUX_ADOPT,
+  EP_SYSTEM_TMUX_KILL,
   EP_JOBS_WORKSPACES,
   terminalWsPath,
   terminalSessionDetachedPath,
+  terminalSessionPath,
 } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
 
@@ -31,7 +33,7 @@ export function useDetachedSessions() {
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
   const { confirm } = useConfirm();
-  const { apiGet, apiPost, apiPut } = useApi();
+  const { apiGet, apiPost, apiPut, apiDelete } = useApi();
 
   async function loadDetachedSessions() {
     const [tmuxRes, ownedRes, jobsRes] = await Promise.all([
@@ -85,5 +87,17 @@ export function useDetachedSessions() {
     await loadDetachedSessions();
   }
 
-  return { detachedSessions, loadDetachedSessions, openDetached, adoptDetached };
+  async function closeDetached(s: DetachedSession) {
+    const label = s.workspace || s.job_label || s.job_name || s.tmux_name;
+    if (!await confirm(`Close session "${label}"? Running processes will be terminated. This cannot be undone.`)) return;
+    // 管理セッションはレジストリ・メタデータごと削除する（タブを閉じる時と同じ経路）。
+    // 外部セッションはレジストリに無いので tmux 名で kill する。
+    const { ok } = s.external
+      ? await apiPost(EP_SYSTEM_TMUX_KILL, { name: s.tmux_name }, { errorMessage: "Failed to close session" })
+      : await apiDelete(terminalSessionPath(s.session_id!), { errorMessage: "Failed to close session" });
+    if (!ok) return;
+    await loadDetachedSessions();
+  }
+
+  return { detachedSessions, loadDetachedSessions, openDetached, adoptDetached, closeDetached };
 }

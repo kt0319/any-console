@@ -15,6 +15,15 @@
         {{ s.workspace || s.job_label || s.job_name || (s.external ? s.tmux_name : "terminal") }}
       </span>
       <span v-if="s.external" class="detached-sessions-tag">external</span>
+      <span
+        class="detached-sessions-close"
+        role="button"
+        tabindex="0"
+        aria-label="Close session"
+        data-tooltip="Close session"
+        @click.stop="closeDetached(s)"
+        @keydown.enter.space.stop.prevent="closeDetached(s)"
+      ><span class="mdi mdi-close"></span></span>
     </button>
   </div>
 </template>
@@ -28,7 +37,7 @@ import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 // 取得のトリガー（マウント時・タブ数変化時）はRecentJobsList.vueと同じく
 // WorkspaceOpen.vue側が持つ（v-ifの判定にも同じdetachedSessionsを使うため）。
 
-const { detachedSessions, openDetached, adoptDetached } = useDetachedSessions();
+const { detachedSessions, openDetached, adoptDetached, closeDetached } = useDetachedSessions();
 </script>
 
 <style scoped>
@@ -75,6 +84,27 @@ const { detachedSessions, openDetached, adoptDetached } = useDetachedSessions();
   font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+.detached-sessions-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detached-sessions-close:hover {
+    color: var(--error);
+    border-color: var(--error);
+  }
 }
 
 .detached-sessions-tag {
