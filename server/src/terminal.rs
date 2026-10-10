@@ -470,25 +470,87 @@ async fn ensure_tmux_session(
     }
 }
 
-/// 入力バイト列をコマンドバッファへ反映し、Enter 時にコマンド文字列を返す
-/// （Python `_update_cmd_buffer` 相当。activity ログ用）。
-fn update_cmd_buffer(buf: &mut Vec<u8>, data: &[u8]) -> Option<String> {
-    for &b in data {
-        match b {
-            0x0D => {
-                let cmd = String::from_utf8_lossy(buf).trim().to_string();
-                buf.clear();
-                return if cmd.is_empty() { None } else { Some(cmd) };
-            }
-            0x7F | 0x08 => {
-                buf.pop();
-            }
-            0x15 => buf.clear(),
-            b if (0x20..0x7F).contains(&b) || b >= 0x80 => buf.push(b),
-            _ => {}
+/// `CmdBuffer` が ESC 始まりのシーケンスを読み飛ばす間の状態。
+/// WS のフレーム境界でシーケンスが分断されうるため、呼び出しをまたいで保持する。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EscapeState {
+    Ground,
+    Esc,
+    Csi,
+    /// OSC / DCS など。BEL または ST（ESC \）まで続く。
+    Str,
+    Ss3,
+}
+
+/// 入力バイト列から activity ログ用のコマンド文字列を組み立てる。
+/// マウス報告（`ESC [ < 35 ; x ; y M`）や端末の応答（DA・OSC 色問い合わせ）など、
+/// ユーザーが打っていない ESC シーケンスは記録しない。
+struct CmdBuffer {
+    buf: Vec<u8>,
+    escape: EscapeState,
+}
+
+impl CmdBuffer {
+    fn new() -> Self {
+        Self {
+            buf: Vec::new(),
+            escape: EscapeState::Ground,
         }
     }
-    None
+
+    /// Enter 時にコマンド文字列を返す（Python `_update_cmd_buffer` 相当）。
+    fn feed(&mut self, data: &[u8]) -> Option<String> {
+        for &b in data {
+            match self.escape {
+                EscapeState::Esc => {
+                    self.escape = match b {
+                        b'[' => EscapeState::Csi,
+                        b']' | b'P' | b'X' | b'^' | b'_' => EscapeState::Str,
+                        b'O' => EscapeState::Ss3,
+                        0x1B => EscapeState::Esc,
+                        _ => EscapeState::Ground,
+                    };
+                    continue;
+                }
+                EscapeState::Csi => {
+                    self.escape = match b {
+                        0x40..=0x7E => EscapeState::Ground,
+                        0x1B => EscapeState::Esc,
+                        _ => EscapeState::Csi,
+                    };
+                    continue;
+                }
+                EscapeState::Str => {
+                    self.escape = match b {
+                        0x07 => EscapeState::Ground,
+                        0x1B => EscapeState::Esc,
+                        _ => EscapeState::Str,
+                    };
+                    continue;
+                }
+                EscapeState::Ss3 => {
+                    self.escape = EscapeState::Ground;
+                    continue;
+                }
+                EscapeState::Ground => {}
+            }
+            match b {
+                0x1B => self.escape = EscapeState::Esc,
+                0x0D => {
+                    let cmd = String::from_utf8_lossy(&self.buf).trim().to_string();
+                    self.buf.clear();
+                    return if cmd.is_empty() { None } else { Some(cmd) };
+                }
+                0x7F | 0x08 => {
+                    self.buf.pop();
+                }
+                0x15 => self.buf.clear(),
+                b if (0x20..0x7F).contains(&b) || b >= 0x80 => self.buf.push(b),
+                _ => {}
+            }
+        }
+        None
+    }
 }
 
 async fn handle_terminal_ws(
@@ -544,7 +606,7 @@ async fn handle_terminal_ws(
 
     let mut ping_interval = tokio::time::interval(Duration::from_secs(WS_PING_INTERVAL_SEC));
     ping_interval.tick().await; // 初回 tick は即座に完了するため消費しておく
-    let mut cmd_buf: Vec<u8> = Vec::new();
+    let mut cmd_buf = CmdBuffer::new();
     let mut pty_eof = false;
 
     loop {
@@ -592,7 +654,7 @@ async fn handle_terminal_ws(
                     handle_resize(&session_arc, bridge_id, &data[1..]).await;
                 } else {
                     let workspace = { session_arc.lock().await.workspace.clone() };
-                    if let Some(cmd) = update_cmd_buffer(&mut cmd_buf, &data) {
+                    if let Some(cmd) = cmd_buf.feed(&data) {
                         crate::activity::log_activity(
                             &state.paths.data_dir,
                             workspace.as_deref(),
@@ -712,30 +774,61 @@ mod tests {
 
     #[test]
     fn cmd_buffer_extracts_command_on_enter() {
-        let mut buf = Vec::new();
-        assert_eq!(update_cmd_buffer(&mut buf, b"echo hi"), None);
-        assert_eq!(
-            update_cmd_buffer(&mut buf, b"\r"),
-            Some("echo hi".to_string())
-        );
-        assert!(buf.is_empty());
+        let mut cmd = CmdBuffer::new();
+        assert_eq!(cmd.feed(b"echo hi"), None);
+        assert_eq!(cmd.feed(b"\r"), Some("echo hi".to_string()));
+        assert!(cmd.buf.is_empty());
     }
 
     #[test]
     fn cmd_buffer_handles_backspace_and_ctrl_u() {
-        let mut buf = Vec::new();
-        update_cmd_buffer(&mut buf, b"echo bad");
-        update_cmd_buffer(&mut buf, &[0x7F, 0x7F, 0x7F]); // "bad" を消す
-        assert_eq!(String::from_utf8_lossy(&buf), "echo ");
-        update_cmd_buffer(&mut buf, &[0x15]); // Ctrl-U で全消去
-        assert!(buf.is_empty());
+        let mut cmd = CmdBuffer::new();
+        cmd.feed(b"echo bad");
+        cmd.feed(&[0x7F, 0x7F, 0x7F]); // "bad" を消す
+        assert_eq!(String::from_utf8_lossy(&cmd.buf), "echo ");
+        cmd.feed(&[0x15]); // Ctrl-U で全消去
+        assert!(cmd.buf.is_empty());
     }
 
     #[test]
     fn cmd_buffer_empty_command_is_none() {
-        let mut buf = Vec::new();
-        assert_eq!(update_cmd_buffer(&mut buf, b"   "), None);
-        assert_eq!(update_cmd_buffer(&mut buf, b"\r"), None);
+        let mut cmd = CmdBuffer::new();
+        assert_eq!(cmd.feed(b"   "), None);
+        assert_eq!(cmd.feed(b"\r"), None);
+    }
+
+    #[test]
+    fn cmd_buffer_ignores_mouse_reports() {
+        let mut cmd = CmdBuffer::new();
+        cmd.feed(b"\x1b[<35;120;21M\x1b[<35;115;18M");
+        cmd.feed(b"ls");
+        cmd.feed(b"\x1b[<0;115;37M\x1b[<0;115;37m");
+        assert_eq!(cmd.feed(b"\r"), Some("ls".to_string()));
+    }
+
+    #[test]
+    fn cmd_buffer_ignores_terminal_replies() {
+        let mut cmd = CmdBuffer::new();
+        cmd.feed(b"\x1b[?1;2c\x1b[>0;276;0c\x1b[?2026;2$y");
+        cmd.feed(b"\x1b]10;rgb:ffff/ffff/ffff\x1b\\\x1b]11;rgb:0000/0000/0000\x07");
+        cmd.feed(b"pwd");
+        assert_eq!(cmd.feed(b"\r"), Some("pwd".to_string()));
+    }
+
+    #[test]
+    fn cmd_buffer_ignores_sequence_split_across_frames() {
+        let mut cmd = CmdBuffer::new();
+        cmd.feed(b"\x1b[<35;12");
+        cmd.feed(b"0;21Mls");
+        assert_eq!(cmd.feed(b"\r"), Some("ls".to_string()));
+    }
+
+    #[test]
+    fn cmd_buffer_ignores_cursor_keys_and_keeps_pasted_text() {
+        let mut cmd = CmdBuffer::new();
+        cmd.feed(b"\x1b[A\x1bOB\x1b[1;5C");
+        cmd.feed(b"\x1b[200~echo pasted\x1b[201~");
+        assert_eq!(cmd.feed(b"\r"), Some("echo pasted".to_string()));
     }
 
     #[tokio::test]
