@@ -133,23 +133,6 @@ test.describe("dispatch", () => {
     await expect(page.locator(".dispatch-queue-recent-failed").first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test("Discardで承認待ちが削除される（確認ダイアログあり）", async ({ page }) => {
-    await postDispatch(page, { dedup_key: `e2e-discard-${Date.now()}` });
-    await openDispatchTab(page);
-
-    const pendingRow = page.locator(".dispatch-queue-pending-row").first();
-    await expect(pendingRow).toBeVisible({ timeout: 10_000 });
-    await pendingRow.click();
-
-    await page.getByRole("button", { name: /Discard dispatch/ }).click();
-    const dialog = page.locator(".confirm-dialog");
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
-    await dialog.locator(".dialog-btn-ok").click();
-
-    // 一覧へ戻り（emits("back")）、Pendingが無くなっていること。
-    await expect(page.locator(".dispatch-queue-pending-row")).toHaveCount(0, { timeout: 10_000 });
-  });
-
   test("一覧の×ボタンで確認の上、承認待ちを破棄できる（詳細画面を開かない）", async ({ page }) => {
     await postDispatch(page, { dedup_key: `e2e-list-discard-${Date.now()}` });
     await openDispatchTab(page);

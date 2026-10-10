@@ -99,7 +99,7 @@ export function useDispatchQueue() {
     return true;
   }
 
-  // DispatchRunView / 一覧の×ボタンから呼ぶ。pendingのitemのみ対象
+  // 一覧の×ボタン（discardItem経由）から呼ぶ。pendingのitemのみ対象
   // （既に決定済みのitemを破棄することはできない）。
   async function rejectItem(id: string): Promise<boolean> {
     const { ok } = await apiPost(dispatchDecisionPath(id), { executed: false },

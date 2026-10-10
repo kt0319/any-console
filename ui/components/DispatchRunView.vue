@@ -110,14 +110,6 @@
       </div>
       <div v-if="runError" class="job-config-error">{{ runError }}</div>
     </div>
-
-    <!-- 実行済み（Rerun）には破棄する承認待ちが無いため Discard は出さない -->
-    <div v-if="request && !isRerun" class="ws-settings-section ws-delete-section">
-      <button type="button" class="ws-delete-btn" :disabled="discarding" @click="discard">
-        <span class="mdi mdi-close"></span>
-        {{ discarding ? "Discarding..." : "Discard dispatch" }}
-      </button>
-    </div>
   </div>
 </template>
 
@@ -130,7 +122,6 @@ import { useDispatchRunOptions } from "../composables/useDispatchRunOptions.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
-import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
@@ -149,7 +140,7 @@ const props = defineProps({
 const emits = defineEmits(["back", "done"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const { queue, recent, runItem, discardItem } = useDispatchQueue();
+const { queue, recent, runItem } = useDispatchQueue();
 const { imagePaths, previewUrls, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
@@ -159,7 +150,7 @@ const currentSessionId = computed(() => terminalStore.activeTab?.sessionId || nu
 
 const itemId = props.itemId;
 // 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
-// recent 由来の場合は「編集して再実行」モード（isRerun）になり、Discardは出さない。
+// recent 由来の場合は「編集して再実行」モード（isRerun）になる。
 const queueItem = computed(() => queue.value.find((q) => q.id === itemId) || null);
 const recentItem = computed(() => queueItem.value ? null : (recent.value.find((r) => r.id === itemId) || null));
 const item = computed(() => queueItem.value || recentItem.value);
@@ -200,7 +191,6 @@ const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.
 const sessionsState = ref<AsyncState<Record<string, any>[]>>(asyncIdle());
 const sessions = computed(() => asyncValueOr(sessionsState.value, [] as Record<string, any>[]));
 const running = ref(false);
-const discarding = ref(false);
 const runError = ref("");
 // TTL経過でサーバ側が添付画像を削除した後のRecent item（`images_expired`
 // フラグ、server/src/dispatch.rs の sweep_expired_dispatch_images 参照）。
@@ -421,16 +411,6 @@ async function run() {
     if (ok) emits("done");
   } finally {
     running.value = false;
-  }
-}
-
-async function discard() {
-  if (discarding.value || !itemId) return;
-  discarding.value = true;
-  try {
-    if (await discardItem(itemId, dispatchWorkspaceLabel(request.value))) emits("back");
-  } finally {
-    discarding.value = false;
   }
 }
 </script>
