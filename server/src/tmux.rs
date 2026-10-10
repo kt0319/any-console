@@ -165,8 +165,8 @@ async fn run_session_cmd(
 }
 
 /// tmux ベースセッションを作成する。
-/// `systemd-run --user --scope --quiet` 経由を優先し（cgroup 隔離）、失敗時は
-/// プレーンな `tmux` 直接実行にフォールバックする。
+/// Linux では `systemd-run --user --scope --quiet` 経由を優先し（cgroup 隔離）、
+/// 失敗時（および macOS）はプレーンな `tmux` 直接実行に切り替える。
 pub async fn create_tmux_session(
     data_dir: &Path,
     config: &ConfigStore,
@@ -249,24 +249,26 @@ pub async fn create_tmux_session(
         .map(|s| s.to_string()),
     );
 
-    let mut systemd_env = env.clone();
-    systemd_env.extend(systemd_user_env_defaults());
-    let mut systemd_args = vec![
-        "--user".to_string(),
-        "--scope".to_string(),
-        "--quiet".to_string(),
-    ];
-    systemd_args.extend(tmux_args.clone());
-    if run_session_cmd(
-        "systemd-run",
-        &systemd_args,
-        &cwd_buf,
-        &systemd_env,
-        crate::subprocess::TMUX_CMD_TIMEOUT_SEC,
-    )
-    .await
-    {
-        return Ok(());
+    if cfg!(target_os = "linux") {
+        let mut systemd_env = env.clone();
+        systemd_env.extend(systemd_user_env_defaults());
+        let mut systemd_args = vec![
+            "--user".to_string(),
+            "--scope".to_string(),
+            "--quiet".to_string(),
+        ];
+        systemd_args.extend(tmux_args.clone());
+        if run_session_cmd(
+            "systemd-run",
+            &systemd_args,
+            &cwd_buf,
+            &systemd_env,
+            crate::subprocess::TMUX_CMD_TIMEOUT_SEC,
+        )
+        .await
+        {
+            return Ok(());
+        }
     }
     if run_session_cmd(
         "tmux",
