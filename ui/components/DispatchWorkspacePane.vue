@@ -9,6 +9,16 @@
             <button type="button" class="dispatch-queue-row-main dispatch-queue-pending-row" @click="emits('select', item.id)">
               <DispatchQueueRowBody :request="item.request" />
             </button>
+            <button
+              type="button"
+              class="row-danger-btn"
+              aria-label="Discard dispatch"
+              data-tooltip="Discard dispatch"
+              :disabled="discardingIds.has(item.id)"
+              @click="discard(item)"
+            >
+              <span class="mdi mdi-close"></span>
+            </button>
           </li>
         </ul>
       </template>
@@ -33,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, reactive } from "vue";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dispatch-request.ts";
@@ -50,11 +60,23 @@ import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 const workspaceStore = useWorkspaceStore();
 const emits = defineEmits(["select"]);
-const { queue, recent: allRecent } = useDispatchQueue();
+const { queue, recent: allRecent, discardItem } = useDispatchQueue();
 
 const pending = computed(() =>
   queue.value.filter((item) => dispatchWorkspaceLabel(item.request) === workspaceStore.selectedWorkspace),
 );
+// 確認ダイアログ中・API実行中の二重実行を防ぐ。
+const discardingIds = reactive(new Set<string>());
+async function discard(item: { id: string, request: Record<string, any> }) {
+  if (discardingIds.has(item.id)) return;
+  discardingIds.add(item.id);
+  try {
+    await discardItem(item.id, dispatchWorkspaceLabel(item.request));
+  } finally {
+    discardingIds.delete(item.id);
+  }
+}
+
 // 履歴（recent）はworktreeと元のディレクトリで共有する。worktreeで実行した
 // dispatchも元のディレクトリの履歴に出したい／worktree側からも元のディレクトリ
 // の履歴を見たいため、ベースワークスペース名同士で突き合わせる（pendingは

@@ -1,5 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.ts";
+import { useConfirm } from "./useConfirm.ts";
+import { useToast } from "./useToast.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import {
   dispatchDecisionPath,
@@ -51,6 +53,8 @@ export function applyDispatchQueue(items: DispatchQueueItem[], recentItems?: Dis
 
 export function useDispatchQueue() {
   const { apiPost, apiGet } = useApi();
+  const { confirm } = useConfirm();
+  const toast = useToast();
   const { attachSessionTab } = useSessionTabAttach();
 
   function loadAllJobs(): Promise<void> {
@@ -104,5 +108,13 @@ export function useDispatchQueue() {
     return ok;
   }
 
-  return { queue, recent, runItem, rejectItem, jobLabel, allJobs };
+  // 一覧の×・DispatchRunViewのDiscardで共用する確認つき破棄。
+  async function discardItem(id: string, label: string): Promise<boolean> {
+    if (!await confirm(`Discard dispatch for "${label}"? This cannot be undone.`)) return false;
+    const ok = await rejectItem(id);
+    if (ok) toast.success(`Dispatch discarded (${label})`);
+    return ok;
+  }
+
+  return { queue, recent, runItem, rejectItem, discardItem, jobLabel, allJobs };
 }

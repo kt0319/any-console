@@ -150,6 +150,31 @@ test.describe("dispatch", () => {
     await expect(page.locator(".dispatch-queue-pending-row")).toHaveCount(0, { timeout: 10_000 });
   });
 
+  test("一覧の×ボタンで確認の上、承認待ちを破棄できる（詳細画面を開かない）", async ({ page }) => {
+    await postDispatch(page, { dedup_key: `e2e-list-discard-${Date.now()}` });
+    await openDispatchTab(page);
+
+    const pendingRow = page.locator(".dispatch-queue-pending-row").first();
+    await expect(pendingRow).toBeVisible({ timeout: 10_000 });
+    const discardBtn = page.locator('.dispatch-queue-row [aria-label="Discard dispatch"]').first();
+
+    // Cancel では残る
+    await discardBtn.click();
+    const dialog = page.locator(".confirm-dialog");
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toContainText("Discard dispatch");
+    await dialog.locator(".dialog-btn-cancel").click();
+    await expect(dialog).toBeHidden();
+    await expect(pendingRow).toBeVisible();
+
+    // OK で行が消える。詳細画面（Run）には遷移しない
+    await discardBtn.click();
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await dialog.locator(".dialog-btn-ok").click();
+    await expect(page.locator(".dispatch-queue-pending-row")).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.locator(".dispatch-run-title")).toHaveCount(0);
+  });
+
   test("画像添付dispatchのRunで、Image:行が実際にターミナルへ流し込まれる（受付〜CLI側読取のE2E）", async ({ page }) => {
     const imagePath = await uploadImage(page);
     await postDispatch(page, {

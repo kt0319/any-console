@@ -124,14 +124,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, type PropType } from "vue";
 import { useApi } from "../composables/useApi.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
 import { useDispatchImagePaste } from "../composables/useDispatchImagePaste.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useDispatchRunOptions } from "../composables/useDispatchRunOptions.ts";
-import { useToast } from "../composables/useToast.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
+import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
@@ -150,12 +149,10 @@ const props = defineProps({
 const emits = defineEmits(["back", "done"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const { confirm } = useConfirm();
-const { queue, recent, runItem, rejectItem } = useDispatchQueue();
+const { queue, recent, runItem, discardItem } = useDispatchQueue();
 const { imagePaths, previewUrls, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
-const toast = useToast();
 // Session select の一覧中、今このモーダルを開いているタブ自身があれば
 // 「(this session)」を付けて区別できるようにする。
 const currentSessionId = computed(() => terminalStore.activeTab?.sessionId || null);
@@ -429,15 +426,9 @@ async function run() {
 
 async function discard() {
   if (discarding.value || !itemId) return;
-  const label = request.value?.effective_workspace || request.value?.workspace || "";
-  if (!await confirm(`Discard dispatch for "${label}"? This cannot be undone.`)) return;
   discarding.value = true;
   try {
-    const ok = await rejectItem(itemId);
-    if (ok) {
-      toast.success(`Dispatch discarded (${label})`);
-      emits("back");
-    }
+    if (await discardItem(itemId, dispatchWorkspaceLabel(request.value))) emits("back");
   } finally {
     discarding.value = false;
   }

@@ -16,7 +16,7 @@
       </span>
       <span v-if="s.external" class="detached-sessions-tag">external</span>
       <span
-        class="detached-sessions-close"
+        class="row-danger-btn"
         role="button"
         tabindex="0"
         aria-label="Close session"
@@ -84,27 +84,6 @@ const { detachedSessions, openDetached, adoptDetached, closeDetached } = useDeta
   font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
-}
-
-.detached-sessions-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .detached-sessions-close:hover {
-    color: var(--error);
-    border-color: var(--error);
-  }
 }
 
 .detached-sessions-tag {

@@ -7,8 +7,14 @@ import { emit, on } from "../../ui/app-bridge.ts";
 const apiPostMock = vi.fn();
 const apiGetMock = vi.fn(async () => ({ ok: false }));
 
+const confirmMock = vi.fn(async () => true);
+
 vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({ apiGet: apiGetMock, apiPost: apiPostMock }),
+}));
+
+vi.mock("../../ui/composables/useConfirm.ts", () => ({
+  useConfirm: () => ({ confirm: confirmMock }),
 }));
 
 const item = (id) => ({ id, request: { workspace: "ws1" } });
@@ -141,5 +147,52 @@ describe("jobLabel / allJobs（/jobs/workspacesからのジョブ表示名解決
     expect(jobLabel({ workspace: "ws1", job: "unknown_job" })).toBe("");
     expect(jobLabel({ workspace: "ws1", job: "terminal" })).toBe("");
     expect(jobLabel({ workspace: "other-ws", job: "job_1" })).toBe("");
+  });
+});
+
+describe("discardItem", () => {
+  let queue, discardItem;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    apiPostMock.mockReset();
+    confirmMock.mockReset();
+    confirmMock.mockResolvedValue(true);
+    ({ queue, discardItem } = useDispatchQueue());
+    applyDispatchQueue([item("d1"), item("d2")]);
+  });
+
+  it("確認でキャンセルされたらAPIを呼ばず、キューも変えない", async () => {
+    confirmMock.mockResolvedValue(false);
+    expect(await discardItem("d1", "ws1")).toBe(false);
+    expect(apiPostMock).not.toHaveBeenCalled();
+    expect(queue.value.map((q) => q.id)).toEqual(["d1", "d2"]);
+  });
+
+  it("確認後に executed:false で決定APIを呼び、キューから外してトーストを出す", async () => {
+    apiPostMock.mockResolvedValue({ ok: true, data: {} });
+    const toasts = [];
+    const off = on("toast:show", (t) => toasts.push(t));
+
+    expect(await discardItem("d1", "ws1")).toBe(true);
+
+    expect(confirmMock).toHaveBeenCalledWith('Discard dispatch for "ws1"? This cannot be undone.');
+    expect(apiPostMock).toHaveBeenCalledTimes(1);
+    expect(apiPostMock.mock.calls[0][1]).toEqual({ executed: false });
+    expect(queue.value.map((q) => q.id)).toEqual(["d2"]);
+    expect(toasts.map((t) => t.message)).toEqual(["Dispatch discarded (ws1)"]);
+    off();
+  });
+
+  it("API失敗時はキューに残し、成功トーストを出さない", async () => {
+    apiPostMock.mockResolvedValue({ ok: false });
+    const toasts = [];
+    const off = on("toast:show", (t) => toasts.push(t));
+
+    expect(await discardItem("d1", "ws1")).toBe(false);
+
+    expect(queue.value.map((q) => q.id)).toEqual(["d1", "d2"]);
+    expect(toasts).toEqual([]);
+    off();
   });
 });
