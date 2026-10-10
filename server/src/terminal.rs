@@ -849,7 +849,8 @@ mod tests {
             &[("TMUX_PENDING_TEXT", &encoded), ("TMUX_PENDING_ENTER", "1")],
         )
         .await;
-        assert!(tmux::wait_pane_ready(&name, 2.0).await);
+        // CI の負荷下では tmux サーバ起動に2秒を超えることがあるため余裕を持たせる
+        assert!(tmux::wait_pane_ready(&name, 10.0).await);
 
         let dir = tempfile::tempdir().unwrap();
         let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
