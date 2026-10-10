@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // @ts-check
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { ref, computed, defineComponent, h, nextTick } from "vue";
 import {
@@ -269,6 +269,28 @@ describe("usePillPeek", () => {
     await nextTick();
     expect(peek.branchRemoteResult.value).toEqual(result);
     expect(peek.branchPushCount.value).toBe(0);
+  });
+  describe("先行peekの表示中に届いたgit:remoteDone", () => {
+    afterEach(() => { vi.useRealTimers(); });
+
+    it("共有枠を使い切られていても結果peekは一定時間表示され続ける", async () => {
+      vi.useFakeTimers();
+      const { peek, branch } = mountPillPeek();
+      // 先行peek（ブランチ名の変化）を表示中にする
+      branch.value = "feature";
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("branch");
+      const result = { kind: "pull", headline: "1 Pulled", detail: "feat: a" };
+      emit("git:remoteDone", { wsName: "ws1", result });
+      await nextTick();
+      // 先行peekの枠（PILL_PEEK_DURATION_MS）を過ぎて結果peekに切り替わる
+      await vi.advanceTimersByTimeAsync(4001);
+      expect(peek.branchRemoteResult.value).toEqual(result);
+      // 切り替わった直後に消えず、数秒は残る
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(peek.peekingKey.value).toBe("branch");
+      expect(peek.branchRemoteResult.value).toEqual(result);
+    });
   });
 });
 

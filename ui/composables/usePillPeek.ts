@@ -81,7 +81,11 @@ export function usePillPeek({
     branchPullCount.value = next.pullCount || 0;
     branchRemoteResult.value = next.remote;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
-    const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
+    const sharedMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
+    // pull/pushの結果は件名を読み切れるよう、先行peekで残り時間を使い切られていても
+    // 一定時間は必ず表示する（共有枠に任せると1msで切り替わってしまう）。
+    const itemMs = next.remote ? Math.max(sharedMs, PILL_PEEK_REMOTE_DURATION_MS) : sharedMs;
+    if (next.remote) queueSessionEndsAt = Math.max(queueSessionEndsAt, Date.now() + itemMs);
     peekDurationMs.value = itemMs;
     peekTimer = setTimeout(advancePeekQueue, itemMs);
   }
