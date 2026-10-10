@@ -36,14 +36,23 @@ pub fn workspace_icon_or_default(icon: Option<&Value>) -> &str {
 /// （Python `background_fetch` 相当 — 終了コードは見ない。タイムアウト・OS
 /// エラーのみ false）。GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する。
 pub async fn background_fetch(directory: &Path) -> bool {
-    run_git_raw(
+    match run_git_raw(
         &["fetch", "--quiet"],
         directory,
         BACKGROUND_FETCH_TIMEOUT_SEC,
         &[("GIT_TERMINAL_PROMPT", "0")],
     )
     .await
-    .is_ok()
+    {
+        Ok(_) => true,
+        Err(e) => {
+            tracing::warn!(
+                "background fetch error dir={} error={e:?}",
+                directory.display()
+            );
+            false
+        }
+    }
 }
 
 #[derive(Debug)]

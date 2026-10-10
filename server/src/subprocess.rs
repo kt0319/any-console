@@ -73,7 +73,7 @@ pub async fn run_subprocess_with_env(
     let output = match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await {
         Ok(Ok(out)) => out,
         Ok(Err(e)) => {
-            tracing::debug!("subprocess failed {}: {}", program, e);
+            tracing::warn!("subprocess failed program={program} error={e}");
             return None;
         }
         Err(_) => {
@@ -116,7 +116,7 @@ pub async fn run_subprocess_with_stdin(
         let mut child = match command.spawn() {
             Ok(child) => child,
             Err(e) => {
-                tracing::debug!("subprocess spawn failed {}: {}", program, e);
+                tracing::warn!("subprocess spawn failed program={program} error={e}");
                 return None;
             }
         };

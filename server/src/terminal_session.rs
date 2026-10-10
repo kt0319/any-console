@@ -368,7 +368,10 @@ impl TerminalRegistry {
         let tmux_name = format!("{tmux_prefix}{session_id}");
         tmux::create_tmux_session(data_dir, config, spec.workspace_path.as_deref(), &tmux_name)
             .await
-            .map_err(|e| server_error(format!("Failed to create terminal: {e}")))?;
+            .map_err(|e| {
+                tracing::error!("terminal create failed tmux={tmux_name} error={e}");
+                server_error(format!("Failed to create terminal: {e}"))
+            })?;
 
         let mut session = TerminalSession::new(tmux_name);
         session.set_workspace(spec.workspace);
