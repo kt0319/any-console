@@ -29,7 +29,7 @@
         </template>
         <template v-else-if="peekingKey === 'branch'">
           <template v-if="remoteResult">
-            <template v-if="remoteResult.kind === 'none'">{{ branchName }} </template><span class="pill-peek-branch-done" :class="remoteDoneClass">{{ remoteResult.headline }}</span><span v-if="remoteResult.detail"> {{ remoteResult.detail }}</span>
+            <template v-if="remoteResult.kind === 'none'">{{ branchName }} </template><span v-if="remoteResult.detail">{{ remoteResult.detail }} </span><span class="pill-peek-branch-done" :class="remoteDoneClass">{{ remoteResult.headline }}</span>
           </template>
           <template v-else>
           {{ branchName }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="pushCount > 0" class="pill-peek-branch-done pill-peek-branch-push-done"> {{ pushCount }} Pushed</span><span v-if="pullCount > 0" class="pill-peek-branch-done pill-peek-branch-pull-done"> {{ pullCount }} Pulled</span>
