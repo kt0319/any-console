@@ -72,8 +72,15 @@ test.describe("branch modal push/pull と History の連動", () => {
 
   useLoginWithSessionCleanup(test);
 
+  /** 結果のbranch peekピルはターミナルタブのペインに出るため、ワークスペースのセッションを先に作る（後始末は useLoginWithSessionCleanup）。 */
+  async function createWorkspaceSession(page) {
+    const res = await page.request.post("/run", { data: { job: "terminal", workspace: wsName } });
+    expect(res.ok()).toBeTruthy();
+  }
+
   /** Historyペインを開いたまま（?pane=history直リンク）にする。 */
   async function openHistoryPane(page) {
+    await createWorkspaceSession(page);
     await page.goto(`/?ws=${encodeURIComponent(wsName)}&pane=history`);
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -101,7 +108,10 @@ test.describe("branch modal push/pull と History の連動", () => {
     await expect(dialog).toContainText("pull");
     await dialog.locator(".dialog-btn-ok").click();
 
-    await expect(page.locator(".toast", { hasText: "Pulled" })).toBeVisible({ timeout: 10_000 });
+    // 結果はトーストではなくbranch peekピルに「N Pulled」+ コミット件名で出る
+    const peek = page.locator(".pill-peek-wide");
+    await expect(peek).toContainText("1 Pulled", { timeout: 10_000 });
+    await expect(peek).toContainText(COMMIT_MSG_REMOTE);
 
     // ページ遷移・タブ再クリックなしに、同じHistoryペインへ新規コミットが反映される
     await expect(page.locator(".git-log-entry-msg", { hasText: COMMIT_MSG_REMOTE })).toBeVisible({ timeout: 10_000 });
@@ -127,7 +137,9 @@ test.describe("branch modal push/pull と History の連動", () => {
     await expect(dialog).toContainText("push");
     await dialog.locator(".dialog-btn-ok").click();
 
-    await expect(page.locator(".toast", { hasText: "Pushed" })).toBeVisible({ timeout: 10_000 });
+    const peek = page.locator(".pill-peek-wide");
+    await expect(peek).toContainText("1 Pushed", { timeout: 10_000 });
+    await expect(peek).toContainText("test: e2e ローカルコミット (push確認用)");
     await expect(pushBtn).not.toBeVisible({ timeout: 10_000 });
   });
 });

@@ -1,5 +1,7 @@
 import { computed, ref, watch, onBeforeUnmount, type ComputedRef, type Ref } from "vue";
-import { PILL_PEEK_DURATION_MS } from "../utils/constants.ts";
+import { PILL_PEEK_DURATION_MS, PILL_PEEK_REMOTE_DURATION_MS, PILL_PEEK_REMOTE_DEDUP_MS } from "../utils/constants.ts";
+import type { RemoteResult } from "../utils/git-remote.ts";
+import { useBusListener } from "./useBusListener.ts";
 import {
   trailingItemsSignature,
   findChangedTrailingItems,
@@ -42,6 +44,10 @@ export function usePillPeek({
   // 出す（0は非表示、直前のahead/behind値が実際に押し出された/取り込まれた件数）。
   const branchPushCount = ref(0);
   const branchPullCount = ref(0);
+  // pull/push を実行した結果（git:remoteDone）。コミット件名を含むためahead/behindの
+  // 変化検出（件数だけ）では出せない。branch peekの間だけ値を持つ。
+  const branchRemoteResult = ref<RemoteResult | null>(null);
+  let lastRemoteResultAt = 0;
   // paneWorkspace等は非同期フェッチのためマウント直後は未解決(undefined)になりうる。
   // このタイミングでprevTrailingSignatureを確定させると、情報が届いた瞬間に「新規に現れた」
   // と誤検知してpeekが一瞬表示されてしまう。一度も解決していない間は変化検出をスキップし、
@@ -60,7 +66,7 @@ export function usePillPeek({
   // よう、表示中ならキューに積んで前のpeekが閉じてから順番に表示する。表示時間は1件ずつ
   // PILL_PEEK_DURATION_MSではなく、キュー全体の合計がPILL_PEEK_DURATION_MSに収まるよう
   // 残り時間を残件数で割る。
-  const peekQueue: { key: string, pushCount: number, pullCount: number }[] = [];
+  const peekQueue: { key: string, pushCount: number, pullCount: number, remote: RemoteResult | null }[] = [];
   let queueSessionEndsAt = 0;
 
   function advancePeekQueue() {
@@ -73,19 +79,28 @@ export function usePillPeek({
     peekingKey.value = next.key;
     branchPushCount.value = next.pushCount || 0;
     branchPullCount.value = next.pullCount || 0;
+    branchRemoteResult.value = next.remote;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const itemMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
     peekDurationMs.value = itemMs;
     peekTimer = setTimeout(advancePeekQueue, itemMs);
   }
 
-  function triggerPeek(key: string, pushCount = 0, pullCount = 0) {
-    peekQueue.push({ key, pushCount, pullCount });
+  function triggerPeek(key: string, pushCount = 0, pullCount = 0, remote: RemoteResult | null = null) {
+    peekQueue.push({ key, pushCount, pullCount, remote });
     if (!peekTimer) {
-      queueSessionEndsAt = Date.now() + PILL_PEEK_DURATION_MS;
+      queueSessionEndsAt = Date.now() + (remote ? PILL_PEEK_REMOTE_DURATION_MS : PILL_PEEK_DURATION_MS);
       advancePeekQueue();
     }
   }
+
+  // branchピルが出ていない（Off・非gitリポジトリ）ペイン/行では何も出さない。
+  useBusListener("git:remoteDone", ({ wsName, result }: { wsName?: string, result?: RemoteResult }) => {
+    if (!result || wsName !== workspaceKey()) return;
+    if (!trailingPeekItems.value.some((item) => item.key === "branch")) return;
+    lastRemoteResultAt = Date.now();
+    triggerPeek("branch", 0, 0, result);
+  });
 
   // 初回解決キーのベースラインを次シグネチャの値へ揃える（変化扱いにしない）。
   function carryBaseline(key: string, nextSignature: Map<string, string>) {
@@ -125,6 +140,11 @@ export function usePillPeek({
             if (prevBehind > 0 && behind.value === 0) pullCount = prevBehind;
           }
         }
+        // 直前にgit:remoteDoneで同じ結果を出している時は、ahead/behindが0に落ちたことの
+        // 検出による「N Pushed/Pulled」を重ねて出さない。
+        const coveredByRemoteResult = (pushCount > 0 || pullCount > 0)
+          && Date.now() - lastRemoteResultAt < PILL_PEEK_REMOTE_DEDUP_MS;
+        if (coveredByRemoteResult) continue;
         triggerPeek(changed.key, pushCount, pullCount);
       }
     }
@@ -150,7 +170,13 @@ export function usePillPeek({
   const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
   const peekColorClass = computed(() => peekColorForKey(peekingKey.value, peekFields.value));
   const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
-  const peekSignature = computed(() => buildPeekSignature(peekingKey.value, peekFields.value));
+  // 結果の文言はマーキー再測定のトリガー（PillPeek.vueのsignature watch）にも
+  // 反映する。同じbranchキーのまま内容だけ差し替わるとDOMが再マウントされないため。
+  const peekSignature = computed(() => {
+    const base = buildPeekSignature(peekingKey.value, peekFields.value);
+    const remote = branchRemoteResult.value;
+    return remote ? `${base}:${remote.headline}:${remote.detail}` : base;
+  });
   // actionsは名前部分（白固定）とステータス部分（実行中/失敗で色分け）を別spanに分けて
   // 表示するため、PillPeek.vueへ個別に渡す。
   const peekActionName = computed(() => peekFields.value?.branchAction?.name || "");
@@ -164,6 +190,7 @@ export function usePillPeek({
     peekDurationMs,
     branchPushCount,
     branchPullCount,
+    branchRemoteResult,
     peekIconClass,
     peekColorClass,
     peekText,

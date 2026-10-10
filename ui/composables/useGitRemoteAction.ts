@@ -2,9 +2,8 @@ import { reactive } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "./useApi.ts";
 import { useConfirm } from "./useConfirm.ts";
-import { useToast } from "./useToast.ts";
-import { formatRemoteToast, type RemoteLabel } from "../utils/git-remote.ts";
-import { TOAST_DEFAULT_DURATION_MS, TOAST_DETAIL_DURATION_MS } from "../utils/constants.ts";
+import { buildRemoteResult, type RemoteLabel } from "../utils/git-remote.ts";
+import { emit } from "../app-bridge.ts";
 
 const REMOTE_ACTIONS: Record<string, { label: string, confirm: string }> = {
   pull: { label: "Pull", confirm: "pull" },
@@ -52,7 +51,6 @@ export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
-  const toast = useToast();
 
   function repoKeyFor(wsName: string | null) {
     const ws = workspaceStore.allWorkspaces.find((w) => w.name === wsName);
@@ -64,9 +62,9 @@ export function useGitRemoteAction() {
     const body = action === "push-branch" ? { branch } : {};
     const { ok, data } = await apiCommand(wsEndpoint(wsName, action), body, { errorMessage: `${label} failed` });
     if (!ok) return;
-    const message = formatRemoteToast(wsName, label, data);
-    const hasDetail = message.includes("\n");
-    toast.success(message, { duration: hasDetail ? TOAST_DETAIL_DURATION_MS : TOAST_DEFAULT_DURATION_MS, action: { event: "git:openHistory", wsName } });
+    // 結果はトーストではなくbranch peekピル（usePillPeek.ts）が表示する。
+    // ahead/behind更新による「N Pushed/Pulled」検出より先に届くよう、fetchStatusesの前に通知する。
+    emit("git:remoteDone", { wsName, result: buildRemoteResult(label, data) });
     // 呼び出し元（useBranchActions.ts）がこの後 emit("git:commitDone") する
     // ため、aheadの更新（GitHistory.vueのunpushed表示が参照する）が
     // 確実に反映されてからemitされるようawaitする。

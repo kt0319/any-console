@@ -19,10 +19,6 @@ vi.mock("../../ui/composables/useConfirm.ts", () => ({
   useConfirm: () => ({ confirm: vi.fn(async () => true) }),
 }));
 
-vi.mock("../../ui/composables/useToast.ts", () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
-}));
-
 async function freshModule() {
   vi.resetModules();
   return import("../../ui/composables/useGitRemoteAction.ts");
@@ -122,5 +118,41 @@ describe("useGitRemoteAction: push/pull完了後のfetchStatuses待ち合わせ"
     resolveFetchStatuses();
     await p;
     expect(resolved).toBe(true);
+  });
+});
+
+describe("useGitRemoteAction: 結果通知", () => {
+  it("push成功時はトーストではなくgit:remoteDoneで結果を通知し、fetchStatusesより先に届く", async () => {
+    const workspaceStore = useWorkspaceStore();
+    workspaceStore.allWorkspaces = [{ name: "repo", worktree: false }];
+    apiCommandMock.mockResolvedValue({ ok: true, data: { commits: { count: 2, messages: ["feat: a", "fix: b"] } } });
+    const order = [];
+    vi.spyOn(workspaceStore, "fetchStatuses").mockImplementation(async () => { order.push("fetchStatuses"); });
+    const received = [];
+    const { useGitRemoteAction } = await freshModule();
+    const { on } = await import("../../ui/app-bridge.ts");
+    const off = on("git:remoteDone", (detail) => { order.push("remoteDone"); received.push(detail); });
+    await useGitRemoteAction().gitAction("repo", "push");
+    off();
+
+    expect(received).toEqual([{
+      wsName: "repo",
+      result: { kind: "push", headline: "2 Pushed", detail: "feat: a \u2022 fix: b" },
+    }]);
+    expect(order).toEqual(["remoteDone", "fetchStatuses"]);
+  });
+
+  it("失敗時はgit:remoteDoneを通知しない", async () => {
+    const workspaceStore = useWorkspaceStore();
+    workspaceStore.allWorkspaces = [{ name: "repo", worktree: false }];
+    apiCommandMock.mockResolvedValue({ ok: false, data: null });
+    const received = [];
+    const { useGitRemoteAction } = await freshModule();
+    const { on } = await import("../../ui/app-bridge.ts");
+    const off = on("git:remoteDone", (detail) => received.push(detail));
+    await useGitRemoteAction().gitAction("repo", "pull");
+    off();
+
+    expect(received).toEqual([]);
   });
 });

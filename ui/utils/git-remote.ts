@@ -2,6 +2,15 @@
 // （branch peekの表記"Pushed"/"Pulled"と揃える）。呼び出し元
 // （useGitRemoteAction の PUSH_PULL_ACTIONS）はこの3ラベルしか渡さない。
 export type RemoteLabel = "Pull" | "Push" | "Push (set upstream)";
+export type RemoteResultKind = "push" | "pull" | "none";
+
+/** branch peekに出す pull/push の結果。headline は色付きの要約、detail は件名の連結。 */
+export interface RemoteResult {
+  kind: RemoteResultKind;
+  headline: string;
+  detail: string;
+}
+
 const PAST_TENSE_VERB: Record<RemoteLabel, string> = { Pull: "Pulled", Push: "Pushed", "Push (set upstream)": "Pushed" };
 // コミット0件の時は「実行はできたが変化は無かった」ことが伝わるよう、
 // Pulled/Pushedとは別の文言にする（新着コミットを拾えなかった不具合と
@@ -11,26 +20,26 @@ const ZERO_COMMIT_TEXT: Record<RemoteLabel, string> = {
   Push: "Nothing to push",
   "Push (set upstream)": "Nothing to push",
 };
+const DETAIL_SEPARATOR = " • ";
 
-export function formatRemoteToast(
-  wsName: string,
+export function buildRemoteResult(
   label: RemoteLabel,
   data: { commits?: { count?: number, messages?: unknown[] } } | null | undefined,
-) {
+): RemoteResult {
   const commits = data?.commits;
   const count = commits?.count || 0;
   if (count === 0) {
-    return `${wsName}: ${ZERO_COMMIT_TEXT[label]}`;
+    return { kind: "none", headline: ZERO_COMMIT_TEXT[label], detail: "" };
   }
-  const verb = PAST_TENSE_VERB[label];
-  const header = `${wsName}: ${verb} (${count} commit${count === 1 ? "" : "s"})`;
   const messages = Array.isArray(commits?.messages) ? commits.messages : [];
   const subjects = messages.map((m) => String(m).split("\n")[0]);
-  if (!subjects.length) return header;
-  const lines = [header, ...subjects.map((s) => `• ${s}`)];
   const remaining = count - subjects.length;
   if (remaining > 0) {
-    lines.push(`… and ${remaining} more`);
+    subjects.push(`… and ${remaining} more`);
   }
-  return lines.join("\n");
+  return {
+    kind: label === "Pull" ? "pull" : "push",
+    headline: `${count} ${PAST_TENSE_VERB[label]}`,
+    detail: subjects.join(DETAIL_SEPARATOR),
+  };
 }

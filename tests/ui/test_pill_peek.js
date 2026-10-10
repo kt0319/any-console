@@ -11,6 +11,7 @@ import {
   buildPeekSignature,
 } from "../../ui/utils/pill-peek.ts";
 import { usePillPeek } from "../../ui/composables/usePillPeek.ts";
+import { emit } from "../../ui/app-bridge.ts";
 
 const ALL_ON = {
   files: true,
@@ -191,7 +192,10 @@ describe("usePillPeek", () => {
     const branch = ref("main");
     const ahead = ref(3);
     const behind = ref(0);
-    const trailingPeekItems = computed(() => [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }]);
+    const branchPillOn = ref(true);
+    const trailingPeekItems = computed(() => branchPillOn.value
+      ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }]
+      : []);
     const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value }));
     let peek;
     const Comp = defineComponent({
@@ -211,7 +215,7 @@ describe("usePillPeek", () => {
       },
     });
     const wrapper = mount(Comp);
-    return { wrapper, peek, branch, ahead, behind };
+    return { wrapper, peek, branch, ahead, behind, branchPillOn };
   }
 
   it("同一ブランチでahead>0から0へ変わったらpush完了として件数を出す", async () => {
@@ -228,6 +232,42 @@ describe("usePillPeek", () => {
     ahead.value = 0;
     await nextTick();
     expect(peek.peekingKey.value).toBe("branch");
+    expect(peek.branchPushCount.value).toBe(0);
+  });
+  it("git:remoteDoneで自ワークスペースの結果をbranch peekに出す", async () => {
+    const { peek } = mountPillPeek();
+    const result = { kind: "push", headline: "2 Pushed", detail: "feat: a \u2022 fix: b" };
+    emit("git:remoteDone", { wsName: "ws1", result });
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("branch");
+    expect(peek.branchRemoteResult.value).toEqual(result);
+    expect(peek.peekSignature.value).toContain("2 Pushed");
+  });
+
+  it("別ワークスペース宛てのgit:remoteDoneは無視する", async () => {
+    const { peek } = mountPillPeek();
+    emit("git:remoteDone", { wsName: "other", result: { kind: "pull", headline: "1 Pulled", detail: "x" } });
+    await nextTick();
+    expect(peek.peekingKey.value).toBeNull();
+  });
+
+  it("branchピルが無い時はgit:remoteDoneで何も出さない", async () => {
+    const { peek, branchPillOn } = mountPillPeek();
+    branchPillOn.value = false;
+    await nextTick();
+    emit("git:remoteDone", { wsName: "ws1", result: { kind: "push", headline: "1 Pushed", detail: "x" } });
+    await nextTick();
+    expect(peek.peekingKey.value).toBeNull();
+  });
+
+  it("結果peekを出した直後のahead 0化では「N Pushed」peekを重ねない", async () => {
+    const { peek, ahead } = mountPillPeek();
+    const result = { kind: "push", headline: "3 Pushed", detail: "feat: a" };
+    emit("git:remoteDone", { wsName: "ws1", result });
+    await nextTick();
+    ahead.value = 0;
+    await nextTick();
+    expect(peek.branchRemoteResult.value).toEqual(result);
     expect(peek.branchPushCount.value).toBe(0);
   });
 });

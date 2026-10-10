@@ -14,7 +14,7 @@ export const BUS_EVENTS = Object.freeze([
   "git:commitDone",
   "git:openFileModal",
   "git:openGitHub",
-  "git:openHistory",
+  "git:remoteDone",
   "git:selectDiffFile",
   "git:selectDirty",
   "jobs:refresh",

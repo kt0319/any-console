@@ -42,9 +42,12 @@ export const CIRCLE_KEYPAD_WHEEL_LINES = 80;
 export const CIRCLE_KEYPAD_SCROLL_LINES = 20;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
-// 複数行の詳細（pull したコミット一覧等）を含むトーストは読む時間を長めに取る
-export const TOAST_DETAIL_DURATION_MS = 5000;
 export const PILL_PEEK_DURATION_MS = 4000;
+// pull/push の結果（コミット件名の一覧）を含むpeekは読む時間を長めに取る
+export const PILL_PEEK_REMOTE_DURATION_MS = 6000;
+// pull/push の結果peekを出した直後は、ahead/behindが0に落ちたことの検出による
+// 同じ内容の「N Pushed/Pulled」peekを重ねて出さない
+export const PILL_PEEK_REMOTE_DEDUP_MS = 5000;
 // ピル行の実測幅からピル群の上限幅を出す時に差し引く固定分。
 // サイドバー行: 閉じるボタン＋余白（SessionSidebarRow.vue）。
 export const SIDEBAR_PILL_ROW_RESERVED_PX = 40;

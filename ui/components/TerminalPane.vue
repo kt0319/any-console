@@ -52,6 +52,7 @@
           :behind="pill.behind"
           :push-count="branchPushCount"
           :pull-count="branchPullCount"
+          :remote-result="branchRemoteResult"
           :action-name="peekActionName"
           :action-status-text="peekActionStatusText"
           :peek-duration-ms="peekDurationMs"
@@ -242,6 +243,7 @@ const {
   peekDurationMs,
   branchPushCount,
   branchPullCount,
+  branchRemoteResult,
   peekIconClass,
   peekColorClass,
   peekText,

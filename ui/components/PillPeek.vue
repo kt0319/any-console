@@ -28,7 +28,12 @@
           <span class="pill-peek-changes-minus">-{{ deletions }}</span>
         </template>
         <template v-else-if="peekingKey === 'branch'">
+          <template v-if="remoteResult">
+            {{ branchName }}<span class="pill-peek-branch-done" :class="remoteDoneClass"> {{ remoteResult.headline }}</span><span v-if="remoteResult.detail"> {{ remoteResult.detail }}</span>
+          </template>
+          <template v-else>
           {{ branchName }}<span v-if="ahead > 0" class="pill-peek-branch-ahead"> ↑{{ ahead }}</span><span v-if="behind > 0" class="pill-peek-branch-behind"> ↓{{ behind }}</span><span v-if="pushCount > 0" class="pill-peek-branch-done pill-peek-branch-push-done"> {{ pushCount }} Pushed</span><span v-if="pullCount > 0" class="pill-peek-branch-done pill-peek-branch-pull-done"> {{ pullCount }} Pulled</span>
+          </template>
         </template>
         <template v-else-if="peekingKey === 'actions'">
           <span class="pill-peek-actions-name">[{{ actionName }}]</span> <span class="pill-peek-actions-status">{{ actionStatusText }}</span>
@@ -42,6 +47,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, type ComponentPublicInstance, type PropType } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
+import type { RemoteResult } from "../utils/git-remote.ts";
 import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.ts";
 
 // ピルの値が変化した時に一時表示する1本の長いピル（.pill-peek-wide）。
@@ -65,6 +71,8 @@ const props = defineProps({
   behind: { type: Number, default: 0 },
   pushCount: { type: Number, default: 0 },
   pullCount: { type: Number, default: 0 },
+  // pull/pushの実行結果（コミット件名つき）。ある時はahead/behind表示の代わりに出す。
+  remoteResult: { type: Object as PropType<RemoteResult | null>, default: null },
   actionName: { type: String, default: "" },
   actionStatusText: { type: String, default: "" },
   // このpeekが実際に表示される時間（usePillPeek.ts参照。キューで分割
@@ -77,6 +85,11 @@ const props = defineProps({
 const marqueeDurationMs = computed(() => Math.max(500, props.peekDurationMs - PILL_MARQUEE_END_HOLD_MS));
 
 const emits = defineEmits(["peek-click"]);
+
+const remoteDoneClass = computed(() => {
+  const kind = props.remoteResult?.kind;
+  return kind === "push" || kind === "pull" ? `pill-peek-branch-${kind}-done` : "";
+});
 
 // ラベルがピル幅に収まる時は流さない。収まらない時だけ、先頭が見えている
 // 状態から末尾が見えるところまでの1回きりのスクロールにする（infiniteループはしない）。

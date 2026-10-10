@@ -1,5 +1,4 @@
 import { on } from "../app-bridge.ts";
-import { useWorkspaceStore } from "../stores/workspace.ts";
 import { createViewStackNav } from "./createViewStackNav.ts";
 import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";
 import { useSessionListOverlay } from "./useSessionListOverlay.ts";
@@ -22,16 +21,9 @@ const ROOT_VIEW = "ModalMenu";
 const nav = createViewStackNav({ rootView: ROOT_VIEW, overlayKey: "settings" });
 const { openView, closeNav } = nav;
 
-let workspaceStore: ReturnType<typeof useWorkspaceStore> | null = null;
-
 let listenersRegistered = false;
 
 function registerListeners() {
-  // ストア参照は呼び出しの都度、その時点でアクティブなPiniaに合わせて
-  // 更新する（テストで setActivePinia(createPinia()) するたびに新しい
-  // インスタンスへ切り替わるようにするため）。
-  workspaceStore = useWorkspaceStore();
-
   if (listenersRegistered) return;
   listenersRegistered = true;
 
@@ -72,11 +64,6 @@ function registerListeners() {
   on("git:openFileModal", (detail) => openWorkspaceDetail(detail));
 
   on("git:openGitHub", () => openWorkspaceDetail({ pane: "issues" }));
-
-  on("git:openHistory", ({ wsName }: { wsName?: string } = {}) => {
-    if (workspaceStore && wsName) workspaceStore.selectedWorkspace = wsName;
-    openWorkspaceDetail({ pane: "history" });
-  });
 
   on("modal:close", () => closeNav());
 }
