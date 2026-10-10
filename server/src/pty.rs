@@ -229,10 +229,12 @@ impl AsyncPty {
 
 /// SIGTERM 後に自然終了を待つ猶予（Python の 0.1 秒猶予と同一）。
 const TERMINATE_GRACE: std::time::Duration = std::time::Duration::from_millis(100);
-/// SIGKILL 後の刈り取りを待つ上限。SIGKILL は即座に効くが、カーネルが
-/// プロセスをゾンビにするまで数 ms 掛かる（直後の WNOHANG は StillAlive になる）。
-const REAP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+/// SIGKILL 後、呼び出し元をブロックして刈り取りを待つ上限。
+const REAP_FAST_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(200);
+/// バックグラウンドで刈り取りを待ち続ける上限。
+const REAP_BACKGROUND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 const REAP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(5);
+const REAP_BACKGROUND_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// 子の終了を刈り取り済みか（終了済みを今回刈り取った、または既に刈り取り済み）。
 fn try_reap(pid: Pid) -> bool {
@@ -243,11 +245,26 @@ fn try_reap(pid: Pid) -> bool {
     )
 }
 
-/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送り、確実に刈り取る
+fn poll_reap(pid: Pid, timeout: std::time::Duration, interval: std::time::Duration) -> bool {
+    let deadline = std::time::Instant::now() + timeout;
+    while std::time::Instant::now() < deadline {
+        if try_reap(pid) {
+            return true;
+        }
+        std::thread::sleep(interval);
+    }
+    try_reap(pid)
+}
+
+/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送り、刈り取る
 /// （Python `close_pty` の後半部分相当）。fd のクローズは呼び出し側の責務
 /// （`Arc<AsyncPty>` 等、複数箇所が参照を共有する場合は最後の drop で自然に
 /// close されるため、ここでは pid の刈り取りだけを独立して行えるようにする）。
-/// 刈り取りを SIGKILL 直後の1回で諦めると、終了処理中の子がゾンビとして残り続ける。
+///
+/// SIGKILL 後も、未読の出力が溜まった PTY の子は master が閉じられるまで終了が
+/// 遅れる（tty のクローズ待ち）。ここで待ち続けると呼び出し元を長くブロックするため、
+/// 短い待ちで刈り取れなければバックグラウンドのスレッドで刈り取り切る
+/// （放置するとゾンビとして残り続け、プロセス数の上限を食い潰す）。
 pub fn terminate(pid: Pid) {
     use nix::sys::signal::{kill, Signal};
     // 既に終了・刈り取り済み（ESRCH）でも waitpid は試す
@@ -260,14 +277,14 @@ pub fn terminate(pid: Pid) {
         return;
     }
     let _ = kill(pid, Signal::SIGKILL);
-    let deadline = std::time::Instant::now() + REAP_TIMEOUT;
-    while std::time::Instant::now() < deadline {
-        if try_reap(pid) {
-            return;
-        }
-        std::thread::sleep(REAP_POLL_INTERVAL);
+    if poll_reap(pid, REAP_FAST_TIMEOUT, REAP_POLL_INTERVAL) {
+        return;
     }
-    tracing::warn!("child not reaped after SIGKILL pid={pid}");
+    std::thread::spawn(move || {
+        if !poll_reap(pid, REAP_BACKGROUND_TIMEOUT, REAP_BACKGROUND_POLL_INTERVAL) {
+            tracing::warn!("child not reaped after SIGKILL pid={pid}");
+        }
+    });
 }
 
 /// PTY をクローズし、子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る
@@ -326,6 +343,46 @@ mod tests {
             "child must already be reaped by terminate()"
         );
         drop(child.master);
+    }
+
+    /// 未読の出力が溜まった PTY の子は、SIGKILL 後も tty のクローズ待ちで終了が遅れうる。
+    /// `terminate` は長くブロックせず、遅れて終了した子もゾンビのまま残さないこと
+    /// （テスト自身が waitpid しないよう、状態は ps で観測する）。
+    #[test]
+    fn terminate_eventually_reaps_child_with_unread_output() {
+        let spec = ExecSpec::resolve(
+            "sh",
+            &[
+                "-c",
+                "trap '' TERM; head -c 2000000 /dev/zero | tr '\\0' x; sleep 1000",
+            ],
+            &[("PATH", "/usr/bin:/bin")],
+        )
+        .unwrap();
+        let child = spawn(&spec, 80, 24).unwrap();
+        let pid = child.pid;
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let started = std::time::Instant::now();
+        terminate(pid);
+        let took = started.elapsed();
+        assert!(
+            took < std::time::Duration::from_millis(800),
+            "terminate must not block long: {took:?}"
+        );
+        // master を閉じて tty のドレイン待ちを解く（本番ではブリッジ破棄で fd が閉じる）
+        drop(child.master);
+        let stat = |pid: Pid| -> String {
+            let out = std::process::Command::new("ps")
+                .args(["-o", "stat=", "-p", &pid.to_string()])
+                .output()
+                .unwrap();
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while std::time::Instant::now() < deadline && !stat(pid).is_empty() {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert_eq!(stat(pid), "", "child must be reaped, not left as zombie");
     }
 
     #[tokio::test]
