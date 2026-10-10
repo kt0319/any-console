@@ -45,6 +45,7 @@ pub mod preview_tls;
 pub mod pty;
 pub mod push;
 pub mod rate_limit;
+pub mod rlimit;
 pub mod screen_manifest;
 pub mod screen_regions;
 pub mod session_autotag;

@@ -72,6 +72,11 @@ async fn main() {
         )
         .init();
 
+    match any_console_server::rlimit::raise_nofile_limit() {
+        Ok((before, after)) => tracing::info!("nofile limit soft={before} -> {after}"),
+        Err(e) => tracing::warn!("raising nofile limit failed: {e}"),
+    }
+
     let root = project_root_from_env();
     let paths = Paths::from_env(root);
     let config = ConfigStore::new(paths.config_file.clone());
