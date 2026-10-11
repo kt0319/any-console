@@ -78,6 +78,7 @@ fn empty_git_info() -> Map<String, Value> {
         "has_remote_branch": null,
         "last_commit_date": null,
         "last_commit_message": null,
+        "upstream_head": null,
         "github_url": null,
         "clean": null,
         "ahead": 0,
@@ -199,10 +200,10 @@ async fn apply_ahead_behind(
 }
 
 async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
-    // Python の _GIT_INFO_QUERIES と同一の 11 クエリを並列実行する
     let (
         branch,
         symbolic_branch,
+        upstream_head,
         commit_date,
         message,
         remote,
@@ -215,6 +216,7 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
     ) = tokio::join!(
         query(directory, &["rev-parse", "--abbrev-ref", "HEAD"]),
         query(directory, &["symbolic-ref", "--short", "HEAD"]),
+        query(directory, &["rev-parse", "@{upstream}"]),
         query(directory, &["log", "-1", "--format=%cI"]),
         query(directory, &["log", "-1", "--format=%s"]),
         query(directory, &["remote", "get-url", "origin"]),
@@ -269,6 +271,23 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
         info.insert("has_remote_branch".to_string(), json!(has_remote));
     }
 
+    // upstream未設定でも origin/<branch> があればahead計算（apply_ahead_behind）と同じ
+    // 参照を使う。pushでこのrefが動いたかどうかでUI側がpushとresetを区別する。
+    let upstream_head = match upstream_head {
+        Some(sha) => Some(sha),
+        None if info["has_remote_branch"] == json!(true) => {
+            let branch = info["branch"].as_str().unwrap_or("").to_string();
+            query(directory, &["rev-parse", &format!("origin/{branch}")]).await
+        }
+        None => None,
+    };
+    if let Some(s) = upstream_head
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        info.insert("upstream_head".to_string(), json!(s));
+    }
     if let Some(s) = commit_date
         .as_deref()
         .map(str::trim)
@@ -407,6 +426,7 @@ mod tests {
         assert_eq!(info["branch"], "main");
         assert_eq!(info["clean"], false);
         assert_eq!(info["last_commit_message"], "first");
+        assert_eq!(info["upstream_head"], Value::Null);
         assert_eq!(info["changed_files"], 2);
         // 変更 1 行 + 未追跡 2 行
         assert_eq!(info["insertions"], 3);
@@ -430,5 +450,57 @@ mod tests {
         let info = git_info(&cache, plain.path()).await;
         assert_eq!(info["is_git_repo"], false);
         assert_eq!(info["branch"], Value::Null);
+    }
+
+    #[tokio::test]
+    async fn upstream_head_moves_on_push_but_not_on_reset() {
+        let dir = tempfile::tempdir().unwrap();
+        let remote = dir.path().join("remote.git");
+        let repo = dir.path().join("work");
+        std::fs::create_dir_all(&repo).unwrap();
+        sh_git(
+            dir.path(),
+            &["init", "-q", "--bare", "-b", "main", "remote.git"],
+        );
+        sh_git(&repo, &["init", "-q", "-b", "main"]);
+        sh_git(&repo, &["config", "user.email", "t@example.com"]);
+        sh_git(&repo, &["config", "user.name", "t"]);
+        sh_git(
+            &repo,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+        );
+        std::fs::write(repo.join("a.txt"), "x\n").unwrap();
+        sh_git(&repo, &["add", "-A"]);
+        sh_git(&repo, &["commit", "-q", "-m", "first"]);
+        sh_git(&repo, &["push", "-q", "-u", "origin", "main"]);
+
+        let cache = GitInfoCache::new();
+        let pushed = git_info(&cache, &repo).await;
+        let upstream_after_first_push = pushed["upstream_head"].as_str().unwrap().to_string();
+        assert_eq!(upstream_after_first_push.len(), 40);
+
+        std::fs::write(repo.join("a.txt"), "x\ny\n").unwrap();
+        sh_git(&repo, &["commit", "-q", "-am", "second"]);
+        cache.invalidate(&repo);
+        let ahead = git_info(&cache, &repo).await;
+        assert_eq!(ahead["ahead"], 1);
+        assert_eq!(ahead["upstream_head"], upstream_after_first_push.as_str());
+
+        sh_git(&repo, &["reset", "-q", "--hard", "origin/main"]);
+        cache.invalidate(&repo);
+        let reset = git_info(&cache, &repo).await;
+        assert_eq!(reset["ahead"], 0);
+        assert_eq!(reset["upstream_head"], upstream_after_first_push.as_str());
+
+        std::fs::write(repo.join("a.txt"), "x\nz\n").unwrap();
+        sh_git(&repo, &["commit", "-q", "-am", "third"]);
+        sh_git(&repo, &["push", "-q"]);
+        cache.invalidate(&repo);
+        let after_push = git_info(&cache, &repo).await;
+        assert_eq!(after_push["ahead"], 0);
+        assert_ne!(
+            after_push["upstream_head"],
+            upstream_after_first_push.as_str()
+        );
     }
 }

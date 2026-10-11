@@ -192,11 +192,12 @@ describe("usePillPeek", () => {
     const branch = ref("main");
     const ahead = ref(opts.ahead ?? 3);
     const behind = ref(opts.behind ?? 0);
+    const upstreamHead = ref(opts.upstreamHead);
     const branchPillOn = ref(true);
     const trailingPeekItems = computed(() => branchPillOn.value
       ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }]
       : []);
-    const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value }));
+    const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value, upstreamHead: upstreamHead.value }));
     let peek;
     const Comp = defineComponent({
       setup() {
@@ -216,15 +217,33 @@ describe("usePillPeek", () => {
       },
     });
     const wrapper = mount(Comp);
-    return { wrapper, peek, branch, ahead, behind, branchPillOn };
+    return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn };
   }
 
   it("同一ブランチでahead>0から0へ変わったらpush完了として件数を出す", async () => {
-    const { peek, ahead } = mountPillPeek();
+    const { peek, ahead, upstreamHead } = mountPillPeek({ upstreamHead: "aaa" });
+    upstreamHead.value = "bbb";
     ahead.value = 0;
     await nextTick();
     expect(peek.peekingKey.value).toBe("branch");
     expect(peek.branchPushCount.value).toBe(3);
+  });
+
+  it("upstreamが動いてahead>0から0へ変わったらpush完了として扱う（force pushでHEADが動いても）", async () => {
+    const { peek, ahead, upstreamHead } = mountPillPeek({ upstreamHead: "aaa" });
+    upstreamHead.value = "bbb";
+    ahead.value = 0;
+    await nextTick();
+    expect(peek.branchPushCount.value).toBe(3);
+  });
+
+  it("upstreamが動かないままaheadが0になった（reset等）場合はpush完了扱いにしない", async () => {
+    const { peek, ahead } = mountPillPeek({ upstreamHead: "aaa" });
+    ahead.value = 0;
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("branch");
+    expect(peek.branchPushCount.value).toBe(0);
+    expect(peek.branchRemoteResult.value).toBeNull();
   });
 
   it("ブランチ切替でahead>0から0へ変わってもpush完了扱いにしない", async () => {
@@ -262,10 +281,11 @@ describe("usePillPeek", () => {
   });
 
   it("結果peekを出した直後のahead 0化では「N Pushed」peekを重ねない", async () => {
-    const { peek, ahead } = mountPillPeek();
+    const { peek, ahead, upstreamHead } = mountPillPeek({ upstreamHead: "aaa" });
     const result = { kind: "push", headline: "3 Pushed", detail: "feat: a" };
     emit("git:remoteDone", { wsName: "ws1", result });
     await nextTick();
+    upstreamHead.value = "bbb";
     ahead.value = 0;
     await nextTick();
     expect(peek.branchRemoteResult.value).toEqual(result);
@@ -296,7 +316,8 @@ describe("usePillPeek", () => {
   describe("CLI・エージェント経由のpush/pull（件名の取得）", () => {
     it("push完了の検出で件名を取得してpeekに添える", async () => {
       const fetchRecentSubjects = vi.fn(async () => ["feat: a", "fix: b", "docs: c"]);
-      const { peek, ahead } = mountPillPeek({ ahead: 3, fetchRecentSubjects });
+      const { peek, ahead, upstreamHead } = mountPillPeek({ ahead: 3, fetchRecentSubjects, upstreamHead: "aaa" });
+      upstreamHead.value = "bbb";
       ahead.value = 0;
       await nextTick();
       expect(peek.peekingKey.value).toBe("branch");
@@ -321,7 +342,8 @@ describe("usePillPeek", () => {
     });
 
     it("件名の取得に失敗（空配列）しても「N Pushed」のpeekは出る", async () => {
-      const { peek, ahead } = mountPillPeek({ ahead: 2, fetchRecentSubjects: async () => [] });
+      const { peek, ahead, upstreamHead } = mountPillPeek({ ahead: 2, fetchRecentSubjects: async () => [], upstreamHead: "aaa" });
+      upstreamHead.value = "bbb";
       ahead.value = 0;
       await nextTick();
       await Promise.resolve();

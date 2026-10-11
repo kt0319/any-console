@@ -77,6 +77,7 @@ export function buildPillFields(
     dispatchCount: dispatchItems.length,
     dispatchItems,
     lastCommitMessage: ws?.last_commit_message,
+    upstreamHead: ws?.upstream_head as string | undefined,
     tooltips: buildInfoPillTooltips({
       name: tooltipName, isGitRepo,
       branch, ahead, behind, hasUpstream: ws?.has_upstream !== false,
@@ -115,6 +116,7 @@ export function buildPeekFields(
     ahead: pill.ahead,
     behind: pill.behind,
     lastCommitMessage: pill.lastCommitMessage,
+    upstreamHead: pill.upstreamHead,
     branchPR: pill.branchPR,
     branchAction: pill.branchAction,
     devServerEntry: pill.devServerEntry,

@@ -117,7 +117,8 @@ export function usePillPeek({
     else prevTrailingSignature.set(key, value);
   }
 
-  watch(trailingPeekItems, (items) => {
+  let prevUpstreamHead = peekFields.value?.upstreamHead as string | undefined;
+  watch([trailingPeekItems, () => peekFields.value?.upstreamHead as string | undefined], ([items, upstreamHead]) => {
     const nextSignature = trailingItemsSignature(items);
     const prsJustResolved = !prsEverResolved && prsResolvedFor(workspaceKey());
     if (prsJustResolved) {
@@ -143,8 +144,11 @@ export function usePillPeek({
           const [prevBranch, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
           const prevAhead = Number(prevAheadStr) || 0;
           const prevBehind = Number(prevBehindStr) || 0;
+          // pushはリモート追跡ref（upstream）を動かす（force pushも同じ）。resetはローカルの
+          // ブランチだけを動かすため、upstreamが動かないままaheadが0になったら「Pushed」にしない。
+          const upstreamMoved = prevUpstreamHead !== upstreamHead;
           if (prevBranch === peekFields.value?.branch) {
-            if (prevAhead > 0 && ahead.value === 0) pushCount = prevAhead;
+            if (prevAhead > 0 && ahead.value === 0 && upstreamMoved) pushCount = prevAhead;
             if (prevBehind > 0 && behind.value === 0) pullCount = prevBehind;
           }
         }
@@ -173,6 +177,7 @@ export function usePillPeek({
       }
     }
     prevTrailingSignature = nextSignature;
+    prevUpstreamHead = upstreamHead;
   }, { deep: true });
 
   // Dev Serverが検出されなくなった瞬間だけ知らせる。trailingPeekItemsはdevServerEntryが
