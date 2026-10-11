@@ -21,7 +21,7 @@
            行のPendingバッジとワークスペース名の非アクティブ色だけで区別する。 -->
       <template v-if="pendingDispatchWorkspaces.length > 0">
         <ul class="session-sidebar-list session-sidebar-list-pending">
-        <li v-for="p in pendingDispatchWorkspaces" :key="p.workspace" class="session-sidebar-li">
+        <li v-for="p in pendingDispatchWorkspaces" :key="p.workspace" class="session-sidebar-li session-sidebar-li-pending">
           <span class="session-sidebar-row1" @click="onOpenPendingDispatch(p)">
             <button type="button" class="session-sidebar-item">
               <SessionRowContent :item="p" dim />
@@ -238,6 +238,13 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 0 0 4px;
+}
+
+/* タブがまだ無い（開いていない）ワークスペースの承認待ち行は、開いている
+   セッションより沈んだ見た目にして非アクティブだと分かるようにする
+   （Dispatchタブの「Recently decided」行と同じopacityの語彙）。 */
+.session-sidebar-li-pending {
+  opacity: 0.6;
 }
 
 /* pending行の一覧は見出しを出さず、開いているセッション一覧との区切りは
