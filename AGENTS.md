@@ -117,6 +117,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・Jobs のインライン展開 / 折りたたみ・削除（確認ダイアログ）
   - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（Stash は Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへの他者コミットの反映
+  - `branch-empty-repo.spec.js`: コミット0（unborn branch）のリポジトリでも Branches に現在ブランチが表示される
   - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること
   - `dispatch.spec.js`: Dispatch（POST /dispatch でキューに投入した項目）のワークスペース詳細 Dispatch タブでの一覧表示・Run・Discard（一時 git リポジトリをワークスペース登録し、afterAll で後始末）
   - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（Job detected トースト・タブアイコンの即時切替え）

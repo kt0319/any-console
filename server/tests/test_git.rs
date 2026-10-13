@@ -22,6 +22,10 @@ struct TestFront {
 const TOKEN: &str = "git-test-token";
 
 async fn spawn_front() -> TestFront {
+    spawn_front_with_initial_commit(true).await
+}
+
+async fn spawn_front_with_initial_commit(initial_commit: bool) -> TestFront {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("data");
     save_json_file(&data_dir.join("auth.json"), &json!({"token": TOKEN})).unwrap();
@@ -32,9 +36,11 @@ async fn spawn_front() -> TestFront {
     common::sh_git(&ws_path, &["init", "-q", "-b", "main"]);
     common::sh_git(&ws_path, &["config", "user.email", "t@example.com"]);
     common::sh_git(&ws_path, &["config", "user.name", "tester"]);
-    std::fs::write(ws_path.join("a.txt"), "hello\n").unwrap();
-    common::sh_git(&ws_path, &["add", "-A"]);
-    common::sh_git(&ws_path, &["commit", "-q", "-m", "first commit"]);
+    if initial_commit {
+        std::fs::write(ws_path.join("a.txt"), "hello\n").unwrap();
+        common::sh_git(&ws_path, &["add", "-A"]);
+        common::sh_git(&ws_path, &["commit", "-q", "-m", "first commit"]);
+    }
 
     // ワークスペース登録
     let store = ConfigStore::new(dir.path().join("config.json"));
@@ -404,6 +410,45 @@ async fn branch_lifecycle_and_listing() {
     assert_eq!(resp.status(), 400);
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["detail"], "Cannot delete the current branch");
+}
+
+#[tokio::test]
+async fn branches_listing_includes_current_branch_before_first_commit() {
+    let front = spawn_front_with_initial_commit(false).await;
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let arr = branches.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["name"], "main");
+    assert_eq!(arr[0]["current"], true);
+    assert_eq!(arr[0]["upstream"], Value::Null);
+    assert_eq!(arr[0]["ahead"], 0);
+    assert_eq!(arr[0]["behind"], 0);
+}
+
+#[tokio::test]
+async fn branches_listing_turns_into_regular_row_after_first_commit() {
+    let front = spawn_front_with_initial_commit(false).await;
+    std::fs::write(front.ws_path.join("a.txt"), "hello\n").unwrap();
+    common::sh_git(&front.ws_path, &["add", "-A"]);
+    common::sh_git(&front.ws_path, &["commit", "-q", "-m", "first commit"]);
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let arr = branches.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["name"], "main");
+    assert_eq!(arr[0]["current"], true);
+    assert!(arr[0]["ahead"].as_i64().unwrap() >= 1);
+}
+
+#[tokio::test]
+async fn git_log_on_unborn_branch_does_not_error() {
+    let front = spawn_front_with_initial_commit(false).await;
+    let resp = common::client()
+        .get(format!("http://{}/workspaces/repo/git-log", front.addr))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
 }
 
 #[tokio::test]
