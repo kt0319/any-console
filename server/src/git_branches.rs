@@ -187,8 +187,14 @@ pub async fn list_branches(
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
     let ws_path = resolve_workspace_path(&state.config, &name).await?;
-    let branches = git_branches(&ws_path).await;
+    let mut branches = git_branches(&ws_path).await;
     let current = git_branch(&ws_path).await;
+    // コミット0では `git branch` が空を返すため、現在ブランチだけ一覧に載せる
+    if branches.is_empty() {
+        if let Some(c) = &current {
+            branches.push(c.clone());
+        }
+    }
     let default_branch = git_default_branch(&ws_path).await;
     let tracking = branch_tracking_info(&ws_path).await?;
 

@@ -284,13 +284,26 @@ pub fn registered_paths_by_resolved(
     result
 }
 
+/// コミット0（unborn branch）では `rev-parse --abbrev-ref HEAD` が失敗するため
+/// `symbolic-ref` を先に引く。detached HEAD では symbolic-ref が失敗し `"HEAD"` になる。
 pub async fn git_branch(directory: &Path) -> Option<String> {
-    let out = run_git_query(
-        &["rev-parse", "--abbrev-ref", "HEAD"],
+    let out = match run_git_query(
+        &["symbolic-ref", "--short", "-q", "HEAD"],
         directory,
         GIT_QUICK_TIMEOUT_SEC,
     )
-    .await?;
+    .await
+    {
+        Some(out) => out,
+        None => {
+            run_git_query(
+                &["rev-parse", "--abbrev-ref", "HEAD"],
+                directory,
+                GIT_QUICK_TIMEOUT_SEC,
+            )
+            .await?
+        }
+    };
     let trimmed = out.trim().to_string();
     (!trimmed.is_empty()).then_some(trimmed)
 }
@@ -755,6 +768,35 @@ mod tests {
             .unwrap();
         assert!(cmd.success());
         assert!(cmd.stdout.contains("first"));
+    }
+
+    #[tokio::test]
+    async fn git_branch_returns_head_literal_when_detached() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        for args in [
+            vec!["init", "-q", "-b", "main"],
+            vec!["config", "user.email", "t@example.com"],
+            vec!["config", "user.name", "t"],
+            vec!["commit", "--allow-empty", "-q", "-m", "first"],
+            vec!["checkout", "-q", "--detach"],
+        ] {
+            let r = run_git_raw(&args, p, 10.0, &[]).await.unwrap();
+            assert_eq!(r.code, 0, "{args:?}: {}", r.stderr);
+        }
+        assert_eq!(git_branch(p).await.as_deref(), Some("HEAD"));
+    }
+
+    #[tokio::test]
+    async fn git_branch_resolves_name_on_unborn_branch() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        let r = run_git_raw(&["init", "-q", "-b", "main"], p, 10.0, &[])
+            .await
+            .unwrap();
+        assert_eq!(r.code, 0, "{}", r.stderr);
+        assert_eq!(git_branch(p).await.as_deref(), Some("main"));
+        assert!(git_branches(p).await.is_empty());
     }
 
     async fn init_repo_with_worktree(dir: &Path, wt_dir: &Path) {
