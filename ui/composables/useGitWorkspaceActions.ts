@@ -2,7 +2,7 @@ import { emit } from "../app-bridge.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { invalidateStashCache } from "./useStashCache.ts";
 import { useApi } from "./useApi.ts";
-import { useToast } from "./useToast.ts";
+import { buildActionResult } from "../utils/git-remote.ts";
 
 /**
  * ワークスペース単位の git ミューテーション（checkout / stash save）。
@@ -10,14 +10,12 @@ import { useToast } from "./useToast.ts";
  */
 export function useGitWorkspaceActions() {
   const { apiCommand, wsEndpoint } = useApi();
-  const toast = useToast();
   const workspaceStore = useWorkspaceStore();
 
   async function checkoutBranch(workspace: string, branch: string, remote?: boolean): Promise<boolean> {
     const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
     if (!ok) return false;
     workspaceStore.fetchStatuses();
-    toast.success(`Switched branch to "${branch}"`);
     return true;
   }
 
@@ -25,7 +23,7 @@ export function useGitWorkspaceActions() {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
     if (!ok) return false;
     invalidateStashCache(workspace);
-    toast.success(data?.stdout?.trim() || "Stash saved");
+    emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Stash saved", data?.stdout?.trim() || "") });
     emit("git:commitDone");
     return true;
   }

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildRemoteResult, formatCommitSubjects } from "../../ui/utils/git-remote.ts";
+import { buildActionResult, buildRemoteResult, formatCommitSubjects } from "../../ui/utils/git-remote.ts";
 
 describe("buildRemoteResult", () => {
   it("コミットなしのPullはPulledと区別できる専用文言", () => {
@@ -63,5 +63,12 @@ describe("formatCommitSubjects", () => {
 
   it("件名が空なら空文字（総数だけでは何も出さない）", () => {
     expect(formatCommitSubjects([], 4)).toBe("");
+  });
+});
+
+describe("buildActionResult", () => {
+  it("push/pull以外の操作結果をkind noneで返す", () => {
+    expect(buildActionResult("Committed", "feat: x")).toEqual({ kind: "none", headline: "Committed", detail: "feat: x" });
+    expect(buildActionResult("Fetched remote")).toEqual({ kind: "none", headline: "Fetched remote", detail: "" });
   });
 });

@@ -51,7 +51,7 @@ describe("useGitWorkspaceActions", () => {
       expect.objectContaining({ errorMessage: "Checkout failed" }),
     );
     expect(store.fetchStatuses).toHaveBeenCalled();
-    expect(toastSuccess).toHaveBeenCalledWith('Switched branch to "feature"');
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 
   it("checkoutBranch は失敗時に false を返し副作用を起こさない", async () => {
@@ -71,6 +71,7 @@ describe("useGitWorkspaceActions", () => {
     const { useGitWorkspaceActions, on, setStashCache, getStashCachedCount } = await freshModule();
     const events = [];
     const off = on("git:commitDone", () => events.push("commitDone"));
+    const offRemote = on("git:remoteDone", (d) => events.push(d));
     setStashCache("ws1", [{ ref: "stash@{0}", message: "x" }]);
     const { stashSave } = useGitWorkspaceActions();
 
@@ -81,9 +82,13 @@ describe("useGitWorkspaceActions", () => {
       expect.objectContaining({ errorMessage: "Stash save failed" }),
     );
     expect(getStashCachedCount("ws1")).toBeNull();
-    expect(toastSuccess).toHaveBeenCalledWith("Saved working directory");
-    expect(events).toEqual(["commitDone"]);
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      { wsName: "ws1", result: { kind: "none", headline: "Stash saved", detail: "Saved working directory" } },
+      "commitDone",
+    ]);
     off();
+    offRemote();
   });
 
   it("stashSave は失敗時に false を返しキャッシュを保持する", async () => {

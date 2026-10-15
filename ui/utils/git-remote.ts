@@ -4,7 +4,7 @@
 export type RemoteLabel = "Pull" | "Push" | "Push (set upstream)";
 export type RemoteResultKind = "push" | "pull" | "none";
 
-/** branch peekに出す pull/push の結果。headline は色付きの要約、detail は件名の連結。 */
+/** branch peekに出す pull/push 等の結果。headline は色付きの要約、detail は件名等の補足。 */
 export interface RemoteResult {
   kind: RemoteResultKind;
   headline: string;
@@ -52,4 +52,9 @@ export function buildRemoteResult(
     headline: `${count} ${PAST_TENSE_VERB[label]}`,
     detail: formatCommitSubjects(subjects, count),
   };
+}
+
+/** push/pull以外のgit操作（commit/stash/fetch）の完了をbranch peekに出すための結果。 */
+export function buildActionResult(headline: string, detail = ""): RemoteResult {
+  return { kind: "none", headline, detail };
 }

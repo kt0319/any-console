@@ -164,7 +164,6 @@ test.describe("workspace detail panes", () => {
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText(COMMIT_MSG_UI);
     await dialog.locator(".dialog-btn-ok").click();
-    await expect(page.locator(".toast", { hasText: "Committed" })).toBeVisible({ timeout: 10_000 });
 
     // History に反映されている
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
@@ -264,7 +263,7 @@ test.describe("workspace detail panes", () => {
     await page.locator(".workspace-tabs").getByRole("button", { name: "Changes" }).click();
     await expect(page.locator(".diff-file-row", { hasText: "README.md" })).toBeVisible({ timeout: 10_000 });
     await page.locator(".diff-actions button", { hasText: "Stash" }).click();
-    await expect(page.locator(".toast", { hasText: "Saved" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".diff-file-row", { hasText: "README.md" })).toHaveCount(0, { timeout: 10_000 });
 
     // 開き直すとChangesタブにStashトグルが現れる（Stashesは独立タブから統合済み）
     await openDetail(page);

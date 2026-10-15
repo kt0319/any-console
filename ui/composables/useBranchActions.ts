@@ -11,6 +11,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useWorktreeCleanup } from "./useWorktreeCleanup.ts";
 import { worktreeBranchLabel, worktreeConfirmLabel, worktreeResidueNote, worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
+import { buildActionResult } from "../utils/git-remote.ts";
 import type { useBranchList } from "./useBranchList.ts";
 
 type BranchEntry = { name: string, current?: boolean, remote?: boolean };
@@ -180,7 +181,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
         remoteLoaded.value = false;
         await loadBranchList();
         await loadRemoteBranches();
-        toast.success("Fetched remote");
+        emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Fetched remote") });
       });
     } finally {
       isFetchingRemote.value = false;
