@@ -12,6 +12,7 @@ import { parseGitGraphOutput } from "../utils/git-graph.ts";
  */
 export function usePeekPills(options: {
   peekFields: ComputedRef<Record<string, any>>,
+  sessionId: () => string | null | undefined,
   paneWorkspace: ComputedRef<Record<string, any> | undefined>,
   workspaceKey: () => string | null | undefined,
   prsByWorkspace: Ref<Record<string, any[]>>,

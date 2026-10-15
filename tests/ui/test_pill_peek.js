@@ -174,6 +174,8 @@ describe("buildPeekText", () => {
     expect(buildPeekText("devserver", { devServerEntry: { proxy_port: 3000 } })).toBe("Dev Server :3000");
     expect(buildPeekText("devserver", {})).toBe("Server");
     expect(buildPeekText("devserver-stop", {})).toBe("Dev Server Stop");
+    expect(buildPeekText("job", { jobLabel: "Build" })).toBe("Build");
+    expect(buildPeekText("job", {})).toBe("");
     expect(buildPeekText("docker", { dockerContainers: [{ name: "web-1", state: "running" }] })).toBe("Docker: web-1");
     expect(buildPeekText("docker", { dockerContainers: [{ name: "web-1", state: "restarting" }] })).toBe("Docker: web-1");
     expect(buildPeekText("docker", { dockerContainers: [{ name: "redis-1", state: "exited" }] })).toBe("Docker");
@@ -203,6 +205,7 @@ describe("usePillPeek", () => {
       setup() {
         peek = usePillPeek({
           trailingPeekItems,
+          sessionId: () => "sess1",
           paneWorkspace: computed(() => ({})),
           workspaceKey: () => "ws1",
           prsByWorkspace: ref({}),
@@ -254,6 +257,41 @@ describe("usePillPeek", () => {
     expect(peek.peekingKey.value).toBe("branch");
     expect(peek.branchPushCount.value).toBe(0);
   });
+  it("session:jobBoundで自セッションのjob peekを出す", async () => {
+    const { peek } = mountPillPeek();
+    emit("session:jobBound", { sessionId: "sess1" });
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("job");
+  });
+
+  it("session:workspaceBoundで自セッションのworkspace peekを出す", async () => {
+    const { peek } = mountPillPeek();
+    emit("session:workspaceBound", { sessionId: "sess1" });
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("workspace");
+  });
+
+  it("先行peekの表示中に届いたjob検知も一定時間は表示する", async () => {
+    vi.useFakeTimers();
+    const { peek } = mountPillPeek();
+    emit("session:workspaceBound", { sessionId: "sess1" });
+    await vi.advanceTimersByTimeAsync(3500);
+    emit("session:jobBound", { sessionId: "sess1" });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(peek.peekingKey.value).toBe("job");
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(peek.peekingKey.value).toBe("job");
+    vi.useRealTimers();
+  });
+
+  it("別セッション宛ての検知イベントは無視する", async () => {
+    const { peek } = mountPillPeek();
+    emit("session:jobBound", { sessionId: "other" });
+    emit("session:workspaceBound", { sessionId: "other" });
+    await nextTick();
+    expect(peek.peekingKey.value).toBeNull();
+  });
+
   it("git:remoteDoneで自ワークスペースの結果をbranch peekに出す", async () => {
     const { peek } = mountPillPeek();
     const result = { kind: "push", headline: "2 Pushed", detail: "feat: a \u2022 fix: b" };

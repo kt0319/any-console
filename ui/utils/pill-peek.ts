@@ -113,6 +113,7 @@ export function buildPeekText(
   peekingKey: string | null,
   fields: {
     workspaceLabel?: string;
+    jobLabel?: string;
     branchPR?: { number: number; title: string } | null;
     branchAction?: { name?: string; status: string; conclusion: string } | null;
     devServerEntry?: { proxy_port: number } | null;
@@ -123,6 +124,7 @@ export function buildPeekText(
 ): string {
   const {
     workspaceLabel = "",
+    jobLabel = "",
     branchPR = null,
     branchAction = null,
     devServerEntry = null,
@@ -146,6 +148,7 @@ export function buildPeekText(
     case "add": return "Add";
     case "dispatch": return dispatchTooltip;
     case "workspace": return workspaceLabel;
+    case "job": return jobLabel;
     default: return "";
   }
 }

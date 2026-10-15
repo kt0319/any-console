@@ -253,6 +253,7 @@ const {
 } = usePeekPills({
   peekFields,
   paneWorkspace,
+  sessionId: () => props.tab.sessionId,
   workspaceKey: () => props.tab.workspace,
   prsByWorkspace,
   runsByWorkspace,

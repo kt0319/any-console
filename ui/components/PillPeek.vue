@@ -14,6 +14,11 @@
       class="pill-peek-icon-slot"
       v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"
     ></span>
+    <span
+      v-else-if="peekingKey === 'job' && tab.icon"
+      class="pill-peek-icon-slot"
+      v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"
+    ></span>
     <span v-else class="mdi pill-peek-icon" :class="iconClass"></span>
     <span class="pill-peek-text pill-peek-marquee" :style="{ maxWidth: maxWidth + 'px' }">
       <span

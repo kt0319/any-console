@@ -138,6 +138,7 @@ const {
       ? { last_commit_message: props.item.lastCommitMessage }
       : undefined
   )),
+  sessionId: () => props.item.tab.sessionId,
   workspaceKey: () => props.item.tab.workspace,
   prsByWorkspace: computed(() => props.prsByWorkspace),
   runsByWorkspace: computed(() => props.runsByWorkspace),

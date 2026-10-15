@@ -120,7 +120,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `branch-empty-repo.spec.js`: コミット0（unborn branch）のリポジトリでも Branches に現在ブランチが表示される
   - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること
   - `dispatch.spec.js`: Dispatch（POST /dispatch でキューに投入した項目）のワークスペース詳細 Dispatch タブでの一覧表示・Run・Discard（一時 git リポジトリをワークスペース登録し、afterAll で後始末）
-  - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（Job detected トースト・タブアイコンの即時切替え）
+  - `job-auto-detect.spec.js`: 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（ピークピルへのジョブ名表示・タブアイコンの即時切替え）
   - `split.spec.js`: タブドラッグによるターミナル分割（SplitModeSelector での軸切替えは `tests/ui/components/test_SplitModeSelector.js` で担保）
   - `preview.spec.js`: Dev Server の検出（Server ピル）と確認ダイアログの Open からの proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー

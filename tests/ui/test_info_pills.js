@@ -80,6 +80,7 @@ describe("peekIconForKey", () => {
 
   it("peek専用キー（devserver-stop）にもアイコンを返す", () => {
     expect(peekIconForKey("devserver-stop")).toBe("mdi-server-off");
+    expect(peekIconForKey("job")).toBe("mdi-play-circle-outline");
   });
 
   it("対応するピルが無いキーは空文字（テンプレート側が実アイコンを描画）", () => {

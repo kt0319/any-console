@@ -86,8 +86,8 @@ export const INFO_PILLS = [
 // 設定のフィールド一覧 兼 デフォルト表示順（テーブルの並び＝デフォルト順）。
 export const INFO_PILL_FIELDS = INFO_PILLS.map((p) => p.key);
 
-// ピル一覧に無いpeek専用キー（「検出されなくなった」通知のみで対応するピルが無い）。
-const PEEK_ONLY_ICONS: Record<string, string> = { "devserver-stop": "mdi-server-off" };
+// ピル一覧に無いpeek専用キー（「検出されなくなった」通知・ジョブ自動検知で対応するピルが無い）。
+const PEEK_ONLY_ICONS: Record<string, string> = { "devserver-stop": "mdi-server-off", job: "mdi-play-circle-outline" };
 
 /**
  * ピル本体・peekピルに出すmdiアイコンクラス。対応するピルが無いキー

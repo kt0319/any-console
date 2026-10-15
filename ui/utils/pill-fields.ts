@@ -100,11 +100,12 @@ export type PillFields = ReturnType<typeof buildPillFields>;
  * branchは画面回転で変わる省略表示ではなく生のブランチ名を使う（回転だけで誤検知しないため）。
  */
 export function buildPeekFields(
-  tab: { workspace?: string | null; label?: string | null; sessionId?: string | null },
+  tab: { workspace?: string | null; label?: string | null; sessionId?: string | null; jobLabel?: string | null },
   pill: PillFields,
 ) {
   return {
     workspaceLabel: tab.workspace || tab.label || "",
+    jobLabel: tab.jobLabel || "",
     isGitRepo: pill.isGitRepo,
     hasSession: !!tab.sessionId,
     hasWorkspace: !!tab.workspace,

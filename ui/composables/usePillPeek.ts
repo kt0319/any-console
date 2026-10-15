@@ -15,6 +15,7 @@ import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
 // 変化検出・キュー・タイマーをここに集約し、TerminalPane はpeekingKeyを表示に使うだけにする。
 export function usePillPeek({
   trailingPeekItems,
+  sessionId,
   paneWorkspace,
   workspaceKey,
   prsByWorkspace,
@@ -26,6 +27,7 @@ export function usePillPeek({
   fetchRecentSubjects,
 }: {
   trailingPeekItems: ComputedRef<{ key: string, text: string }[]>,
+  sessionId: () => string | null | undefined,
   paneWorkspace: ComputedRef<Record<string, any> | undefined>,
   workspaceKey: () => string | null | undefined,
   prsByWorkspace: Ref<Record<string, any[]>>,
@@ -70,7 +72,7 @@ export function usePillPeek({
   // よう、表示中ならキューに積んで前のpeekが閉じてから順番に表示する。表示時間は1件ずつ
   // PILL_PEEK_DURATION_MSではなく、キュー全体の合計がPILL_PEEK_DURATION_MSに収まるよう
   // 残り時間を残件数で割る。
-  const peekQueue: { key: string, pushCount: number, pullCount: number, remote: RemoteResult | null }[] = [];
+  const peekQueue: { key: string, pushCount: number, pullCount: number, remote: RemoteResult | null, guaranteed: boolean }[] = [];
   let queueSessionEndsAt = 0;
 
   function advancePeekQueue() {
@@ -86,16 +88,17 @@ export function usePillPeek({
     branchRemoteResult.value = next.remote;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const sharedMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
-    // pull/pushの結果は件名を読み切れるよう、先行peekで残り時間を使い切られていても
+    // pull/pushの結果・ワークスペース/ジョブの検知は、先行peekで残り時間を使い切られていても
     // 一定時間は必ず表示する（共有枠に任せると1msで切り替わってしまう）。
-    const itemMs = next.remote ? Math.max(sharedMs, PILL_PEEK_REMOTE_DURATION_MS) : sharedMs;
-    if (next.remote) queueSessionEndsAt = Math.max(queueSessionEndsAt, Date.now() + itemMs);
+    const guaranteedMs = next.remote ? PILL_PEEK_REMOTE_DURATION_MS : next.guaranteed ? PILL_PEEK_DURATION_MS : 0;
+    const itemMs = guaranteedMs ? Math.max(sharedMs, guaranteedMs) : sharedMs;
+    if (guaranteedMs) queueSessionEndsAt = Math.max(queueSessionEndsAt, Date.now() + itemMs);
     peekDurationMs.value = itemMs;
     peekTimer = setTimeout(advancePeekQueue, itemMs);
   }
 
-  function triggerPeek(key: string, pushCount = 0, pullCount = 0, remote: RemoteResult | null = null) {
-    peekQueue.push({ key, pushCount, pullCount, remote });
+  function triggerPeek(key: string, pushCount = 0, pullCount = 0, remote: RemoteResult | null = null, guaranteed = false) {
+    peekQueue.push({ key, pushCount, pullCount, remote, guaranteed });
     if (!peekTimer) {
       queueSessionEndsAt = Date.now() + (remote ? PILL_PEEK_REMOTE_DURATION_MS : PILL_PEEK_DURATION_MS);
       advancePeekQueue();
@@ -108,6 +111,15 @@ export function usePillPeek({
     if (!trailingPeekItems.value.some((item) => item.key === "branch")) return;
     lastRemoteResultAt = Date.now();
     triggerPeek("branch", 0, 0, result);
+  });
+
+  // 素のターミナルへのワークスペース/ジョブの自動紐付け。paneWorkspaceが未解決から解決に
+  // 変わる同tickの変化は初回誤検知ガードで握りつぶされるため、検知イベントから直接出す。
+  useBusListener("session:workspaceBound", ({ sessionId: boundId }: { sessionId?: string }) => {
+    if (boundId && boundId === sessionId()) triggerPeek("workspace", 0, 0, null, true);
+  });
+  useBusListener("session:jobBound", ({ sessionId: boundId }: { sessionId?: string }) => {
+    if (boundId && boundId === sessionId()) triggerPeek("job", 0, 0, null, true);
   });
 
   // 初回解決キーのベースラインを次シグネチャの値へ揃える（変化扱いにしない）。

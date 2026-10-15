@@ -3,7 +3,7 @@
  * コマンドがジョブ定義と一致した際に自動タグ付け（session_job_bound）される
  * フローの E2E。
  *
- * トースト（Job detected）が出ること、タブアイコンが即座にジョブアイコンへ
+ * ピークピルにジョブ名が出ること、タブアイコンが即座にジョブアイコンへ
  * 切り替わること、そして通常どおりワークスペースからジョブを起動した場合と
  * 同じアイコンになる（= ワークスペースアイコン未設定時にjobアイコンへ誤って
  * フォールバックしていたバグの回帰確認）ことを検証する。
@@ -106,8 +106,8 @@ test.describe("job auto-detect from bare terminal", () => {
     await page.keyboard.type(jobCommand);
     await page.keyboard.press("Enter");
 
-    // トースト（Job detected）が出る
-    await expect(page.locator(".toast", { hasText: `Job detected: ${jobLabel}` })).toBeVisible({ timeout: 20_000 });
+    // ピークピルにジョブ名が出る
+    await expect(page.locator(".pill-peek-wide", { hasText: jobLabel }).first()).toBeVisible({ timeout: 20_000 });
 
     // 5. タブのアイコンが即座にジョブアイコンへ切り替わる（session_job_boundのライブ反映）
     const autoTab = page.locator(".tab-btn.active");

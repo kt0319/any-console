@@ -23,6 +23,8 @@ export const BUS_EVENTS = Object.freeze([
   "layout:fitAll",
   "modal:close",
   "notification:openSession",
+  "session:jobBound",
+  "session:workspaceBound",
   "settings:open",
   "tab:close",
   "tab:refresh",

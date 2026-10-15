@@ -4,8 +4,7 @@ import { useAgentStateStore } from "../stores/agent-state.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { applyDispatchQueue } from "./useDispatchQueue.ts";
 import { useSessionSync } from "./useSessionSync.ts";
-import { useToast } from "./useToast.ts";
-import { on } from "../app-bridge.ts";
+import { emit, on } from "../app-bridge.ts";
 import { debugLog } from "./useClientLogs.ts";
 import {
   buildStatusStreamUrl,
@@ -32,7 +31,6 @@ export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
   const terminalStore = useTerminalStore();
   const { syncSessionsFromServer } = useSessionSync();
-  const toast = useToast();
 
   function isClosed() {
     return !socket || socket.readyState === WebSocket.CLOSED;
@@ -92,7 +90,7 @@ export function useStatusStream() {
           terminalStore.setTabWorkspace(tab.id, msg.workspace, ws ? { icon: ws.icon, iconColor: ws.icon_color } : null);
           workspaceStore.fetchStatuses();
         }
-        toast.success(`Workspace linked: ${msg.workspace}`);
+        emit("session:workspaceBound", { sessionId: msg.session_id });
       } else if (msg?.type === "session_job_bound") {
         // 前面ジョブのargv照合による自動ジョブタグ付け（cwd照合と同じ仕組みの
         // ジョブ版）。該当タブが既に開いていれば、session_workspace_boundと同様
@@ -101,7 +99,7 @@ export function useStatusStream() {
         if (tab) {
           terminalStore.setTabJob(tab.id, msg.job_name, msg.job_label, { icon: msg.icon, iconColor: msg.icon_color });
         }
-        toast.success(`Job detected: ${msg.job_label}`);
+        emit("session:jobBound", { sessionId: msg.session_id });
       }
     };
     ws.onclose = () => {
