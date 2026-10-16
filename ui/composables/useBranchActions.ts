@@ -9,7 +9,7 @@ import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useWorktreeCleanup } from "./useWorktreeCleanup.ts";
-import { worktreeBranchLabel, worktreeConfirmLabel, worktreeResidueNote, worktreeWorkspaceName } from "../utils/worktree.ts";
+import { worktreeBranchLabel, worktreeResidueNote, worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 import { buildActionResult } from "../utils/git-remote.ts";
 import type { useBranchList } from "./useBranchList.ts";
@@ -70,7 +70,6 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     await cleanupResidue(residue);
     await workspaceStore.fetchWorkspaces();
     await loadWorktrees();
-    toast.success(`Worktree removed: ${workspace}:${worktreeConfirmLabel(wt)}`);
   }
 
   async function pushBranch(branch: BranchEntry) {
