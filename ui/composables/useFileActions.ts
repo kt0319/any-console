@@ -4,6 +4,7 @@ import { getWithRetry } from "../utils/api-retry.ts";
 import { useWorkspace } from "./useWorkspace.ts";
 import { useWorkspaceFile } from "./useWorkspaceFile.ts";
 import { useToast } from "./useToast.ts";
+import { emit } from "../app-bridge.ts";
 import { MSG_DELETE_FAILED } from "../utils/constants.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
@@ -31,7 +32,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     await withWorkspace(async (workspace) => {
       const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
       if (!ok) return;
-      toast.success("Renamed");
+      emit("files:opDone", { wsName: workspace, text: `Renamed ${basename(dest)}` });
       await navigateToPath(afterPath ?? getCurrentPath());
     });
   }
@@ -107,8 +108,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     }
   }
 
-  function emitUploadToasts(successCount: number, failCount: number, skippedCount: number) {
-    if (successCount > 0) toast.success(`${successCount} file(s) uploaded`);
+  function emitUploadResult(workspace: string, successCount: number, failCount: number, skippedCount: number) {
+    if (successCount > 0) emit("files:opDone", { wsName: workspace, text: `${successCount} file(s) uploaded` });
     if (failCount > 0) toast.error(`${failCount} file(s) failed to upload`);
     if (skippedCount > 0) toast.error(`${skippedCount} file(s) skipped (overwrite declined)`);
   }
@@ -145,7 +146,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
         else failCount += 1;
       }
 
-      emitUploadToasts(successCount, failCount, skippedCount);
+      emitUploadResult(workspace, successCount, failCount, skippedCount);
       await navigateToPath(uploadPath);
     });
   }

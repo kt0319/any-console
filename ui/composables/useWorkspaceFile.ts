@@ -2,6 +2,7 @@ import { useAuthStore } from "../stores/auth.ts";
 import { useApi } from "./useApi.ts";
 import { useWorkspace } from "./useWorkspace.ts";
 import { useToast } from "./useToast.ts";
+import { emit } from "../app-bridge.ts";
 import { triggerBlobDownload } from "../utils/download.ts";
 import { extractFilenameFromContentDisposition } from "../utils/content-disposition.ts";
 import { workspaceDownloadPath } from "../utils/endpoints.ts";
@@ -41,7 +42,7 @@ export function useWorkspaceFile() {
         { path: filePath },
         { errorMessage },
       );
-      if (ok) toast.success(`Deleted "${basename(filePath)}"`);
+      if (ok) emit("files:opDone", { wsName: workspace, text: `Deleted ${basename(filePath)}` });
       return ok;
     });
     return result ?? false;

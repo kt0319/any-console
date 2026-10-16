@@ -10,6 +10,7 @@ import { debugLog } from "./composables/useClientLogs.ts";
 export const BUS_EVENTS = Object.freeze([
   "connectivity:back",
   "dispatch:itemRemoved",
+  "files:opDone",
   "git:browseToFolder",
   "git:commitDone",
   "git:openFileModal",

@@ -196,9 +196,10 @@ describe("usePillPeek", () => {
     const behind = ref(opts.behind ?? 0);
     const upstreamHead = ref(opts.upstreamHead);
     const branchPillOn = ref(true);
-    const trailingPeekItems = computed(() => branchPillOn.value
-      ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }]
-      : []);
+    const trailingPeekItems = computed(() => [
+      ...(opts.filesPill ? [{ key: "files", text: "Files" }] : []),
+      ...(branchPillOn.value ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }] : []),
+    ]);
     const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value, upstreamHead: upstreamHead.value }));
     let peek;
     const Comp = defineComponent({
@@ -282,6 +283,26 @@ describe("usePillPeek", () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(peek.peekingKey.value).toBe("job");
     vi.useRealTimers();
+  });
+
+  it("files:opDoneで自ワークスペースの文言をfiles peekに出す", async () => {
+    const { peek } = mountPillPeek({ filesPill: true });
+    emit("files:opDone", { wsName: "ws1", text: "Deleted a.txt" });
+    await nextTick();
+    expect(peek.peekingKey.value).toBe("files");
+    expect(peek.peekText.value).toBe("Deleted a.txt");
+    expect(peek.peekSignature.value).toContain("Deleted a.txt");
+  });
+
+  it("別ワークスペース宛て・filesピルが無い時のfiles:opDoneは無視する", async () => {
+    const { peek } = mountPillPeek({ filesPill: true });
+    emit("files:opDone", { wsName: "other", text: "Deleted a.txt" });
+    await nextTick();
+    expect(peek.peekingKey.value).toBeNull();
+    const { peek: noFiles } = mountPillPeek();
+    emit("files:opDone", { wsName: "ws1", text: "Deleted a.txt" });
+    await nextTick();
+    expect(noFiles.peekingKey.value).toBeNull();
   });
 
   it("別セッション宛ての検知イベントは無視する", async () => {

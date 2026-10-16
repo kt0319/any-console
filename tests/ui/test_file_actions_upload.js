@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * useFileActions: 複数ファイルドロップ時の上書き衝突ハンドリング。
- * 「一部拒否」「全部拒否」でスキップ件数がトーストに反映されることを確認する。
+ * 「一部拒否」「全部拒否」でスキップ件数がトースト、成功件数がfiles peekに反映されることを確認する。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
@@ -34,17 +34,22 @@ async function waitForConfirmThen(resolveFn) {
 
 describe("useFileActions: 複数ファイルドロップの上書き衝突", () => {
   let toasts;
+  let fileOps;
   let offToast;
+  let offFileOp;
 
   beforeEach(() => {
     setActivePinia(createPinia());
     useWorkspaceStore().selectedWorkspace = "ws1";
     toasts = [];
+    fileOps = [];
     offToast = on("toast:show", (payload) => toasts.push(payload));
+    offFileOp = on("files:opDone", (payload) => fileOps.push(payload));
   });
 
   afterEach(() => {
     offToast();
+    offFileOp();
   });
 
   function setupAuthFetch({ existingNames = [], uploadOk = true }) {
@@ -74,9 +79,8 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     await waitForConfirmThen(onCancel);
     await done;
 
-    const messages = toasts.map((t) => t.message);
-    expect(messages).toContain("1 file(s) uploaded");
-    expect(messages).toContain("1 file(s) skipped (overwrite declined)");
+    expect(fileOps).toEqual([{ wsName: "ws1", text: "1 file(s) uploaded" }]);
+    expect(toasts.map((t) => t.message)).toEqual(["1 file(s) skipped (overwrite declined)"]);
   });
 
   it("全ファイルが上書き拒否されると、アップロード0件でもスキップ件数だけはトーストされる", async () => {
@@ -109,6 +113,7 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     await waitForConfirmThen(onOk);
     await done;
 
-    expect(toasts.map((t) => t.message)).toEqual(["2 file(s) uploaded"]);
+    expect(fileOps).toEqual([{ wsName: "ws1", text: "2 file(s) uploaded" }]);
+    expect(toasts).toEqual([]);
   });
 });

@@ -54,6 +54,8 @@ export function usePillPeek({
   // 変化検出（件数だけ）では出せない。branch peekの間だけ値を持つ。
   const branchRemoteResult = ref<RemoteResult | null>(null);
   let lastRemoteResultAt = 0;
+  // ファイル操作（rename/delete/upload）の完了文言。filesのpeekの間だけ値を持つ。
+  const filesOpText = ref("");
   // paneWorkspace等は非同期フェッチのためマウント直後は未解決(undefined)になりうる。
   // このタイミングでprevTrailingSignatureを確定させると、情報が届いた瞬間に「新規に現れた」
   // と誤検知してpeekが一瞬表示されてしまう。一度も解決していない間は変化検出をスキップし、
@@ -72,7 +74,7 @@ export function usePillPeek({
   // よう、表示中ならキューに積んで前のpeekが閉じてから順番に表示する。表示時間は1件ずつ
   // PILL_PEEK_DURATION_MSではなく、キュー全体の合計がPILL_PEEK_DURATION_MSに収まるよう
   // 残り時間を残件数で割る。
-  const peekQueue: { key: string, pushCount: number, pullCount: number, remote: RemoteResult | null, guaranteed: boolean }[] = [];
+  const peekQueue: { key: string, pushCount: number, pullCount: number, remote: RemoteResult | null, guaranteed: boolean, text: string }[] = [];
   let queueSessionEndsAt = 0;
 
   function advancePeekQueue() {
@@ -86,6 +88,7 @@ export function usePillPeek({
     branchPushCount.value = next.pushCount || 0;
     branchPullCount.value = next.pullCount || 0;
     branchRemoteResult.value = next.remote;
+    filesOpText.value = next.text;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const sharedMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
     // pull/pushの結果・ワークスペース/ジョブの検知は、先行peekで残り時間を使い切られていても
@@ -97,8 +100,8 @@ export function usePillPeek({
     peekTimer = setTimeout(advancePeekQueue, itemMs);
   }
 
-  function triggerPeek(key: string, pushCount = 0, pullCount = 0, remote: RemoteResult | null = null, guaranteed = false) {
-    peekQueue.push({ key, pushCount, pullCount, remote, guaranteed });
+  function triggerPeek(key: string, pushCount = 0, pullCount = 0, remote: RemoteResult | null = null, guaranteed = false, text = "") {
+    peekQueue.push({ key, pushCount, pullCount, remote, guaranteed, text });
     if (!peekTimer) {
       queueSessionEndsAt = Date.now() + (remote ? PILL_PEEK_REMOTE_DURATION_MS : PILL_PEEK_DURATION_MS);
       advancePeekQueue();
@@ -111,6 +114,12 @@ export function usePillPeek({
     if (!trailingPeekItems.value.some((item) => item.key === "branch")) return;
     lastRemoteResultAt = Date.now();
     triggerPeek("branch", 0, 0, result);
+  });
+
+  useBusListener("files:opDone", ({ wsName, text }: { wsName?: string, text?: string }) => {
+    if (!text || wsName !== workspaceKey()) return;
+    if (!trailingPeekItems.value.some((item) => item.key === "files")) return;
+    triggerPeek("files", 0, 0, null, true, text);
   });
 
   // 素のターミナルへのワークスペース/ジョブの自動紐付け。paneWorkspaceが未解決から解決に
@@ -210,13 +219,14 @@ export function usePillPeek({
   // peekピルの表示に使う派生値もここで返す（TerminalPane / SessionSidebarRow で共有）。
   const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
   const peekColorClass = computed(() => peekColorForKey(peekingKey.value, peekFields.value));
-  const peekText = computed(() => buildPeekText(peekingKey.value, peekFields.value));
+  const peekText = computed(() => (peekingKey.value === "files" && filesOpText.value) || buildPeekText(peekingKey.value, peekFields.value));
   // 結果の文言はマーキー再測定のトリガー（PillPeek.vueのsignature watch）にも
   // 反映する。同じbranchキーのまま内容だけ差し替わるとDOMが再マウントされないため。
   const peekSignature = computed(() => {
     const base = buildPeekSignature(peekingKey.value, peekFields.value);
     const remote = branchRemoteResult.value;
-    return remote ? `${base}:${remote.headline}:${remote.detail}` : base;
+    if (remote) return `${base}:${remote.headline}:${remote.detail}`;
+    return peekingKey.value === "files" && filesOpText.value ? `${base}:${filesOpText.value}` : base;
   });
   // actionsは名前部分（白固定）とステータス部分（実行中/失敗で色分け）を別spanに分けて
   // 表示するため、PillPeek.vueへ個別に渡す。
