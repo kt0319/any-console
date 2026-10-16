@@ -5,12 +5,12 @@ import { setActivePinia, createPinia } from "pinia";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 
 const apiCommandMock = vi.fn(async () => ({ ok: true, data: {} }));
-const apiWithToastMock = vi.fn(async ({ onSuccess } = {}) => {});
+const apiWithPeekMock = vi.fn(async ({ onSuccess } = {}) => {});
 
 vi.mock("../../ui/composables/useApi.ts", () => ({
   useApi: () => ({
     apiCommand: apiCommandMock,
-    apiWithToast: apiWithToastMock,
+    apiWithPeek: apiWithPeekMock,
     wsEndpoint: (ws, action) => `/workspaces/${ws}/${action}`,
   }),
 }));
@@ -27,7 +27,7 @@ async function freshModule() {
 beforeEach(() => {
   setActivePinia(createPinia());
   apiCommandMock.mockClear();
-  apiWithToastMock.mockClear();
+  apiWithPeekMock.mockClear();
 });
 
 describe("useGitRemoteAction: 実行中ロックの範囲", () => {

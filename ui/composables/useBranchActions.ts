@@ -57,7 +57,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
       await workspaceStore.fetchWorkspaces();
       await loadBranchList();
       if (created?.name) {
-        toast.success(`Worktree ${worktreeBranchLabel(created.branch)} created`);
+        emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Worktree created", worktreeBranchLabel(created.branch)) });
         emit("worktree:open", { name: created.name, pane: "jobs" });
       }
     });

@@ -3,6 +3,8 @@ import { extractApiError } from "../utils/constants.ts";
 import { workspaceApiPath } from "../utils/endpoints.ts";
 import { debugLog } from "./useClientLogs.ts";
 import { useToast } from "./useToast.ts";
+import { emit } from "../app-bridge.ts";
+import { buildActionResult } from "../utils/git-remote.ts";
 
 type ApiRequestOpts = { method?: string, body?: any, checkStatus?: boolean, errorMessage?: string };
 type ApiResult = { ok: boolean, data: any };
@@ -50,15 +52,16 @@ export function useApi() {
   const apiDelete = (endpoint: string, opts?: ApiRequestOpts) => apiRequest(endpoint, { method: "DELETE", ...opts });
   const apiCommand = (endpoint: string, body: any = {}, opts?: ApiRequestOpts) => apiRequest(endpoint, { method: "POST", body, checkStatus: true, ...opts });
 
-  async function apiWithToast(
+  // 成功は通知トーストではなく、ワークスペースのbranch peekピル（usePillPeek.ts）に出す。
+  async function apiWithPeek(
     endpoint: string,
     body: Record<string, any>,
-    { successMessage, errorMessage, onSuccess }: { successMessage: string, errorMessage: string, onSuccess?: () => void },
+    { wsName, headline, detail, errorMessage, onSuccess }: { wsName: string, headline: string, detail?: string, errorMessage: string, onSuccess?: () => void },
   ) {
     try {
       const { ok } = await apiCommand(endpoint, body, { errorMessage });
       if (!ok) return false;
-      toast.success(successMessage);
+      emit("git:remoteDone", { wsName, result: buildActionResult(headline, detail) });
       onSuccess?.();
       return true;
     } catch (e) {
@@ -71,5 +74,5 @@ export function useApi() {
     return workspaceApiPath(workspace, `/${path}`);
   }
 
-  return { apiCommand, apiWithToast, apiGet, apiPost, apiPut, apiPatch, apiDelete, wsEndpoint };
+  return { apiCommand, apiWithPeek, apiGet, apiPost, apiPut, apiPatch, apiDelete, wsEndpoint };
 }

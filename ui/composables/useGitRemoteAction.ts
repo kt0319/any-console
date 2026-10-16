@@ -49,7 +49,7 @@ const runningActionByWorkspace = reactive(new Map<string, string>());
 
 export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
-  const { apiWithToast, apiCommand, wsEndpoint } = useApi();
+  const { apiWithPeek, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
 
   function repoKeyFor(wsName: string | null) {
@@ -72,8 +72,9 @@ export function useGitRemoteAction() {
   }
 
   async function runGenericAction(wsName: string, action: string, label: string) {
-    await apiWithToast(wsEndpoint(wsName, action), {}, {
-      successMessage: `${wsName}: ${label} done`,
+    await apiWithPeek(wsEndpoint(wsName, action), {}, {
+      wsName,
+      headline: `${label} done`,
       errorMessage: `${label} failed`,
       onSuccess: () => workspaceStore.fetchStatuses(),
     });
