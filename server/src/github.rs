@@ -135,7 +135,7 @@ pub async fn list_pulls(
             "--limit",
             "30",
             "--json",
-            "number,title,state,author,labels,createdAt,updatedAt,headRefName,isDraft",
+            "number,title,state,author,labels,comments,reviews,createdAt,updatedAt,headRefName,isDraft",
         ],
         "Failed to fetch pull requests",
     )

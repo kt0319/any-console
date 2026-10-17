@@ -45,9 +45,9 @@ export const TOAST_DEFAULT_DURATION_MS = 3000;
 export const PILL_PEEK_DURATION_MS = 4000;
 // pull/push の結果（コミット件名の一覧）を含むpeekは読む時間を長めに取る
 export const PILL_PEEK_REMOTE_DURATION_MS = 6000;
-// ahead/behindが0になった検出（CLI・エージェントでのpush/pull）のpeekに添える
-// コミット件名の最大件数
-export const PILL_PEEK_SUBJECT_MAX = 3;
+// push/pull結果のpeekに添えるコミット件名の最大件数（最新の1件だけ出し、残りは
+// 「… and N more」にまとめる）
+export const PILL_PEEK_SUBJECT_MAX = 1;
 // pull/push の結果peekを出した直後は、ahead/behindが0に落ちたことの検出による
 // 同じ内容の「N Pushed/Pulled」peekを重ねて出さない
 export const PILL_PEEK_REMOTE_DEDUP_MS = 5000;

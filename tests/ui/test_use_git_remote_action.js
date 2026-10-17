@@ -137,7 +137,7 @@ describe("useGitRemoteAction: 結果通知", () => {
 
     expect(received).toEqual([{
       wsName: "repo",
-      result: { kind: "push", headline: "2 Pushed", detail: "feat: a \u2022 fix: b" },
+      result: { kind: "push", headline: "2 Pushed", detail: "feat: a \u2026 and 1 more" },
     }]);
     expect(order).toEqual(["remoteDone", "fetchStatuses"]);
   });

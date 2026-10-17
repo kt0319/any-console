@@ -29,7 +29,7 @@ describe("useWorkspacePRs", () => {
     const items = await fetchPRs("ws1");
     // 整形は utils/github-runs.ts の mapGitHubPR に共通化（PRペインと同じ形）
     expect(items).toEqual([
-      { number: 1, title: "feat", headRefName: "feature/x", author: "", isDraft: false, labels: [] },
+      { number: 1, title: "feat", headRefName: "feature/x", author: "", isDraft: false, labels: [], commentCount: 0, reviewCount: 0 },
     ]);
     expect(prsByWorkspace.value.ws1).toEqual(items);
   });

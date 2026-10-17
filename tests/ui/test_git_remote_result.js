@@ -19,20 +19,13 @@ describe("buildRemoteResult", () => {
     });
   });
 
-  it("複数件の件名は区切り文字で連結する", () => {
+  it("複数件でも最新の1件の件名だけ出し、残りは more にまとめる", () => {
     const result = buildRemoteResult("Push", {
       commits: { count: 3, messages: ["feat: a", "fix: b", "docs: c"] },
     });
     expect(result.kind).toBe("push");
     expect(result.headline).toBe("3 Pushed");
-    expect(result.detail).toBe("feat: a \u2022 fix: b \u2022 docs: c");
-  });
-
-  it("件名が件数に満たない場合は残件数を末尾に付ける", () => {
-    const result = buildRemoteResult("Push", {
-      commits: { count: 5, messages: ["a", "b", "c"] },
-    });
-    expect(result.detail).toBe("a \u2022 b \u2022 c \u2022 \u2026 and 2 more");
+    expect(result.detail).toBe("feat: a \u2026 and 2 more");
   });
 
   it("複数行のコミットメッセージは件名行（1行目）のみ使う", () => {
@@ -58,7 +51,7 @@ describe("formatCommitSubjects", () => {
   });
 
   it("件名が総数より少なければ残件数を付ける", () => {
-    expect(formatCommitSubjects(["a", "b", "c"], 5)).toBe("a \u2022 b \u2022 c \u2022 \u2026 and 2 more");
+    expect(formatCommitSubjects(["a", "b", "c"], 5)).toBe("a \u2022 b \u2022 c \u2026 and 2 more");
   });
 
   it("件名が空なら空文字（総数だけでは何も出さない）", () => {

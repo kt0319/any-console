@@ -9,6 +9,7 @@ import {
   buildPeekSignature,
 } from "../utils/pill-peek.ts";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
+import { describeNewActivity, snapshotActivity, type ActivityItem, type ActivitySnapshot } from "../utils/github-activity.ts";
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象のアイコン+情報
 // テキストだけを乗せた1本の長いピル（PillPeek.vue）を数秒だけ表示するための状態機械。
@@ -19,6 +20,7 @@ export function usePillPeek({
   paneWorkspace,
   workspaceKey,
   prsByWorkspace,
+  issuesByWorkspace,
   runsByWorkspace,
   devServerEntry,
   ahead,
@@ -31,6 +33,7 @@ export function usePillPeek({
   paneWorkspace: ComputedRef<Record<string, any> | undefined>,
   workspaceKey: () => string | null | undefined,
   prsByWorkspace: Ref<Record<string, any[]>>,
+  issuesByWorkspace: Ref<Record<string, any[]>>,
   runsByWorkspace: Ref<Record<string, any[]>>,
   devServerEntry: ComputedRef<Record<string, any> | null>,
   ahead: Ref<number>,
@@ -54,8 +57,8 @@ export function usePillPeek({
   // 変化検出（件数だけ）では出せない。branch peekの間だけ値を持つ。
   const branchRemoteResult = ref<RemoteResult | null>(null);
   let lastRemoteResultAt = 0;
-  // ファイル操作（rename/delete/upload）の完了文言。filesのpeekの間だけ値を持つ。
-  const filesOpText = ref("");
+  // peekに固有の文言（ファイル操作の完了・PR/Issueへのコメント通知）。通常のpeek文言より優先する。
+  const noticeText = ref("");
   // paneWorkspace等は非同期フェッチのためマウント直後は未解決(undefined)になりうる。
   // このタイミングでprevTrailingSignatureを確定させると、情報が届いた瞬間に「新規に現れた」
   // と誤検知してpeekが一瞬表示されてしまう。一度も解決していない間は変化検出をスキップし、
@@ -88,7 +91,7 @@ export function usePillPeek({
     branchPushCount.value = next.pushCount || 0;
     branchPullCount.value = next.pullCount || 0;
     branchRemoteResult.value = next.remote;
-    filesOpText.value = next.text;
+    noticeText.value = next.text;
     const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
     const sharedMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
     // pull/pushの結果・ワークスペース/ジョブの検知は、先行peekで残り時間を使い切られていても
@@ -121,6 +124,29 @@ export function usePillPeek({
     if (!trailingPeekItems.value.some((item) => item.key === "files")) return;
     triggerPeek("files", 0, 0, null, true, text);
   });
+
+  // PR/Issueへの新着コメント・レビュー。ポーリング結果の前回値との差分で検出する。
+  // 前回値が無い（初回取得・ワークスペース変更直後）時は基準値の記録だけ行う。
+  function watchGitHubActivity(
+    source: Ref<Record<string, any[]>>,
+    key: "prs" | "issues",
+    isTarget: (item: ActivityItem) => boolean,
+  ) {
+    let baseline: { workspace: string, snapshot: ActivitySnapshot } | null = null;
+    watch(() => source.value[workspaceKey() || ""], (items) => {
+      const workspace = workspaceKey();
+      if (!workspace || !items) return;
+      const prev = baseline?.workspace === workspace ? baseline.snapshot : null;
+      baseline = { workspace, snapshot: snapshotActivity(items) };
+      if (!prev || !trailingPeekItems.value.some((item) => item.key === key)) return;
+      for (const text of describeNewActivity(prev, items.filter(isTarget))) {
+        triggerPeek(key, 0, 0, null, true, text);
+      }
+    });
+  }
+  // PRピルは現在ブランチのPRだけを指すため、通知もそのPRに揃える。
+  watchGitHubActivity(prsByWorkspace, "prs", (item) => item.number === peekFields.value?.branchPR?.number);
+  watchGitHubActivity(issuesByWorkspace, "issues", () => true);
 
   // 素のターミナルへのワークスペース/ジョブの自動紐付け。paneWorkspaceが未解決から解決に
   // 変わる同tickの変化は初回誤検知ガードで握りつぶされるため、検知イベントから直接出す。
@@ -219,14 +245,14 @@ export function usePillPeek({
   // peekピルの表示に使う派生値もここで返す（TerminalPane / SessionSidebarRow で共有）。
   const peekIconClass = computed(() => peekIconForKey(peekingKey.value));
   const peekColorClass = computed(() => peekColorForKey(peekingKey.value, peekFields.value));
-  const peekText = computed(() => (peekingKey.value === "files" && filesOpText.value) || buildPeekText(peekingKey.value, peekFields.value));
+  const peekText = computed(() => noticeText.value || buildPeekText(peekingKey.value, peekFields.value));
   // 結果の文言はマーキー再測定のトリガー（PillPeek.vueのsignature watch）にも
   // 反映する。同じbranchキーのまま内容だけ差し替わるとDOMが再マウントされないため。
   const peekSignature = computed(() => {
     const base = buildPeekSignature(peekingKey.value, peekFields.value);
     const remote = branchRemoteResult.value;
     if (remote) return `${base}:${remote.headline}:${remote.detail}`;
-    return peekingKey.value === "files" && filesOpText.value ? `${base}:${filesOpText.value}` : base;
+    return noticeText.value ? `${base}:${noticeText.value}` : base;
   });
   // actionsは名前部分（白固定）とステータス部分（実行中/失敗で色分け）を別spanに分けて
   // 表示するため、PillPeek.vueへ個別に渡す。

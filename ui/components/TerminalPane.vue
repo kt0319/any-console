@@ -256,6 +256,7 @@ const {
   sessionId: () => props.tab.sessionId,
   workspaceKey: () => props.tab.workspace,
   prsByWorkspace,
+  issuesByWorkspace,
   runsByWorkspace,
   devServerEntry,
   ahead,

@@ -198,9 +198,12 @@ describe("usePillPeek", () => {
     const branchPillOn = ref(true);
     const trailingPeekItems = computed(() => [
       ...(opts.filesPill ? [{ key: "files", text: "Files" }] : []),
+      ...(opts.githubPills ? [{ key: "prs", text: "5:feat" }, { key: "issues", text: "Issues:2" }] : []),
       ...(branchPillOn.value ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }] : []),
     ]);
-    const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value, upstreamHead: upstreamHead.value }));
+    const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value, upstreamHead: upstreamHead.value, branchPR: { number: 5 } }));
+    const prsByWorkspace = ref({});
+    const issuesByWorkspace = ref({});
     let peek;
     const Comp = defineComponent({
       setup() {
@@ -209,7 +212,8 @@ describe("usePillPeek", () => {
           sessionId: () => "sess1",
           paneWorkspace: computed(() => ({})),
           workspaceKey: () => "ws1",
-          prsByWorkspace: ref({}),
+          prsByWorkspace,
+          issuesByWorkspace,
           runsByWorkspace: ref({}),
           devServerEntry: computed(() => null),
           ahead,
@@ -221,7 +225,7 @@ describe("usePillPeek", () => {
       },
     });
     const wrapper = mount(Comp);
-    return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn };
+    return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn, prsByWorkspace, issuesByWorkspace };
   }
 
   it("同一ブランチでahead>0から0へ変わったらpush完了として件数を出す", async () => {
@@ -305,6 +309,55 @@ describe("usePillPeek", () => {
     expect(noFiles.peekingKey.value).toBeNull();
   });
 
+  describe("PR/Issueへの新着コメント", () => {
+    const pr = (comments, reviews = 0, number = 5) => ({ number, title: "feat", commentCount: comments, reviewCount: reviews });
+
+    it("初回取得は基準値として扱いpeekを出さない", async () => {
+      const { peek, prsByWorkspace } = mountPillPeek({ githubPills: true });
+      prsByWorkspace.value = { ws1: [pr(2)] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+    });
+
+    it("現在ブランチのPRのコメント・レビュー増加をprs peekに出す", async () => {
+      const { peek, prsByWorkspace } = mountPillPeek({ githubPills: true });
+      prsByWorkspace.value = { ws1: [pr(1)] };
+      await nextTick();
+      prsByWorkspace.value = { ws1: [pr(3, 1)] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("prs");
+      expect(peek.peekText.value).toBe("#5 2 new comments, 1 new review: feat");
+    });
+
+    it("ブランチ外のPRやコメントが減った場合は出さない", async () => {
+      const { peek, prsByWorkspace } = mountPillPeek({ githubPills: true });
+      prsByWorkspace.value = { ws1: [pr(3), pr(0, 0, 9)] };
+      await nextTick();
+      prsByWorkspace.value = { ws1: [pr(1), pr(4, 0, 9)] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+    });
+
+    it("Issueのコメント増加をissues peekに出す", async () => {
+      const { peek, issuesByWorkspace } = mountPillPeek({ githubPills: true });
+      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
+      await nextTick();
+      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 1 }] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("issues");
+      expect(peek.peekText.value).toBe("#7 1 new comment: bug");
+    });
+
+    it("対応するピルが無い時は出さない", async () => {
+      const { peek, issuesByWorkspace } = mountPillPeek();
+      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
+      await nextTick();
+      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 1 }] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+    });
+  });
+
   it("別セッション宛ての検知イベントは無視する", async () => {
     const { peek } = mountPillPeek();
     emit("session:jobBound", { sessionId: "other" });
@@ -374,30 +427,30 @@ describe("usePillPeek", () => {
   });
   describe("CLI・エージェント経由のpush/pull（件名の取得）", () => {
     it("push完了の検出で件名を取得してpeekに添える", async () => {
-      const fetchRecentSubjects = vi.fn(async () => ["feat: a", "fix: b", "docs: c"]);
+      const fetchRecentSubjects = vi.fn(async () => ["feat: a"]);
       const { peek, ahead, upstreamHead } = mountPillPeek({ ahead: 3, fetchRecentSubjects, upstreamHead: "aaa" });
       upstreamHead.value = "bbb";
       ahead.value = 0;
       await nextTick();
       expect(peek.peekingKey.value).toBe("branch");
       expect(peek.branchRemoteResult.value).toMatchObject({ kind: "push", headline: "3 Pushed" });
-      expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 3);
+      expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 1);
       await Promise.resolve();
       await Promise.resolve();
-      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2022 fix: b \u2022 docs: c");
+      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2026 and 2 more");
       expect(peek.peekSignature.value).toContain("feat: a");
     });
 
     it("pull完了の検出でも件名を添える（件名数が件数より少なければ残件数を付ける）", async () => {
-      const fetchRecentSubjects = vi.fn(async () => ["feat: a", "fix: b", "docs: c"]);
+      const fetchRecentSubjects = vi.fn(async () => ["feat: a"]);
       const { peek, behind } = mountPillPeek({ ahead: 0, behind: 5, fetchRecentSubjects });
       behind.value = 0;
       await nextTick();
       expect(peek.branchRemoteResult.value).toMatchObject({ kind: "pull", headline: "5 Pulled" });
-      expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 3);
+      expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 1);
       await Promise.resolve();
       await Promise.resolve();
-      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2022 fix: b \u2022 docs: c \u2022 \u2026 and 2 more");
+      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2026 and 4 more");
     });
 
     it("件名の取得に失敗（空配列）しても「N Pushed」のpeekは出る", async () => {

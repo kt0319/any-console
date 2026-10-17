@@ -1,3 +1,5 @@
+import { PILL_PEEK_SUBJECT_MAX } from "./constants.ts";
+
 // pull/push/push-branch のラベル（"Pull"/"Push"）を過去形の一語に統一する
 // （branch peekの表記"Pushed"/"Pulled"と揃える）。呼び出し元
 // （useGitRemoteAction の PUSH_PULL_ACTIONS）はこの3ラベルしか渡さない。
@@ -28,12 +30,9 @@ const DETAIL_SEPARATOR = " • ";
  */
 export function formatCommitSubjects(subjects: string[], total: number): string {
   if (!subjects.length) return "";
-  const parts = [...subjects];
+  const text = subjects.join(DETAIL_SEPARATOR);
   const remaining = total - subjects.length;
-  if (remaining > 0) {
-    parts.push(`… and ${remaining} more`);
-  }
-  return parts.join(DETAIL_SEPARATOR);
+  return remaining > 0 ? `${text} … and ${remaining} more` : text;
 }
 
 export function buildRemoteResult(
@@ -46,7 +45,7 @@ export function buildRemoteResult(
     return { kind: "none", headline: ZERO_COMMIT_TEXT[label], detail: "" };
   }
   const messages = Array.isArray(commits?.messages) ? commits.messages : [];
-  const subjects = messages.map((m) => String(m).split("\n")[0]);
+  const subjects = messages.slice(0, PILL_PEEK_SUBJECT_MAX).map((m) => String(m).split("\n")[0]);
   return {
     kind: label === "Pull" ? "pull" : "push",
     headline: `${count} ${PAST_TENSE_VERB[label]}`,

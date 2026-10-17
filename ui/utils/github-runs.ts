@@ -10,6 +10,8 @@ export function mapGitHubPR(item: Record<string, any>) {
     isDraft: !!item.isDraft,
     headRefName: item.headRefName || "",
     labels: item.labels || [],
+    commentCount: item.comments?.length || 0,
+    reviewCount: item.reviews?.length || 0,
   };
 }
 
