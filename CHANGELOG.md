@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0](https://github.com/kt0319/any-console/compare/v0.19.0...v0.20.0) (2026-10-18)
+
+
+### Features
+
+* CLIやエージェント経由のpush/pullでもピークピルにコミット件名を表示するよう変更 ([462cf46](https://github.com/kt0319/any-console/commit/462cf46c6ed099e4394749b7edcbd22d54a85dca))
+* commit・stash・fetch・ブランチ切替の完了通知をトーストからピークピル表示に変更 ([c6a2193](https://github.com/kt0319/any-console/commit/c6a2193b2caf4097f9b4923f5050ca87c5763358))
+* Dispatch一覧の承認待ち行に赤い破棄ボタンを追加しDetached Sessionsの閉じるボタンも赤に統一 ([dd2b431](https://github.com/kt0319/any-console/commit/dd2b431d0cb92e3340f05a75392dc7d8b277107f))
+* Open画面のDetached Sessions一覧に閉じるボタンを追加 ([f7e3b63](https://github.com/kt0319/any-console/commit/f7e3b635ef7d782277d4f357b71f91714bcfd3fb))
+* PR・Issueの新着コメントをピークピルで通知し、push/pullの件名を最新1件に変更 ([1462c42](https://github.com/kt0319/any-console/commit/1462c42e033c85434179f5b8f171be265e691ba0))
+* pull/pushの結果をトーストではなくブランチのピークピルにコミット件名つきで表示するよう変更 ([dab0d51](https://github.com/kt0319/any-console/commit/dab0d5176e692a80aa8a8e30697b45f9b92c6ba9))
+* push/pullの結果ピークでコミット件名の後ろにPushed/Pulledを表示するよう変更 ([eccf36f](https://github.com/kt0319/any-console/commit/eccf36f6721ee41fc5fce4f5ed27035eac582dbc))
+* worktree削除の完了通知をトーストからピークピル表示に変更 ([1109b9e](https://github.com/kt0319/any-console/commit/1109b9e4f24b5a1b9c3f7b221a240d985aa786a9))
+* サイドバーの承認待ちdispatch行を非アクティブな見た目に変更 ([0a22740](https://github.com/kt0319/any-console/commit/0a227408837ea424b20fdb096da34728c0b04568))
+* ターミナルへの画像ドラッグ&ドロップ貼り付けに対応 ([59a4ce0](https://github.com/kt0319/any-console/commit/59a4ce06c1a55928cd21ee0f0099ab4dfdb50a0e))
+* ファイル操作（リネーム・削除・アップロード）の完了通知をトーストからピークピル表示に変更 ([2c8a8ff](https://github.com/kt0319/any-console/commit/2c8a8ffcff8e5e4b72b2a21706cf33947b320273))
+* 同時に複数のPR・Issueへコメントが付いた場合のピーク通知を1つにまとめる ([b570b0e](https://github.com/kt0319/any-console/commit/b570b0e4a2200ecb65b62e4ec218dd2f2345eeb8))
+* 履歴操作・worktree作成・汎用git操作の完了通知をトーストからピークピル表示に変更 ([bd5bf33](https://github.com/kt0319/any-console/commit/bd5bf335fdaffa1d18ab58add820ad38e991c1eb))
+* 自分が投稿したコメント・レビューではPR・Issueのピーク通知を出さないよう変更 ([010c93b](https://github.com/kt0319/any-console/commit/010c93be0f6ed314940ed2a8fcc69688f8f4c6d9))
+* 自動検知したジョブ・ワークスペースをピークピルで表示するよう変更 ([e06a550](https://github.com/kt0319/any-console/commit/e06a550f08d73d9285e18b844ad39bfc69e80a8d))
+
+
+### Bug Fixes
+
+* Dispatch実行画面のSession選択をセッション一覧読み込み中は操作不可に修正 ([19cb462](https://github.com/kt0319/any-console/commit/19cb462802feb92bcead7dad1605ce83b6477727))
+* Job起動を連打した時に多重にタブが開いてしまう不具合を修正 ([a510880](https://github.com/kt0319/any-console/commit/a5108806f89414d53facb6a02c6ac365c81f78b6))
+* macOSでターミナル作成時にsystemd-runを呼ばないようLinuxのみに限定 ([6566d0e](https://github.com/kt0319/any-console/commit/6566d0edaee1b604f0e48cdcbf1c1521a0a30d8a))
+* push/pullの結果ピークでコミット件名を出す時はブランチ名を表示しないよう変更 ([90b2915](https://github.com/kt0319/any-console/commit/90b2915bb9ba67acb158b4885e1e80f82e294deb))
+* Recent Jobs保存PUTの逆転レースでピン留め順が巻き戻る不具合を修正 ([83c080b](https://github.com/kt0319/any-console/commit/83c080b782a08998ed1189d0f7ddd3fd9541605d))
+* Recent Jobs起動時に古いコマンドのまま実行されないよう最新のジョブ定義を取り直すよう修正 ([7604afb](https://github.com/kt0319/any-console/commit/7604afb55766da526e3e98ffe0372af2d351c994))
+* reset等でaheadが0になった場合にpush完了のピークを出さないよう修正 ([508dc71](https://github.com/kt0319/any-console/commit/508dc71c753d6381b52e227fa5dcdffb8b1fa28d))
+* Stash Popを連打した時に多重実行されてしまう不具合を修正 ([b00d6de](https://github.com/kt0319/any-console/commit/b00d6debfa4217115e360c8b995d047d512d8754))
+* コミット0のリポジトリでBranches一覧に現在ブランチが表示されるよう修正 ([9e583b4](https://github.com/kt0319/any-console/commit/9e583b44389811fa272c4e1c0e9f4ddda04ad490))
+* サーバ起動時にファイルディスクリプタ上限を引き上げるよう修正 ([045ccee](https://github.com/kt0319/any-console/commit/045cceeb6c69904316145d90ea4a9e3bf6aee605))
+* ターミナルを閉じた時にtmuxクライアントの子プロセスが回収されずゾンビとして溜まる不具合を修正 ([e2b209a](https://github.com/kt0319/any-console/commit/e2b209ac1997e4bef484a91f6ded6e2568258438))
+* ターミナルを閉じる際に終了が遅れたtmuxクライアントもバックグラウンドで回収するよう修正 ([f529d9c](https://github.com/kt0319/any-console/commit/f529d9c1a897bff008a690096cd22388ebf3118a))
+* ターミナル入力のactivityログにマウス報告や端末応答が混入する不具合を修正 ([54a3641](https://github.com/kt0319/any-console/commit/54a3641b596fc862309ecccbd05344b72ce4fc01))
+* タブが0件の時だけタブバーの高さが縮む不具合を修正 ([5f276bf](https://github.com/kt0319/any-console/commit/5f276bf5c660d5be98cce2b1f7d9271df73a66b8))
+* ピークの表示が終わった後も通知文言とpush/pull結果が残る問題を修正 ([3e02ef4](https://github.com/kt0319/any-console/commit/3e02ef430bc1412570090c8735ac2b43582880af))
+* ファイル監視のFileIdキャッシュを無効化してCPUとメモリの消費を抑えるよう修正 ([b3349b6](https://github.com/kt0319/any-console/commit/b3349b6eeccae16d5f9f73d4a6f2717f75cd6435))
+* 外部コマンドの起動失敗とターミナル作成失敗の原因をログに出すよう修正 ([6bfd360](https://github.com/kt0319/any-console/commit/6bfd360fd9d78dea69852e44a2fac3185d2fefca))
+* 結果ピークが先行ピークの待ち行列で一瞬しか表示されない不具合を修正 ([7c6d72b](https://github.com/kt0319/any-console/commit/7c6d72beaacba03abb60a04bd44702201e219669))
+* 通知有効化の失敗を可視化しサーバ未登録の購読を残さないよう修正 ([0898764](https://github.com/kt0319/any-console/commit/08987647cd57832c717e7e84f3a588aaea5375d5))
+* 閉じるピルにtouch-actionを指定しAndroidでのタップ判定を改善 ([13ed4a5](https://github.com/kt0319/any-console/commit/13ed4a5c7182ffc77ece0c40a5c50451863b496c))
+
+
+### Performance Improvements
+
+* PR・Issue一覧の取得をGraphQLのtotalCountに変え、コメント・レビュー本文を取得しないよう変更 ([8dbd26c](https://github.com/kt0319/any-console/commit/8dbd26c6161a2d313529122dd011d2cd8c405cf3))
+
+
+### Refactor
+
+* Dispatch実行画面のDiscardボタンを削除し破棄は一覧の×に一本化 ([f08770f](https://github.com/kt0319/any-console/commit/f08770f58ece7d4b2c97ca334981ee6a7f583f09))
+* コミット件名の整形を最新1件前提に単純化し、区切り表記の混在を解消 ([80eb093](https://github.com/kt0319/any-console/commit/80eb093ebcb96ebab90f45ad2dbade3bfae983d3))
+
+
+### Tests
+
+* CI負荷でフレークするpending text送信テストの待機時間を延ばす ([a0f9406](https://github.com/kt0319/any-console/commit/a0f940664196dbcb6985c6656b06a9a22bfd7c2f))
+* コミット0のリポジトリのブランチ一覧の統合テストとE2Eを追加 ([1e8acf0](https://github.com/kt0319/any-console/commit/1e8acf0a440b5665a4e4f8585fe1acbbecbf39a7))
+
 ## [0.19.0](https://github.com/kt0319/any-console/compare/v0.18.0...v0.19.0) (2026-09-25)
 
 
