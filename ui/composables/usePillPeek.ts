@@ -130,6 +130,7 @@ export function usePillPeek({
   function watchGitHubActivity(
     source: Ref<Record<string, any[]>>,
     key: "prs" | "issues",
+    noun: string,
     isTarget: (item: ActivityItem) => boolean,
   ) {
     let baseline: { workspace: string, snapshot: ActivitySnapshot } | null = null;
@@ -139,14 +140,13 @@ export function usePillPeek({
       const prev = baseline?.workspace === workspace ? baseline.snapshot : null;
       baseline = { workspace, snapshot: snapshotActivity(items) };
       if (!prev || !trailingPeekItems.value.some((item) => item.key === key)) return;
-      for (const text of describeNewActivity(prev, items.filter(isTarget))) {
-        triggerPeek(key, 0, 0, null, true, text);
-      }
+      const text = describeNewActivity(prev, items.filter(isTarget), noun);
+      if (text) triggerPeek(key, 0, 0, null, true, text);
     });
   }
   // PRピルは現在ブランチのPRだけを指すため、通知もそのPRに揃える。
-  watchGitHubActivity(prsByWorkspace, "prs", (item) => item.number === peekFields.value?.branchPR?.number);
-  watchGitHubActivity(issuesByWorkspace, "issues", () => true);
+  watchGitHubActivity(prsByWorkspace, "prs", "PR", (item) => item.number === peekFields.value?.branchPR?.number);
+  watchGitHubActivity(issuesByWorkspace, "issues", "issue", () => true);
 
   // 素のターミナルへのワークスペース/ジョブの自動紐付け。paneWorkspaceが未解決から解決に
   // 変わる同tickの変化は初回誤検知ガードで握りつぶされるため、検知イベントから直接出す。

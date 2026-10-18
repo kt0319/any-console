@@ -27,21 +27,35 @@ function externalDelta(now: number | undefined, before: number, lastByMe: boolea
   return lastByMe ? delta - 1 : delta;
 }
 
+function describeCounts(comments: number, reviews: number): string {
+  const parts: string[] = [];
+  if (comments > 0) parts.push(countText(comments, "comment"));
+  if (reviews > 0) parts.push(countText(reviews, "review"));
+  return parts.join(", ");
+}
+
 /**
- * 前回のスナップショットにあった項目のうち、他者のコメント/レビューが増えたものの peek 文言を返す。
+ * 前回のスナップショットにあった項目のうち、他者のコメント/レビューが増えたものの
+ * peek 文言を1つ返す（増えた項目が無ければ null）。
  * 前回に無かった項目（新規PR・新規Issue）や件数が減った項目は対象外。
+ * 複数項目で増えた場合は「N issues: 5 new comments」のように1つへまとめる
+ * （1件ずつ積むとピルを N×表示時間 占有するため）。
  */
-export function describeNewActivity(prev: ActivitySnapshot, items: ActivityItem[]): string[] {
-  const texts: string[] = [];
-  for (const it of items) {
-    const before = prev.get(it.number);
+export function describeNewActivity(prev: ActivitySnapshot, items: ActivityItem[], noun: string): string | null {
+  const changed: { item: ActivityItem, comments: number, reviews: number }[] = [];
+  for (const item of items) {
+    const before = prev.get(item.number);
     if (!before) continue;
-    const parts: string[] = [];
-    const comments = externalDelta(it.commentCount, before.comments, it.lastCommentByMe);
-    const reviews = externalDelta(it.reviewCount, before.reviews, it.lastReviewByMe);
-    if (comments > 0) parts.push(countText(comments, "comment"));
-    if (reviews > 0) parts.push(countText(reviews, "review"));
-    if (parts.length) texts.push(`#${it.number} ${parts.join(", ")}: ${it.title}`);
+    const comments = Math.max(0, externalDelta(item.commentCount, before.comments, item.lastCommentByMe));
+    const reviews = Math.max(0, externalDelta(item.reviewCount, before.reviews, item.lastReviewByMe));
+    if (comments || reviews) changed.push({ item, comments, reviews });
   }
-  return texts;
+  if (!changed.length) return null;
+  if (changed.length === 1) {
+    const [{ item, comments, reviews }] = changed;
+    return `#${item.number} ${describeCounts(comments, reviews)}: ${item.title}`;
+  }
+  const comments = changed.reduce((sum, c) => sum + c.comments, 0);
+  const reviews = changed.reduce((sum, c) => sum + c.reviews, 0);
+  return `${changed.length} ${noun}s: ${describeCounts(comments, reviews)}`;
 }

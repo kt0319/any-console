@@ -348,6 +348,26 @@ describe("usePillPeek", () => {
       expect(peek.peekText.value).toBe("#7 1 new comment: bug");
     });
 
+    it("複数Issueで同時に増えたら1つのpeekにまとめる", async () => {
+      const { peek, issuesByWorkspace } = mountPillPeek({ githubPills: true });
+      const issue = (number, commentCount) => ({ number, title: `i${number}`, commentCount });
+      issuesByWorkspace.value = { ws1: [issue(1, 0), issue(2, 0), issue(3, 0)] };
+      await nextTick();
+      issuesByWorkspace.value = { ws1: [issue(1, 2), issue(2, 1), issue(3, 2)] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("issues");
+      expect(peek.peekText.value).toBe("3 issues: 5 new comments");
+    });
+
+    it("自分が投稿したコメントではpeekを出さない", async () => {
+      const { peek, issuesByWorkspace } = mountPillPeek({ githubPills: true });
+      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
+      await nextTick();
+      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 1, lastCommentByMe: true }] };
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+    });
+
     it("対応するピルが無い時は出さない", async () => {
       const { peek, issuesByWorkspace } = mountPillPeek();
       issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
