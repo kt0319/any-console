@@ -378,6 +378,40 @@ describe("usePillPeek", () => {
     });
   });
 
+  it("peekが終わったらpeekTextとpeekSignatureから通知文言が消える", async () => {
+    vi.useFakeTimers();
+    try {
+      const { peek } = mountPillPeek({ filesPill: true });
+      emit("files:opDone", { wsName: "ws1", text: "Deleted a.txt" });
+      await nextTick();
+      expect(peek.peekText.value).toBe("Deleted a.txt");
+      expect(peek.peekSignature.value).toContain("Deleted a.txt");
+      await vi.advanceTimersByTimeAsync(4001);
+      expect(peek.peekingKey.value).toBeNull();
+      expect(peek.peekText.value).toBe("");
+      expect(peek.peekSignature.value ?? "").not.toContain("Deleted a.txt");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("peekが終わったらgit remoteの結果も破棄する", async () => {
+    vi.useFakeTimers();
+    try {
+      const { peek } = mountPillPeek();
+      const result = { kind: "push", headline: "2 Pushed", detail: "feat: a" };
+      emit("git:remoteDone", { wsName: "ws1", result });
+      await nextTick();
+      expect(peek.branchRemoteResult.value).toEqual(result);
+      await vi.advanceTimersByTimeAsync(6001);
+      expect(peek.peekingKey.value).toBeNull();
+      expect(peek.branchRemoteResult.value).toBeNull();
+      expect(peek.peekSignature.value ?? "").not.toContain("2 Pushed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("別セッション宛ての検知イベントは無視する", async () => {
     const { peek } = mountPillPeek();
     emit("session:jobBound", { sessionId: "other" });

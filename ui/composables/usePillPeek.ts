@@ -85,6 +85,10 @@ export function usePillPeek({
     if (!next) {
       peekingKey.value = null;
       peekTimer = null;
+      branchPushCount.value = 0;
+      branchPullCount.value = 0;
+      branchRemoteResult.value = null;
+      noticeText.value = "";
       return;
     }
     peekingKey.value = next.key;
