@@ -1,5 +1,3 @@
-import { PILL_PEEK_SUBJECT_MAX } from "./constants.ts";
-
 // pull/push/push-branch のラベル（"Pull"/"Push"）を過去形の一語に統一する
 // （branch peekの表記"Pushed"/"Pulled"と揃える）。呼び出し元
 // （useGitRemoteAction の PUSH_PULL_ACTIONS）はこの3ラベルしか渡さない。
@@ -22,17 +20,15 @@ const ZERO_COMMIT_TEXT: Record<RemoteLabel, string> = {
   Push: "Nothing to push",
   "Push (set upstream)": "Nothing to push",
 };
-const DETAIL_SEPARATOR = " • ";
 
 /**
- * コミット件名を連結する。total が件名数より多い時は末尾に残件数を付ける。
- * （サーバ応答の commits.messages / git-log の先頭N件のどちらにも使う）
+ * 最新コミットの件名を返す。total が1件より多い時は末尾に残件数を付ける。
+ * （サーバ応答の commits.messages / git-log の先頭1件のどちらにも使う）
  */
-export function formatCommitSubjects(subjects: string[], total: number): string {
-  if (!subjects.length) return "";
-  const text = subjects.join(DETAIL_SEPARATOR);
-  const remaining = total - subjects.length;
-  return remaining > 0 ? `${text} … and ${remaining} more` : text;
+export function formatLatestCommitSubject(subject: string | undefined, total: number): string {
+  if (!subject) return "";
+  const remaining = total - 1;
+  return remaining > 0 ? `${subject} … and ${remaining} more` : subject;
 }
 
 export function buildRemoteResult(
@@ -45,11 +41,11 @@ export function buildRemoteResult(
     return { kind: "none", headline: ZERO_COMMIT_TEXT[label], detail: "" };
   }
   const messages = Array.isArray(commits?.messages) ? commits.messages : [];
-  const subjects = messages.slice(0, PILL_PEEK_SUBJECT_MAX).map((m) => String(m).split("\n")[0]);
+  const latestSubject = messages.length ? String(messages[0]).split("\n")[0] : undefined;
   return {
     kind: label === "Pull" ? "pull" : "push",
     headline: `${count} ${PAST_TENSE_VERB[label]}`,
-    detail: formatCommitSubjects(subjects, count),
+    detail: formatLatestCommitSubject(latestSubject, count),
   };
 }
 

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildActionResult, buildRemoteResult, formatCommitSubjects } from "../../ui/utils/git-remote.ts";
+import { buildActionResult, buildRemoteResult, formatLatestCommitSubject } from "../../ui/utils/git-remote.ts";
 
 describe("buildRemoteResult", () => {
   it("コミットなしのPullはPulledと区別できる専用文言", () => {
@@ -45,17 +45,17 @@ describe("buildRemoteResult", () => {
   });
 });
 
-describe("formatCommitSubjects", () => {
-  it("件名を区切り文字で連結する", () => {
-    expect(formatCommitSubjects(["a", "b"], 2)).toBe("a \u2022 b");
+describe("formatLatestCommitSubject", () => {
+  it("1件だけなら件名そのまま", () => {
+    expect(formatLatestCommitSubject("a", 1)).toBe("a");
   });
 
-  it("件名が総数より少なければ残件数を付ける", () => {
-    expect(formatCommitSubjects(["a", "b", "c"], 5)).toBe("a \u2022 b \u2022 c \u2026 and 2 more");
+  it("総数が1件より多ければ残件数を付ける", () => {
+    expect(formatLatestCommitSubject("a", 5)).toBe("a \u2026 and 4 more");
   });
 
-  it("件名が空なら空文字（総数だけでは何も出さない）", () => {
-    expect(formatCommitSubjects([], 4)).toBe("");
+  it("件名が無ければ空文字（総数だけでは何も出さない）", () => {
+    expect(formatLatestCommitSubject(undefined, 4)).toBe("");
   });
 });
 

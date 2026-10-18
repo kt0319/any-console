@@ -1,6 +1,6 @@
 import { computed, reactive, ref, watch, onBeforeUnmount, type ComputedRef, type Ref } from "vue";
 import { PILL_PEEK_DURATION_MS, PILL_PEEK_REMOTE_DURATION_MS, PILL_PEEK_REMOTE_DEDUP_MS, PILL_PEEK_SUBJECT_MAX } from "../utils/constants.ts";
-import { formatCommitSubjects, type RemoteResult } from "../utils/git-remote.ts";
+import { formatLatestCommitSubject, type RemoteResult } from "../utils/git-remote.ts";
 import { useBusListener } from "./useBusListener.ts";
 import {
   trailingItemsSignature,
@@ -220,7 +220,7 @@ export function usePillPeek({
           });
           triggerPeek("branch", 0, 0, remote);
           void fetchRecentSubjects(workspace, Math.min(total, PILL_PEEK_SUBJECT_MAX)).then((subjects) => {
-            remote.detail = formatCommitSubjects(subjects, total);
+            remote.detail = formatLatestCommitSubject(subjects[0], total);
           });
           continue;
         }
