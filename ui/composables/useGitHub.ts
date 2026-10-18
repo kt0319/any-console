@@ -52,6 +52,7 @@ export interface GitHubIssue {
   author: string;
   labels: Array<{ name: string, color?: string }>;
   commentCount: number;
+  lastCommentByMe: boolean;
   createdAt: string | null;
 }
 
@@ -64,6 +65,7 @@ export const mapIssue = (item: any): GitHubIssue => ({
   author: item.author?.login || "",
   labels: item.labels || [],
   commentCount: item.commentCount || 0,
+  lastCommentByMe: !!item.lastCommentByMe,
   createdAt: item.createdAt || null,
 });
 

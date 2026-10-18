@@ -12,6 +12,8 @@ export function mapGitHubPR(item: Record<string, any>) {
     labels: item.labels || [],
     commentCount: item.commentCount || 0,
     reviewCount: item.reviewCount || 0,
+    lastCommentByMe: !!item.lastCommentByMe,
+    lastReviewByMe: !!item.lastReviewByMe,
   };
 }
 

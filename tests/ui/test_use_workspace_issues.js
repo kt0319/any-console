@@ -28,7 +28,7 @@ describe("useWorkspaceIssues", () => {
     const { fetchIssues, issuesByWorkspace } = useWorkspaceIssues();
     const items = await fetchIssues("ws1");
     expect(items).toEqual([
-      { number: 1, title: "bug", state: "open", author: "kt", labels: [], commentCount: 1, createdAt: null },
+      { number: 1, title: "bug", state: "open", author: "kt", labels: [], commentCount: 1, lastCommentByMe: false, createdAt: null },
     ]);
     expect(issuesByWorkspace.value.ws1).toEqual(items);
   });
