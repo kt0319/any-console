@@ -22,7 +22,7 @@ describe("useWorkspaceIssues", () => {
   it("issue一覧を取得しmapIssueと同じ形にマッピングする", async () => {
     apiGetMock.mockResolvedValue({
       ok: true,
-      data: { status: "ok", data: [{ number: 1, title: "bug", state: "OPEN", author: { login: "kt" }, labels: [], comments: [{}] }] },
+      data: { status: "ok", data: [{ number: 1, title: "bug", state: "OPEN", author: { login: "kt" }, labels: [], commentCount: 1 }] },
     });
     const { useWorkspaceIssues } = await freshModule();
     const { fetchIssues, issuesByWorkspace } = useWorkspaceIssues();

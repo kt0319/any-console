@@ -63,7 +63,7 @@ export const mapIssue = (item: any): GitHubIssue => ({
   state: String(item.state || "").toLowerCase(),
   author: item.author?.login || "",
   labels: item.labels || [],
-  commentCount: item.comments?.length || 0,
+  commentCount: item.commentCount || 0,
   createdAt: item.createdAt || null,
 });
 

@@ -34,6 +34,18 @@ describe("useWorkspacePRs", () => {
     expect(prsByWorkspace.value.ws1).toEqual(items);
   });
 
+  it("サーバが返す commentCount / reviewCount をそのまま件数に使う", async () => {
+    apiGetMock.mockResolvedValue({
+      ok: true,
+      data: { status: "ok", data: [{ number: 1, title: "feat", headRefName: "f", commentCount: 130, reviewCount: 2 }] },
+    });
+    const { useWorkspacePRs } = await freshModule();
+    const { fetchPRs } = useWorkspacePRs();
+    const [pr] = await fetchPRs("ws1");
+    expect(pr.commentCount).toBe(130);
+    expect(pr.reviewCount).toBe(2);
+  });
+
   it("初回失敗時は空配列を返す（キャッシュ無し）", async () => {
     apiGetMock.mockResolvedValue({ ok: false, data: null });
     const { useWorkspacePRs } = await freshModule();
