@@ -52,14 +52,14 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     offFileOp();
   });
 
-  function setupAuthFetch({ existingNames = [], uploadOk = true }) {
+  function setupAuthFetch({ existingNames = [], uploadOk = true, uploadResponse = null }) {
     const auth = useAuthStore();
     auth.apiFetch = vi.fn(async (url) => {
       if (String(url).includes("/files?path=")) {
         return jsonResponse({ entries: existingNames.map((name) => ({ name })) });
       }
       if (String(url).includes("/upload")) {
-        return { ok: uploadOk };
+        return uploadResponse ? uploadResponse(url) : { ok: uploadOk };
       }
       return jsonResponse({});
     });
@@ -115,5 +115,40 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
 
     expect(fileOps).toEqual([{ wsName: "ws1", text: "2 file(s) uploaded" }]);
     expect(toasts).toEqual([]);
+  });
+
+  it("アップロード失敗時は失敗したファイル名とサーバの理由をトーストする", async () => {
+    let call = 0;
+    setupAuthFetch({
+      uploadResponse: async () => (++call === 1
+        ? { ok: false, status: 400, json: async () => ({ detail: "Invalid path" }) }
+        : { ok: true }),
+    });
+    const { uploadDroppedFiles } = useFileActions({
+      getCurrentPath: () => "",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+    });
+
+    await uploadDroppedFiles([
+      { file: fakeFile("config"), relativePath: "proj/.git/config" },
+      { file: fakeFile("ok.txt"), relativePath: "proj/ok.txt" },
+    ]);
+
+    expect(toasts.map((t) => t.message)).toEqual(["1 file(s) failed to upload: proj/.git/config (Invalid path)"]);
+    expect(fileOps).toEqual([{ wsName: "ws1", text: "1 file(s) uploaded" }]);
+  });
+
+  it("理由がJSONで返らない失敗はHTTPステータスで示す", async () => {
+    setupAuthFetch({ uploadResponse: async () => ({ ok: false, status: 413, json: async () => { throw new Error("not json"); } }) });
+    const { uploadDroppedFiles } = useFileActions({
+      getCurrentPath: () => "",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+    });
+
+    await uploadDroppedFiles([{ file: fakeFile("big.bin"), relativePath: "d/big.bin" }]);
+
+    expect(toasts.map((t) => t.message)).toEqual(["1 file(s) failed to upload: d/big.bin (HTTP 413)"]);
   });
 });

@@ -9,7 +9,7 @@ import { MSG_DELETE_FAILED } from "../utils/constants.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.ts";
-import { splitRelativePath, resolveUploadTargetDir } from "../utils/file-upload-path.ts";
+import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, type UploadFailure } from "../utils/file-upload-path.ts";
 import { basename, dirname } from "../utils/path.ts";
 import { workspaceFilesPath } from "../utils/endpoints.ts";
 
@@ -95,22 +95,26 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     };
   }
 
-  async function uploadOne(workspace: string, uploadPath: string, file: File, overwrite: boolean) {
+  /** 成功時は null、失敗時は理由（サーバの detail、無ければ HTTP ステータス）を返す。 */
+  async function uploadOne(workspace: string, uploadPath: string, file: File, overwrite: boolean): Promise<string | null> {
     const formData = new FormData();
     formData.append("path", uploadPath);
     formData.append("file", file);
     if (overwrite) formData.append("overwrite", "true");
     try {
       const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), { method: "POST", body: formData });
-      return Boolean(res && res.ok);
-    } catch {
-      return false;
+      if (!res) return "Unauthorized";
+      if (res.ok) return null;
+      const body = await res.json().catch(() => null);
+      return body?.detail || `HTTP ${res.status}`;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
     }
   }
 
-  function emitUploadResult(workspace: string, successCount: number, failCount: number, skippedCount: number) {
+  function emitUploadResult(workspace: string, successCount: number, failures: UploadFailure[], skippedCount: number) {
     if (successCount > 0) emit("files:opDone", { wsName: workspace, text: `${successCount} file(s) uploaded` });
-    if (failCount > 0) toast.error(`${failCount} file(s) failed to upload`);
+    if (failures.length > 0) toast.error(formatUploadFailures(failures));
     if (skippedCount > 0) toast.error(`${skippedCount} file(s) skipped (overwrite declined)`);
   }
 
@@ -132,21 +136,21 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
         : { targets: [], overwrite: false, skippedCount: 0 };
 
       let successCount = 0;
-      let failCount = 0;
+      const failures: UploadFailure[] = [];
       for (const file of targets) {
-        const ok = await uploadOne(workspace, uploadPath, file, overwrite);
-        if (ok) successCount += 1;
-        else failCount += 1;
+        const reason = await uploadOne(workspace, uploadPath, file, overwrite);
+        if (reason === null) successCount += 1;
+        else failures.push({ name: file.name, reason });
       }
       for (const entry of nestedEntries) {
         const { dir } = splitRelativePath(entry.relativePath);
         const targetDir = resolveUploadTargetDir(uploadPath, dir);
-        const ok = await uploadOne(workspace, targetDir, entry.file, false);
-        if (ok) successCount += 1;
-        else failCount += 1;
+        const reason = await uploadOne(workspace, targetDir, entry.file, false);
+        if (reason === null) successCount += 1;
+        else failures.push({ name: entry.relativePath, reason });
       }
 
-      emitUploadResult(workspace, successCount, failCount, skippedCount);
+      emitUploadResult(workspace, successCount, failures, skippedCount);
       await navigateToPath(uploadPath);
     });
   }

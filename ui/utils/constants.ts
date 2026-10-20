@@ -48,6 +48,7 @@ export const PILL_PEEK_REMOTE_DURATION_MS = 6000;
 // push/pull結果のpeekに添えるコミット件名の最大件数（最新の1件だけ出し、残りは
 // 「… and N more」にまとめる）
 export const PILL_PEEK_SUBJECT_MAX = 1;
+export const UPLOAD_FAILURE_TOAST_MAX = 3;
 // pull/push の結果peekを出した直後は、ahead/behindが0に落ちたことの検出による
 // 同じ内容の「N Pushed/Pulled」peekを重ねて出さない
 export const PILL_PEEK_REMOTE_DEDUP_MS = 5000;
