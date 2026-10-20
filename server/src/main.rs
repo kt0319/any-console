@@ -101,6 +101,7 @@ async fn main() {
         gh_cache: any_console_server::github::new_gh_cache(),
         git_info_cache: any_console_server::git_info::GitInfoCache::new(),
         git_watch: any_console_server::git_watch::GitWatchState::new(),
+        github_watch: std::sync::Arc::new(any_console_server::github_watch::GithubWatchState::new()),
         jobs_cache: any_console_server::jobs_common::new_jobs_cache(),
         terminal_registry: any_console_server::terminal_session::TerminalRegistry::new(),
         dispatch: any_console_server::dispatch::DispatchState::new(),

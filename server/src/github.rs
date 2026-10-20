@@ -19,6 +19,9 @@ use crate::state::AppState;
 use crate::subprocess::run_subprocess_safe;
 
 const GITHUB_CLI_TIMEOUT_SEC: f64 = 8.0;
+pub(crate) const RUNS_LIST_LIMIT: &str = "15";
+pub(crate) const RUNS_JSON_FIELDS: &str =
+    "databaseId,displayTitle,status,conclusion,event,headBranch,createdAt,updatedAt,url,workflowName";
 const PER_WORKSPACE_TTL_SEC: u64 = 30;
 /// 単一state（open/closed）指定時のissue取得件数。
 const ISSUES_LIST_LIMIT: usize = 30;
@@ -38,7 +41,7 @@ pub fn new_gh_cache() -> crate::util::TtlCache<Value> {
 }
 
 /// gh を `--json` 付きで実行しパースする。失敗はすべて None。
-async fn run_gh_json(args: &[&str], cwd: &std::path::Path) -> Option<Value> {
+pub(crate) async fn run_gh_json(args: &[&str], cwd: &std::path::Path) -> Option<Value> {
     let mut cmd = vec!["gh"];
     cmd.extend_from_slice(args);
     let result = run_subprocess_safe(&cmd, GITHUB_CLI_TIMEOUT_SEC, Some(cwd)).await?;
@@ -298,9 +301,9 @@ pub async fn list_runs(
             "run",
             "list",
             "--limit",
-            "15",
+            RUNS_LIST_LIMIT,
             "--json",
-            "databaseId,displayTitle,status,conclusion,event,headBranch,createdAt,updatedAt,url,workflowName",
+            RUNS_JSON_FIELDS,
         ],
         "Failed to fetch actions",
     )

@@ -8,6 +8,7 @@ use crate::dispatch::DispatchState;
 use crate::git_info::GitInfoCache;
 use crate::git_lock::WorkspaceLocks;
 use crate::git_watch::GitWatchState;
+use crate::github_watch::GithubWatchState;
 use crate::pairing::PairingState;
 use crate::paths::Paths;
 use crate::preview::PreviewState;
@@ -25,6 +26,7 @@ pub struct AppState {
     pub gh_cache: crate::util::TtlCache<serde_json::Value>,
     pub git_info_cache: GitInfoCache,
     pub git_watch: GitWatchState,
+    pub github_watch: std::sync::Arc<GithubWatchState>,
     pub jobs_cache: crate::util::TtlCache<serde_json::Map<String, serde_json::Value>>,
     pub terminal_registry: TerminalRegistry,
     pub dispatch: DispatchState,
@@ -63,6 +65,7 @@ pub fn test_app_state(dir: &std::path::Path, tmux_prefix: &str, rate_limit: u32)
         gh_cache: crate::github::new_gh_cache(),
         git_info_cache: GitInfoCache::new(),
         git_watch: GitWatchState::new(),
+        github_watch: std::sync::Arc::new(GithubWatchState::new()),
         jobs_cache: crate::jobs_common::new_jobs_cache(),
         terminal_registry: TerminalRegistry::new(),
         dispatch: DispatchState::new(),

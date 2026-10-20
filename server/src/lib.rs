@@ -28,6 +28,7 @@ pub mod git_utils;
 pub mod git_watch;
 pub mod git_worktree;
 pub mod github;
+pub mod github_watch;
 pub mod groups;
 pub mod icons;
 pub mod job_match;
