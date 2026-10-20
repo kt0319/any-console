@@ -158,24 +158,16 @@ fn parse_revlist_pair(out: &str) -> Option<(i64, i64)> {
     }
 }
 
+/// 報告する `upstream_head` と同じ SHA を基準に ahead/behind を数える。別々の git 起動で
+/// 参照を解決し直すと、push が ref を更新する瞬間に両者の時点がずれ、UI が
+/// 「ahead>0 から 0 へ、upstream が動いた」というpush完了の判定を取りこぼす。
 async fn apply_ahead_behind(
     info: &mut Map<String, Value>,
-    revlist_out: Option<&str>,
+    upstream_sha: Option<&str>,
     directory: &Path,
 ) {
-    let has_upstream = info["has_upstream"] == json!(true);
-    if let Some(out) = revlist_out {
-        if has_upstream {
-            if let Some((a, b)) = parse_revlist_pair(out) {
-                info.insert("ahead".to_string(), json!(a));
-                info.insert("behind".to_string(), json!(b));
-            }
-            return;
-        }
-    }
-    let branch = info["branch"].as_str().unwrap_or("").to_string();
-    if !branch.is_empty() && info["has_remote_branch"] == json!(true) {
-        let range = format!("HEAD...origin/{branch}");
+    if let Some(sha) = upstream_sha {
+        let range = format!("HEAD...{sha}");
         if let Some(out) = query(directory, &["rev-list", "--left-right", "--count", &range]).await
         {
             if let Some((a, b)) = parse_revlist_pair(&out) {
@@ -212,7 +204,6 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
         staged,
         upstream,
         remote_branches,
-        revlist,
     ) = tokio::join!(
         query(directory, &["rev-parse", "--abbrev-ref", "HEAD"]),
         query(directory, &["symbolic-ref", "--short", "HEAD"]),
@@ -244,10 +235,6 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
             ]
         ),
         query(directory, &["branch", "-r", "--format=%(refname:short)"]),
-        query(
-            directory,
-            &["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]
-        ),
     );
 
     // branch（unborn HEAD は symbolic-ref で補完）+ リモートブランチ有無
@@ -281,11 +268,12 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
         }
         None => None,
     };
-    if let Some(s) = upstream_head
+    let upstream_sha = upstream_head
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
-    {
+        .map(str::to_string);
+    if let Some(s) = &upstream_sha {
         info.insert("upstream_head".to_string(), json!(s));
     }
     if let Some(s) = commit_date
@@ -347,7 +335,7 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
         );
     }
 
-    apply_ahead_behind(info, revlist.as_deref(), directory).await;
+    apply_ahead_behind(info, upstream_sha.as_deref(), directory).await;
 }
 
 /// git ステータス一式（Python `git_info` 相当 — TTL キャッシュ + 世代ガード付き）。
@@ -502,5 +490,46 @@ mod tests {
             after_push["upstream_head"],
             upstream_after_first_push.as_str()
         );
+    }
+
+    #[tokio::test]
+    async fn ahead_behind_are_counted_against_the_reported_upstream_head() {
+        let dir = tempfile::tempdir().unwrap();
+        let remote = dir.path().join("remote.git");
+        let repo = dir.path().join("work");
+        let other = dir.path().join("other");
+        sh_git(
+            dir.path(),
+            &["init", "-q", "--bare", "-b", "main", "remote.git"],
+        );
+        for path in [&repo, &other] {
+            std::fs::create_dir_all(path).unwrap();
+            sh_git(path, &["init", "-q", "-b", "main"]);
+            sh_git(path, &["config", "user.email", "t@example.com"]);
+            sh_git(path, &["config", "user.name", "t"]);
+            sh_git(path, &["remote", "add", "origin", remote.to_str().unwrap()]);
+        }
+        std::fs::write(repo.join("a.txt"), "x\n").unwrap();
+        sh_git(&repo, &["add", "-A"]);
+        sh_git(&repo, &["commit", "-q", "-m", "first"]);
+        sh_git(&repo, &["push", "-q", "origin", "main"]);
+
+        sh_git(&other, &["pull", "-q", "origin", "main"]);
+        std::fs::write(other.join("b.txt"), "y\n").unwrap();
+        sh_git(&other, &["add", "-A"]);
+        sh_git(&other, &["commit", "-q", "-m", "remote only"]);
+        sh_git(&other, &["push", "-q", "origin", "main"]);
+        sh_git(&repo, &["fetch", "-q", "origin"]);
+        std::fs::write(repo.join("c.txt"), "z\n").unwrap();
+        sh_git(&repo, &["add", "-A"]);
+        sh_git(&repo, &["commit", "-q", "-m", "local only"]);
+
+        // upstream 未設定でも、origin/main の SHA を基準に ahead/behind が揃う
+        let info = git_info(&GitInfoCache::new(), &repo).await;
+        assert_eq!(info["has_upstream"], false);
+        assert_eq!(info["ahead"], 1);
+        assert_eq!(info["behind"], 1);
+        let origin_main = query(&repo, &["rev-parse", "origin/main"]).await.unwrap();
+        assert_eq!(info["upstream_head"], origin_main.trim());
     }
 }
