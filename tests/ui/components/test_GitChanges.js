@@ -8,6 +8,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import GitChanges from "../../../ui/components/GitChanges.vue";
+import { on } from "../../../ui/app-bridge.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
 
 function jsonResponse(data) {
@@ -71,6 +72,31 @@ describe("GitChanges", () => {
     await wrapper.vm.loadCommitDiff("abc123");
     await flushPromises();
     expect(wrapper.text()).toContain("Failed to load commit diff");
+    wrapper.unmount();
+  });
+
+  it("作業ツリーの各ファイルのdiffを常に展開表示し、行クリックでそのファイルへ移動する", async () => {
+    setupWorkspace();
+    const diff = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\ndiff --git a/b.txt b/b.txt\n--- a/b.txt\n+++ b/b.txt\n@@ -1 +1 @@\n-x\n+y\n";
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({
+      files: [{ path: "a.txt", status: "M" }, { path: "b.txt", status: "M" }],
+      diff,
+    })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const bodies = () => wrapper.findAll(".diff-inline-body");
+    expect(bodies()).toHaveLength(2);
+    expect(bodies()[0].text()).toContain("+new");
+    expect(bodies()[1].text()).toContain("+y");
+
+    const selected = [];
+    const off = on("git:selectDiffFile", (detail) => selected.push(detail));
+    await wrapper.findAll(".diff-file-row")[1].trigger("click");
+    off();
+    expect(selected).toEqual([{ path: "b.txt", isWorkingTree: true }]);
+    expect(bodies()).toHaveLength(2);
     wrapper.unmount();
   });
 });

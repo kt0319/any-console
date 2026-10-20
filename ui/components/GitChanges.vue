@@ -12,6 +12,7 @@
             :selected="selectedFile === file.path"
             @click="selectFile(file)"
           />
+          <DiffInlineBody :path="file.path" :status="file.status" />
         </template>
       </ul>
     </div>
@@ -35,12 +36,13 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import DiffFileItem from "./DiffFileItem.vue";
+import DiffInlineBody from "./DiffInlineBody.vue";
 import DiffTotalNumstat from "./DiffTotalNumstat.vue";
 import GitCommitForm from "./GitCommitForm.vue";
+import { emit } from "../app-bridge.ts";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useGitWorkspaceActions } from "../composables/useGitWorkspaceActions.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
-import { emit } from "../app-bridge.ts";
 import { type AsyncState, asyncError, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
@@ -68,8 +70,8 @@ const files = computed(() => asyncValueOr(diffState.value, [] as DiffFileRow[]))
 const isLoading = computed(() => isAsyncPending(diffState.value));
 const loadError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 const selectedFile = ref("");
-const actionButtons = ref<DiffActionButton[]>([]);
 const isWorkingTree = ref(false);
+const actionButtons = ref<DiffActionButton[]>([]);
 const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
 
 const isCommitDisabled = computed(
