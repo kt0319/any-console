@@ -43,7 +43,6 @@ onMounted(async () => {
 <style scoped>
 .diff-inline-body {
   list-style: none;
-  border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
 

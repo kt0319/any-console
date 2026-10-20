@@ -5,16 +5,16 @@
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <ul v-else class="file-browser-list diff-file-browser-list">
-        <template v-for="file in files" :key="file.path">
+      <div v-else class="diff-file-browser-list">
+        <ul v-for="file in files" :key="file.path" class="diff-file-box">
           <DiffFileItem
             :file="file"
             :selected="selectedFile === file.path"
             @click="selectFile(file)"
           />
           <DiffInlineBody :path="file.path" :status="file.status" />
-        </template>
-      </ul>
+        </ul>
+      </div>
     </div>
     <GitCommitForm ref="commitForm" />
     <div v-if="actionButtons.length" class="diff-actions">
@@ -163,6 +163,22 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   min-height: 0;
 }
 
+
+.diff-file-browser-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 10px;
+}
+
+.diff-file-box {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
 
 .diff-file-list {
   display: flex;
