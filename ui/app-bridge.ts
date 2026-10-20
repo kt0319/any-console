@@ -18,6 +18,7 @@ export const BUS_EVENTS = Object.freeze([
   "git:remoteDone",
   "git:selectDiffFile",
   "git:selectDirty",
+  "github:activity",
   "jobs:refresh",
   "keyboard:deactivate",
   "keyboard:setDraft",

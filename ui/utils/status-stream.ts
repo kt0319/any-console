@@ -1,5 +1,6 @@
 import { reconnectBackoffDelay } from "./backoff.ts";
 import { EP_WORKSPACES_STATUSES_WS } from "./endpoints.ts";
+import type { ActivityEvent } from "./github-activity.ts";
 
 /**
  * ステータスストリーム WS の URL を組み立てる。
@@ -21,6 +22,8 @@ export type StatusStreamMessage =
   | { type: "phrase_notify_clear"; session_id: string }
   | { type: "session_created" | "session_removed"; session_id: string }
   | { type: "session_workspace_bound"; session_id: string; workspace: string }
+  | { type: "github_activity"; workspace: string; seq: number; items: ActivityEvent[] }
+  | { type: "github_activity_reset"; workspace: string; seq: number }
   | { type: "session_job_bound"; session_id: string; job_name: string; job_label: string; icon: string | null; icon_color: string | null };
 
 /**
@@ -49,6 +52,12 @@ export function parseStatusStreamMessage(raw: unknown): StatusStreamMessage | nu
   }
   if (msg.type === "dispatch_queue" && Array.isArray(msg.items)) {
     return { type: "dispatch_queue", items: msg.items, recent: Array.isArray(msg.recent) ? msg.recent : [] };
+  }
+  if (msg.type === "github_activity" && typeof msg.workspace === "string" && typeof msg.seq === "number" && Array.isArray(msg.items)) {
+    return { type: "github_activity", workspace: msg.workspace, seq: msg.seq, items: msg.items };
+  }
+  if (msg.type === "github_activity_reset" && typeof msg.workspace === "string" && typeof msg.seq === "number") {
+    return { type: "github_activity_reset", workspace: msg.workspace, seq: msg.seq };
   }
   if (msg.type === "phrase_notify" && typeof msg.session_id === "string") {
     return { type: "phrase_notify", session_id: msg.session_id, phrase: msg.phrase ?? "", workspace: msg.workspace ?? null };

@@ -9,7 +9,7 @@ import {
   buildPeekSignature,
 } from "../utils/pill-peek.ts";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
-import { describeNewActivity, snapshotActivity, type ActivityItem, type ActivitySnapshot } from "../utils/github-activity.ts";
+import { describeActivityEvents, describeRunEvent, type ActivityEvent } from "../utils/github-activity.ts";
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象のアイコン+情報
 // テキストだけを乗せた1本の長いピル（PillPeek.vue）を数秒だけ表示するための状態機械。
@@ -20,7 +20,6 @@ export function usePillPeek({
   paneWorkspace,
   workspaceKey,
   prsByWorkspace,
-  issuesByWorkspace,
   runsByWorkspace,
   devServerEntry,
   ahead,
@@ -33,7 +32,6 @@ export function usePillPeek({
   paneWorkspace: ComputedRef<Record<string, any> | undefined>,
   workspaceKey: () => string | null | undefined,
   prsByWorkspace: Ref<Record<string, any[]>>,
-  issuesByWorkspace: Ref<Record<string, any[]>>,
   runsByWorkspace: Ref<Record<string, any[]>>,
   devServerEntry: ComputedRef<Record<string, any> | null>,
   ahead: Ref<number>,
@@ -129,28 +127,33 @@ export function usePillPeek({
     triggerPeek("files", 0, 0, null, true, text);
   });
 
-  // PR/Issueへの新着コメント・レビュー。ポーリング結果の前回値との差分で検出する。
-  // 前回値が無い（初回取得・ワークスペース変更直後）時は基準値の記録だけ行う。
-  function watchGitHubActivity(
-    source: Ref<Record<string, any[]>>,
-    key: "prs" | "issues",
-    noun: string,
-    isTarget: (item: ActivityItem) => boolean,
-  ) {
-    let baseline: { workspace: string, snapshot: ActivitySnapshot } | null = null;
-    watch(() => source.value[workspaceKey() || ""], (items) => {
-      const workspace = workspaceKey();
-      if (!workspace || !items) return;
-      const prev = baseline?.workspace === workspace ? baseline.snapshot : null;
-      baseline = { workspace, snapshot: snapshotActivity(items) };
-      if (!prev || !trailingPeekItems.value.some((item) => item.key === key)) return;
-      const text = describeNewActivity(prev, items.filter(isTarget), noun);
-      if (text) triggerPeek(key, 0, 0, null, true, text);
-    });
-  }
-  // PRピルは現在ブランチのPRだけを指すため、通知もそのPRに揃える。
-  watchGitHubActivity(prsByWorkspace, "prs", "PR", (item) => item.number === peekFields.value?.branchPR?.number);
-  watchGitHubActivity(issuesByWorkspace, "issues", "issue", () => true);
+  // 完了通知を出したCI run。イベント経由と一覧ポーリング（シグネチャ変化）経由のどちらが
+  // 先に検知しても、同じrunを二重にpeekしないための記録。
+  const peekedCompletedRunIds = new Set<string | number>();
+
+  // サーバ（github_watch）が確定した新着コメント・レビュー・CI完了。
+  // PRピルは現在ブランチのPRだけを指すため、通知もそのPRとブランチのrunに揃える。
+  useBusListener("github:activity", ({ workspace, items }: { workspace?: string, items?: ActivityEvent[] }) => {
+    if (!items?.length || workspace !== workspaceKey()) return;
+    const hasPill = (key: string) => trailingPeekItems.value.some((item) => item.key === key);
+    if (hasPill("prs")) {
+      const prNumber = peekFields.value?.branchPR?.number;
+      const text = describeActivityEvents(items.filter((ev) => ev.target === "pr" && ev.number === prNumber), "PR");
+      if (text) triggerPeek("prs", 0, 0, null, true, text);
+    }
+    if (hasPill("issues")) {
+      const text = describeActivityEvents(items.filter((ev) => ev.target === "issue"), "issue");
+      if (text) triggerPeek("issues", 0, 0, null, true, text);
+    }
+    if (hasPill("actions")) {
+      const runs = items.filter((ev) => ev.kind === "run" && ev.branch === peekFields.value?.branch && !peekedCompletedRunIds.has(ev.number));
+      const latest = runs[runs.length - 1];
+      if (latest) {
+        peekedCompletedRunIds.add(latest.number);
+        triggerPeek("actions", 0, 0, null, true, describeRunEvent(latest));
+      }
+    }
+  });
 
   // 素のターミナルへのワークスペース/ジョブの自動紐付け。paneWorkspaceが未解決から解決に
   // 変わる同tickの変化は初回誤検知ガードで握りつぶされるため、検知イベントから直接出す。
@@ -185,6 +188,13 @@ export function usePillPeek({
     if (justResolved) workspaceEverResolved = true;
     if (workspaceEverResolved && !justResolved) {
       for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
+        if (changed.key === "actions") {
+          const run = peekFields.value?.branchAction;
+          if (run?.status === "completed") {
+            if (peekedCompletedRunIds.has(run.id)) continue;
+            peekedCompletedRunIds.add(run.id);
+          }
+        }
         let pushCount = 0;
         let pullCount = 0;
         if (changed.key === "branch") {

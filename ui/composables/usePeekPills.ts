@@ -16,7 +16,6 @@ export function usePeekPills(options: {
   paneWorkspace: ComputedRef<Record<string, any> | undefined>,
   workspaceKey: () => string | null | undefined,
   prsByWorkspace: Ref<Record<string, any[]>>,
-  issuesByWorkspace: Ref<Record<string, any[]>>,
   runsByWorkspace: Ref<Record<string, any[]>>,
   devServerEntry: ComputedRef<Record<string, any> | null>,
   ahead: Ref<number>,

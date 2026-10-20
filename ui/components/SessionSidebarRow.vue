@@ -92,7 +92,6 @@ const props = defineProps({
   active: { type: Boolean, default: false },
   prsByWorkspace: { type: Object, default: () => ({}) },
   runsByWorkspace: { type: Object, default: () => ({}) },
-  issuesByWorkspace: { type: Object, default: () => ({}) },
 });
 
 const emits = defineEmits(["select", "pillOpen", "closeTab"]);
@@ -142,7 +141,6 @@ const {
   sessionId: () => props.item.tab.sessionId,
   workspaceKey: () => props.item.tab.workspace,
   prsByWorkspace: computed(() => props.prsByWorkspace),
-  issuesByWorkspace: computed(() => props.issuesByWorkspace),
   runsByWorkspace: computed(() => props.runsByWorkspace),
   devServerEntry: computed(() => props.item.devServerEntry),
   ahead: computed(() => props.item.ahead),

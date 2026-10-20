@@ -9,7 +9,6 @@
           :active="item.id === activeTabId"
           :prs-by-workspace="prsByWorkspace"
           :runs-by-workspace="runsByWorkspace"
-          :issues-by-workspace="issuesByWorkspace"
           @select="onSelect(item)"
           @pill-open="onPillOpen(item, $event)"
           @close-tab="onCloseTab(item)"

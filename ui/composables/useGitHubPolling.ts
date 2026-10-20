@@ -2,6 +2,7 @@ import { onBeforeUnmount, watch, type ComputedRef } from "vue";
 import { useWorkspacePRs } from "./useWorkspacePRs.ts";
 import { useWorkspaceRuns } from "./useWorkspaceRuns.ts";
 import { useWorkspaceIssues } from "./useWorkspaceIssues.ts";
+import { unwatchGitHubWorkspace, watchGitHubWorkspace } from "../utils/github-watch.ts";
 
 // GitHub PR / Actions / Issues ピルのデータ源はどの利用箇所でも必ずセットで
 // 取得・ポーリング開始・停止するため、その3種類をまとめる薄いラッパー。
@@ -14,8 +15,9 @@ export function useGitHubPolling() {
   const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceRuns();
   const { issuesByWorkspace, fetchIssues, startPolling: startIssuesPolling, stopPolling: stopIssuesPolling } = useWorkspaceIssues();
 
-  /** 取得してからポーリングを開始する。 */
+  /** 取得してからポーリングを開始する。新着通知はサーバの github_watch へ監視を宣言して受ける。 */
   function startGitHubPolling(workspace: string) {
+    watchGitHubWorkspace(workspace);
     fetchPRs(workspace);
     fetchRuns(workspace);
     fetchIssues(workspace);
@@ -25,6 +27,7 @@ export function useGitHubPolling() {
   }
 
   function stopGitHubPolling(workspace: string) {
+    unwatchGitHubWorkspace(workspace);
     stopPRsPolling(workspace);
     stopActionsPolling(workspace);
     stopIssuesPolling(workspace);

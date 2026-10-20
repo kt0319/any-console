@@ -12,6 +12,12 @@ import {
   parseStatusStreamMessage,
   statusStreamReconnectDelay,
 } from "../utils/status-stream.ts";
+import {
+  acceptGitHubActivitySeq,
+  buildWatchGitHubMessage,
+  onGitHubWatchChange,
+  rebaseGitHubActivitySeq,
+} from "../utils/github-watch.ts";
 
 // アプリ全体で 1 本の WS を共有するモジュールシングルトン。
 let socket: WebSocket | null = null;
@@ -52,6 +58,13 @@ export function useStatusStream() {
     socket.send(buildViewingMessage(currentViewingSessionId()));
   }
 
+  // GitHub の新着を受けたいワークスペースを宣言する。サーバ側の宣言も接続単位のため、
+  // 再接続のたびに最終 seq 付きで送り直す（取りこぼし分の再送を受ける）。
+  function sendWatchGitHub() {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(buildWatchGitHubMessage());
+  }
+
   function connect() {
     if (!isClosed() || document.hidden) return;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -64,6 +77,7 @@ export function useStatusStream() {
       // サーバ側の閲覧レジストリは接続（socket）単位で持つため、再接続の
       // たびに現在値を送り直す必要がある。
       sendViewing();
+      sendWatchGitHub();
       // 切断中の変更を取りこぼしている可能性があるため、接続のたびに全量を同期する
       workspaceStore.fetchStatuses();
     };
@@ -75,6 +89,12 @@ export function useStatusStream() {
         useAgentStateStore().applyAgentStates(msg.states);
       } else if (msg?.type === "dispatch_queue") {
         applyDispatchQueue(msg.items, msg.recent);
+      } else if (msg?.type === "github_activity") {
+        if (acceptGitHubActivitySeq(msg.workspace, msg.seq)) {
+          emit("github:activity", { workspace: msg.workspace, items: msg.items });
+        }
+      } else if (msg?.type === "github_activity_reset") {
+        rebaseGitHubActivitySeq(msg.workspace, msg.seq);
       } else if (msg?.type === "phrase_notify") {
         useAgentStateStore().markPhraseNotify(msg.session_id);
       } else if (msg?.type === "phrase_notify_clear") {
@@ -140,6 +160,7 @@ export function useStatusStream() {
       sendViewing();
     });
     on("connectivity:back", () => reconnectNow());
+    onGitHubWatchChange(sendWatchGitHub);
     // タブ切替え・タブ作成/削除でアクティブセッションが変わるたびに送る。
     watch(() => terminalStore.activeTabId, () => sendViewing());
   }

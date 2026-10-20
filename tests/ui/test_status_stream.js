@@ -202,3 +202,22 @@ describe("statusStreamReconnectDelay", () => {
     expect(statusStreamReconnectDelay(10)).toBe(RECONNECT_BACKOFF_MAX);
   });
 });
+
+describe("parseStatusStreamMessage (github_activity)", () => {
+  it("github_activity は workspace / seq / items を返す", () => {
+    const items = [{ kind: "comment", target: "pr", number: 1, title: "t" }];
+    const raw = JSON.stringify({ type: "github_activity", workspace: "ws", seq: 3, items });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "github_activity", workspace: "ws", seq: 3, items });
+  });
+
+  it("github_activity_reset は workspace / seq を返す", () => {
+    const raw = JSON.stringify({ type: "github_activity_reset", workspace: "ws", seq: 0 });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "github_activity_reset", workspace: "ws", seq: 0 });
+  });
+
+  it("形式違いは null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "github_activity", workspace: "ws", seq: "1", items: [] }))).toBeNull();
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "github_activity", workspace: "ws", seq: 1 }))).toBeNull();
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "github_activity_reset", seq: 1 }))).toBeNull();
+  });
+});

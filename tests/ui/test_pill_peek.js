@@ -12,6 +12,7 @@ import {
 } from "../../ui/utils/pill-peek.ts";
 import { usePillPeek } from "../../ui/composables/usePillPeek.ts";
 import { emit } from "../../ui/app-bridge.ts";
+import { PILL_PEEK_DURATION_MS } from "../../ui/utils/constants.ts";
 
 const ALL_ON = {
   files: true,
@@ -199,11 +200,15 @@ describe("usePillPeek", () => {
     const trailingPeekItems = computed(() => [
       ...(opts.filesPill ? [{ key: "files", text: "Files" }] : []),
       ...(opts.githubPills ? [{ key: "prs", text: "5:feat" }, { key: "issues", text: "Issues:2" }] : []),
+      ...(opts.actionsPill ? [{ key: "actions", text: `11:${runStatus.value}:` }] : []),
       ...(branchPillOn.value ? [{ key: "branch", text: `${branch.value}:${ahead.value}:${behind.value}` }] : []),
     ]);
-    const peekFields = computed(() => ({ branch: branch.value, ahead: ahead.value, behind: behind.value, upstreamHead: upstreamHead.value, branchPR: { number: 5 } }));
+    const runStatus = ref("queued");
+    const peekFields = computed(() => ({
+      branch: branch.value, ahead: ahead.value, behind: behind.value, upstreamHead: upstreamHead.value, branchPR: { number: 5 },
+      branchAction: { id: 11, name: "CI", status: runStatus.value, conclusion: "" },
+    }));
     const prsByWorkspace = ref({});
-    const issuesByWorkspace = ref({});
     let peek;
     const Comp = defineComponent({
       setup() {
@@ -213,7 +218,6 @@ describe("usePillPeek", () => {
           paneWorkspace: computed(() => ({})),
           workspaceKey: () => "ws1",
           prsByWorkspace,
-          issuesByWorkspace,
           runsByWorkspace: ref({}),
           devServerEntry: computed(() => null),
           ahead,
@@ -225,7 +229,7 @@ describe("usePillPeek", () => {
       },
     });
     const wrapper = mount(Comp);
-    return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn, prsByWorkspace, issuesByWorkspace };
+    return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn, prsByWorkspace, runStatus };
   }
 
   it("同一ブランチでahead>0から0へ変わったらpush完了として件数を出す", async () => {
@@ -309,72 +313,116 @@ describe("usePillPeek", () => {
     expect(noFiles.peekingKey.value).toBeNull();
   });
 
-  describe("PR/Issueへの新着コメント", () => {
-    const pr = (comments, reviews = 0, number = 5) => ({ number, title: "feat", commentCount: comments, reviewCount: reviews });
-
-    it("初回取得は基準値として扱いpeekを出さない", async () => {
-      const { peek, prsByWorkspace } = mountPillPeek({ githubPills: true });
-      prsByWorkspace.value = { ws1: [pr(2)] };
-      await nextTick();
-      expect(peek.peekingKey.value).toBeNull();
+  describe("サーバが確定した新着（github:activity）", () => {
+    const ev = (over = {}) => ({
+      kind: "comment", target: "pr", number: 5, title: "feat", author: "alice",
+      createdAt: "2026-01-01T00:00:00Z", url: "u", overflow: false, ...over,
     });
+    const send = (items, workspace = "ws1") => emit("github:activity", { workspace, items });
 
-    it("現在ブランチのPRのコメント・レビュー増加をprs peekに出す", async () => {
-      const { peek, prsByWorkspace } = mountPillPeek({ githubPills: true });
-      prsByWorkspace.value = { ws1: [pr(1)] };
-      await nextTick();
-      prsByWorkspace.value = { ws1: [pr(3, 1)] };
+    it("現在ブランチのPRのコメント・レビューをprs peekに出す", async () => {
+      const { peek } = mountPillPeek({ githubPills: true });
+      send([ev(), ev({ kind: "comment" }), ev({ kind: "review" })]);
       await nextTick();
       expect(peek.peekingKey.value).toBe("prs");
       expect(peek.peekText.value).toBe("#5 2 new comments, 1 new review: feat");
     });
 
-    it("ブランチ外のPRやコメントが減った場合は出さない", async () => {
-      const { peek, prsByWorkspace } = mountPillPeek({ githubPills: true });
-      prsByWorkspace.value = { ws1: [pr(3), pr(0, 0, 9)] };
-      await nextTick();
-      prsByWorkspace.value = { ws1: [pr(1), pr(4, 0, 9)] };
+    it("ブランチ外のPRは出さない", async () => {
+      const { peek } = mountPillPeek({ githubPills: true });
+      send([ev({ number: 9 })]);
       await nextTick();
       expect(peek.peekingKey.value).toBeNull();
     });
 
-    it("Issueのコメント増加をissues peekに出す", async () => {
-      const { peek, issuesByWorkspace } = mountPillPeek({ githubPills: true });
-      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
-      await nextTick();
-      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 1 }] };
+    it("Issueのコメントをissues peekに出す", async () => {
+      const { peek } = mountPillPeek({ githubPills: true });
+      send([ev({ target: "issue", number: 7, title: "bug" })]);
       await nextTick();
       expect(peek.peekingKey.value).toBe("issues");
       expect(peek.peekText.value).toBe("#7 1 new comment: bug");
     });
 
-    it("複数Issueで同時に増えたら1つのpeekにまとめる", async () => {
-      const { peek, issuesByWorkspace } = mountPillPeek({ githubPills: true });
-      const issue = (number, commentCount) => ({ number, title: `i${number}`, commentCount });
-      issuesByWorkspace.value = { ws1: [issue(1, 0), issue(2, 0), issue(3, 0)] };
+    it("複数Issueの新着は1つのpeekにまとめる", async () => {
+      const { peek } = mountPillPeek({ githubPills: true });
+      send([
+        ev({ target: "issue", number: 1 }), ev({ target: "issue", number: 1 }),
+        ev({ target: "issue", number: 2 }), ev({ target: "issue", number: 3 }),
+      ]);
       await nextTick();
-      issuesByWorkspace.value = { ws1: [issue(1, 2), issue(2, 1), issue(3, 2)] };
-      await nextTick();
-      expect(peek.peekingKey.value).toBe("issues");
-      expect(peek.peekText.value).toBe("3 issues: 5 new comments");
+      expect(peek.peekText.value).toBe("3 issues: 4 new comments");
     });
 
-    it("自分が投稿したコメントではpeekを出さない", async () => {
-      const { peek, issuesByWorkspace } = mountPillPeek({ githubPills: true });
-      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
-      await nextTick();
-      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 1, lastCommentByMe: true }] };
+    it("別ワークスペース宛て・対応するピルが無い時は出さない", async () => {
+      const { peek } = mountPillPeek({ githubPills: true });
+      send([ev({ target: "issue" })], "other");
       await nextTick();
       expect(peek.peekingKey.value).toBeNull();
+      const { peek: noPill } = mountPillPeek();
+      send([ev({ target: "issue" })]);
+      await nextTick();
+      expect(noPill.peekingKey.value).toBeNull();
     });
 
-    it("対応するピルが無い時は出さない", async () => {
-      const { peek, issuesByWorkspace } = mountPillPeek();
-      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 0 }] };
-      await nextTick();
-      issuesByWorkspace.value = { ws1: [{ number: 7, title: "bug", commentCount: 1 }] };
-      await nextTick();
-      expect(peek.peekingKey.value).toBeNull();
+    describe("CI完了", () => {
+      const run = (over = {}) => ({
+        kind: "run", target: "ci", number: 11, title: "CI", workflow: "CI",
+        conclusion: "success", branch: "main", author: null, createdAt: "t", url: "u", ...over,
+      });
+
+      it("現在ブランチのrun完了をactions peekに出す", async () => {
+        const { peek } = mountPillPeek({ actionsPill: true });
+        send([run({ conclusion: "failure" })]);
+        await nextTick();
+        expect(peek.peekingKey.value).toBe("actions");
+        expect(peek.peekText.value).toBe("[CI] failure");
+      });
+
+      it("別ブランチのrunは出さない", async () => {
+        const { peek } = mountPillPeek({ actionsPill: true });
+        send([run({ branch: "feature" })]);
+        await nextTick();
+        expect(peek.peekingKey.value).toBeNull();
+      });
+
+      it("同じrunのイベントが再送されても二重に出さない", async () => {
+        vi.useFakeTimers();
+        try {
+          const { peek } = mountPillPeek({ actionsPill: true });
+          send([run()]);
+          await nextTick();
+          vi.advanceTimersByTime(PILL_PEEK_DURATION_MS + 10);
+          expect(peek.peekingKey.value).toBeNull();
+          send([run()]);
+          await nextTick();
+          expect(peek.peekingKey.value).toBeNull();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("一覧ポーリングが先に完了を検知した場合も、後続のイベントで二重に出さない", async () => {
+        vi.useFakeTimers();
+        try {
+          const { peek, runStatus } = mountPillPeek({ actionsPill: true });
+          runStatus.value = "completed";
+          await nextTick();
+          expect(peek.peekingKey.value).toBe("actions");
+          vi.advanceTimersByTime(PILL_PEEK_DURATION_MS + 10);
+          send([run()]);
+          await nextTick();
+          expect(peek.peekingKey.value).toBeNull();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("実行中への変化は従来どおり一覧の変化から出す", async () => {
+        const { peek, runStatus } = mountPillPeek({ actionsPill: true });
+        runStatus.value = "in_progress";
+        await nextTick();
+        expect(peek.peekingKey.value).toBe("actions");
+      });
     });
   });
 
