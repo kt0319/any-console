@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use axum::routing::get;
 use axum::Router;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use tokio_tungstenite::tungstenite::Message as TgMsg;
 
@@ -323,4 +323,85 @@ async fn connecting_starts_agent_watch_and_reports_real_tmux_session() {
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
     ws.close(None).await.unwrap();
     assert!(wait_for(|| front.state.status_stream.subscriber_count() == 0).await);
+}
+
+fn run_list(id: i64, status: &str) -> serde_json::Value {
+    json!([{
+        "databaseId": id, "status": status, "conclusion": "success",
+        "displayTitle": "t", "workflowName": "CI", "headBranch": "main",
+        "updatedAt": "2026-01-01T00:00:01Z", "url": "u",
+    }])
+}
+
+#[tokio::test]
+async fn watch_github_resets_a_client_ahead_of_the_server_and_stops_polling_on_disconnect() {
+    let front = spawn_front().await;
+    let watch = &front.state.github_watch;
+
+    let holder = watch.next_conn_id();
+    watch.set_watch(
+        &front.state,
+        holder,
+        vec!["proj".into()],
+        &Default::default(),
+    );
+    watch.apply_poll("proj", None, Some(&run_list(1, "in_progress")));
+    watch
+        .apply_poll("proj", None, Some(&run_list(1, "completed")))
+        .expect("completion is reported");
+    watch.remove_conn(holder);
+
+    let url = format!("ws://{}/workspaces/statuses/ws?token={TOKEN}", front.addr);
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    ws.send(TgMsg::Text(
+        json!({"type": "watch_github", "workspaces": ["proj"], "since": {"proj": 99}})
+            .to_string()
+            .into(),
+    ))
+    .await
+    .unwrap();
+    assert!(wait_for(|| watch.is_polling()).await);
+
+    let reset = recv_json_until(&mut ws, Duration::from_secs(5), |v| {
+        v["type"] == "github_activity_reset" || v["type"] == "github_activity"
+    })
+    .await;
+    assert_eq!(reset["type"], "github_activity_reset");
+    assert_eq!(reset["workspace"], "proj");
+
+    ws.close(None).await.unwrap();
+    assert!(wait_for(|| !watch.is_polling()).await);
+}
+
+#[tokio::test]
+async fn watch_github_resends_events_after_since() {
+    let front = spawn_front().await;
+    let watch = &front.state.github_watch;
+    let holder = watch.next_conn_id();
+    watch.set_watch(
+        &front.state,
+        holder,
+        vec!["proj".into()],
+        &Default::default(),
+    );
+    watch.apply_poll("proj", None, Some(&json!([])));
+    watch.apply_poll("proj", None, Some(&run_list(7, "completed")));
+
+    let url = format!("ws://{}/workspaces/statuses/ws?token={TOKEN}", front.addr);
+    let (mut ws, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    ws.send(TgMsg::Text(
+        json!({"type": "watch_github", "workspaces": ["proj"], "since": {"proj": 0}})
+            .to_string()
+            .into(),
+    ))
+    .await
+    .unwrap();
+    let event = recv_json_until(&mut ws, Duration::from_secs(5), |v| {
+        v["type"] == "github_activity"
+    })
+    .await;
+    assert_eq!(event["seq"], 1);
+    assert_eq!(event["items"][0]["kind"], "run");
+    assert_eq!(event["items"][0]["number"], 7);
+    watch.remove_conn(holder);
 }

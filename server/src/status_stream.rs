@@ -156,6 +156,14 @@ enum ClientMessage {
     /// タブ全閉じ等）ことを表す。push通知の「その端末で今そのセッションを
     /// 見ているなら送らない」抑制判定に使う（`StatusStreamState::is_device_viewing`）。
     Viewing { session_id: Option<String> },
+    /// この接続が GitHub の新着（コメント・レビュー・CI 完了）を受けたいワークスペース。
+    /// 呼ぶたびに全量を置き換える。`since` は各ワークスペースで最後に受け取った seq
+    /// （再接続時の取りこぼし再送用）。
+    WatchGithub {
+        workspaces: Vec<String>,
+        #[serde(default)]
+        since: HashMap<String, u64>,
+    },
 }
 
 async fn handle_status_stream_ws(
@@ -178,7 +186,17 @@ async fn handle_status_stream_ws(
     // ため、既存購読者への再送も無害）。
     crate::dispatch::broadcast_current_queue(&state).await;
 
-    stream_until_disconnect(&state, &mut socket, &mut rx, conn_id, device_id.as_deref()).await;
+    let github_conn = state.github_watch.next_conn_id();
+    stream_until_disconnect(
+        &state,
+        &mut socket,
+        &mut rx,
+        conn_id,
+        github_conn,
+        device_id.as_deref(),
+    )
+    .await;
+    state.github_watch.remove_conn(github_conn);
 
     // 単一のクリーンアップ出口: 途中の送信失敗を含むすべての切断経路がここを通る。
     // 購読者数の判定（`StatusStreamState::subscriber_count`）に反映されるよう、
@@ -201,6 +219,7 @@ async fn stream_until_disconnect(
     socket: &mut WebSocket,
     rx: &mut broadcast::Receiver<Value>,
     conn_id: Option<u64>,
+    github_conn: u64,
     device_id: Option<&str>,
 ) {
     // Python `agent_watch.subscribe` と同じく、既知の agent 状態スナップショットを
@@ -260,13 +279,22 @@ async fn stream_until_disconnect(
                 let Some(Ok(msg)) = msg else { break };
                 match msg {
                     Message::Close(_) => break,
-                    Message::Text(text) => {
-                        if let (Some(id), Ok(ClientMessage::Viewing { session_id })) =
-                            (conn_id, serde_json::from_str::<ClientMessage>(&text))
-                        {
-                            state.status_stream.update_viewing(id, session_id);
+                    Message::Text(text) => match serde_json::from_str::<ClientMessage>(&text) {
+                        Ok(ClientMessage::Viewing { session_id }) => {
+                            if let Some(id) = conn_id {
+                                state.status_stream.update_viewing(id, session_id);
+                            }
                         }
-                    }
+                        Ok(ClientMessage::WatchGithub { workspaces, since }) => {
+                            let replay = state.github_watch.set_watch(state, github_conn, workspaces, &since);
+                            for payload in replay {
+                                if socket.send(Message::Text(payload.to_string().into())).await.is_err() {
+                                    return;
+                                }
+                            }
+                        }
+                        Err(_) => {}
+                    },
                     _ => {}
                 }
             }

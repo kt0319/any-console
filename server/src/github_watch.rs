@@ -469,6 +469,10 @@ impl GithubWatchState {
         }
     }
 
+    pub fn is_polling(&self) -> bool {
+        self.task.is_running()
+    }
+
     fn active_workspaces(&self) -> Vec<String> {
         let mut names: Vec<String> = self
             .inner
@@ -481,7 +485,9 @@ impl GithubWatchState {
         names
     }
 
-    fn apply_poll(
+    /// 取得結果を反映し、新着があれば配信用 payload を返す（購読されていない
+    /// ワークスペースは無視）。`poll_workspace` と統合テストが使う。
+    pub fn apply_poll(
         &self,
         workspace: &str,
         posts: Option<&Value>,
