@@ -82,6 +82,18 @@ export function terminalSessionFilesPath(sessionId: string, path: string = ""): 
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/files?path=${encodeURIComponent(path)}`;
 }
 
+export function terminalSessionRenamePath(sessionId: string): string {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/rename`;
+}
+
+export function terminalSessionDeleteFilePath(sessionId: string): string {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/delete-file`;
+}
+
+export function terminalSessionDownloadPath(sessionId: string, filePath: string): string {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/download?path=${encodeURIComponent(filePath)}`;
+}
+
 export function terminalSessionUploadPath(sessionId: string): string {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/upload`;
 }

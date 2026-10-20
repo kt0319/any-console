@@ -531,8 +531,8 @@ pub async fn save_multipart_upload(
 
 #[derive(Deserialize)]
 pub struct RenameRequest {
-    src: String,
-    dest: String,
+    pub src: String,
+    pub dest: String,
 }
 
 pub async fn rename(
@@ -541,8 +541,17 @@ pub async fn rename(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<RenameRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let (_, src_target, _) = resolve_workspace_file(&state, &name, &body.src).await?;
-    let (_, dest_target, _) = resolve_workspace_file(&state, &name, &body.dest).await?;
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    rename_under(&ws_path, &body)
+}
+
+/// `root` 配下でリネーム／移動する。root 自体は対象にできない。
+pub fn rename_under(root: &FsPath, body: &RenameRequest) -> Result<Json<Value>, ApiError> {
+    let (src_target, src_rel) = resolve_and_validate_workspace_path(root, &body.src)?;
+    let (dest_target, _) = resolve_and_validate_workspace_path(root, &body.dest)?;
+    if src_rel.as_os_str().is_empty() {
+        return Err(bad_request("Invalid path"));
+    }
     if !src_target.exists() {
         return Err(not_found("Source not found"));
     }
@@ -558,7 +567,7 @@ pub async fn rename(
 
 #[derive(Deserialize)]
 pub struct DeleteFileRequest {
-    path: String,
+    pub path: String,
 }
 
 pub async fn delete_file(
@@ -567,7 +576,16 @@ pub async fn delete_file(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<DeleteFileRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let (_, target, _) = resolve_workspace_file(&state, &name, &body.path).await?;
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    delete_under(&ws_path, &body.path)
+}
+
+/// `root` 配下のファイル／ディレクトリを削除する。root 自体は削除できない。
+pub fn delete_under(root: &FsPath, path: &str) -> Result<Json<Value>, ApiError> {
+    let (target, rel) = resolve_and_validate_workspace_path(root, path)?;
+    if rel.as_os_str().is_empty() {
+        return Err(bad_request("Invalid path"));
+    }
     if !target.exists() {
         return Err(not_found("File not found"));
     }
@@ -584,7 +602,7 @@ pub async fn delete_file(
 
 #[derive(Deserialize)]
 pub struct DownloadQuery {
-    path: String,
+    pub path: String,
 }
 
 /// TempDir を応答ストリーム終了まで保持し、drop で自動削除するボディストリーム。
@@ -726,7 +744,13 @@ pub async fn download(
     _auth: RequireAuth,
     QueryParams(q): QueryParams<DownloadQuery>,
 ) -> Result<Response, ApiError> {
-    let (_, target, _) = resolve_workspace_file(&state, &name, &q.path).await?;
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    download_under(&ws_path, &q.path).await
+}
+
+/// `root` 配下のファイルを返す。ディレクトリは zip 化して返す。
+pub async fn download_under(root: &FsPath, path: &str) -> Result<Response, ApiError> {
+    let (target, _) = resolve_and_validate_workspace_path(root, path)?;
 
     if target.is_file() {
         let file = tokio::fs::File::open(&target)

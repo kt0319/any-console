@@ -305,6 +305,36 @@ pub async fn upload_terminal_session_file(
     crate::git_files::save_multipart_upload(&root, multipart).await
 }
 
+pub async fn rename_terminal_session_file(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<crate::git_files::RenameRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let root = terminal_session_root(&state, &session_id).await?;
+    crate::git_files::rename_under(&root, &body)
+}
+
+pub async fn delete_terminal_session_file(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<crate::git_files::DeleteFileRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let root = terminal_session_root(&state, &session_id).await?;
+    crate::git_files::delete_under(&root, &body.path)
+}
+
+pub async fn download_terminal_session_file(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    QueryParams(query): QueryParams<crate::git_files::DownloadQuery>,
+) -> Result<Response, ApiError> {
+    let root = terminal_session_root(&state, &session_id).await?;
+    crate::git_files::download_under(&root, &query.path).await
+}
+
 #[derive(Deserialize)]
 pub struct FileContentQuery {
     path: String,

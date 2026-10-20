@@ -7,9 +7,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useFileActions } from "../../ui/composables/useFileActions.ts";
 import { useConfirm } from "../../ui/composables/useConfirm.ts";
+import { usePrompt } from "../../ui/composables/usePrompt.ts";
 import { useWorkspaceStore } from "../../ui/stores/workspace.ts";
 import { useAuthStore } from "../../ui/stores/auth.ts";
 import { on } from "../../ui/app-bridge.ts";
+
+const { triggerBlobDownloadMock } = vi.hoisted(() => ({ triggerBlobDownloadMock: vi.fn() }));
+vi.mock("../../ui/utils/download.ts", () => ({ triggerBlobDownload: triggerBlobDownloadMock }));
 
 function fakeFile(name) {
   return { name };
@@ -185,5 +189,58 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
     });
     await uploadDroppedFiles([fakeEntry("a.txt")]);
     expect(auth.apiFetch).not.toHaveBeenCalled();
+  });
+
+  it("素のターミナルではrename / deleteもセッション用エンドポイントを使う", async () => {
+    useWorkspaceStore().selectedWorkspace = "";
+    const auth = useAuthStore();
+    auth.apiFetch = vi.fn(async () => ({ ok: true, json: async () => ({ status: "ok" }) }));
+    const navigateToPath = vi.fn();
+    const { moveCurrentPath, deleteCurrentPath } = useFileActions({
+      getCurrentPath: () => "dir/a.txt",
+      getFileContent: () => null,
+      navigateToPath,
+      getTerminalSessionId: () => "sess1",
+    });
+
+    const { onOk: confirmOk } = useConfirm();
+    const moving = moveCurrentPath();
+    const { visible: promptVisible, value: promptValue, onSubmit } = usePrompt();
+    for (let i = 0; i < 50 && !promptVisible.value; i++) await new Promise((r) => setTimeout(r, 0));
+    promptValue.value = "dir/b.txt";
+    onSubmit();
+    await moving;
+    const deleting = deleteCurrentPath();
+    await waitForConfirmThen(confirmOk);
+    await deleting;
+
+    const calls = auth.apiFetch.mock.calls.map(([url, opts]) => [String(url), opts.body]);
+    expect(calls).toEqual([
+      ["/terminal/sessions/sess1/rename", { src: "dir/a.txt", dest: "dir/b.txt" }],
+      ["/terminal/sessions/sess1/delete-file", { path: "dir/a.txt" }],
+    ]);
+    expect(toasts.map((t) => t.message)).toEqual(["Renamed b.txt", "Deleted a.txt"]);
+  });
+
+  it("素のターミナルではdownloadもセッション用エンドポイントを使う", async () => {
+    useWorkspaceStore().selectedWorkspace = "";
+    const auth = useAuthStore();
+    const blob = new Blob(["x"]);
+    auth.apiFetch = vi.fn(async () => ({
+      ok: true,
+      blob: async () => blob,
+      headers: { get: () => 'attachment; filename="dir.zip"' },
+    }));
+    const { downloadFile } = useFileActions({
+      getCurrentPath: () => "dir",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+      getTerminalSessionId: () => "sess1",
+    });
+
+    await downloadFile("dir");
+
+    expect(auth.apiFetch).toHaveBeenCalledWith("/terminal/sessions/sess1/download?path=dir");
+    expect(triggerBlobDownloadMock).toHaveBeenCalledWith(blob, "dir.zip");
   });
 });

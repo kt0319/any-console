@@ -393,6 +393,18 @@ fn terminal_routes() -> AppRouter {
             ),
         )
         .route(
+            "/terminal/sessions/{session_id}/rename",
+            post(terminal::rename_terminal_session_file),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/delete-file",
+            post(terminal::delete_terminal_session_file),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/download",
+            get(terminal::download_terminal_session_file),
+        )
+        .route(
             "/terminal/sessions/{session_id}/file-content",
             get(terminal::get_terminal_session_file_content),
         )

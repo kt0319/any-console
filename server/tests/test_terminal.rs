@@ -60,6 +60,18 @@ fn terminal_router(state: Arc<AppState>) -> Router {
             "/terminal/sessions/{session_id}/upload",
             axum::routing::post(terminal::upload_terminal_session_file),
         )
+        .route(
+            "/terminal/sessions/{session_id}/rename",
+            axum::routing::post(terminal::rename_terminal_session_file),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/delete-file",
+            axum::routing::post(terminal::delete_terminal_session_file),
+        )
+        .route(
+            "/terminal/sessions/{session_id}/download",
+            get(terminal::download_terminal_session_file),
+        )
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
         .with_state(state)
 }
@@ -212,6 +224,104 @@ async fn upload_to_terminal_session_cwd_creates_nested_dirs_and_rejects_escape()
 
     assert_eq!(upload("../escape").await.unwrap().status(), 400);
     assert_eq!(upload("proj/.git").await.unwrap().status(), 400);
+
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
+/// 素のターミナル（セッションのカレントディレクトリ）でも rename / download / delete が
+/// 動き、カレントディレクトリ自体の削除・移動と配下の外への操作は拒否されること。
+#[tokio::test]
+async fn terminal_session_rename_download_delete_stay_inside_cwd() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let cwd = tempfile::tempdir().unwrap();
+    std::fs::write(cwd.path().join("a.txt"), b"data").unwrap();
+    std::fs::create_dir(cwd.path().join("dir")).unwrap();
+    std::fs::write(cwd.path().join("dir/x.txt"), b"x").unwrap();
+    let session_id = "fileops-cwd";
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::run_subprocess_safe(
+        &[
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            &full_name,
+            "-c",
+            &cwd.path().to_string_lossy(),
+        ],
+        5.0,
+        None,
+    )
+    .await;
+    let base = format!("http://{}/terminal/sessions/{session_id}", front.addr);
+    let post = |endpoint: &str, body: Value| {
+        common::client()
+            .post(format!("{base}/{endpoint}"))
+            .bearer_auth(TOKEN)
+            .json(&body)
+            .send()
+    };
+
+    let resp = post("rename", json!({"src": "a.txt", "dest": "b.txt"}))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(cwd.path().join("b.txt").exists() && !cwd.path().join("a.txt").exists());
+
+    let resp = common::client()
+        .get(format!("{base}/download?path=b.txt"))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.bytes().await.unwrap().as_ref(), b"data");
+
+    let resp = common::client()
+        .get(format!("{base}/download?path=dir"))
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.headers()["content-type"], "application/zip");
+
+    assert_eq!(
+        post("rename", json!({"src": "", "dest": "moved"}))
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    assert_eq!(
+        post("rename", json!({"src": "b.txt", "dest": "../escape"}))
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    assert_eq!(
+        post("delete-file", json!({"path": ""}))
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    assert_eq!(
+        post("delete-file", json!({"path": "../outside"}))
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    assert!(cwd.path().exists());
+
+    let resp = post("delete-file", json!({"path": "dir"})).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(!cwd.path().join("dir").exists());
 
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }

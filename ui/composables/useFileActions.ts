@@ -11,7 +11,7 @@ import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.ts";
 import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, type UploadFailure } from "../utils/file-upload-path.ts";
 import { basename, dirname } from "../utils/path.ts";
-import { workspaceFilesPath, terminalSessionFilesPath, terminalSessionUploadPath } from "../utils/endpoints.ts";
+import { workspaceFilesPath, terminalSessionFilesPath, terminalSessionRenamePath, terminalSessionUploadPath } from "../utils/endpoints.ts";
 
 type DroppedEntry = { file: File, relativePath: string };
 
@@ -32,16 +32,25 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
   const { apiGet, apiPost, wsEndpoint } = useApi();
-  const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
+  const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile({ getTerminalSessionId });
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
   const toast = useToast();
 
   async function renameFile(src: string, dest: string, afterPath?: string) {
+    const text = `Renamed ${basename(dest)}`;
+    const sessionId = getTerminalSessionId();
+    if (sessionId) {
+      const { ok } = await apiPost(terminalSessionRenamePath(sessionId), { src, dest }, { errorMessage: "Rename failed" });
+      if (!ok) return;
+      toast.success(text);
+      await navigateToPath(afterPath ?? getCurrentPath());
+      return;
+    }
     await withWorkspace(async (workspace) => {
       const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
       if (!ok) return;
-      emit("files:opDone", { wsName: workspace, text: `Renamed ${basename(dest)}` });
+      emit("files:opDone", { wsName: workspace, text });
       await navigateToPath(afterPath ?? getCurrentPath());
     });
   }
