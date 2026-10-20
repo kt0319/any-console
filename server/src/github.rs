@@ -175,19 +175,17 @@ impl GraphqlList {
         }
     }
 
-    /// コメント・レビューは本文を取らず totalCount と最終投稿者だけ取る。
+    /// コメント件数は本文を取らず totalCount だけ取る。
     /// （`gh ... --json comments` は各項目の本文配列を丸ごと返し、件数が100件で
     /// 打ち切られる。totalCount ならこの上限も受けない。）
     fn node_fields(self) -> &'static str {
         match self {
             Self::Issues => {
                 "number title state createdAt updatedAt author{login} labels(first:20){nodes{name color}} \
-                 comments{totalCount} lastComment:comments(last:1){nodes{author{login}}}"
+                 comments{totalCount}"
             }
             Self::PullRequests => {
-                "number title state isDraft headRefName createdAt updatedAt author{login} labels(first:20){nodes{name color}} \
-                 comments{totalCount} lastComment:comments(last:1){nodes{author{login}}} \
-                 reviews{totalCount} lastReview:reviews(last:1){nodes{author{login}}}"
+                "number title state isDraft headRefName createdAt updatedAt author{login} labels(first:20){nodes{name color}}"
             }
         }
     }
@@ -195,7 +193,7 @@ impl GraphqlList {
     fn query(self, states: &str) -> String {
         format!(
             "query($owner:String!,$name:String!,$first:Int!,$after:String){{ \
-             viewer{{login}} repository(owner:$owner,name:$name){{ {conn}(first:$first,after:$after,states:{states},orderBy:{{field:CREATED_AT,direction:DESC}}){{ \
+             repository(owner:$owner,name:$name){{ {conn}(first:$first,after:$after,states:{states},orderBy:{{field:CREATED_AT,direction:DESC}}){{ \
              pageInfo{{hasNextPage endCursor}} nodes{{ {fields} }} }} }} }}",
             conn = self.connection(),
             fields = self.node_fields(),
@@ -203,20 +201,9 @@ impl GraphqlList {
     }
 }
 
-fn login_of(node: &Value, field: &str) -> Option<String> {
-    node.get(field)?
-        .get("nodes")?
-        .get(0)?
-        .get("author")?
-        .get("login")?
-        .as_str()
-        .map(str::to_string)
-}
-
 /// GraphQL のノードを UI 向けの形へ整える。`gh ... list --json` と同じキー
-/// （author.login / labels 配列）に、件数と「最後の投稿が自分か」を加える。
-fn normalize_node(node: &Value, viewer: &str) -> Value {
-    let total = |field: &str| node[field]["totalCount"].as_u64().unwrap_or(0);
+/// （author.login / labels 配列）に、Issue はコメント件数を加える。
+fn normalize_node(node: &Value) -> Value {
     let mut out = json!({
         "number": node["number"],
         "title": node["title"],
@@ -225,21 +212,19 @@ fn normalize_node(node: &Value, viewer: &str) -> Value {
         "labels": node["labels"]["nodes"],
         "createdAt": node["createdAt"],
         "updatedAt": node["updatedAt"],
-        "commentCount": total("comments"),
-        "lastCommentByMe": login_of(node, "lastComment").as_deref() == Some(viewer),
     });
-    if node.get("reviews").is_some() {
+    if node.get("comments").is_some() {
+        out["commentCount"] = node["comments"]["totalCount"].clone();
+    }
+    if node.get("headRefName").is_some() {
         out["isDraft"] = node["isDraft"].clone();
         out["headRefName"] = node["headRefName"].clone();
-        out["reviewCount"] = json!(total("reviews"));
-        out["lastReviewByMe"] = json!(login_of(node, "lastReview").as_deref() == Some(viewer));
     }
     out
 }
 
 /// 1ページ分の応答から (整形済みノード, 次ページカーソル) を取り出す。
 fn parse_graphql_page(response: &Value, list: GraphqlList) -> Option<(Vec<Value>, Option<String>)> {
-    let viewer = response["data"]["viewer"]["login"].as_str()?;
     let connection = response["data"]["repository"].get(list.connection())?;
     let nodes = connection["nodes"].as_array()?;
     let next_cursor = connection["pageInfo"]["hasNextPage"]
@@ -247,10 +232,7 @@ fn parse_graphql_page(response: &Value, list: GraphqlList) -> Option<(Vec<Value>
         .filter(|has_next| *has_next)
         .and_then(|_| connection["pageInfo"]["endCursor"].as_str())
         .map(str::to_string);
-    Some((
-        nodes.iter().map(|n| normalize_node(n, viewer)).collect(),
-        next_cursor,
-    ))
+    Some((nodes.iter().map(normalize_node).collect(), next_cursor))
 }
 
 async fn fetch_graphql_list(
@@ -316,7 +298,6 @@ mod tests {
 
     fn page(connection: &str, nodes: Value, has_next: bool) -> Value {
         json!({"data": {
-            "viewer": {"login": "me"},
             "repository": {connection: {
                 "pageInfo": {"hasNextPage": has_next, "endCursor": "CUR"},
                 "nodes": nodes,
@@ -324,52 +305,39 @@ mod tests {
         }})
     }
 
-    fn pr_node(last_comment: Option<&str>, last_review: Option<&str>) -> Value {
-        let nodes = |login: Option<&str>| match login {
-            Some(l) => json!({"nodes": [{"author": {"login": l}}]}),
-            None => json!({"nodes": []}),
-        };
+    fn pr_node() -> Value {
         json!({
             "number": 5, "title": "feat", "state": "OPEN", "isDraft": false,
             "headRefName": "feature", "createdAt": "c", "updatedAt": "u",
             "author": {"login": "other"},
             "labels": {"nodes": [{"name": "bug", "color": "fff"}]},
-            "comments": {"totalCount": 130}, "lastComment": nodes(last_comment),
-            "reviews": {"totalCount": 2}, "lastReview": nodes(last_review),
         })
     }
 
     #[test]
-    fn pull_node_keeps_counts_beyond_100_and_flags_own_last_post() {
-        let response = page(
-            "pullRequests",
-            json!([pr_node(Some("me"), Some("other"))]),
-            false,
-        );
+    fn pull_node_has_branch_fields_and_no_counts() {
+        let response = page("pullRequests", json!([pr_node()]), false);
         let (items, next) = parse_graphql_page(&response, GraphqlList::PullRequests).unwrap();
         assert!(next.is_none());
         let pr = &items[0];
-        assert_eq!(pr["commentCount"], 130);
-        assert_eq!(pr["reviewCount"], 2);
-        assert_eq!(pr["lastCommentByMe"], true);
-        assert_eq!(pr["lastReviewByMe"], false);
         assert_eq!(pr["labels"][0]["name"], "bug");
         assert_eq!(pr["headRefName"], "feature");
+        assert_eq!(pr["isDraft"], false);
+        assert!(pr.get("commentCount").is_none());
         assert!(pr.get("comments").is_none());
     }
 
     #[test]
-    fn issue_node_has_no_review_fields() {
+    fn issue_node_keeps_comment_count_beyond_100() {
         let node = json!({
             "number": 1, "title": "t", "state": "OPEN", "createdAt": "c", "updatedAt": "u",
             "author": {"login": "x"}, "labels": {"nodes": []},
-            "comments": {"totalCount": 0}, "lastComment": {"nodes": []},
+            "comments": {"totalCount": 130},
         });
         let response = page("issues", json!([node]), false);
         let (items, _) = parse_graphql_page(&response, GraphqlList::Issues).unwrap();
-        assert_eq!(items[0]["commentCount"], 0);
-        assert_eq!(items[0]["lastCommentByMe"], false);
-        assert!(items[0].get("reviewCount").is_none());
+        assert_eq!(items[0]["commentCount"], 130);
+        assert!(items[0].get("headRefName").is_none());
     }
 
     #[test]
@@ -393,10 +361,12 @@ mod tests {
 
     #[test]
     fn query_selects_counts_not_bodies() {
-        let query = GraphqlList::PullRequests.query("[OPEN]");
-        assert!(query.contains("comments{totalCount}"));
-        assert!(query.contains("reviews{totalCount}"));
-        assert!(query.contains("states:[OPEN]"));
-        assert!(!query.contains("body"));
+        let issues = GraphqlList::Issues.query("[OPEN]");
+        assert!(issues.contains("comments{totalCount}"));
+        assert!(issues.contains("states:[OPEN]"));
+        assert!(!issues.contains("body"));
+        let pulls = GraphqlList::PullRequests.query("[OPEN]");
+        assert!(!pulls.contains("comments"));
+        assert!(!pulls.contains("reviews"));
     }
 }

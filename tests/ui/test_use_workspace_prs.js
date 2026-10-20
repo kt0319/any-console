@@ -29,33 +29,9 @@ describe("useWorkspacePRs", () => {
     const items = await fetchPRs("ws1");
     // 整形は utils/github-runs.ts の mapGitHubPR に共通化（PRペインと同じ形）
     expect(items).toEqual([
-      { number: 1, title: "feat", headRefName: "feature/x", author: "", isDraft: false, labels: [], commentCount: 0, reviewCount: 0, lastCommentByMe: false, lastReviewByMe: false },
+      { number: 1, title: "feat", headRefName: "feature/x", author: "", isDraft: false, labels: [] },
     ]);
     expect(prsByWorkspace.value.ws1).toEqual(items);
-  });
-
-  it("サーバが返す commentCount / reviewCount をそのまま件数に使う", async () => {
-    apiGetMock.mockResolvedValue({
-      ok: true,
-      data: { status: "ok", data: [{ number: 1, title: "feat", headRefName: "f", commentCount: 130, reviewCount: 2 }] },
-    });
-    const { useWorkspacePRs } = await freshModule();
-    const { fetchPRs } = useWorkspacePRs();
-    const [pr] = await fetchPRs("ws1");
-    expect(pr.commentCount).toBe(130);
-    expect(pr.reviewCount).toBe(2);
-  });
-
-  it("最終投稿が自分かどうかのフラグを引き継ぐ", async () => {
-    apiGetMock.mockResolvedValue({
-      ok: true,
-      data: { status: "ok", data: [{ number: 1, title: "feat", headRefName: "f", lastCommentByMe: true }] },
-    });
-    const { useWorkspacePRs } = await freshModule();
-    const { fetchPRs } = useWorkspacePRs();
-    const [pr] = await fetchPRs("ws1");
-    expect(pr.lastCommentByMe).toBe(true);
-    expect(pr.lastReviewByMe).toBe(false);
   });
 
   it("初回失敗時は空配列を返す（キャッシュ無し）", async () => {
