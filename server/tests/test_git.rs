@@ -516,6 +516,27 @@ async fn files_listing_and_content() {
 }
 
 #[tokio::test]
+async fn upload_into_new_nested_directory_creates_it() {
+    let front = spawn_front().await;
+    let form = reqwest::multipart::Form::new()
+        .text("path", "dropped/sub")
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(b"nested".to_vec()).file_name("a.txt"),
+        );
+    let resp = common::client()
+        .post(format!("http://{}/workspaces/repo/upload", front.addr))
+        .bearer_auth(TOKEN)
+        .multipart(form)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["path"], "dropped/sub/a.txt");
+}
+
+#[tokio::test]
 async fn upload_rename_delete_download_cycle() {
     let front = spawn_front().await;
     // upload（multipart）
