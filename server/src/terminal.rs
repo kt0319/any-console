@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, State};
+use axum::extract::{Multipart, Path, State};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use futures_util::future::join_all;
@@ -257,16 +257,23 @@ async fn resolve_terminal_session_file(
     session_id: &str,
     path: &str,
 ) -> Result<(PathBuf, PathBuf, PathBuf), ApiError> {
+    let root = terminal_session_root(state, session_id).await?;
+    let (target, rel) = resolve_and_validate_workspace_path(&root, path)?;
+    Ok((root, target, rel))
+}
+
+async fn terminal_session_root(
+    state: &Arc<AppState>,
+    session_id: &str,
+) -> Result<PathBuf, ApiError> {
     state.terminal_session(session_id).await?;
     let name = state.paths.tmux_session_name(session_id);
     let cwd = tmux::get_session_cwd(&name)
         .await
         .ok_or_else(|| not_found("CWD unavailable"))?;
-    let root = PathBuf::from(&cwd)
+    Ok(PathBuf::from(&cwd)
         .canonicalize()
-        .unwrap_or_else(|_| PathBuf::from(&cwd));
-    let (target, rel) = resolve_and_validate_workspace_path(&root, path)?;
-    Ok((root, target, rel))
+        .unwrap_or_else(|_| PathBuf::from(&cwd)))
 }
 
 #[derive(Deserialize)]
@@ -286,6 +293,16 @@ pub async fn list_terminal_session_files(
     crate::git_files::list_dir_response(&root, &target, &rel)
         .await
         .map(Json)
+}
+
+pub async fn upload_terminal_session_file(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    multipart: Multipart,
+) -> Result<Json<Value>, ApiError> {
+    let root = terminal_session_root(&state, &session_id).await?;
+    crate::git_files::save_multipart_upload(&root, multipart).await
 }
 
 #[derive(Deserialize)]

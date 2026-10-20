@@ -82,6 +82,10 @@ export function terminalSessionFilesPath(sessionId: string, path: string = ""): 
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/files?path=${encodeURIComponent(path)}`;
 }
 
+export function terminalSessionUploadPath(sessionId: string): string {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/upload`;
+}
+
 export function terminalSessionFileContentPath(sessionId: string, filePath: string): string {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/file-content?path=${encodeURIComponent(filePath)}`;
 }

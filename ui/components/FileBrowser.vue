@@ -133,6 +133,7 @@ const {
   getCurrentPath: () => currentPath.value,
   getFileContent: () => fileContent.value,
   navigateToPath: (path) => navigateToPath(path),
+  getTerminalSessionId: () => props.terminalSessionId,
 });
 
 const {

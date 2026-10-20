@@ -56,6 +56,10 @@ fn terminal_router(state: Arc<AppState>) -> Router {
             "/terminal/order",
             get(terminal::get_tab_order).put(terminal::put_tab_order),
         )
+        .route(
+            "/terminal/sessions/{session_id}/upload",
+            axum::routing::post(terminal::upload_terminal_session_file),
+        )
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
         .with_state(state)
 }
@@ -154,6 +158,62 @@ async fn list_sessions_with_multiple_unregistered_returns_all_sorted() {
         let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
         any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
     }
+}
+
+/// ワークスペース未紐付けの素のターミナルでも、セッションのカレントディレクトリ配下へ
+/// （サブフォルダ込みで）アップロードでき、配下の外・`.git` は拒否されること。
+#[tokio::test]
+async fn upload_to_terminal_session_cwd_creates_nested_dirs_and_rejects_escape() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let cwd = tempfile::tempdir().unwrap();
+    let session_id = "upload-cwd";
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::run_subprocess_safe(
+        &[
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            &full_name,
+            "-c",
+            &cwd.path().to_string_lossy(),
+        ],
+        5.0,
+        None,
+    )
+    .await;
+    let url = format!(
+        "http://{}/terminal/sessions/{session_id}/upload",
+        front.addr
+    );
+    let upload = |dir: &'static str| {
+        let form = reqwest::multipart::Form::new().text("path", dir).part(
+            "file",
+            reqwest::multipart::Part::bytes(b"hi".to_vec()).file_name("a.txt"),
+        );
+        common::client()
+            .post(&url)
+            .bearer_auth(TOKEN)
+            .multipart(form)
+            .send()
+    };
+
+    let resp = upload("dropped/sub").await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["path"], "dropped/sub/a.txt");
+    assert_eq!(
+        std::fs::read(cwd.path().join("dropped/sub/a.txt")).unwrap(),
+        b"hi"
+    );
+
+    assert_eq!(upload("../escape").await.unwrap().status(), 400);
+    assert_eq!(upload("proj/.git").await.unwrap().status(), 400);
+
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }
 
 #[tokio::test]

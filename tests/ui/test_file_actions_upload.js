@@ -151,4 +151,39 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
 
     expect(toasts.map((t) => t.message)).toEqual(["1 file(s) failed to upload: d/big.bin (HTTP 413)"]);
   });
+
+  it("素のターミナル（セッション指定）ではセッション用エンドポイントへアップロードする", async () => {
+    useWorkspaceStore().selectedWorkspace = "";
+    const auth = setupAuthFetch({});
+    const { uploadDroppedFiles } = useFileActions({
+      getCurrentPath: () => "",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+      getTerminalSessionId: () => "sess 1",
+    });
+
+    await uploadDroppedFiles([
+      { file: fakeFile("a.txt"), relativePath: "a.txt" },
+      { file: fakeFile("x.js"), relativePath: "dir/x.js" },
+    ]);
+
+    const uploadUrls = auth.apiFetch.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/upload"));
+    expect(uploadUrls).toEqual(["/terminal/sessions/sess%201/upload", "/terminal/sessions/sess%201/upload"]);
+    const listUrls = auth.apiFetch.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/files?"));
+    expect(listUrls).toEqual(["/terminal/sessions/sess%201/files?path="]);
+    expect(toasts.map((t) => t.message)).toEqual(["2 file(s) uploaded"]);
+    expect(fileOps).toEqual([]);
+  });
+
+  it("ワークスペースもセッションも無ければ何もアップロードしない", async () => {
+    useWorkspaceStore().selectedWorkspace = "";
+    const auth = setupAuthFetch({});
+    const { uploadDroppedFiles } = useFileActions({
+      getCurrentPath: () => "",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+    });
+    await uploadDroppedFiles([fakeEntry("a.txt")]);
+    expect(auth.apiFetch).not.toHaveBeenCalled();
+  });
 });

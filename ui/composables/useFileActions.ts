@@ -11,14 +11,23 @@ import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.ts";
 import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, type UploadFailure } from "../utils/file-upload-path.ts";
 import { basename, dirname } from "../utils/path.ts";
-import { workspaceFilesPath } from "../utils/endpoints.ts";
+import { workspaceFilesPath, terminalSessionFilesPath, terminalSessionUploadPath } from "../utils/endpoints.ts";
 
 type DroppedEntry = { file: File, relativePath: string };
 
-export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }: {
+// アップロード先。ワークスペースは /workspaces/{name}/…、ワークスペース未紐付けの
+// 素のターミナルはセッションのカレントディレクトリ（/terminal/sessions/{id}/…）。
+type UploadTarget = {
+  uploadEndpoint: string,
+  listingPath: (dir: string) => string,
+  reportSuccess: (count: number) => void,
+};
+
+export function useFileActions({ getCurrentPath, getFileContent, navigateToPath, getTerminalSessionId = () => "" }: {
   getCurrentPath: () => string,
   getFileContent: () => unknown,
   navigateToPath: (path: string) => Promise<void>,
+  getTerminalSessionId?: () => string,
 }) {
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
@@ -70,8 +79,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
 
   const normalizedName = (f: File) => (f.name || "").normalize("NFC");
 
-  async function fetchExistingNames(workspace: string, uploadPath: string) {
-    const listing = await getWithRetry(apiGet, workspaceFilesPath(workspace, uploadPath));
+  async function fetchExistingNames(target: UploadTarget, uploadPath: string) {
+    const listing = await getWithRetry(apiGet, target.listingPath(uploadPath));
     const names = new Set<string>();
     if (listing.ok && listing.data?.entries) {
       for (const e of listing.data.entries) names.add(e.name);
@@ -96,13 +105,13 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
   }
 
   /** 成功時は null、失敗時は理由（サーバの detail、無ければ HTTP ステータス）を返す。 */
-  async function uploadOne(workspace: string, uploadPath: string, file: File, overwrite: boolean): Promise<string | null> {
+  async function uploadOne(target: UploadTarget, uploadPath: string, file: File, overwrite: boolean): Promise<string | null> {
     const formData = new FormData();
     formData.append("path", uploadPath);
     formData.append("file", file);
     if (overwrite) formData.append("overwrite", "true");
     try {
-      const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), { method: "POST", body: formData });
+      const res = await auth.apiFetch(target.uploadEndpoint, { method: "POST", body: formData });
       if (!res) return "Unauthorized";
       if (res.ok) return null;
       const body = await res.json().catch(() => null);
@@ -112,8 +121,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     }
   }
 
-  function emitUploadResult(workspace: string, successCount: number, failures: UploadFailure[], skippedCount: number) {
-    if (successCount > 0) emit("files:opDone", { wsName: workspace, text: `${successCount} file(s) uploaded` });
+  function emitUploadResult(target: UploadTarget, successCount: number, failures: UploadFailure[], skippedCount: number) {
+    if (successCount > 0) target.reportSuccess(successCount);
     if (failures.length > 0) toast.error(formatUploadFailures(failures));
     if (skippedCount > 0) toast.error(`${skippedCount} file(s) skipped (overwrite declined)`);
   }
@@ -125,34 +134,49 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
   // そのままアップロードする（既存名との衝突チェックは直下ファイルのみ）。
   async function uploadDroppedFiles(entries: DroppedEntry[]) {
     if (entries.length === 0) return;
-    await withWorkspace(async (workspace) => {
-      const uploadPath = getUploadDirPath();
-      const flatEntries = entries.filter((e) => !splitRelativePath(e.relativePath).dir);
-      const nestedEntries = entries.filter((e) => splitRelativePath(e.relativePath).dir);
+    const sessionId = getTerminalSessionId();
+    if (sessionId) {
+      await uploadToTarget({
+        uploadEndpoint: terminalSessionUploadPath(sessionId),
+        listingPath: (dir) => terminalSessionFilesPath(sessionId, dir),
+        reportSuccess: (count) => toast.success(`${count} file(s) uploaded`),
+      }, entries);
+      return;
+    }
+    await withWorkspace((workspace) => uploadToTarget({
+      uploadEndpoint: wsEndpoint(workspace, "upload"),
+      listingPath: (dir) => workspaceFilesPath(workspace, dir),
+      reportSuccess: (count) => emit("files:opDone", { wsName: workspace, text: `${count} file(s) uploaded` }),
+    }, entries));
+  }
 
-      const existing = flatEntries.length > 0 ? await fetchExistingNames(workspace, uploadPath) : new Set<string>();
-      const { targets, overwrite, skippedCount } = flatEntries.length > 0
-        ? await resolveUploadTargets(flatEntries.map((e) => e.file), existing)
-        : { targets: [], overwrite: false, skippedCount: 0 };
+  async function uploadToTarget(target: UploadTarget, entries: DroppedEntry[]) {
+    const uploadPath = getUploadDirPath();
+    const flatEntries = entries.filter((e) => !splitRelativePath(e.relativePath).dir);
+    const nestedEntries = entries.filter((e) => splitRelativePath(e.relativePath).dir);
 
-      let successCount = 0;
-      const failures: UploadFailure[] = [];
-      for (const file of targets) {
-        const reason = await uploadOne(workspace, uploadPath, file, overwrite);
-        if (reason === null) successCount += 1;
-        else failures.push({ name: file.name, reason });
-      }
-      for (const entry of nestedEntries) {
-        const { dir } = splitRelativePath(entry.relativePath);
-        const targetDir = resolveUploadTargetDir(uploadPath, dir);
-        const reason = await uploadOne(workspace, targetDir, entry.file, false);
-        if (reason === null) successCount += 1;
-        else failures.push({ name: entry.relativePath, reason });
-      }
+    const existing = flatEntries.length > 0 ? await fetchExistingNames(target, uploadPath) : new Set<string>();
+    const { targets, overwrite, skippedCount } = flatEntries.length > 0
+      ? await resolveUploadTargets(flatEntries.map((e) => e.file), existing)
+      : { targets: [], overwrite: false, skippedCount: 0 };
 
-      emitUploadResult(workspace, successCount, failures, skippedCount);
-      await navigateToPath(uploadPath);
-    });
+    let successCount = 0;
+    const failures: UploadFailure[] = [];
+    for (const file of targets) {
+      const reason = await uploadOne(target, uploadPath, file, overwrite);
+      if (reason === null) successCount += 1;
+      else failures.push({ name: file.name, reason });
+    }
+    for (const entry of nestedEntries) {
+      const { dir } = splitRelativePath(entry.relativePath);
+      const targetDir = resolveUploadTargetDir(uploadPath, dir);
+      const reason = await uploadOne(target, targetDir, entry.file, false);
+      if (reason === null) successCount += 1;
+      else failures.push({ name: entry.relativePath, reason });
+    }
+
+    emitUploadResult(target, successCount, failures, skippedCount);
+    await navigateToPath(uploadPath);
   }
 
   function getUploadDirPath() {

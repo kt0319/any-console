@@ -19,7 +19,7 @@ use crate::errors::{
 use crate::git_helpers::{
     resolve_and_validate_workspace_path, resolve_workspace_file, validate_commit_ref,
 };
-use crate::git_utils::{run_git_raw, GIT_SHORT_TIMEOUT_SEC};
+use crate::git_utils::{resolve_workspace_path, run_git_raw, GIT_SHORT_TIMEOUT_SEC};
 use crate::state::AppState;
 use crate::util::{base64_standard, JsonBody, QueryParams, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
@@ -440,6 +440,16 @@ pub async fn upload(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     _auth: RequireAuth,
+    multipart: Multipart,
+) -> Result<Json<Value>, ApiError> {
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    save_multipart_upload(&ws_path, multipart).await
+}
+
+/// multipart（path / overwrite / file）を `root` 配下へ保存する。
+/// ワークスペースとターミナルセッションのカレントディレクトリの両方が共有する。
+pub async fn save_multipart_upload(
+    root: &FsPath,
     mut multipart: Multipart,
 ) -> Result<Json<Value>, ApiError> {
     let mut path = String::new();
@@ -473,7 +483,8 @@ pub async fn upload(
         return Err(crate::errors::unprocessable("file field required"));
     };
 
-    let (ws_path, target_dir, rel_dir) = resolve_workspace_file(&state, &name, &path).await?;
+    let ws_path = root;
+    let (target_dir, rel_dir) = resolve_and_validate_workspace_path(ws_path, &path)?;
     if target_dir.exists() && !target_dir.is_dir() {
         return Err(bad_request(format!("Not a directory: {path}")));
     }
@@ -495,7 +506,7 @@ pub async fn upload(
 
     let target_file = target_dir.join(&filename);
     // resolve + 配下検証（Python validate_workspace_relative_target 相当）
-    resolve_and_validate_workspace_path(&ws_path, &rel_dir.join(&filename).to_string_lossy())?;
+    resolve_and_validate_workspace_path(ws_path, &rel_dir.join(&filename).to_string_lossy())?;
     if target_file.exists() {
         if target_file.is_dir() {
             return Err(conflict(format!("Directory exists at: {filename}")));

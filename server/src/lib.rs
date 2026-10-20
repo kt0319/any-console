@@ -387,6 +387,12 @@ fn terminal_routes() -> AppRouter {
             get(terminal::list_terminal_session_files),
         )
         .route(
+            "/terminal/sessions/{session_id}/upload",
+            post(terminal::upload_terminal_session_file).layer(
+                axum::extract::DefaultBodyLimit::max(UPLOAD_BODY_LIMIT_BYTES),
+            ),
+        )
+        .route(
             "/terminal/sessions/{session_id}/file-content",
             get(terminal::get_terminal_session_file_content),
         )
