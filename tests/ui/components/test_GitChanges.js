@@ -104,4 +104,23 @@ describe("GitChanges", () => {
     expect(bodies()).toHaveLength(1);
     wrapper.unmount();
   });
+
+  it("未追跡ファイルは閉じて開き直しても内容を表示する", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn((url) => String(url).includes("/diff")
+      ? jsonResponse({ files: [{ path: "new.txt", status: "??" }], diff: "" })
+      : jsonResponse({ content: "hello", size: 5 })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.find(".diff-inline-body").text()).toContain("hello");
+
+    await wrapper.find(".diff-file-row").trigger("click");
+    expect(wrapper.find(".diff-inline-body").exists()).toBe(false);
+    await wrapper.find(".diff-file-row").trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".diff-inline-body").text()).toContain("hello");
+    wrapper.unmount();
+  });
 });
