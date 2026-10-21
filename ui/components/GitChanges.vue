@@ -9,9 +9,12 @@
           <DiffFileItem
             :file="file"
             :selected="selectedFile === file.path"
-            @click="selectFile(file)"
+            :expanded="!collapsedPaths.has(file.path)"
+            navigable
+            @click="toggleFile(file.path)"
+            @navigate="selectFile(file)"
           />
-          <DiffInlineBody :path="file.path" :status="file.status" />
+          <DiffInlineBody v-if="!collapsedPaths.has(file.path)" :path="file.path" :status="file.status" />
         </ul>
       </div>
     </div>
@@ -68,6 +71,7 @@ const files = computed(() => asyncValueOr(diffState.value, [] as DiffFileRow[]))
 const isLoading = computed(() => isAsyncPending(diffState.value));
 const loadError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 const selectedFile = ref("");
+const collapsedPaths = ref(new Set<string>());
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
 const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
@@ -77,6 +81,12 @@ const isCommitDisabled = computed(
   () => !commitForm.value?.commitMessage?.trim() || !!commitForm.value?.submitting,
 );
 const isStashDisabled = computed(() => files.value.length === 0);
+
+function toggleFile(path: string) {
+  const next = new Set(collapsedPaths.value);
+  if (!next.delete(path)) next.add(path);
+  collapsedPaths.value = next;
+}
 
 function selectFile(file: DiffFileRow) {
   selectedFile.value = file.path;

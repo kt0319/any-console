@@ -75,7 +75,7 @@ describe("GitChanges", () => {
     wrapper.unmount();
   });
 
-  it("作業ツリーの各ファイルのdiffを常に展開表示し、行クリックでそのファイルへ移動する", async () => {
+  it("作業ツリーの各ファイルのdiffを既定で展開表示し、行クリックで開閉・ボタンでFilesへ移動する", async () => {
     setupWorkspace();
     const diff = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\ndiff --git a/b.txt b/b.txt\n--- a/b.txt\n+++ b/b.txt\n@@ -1 +1 @@\n-x\n+y\n";
     vi.stubGlobal("fetch", vi.fn(() => jsonResponse({
@@ -93,10 +93,15 @@ describe("GitChanges", () => {
 
     const selected = [];
     const off = on("git:selectDiffFile", (detail) => selected.push(detail));
-    await wrapper.findAll(".diff-file-row")[1].trigger("click");
+    await wrapper.findAll(".diff-file-row")[0].trigger("click");
+    expect(selected).toEqual([]);
+    expect(bodies()).toHaveLength(1);
+    expect(bodies()[0].text()).toContain("+y");
+
+    await wrapper.findAll(".diff-file-row-open")[1].trigger("click");
     off();
     expect(selected).toEqual([{ path: "b.txt", isWorkingTree: true }]);
-    expect(bodies()).toHaveLength(2);
+    expect(bodies()).toHaveLength(1);
     wrapper.unmount();
   });
 });
