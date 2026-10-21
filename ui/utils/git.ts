@@ -177,7 +177,12 @@ export function buildGitHubFileUrl(githubUrl: string, ref: string, path: string,
 
 /** 差分ステータス文字（M / A / D / ?）を表示用クラスへ写像する（未知は空文字）。 */
 export function diffStatusClass(status: string): string {
-  return GIT_DIFF_STATUS_CLASSES[status as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
+  return GIT_DIFF_STATUS_CLASSES[diffStatusLabel(status) as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
+}
+
+/** 未追跡（??）は新規ファイルとして A で表示する。 */
+export function diffStatusLabel(status: string): string {
+  return status.trim() === "??" ? "A" : status;
 }
 
 export function abbreviateBranch(branch: string): { abbr: string, rest: string } {

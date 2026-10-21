@@ -367,3 +367,12 @@ describe("parseFileLog", () => {
     expect(parseFileLog("")).toEqual([]);
   });
 });
+
+describe("diffStatusLabel / diffStatusClass", () => {
+  it("未追跡(??)はAとして表示し、追加と同じクラスにする", async () => {
+    const { diffStatusLabel, diffStatusClass } = await import("../../ui/utils/git.ts");
+    expect(diffStatusLabel("??")).toBe("A");
+    expect(diffStatusLabel("M")).toBe("M");
+    expect(diffStatusClass("??")).toBe(diffStatusClass("A"));
+  });
+});
