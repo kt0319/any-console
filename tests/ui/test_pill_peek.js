@@ -12,7 +12,8 @@ import {
 } from "../../ui/utils/pill-peek.ts";
 import { usePillPeek } from "../../ui/composables/usePillPeek.ts";
 import { emit } from "../../ui/app-bridge.ts";
-import { PILL_PEEK_DURATION_MS } from "../../ui/utils/constants.ts";
+import { markStreamLost, markStreamRecovered, resetPeekQuietForTest } from "../../ui/utils/peek-quiet.ts";
+import { PILL_PEEK_DURATION_MS, PILL_PEEK_RESYNC_QUIET_MS } from "../../ui/utils/constants.ts";
 
 const ALL_ON = {
   files: true,
@@ -231,6 +232,31 @@ describe("usePillPeek", () => {
     const wrapper = mount(Comp);
     return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn, prsByWorkspace, runStatus };
   }
+
+  describe("status stream 再接続時の抑制", () => {
+    afterEach(() => resetPeekQuietForTest());
+
+    it("切断中と再接続後の再同期中は値が変わってもpeekを出さない", async () => {
+      const { peek, branch } = mountPillPeek();
+      markStreamLost();
+      branch.value = "other";
+      await nextTick();
+      expect(peek.peekingKey.value).toBe(null);
+      markStreamRecovered();
+      branch.value = "main";
+      await nextTick();
+      expect(peek.peekingKey.value).toBe(null);
+    });
+
+    it("再同期の静穏期間を過ぎれば通常どおりpeekを出す", async () => {
+      const { peek, branch } = mountPillPeek();
+      markStreamLost();
+      markStreamRecovered(Date.now() - PILL_PEEK_RESYNC_QUIET_MS - 1);
+      branch.value = "other";
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("branch");
+    });
+  });
 
   it("同一ブランチでahead>0から0へ変わったらpush完了として件数を出す", async () => {
     const { peek, ahead, upstreamHead } = mountPillPeek({ upstreamHead: "aaa" });

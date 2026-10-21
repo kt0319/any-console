@@ -5,6 +5,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { applyDispatchQueue } from "./useDispatchQueue.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { emit, on } from "../app-bridge.ts";
+import { markStreamLost, markStreamRecovered } from "../utils/peek-quiet.ts";
 import { debugLog } from "./useClientLogs.ts";
 import {
   buildStatusStreamUrl,
@@ -74,6 +75,7 @@ export function useStatusStream() {
     ws.onopen = () => {
       debugLog("[StatusStream] connected");
       reconnectAttempts = 0;
+      markStreamRecovered();
       // サーバ側の閲覧レジストリは接続（socket）単位で持つため、再接続の
       // たびに現在値を送り直す必要がある。
       sendViewing();
@@ -123,6 +125,7 @@ export function useStatusStream() {
       }
     };
     ws.onclose = () => {
+      markStreamLost();
       scheduleReconnect();
     };
   }

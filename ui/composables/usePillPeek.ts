@@ -9,6 +9,7 @@ import {
   buildPeekSignature,
 } from "../utils/pill-peek.ts";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
+import { isPeekQuiet } from "../utils/peek-quiet.ts";
 import { usePillPeekGitHubActivity } from "./usePillPeekGitHubActivity.ts";
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象のアイコン+情報
@@ -160,7 +161,7 @@ export function usePillPeek({
     }
     const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
     if (justResolved) workspaceEverResolved = true;
-    if (workspaceEverResolved && !justResolved) {
+    if (workspaceEverResolved && !justResolved && !isPeekQuiet()) {
       for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
         if (changed.key === "actions") {
           const run = peekFields.value?.branchAction;
@@ -216,7 +217,7 @@ export function usePillPeek({
   // 無い間キー自体を積まないため、findChangedTrailingItemsでは「消えたこと」を検知できない
   // （新規出現/値変化しか拾えない）。devServerEntry自体を直接見て真→偽への遷移だけを拾う。
   watch(devServerEntry, (entry, prevEntry) => {
-    if (!entry && prevEntry) triggerPeek("devserver-stop");
+    if (!entry && prevEntry && !isPeekQuiet()) triggerPeek("devserver-stop");
   });
 
   onBeforeUnmount(() => {
