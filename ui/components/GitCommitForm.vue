@@ -5,7 +5,7 @@
       class="diff-commit-textarea"
       placeholder="Commit message"
       autocomplete="off"
-      rows="3"
+      rows="1"
     ></textarea>
     <div v-if="error" class="form-error">{{ error }}</div>
   </div>
@@ -67,14 +67,14 @@ defineExpose({ open: () => {}, close: () => {}, submit, submitting, commitMessag
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 6px 10px 10px;
+  padding: 4px 10px 4px;
   flex-shrink: 0;
 }
 
 .diff-commit-textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-primary);
@@ -83,7 +83,7 @@ defineExpose({ open: () => {}, close: () => {}, submit, submitting, commitMessag
   font-family: inherit;
   resize: vertical;
   outline: none;
-  min-height: 64px;
+  min-height: 36px;
 }
 
 .diff-commit-textarea::placeholder {
