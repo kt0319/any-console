@@ -13,7 +13,7 @@
         :aria-expanded="expanded"
         :aria-label="expanded ? 'Collapse diff' : 'Expand diff'"
         @click.stop="$emit('click', $event)"
-      ><span :class="['mdi', expanded ? 'mdi-chevron-down' : 'mdi-chevron-right']" aria-hidden="true"></span></button>
+      ></button>
     </template>
     <template #right>
       <span class="diff-file-row-meta">
@@ -55,18 +55,19 @@ defineEmits(["click", "navigate"]);
 
 <style scoped>
 .diff-file-row-toggle {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  min-height: 24px;
-  margin: 0 -4px 0 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
   padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.diff-file-row:has(.diff-file-row-toggle:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .diff-file-row-open {
