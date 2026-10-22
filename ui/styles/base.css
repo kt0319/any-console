@@ -461,14 +461,21 @@ li.diff-file-row.file-browser-item {
   overflow-wrap: anywhere;
 }
 
+.diff-file-row-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+
 .diff-file-row-numstat {
   display: inline-flex;
   flex-direction: row;
   align-items: flex-end;
   justify-content: center;
   gap: 6px;
-  margin-left: auto;
-  margin-right: 8px;
   font-family: inherit;
   font-size: 11px;
   line-height: 1;

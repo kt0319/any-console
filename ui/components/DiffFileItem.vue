@@ -7,8 +7,10 @@
     @click="$emit('click', $event)"
   >
     <template #right>
-      <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
-      <span :class="['diff-file-row-status', diffStatusClass(file.status)]">{{ diffStatusLabel(file.status) }}</span>
+      <span class="diff-file-row-meta">
+        <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
+        <span :class="['diff-file-row-status', diffStatusClass(file.status)]">{{ diffStatusLabel(file.status) }}</span>
+      </span>
     </template>
   </FileItem>
 </template>
