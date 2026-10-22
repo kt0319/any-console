@@ -10,24 +10,19 @@
 import { computed, onMounted, ref } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import { useApi } from "../composables/useApi.ts";
-import { useGitStore } from "../stores/git.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { colorDiff } from "../utils/diff-color.ts";
 import { workspaceFileContentPath } from "../utils/endpoints.ts";
 
-const props = defineProps<{ path: string, status: string }>();
+const props = defineProps<{ path: string, status: string, chunk?: string }>();
 
-const gitStore = useGitStore();
 const workspaceStore = useWorkspaceStore();
 const { apiGet } = useApi();
 
 const newFileContent = ref<Record<string, any> | null>(null);
 const loaded = ref(false);
-const chunkHtml = computed(() => {
-  const chunk = gitStore.diffChunks[props.path];
-  return chunk ? colorDiff(chunk) : "";
-});
+const chunkHtml = computed(() => (props.chunk ? colorDiff(props.chunk) : ""));
 
 onMounted(async () => {
   const workspace = workspaceStore.selectedWorkspace;

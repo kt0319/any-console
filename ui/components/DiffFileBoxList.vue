@@ -4,12 +4,12 @@
       <DiffFileItem
         :file="file"
         :selected="selectedFile === file.path"
-        :expanded="!collapsedPaths.has(file.path)"
+        :expanded="isExpanded(file.path)"
         navigable
         @click="toggleFile(file.path)"
         @navigate="$emit('navigate', file)"
       />
-      <DiffInlineBody v-if="!collapsedPaths.has(file.path)" :path="file.path" :status="file.status" />
+      <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :status="file.status" :chunk="diffChunks[file.path]" />
     </ul>
   </div>
 </template>
@@ -21,19 +21,26 @@ import DiffInlineBody from "./DiffInlineBody.vue";
 
 // ファイルごとに差分を展開表示するボックス一覧。Changes と History のコミット詳細で共用する。
 // 行タップで開閉し、右端のボタンで Files タブへ移動（navigate）する。
-defineProps<{
+const props = defineProps<{
   files: { path: string, status: string, numstat?: string }[],
+  diffChunks: Record<string, string>,
   selectedFile?: string,
+  defaultCollapsed?: boolean,
 }>();
 
 defineEmits<{ navigate: [file: { path: string, status: string }] }>();
 
-const collapsedPaths = ref(new Set<string>());
+// 既定の開閉状態から反転させたファイルだけを持つ
+const toggledPaths = ref(new Set<string>());
+
+function isExpanded(path: string) {
+  return toggledPaths.value.has(path) === !!props.defaultCollapsed;
+}
 
 function toggleFile(path: string) {
-  const next = new Set(collapsedPaths.value);
+  const next = new Set(toggledPaths.value);
   if (!next.delete(path)) next.add(path);
-  collapsedPaths.value = next;
+  toggledPaths.value = next;
 }
 </script>
 
