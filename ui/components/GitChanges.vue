@@ -4,19 +4,7 @@
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <div v-else class="diff-file-browser-list">
-        <ul v-for="file in files" :key="file.path" class="diff-file-box">
-          <DiffFileItem
-            :file="file"
-            :selected="selectedFile === file.path"
-            :expanded="!collapsedPaths.has(file.path)"
-            navigable
-            @click="toggleFile(file.path)"
-            @navigate="selectFile(file)"
-          />
-          <DiffInlineBody v-if="!collapsedPaths.has(file.path)" :path="file.path" :status="file.status" />
-        </ul>
-      </div>
+      <DiffFileBoxList v-else :files="files" :selectedFile="selectedFile" @navigate="selectFile" />
     </div>
     <GitCommitForm ref="commitForm" />
     <div v-if="actionButtons.length" class="diff-actions">
@@ -37,8 +25,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import DiffFileItem from "./DiffFileItem.vue";
-import DiffInlineBody from "./DiffInlineBody.vue";
+import DiffFileBoxList from "./DiffFileBoxList.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { emit } from "../app-bridge.ts";
 import { useGitDiff } from "../composables/useGitDiff.ts";
@@ -71,7 +58,6 @@ const files = computed(() => asyncValueOr(diffState.value, [] as DiffFileRow[]))
 const isLoading = computed(() => isAsyncPending(diffState.value));
 const loadError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 const selectedFile = ref("");
-const collapsedPaths = ref(new Set<string>());
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
 const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
@@ -81,12 +67,6 @@ const isCommitDisabled = computed(
   () => !commitForm.value?.commitMessage?.trim() || !!commitForm.value?.submitting,
 );
 const isStashDisabled = computed(() => files.value.length === 0);
-
-function toggleFile(path: string) {
-  const next = new Set(collapsedPaths.value);
-  if (!next.delete(path)) next.add(path);
-  collapsedPaths.value = next;
-}
 
 function selectFile(file: DiffFileRow) {
   selectedFile.value = file.path;
@@ -171,22 +151,6 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   min-height: 0;
 }
 
-
-.diff-file-browser-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 8px 10px;
-}
-
-.diff-file-box {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
 
 .diff-file-list {
   display: flex;
