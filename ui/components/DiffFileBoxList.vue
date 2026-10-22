@@ -8,7 +8,7 @@
         @click="toggleFile(file.path)"
         @navigate="$emit('navigate', file)"
       />
-      <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :status="file.status" :chunk="diffChunks[file.path]" :content="newFileContents?.[file.path]" />
+      <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :chunk="diffChunks[file.path]" :content="newFileContents?.[file.path]" />
     </ul>
   </div>
 </template>

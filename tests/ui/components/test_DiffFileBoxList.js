@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import DiffFileBoxList from "../../../ui/components/DiffFileBoxList.vue";
 
@@ -24,5 +24,15 @@ describe("DiffFileBoxList", () => {
     const bodies = wrapper.findAll(".diff-inline-body");
     expect(bodies).toHaveLength(1);
     expect(bodies[0].text()).toContain("+b");
+  });
+
+  it("chunk の無い追加ファイルは内容を取得せず No diff を表示する（作業ツリーの現在の内容を出さない）", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const wrapper = mount(DiffFileBoxList, { props: { files: [{ path: "new.bin", status: "A" }], diffChunks: {} } });
+    await flushPromises();
+    expect(wrapper.find(".diff-inline-body").text()).toBe("No diff");
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });
