@@ -448,8 +448,17 @@ button:disabled {
   cursor: pointer;
 }
 
+li.diff-file-row.file-browser-item {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .diff-file-row .file-browser-item-name {
   font-size: 13px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .diff-file-row-numstat {
