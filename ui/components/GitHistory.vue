@@ -38,7 +38,7 @@
           />
         </span>
       </div>
-      <div class="modal-scroll-body">
+      <div class="modal-scroll-body diff-files-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center loading-dots">Loading</div>
         <DiffFileBoxList v-if="!isSelectedCommitFilesLoading" :key="selectedCommitForFiles?.hash" :files="selectedCommitFiles" :diffChunks="selectedCommitDiffChunks" defaultCollapsed @navigate="onDiffFileClick" />
       </div>
@@ -203,6 +203,11 @@ defineExpose({
 }
 
 .git-history-pane-wrapper > .modal-scroll-body {
+}
+
+.diff-files-scroll-body {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .git-log-entry {
