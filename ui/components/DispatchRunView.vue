@@ -58,7 +58,7 @@
         <div class="ws-settings-row">
           <span class="ws-settings-label">{{ createMode ? "Base branch" : "Branch" }}</span>
           <select v-model="branchSelectValue" class="form-input">
-            <option value="">(current branch)</option>
+            <option value="">{{ currentBranchLabel }}</option>
             <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
           </select>
         </div>
@@ -267,6 +267,10 @@ const isSwitchingBranch = computed(() => {
   if (!target) return false;
   const current = targetWorkspaceEntry.value?.branch || "";
   return target !== current;
+});
+const currentBranchLabel = computed(() => {
+  const current = targetWorkspaceEntry.value?.branch;
+  return current ? `${current} (current)` : "(current branch)";
 });
 const workspaceChangedFiles = computed(() => targetWorkspaceEntry.value?.changed_files || 0);
 const dirtyBlockReason = computed(() => {
