@@ -1,5 +1,5 @@
 <template>
-  <span class="file-browser-header-actions">
+  <span ref="actionsEl" class="file-browser-header-actions" :style="fadeStyle" @scroll="updateScrollFade">
     <button type="button" class="file-browser-header-btn" aria-label="Copy hash" data-tooltip="Copy hash" @click="$emit('copy-hash')"><span class="mdi mdi-content-copy" aria-hidden="true"></span> Copy hash</button>
     <button type="button" class="file-browser-header-btn" aria-label="Cherry-pick" data-tooltip="Cherry-pick" @click="$emit('exec', { action: 'cherry-pick' })"><span class="mdi mdi-content-duplicate" aria-hidden="true"></span> Cherry-pick</button>
     <button type="button" class="file-browser-header-btn" aria-label="Revert" data-tooltip="Revert" @click="$emit('exec', { action: 'revert' })"><span class="mdi mdi-undo" aria-hidden="true"></span> Revert</button>
@@ -27,13 +27,17 @@
 </template>
 
 <script setup lang="ts">
-import type { PropType } from "vue";
+import { ref, type PropType } from "vue";
+import { useScrollFade } from "../composables/useScrollFade.ts";
 
 defineProps({
   branches: { type: Array as PropType<string[]>, default: () => [] },
 });
 
 defineEmits(["exec", "copy-hash"]);
+
+const actionsEl = ref<HTMLElement | null>(null);
+const { fadeStyle, updateScrollFade } = useScrollFade(actionsEl);
 </script>
 
 <style scoped>

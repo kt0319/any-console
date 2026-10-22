@@ -21,7 +21,7 @@
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
-      <span class="file-browser-header-actions">
+      <span ref="actionsEl" class="file-browser-header-actions" :style="fadeStyle" @scroll="updateScrollFade">
         <input v-if="!props.diffFile && !fileContent && !showHistory" ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
         <button
           v-for="action in headerActions"
@@ -90,6 +90,7 @@ import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.ts";
 import { useFileEntryMenu } from "../composables/useFileEntryMenu.ts";
 import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.ts";
 import { useShowGitignored } from "../composables/useShowGitignored.ts";
+import { useScrollFade } from "../composables/useScrollFade.ts";
 import { storeToRefs } from "pinia";
 import { useLayoutStore } from "../stores/layout.ts";
 import { renderFileIcon } from "../utils/file-icon.ts";
@@ -123,6 +124,8 @@ const {
   navigateToPath, openFile, toggleHistory,
 } = useFileBrowserNav({ getTerminalSessionId: () => props.terminalSessionId });
 const uploadInputEl = ref<HTMLInputElement | null>(null);
+const actionsEl = ref<HTMLElement | null>(null);
+const { fadeStyle, updateScrollFade } = useScrollFade(actionsEl);
 const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
 
 const {
