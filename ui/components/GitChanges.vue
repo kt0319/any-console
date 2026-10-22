@@ -4,7 +4,7 @@
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <DiffFileBoxList v-else :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" :selectedFile="selectedFile" @navigate="selectFile" />
+      <DiffFileBoxList v-else :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" :selectedFile="selectedFile" @navigate="selectFile" />
     </div>
     <GitCommitForm ref="commitForm" />
     <div v-if="actionButtons.length" class="diff-actions">
@@ -60,6 +60,7 @@ const loadError = computed(() => (diffState.value.status === "error" ? diffState
 const diffChunks = ref<Record<string, string>>({});
 const newFileContents = ref<Record<string, Record<string, any>>>({});
 const selectedFile = ref("");
+const listedWorkspace = ref("");
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
 const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
@@ -76,11 +77,14 @@ function selectFile(file: DiffFileRow) {
 }
 
 async function loadWorkingTreeDiff() {
-  if (!getWorkspace()) {
+  const workspace = getWorkspace();
+  if (!workspace) {
     diffState.value = asyncError("No workspace selected");
     return;
   }
-  diffState.value = asyncLoading();
+  const isRefreshingShownList = isWorkingTree.value && listedWorkspace.value === workspace && diffState.value.status === "ready";
+  if (!isRefreshingShownList) diffState.value = asyncLoading();
+  listedWorkspace.value = workspace;
   isWorkingTree.value = true;
   const stashBtn = {
     label: "Stash",

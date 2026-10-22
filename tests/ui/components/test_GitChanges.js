@@ -198,4 +198,53 @@ describe("GitChanges", () => {
     expect(peak).toBeGreaterThan(1);
     wrapper.unmount();
   });
+
+  it("2回目以降の読み込みでは一覧をアンマウントせず、残ったパスの開閉状態を維持し、消えたパスは捨てる", async () => {
+    setupWorkspace();
+    let files = [{ path: "a.txt", status: "M" }, { path: "b.txt", status: "M" }];
+    const chunk = (p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-x\n+y\n`;
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files, diff: files.map((f) => chunk(f.path)).join("") })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    await wrapper.findAll(".diff-file-row")[0].trigger("click");
+    const listEl = wrapper.find(".diff-file-browser-list").element;
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+
+    const reloading = wrapper.vm.loadWorkingTreeDiff();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).not.toContain("Loading");
+    await reloading;
+    await flushPromises();
+    expect(wrapper.find(".diff-file-browser-list").element).toBe(listEl);
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+
+    files = [{ path: "b.txt", status: "M" }];
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    files = [{ path: "a.txt", status: "M" }, { path: "b.txt", status: "M" }];
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
+    wrapper.unmount();
+  });
+
+  it("ワークスペースが変わると開閉状態をリセットする", async () => {
+    setupWorkspace();
+    const files = [{ path: "a.txt", status: "M" }];
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files, diff: "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-x\n+y\n" })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    await wrapper.find(".diff-file-row").trigger("click");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(0);
+
+    useWorkspaceStore().selectedWorkspace = "w2";
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+    wrapper.unmount();
+  });
 });

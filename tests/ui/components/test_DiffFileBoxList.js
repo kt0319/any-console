@@ -35,4 +35,14 @@ describe("DiffFileBoxList", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it("files が変わると、消えたパスの開閉状態を捨てて残ったパスは維持する", async () => {
+    const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks } });
+    await wrapper.findAll(".diff-file-row")[0].trigger("click");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+    await wrapper.setProps({ files: [files[1]] });
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+    await wrapper.setProps({ files });
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
+  });
 });

@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import DiffFileItem from "./DiffFileItem.vue";
 import DiffInlineBody from "./DiffInlineBody.vue";
 
@@ -36,6 +36,12 @@ const toggledPaths = ref(new Set<string>());
 function isExpanded(path: string) {
   return toggledPaths.value.has(path) === !!props.defaultCollapsed;
 }
+
+watch(() => props.files, (files) => {
+  const remaining = new Set(files.map((f) => f.path));
+  const kept = [...toggledPaths.value].filter((path) => remaining.has(path));
+  if (kept.length !== toggledPaths.value.size) toggledPaths.value = new Set(kept);
+});
 
 function toggleFile(path: string) {
   const next = new Set(toggledPaths.value);

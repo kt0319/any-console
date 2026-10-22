@@ -40,7 +40,7 @@
       </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center loading-dots">Loading</div>
-        <DiffFileBoxList v-if="!isSelectedCommitFilesLoading" :files="selectedCommitFiles" :diffChunks="selectedCommitDiffChunks" defaultCollapsed @navigate="onDiffFileClick" />
+        <DiffFileBoxList v-if="!isSelectedCommitFilesLoading" :key="selectedCommitForFiles?.hash" :files="selectedCommitFiles" :diffChunks="selectedCommitDiffChunks" defaultCollapsed @navigate="onDiffFileClick" />
       </div>
     </template>
     <!-- コミット履歴モード -->
