@@ -404,8 +404,17 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   .file-browser-header-actions {
     flex-basis: 100%;
     margin-left: 0;
-    justify-content: flex-end;
     margin-top: 4px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .file-browser-header-actions::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -46,9 +46,18 @@ defineEmits(["exec", "copy-hash"]);
 
 @media (max-width: 768px) {
   .file-browser-header-actions {
-    flex-basis: 100%;
-    justify-content: flex-end;
+    width: 100%;
     margin-top: 4px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .file-browser-header-actions::-webkit-scrollbar {
+    display: none;
   }
 }
 
