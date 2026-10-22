@@ -140,8 +140,9 @@ export const GIT_DIFF_STATUS_CLASSES = Object.freeze({
   "?": "diff-status-untracked",
 });
 
-// 画像ビューアの拡大率（1 = 横幅フィット）とタップで拡大した時の倍率
-export const IMAGE_ZOOM_STEPS = [0.5, 1, 1.5, 2, 3, 4];
+// 画像ビューアの拡大率の範囲（1 = 横幅フィット）とタップで拡大した時の倍率
+export const IMAGE_ZOOM_MIN = 0.5;
+export const IMAGE_ZOOM_MAX = 6;
 export const IMAGE_TAP_ZOOM = 2;
 
 // 起動時のフォント読み込み待ちタイムアウト（vue-main.ts）

@@ -1,12 +1,13 @@
 <template>
   <div class="file-viewer">
     <div v-if="fileContent.image && fileContent.data_url" class="file-content-image-box">
-      <div class="file-content-image-zoom">
-        <button type="button" aria-label="Zoom out" data-tooltip="Zoom out" :disabled="zoom <= IMAGE_ZOOM_STEPS[0]" @click="stepZoom(-1)"><span class="mdi mdi-magnify-minus-outline" aria-hidden="true"></span></button>
-        <button type="button" aria-label="Fit to width" data-tooltip="Fit to width" :disabled="zoom === 1" @click="zoom = 1"><span class="mdi mdi-fit-to-page-outline" aria-hidden="true"></span></button>
-        <button type="button" aria-label="Zoom in" data-tooltip="Zoom in" :disabled="zoom >= IMAGE_ZOOM_STEPS[IMAGE_ZOOM_STEPS.length - 1]" @click="stepZoom(1)"><span class="mdi mdi-magnify-plus-outline" aria-hidden="true"></span></button>
-      </div>
-      <div class="file-content-image-wrap">
+      <div
+        ref="imageWrapEl"
+        class="file-content-image-wrap"
+        @touchstart="onImageTouchStart"
+        @touchmove="onImageTouchMove"
+        @wheel="onImageWheel"
+      >
         <img
           :src="fileContent.data_url"
           class="file-content-image"
@@ -23,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
 import typescript from "highlight.js/lib/languages/typescript";
@@ -50,7 +51,8 @@ hljs.registerLanguage("markdown", markdown);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("ini", ini);
 hljs.registerLanguage("dockerfile", dockerfile);
-import { IMAGE_TAP_ZOOM, IMAGE_ZOOM_STEPS } from "../utils/constants.ts";
+import { IMAGE_TAP_ZOOM } from "../utils/constants.ts";
+import { pinchDistance, pinchZoom, wheelZoom } from "../utils/pinch-zoom.ts";
 import { escapeHtml } from "../utils/escape-html.ts";
 import { formatSize } from "../utils/format.ts";
 
@@ -61,10 +63,47 @@ const props = defineProps({
 
 const zoom = ref(1);
 
-function stepZoom(direction: number) {
-  const index = IMAGE_ZOOM_STEPS.indexOf(zoom.value);
-  const next = IMAGE_ZOOM_STEPS[Math.min(Math.max(index + direction, 0), IMAGE_ZOOM_STEPS.length - 1)];
+const imageWrapEl = ref<HTMLElement | null>(null);
+let pinchStartZoom = 1;
+let pinchStartDistance = 0;
+
+// 拡大率の変更後も、指（カーソル）の下にあった画像上の点が動かないようスクロール位置を補正する。
+async function applyZoom(next: number, focalX: number, focalY: number) {
+  const wrap = imageWrapEl.value;
+  if (!wrap || next === zoom.value) return;
+  const ratioX = (wrap.scrollLeft + focalX) / wrap.scrollWidth;
+  const ratioY = (wrap.scrollTop + focalY) / wrap.scrollHeight;
   zoom.value = next;
+  await nextTick();
+  wrap.scrollLeft = ratioX * wrap.scrollWidth - focalX;
+  wrap.scrollTop = ratioY * wrap.scrollHeight - focalY;
+}
+
+function pinchFocal(wrap: HTMLElement, a: Touch, b: Touch) {
+  const rect = wrap.getBoundingClientRect();
+  return { x: (a.clientX + b.clientX) / 2 - rect.left, y: (a.clientY + b.clientY) / 2 - rect.top };
+}
+
+function onImageTouchStart(e: TouchEvent) {
+  if (e.touches.length !== 2) return;
+  pinchStartZoom = zoom.value;
+  pinchStartDistance = pinchDistance(e.touches[0], e.touches[1]);
+}
+
+function onImageTouchMove(e: TouchEvent) {
+  const wrap = imageWrapEl.value;
+  if (!wrap || e.touches.length !== 2) return;
+  e.preventDefault();
+  const { x, y } = pinchFocal(wrap, e.touches[0], e.touches[1]);
+  void applyZoom(pinchZoom(pinchStartZoom, pinchStartDistance, pinchDistance(e.touches[0], e.touches[1])), x, y);
+}
+
+function onImageWheel(e: WheelEvent) {
+  const wrap = imageWrapEl.value;
+  if (!wrap || !e.ctrlKey) return;
+  e.preventDefault();
+  const rect = wrap.getBoundingClientRect();
+  void applyZoom(wheelZoom(zoom.value, e.deltaY), e.clientX - rect.left, e.clientY - rect.top);
 }
 
 function toggleZoom() {
@@ -154,24 +193,6 @@ watch(() => props.fileContent, () => { zoom.value = 1; highlight(); }, { immedia
   min-height: 0;
 }
 
-.file-content-image-zoom {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 6px 0 0;
-  flex-shrink: 0;
-}
-
-.file-content-image-zoom button {
-  min-width: 44px;
-  min-height: 36px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
 .file-content-image-wrap {
   display: flex;
   flex: 1;
@@ -179,6 +200,7 @@ watch(() => props.fileContent, () => { zoom.value = 1; highlight(); }, { immedia
   padding: 12px 0 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 .file-content-image {
