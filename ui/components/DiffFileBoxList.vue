@@ -8,7 +8,7 @@
         @click="toggleFile(file.path)"
         @navigate="$emit('navigate', file)"
       />
-      <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :status="file.status" :chunk="diffChunks[file.path]" />
+      <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :status="file.status" :chunk="diffChunks[file.path]" :content="newFileContents?.[file.path]" />
     </ul>
   </div>
 </template>
@@ -23,6 +23,7 @@ import DiffInlineBody from "./DiffInlineBody.vue";
 const props = defineProps<{
   files: { path: string, status: string, numstat?: string }[],
   diffChunks: Record<string, string>,
+  newFileContents?: Record<string, Record<string, any>>,
   selectedFile?: string,
   defaultCollapsed?: boolean,
 }>();

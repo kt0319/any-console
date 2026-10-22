@@ -4,7 +4,7 @@
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <DiffFileBoxList v-else :files="files" :diffChunks="diffChunks" :selectedFile="selectedFile" @navigate="selectFile" />
+      <DiffFileBoxList v-else :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" :selectedFile="selectedFile" @navigate="selectFile" />
     </div>
     <GitCommitForm ref="commitForm" />
     <div v-if="actionButtons.length" class="diff-actions">
@@ -58,6 +58,7 @@ const files = computed(() => asyncValueOr(diffState.value, [] as DiffFileRow[]))
 const isLoading = computed(() => isAsyncPending(diffState.value));
 const loadError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 const diffChunks = ref<Record<string, string>>({});
+const newFileContents = ref<Record<string, Record<string, any>>>({});
 const selectedFile = ref("");
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
@@ -107,6 +108,7 @@ async function loadWorkingTreeDiff() {
       return;
     }
     diffChunks.value = result.diffChunks;
+    newFileContents.value = result.newFileContents;
     diffState.value = asyncReady(result.fileList);
   } catch (e) {
     diffState.value = asyncError("Failed to load changes");
@@ -126,6 +128,7 @@ async function loadCommitDiff(hash: string) {
       return;
     }
     diffChunks.value = result.diffChunks;
+    newFileContents.value = {};
     diffState.value = asyncReady(result.fileList);
     actionButtons.value = [];
   } catch (e) {

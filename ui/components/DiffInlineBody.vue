@@ -1,6 +1,6 @@
 <template>
   <li class="diff-inline-body">
-    <FileTextViewer v-if="newFileContent" :fileContent="newFileContent" :fileName="path" />
+    <FileTextViewer v-if="shownNewFileContent" :fileContent="shownNewFileContent" :fileName="path" />
     <pre v-else-if="chunkHtml" class="diff-inline-content" v-html="chunkHtml"></pre>
     <div v-else class="file-content-message">{{ loaded ? "No diff" : "Loading" }}</div>
   </li>
@@ -16,19 +16,20 @@ import { colorDiff } from "../utils/diff-color.ts";
 import { workspaceFileContentPath } from "../utils/endpoints.ts";
 import { isNewFileDiffStatus } from "../utils/git.ts";
 
-const props = defineProps<{ path: string, status: string, chunk?: string }>();
+const props = defineProps<{ path: string, status: string, chunk?: string, content?: Record<string, any> }>();
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet } = useApi();
 
 const newFileContent = ref<Record<string, any> | null>(null);
+const shownNewFileContent = computed(() => props.content ?? newFileContent.value);
 const loaded = ref(false);
 const chunkHtml = computed(() => (props.chunk ? colorDiff(props.chunk) : ""));
 
 onMounted(async () => {
   const workspace = workspaceStore.selectedWorkspace;
   const isNewFile = isNewFileDiffStatus(props.status);
-  if (!chunkHtml.value && isNewFile && workspace) {
+  if (!chunkHtml.value && isNewFile && workspace && !props.content) {
     const { ok, data } = await getWithRetry(apiGet, workspaceFileContentPath(workspace, props.path));
     if (ok && data) newFileContent.value = data;
   }

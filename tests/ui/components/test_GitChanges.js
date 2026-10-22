@@ -10,6 +10,7 @@ import { createPinia, setActivePinia } from "pinia";
 import GitChanges from "../../../ui/components/GitChanges.vue";
 import { on } from "../../../ui/app-bridge.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
+import { UNTRACKED_CONTENT_FETCH_CONCURRENCY } from "../../../ui/utils/constants.ts";
 
 function jsonResponse(data) {
   return Promise.resolve({ ok: true, status: 200, json: async () => data });
@@ -149,6 +150,52 @@ describe("GitChanges", () => {
     await wrapper.find(".diff-file-row").trigger("click");
     await flushPromises();
     expect(wrapper.find(".diff-inline-body").text()).toContain("hello");
+    wrapper.unmount();
+  });
+
+  it("未追跡ファイルの内容取得は1回の読み込みにつき1ファイル1回で、開き直しても増えず、再読込で取り直す", async () => {
+    setupWorkspace();
+    const fetchMock = vi.fn((url) => String(url).includes("/diff")
+      ? jsonResponse({ files: [{ path: "new.txt", status: "??" }], diff: "" })
+      : jsonResponse({ content: "hello", size: 5 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const contentCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes("file-content")).length;
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(contentCalls()).toBe(1);
+
+    await wrapper.find(".diff-file-row").trigger("click");
+    await wrapper.find(".diff-file-row").trigger("click");
+    await flushPromises();
+    expect(contentCalls()).toBe(1);
+
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(contentCalls()).toBe(2);
+    wrapper.unmount();
+  });
+
+  it("未追跡ファイルの内容取得の同時実行数は上限を超えない", async () => {
+    setupWorkspace();
+    const files = Array.from({ length: 12 }, (_, i) => ({ path: `n${i}.txt`, status: "??" }));
+    let active = 0;
+    let peak = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      if (String(url).includes("/diff")) return { ok: true, status: 200, json: async () => ({ files, diff: "" }) };
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((r) => setTimeout(r, 5));
+      active--;
+      return { ok: true, status: 200, json: async () => ({ content: "x", size: 1 }) };
+    }));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(peak).toBeLessThanOrEqual(UNTRACKED_CONTENT_FETCH_CONCURRENCY);
+    expect(peak).toBeGreaterThan(1);
     wrapper.unmount();
   });
 });

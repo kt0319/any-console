@@ -1,5 +1,6 @@
 import { workspaceFileContentPath } from "./endpoints.ts";
-import { GIT_DIFF_STATUS_CLASSES } from "./constants.ts";
+import { GIT_DIFF_STATUS_CLASSES, UNTRACKED_CONTENT_FETCH_CONCURRENCY } from "./constants.ts";
+import { runWithConcurrency } from "./concurrency.ts";
 
 export type GitRef = {
   label: string;
@@ -136,27 +137,32 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {
   workspace: string | null | undefined,
   files: GitFileLike[] | null | undefined,
   apiFetch: (url: string) => Promise<Response | null | undefined>,
-}): Promise<Record<string, number>> {
-  const pathToLines: Record<string, number> = {};
-  if (!workspace || !Array.isArray(files) || files.length === 0) return pathToLines;
+}): Promise<{ lines: Record<string, number>, contents: Record<string, Record<string, any>> }> {
+  const lines: Record<string, number> = {};
+  const contents: Record<string, Record<string, any>> = {};
+  if (!workspace || !Array.isArray(files) || files.length === 0) return { lines, contents };
 
-  const tasks = files
+  const targets = files
     .filter((file) => {
       const hasNumstat = file.insertions != null || file.deletions != null;
       return isNewFileDiffStatus(String(file.status || "")) && !hasNumstat && (file.path || file.name);
     })
-    .map(async (file) => {
-      // 上のfilterで file.path || file.name が truthy であることを保証済み。
-      const path = (file.path || file.name) as string;
+    .map((file) => (file.path || file.name) as string);
+
+  await runWithConcurrency(targets, UNTRACKED_CONTENT_FETCH_CONCURRENCY, async (path) => {
+    try {
       const res = await apiFetch(workspaceFileContentPath(workspace, path));
       if (!res || !res.ok) return;
       const data = await res.json();
-      if (typeof data?.content !== "string") return;
-      pathToLines[path] = countContentLines(data.content);
-    });
-  await Promise.allSettled(tasks);
+      if (!data) return;
+      contents[path] = data;
+      if (typeof data.content === "string") lines[path] = countContentLines(data.content);
+    } catch {
+      // 1ファイルの取得失敗で一覧全体を落とさない（行数は未表示、本文は未取得扱い）
+    }
+  });
 
-  return pathToLines;
+  return { lines, contents };
 }
 
 export function entryBranches(entry: { refs?: GitRef[] }): string[] {

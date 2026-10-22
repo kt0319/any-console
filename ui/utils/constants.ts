@@ -51,6 +51,7 @@ export const PILL_PEEK_REMOTE_DURATION_MS = 6000;
 export const PILL_PEEK_SUBJECT_MAX = 1;
 // 再接続直後に再送される GitHub 新着を1回のpeekにまとめるための待ち時間
 export const GITHUB_ACTIVITY_BATCH_MS = 200;
+export const UNTRACKED_CONTENT_FETCH_CONCURRENCY = 4;
 export const UPLOAD_FAILURE_TOAST_MAX = 3;
 // pull/push の結果peekを出した直後は、ahead/behindが0に落ちたことの検出による
 // 同じ内容の「N Pushed/Pulled」peekを重ねて出さない

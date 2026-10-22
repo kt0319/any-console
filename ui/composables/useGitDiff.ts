@@ -50,14 +50,14 @@ export function useGitDiff() {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "diff"));
       if (!ok) return null;
       const fileList = buildFileList(data.files);
-      const untrackedNumstat = await resolveUntrackedNumstat({
+      const { lines: untrackedNumstat, contents: newFileContents } = await resolveUntrackedNumstat({
         workspace,
         files: fileList,
         apiFetch: auth.apiFetch.bind(auth),
       });
       const diffChunks = parseDiffChunks(data.diff);
       storeDiffResult(diffChunks, data.diff || "", fileList);
-      return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, untrackedNumstat };
+      return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, newFileContents };
     }) ?? null;
   }
 
