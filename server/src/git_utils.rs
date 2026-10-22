@@ -37,7 +37,7 @@ pub fn workspace_icon_or_default(icon: Option<&Value>) -> &str {
 /// エラーのみ false）。GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する。
 pub async fn background_fetch(directory: &Path) -> bool {
     match run_git_raw(
-        &["fetch", "--quiet"],
+        &["fetch", "--quiet", "--prune"],
         directory,
         BACKGROUND_FETCH_TIMEOUT_SEC,
         &[("GIT_TERMINAL_PROMPT", "0")],
@@ -926,5 +926,41 @@ mod tests {
         let store = crate::config::ConfigStore::new(dir.path().join("config.json"));
         let result = match_workspace_with_worktree(&store, "/no/such/path").await;
         assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn background_fetch_prunes_branches_deleted_on_remote() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("work");
+        std::fs::create_dir_all(&repo).unwrap();
+        sh_git(
+            dir.path(),
+            &["init", "-q", "--bare", "-b", "main", "remote.git"],
+        );
+        sh_git(&repo, &["init", "-q", "-b", "main"]);
+        sh_git(&repo, &["config", "user.email", "t@example.com"]);
+        sh_git(&repo, &["config", "user.name", "t"]);
+        let remote = dir.path().join("remote.git");
+        sh_git(
+            &repo,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+        );
+        std::fs::write(repo.join("a.txt"), "x\n").unwrap();
+        sh_git(&repo, &["add", "-A"]);
+        sh_git(&repo, &["commit", "-q", "-m", "first"]);
+        sh_git(&repo, &["push", "-q", "origin", "main", "main:topic"]);
+        sh_git(&repo, &["fetch", "-q", "origin"]);
+        sh_git(&remote, &["branch", "-q", "-D", "topic"]);
+
+        assert!(background_fetch(&repo).await);
+
+        let refs = std::process::Command::new("git")
+            .args(["for-each-ref", "--format=%(refname)", "refs/remotes/origin"])
+            .current_dir(&repo)
+            .output()
+            .unwrap();
+        let refs = String::from_utf8_lossy(&refs.stdout);
+        assert!(!refs.contains("origin/topic"), "{refs}");
+        assert!(refs.contains("origin/main"), "{refs}");
     }
 }
