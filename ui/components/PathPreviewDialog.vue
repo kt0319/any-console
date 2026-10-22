@@ -60,7 +60,10 @@ useBusListener("terminal:path", (detail) => {
 }
 
 .path-preview-dialog-open {
-  max-width: 720px;
+  max-width: none;
+  width: calc(100vw - 16px);
+  height: calc(var(--app-dvh) - 16px);
+  max-height: none;
 }
 
 .path-preview-path {
