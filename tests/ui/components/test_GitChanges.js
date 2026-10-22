@@ -98,7 +98,7 @@ describe("GitChanges", () => {
     expect(bodies()).toHaveLength(1);
     expect(bodies()[0].text()).toContain("+y");
 
-    await wrapper.find(".diff-file-open-btn").trigger("click");
+    await wrapper.findAll(".diff-file-row-open")[1].trigger("click");
     off();
     expect(selected).toEqual([{ path: "b.txt", isWorkingTree: true }]);
     expect(bodies()).toHaveLength(1);
