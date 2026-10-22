@@ -79,6 +79,7 @@ useBusListener("terminal:path", (detail) => {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--bg-secondary);
   padding: 6px;
 }
 
