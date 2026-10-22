@@ -52,7 +52,7 @@ const inputStore = useInputStore();
 const layoutStore = useLayoutStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
 
-const draft = defineModel("draft", { default: "" });
+const draft = defineModel<string>("draft", { default: "" });
 const inputEl = ref<HTMLTextAreaElement | null>(null);
 const focused = ref(false);
 const composing = ref(false);
