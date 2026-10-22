@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap, canPull, canPush } from "../../ui/utils/git-branch.ts";
+import { normalizeLocalBranches, markMergedBranches, filterRemoteBranches, buildWorktreeMap, canPull, canPush } from "../../ui/utils/git-branch.ts";
 
 // ── Tests ──
 
@@ -14,14 +14,14 @@ describe("normalizeLocalBranches", () => {
       { name: "main", current: true, is_default: true, ahead: "2", behind: "1", upstream: "origin/main", gone: false },
     ]);
     expect(result).toEqual([
-      { name: "main", current: true, isDefault: true, remote: false, ahead: 2, behind: 1, upstream: "origin/main", gone: false },
+      { name: "main", current: true, isDefault: true, remote: false, ahead: 2, behind: 1, upstream: "origin/main", gone: false, tip: "", merged: false },
     ]);
   });
 
   it("文字列要素はnameとして扱いデフォルト値を補完する", () => {
     const result = normalizeLocalBranches(["feature/x"]);
     expect(result).toEqual([
-      { name: "feature/x", current: false, isDefault: false, remote: false, ahead: 0, behind: 0, upstream: null, gone: false },
+      { name: "feature/x", current: false, isDefault: false, remote: false, ahead: 0, behind: 0, upstream: null, gone: false, tip: "", merged: false },
     ]);
   });
 
@@ -119,5 +119,34 @@ describe("canPush", () => {
 
   it("upstreamありでahead 0ならfalse", () => {
     expect(canPush({ remote: false, upstream: "origin/main", ahead: 0 })).toBe(false);
+  });
+});
+
+describe("markMergedBranches", () => {
+  const branch = (over) => ({ name: "feat", current: false, isDefault: false, remote: false, ahead: 0, behind: 0, upstream: null, gone: false, tip: "aaa", merged: false, ...over });
+
+  it("マージ済みPRのhead(ブランチ名とコミット)がブランチ先端と一致すればmergedにする", () => {
+    const result = markMergedBranches([branch({})], [{ headRefName: "feat", headRefOid: "aaa" }]);
+    expect(result[0].merged).toBe(true);
+  });
+
+  it("同名でもコミットが違う（マージ後に積んだ・名前を再利用した）ブランチは対象外", () => {
+    const result = markMergedBranches([branch({ tip: "bbb" })], [{ headRefName: "feat", headRefOid: "aaa" }]);
+    expect(result[0].merged).toBe(false);
+  });
+
+  it("現在ブランチ・デフォルトブランチは対象外で、サーバ判定済みのmergedは維持する", () => {
+    const pulls = [{ headRefName: "feat", headRefOid: "aaa" }];
+    expect(markMergedBranches([branch({ current: true })], pulls)[0].merged).toBe(false);
+    expect(markMergedBranches([branch({ isDefault: true })], pulls)[0].merged).toBe(false);
+    expect(markMergedBranches([branch({ merged: true, tip: "zzz" })], [])[0].merged).toBe(true);
+  });
+});
+
+describe("normalizeLocalBranches merged", () => {
+  it("サーバのmerged/tipを引き継ぐ", () => {
+    const [b] = normalizeLocalBranches([{ name: "x", merged: true, tip: "abc" }]);
+    expect(b.merged).toBe(true);
+    expect(b.tip).toBe("abc");
   });
 });

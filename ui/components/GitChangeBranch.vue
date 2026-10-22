@@ -38,7 +38,7 @@
           v-for="branch in localBranches"
           :key="'local-' + branch.name"
           v-show="branch.current || expanded"
-          :class="['branch-item', { current: branch.current, 'branch-item-no-border': branch.current && !expanded }]"
+          :class="['branch-item', { current: branch.current, merged: branch.merged, 'branch-item-no-border': branch.current && !expanded }]"
           :aria-expanded="branch.current ? expanded : undefined"
           @click="onRowClick(branch)"
         >
@@ -49,7 +49,8 @@
               aria-label="Has worktree"
               data-tooltip="Has worktree"
             ></span>
-            {{ branch.name }}
+            <span :class="{ 'branch-name-merged': branch.merged }">{{ branch.name }}</span>
+            <span v-if="branch.merged" class="branch-merged-badge" data-tooltip="Merged into the default branch">merged</span>
             <span v-if="branch.isDefault" class="branch-default-badge" data-tooltip="Repository's default branch">default</span>
             <span v-if="branch.current"> ✓</span>
           </div>
@@ -58,7 +59,7 @@
               v-if="canPull(branch)"
               icon="pull"
               :title="branch.current ? 'Pull' : 'Switch to this branch to pull'"
-              :count="branch.behind || null"
+              :count="branch.behind || undefined"
               :disabled="!branch.current"
               :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
               btn-class="pull-btn has-count"
@@ -68,7 +69,7 @@
               v-if="canPush(branch)"
               icon="push"
               title="Push"
-              :count="branch.ahead || null"
+              :count="branch.ahead || undefined"
               :running="isPushing(branch)"
               btn-class="push-btn has-count"
               @action="pushBranch(branch)"
@@ -303,7 +304,13 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   flex-shrink: 0;
 }
 
-.branch-default-badge {
+.branch-name-merged {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.branch-default-badge,
+.branch-merged-badge {
   margin-left: 6px;
   padding: 0 5px;
   border-radius: 999px;

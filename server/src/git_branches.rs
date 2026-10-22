@@ -4,6 +4,7 @@
 //! 実行する。pull は Python の RLock 再入に相当する箇所をロック1回取得の
 //! 直列コードに展開している（tokio Mutex は非再入のため）。
 
+use std::collections::HashSet;
 use std::path::Path as FsPath;
 use std::sync::Arc;
 
@@ -146,6 +147,47 @@ async fn branch_tracking_info(ws_path: &FsPath) -> Result<Map<String, Value>, Ap
     Ok(info)
 }
 
+/// デフォルトブランチへ取り込み済み（祖先）のローカルブランチ名。
+/// 取得失敗は「判定材料なし」として空にする（一覧表示そのものは止めない）。
+async fn branches_merged_into(ws_path: &FsPath, default_branch: &str) -> HashSet<String> {
+    let res = run_git_command(
+        &[
+            "branch",
+            "--merged",
+            default_branch,
+            "--format=%(refname:short)",
+        ],
+        ws_path,
+        GIT_STANDARD_TIMEOUT_SEC,
+        "branch --merged",
+        &[],
+    )
+    .await;
+    match res {
+        Ok(r) if r.success() => r.stdout.lines().map(|l| l.trim().to_string()).collect(),
+        _ => HashSet::new(),
+    }
+}
+
+/// 取り込み済み判定。現在ブランチ・デフォルトブランチ自身と、デフォルトと同じコミットを
+/// 指すだけの新規ブランチ（独自のコミットがない）は対象外にする。
+fn is_branch_merged(
+    branch: &str,
+    tip: &str,
+    current: Option<&str>,
+    default_branch: Option<&str>,
+    default_tip: Option<&str>,
+    merged_into_default: &HashSet<String>,
+) -> bool {
+    if Some(branch) == current || Some(branch) == default_branch {
+        return false;
+    }
+    if !tip.is_empty() && Some(tip) == default_tip {
+        return false;
+    }
+    merged_into_default.contains(branch)
+}
+
 /// upstream 未設定ブランチの「未 push 件数」を 1 回の rev-list --parents で数える
 /// （Python `_unpublished_commit_counts` と同一アルゴリズム）。
 fn count_unpublished(parents_output: &str, tips: &Map<String, Value>) -> Map<String, Value> {
@@ -235,9 +277,20 @@ pub async fn list_branches(
         }
     };
 
+    let merged_into_default = match &default_branch {
+        Some(d) => branches_merged_into(&ws_path, d).await,
+        None => HashSet::new(),
+    };
+    let default_tip = default_branch
+        .as_ref()
+        .and_then(|d| tracking.get(d))
+        .and_then(|t| t.get("tip"))
+        .and_then(Value::as_str);
+
     let mut out = Vec::new();
     for b in &branches {
         let t = tracking.get(b).cloned().unwrap_or(json!({}));
+        let tip = t.get("tip").and_then(Value::as_str).unwrap_or("");
         let upstream = t.get("upstream").cloned().unwrap_or(Value::Null);
         let ahead = if upstream.is_null() {
             unpublished.get(b).cloned().unwrap_or(json!(0))
@@ -252,6 +305,15 @@ pub async fn list_branches(
             "ahead": ahead,
             "behind": t.get("behind").cloned().unwrap_or(json!(0)),
             "gone": t.get("gone").cloned().unwrap_or(json!(false)),
+            "tip": tip,
+            "merged": is_branch_merged(
+                b,
+                tip,
+                current.as_deref(),
+                default_branch.as_deref(),
+                default_tip,
+                &merged_into_default,
+            ),
         }));
     }
     Ok(Json(Value::Array(out)))
@@ -663,6 +725,23 @@ pub async fn fetch(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn merged_set(names: &[&str]) -> HashSet<String> {
+        names.iter().map(|n| n.to_string()).collect()
+    }
+
+    #[test]
+    fn merged_branch_is_detected_unless_current_default_or_untouched() {
+        let merged = merged_set(&["main", "done", "cur", "fresh"]);
+        let check = |b: &str, tip: &str| {
+            is_branch_merged(b, tip, Some("cur"), Some("main"), Some("aaa"), &merged)
+        };
+        assert!(check("done", "bbb"));
+        assert!(!check("main", "aaa"));
+        assert!(!check("cur", "bbb"));
+        assert!(!check("fresh", "aaa"));
+        assert!(!check("other", "ccc"));
+    }
 
     #[test]
     fn upstream_track_parsing() {

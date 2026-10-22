@@ -7,6 +7,8 @@ type RawBranch = {
   behind?: number | string;
   upstream?: string | null;
   gone?: boolean;
+  tip?: string;
+  merged?: boolean;
 } | string;
 
 export type LocalBranch = {
@@ -18,6 +20,8 @@ export type LocalBranch = {
   behind: number;
   upstream: string | null;
   gone: boolean;
+  tip: string;
+  merged: boolean;
 };
 
 export type RemoteBranch = {
@@ -44,10 +48,27 @@ export function normalizeLocalBranches(data: RawBranch[] | null | undefined): Lo
       behind: Number(branch.behind) || 0,
       upstream: branch.upstream || null,
       gone: !!branch.gone,
+      tip: branch.tip || "",
+      merged: !!branch.merged,
     };
   });
   const current = mapped.find((b) => b.current);
   return current ? [current, ...mapped.filter((b) => !b.current)] : mapped;
+}
+
+export type MergedPull = { headRefName?: string, headRefOid?: string };
+
+/**
+ * サーバが祖先関係で判定できない squash / rebase マージ済みブランチを、マージ済み PR の
+ * head コミットとブランチ先端の一致で補う（同名ブランチの再利用や、マージ後に積んだコミットは対象外）。
+ */
+export function markMergedBranches(branches: LocalBranch[], pulls: MergedPull[]): LocalBranch[] {
+  if (pulls.length === 0) return branches;
+  const mergedHeads = new Set(pulls.map((p) => `${p.headRefName}@${p.headRefOid}`));
+  return branches.map((b) => {
+    if (b.merged || b.current || b.isDefault || !b.tip) return b;
+    return mergedHeads.has(`${b.name}@${b.tip}`) ? { ...b, merged: true } : b;
+  });
 }
 
 export function filterRemoteBranches(data: RawBranch[] | null | undefined, localBranches: LocalBranch[] | null | undefined): RemoteBranch[] {

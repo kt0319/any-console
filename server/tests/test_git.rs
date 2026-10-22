@@ -413,6 +413,49 @@ async fn branch_lifecycle_and_listing() {
 }
 
 #[tokio::test]
+async fn branches_listing_flags_branches_merged_into_default() {
+    let front = spawn_front().await;
+    let git = |args: &[&str]| common::sh_git(&front.ws_path, args);
+
+    // デフォルトブランチは origin/HEAD から決まる
+    git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(&[
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
+    ]);
+
+    git(&["checkout", "-q", "-b", "merged-feat"]);
+    std::fs::write(front.ws_path.join("b.txt"), "b\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "feat b"]);
+    git(&["checkout", "-q", "main"]);
+    git(&["merge", "-q", "--no-ff", "-m", "merge", "merged-feat"]);
+
+    git(&["checkout", "-q", "-b", "open-feat"]);
+    std::fs::write(front.ws_path.join("c.txt"), "c\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "feat c"]);
+    git(&["checkout", "-q", "main"]);
+    git(&["branch", "fresh"]);
+
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let merged_of = |name: &str| {
+        branches
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|b| b["name"] == name)
+            .unwrap()["merged"]
+            .clone()
+    };
+    assert_eq!(merged_of("merged-feat"), true);
+    assert_eq!(merged_of("open-feat"), false);
+    assert_eq!(merged_of("fresh"), false);
+    assert_eq!(merged_of("main"), false);
+}
+
+#[tokio::test]
 async fn branches_listing_includes_current_branch_before_first_commit() {
     let front = spawn_front_with_initial_commit(false).await;
     let branches = get_json(&front, "/workspaces/repo/branches").await;

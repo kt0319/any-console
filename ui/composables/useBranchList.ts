@@ -2,7 +2,7 @@ import { ref, computed } from "vue";
 import { useApi } from "./useApi.ts";
 import { useWorkspace } from "./useWorkspace.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap } from "../utils/git-branch.ts";
+import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap, markMergedBranches, type LocalBranch, type MergedPull } from "../utils/git-branch.ts";
 
 // モジュールスコープ: コンポーネント再マウント後もキャッシュを保持する
 const _remoteCache = new Map<string, any[]>();
@@ -11,7 +11,9 @@ export function useBranchList() {
   const { apiGet, wsEndpoint } = useApi();
   const { withWorkspace } = useWorkspace();
 
-  const localBranches = ref<any[]>([]);
+  const loadedLocalBranches = ref<LocalBranch[]>([]);
+  const mergedPulls = ref<MergedPull[]>([]);
+  const localBranches = computed(() => markMergedBranches(loadedLocalBranches.value, mergedPulls.value));
   const remoteBranches = ref<any[]>([]);
   const worktrees = ref<any[]>([]);
   const remoteLoaded = ref(false);
@@ -34,7 +36,8 @@ export function useBranchList() {
       try {
         const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "branches"));
         if (!ok) return;
-        localBranches.value = normalizeLocalBranches(data);
+        loadedLocalBranches.value = normalizeLocalBranches(data);
+        void loadMergedPulls(workspace);
         const cached = _remoteCache.get(workspace);
         if (cached) {
           // キャッシュはローカル一覧が更新される前のフィルタ結果のため、
@@ -56,6 +59,13 @@ export function useBranchList() {
       }
     });
     await loadWorktrees();
+  }
+
+  // 打ち消し線表示の補助情報。gh 未導入・未ログイン等で取れなくても一覧自体は成立するため、
+  // 失敗時は祖先関係による判定（サーバ側）だけで表示する。
+  async function loadMergedPulls(workspace: string) {
+    const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "github/pulls?state=merged"));
+    mergedPulls.value = ok && data?.status === "ok" && Array.isArray(data.data) ? data.data : [];
   }
 
   async function loadWorktrees() {

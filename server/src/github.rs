@@ -139,20 +139,41 @@ pub async fn list_issues(
     .await
 }
 
+#[derive(Deserialize)]
+pub struct PullsQuery {
+    state: Option<String>,
+}
+
+/// open / merged 以外は既定の open へ落とす。
+fn normalize_pull_state(state: Option<&str>) -> &'static str {
+    match state {
+        Some("merged") => "merged",
+        _ => "open",
+    }
+}
+
 pub async fn list_pulls(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
+    Query(query): Query<PullsQuery>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
+    let pull_state = normalize_pull_state(query.state.as_deref());
+    let suffix = if pull_state == "open" {
+        "pulls".to_string()
+    } else {
+        format!("pulls:{pull_state}")
+    };
+    let states = format!("[{}]", pull_state.to_uppercase());
     github_fetch_with(
         &state,
         &name,
-        "pulls",
+        &suffix,
         "Failed to fetch pull requests",
         |ws_path| {
             fetch_graphql_list(
                 GraphqlList::PullRequests,
-                "[OPEN]",
+                &states,
                 PULLS_LIST_LIMIT,
                 ws_path,
             )
@@ -185,7 +206,7 @@ impl GraphqlList {
                  comments{totalCount}"
             }
             Self::PullRequests => {
-                "number title state isDraft headRefName createdAt updatedAt author{login} labels(first:20){nodes{name color}}"
+                "number title state isDraft headRefName headRefOid createdAt updatedAt author{login} labels(first:20){nodes{name color}}"
             }
         }
     }
@@ -219,6 +240,7 @@ fn normalize_node(node: &Value) -> Value {
     if node.get("headRefName").is_some() {
         out["isDraft"] = node["isDraft"].clone();
         out["headRefName"] = node["headRefName"].clone();
+        out["headRefOid"] = node["headRefOid"].clone();
     }
     out
 }
@@ -295,6 +317,13 @@ pub async fn list_runs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pull_state_defaults_to_open() {
+        assert_eq!(normalize_pull_state(Some("merged")), "merged");
+        assert_eq!(normalize_pull_state(Some("closed")), "open");
+        assert_eq!(normalize_pull_state(None), "open");
+    }
 
     fn page(connection: &str, nodes: Value, has_next: bool) -> Value {
         json!({"data": {
