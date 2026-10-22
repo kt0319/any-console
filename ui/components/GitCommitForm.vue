@@ -1,6 +1,7 @@
 <template>
   <div class="diff-commit-form-wrapper">
     <textarea
+      ref="textareaEl"
       v-model="commitMessage"
       class="diff-commit-textarea"
       placeholder="Commit message"
@@ -12,19 +13,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { nextTick, onMounted, ref, watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { buildActionResult } from "../utils/git-remote.ts";
 import { emit } from "../app-bridge.ts";
-import { extractApiError } from "../utils/constants.ts";
+import { COMMIT_MESSAGE_MAX_ROWS, extractApiError } from "../utils/constants.ts";
+import { resolveAutoGrow } from "../utils/textarea-autogrow.ts";
 
 const { apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const workspaceStore = useWorkspaceStore();
 
 const commitMessage = ref("");
+const textareaEl = ref<HTMLTextAreaElement | null>(null);
+
+function fitTextareaHeight() {
+  const el = textareaEl.value;
+  if (!el) return;
+  const style = getComputedStyle(el);
+  const px = (value: string) => parseFloat(value) || 0;
+  el.style.height = "auto";
+  const { heightPx, scrollable } = resolveAutoGrow({
+    scrollHeight: el.scrollHeight,
+    rowHeight: px(style.lineHeight),
+    paddingPx: px(style.paddingTop) + px(style.paddingBottom),
+    borderPx: px(style.borderTopWidth) + px(style.borderBottomWidth),
+    maxRows: COMMIT_MESSAGE_MAX_ROWS,
+  });
+  el.style.height = `${heightPx}px`;
+  el.style.overflowY = scrollable ? "auto" : "hidden";
+}
+
+watch(commitMessage, () => nextTick(fitTextareaHeight));
+onMounted(fitTextareaHeight);
 const error = ref("");
 const submitting = ref(false);
 
@@ -81,7 +104,9 @@ defineExpose({ open: () => {}, close: () => {}, submit, submitting, commitMessag
   color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
-  resize: vertical;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: hidden;
   outline: none;
   min-height: 36px;
 }
