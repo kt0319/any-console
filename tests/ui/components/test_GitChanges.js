@@ -247,4 +247,15 @@ describe("GitChanges", () => {
     expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
     wrapper.unmount();
   });
+
+  it("Filesへ移動しても行にハイライトを残さない", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [{ path: "a.txt", status: "M" }], diff: "" })));
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    await wrapper.find(".diff-file-row-open").trigger("click");
+    expect(wrapper.find(".diff-file-row").classes()).not.toContain("selected");
+    wrapper.unmount();
+  });
 });

@@ -3,7 +3,6 @@
     <ul v-for="file in files" :key="file.path" class="diff-file-box">
       <DiffFileItem
         :file="file"
-        :selected="selectedFile === file.path"
         navigable
         @click="toggleFile(file.path)"
         @navigate="$emit('navigate', file)"
@@ -24,7 +23,6 @@ const props = defineProps<{
   files: { path: string, status: string, numstat?: string }[],
   diffChunks: Record<string, string>,
   newFileContents?: Record<string, Record<string, any>>,
-  selectedFile?: string,
   defaultCollapsed?: boolean,
 }>();
 

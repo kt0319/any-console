@@ -4,7 +4,7 @@
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <DiffFileBoxList v-else :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" :selectedFile="selectedFile" @navigate="selectFile" />
+      <DiffFileBoxList v-else :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" @navigate="selectFile" />
     </div>
     <GitCommitForm ref="commitForm" />
     <div v-if="actionButtons.length" class="diff-actions">
@@ -59,7 +59,6 @@ const isLoading = computed(() => isAsyncPending(diffState.value));
 const loadError = computed(() => (diffState.value.status === "error" ? diffState.value.error : ""));
 const diffChunks = ref<Record<string, string>>({});
 const newFileContents = ref<Record<string, Record<string, any>>>({});
-const selectedFile = ref("");
 const listedWorkspace = ref("");
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
@@ -72,7 +71,6 @@ const isCommitDisabled = computed(
 const isStashDisabled = computed(() => files.value.length === 0);
 
 function selectFile(file: DiffFileRow) {
-  selectedFile.value = file.path;
   emit("git:selectDiffFile", { path: file.path, isWorkingTree: isWorkingTree.value });
 }
 
