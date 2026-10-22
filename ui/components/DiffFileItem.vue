@@ -56,6 +56,6 @@ defineEmits(["click", "navigate"]);
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 14px;
 }
 </style>
