@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus, excludeCurrentBranch } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -411,5 +411,15 @@ describe("diffStatusLabel / diffStatusClass", () => {
   it("isNewFileDiffStatusは未追跡・追加・AMを新規ファイルとする", () => {
     for (const s of ["??", "A", "AM", "A "]) expect(isNewFileDiffStatus(s)).toBe(true);
     for (const s of ["M", "MM", "D", "AD", "R", ""]) expect(isNewFileDiffStatus(s)).toBe(false);
+  });
+});
+
+describe("excludeCurrentBranch", () => {
+  it("現在のブランチを除いた一覧を返す", () => {
+    expect(excludeCurrentBranch(["main", "dev", "feat"], "main")).toEqual(["dev", "feat"]);
+  });
+
+  it("現在のブランチが不明(空)なら一覧をそのまま返す", () => {
+    expect(excludeCurrentBranch(["main", "dev"], "")).toEqual(["main", "dev"]);
   });
 });

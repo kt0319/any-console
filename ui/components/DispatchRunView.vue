@@ -59,7 +59,7 @@
           <span class="ws-settings-label">{{ createMode ? "Base branch" : "Branch" }}</span>
           <select v-model="branchSelectValue" class="form-input">
             <option value="">{{ currentBranchLabel }}</option>
-            <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
+            <option v-for="b in selectableBranches" :key="b" :value="b">{{ b }}</option>
           </select>
         </div>
       </template>
@@ -122,6 +122,7 @@ import { useDispatchRunOptions } from "../composables/useDispatchRunOptions.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
+import { excludeCurrentBranch } from "../utils/git.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
@@ -177,7 +178,10 @@ const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALU
 // Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
 // 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
 const branchSelectValue = computed({
-  get: () => (selectedCreateBranch.value || selectedCreateWorktree.value ? baseBranch.value : branch.value),
+  get: () => {
+    const value = selectedCreateBranch.value || selectedCreateWorktree.value ? baseBranch.value : branch.value;
+    return value === currentBranchName.value ? "" : value;
+  },
   set: (val) => {
     if (selectedCreateBranch.value || selectedCreateWorktree.value) baseBranch.value = val;
     else branch.value = val;
@@ -268,8 +272,10 @@ const isSwitchingBranch = computed(() => {
   const current = targetWorkspaceEntry.value?.branch || "";
   return target !== current;
 });
+const currentBranchName = computed(() => targetWorkspaceEntry.value?.branch || "");
+const selectableBranches = computed(() => excludeCurrentBranch(localBranches.value, currentBranchName.value));
 const currentBranchLabel = computed(() => {
-  const current = targetWorkspaceEntry.value?.branch;
+  const current = currentBranchName.value;
   return current ? `${current} (current)` : "(current branch)";
 });
 const workspaceChangedFiles = computed(() => targetWorkspaceEntry.value?.changed_files || 0);

@@ -165,6 +165,10 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {
   return { lines, contents };
 }
 
+export function excludeCurrentBranch(branches: string[], current: string): string[] {
+  return branches.filter((b) => b !== current);
+}
+
 export function entryBranches(entry: { refs?: GitRef[] }): string[] {
   return (entry.refs || [])
     .filter((r) => r.type === "branch" || r.type === "remote")
