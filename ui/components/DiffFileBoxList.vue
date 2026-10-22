@@ -57,6 +57,7 @@ function toggleFile(path: string) {
 .diff-file-open-row {
   list-style: none;
   display: flex;
+  justify-content: flex-end;
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
 }
