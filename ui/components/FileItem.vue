@@ -5,6 +5,7 @@
     :data-type="dataType || null"
     @click="$emit('click', $event)"
   >
+    <slot name="left"></slot>
     <span class="file-browser-item-icon nf-icon" v-html="iconHtml"></span>
     <span class="file-browser-item-name text-ellipsis-flex">{{ label }}</span>
     <span v-if="mtimeText || sizeText" class="file-browser-item-size">{{ sizeText }}</span>

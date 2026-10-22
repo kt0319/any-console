@@ -45,4 +45,21 @@ describe("DiffFileBoxList", () => {
     await wrapper.setProps({ files });
     expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
   });
+
+  it("開閉ボタンの aria-expanded が開閉に追従し、ボタン操作（Enter/Space はネイティブ click）でも開閉できる", async () => {
+    const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks } });
+    const toggle = () => wrapper.findAll(".diff-file-row-toggle")[0];
+    expect(toggle().attributes("aria-expanded")).toBe("true");
+    await toggle().trigger("click");
+    expect(toggle().attributes("aria-expanded")).toBe("false");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+    await toggle().trigger("click");
+    expect(toggle().attributes("aria-expanded")).toBe("true");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
+  });
+
+  it("defaultCollapsed では aria-expanded=false から始まる", () => {
+    const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks, defaultCollapsed: true } });
+    expect(wrapper.findAll(".diff-file-row-toggle")[0].attributes("aria-expanded")).toBe("false");
+  });
 });

@@ -4,6 +4,7 @@
       <DiffFileItem
         :file="file"
         navigable
+        :expanded="isExpanded(file.path)"
         @click="toggleFile(file.path)"
         @navigate="$emit('navigate', file)"
       />
