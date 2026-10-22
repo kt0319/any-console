@@ -54,7 +54,7 @@ function toggleFile(path: string) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px 6px;
+  padding: 4px 2px;
 }
 
 .diff-file-box {
