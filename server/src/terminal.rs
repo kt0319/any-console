@@ -351,6 +351,42 @@ pub async fn get_terminal_session_file_content(
     crate::git_files::file_content_or_error(&rel_path, &target, &rel).map(Json)
 }
 
+/// ターミナルに表示されたパス文字列を実ファイルへ解決する。`~` はホーム、相対パスは
+/// セッションの cwd 基準。ワークスペース内外は問わない（ターミナル自体が同じ権限を持つ）。
+fn resolve_terminal_open_path(
+    cwd: &std::path::Path,
+    home: Option<&std::path::Path>,
+    input: &str,
+) -> PathBuf {
+    let expanded = match (input.strip_prefix("~/"), home) {
+        (Some(rest), Some(home)) => home.join(rest),
+        _ => PathBuf::from(input),
+    };
+    if expanded.is_absolute() {
+        expanded
+    } else {
+        cwd.join(expanded)
+    }
+}
+
+pub async fn open_terminal_session_path(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    QueryParams(query): QueryParams<FileContentQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let cwd = terminal_session_root(&state, &session_id).await?;
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let candidate = resolve_terminal_open_path(&cwd, home.as_deref(), query.path.trim());
+    let target = candidate
+        .canonicalize()
+        .map_err(|_| not_found("File not found"))?;
+    if !target.is_file() {
+        return Err(not_found("File not found"));
+    }
+    crate::git_files::read_file_content_response(&target.to_string_lossy(), &target).map(Json)
+}
+
 // ─── PUT /terminal/sessions/{id}/workspace, /detached ───────────────────────
 
 #[derive(Deserialize)]
@@ -818,6 +854,28 @@ async fn wait_agent_idle_if_known(state: &Arc<AppState>, full_tmux_name: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_path_resolves_relative_home_and_absolute() {
+        let cwd = std::path::Path::new("/work/proj");
+        let home = std::path::Path::new("/home/me");
+        assert_eq!(
+            resolve_terminal_open_path(cwd, Some(home), "src/a.rs"),
+            PathBuf::from("/work/proj/src/a.rs")
+        );
+        assert_eq!(
+            resolve_terminal_open_path(cwd, Some(home), "~/x.txt"),
+            PathBuf::from("/home/me/x.txt")
+        );
+        assert_eq!(
+            resolve_terminal_open_path(cwd, Some(home), "/etc/hosts"),
+            PathBuf::from("/etc/hosts")
+        );
+        assert_eq!(
+            resolve_terminal_open_path(cwd, None, "~/x.txt"),
+            PathBuf::from("/work/proj/~/x.txt")
+        );
+    }
 
     #[test]
     fn cmd_buffer_extracts_command_on_enter() {

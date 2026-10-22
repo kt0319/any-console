@@ -3,6 +3,8 @@ import { describe, it, expect } from "vitest";
 import {
   TERMINAL_URL_REGEX,
   findUrlInBuffer,
+  findPathInBuffer,
+  normalizeTerminalPath,
 } from "../../ui/utils/terminal-buffer-text.ts";
 
 function makeTerm({ lines, viewportY = 0, cols = 80, rows = 24, element = null }) {
@@ -263,5 +265,34 @@ describe("findUrlInBuffer", () => {
     // 1行目末尾（ポート番号付近）をクリック → 2行目のパスまで含めた全体が返る
     const url = findUrlInBuffer(term, (part1.length - 1) * 10, 5);
     expect(url).toBe("https://mini.tail794a9.ts.net:23001/business-partner-management");
+  });
+});
+
+describe("findPathInBuffer / normalizeTerminalPath", () => {
+  const rect = (line) => ({ left: 0, top: 0, width: line.length * 10, height: 20 });
+
+  it("タップ位置のパス風文字列を返す（行番号や末尾の句読点は含めない）", () => {
+    const line = "error at server/src/foo.rs:120: bad";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+    expect(findPathInBuffer(term, 12 * 10 + 5, 5)).toBe("server/src/foo.rs");
+  });
+
+  it("絶対パス・~・./ 始まり・拡張子のみのファイル名も拾う", () => {
+    for (const [line, token] of [["cat /etc/hosts now", "/etc/hosts"], ["cat ~/a/b.txt", "~/a/b.txt"], ["run ./x.sh", "./x.sh"], ["open README.md", "README.md"]]) {
+      const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+      expect(findPathInBuffer(term, line.indexOf(token) * 10 + 15, 5)).toBe(token);
+    }
+  });
+
+  it("パスでない文字列では null", () => {
+    const line = "hello world";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+    expect(findPathInBuffer(term, 5, 5)).toBeNull();
+  });
+
+  it("normalizeTerminalPath は末尾の句読点を落とし、記号だけなら null", () => {
+    expect(normalizeTerminalPath("a/b.ts).")).toBe("a/b.ts");
+    expect(normalizeTerminalPath("/")).toBeNull();
+    expect(normalizeTerminalPath("~")).toBeNull();
   });
 });

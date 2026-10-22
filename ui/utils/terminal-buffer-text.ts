@@ -13,7 +13,28 @@ export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"\u0080-\uffff]+|www\.[^
 // 正規表現がhttps://等のプレフィックスを要求するため誤検出はしにくい）。
 const URL_SEARCH_WINDOW_LINES = 6;
 
+// パス風の文字列（ASCIIのパス文字のみ。日本語など非ASCIIは隣接する文章を巻き込むため含めない）。
+// 実在確認はサーバが行うので、ここでは「/ を含む」か「拡張子がある」ものだけを候補にする。
+export const TERMINAL_PATH_REGEX = /[\w.~@+%-]*(?:\/[\w.~@+%-]+)+\/?|[\w@+%-]+(?:\.[\w@+%-]+)*\.[A-Za-z0-9]+/g;
+
+export function normalizeTerminalPath(raw: string): string | null {
+  const path = raw.replace(/[.,;:)\]]+$/, "");
+  if (!path || path === "/" || path === "~") return null;
+  return path;
+}
+
 export function findUrlInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
+  const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_URL_REGEX);
+  if (!raw) return null;
+  return raw.startsWith("www.") ? "https://" + raw : raw;
+}
+
+export function findPathInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
+  const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_PATH_REGEX);
+  return raw ? normalizeTerminalPath(raw) : null;
+}
+
+function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number, regex: RegExp): string | null {
   if (!term || !term.element) return null;
   const screen = term.element.querySelector(".xterm-screen") || term.element;
   const rect = screen.getBoundingClientRect();
@@ -67,14 +88,10 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
   }
 
   const absPos = (lineOffsets[lineIdx] || 0) + col;
-  TERMINAL_URL_REGEX.lastIndex = 0;
+  regex.lastIndex = 0;
   let m;
-  while ((m = TERMINAL_URL_REGEX.exec(text)) !== null) {
-    if (absPos >= m.index && absPos < m.index + m[0].length) {
-      let url = m[0];
-      if (url.startsWith("www.")) url = "https://" + url;
-      return url;
-    }
+  while ((m = regex.exec(text)) !== null) {
+    if (absPos >= m.index && absPos < m.index + m[0].length) return m[0];
   }
   return null;
 }

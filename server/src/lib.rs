@@ -410,6 +410,10 @@ fn terminal_routes() -> AppRouter {
             get(terminal::get_terminal_session_file_content),
         )
         .route(
+            "/terminal/sessions/{session_id}/open-path",
+            get(terminal::open_terminal_session_path),
+        )
+        .route(
             "/terminal/sessions/{session_id}/workspace",
             put(terminal::set_terminal_session_workspace),
         )

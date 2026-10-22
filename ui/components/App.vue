@@ -15,6 +15,7 @@
   <ConfirmDialog />
   <PromptDialog />
   <UrlActionDialog />
+  <PathPreviewDialog />
 </template>
 
 <script setup lang="ts">
@@ -25,6 +26,7 @@ import ScreenPair from "./ScreenPair.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
+import PathPreviewDialog from "./PathPreviewDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { useLayoutStore } from "../stores/layout.ts";

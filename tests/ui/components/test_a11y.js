@@ -20,6 +20,7 @@ import FileItem from "../../../ui/components/FileItem.vue";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vue";
 import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
+import PathPreviewDialog from "../../../ui/components/PathPreviewDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
@@ -130,6 +131,20 @@ describe("a11y: UrlActionDialog", () => {
     emit("terminal:url", { uri: "https://example.com/path" });
     await nextTick();
     await expectNoA11yViolations(wrapper.find(".url-action-dialog").element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: PathPreviewDialog", () => {
+  it("ファイルプレビューダイアログに a11y 違反が無く、内容とパスを表示する", async () => {
+    const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
+    emit("terminal:path", { path: "/etc/hosts", fileContent: { content: "127.0.0.1 localhost\n", size: 20 } });
+    await nextTick();
+    expect(wrapper.find(".path-preview-path").text()).toBe("/etc/hosts");
+    expect(wrapper.text()).toContain("127.0.0.1 localhost");
+    await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
+    await wrapper.find(".path-preview-btn-cancel").trigger("click");
+    expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
     wrapper.unmount();
   });
 });

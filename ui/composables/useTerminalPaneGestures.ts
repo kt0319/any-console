@@ -2,8 +2,10 @@ import type { Ref } from "vue";
 import type { TerminalTab } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { createTouchTracker } from "../utils/gesture.ts";
-import { findUrlInBuffer } from "../utils/terminal-buffer-text.ts";
+import { findPathInBuffer, findUrlInBuffer } from "../utils/terminal-buffer-text.ts";
 import { emit } from "../app-bridge.ts";
+import { terminalSessionOpenPath } from "../utils/endpoints.ts";
+import { useApi } from "./useApi.ts";
 import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeypad.ts";
 import { LONG_PRESS_URL_MS, TAP_MAX_DELTA_PX } from "../utils/constants.ts";
 
@@ -18,7 +20,7 @@ interface CircleKeypadLike {
 }
 
 // ターミナル本体のタッチは
-//   - 長押し: URL 起動
+//   - 長押し: URL / ファイルパスを開く
 //   - スワイプ: サークルキー（Select & Copy も含む）
 //   - 短いタップ: split mode のときだけ pane 選択
 // を扱う。
@@ -32,6 +34,19 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
 }) {
   const layoutStore = useLayoutStore();
   const paneTouch = createTouchTracker();
+  const { apiGet } = useApi();
+
+  // タップ位置のパス風文字列が実在ファイルなら内容つきで terminal:path を通知する。
+  // 実在しない（通常の文字列）場合は何も起きない。
+  async function openPathAt(x: number, y: number): Promise<boolean> {
+    const path = findPathInBuffer(tab.value?.term, x, y);
+    const sessionId = tab.value?.sessionId;
+    if (!path || !sessionId) return false;
+    const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId, path));
+    if (!ok) return false;
+    emit("terminal:path", { path, fileContent: data });
+    return true;
+  }
 
   let startX = 0;
   let startY = 0;
@@ -61,7 +76,12 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
       longPressTimer = null;
       if (touchMoved || circleKeypad?.state.visible) return;
       const url = findUrlInBuffer(tab.value?.term, startX, startY);
-      if (!url) return;
+      if (!url) {
+        void openPathAt(startX, startY).then((opened) => {
+          if (opened && navigator.vibrate) navigator.vibrate(40);
+        });
+        return;
+      }
       if (navigator.vibrate) navigator.vibrate(40);
       emit("terminal:url", { uri: url });
     }, LONG_PRESS_URL_MS);
@@ -154,7 +174,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  // PC向け: クリックで URL を開く。ドラッグ選択は移動量チェック（TAP_MAX_DELTA_PX）
+  // PC向け: クリックで URL を、Ctrl/⌘+クリックでファイルパスを開く。ドラッグ選択は移動量チェック（TAP_MAX_DELTA_PX）
   // で除外されるため、通常クリックでも選択操作とは衝突しない。
   let urlClickStartX = 0;
   let urlClickStartY = 0;
@@ -171,8 +191,11 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
       const dy = ev.clientY - urlClickStartY;
       if (Math.hypot(dx, dy) > TAP_MAX_DELTA_PX) return;
       const url = findUrlInBuffer(tab.value?.term, urlClickStartX, urlClickStartY);
-      if (!url) return;
-      emit("terminal:url", { uri: url });
+      if (url) {
+        emit("terminal:url", { uri: url });
+        return;
+      }
+      if (ev.ctrlKey || ev.metaKey) void openPathAt(urlClickStartX, urlClickStartY);
     };
     document.addEventListener("mouseup", onUrlClickMouseUp);
   }
