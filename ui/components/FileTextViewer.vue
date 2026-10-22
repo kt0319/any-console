@@ -1,7 +1,20 @@
 <template>
   <div class="file-viewer">
-    <div v-if="fileContent.image && fileContent.data_url" class="file-content-image-wrap">
-      <img :src="fileContent.data_url" class="file-content-image" />
+    <div v-if="fileContent.image && fileContent.data_url" class="file-content-image-box">
+      <div class="file-content-image-zoom">
+        <button type="button" aria-label="Zoom out" data-tooltip="Zoom out" :disabled="zoom <= IMAGE_ZOOM_STEPS[0]" @click="stepZoom(-1)"><span class="mdi mdi-magnify-minus-outline" aria-hidden="true"></span></button>
+        <button type="button" aria-label="Fit to width" data-tooltip="Fit to width" :disabled="zoom === 1" @click="zoom = 1"><span class="mdi mdi-fit-to-page-outline" aria-hidden="true"></span></button>
+        <button type="button" aria-label="Zoom in" data-tooltip="Zoom in" :disabled="zoom >= IMAGE_ZOOM_STEPS[IMAGE_ZOOM_STEPS.length - 1]" @click="stepZoom(1)"><span class="mdi mdi-magnify-plus-outline" aria-hidden="true"></span></button>
+      </div>
+      <div class="file-content-image-wrap">
+        <img
+          :src="fileContent.data_url"
+          class="file-content-image"
+          :class="{ 'file-content-image-zoomed': zoom !== 1 }"
+          :style="zoom !== 1 ? { width: `${zoom * 100}%` } : undefined"
+          @click="toggleZoom"
+        />
+      </div>
     </div>
     <div v-else-if="fileContent.binary" class="file-content-message">Binary file ({{ formatSize(fileContent.size) }})</div>
     <div v-else-if="fileContent.too_large" class="file-content-message">File too large ({{ formatSize(fileContent.size) }})</div>
@@ -37,6 +50,7 @@ hljs.registerLanguage("markdown", markdown);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("ini", ini);
 hljs.registerLanguage("dockerfile", dockerfile);
+import { IMAGE_TAP_ZOOM, IMAGE_ZOOM_STEPS } from "../utils/constants.ts";
 import { escapeHtml } from "../utils/escape-html.ts";
 import { formatSize } from "../utils/format.ts";
 
@@ -44,6 +58,18 @@ const props = defineProps({
   fileContent: { type: Object, required: true },
   fileName: { type: String, default: "" },
 });
+
+const zoom = ref(1);
+
+function stepZoom(direction: number) {
+  const index = IMAGE_ZOOM_STEPS.indexOf(zoom.value);
+  const next = IMAGE_ZOOM_STEPS[Math.min(Math.max(index + direction, 0), IMAGE_ZOOM_STEPS.length - 1)];
+  zoom.value = next;
+}
+
+function toggleZoom() {
+  zoom.value = zoom.value === 1 ? IMAGE_TAP_ZOOM : 1;
+}
 
 const codeEl = ref<HTMLElement | null>(null);
 const highlightedLines = ref<string[]>([]);
@@ -67,7 +93,7 @@ function highlight() {
   highlightedLines.value = html.split("\n");
 }
 
-watch(() => props.fileContent, () => highlight(), { immediate: true });
+watch(() => props.fileContent, () => { zoom.value = 1; highlight(); }, { immediate: true });
 </script>
 
 <style scoped>
@@ -120,11 +146,35 @@ watch(() => props.fileContent, () => highlight(), { immediate: true });
   word-break: break-word;
 }
 
+.file-content-image-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.file-content-image-zoom {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 0 0;
+  flex-shrink: 0;
+}
+
+.file-content-image-zoom button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
 .file-content-image-wrap {
   display: flex;
   flex: 1;
-  justify-content: center;
-  align-items: flex-start;
   min-height: 0;
   padding: 12px 0 0;
   overflow: auto;
@@ -132,6 +182,8 @@ watch(() => props.fileContent, () => highlight(), { immediate: true });
 }
 
 .file-content-image {
+  margin: 0 auto;
+  cursor: zoom-in;
   max-width: 100%;
   max-height: calc(var(--app-dvh) - 200px);
   object-fit: contain;
@@ -140,6 +192,13 @@ watch(() => props.fileContent, () => highlight(), { immediate: true });
   background: var(--bg-secondary);
 }
 
+
+.file-content-image-zoomed {
+  max-width: none;
+  max-height: none;
+  flex-shrink: 0;
+  cursor: zoom-out;
+}
 
 .file-content-viewer :deep(code.hljs) {
   background: transparent;
