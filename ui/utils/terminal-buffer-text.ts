@@ -1,4 +1,4 @@
-import type { Terminal } from "@xterm/xterm";
+import type { IBufferLine, Terminal } from "@xterm/xterm";
 
 // URL 本体は非ASCII文字（全角カッコ「（）」や日本語など）でも終端する。
 // URL に生の非ASCIIは入らない前提。これがないと `http://host:3900（Tailscale直）` の
@@ -18,7 +18,7 @@ const URL_SEARCH_WINDOW_LINES = 6;
 export const TERMINAL_PATH_REGEX = /[\w.~@+%-]*(?:\/[\w.~@+%-]+)+\/?|[\w@+%-]+(?:\.[\w@+%-]+)*\.[A-Za-z0-9]+/g;
 
 export function normalizeTerminalPath(raw: string): string | null {
-  const path = raw.replace(/[.,;:)\]]+$/, "");
+  const path = raw.replace(/[.,;:)\]-]+$/, "");
   if (!path || path === "/" || path === "~") return null;
   return path;
 }
@@ -32,6 +32,18 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
 export function findPathInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
   const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_PATH_REGEX);
   return raw ? normalizeTerminalPath(raw) : null;
+}
+
+// 全角文字は2セルだが translateToString では1文字になるため、セル列を文字列上の位置へ換算する。
+function columnToStringIndex(line: IBufferLine, col: number): number {
+  if (!line.getCell) return col;
+  let idx = 0;
+  for (let x = 0; x < col; x++) {
+    const cell = line.getCell(x);
+    if (!cell || cell.getWidth() === 0) continue;
+    idx += cell.getChars().length || 1;
+  }
+  return idx;
 }
 
 function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number, regex: RegExp): string | null {
@@ -55,7 +67,8 @@ function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, c
   const rowOffset = Math.floor(relY / cellH);
   const buf = term.buffer.active;
   const lineIdx = buf.viewportY + rowOffset;
-  if (!buf.getLine(lineIdx)) return null;
+  const tappedLine = buf.getLine(lineIdx);
+  if (!tappedLine) return null;
 
   const startIdx = Math.max(0, lineIdx - URL_SEARCH_WINDOW_LINES);
   const endIdx = Math.min(buf.length - 1, lineIdx + URL_SEARCH_WINDOW_LINES);
@@ -87,7 +100,7 @@ function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, c
     text += trimmed ? trimmed : "\n";
   }
 
-  const absPos = (lineOffsets[lineIdx] || 0) + col;
+  const absPos = (lineOffsets[lineIdx] || 0) + columnToStringIndex(tappedLine, col);
   regex.lastIndex = 0;
   let m;
   while ((m = regex.exec(text)) !== null) {

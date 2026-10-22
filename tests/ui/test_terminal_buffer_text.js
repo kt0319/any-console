@@ -10,7 +10,7 @@ import {
 function makeTerm({ lines, viewportY = 0, cols = 80, rows = 24, element = null }) {
   const lineObjects = lines.map((text) => ({
     length: text.length,
-    getCell: (i) => ({ getChars: () => text[i] || " " }),
+    getCell: (i) => ({ getChars: () => text[i] || " ", getWidth: () => 1 }),
     translateToString: () => text,
   }));
   return {
@@ -55,7 +55,7 @@ function makeTermWithRect({ lines, cols = 80, rows = 24, rect = { left: 0, top: 
   const lineObjects = lines.map((text) => ({
     length: text.length,
     isWrapped: false,
-    getCell: (i) => ({ getChars: () => text[i] || " " }),
+    getCell: (i) => ({ getChars: () => text[i] || " ", getWidth: () => 1 }),
     translateToString: () => text,
   }));
   const element = {
@@ -141,10 +141,10 @@ describe("findUrlInBuffer", () => {
     const cols = part1.length;
     const lineObjects = [
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        getCell: (i) => ({ getChars: () => part1[i] || " ", getWidth: () => 1 }),
         translateToString: () => part1 },
       { length: cols, isWrapped: true,
-        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        getCell: (i) => ({ getChars: () => part2[i] || " ", getWidth: () => 1 }),
         translateToString: () => part2.padEnd(cols) },
     ];
     const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
@@ -169,10 +169,10 @@ describe("findUrlInBuffer", () => {
     const cols = Math.max(part1.length, part2.length);
     const lineObjects = [
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        getCell: (i) => ({ getChars: () => part1[i] || " ", getWidth: () => 1 }),
         translateToString: () => part1 + "  " },
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        getCell: (i) => ({ getChars: () => part2[i] || " ", getWidth: () => 1 }),
         translateToString: () => part2 },
     ];
     const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
@@ -196,13 +196,13 @@ describe("findUrlInBuffer", () => {
     const cols = 60;
     const lineObjects = [
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        getCell: (i) => ({ getChars: () => part1[i] || " ", getWidth: () => 1 }),
         translateToString: () => part1 },
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => blank[i] || " " }),
+        getCell: (i) => ({ getChars: () => blank[i] || " ", getWidth: () => 1 }),
         translateToString: () => blank },
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part3[i] || " " }),
+        getCell: (i) => ({ getChars: () => part3[i] || " ", getWidth: () => 1 }),
         translateToString: () => part3 },
     ];
     const rect = { left: 0, top: 0, width: cols * 10, height: 60 };
@@ -226,10 +226,10 @@ describe("findUrlInBuffer", () => {
     const cols = Math.max(part1.length, part2.length);
     const lineObjects = [
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        getCell: (i) => ({ getChars: () => part1[i] || " ", getWidth: () => 1 }),
         translateToString: () => part1 },
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        getCell: (i) => ({ getChars: () => part2[i] || " ", getWidth: () => 1 }),
         translateToString: () => part2 },
     ];
     const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
@@ -250,10 +250,10 @@ describe("findUrlInBuffer", () => {
     const cols = Math.max(part1.length, part2.length);
     const lineObjects = [
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        getCell: (i) => ({ getChars: () => part1[i] || " ", getWidth: () => 1 }),
         translateToString: () => part1 },
       { length: cols, isWrapped: false,
-        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        getCell: (i) => ({ getChars: () => part2[i] || " ", getWidth: () => 1 }),
         translateToString: () => part2 },
     ];
     const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
@@ -294,5 +294,42 @@ describe("findPathInBuffer / normalizeTerminalPath", () => {
     expect(normalizeTerminalPath("a/b.ts).")).toBe("a/b.ts");
     expect(normalizeTerminalPath("/")).toBeNull();
     expect(normalizeTerminalPath("~")).toBeNull();
+  });
+});
+
+describe("findPathInBuffer with wide characters and wrapped lines", () => {
+  function makeWideTerm(texts, cols = 40) {
+    const wide = (ch) => /[^\u0000-\u00ff]/.test(ch);
+    const lineObjects = texts.map((text) => {
+      const cells = [];
+      for (const ch of text) {
+        cells.push({ getChars: () => ch, getWidth: () => (wide(ch) ? 2 : 1) });
+        if (wide(ch)) cells.push({ getChars: () => "", getWidth: () => 0 });
+      }
+      return {
+        length: cells.length,
+        isWrapped: false,
+        getCell: (i) => cells[i] || null,
+        translateToString: () => text,
+      };
+    });
+    const rect = { left: 0, top: 0, width: cols * 10, height: texts.length * 20 };
+    return {
+      cols,
+      rows: texts.length,
+      element: { querySelector: () => ({ getBoundingClientRect: () => rect }), getBoundingClientRect: () => rect },
+      buffer: { active: { viewportY: 0, length: lineObjects.length, getLine: (i) => lineObjects[i] || null } },
+    };
+  }
+
+  it("accounts for double-width characters before the path", () => {
+    const term = makeWideTerm(["修正前の画面: /tmp/a/b.png"]);
+    // 「修正前の画面: 」は 6 文字（全角5 + 半角2 = 12 セル）。パス先頭は 12 セル目。
+    expect(findPathInBuffer(term, 14 * 10 + 5, 5)).toBe("/tmp/a/b.png");
+  });
+
+  it("drops the bullet dash glued from the next line", () => {
+    const term = makeWideTerm(["  - /tmp/a/b.png", "  - 次の行"]);
+    expect(findPathInBuffer(term, 8 * 10 + 5, 5)).toBe("/tmp/a/b.png");
   });
 });
