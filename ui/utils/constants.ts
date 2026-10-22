@@ -135,9 +135,10 @@ export function extractApiError(data: { detail?: string; message?: string } | nu
 
 export const GIT_DIFF_STATUS_CLASSES = Object.freeze({
   M: "diff-status-mod",
+  R: "diff-status-mod",
   A: "diff-status-add",
+  U: "diff-status-untracked",
   D: "diff-status-del",
-  "?": "diff-status-untracked",
 });
 
 // 画像ビューアの拡大率の範囲（1 = 横幅フィット）とタップで拡大した時の倍率

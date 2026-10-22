@@ -126,8 +126,7 @@ export function resolveFileNumstat(file: GitFileLike, diffChunk = ""): { inserti
 }
 
 export function buildFileNumstatHtml(file: GitFileLike, diffChunk = "", opts: { neutralText?: boolean } = {}) {
-  const status = String(file.status || "").trim();
-  const omitZeroDeletions = status === "??" || status === "A";
+  const omitZeroDeletions = isNewFileDiffStatus(String(file.status || ""));
   const { neutralText = false } = opts;
   const { insertions, deletions } = resolveFileNumstat(file, diffChunk);
   return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
@@ -143,9 +142,8 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {
 
   const tasks = files
     .filter((file) => {
-      const status = String(file.status || "").trim();
       const hasNumstat = file.insertions != null || file.deletions != null;
-      return (status === "??" || status === "A") && !hasNumstat && (file.path || file.name);
+      return isNewFileDiffStatus(String(file.status || "")) && !hasNumstat && (file.path || file.name);
     })
     .map(async (file) => {
       // 上のfilterで file.path || file.name が truthy であることを保証済み。
@@ -175,14 +173,34 @@ export function buildGitHubFileUrl(githubUrl: string, ref: string, path: string,
   return `${githubUrl}/${type}/${ref}/${path}`;
 }
 
-/** 差分ステータス文字（M / A / D / ?）を表示用クラスへ写像する（未知は空文字）。 */
+/** 差分ステータスの表示ラベル（1文字）を表示用クラスへ写像する（未知は空文字）。 */
 export function diffStatusClass(status: string): string {
   return GIT_DIFF_STATUS_CLASSES[diffStatusLabel(status) as keyof typeof GIT_DIFF_STATUS_CLASSES] || "";
 }
 
-/** 未追跡（??）は新規ファイルとして A で表示する。 */
+const UNMERGED_STATUSES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
+
+/**
+ * サーバの status（git status --porcelain の XY を trim したもの）を1文字の表示ラベルにする。
+ * コミットは add -A 後に行われるため、2文字は「コミット時に実際に起きる変化」で決める
+ * （AM→A / MM→M / RM→R / MD→D）。ステージ後に削除された AD はコミットしても何も起きないので "-"。
+ * 未追跡（??）は U。未マージ（UU 等）と未知の形式はそのまま返す。
+ */
 export function diffStatusLabel(status: string): string {
-  return status.trim() === "??" ? "A" : status;
+  const code = (status || "").trim();
+  if (code === "??") return "U";
+  if (code.length !== 2 || UNMERGED_STATUSES.has(code)) return code;
+  const [staged, worktree] = code;
+  if (worktree === "D") return staged === "A" ? "-" : "D";
+  if (worktree === "M") return "ARC".includes(staged) ? staged : "M";
+  if (worktree === "A") return "A";
+  return code;
+}
+
+/** 内容を取得して全体を表示すべき新規ファイル（未追跡 U・追加 A）か。 */
+export function isNewFileDiffStatus(status: string): boolean {
+  const label = diffStatusLabel(status);
+  return label === "U" || label === "A";
 }
 
 export function abbreviateBranch(branch: string): { abbr: string, rest: string } {

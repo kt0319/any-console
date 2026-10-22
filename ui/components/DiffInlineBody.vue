@@ -14,6 +14,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { colorDiff } from "../utils/diff-color.ts";
 import { workspaceFileContentPath } from "../utils/endpoints.ts";
+import { isNewFileDiffStatus } from "../utils/git.ts";
 
 const props = defineProps<{ path: string, status: string, chunk?: string }>();
 
@@ -26,7 +27,7 @@ const chunkHtml = computed(() => (props.chunk ? colorDiff(props.chunk) : ""));
 
 onMounted(async () => {
   const workspace = workspaceStore.selectedWorkspace;
-  const isNewFile = ["??", "A"].includes(props.status.trim());
+  const isNewFile = isNewFileDiffStatus(props.status);
   if (!chunkHtml.value && isNewFile && workspace) {
     const { ok, data } = await getWithRetry(apiGet, workspaceFileContentPath(workspace, props.path));
     if (ok && data) newFileContent.value = data;

@@ -427,6 +427,13 @@ button:disabled {
   background: rgba(126, 219, 154, 0.12);
 }
 
+.diff-file-row-status.diff-status-untracked {
+  color: #c9e87a;
+  border-color: rgba(201, 232, 122, 0.55);
+  border-style: dashed;
+  background: rgba(201, 232, 122, 0.12);
+}
+
 .diff-file-row-status.diff-status-del {
   color: #ff8e9a;
   border-color: rgba(255, 142, 154, 0.45);

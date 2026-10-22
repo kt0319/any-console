@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -369,10 +369,47 @@ describe("parseFileLog", () => {
 });
 
 describe("diffStatusLabel / diffStatusClass", () => {
-  it("未追跡(??)はAとして表示し、追加と同じクラスにする", async () => {
-    const { diffStatusLabel, diffStatusClass } = await import("../../ui/utils/git.ts");
-    expect(diffStatusLabel("??")).toBe("A");
+  it("未追跡(??)はUで表示し、Aとは別のクラスにする", () => {
+    expect(diffStatusLabel("??")).toBe("U");
+    expect(diffStatusClass("??")).toBe("diff-status-untracked");
+    expect(diffStatusClass("??")).not.toBe(diffStatusClass("A"));
+    expect(diffStatusClass("A")).toBe("diff-status-add");
+  });
+
+  it("空白付きの1文字ステータスも1文字に揃える", () => {
+    expect(diffStatusLabel(" M")).toBe("M");
+    expect(diffStatusLabel("M ")).toBe("M");
+    expect(diffStatusLabel(" D")).toBe("D");
+    expect(diffStatusLabel("A ")).toBe("A");
     expect(diffStatusLabel("M")).toBe("M");
-    expect(diffStatusClass("??")).toBe(diffStatusClass("A"));
+  });
+
+  it("2文字はadd -A後のコミットで実際に起きる変化で表示する", () => {
+    expect(diffStatusLabel("AM")).toBe("A");
+    expect(diffStatusLabel("MM")).toBe("M");
+    expect(diffStatusLabel("RM")).toBe("R");
+    expect(diffStatusLabel("MD")).toBe("D");
+    expect(diffStatusLabel("AD")).toBe("-");
+    expect(diffStatusClass("AM")).toBe(diffStatusClass("A"));
+    expect(diffStatusClass("MM")).toBe(diffStatusClass("M"));
+    expect(diffStatusClass("AD")).toBe("");
+  });
+
+  it("リネーム(R )はRで表示しMと同じクラスにする", () => {
+    expect(diffStatusLabel("R")).toBe("R");
+    expect(diffStatusLabel("R ")).toBe("R");
+    expect(diffStatusClass("R")).toBe(diffStatusClass("M"));
+  });
+
+  it("未マージ(UU等)・未知の形式はそのまま返す", () => {
+    expect(diffStatusLabel("UU")).toBe("UU");
+    expect(diffStatusLabel("AA")).toBe("AA");
+    expect(diffStatusLabel("")).toBe("");
+    expect(diffStatusClass("UU")).toBe("");
+  });
+
+  it("isNewFileDiffStatusは未追跡・追加・AMを新規ファイルとする", () => {
+    for (const s of ["??", "A", "AM", "A "]) expect(isNewFileDiffStatus(s)).toBe(true);
+    for (const s of ["M", "MM", "D", "AD", "R", ""]) expect(isNewFileDiffStatus(s)).toBe(false);
   });
 });

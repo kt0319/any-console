@@ -5,6 +5,7 @@ import { useApi } from "./useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { colorDiff, escapeDiffHtml } from "../utils/diff-color.ts";
 import { workspaceFileContentPath } from "../utils/endpoints.ts";
+import { isNewFileDiffStatus } from "../utils/git.ts";
 
 export function useFileDiff({ getDiffFile, getDiffMessage, getDiffCommitHash }: {
   getDiffFile: () => string | null,
@@ -29,9 +30,8 @@ export function useFileDiff({ getDiffFile, getDiffMessage, getDiffCommitHash }: 
       diffHtml.value = `<pre>${colorDiff(chunk)}</pre>`;
       return;
     }
-    const status = (gitStore.diffFileStatuses[file] || "").trim();
     const workspace = workspaceStore.selectedWorkspace;
-    if ((status === "??" || status === "A") && workspace) {
+    if (isNewFileDiffStatus(gitStore.diffFileStatuses[file] || "") && workspace) {
       try {
         const { ok, data } = await getWithRetry(apiGet, workspaceFileContentPath(workspace, file));
         if (ok && data) {
