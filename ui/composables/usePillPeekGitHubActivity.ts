@@ -1,4 +1,5 @@
-import type { ComputedRef } from "vue";
+import { onBeforeUnmount, type ComputedRef } from "vue";
+import { GITHUB_ACTIVITY_BATCH_MS } from "../utils/constants.ts";
 import { useBusListener } from "./useBusListener.ts";
 import { describeActivityEvents, describeRunEvent, type ActivityEvent } from "../utils/github-activity.ts";
 
@@ -23,8 +24,14 @@ export function usePillPeekGitHubActivity({ workspaceKey, trailingPeekItems, pee
     return true;
   }
 
-  useBusListener("github:activity", ({ workspace, items }: { workspace?: string, items?: ActivityEvent[] }) => {
-    if (!items?.length || workspace !== workspaceKey()) return;
+  // 再接続時は取りこぼし分が複数のイベントに分かれて続けて届くため、短い窓でまとめて1回のpeekにする。
+  let pendingItems: ActivityEvent[] = [];
+  let batchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flushActivity() {
+    batchTimer = null;
+    const items = pendingItems;
+    pendingItems = [];
     const hasPill = (key: string) => trailingPeekItems.value.some((item) => item.key === key);
     if (hasPill("prs")) {
       const prNumber = peekFields.value?.branchPR?.number;
@@ -42,6 +49,18 @@ export function usePillPeekGitHubActivity({ workspaceKey, trailingPeekItems, pee
         triggerPeek("actions", 0, 0, null, true, describeRunEvent(latest));
       }
     }
+  }
+
+  useBusListener("github:activity", ({ workspace, items }: { workspace?: string, items?: ActivityEvent[] }) => {
+    if (!items?.length || workspace !== workspaceKey()) return;
+    pendingItems.push(...items);
+    if (!batchTimer) batchTimer = setTimeout(flushActivity, GITHUB_ACTIVITY_BATCH_MS);
+  });
+
+  onBeforeUnmount(() => {
+    if (batchTimer) clearTimeout(batchTimer);
+    batchTimer = null;
+    pendingItems = [];
   });
 
   return { claimCompletedRun };

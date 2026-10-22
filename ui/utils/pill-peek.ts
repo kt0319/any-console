@@ -22,6 +22,25 @@ export function findChangedTrailingItems(
 }
 
 /**
+ * 比較元シグネチャを今回の内容で更新する。今回の items に無いキーは前の値を残し、
+ * キーが再び現れた時に残した値と比べる。残さず捨てるのは、再同期中でない時に
+ * 直前の items から実際に消えたキーだけ（本当に無くなった状態）。
+ */
+export function mergeVanishedTrailingKeys(
+  prev: Map<string, string>,
+  next: Map<string, string>,
+  prevItemKeys: Set<string>,
+  resyncing: boolean,
+): Map<string, string> {
+  const merged = new Map(next);
+  for (const [key, value] of prev) {
+    if (next.has(key)) continue;
+    if (resyncing || !prevItemKeys.has(key)) merged.set(key, value);
+  }
+  return merged;
+}
+
+/**
  * ピル群（TerminalPaneの浮遊ピル・セッションサイドバー行の両方）で共通の
  * trailingPeekItems（usePillPeekの変化検出対象）を組み立てる純粋関数。
  * 各キーはInfoPillRowの対応ボタンのv-if条件（infoPillConfig含む）と揃える

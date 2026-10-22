@@ -7,9 +7,10 @@ import {
   findChangedTrailingItems,
   buildPeekText,
   buildPeekSignature,
+  mergeVanishedTrailingKeys,
 } from "../utils/pill-peek.ts";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
-import { isPeekQuiet } from "../utils/peek-quiet.ts";
+import { statusStreamSettled } from "../utils/status-stream-sync.ts";
 import { usePillPeekGitHubActivity } from "./usePillPeekGitHubActivity.ts";
 
 // アイコン群のどれかの値が更新された時、ピル群全体を隠し、変化した対象のアイコン+情報
@@ -47,6 +48,8 @@ export function usePillPeek({
   // 短くなる）。PillPeek.vueがマーキーの再生時間をこれに合わせるため。
   const peekDurationMs = ref(PILL_PEEK_DURATION_MS);
   let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
+  let prevItemKeys = new Set(prevTrailingSignature.keys());
+  let prevWorkspace = workspaceKey();
   let peekTimer: ReturnType<typeof setTimeout> | null = null;
   // branchのpeekでahead/behindが消えた瞬間、ブランチ名の横に「Pushed (N)」「Pulled (N)」を
   // 出す（0は非表示、直前のahead/behind値が実際に押し出された/取り込まれた件数）。
@@ -149,6 +152,13 @@ export function usePillPeek({
   let prevUpstreamHead = peekFields.value?.upstreamHead as string | undefined;
   watch([trailingPeekItems, () => peekFields.value?.upstreamHead as string | undefined], ([items, upstreamHead]) => {
     const nextSignature = trailingItemsSignature(items);
+    // ワークスペースが変わったら、消えたキー用に残していた前の値は別ワークスペースのものなので捨てる。
+    if (workspaceKey() !== prevWorkspace) {
+      prevWorkspace = workspaceKey();
+      for (const key of [...prevTrailingSignature.keys()]) {
+        if (!prevItemKeys.has(key)) prevTrailingSignature.delete(key);
+      }
+    }
     const prsJustResolved = !prsEverResolved && prsResolvedFor(workspaceKey());
     if (prsJustResolved) {
       prsEverResolved = true;
@@ -161,7 +171,7 @@ export function usePillPeek({
     }
     const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
     if (justResolved) workspaceEverResolved = true;
-    if (workspaceEverResolved && !justResolved && !isPeekQuiet()) {
+    if (workspaceEverResolved && !justResolved) {
       for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
         if (changed.key === "actions") {
           const run = peekFields.value?.branchAction;
@@ -209,15 +219,30 @@ export function usePillPeek({
         triggerPeek(changed.key, pushCount, pullCount);
       }
     }
-    prevTrailingSignature = nextSignature;
-    prevUpstreamHead = upstreamHead;
+    prevTrailingSignature = mergeVanishedTrailingKeys(prevTrailingSignature, nextSignature, prevItemKeys, !statusStreamSettled.value);
+    prevItemKeys = new Set(nextSignature.keys());
+    // branchの前の値を残している間は、push判定用のupstream_headも動かさない。
+    if (nextSignature.has("branch") || !prevTrailingSignature.has("branch")) prevUpstreamHead = upstreamHead;
   }, { deep: true });
 
   // Dev Serverが検出されなくなった瞬間だけ知らせる。trailingPeekItemsはdevServerEntryが
   // 無い間キー自体を積まないため、findChangedTrailingItemsでは「消えたこと」を検知できない
   // （新規出現/値変化しか拾えない）。devServerEntry自体を直接見て真→偽への遷移だけを拾う。
+  // status stream の切断中・再同期前に消えた場合は保留し、同期後も無ければ1回だけ出す。
+  let devServerStopPending = false;
   watch(devServerEntry, (entry, prevEntry) => {
-    if (!entry && prevEntry && !isPeekQuiet()) triggerPeek("devserver-stop");
+    if (entry) {
+      devServerStopPending = false;
+      return;
+    }
+    if (!prevEntry) return;
+    if (statusStreamSettled.value) triggerPeek("devserver-stop");
+    else devServerStopPending = true;
+  });
+  watch(statusStreamSettled, (settled) => {
+    if (!settled) return;
+    if (devServerStopPending && !devServerEntry.value) triggerPeek("devserver-stop");
+    devServerStopPending = false;
   });
 
   onBeforeUnmount(() => {

@@ -5,7 +5,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { applyDispatchQueue } from "./useDispatchQueue.ts";
 import { useSessionSync } from "./useSessionSync.ts";
 import { emit, on } from "../app-bridge.ts";
-import { markStreamLost, markStreamRecovered } from "../utils/peek-quiet.ts";
+import { statusStreamSettled } from "../utils/status-stream-sync.ts";
 import { debugLog } from "./useClientLogs.ts";
 import {
   buildStatusStreamUrl,
@@ -75,13 +75,14 @@ export function useStatusStream() {
     ws.onopen = () => {
       debugLog("[StatusStream] connected");
       reconnectAttempts = 0;
-      markStreamRecovered();
       // サーバ側の閲覧レジストリは接続（socket）単位で持つため、再接続の
       // たびに現在値を送り直す必要がある。
       sendViewing();
       sendWatchGitHub();
       // 切断中の変更を取りこぼしている可能性があるため、接続のたびに全量を同期する
-      workspaceStore.fetchStatuses();
+      void workspaceStore.fetchStatuses().finally(() => {
+        if (socket === ws) statusStreamSettled.value = true;
+      });
     };
     ws.onmessage = (e) => {
       const msg = parseStatusStreamMessage(e.data);
@@ -125,7 +126,7 @@ export function useStatusStream() {
       }
     };
     ws.onclose = () => {
-      markStreamLost();
+      statusStreamSettled.value = false;
       scheduleReconnect();
     };
   }

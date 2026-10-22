@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // @ts-check
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { ref, computed, defineComponent, h, nextTick } from "vue";
 import {
@@ -9,11 +9,12 @@ import {
   buildTrailingPeekItems,
   buildPeekText,
   buildPeekSignature,
+  mergeVanishedTrailingKeys,
 } from "../../ui/utils/pill-peek.ts";
 import { usePillPeek } from "../../ui/composables/usePillPeek.ts";
 import { emit } from "../../ui/app-bridge.ts";
-import { markStreamLost, markStreamRecovered, resetPeekQuietForTest } from "../../ui/utils/peek-quiet.ts";
-import { PILL_PEEK_DURATION_MS, PILL_PEEK_RESYNC_QUIET_MS } from "../../ui/utils/constants.ts";
+import { statusStreamSettled } from "../../ui/utils/status-stream-sync.ts";
+import { PILL_PEEK_DURATION_MS, GITHUB_ACTIVITY_BATCH_MS } from "../../ui/utils/constants.ts";
 
 const ALL_ON = {
   files: true,
@@ -73,6 +74,25 @@ describe("trailingItemsSignature / findChangedTrailingItems", () => {
     ]);
     const items = [{ key: "branch", text: "main" }];
     expect(findChangedTrailingItems(items, prev)).toEqual([]);
+  });
+});
+
+describe("mergeVanishedTrailingKeys", () => {
+  const prev = new Map([["a", "1"], ["b", "2"]]);
+
+  it("今回のitemsが優先され、無いキーは再同期中なら前の値を残す", () => {
+    const merged = mergeVanishedTrailingKeys(prev, new Map([["a", "9"]]), new Set(["a", "b"]), true);
+    expect([...merged]).toEqual([["a", "9"], ["b", "2"]]);
+  });
+
+  it("同期済みで直前のitemsにあったキーが消えたら捨てる", () => {
+    const merged = mergeVanishedTrailingKeys(prev, new Map([["a", "1"]]), new Set(["a", "b"]), false);
+    expect(merged.has("b")).toBe(false);
+  });
+
+  it("同期済みでも、既に消えて値だけ残しているキーは保持する", () => {
+    const merged = mergeVanishedTrailingKeys(prev, new Map([["a", "1"]]), new Set(["a"]), false);
+    expect(merged.get("b")).toBe("2");
   });
 });
 
@@ -192,12 +212,16 @@ describe("buildPeekText", () => {
 });
 
 describe("usePillPeek", () => {
+  beforeEach(() => { statusStreamSettled.value = true; });
+  afterEach(() => { statusStreamSettled.value = false; });
+
   function mountPillPeek(opts = {}) {
     const branch = ref("main");
     const ahead = ref(opts.ahead ?? 3);
     const behind = ref(opts.behind ?? 0);
     const upstreamHead = ref(opts.upstreamHead);
     const branchPillOn = ref(true);
+    const devServer = ref(opts.devServer ?? null);
     const trailingPeekItems = computed(() => [
       ...(opts.filesPill ? [{ key: "files", text: "Files" }] : []),
       ...(opts.githubPills ? [{ key: "prs", text: "5:feat" }, { key: "issues", text: "Issues:2" }] : []),
@@ -220,7 +244,7 @@ describe("usePillPeek", () => {
           workspaceKey: () => "ws1",
           prsByWorkspace,
           runsByWorkspace: ref({}),
-          devServerEntry: computed(() => null),
+          devServerEntry: computed(() => devServer.value),
           ahead,
           behind,
           peekFields,
@@ -230,31 +254,94 @@ describe("usePillPeek", () => {
       },
     });
     const wrapper = mount(Comp);
-    return { wrapper, peek, branch, ahead, behind, upstreamHead, branchPillOn, prsByWorkspace, runStatus };
+    return { wrapper, peek, devServer, branch, ahead, behind, upstreamHead, branchPillOn, prsByWorkspace, runStatus };
   }
 
-  describe("status stream 再接続時の抑制", () => {
-    afterEach(() => resetPeekQuietForTest());
-
-    it("切断中と再接続後の再同期中は値が変わってもpeekを出さない", async () => {
-      const { peek, branch } = mountPillPeek();
-      markStreamLost();
-      branch.value = "other";
+  describe("status stream 再接続中のキー消失", () => {
+    it("キーが一度消えて同じ値で戻ってもpeekを出さない", async () => {
+      const { peek, branchPillOn } = mountPillPeek();
+      statusStreamSettled.value = false;
+      branchPillOn.value = false;
       await nextTick();
-      expect(peek.peekingKey.value).toBe(null);
-      markStreamRecovered();
-      branch.value = "main";
+      branchPillOn.value = true;
       await nextTick();
-      expect(peek.peekingKey.value).toBe(null);
+      expect(peek.peekingKey.value).toBeNull();
     });
 
-    it("再同期の静穏期間を過ぎれば通常どおりpeekを出す", async () => {
-      const { peek, branch } = mountPillPeek();
-      markStreamLost();
-      markStreamRecovered(Date.now() - PILL_PEEK_RESYNC_QUIET_MS - 1);
-      branch.value = "other";
+    it("キーが消えている間に値が変わって戻ったらpeekを1回出す（切断中のpush）", async () => {
+      const { peek, branchPillOn, ahead, upstreamHead } = mountPillPeek({ upstreamHead: "aaa" });
+      statusStreamSettled.value = false;
+      branchPillOn.value = false;
+      await nextTick();
+      upstreamHead.value = "bbb";
+      ahead.value = 0;
+      await nextTick();
+      branchPillOn.value = true;
       await nextTick();
       expect(peek.peekingKey.value).toBe("branch");
+      expect(peek.branchPushCount.value).toBe(3);
+    });
+
+    it("同期済みの状態で実際に消えたキーは、同じ値で戻ればpeekを出す", async () => {
+      const { peek, branchPillOn } = mountPillPeek();
+      branchPillOn.value = false;
+      await nextTick();
+      branchPillOn.value = true;
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("branch");
+    });
+
+    it("同期前に消えて同期後に戻ったキーも、残した値と比べる", async () => {
+      const { peek, branchPillOn } = mountPillPeek();
+      statusStreamSettled.value = false;
+      branchPillOn.value = false;
+      await nextTick();
+      statusStreamSettled.value = true;
+      await nextTick();
+      branchPillOn.value = true;
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+    });
+  });
+
+  describe("devserver-stop", () => {
+    const entry = { proxy_port: 3000 };
+
+    it("同期済みで検出されなくなったら出す", async () => {
+      const { peek, devServer } = mountPillPeek({ devServer: entry });
+      devServer.value = null;
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("devserver-stop");
+    });
+
+    it("再接続中に一時的に消えて戻ってもdevserver-stopを出さない", async () => {
+      const { peek, devServer } = mountPillPeek({ devServer: entry });
+      statusStreamSettled.value = false;
+      devServer.value = null;
+      await nextTick();
+      devServer.value = entry;
+      await nextTick();
+      statusStreamSettled.value = true;
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+    });
+
+    it("再同期後も検出されなければdevserver-stopを1回出す", async () => {
+      vi.useFakeTimers();
+      const { peek, devServer } = mountPillPeek({ devServer: entry });
+      statusStreamSettled.value = false;
+      devServer.value = null;
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
+      statusStreamSettled.value = true;
+      await nextTick();
+      expect(peek.peekingKey.value).toBe("devserver-stop");
+      await vi.advanceTimersByTimeAsync(PILL_PEEK_DURATION_MS + 10);
+      expect(peek.peekingKey.value).toBeNull();
+      statusStreamSettled.value = false;
+      statusStreamSettled.value = true;
+      await nextTick();
+      expect(peek.peekingKey.value).toBeNull();
     });
   });
 
@@ -345,11 +432,14 @@ describe("usePillPeek", () => {
       createdAt: "2026-01-01T00:00:00Z", url: "u", overflow: false, ...over,
     });
     const send = (items, workspace = "ws1") => emit("github:activity", { workspace, items });
+    const flush = () => vi.advanceTimersByTimeAsync(GITHUB_ACTIVITY_BATCH_MS);
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
 
     it("現在ブランチのPRのコメント・レビューをprs peekに出す", async () => {
       const { peek } = mountPillPeek({ githubPills: true });
       send([ev(), ev({ kind: "comment" }), ev({ kind: "review" })]);
-      await nextTick();
+      await flush();
       expect(peek.peekingKey.value).toBe("prs");
       expect(peek.peekText.value).toBe("#5 2 new comments, 1 new review: feat");
     });
@@ -357,14 +447,14 @@ describe("usePillPeek", () => {
     it("ブランチ外のPRは出さない", async () => {
       const { peek } = mountPillPeek({ githubPills: true });
       send([ev({ number: 9 })]);
-      await nextTick();
+      await flush();
       expect(peek.peekingKey.value).toBeNull();
     });
 
     it("Issueのコメントをissues peekに出す", async () => {
       const { peek } = mountPillPeek({ githubPills: true });
       send([ev({ target: "issue", number: 7, title: "bug" })]);
-      await nextTick();
+      await flush();
       expect(peek.peekingKey.value).toBe("issues");
       expect(peek.peekText.value).toBe("#7 1 new comment: bug");
     });
@@ -375,19 +465,33 @@ describe("usePillPeek", () => {
         ev({ target: "issue", number: 1 }), ev({ target: "issue", number: 1 }),
         ev({ target: "issue", number: 2 }), ev({ target: "issue", number: 3 }),
       ]);
-      await nextTick();
+      await flush();
       expect(peek.peekText.value).toBe("3 issues: 4 new comments");
     });
 
     it("別ワークスペース宛て・対応するピルが無い時は出さない", async () => {
       const { peek } = mountPillPeek({ githubPills: true });
       send([ev({ target: "issue" })], "other");
-      await nextTick();
+      await flush();
       expect(peek.peekingKey.value).toBeNull();
       const { peek: noPill } = mountPillPeek();
       send([ev({ target: "issue" })]);
-      await nextTick();
+      await flush();
       expect(noPill.peekingKey.value).toBeNull();
+    });
+
+    it("再接続で再送された複数のイベントは1回のpeekにまとめる", async () => {
+      const { peek } = mountPillPeek({ githubPills: true });
+      send([ev()]);
+      send([ev({ kind: "review" })]);
+      send([ev({ target: "issue", number: 7, title: "bug" })]);
+      await flush();
+      expect(peek.peekingKey.value).toBe("prs");
+      expect(peek.peekText.value).toBe("#5 1 new comment, 1 new review: feat");
+      await vi.advanceTimersByTimeAsync(PILL_PEEK_DURATION_MS + 10);
+      expect(peek.peekingKey.value).toBe("issues");
+      await vi.advanceTimersByTimeAsync(PILL_PEEK_DURATION_MS + 10);
+      expect(peek.peekingKey.value).toBeNull();
     });
 
     describe("CI完了", () => {
@@ -399,7 +503,7 @@ describe("usePillPeek", () => {
       it("現在ブランチのrun完了をactions peekに出す", async () => {
         const { peek } = mountPillPeek({ actionsPill: true });
         send([run({ conclusion: "failure" })]);
-        await nextTick();
+        await flush();
         expect(peek.peekingKey.value).toBe("actions");
         expect(peek.peekText.value).toBe("[CI] failure");
       });
@@ -407,7 +511,7 @@ describe("usePillPeek", () => {
       it("別ブランチのrunは出さない", async () => {
         const { peek } = mountPillPeek({ actionsPill: true });
         send([run({ branch: "feature" })]);
-        await nextTick();
+        await flush();
         expect(peek.peekingKey.value).toBeNull();
       });
 
@@ -416,11 +520,11 @@ describe("usePillPeek", () => {
         try {
           const { peek } = mountPillPeek({ actionsPill: true });
           send([run()]);
-          await nextTick();
+          await flush();
           vi.advanceTimersByTime(PILL_PEEK_DURATION_MS + 10);
           expect(peek.peekingKey.value).toBeNull();
           send([run()]);
-          await nextTick();
+          await flush();
           expect(peek.peekingKey.value).toBeNull();
         } finally {
           vi.useRealTimers();
@@ -436,7 +540,7 @@ describe("usePillPeek", () => {
           expect(peek.peekingKey.value).toBe("actions");
           vi.advanceTimersByTime(PILL_PEEK_DURATION_MS + 10);
           send([run()]);
-          await nextTick();
+          await flush();
           expect(peek.peekingKey.value).toBeNull();
         } finally {
           vi.useRealTimers();
