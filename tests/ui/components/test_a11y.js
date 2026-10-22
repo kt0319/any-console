@@ -141,6 +141,9 @@ describe("a11y: PathPreviewDialog", () => {
     emit("terminal:path", { path: "/etc/hosts", fileContent: { content: "127.0.0.1 localhost\n", size: 20 } });
     await nextTick();
     expect(wrapper.find(".path-preview-path").text()).toBe("/etc/hosts");
+    expect(wrapper.text()).not.toContain("127.0.0.1 localhost");
+    await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
+    await wrapper.findAll(".path-preview-btn")[0].trigger("click");
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
     await wrapper.find(".path-preview-btn-cancel").trigger("click");

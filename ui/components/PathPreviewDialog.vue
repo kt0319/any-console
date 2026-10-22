@@ -1,15 +1,18 @@
 <template>
   <BaseDialog :visible="!!path" :z-index="1000" @dismiss="close">
-    <div class="path-preview-dialog" role="dialog" aria-modal="true" aria-label="File preview">
+    <div class="path-preview-dialog" :class="{ 'path-preview-dialog-open': previewing }" role="dialog" aria-modal="true" aria-label="Open file">
       <div class="path-preview-path">{{ path }}</div>
-      <div class="path-preview-body">
+      <div v-if="previewing" class="path-preview-body">
         <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" />
       </div>
-      <div class="path-preview-buttons">
+      <div class="path-preview-buttons" :class="{ 'path-preview-buttons-row': previewing }">
+        <button v-if="!previewing" class="path-preview-btn hover-bg" @click="previewing = true">
+          <span class="mdi mdi-open-in-new"></span>Open
+        </button>
         <button class="path-preview-btn hover-bg" @click="copy(path)">
           <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ copied ? "Copied!" : "Copy path" }}
         </button>
-        <button class="path-preview-btn path-preview-btn-cancel hover-bg" @click="close">Close</button>
+        <button class="path-preview-btn path-preview-btn-cancel hover-bg" @click="close">{{ previewing ? "Close" : "Cancel" }}</button>
       </div>
     </div>
   </BaseDialog>
@@ -23,17 +26,20 @@ import { useBusListener } from "../composables/useBusListener.ts";
 import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 
 const path = ref("");
+const previewing = ref(false);
 const fileContent = ref<Record<string, any> | null>(null);
 const { copied, copy } = useCopyFeedback();
 
 function close() {
   path.value = "";
   fileContent.value = null;
+  previewing.value = false;
 }
 
 useBusListener("terminal:path", (detail) => {
   path.value = detail.path;
   fileContent.value = detail.fileContent;
+  previewing.value = false;
   copied.value = false;
 });
 </script>
@@ -45,12 +51,16 @@ useBusListener("terminal:path", (detail) => {
   border-radius: var(--radius);
   padding: 14px;
   width: 100%;
-  max-width: 720px;
+  max-width: 480px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
   gap: 8px;
   box-sizing: border-box;
+}
+
+.path-preview-dialog-open {
+  max-width: 720px;
 }
 
 .path-preview-path {
@@ -71,11 +81,18 @@ useBusListener("terminal:path", (detail) => {
 
 .path-preview-buttons {
   display: flex;
+  flex-direction: column;
   gap: 6px;
+  margin-top: 4px;
+}
+
+.path-preview-buttons-row {
+  flex-direction: row;
+  margin-top: 0;
 }
 
 .path-preview-btn {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -92,5 +109,10 @@ useBusListener("terminal:path", (detail) => {
 
 .path-preview-btn-cancel {
   color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.path-preview-buttons-row .path-preview-btn-cancel {
+  margin-top: 0;
 }
 </style>
