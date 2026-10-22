@@ -4,11 +4,13 @@
       <DiffFileItem
         :file="file"
         :selected="selectedFile === file.path"
-        :expanded="isExpanded(file.path)"
-        navigable
         @click="toggleFile(file.path)"
-        @navigate="$emit('navigate', file)"
       />
+      <li v-if="isExpanded(file.path)" class="diff-file-open-row">
+        <button type="button" class="diff-file-open-btn" @click="$emit('navigate', file)">
+          <span class="mdi mdi-open-in-new" aria-hidden="true"></span>Open in Files
+        </button>
+      </li>
       <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :status="file.status" :chunk="diffChunks[file.path]" />
     </ul>
   </div>
@@ -20,7 +22,7 @@ import DiffFileItem from "./DiffFileItem.vue";
 import DiffInlineBody from "./DiffInlineBody.vue";
 
 // ファイルごとに差分を展開表示するボックス一覧。Changes と History のコミット詳細で共用する。
-// 行タップで開閉し、右端のボタンで Files タブへ移動（navigate）する。
+// 行タップで開閉し、展開した先頭の行のボタンで Files タブへ移動（navigate）する。
 const props = defineProps<{
   files: { path: string, status: string, numstat?: string }[],
   diffChunks: Record<string, string>,
@@ -50,6 +52,25 @@ function toggleFile(path: string) {
   flex-direction: column;
   gap: 6px;
   padding: 4px 6px;
+}
+
+.diff-file-open-row {
+  list-style: none;
+  display: flex;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-file-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .diff-file-box {
