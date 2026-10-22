@@ -9,7 +9,7 @@
         <button v-if="!previewing" class="path-preview-btn hover-bg" @click="previewing = true">
           <span class="mdi mdi-open-in-new"></span>Open
         </button>
-        <button class="path-preview-btn hover-bg" @click="copy(path)">
+        <button v-if="!previewing" class="path-preview-btn hover-bg" @click="copy(path)">
           <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ copied ? "Copied!" : "Copy path" }}
         </button>
         <button class="path-preview-btn path-preview-btn-cancel hover-bg" @click="close">{{ previewing ? "Close" : "Cancel" }}</button>

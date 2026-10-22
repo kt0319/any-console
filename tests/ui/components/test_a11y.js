@@ -145,6 +145,7 @@ describe("a11y: PathPreviewDialog", () => {
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
     await wrapper.findAll(".path-preview-btn")[0].trigger("click");
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
+    expect(wrapper.text()).not.toContain("Copy path");
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
     await wrapper.find(".path-preview-btn-cancel").trigger("click");
     expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
