@@ -155,7 +155,8 @@ pub struct AsyncPty {
 impl AsyncPty {
     pub fn new(fd: OwnedFd) -> io::Result<Self> {
         Ok(Self {
-            inner: tokio::io::unix::AsyncFd::new(fd)?,
+            // SAFETY: OwnedFd は有効な fd を所有し、AsyncFd が所有中は閉じも差し替えもしない。
+            inner: unsafe { tokio::io::unix::AsyncFd::register(fd)? },
         })
     }
 
