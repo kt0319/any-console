@@ -60,6 +60,7 @@
           <select v-model="branchSelectValue" class="form-input">
             <option value="">{{ currentBranchLabel }}</option>
             <option v-for="b in selectableBranches" :key="b" :value="b">{{ b }}</option>
+            <option v-for="b in selectableRemoteBranches" :key="`remote:${b}`" :value="b">{{ b }} (remote)</option>
           </select>
         </div>
       </template>
@@ -245,7 +246,7 @@ const missingBranchBlockReason = computed(() => {
   // ready（取得成功）時のみ検証する。error時はfail openにする（Run可否はinfoLoading側で扱う）。
   if (branchesState.value.status !== "ready") return "";
   const target = branch.value.trim();
-  if (!target || localBranches.value.includes(target)) return "";
+  if (!target || localBranches.value.includes(target) || remoteOnlyBranches.value.includes(target)) return "";
   return `Branch "${target}" does not exist in this workspace.`;
 });
 
@@ -274,6 +275,7 @@ const isSwitchingBranch = computed(() => {
 });
 const currentBranchName = computed(() => targetWorkspaceEntry.value?.branch || "");
 const selectableBranches = computed(() => excludeCurrentBranch(localBranches.value, currentBranchName.value));
+const selectableRemoteBranches = computed(() => (createMode.value === "" ? remoteOnlyBranches.value : []));
 const currentBranchLabel = computed(() => {
   const current = currentBranchName.value;
   return current ? `${current} (current)` : "(current branch)";
@@ -355,7 +357,7 @@ const baseBranchWorkspace = computed(() => {
   return selectedWorkspace.value;
 });
 
-const { jobsState, jobs, branchesState, localBranches } = useDispatchRunOptions({
+const { jobsState, jobs, branchesState, localBranches, remoteOnlyBranches } = useDispatchRunOptions({
   jobWorkspace: selectedWorkspace,
   selectedJob,
   branchWorkspace: baseBranchWorkspace,

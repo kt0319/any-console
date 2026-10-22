@@ -61,6 +61,27 @@ describe("useDispatchRunOptions", () => {
     expect(refs.baseBranch.value).toBe("");
   });
 
+  it("リモートにしか無いブランチだけをremoteOnlyBranchesとして返す", async () => {
+    apiGetMock.mockImplementation((endpoint) => Promise.resolve(
+      endpoint.endsWith("/branches/remote")
+        ? { ok: true, data: ["main", "dependabot/x"] }
+        : { ok: true, data: [{ name: "main", current: true }] },
+    ));
+    const { options } = setup({ branchWorkspace: "app" });
+    await flush();
+    expect(options.remoteOnlyBranches.value).toEqual(["dependabot/x"]);
+  });
+
+  it("リモートブランチの取得に失敗してもローカル一覧は使える", async () => {
+    apiGetMock.mockImplementation((endpoint) => Promise.resolve(
+      endpoint.endsWith("/branches/remote") ? { ok: false, data: null } : { ok: true, data: [{ name: "main", current: true }] },
+    ));
+    const { options } = setup({ branchWorkspace: "app" });
+    await flush();
+    expect(options.localBranches.value).toEqual(["main"]);
+    expect(options.remoteOnlyBranches.value).toEqual([]);
+  });
+
   it("ワークスペースを切り替えた後に届いた古いJob一覧の応答で上書きしない", async () => {
     const jobsA = deferred();
     const jobsB = deferred();

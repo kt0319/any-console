@@ -23,6 +23,8 @@ export function useDispatchRunOptions(options: {
   const jobs = computed(() => asyncValueOr(jobsState.value, [] as JobOption[]));
   const branchesState = ref<AsyncState<string[]>>(asyncIdle());
   const localBranches = computed(() => asyncValueOr(branchesState.value, [] as string[]));
+  const remoteBranchNames = ref<string[]>([]);
+  const remoteOnlyBranches = computed(() => remoteBranchNames.value.filter((b) => !localBranches.value.includes(b)));
 
   watch(options.jobWorkspace, async (ws, _prev, onCleanup) => {
     let superseded = false;
@@ -43,9 +45,10 @@ export function useDispatchRunOptions(options: {
     let superseded = false;
     onCleanup(() => { superseded = true; });
     branchesState.value = asyncLoading();
-    if (!ws) { branchesState.value = asyncReady([]); return; }
-    const res = await apiGet(wsEndpoint(ws, "branches"));
+    if (!ws) { branchesState.value = asyncReady([]); remoteBranchNames.value = []; return; }
+    const [res, remoteRes] = await Promise.all([apiGet(wsEndpoint(ws, "branches")), apiGet(wsEndpoint(ws, "branches/remote"))]);
     if (superseded) return;
+    remoteBranchNames.value = remoteRes.ok && Array.isArray(remoteRes.data) ? remoteRes.data.filter((b) => typeof b === "string") : [];
     if (res.ok && Array.isArray(res.data)) {
       // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
       // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
@@ -60,5 +63,5 @@ export function useDispatchRunOptions(options: {
     }
   }, { immediate: true });
 
-  return { jobsState, jobs, branchesState, localBranches };
+  return { jobsState, jobs, branchesState, localBranches, remoteOnlyBranches };
 }

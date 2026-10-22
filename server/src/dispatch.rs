@@ -35,8 +35,8 @@ use crate::auth::{parse_cookies, AuthKind, RequireAuth};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
 use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
-    git_branch, git_branches, resolve_workspace_path, run_git_raw, worktree_display_name,
-    GIT_QUICK_TIMEOUT_SEC,
+    git_branch, git_branches, git_remote_branches, resolve_workspace_path, run_git_raw,
+    worktree_display_name, GIT_QUICK_TIMEOUT_SEC,
 };
 use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
@@ -398,6 +398,26 @@ async fn has_uncommitted_changes(ws_path: &FsPath) -> Result<bool, ApiError> {
     }
 }
 
+// リモートにしか無いブランチは git の DWIM がリモート追跡ブランチを作って切り替える
+fn branch_switch_args(
+    branch: &str,
+    exists: bool,
+    create: bool,
+    base: Option<&str>,
+) -> Result<Vec<String>, ApiError> {
+    if exists {
+        return Ok(vec!["checkout".to_string(), branch.to_string()]);
+    }
+    if !create {
+        return Err(bad_request(format!("Branch does not exist: {branch}")));
+    }
+    let mut args = vec!["checkout".to_string(), "-b".to_string(), branch.to_string()];
+    if let Some(b) = base {
+        args.push(validate_branch_name(b)?);
+    }
+    Ok(args)
+}
+
 async fn ensure_branch(
     state: &Arc<AppState>,
     workspace_name: &str,
@@ -416,19 +436,10 @@ async fn ensure_branch(
             "Workspace has uncommitted changes. Commit or stash them before switching to \"{branch}\"."
         )));
     }
-    let branches = git_branches(ws_path).await;
-    let mut args: Vec<String> = if branches.contains(&branch) {
-        vec!["checkout".to_string(), branch.clone()]
-    } else if create {
-        let mut a = vec!["checkout".to_string(), "-b".to_string(), branch.clone()];
-        if let Some(b) = base {
-            a.push(validate_branch_name(b)?);
-        }
-        a
-    } else {
-        return Err(bad_request(format!("Branch does not exist: {branch}")));
-    };
-    let args_ref: Vec<&str> = args.iter_mut().map(|s| s.as_str()).collect();
+    let exists_locally = git_branches(ws_path).await.contains(&branch);
+    let exists = exists_locally || git_remote_branches(ws_path).await.contains(&branch);
+    let args = branch_switch_args(&branch, exists, create, base)?;
+    let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     let result = run_git_raw(&args_ref, ws_path, GIT_QUICK_TIMEOUT_SEC, &[])
         .await
         .map_err(|e| crate::git_utils::map_git_error(e, "Branch operation"))?;
@@ -868,8 +879,11 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
     if current.as_deref() == Some(branch) {
         return "current";
     }
-    let branches = git_branches(ws_path).await;
-    if branches.contains(&branch.to_string()) {
+    if git_branches(ws_path).await.contains(&branch.to_string())
+        || git_remote_branches(ws_path)
+            .await
+            .contains(&branch.to_string())
+    {
         "exists"
     } else {
         "missing"
@@ -1172,6 +1186,27 @@ async fn execute_and_record(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn branch_switch_args_checks_out_existing_branch() {
+        assert_eq!(
+            branch_switch_args("dev", true, false, None).unwrap(),
+            vec!["checkout", "dev"]
+        );
+    }
+
+    #[test]
+    fn branch_switch_args_creates_missing_branch_from_base() {
+        assert_eq!(
+            branch_switch_args("new", false, true, Some("main")).unwrap(),
+            vec!["checkout", "-b", "new", "main"]
+        );
+    }
+
+    #[test]
+    fn branch_switch_args_rejects_missing_branch_without_create() {
+        assert!(branch_switch_args("gone", false, false, None).is_err());
+    }
 
     fn base_request() -> DispatchRequest {
         DispatchRequest {
