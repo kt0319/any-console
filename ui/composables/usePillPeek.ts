@@ -1,14 +1,16 @@
 import { computed, reactive, ref, watch, onBeforeUnmount, type ComputedRef, type Ref } from "vue";
-import { PILL_PEEK_DURATION_MS, PILL_PEEK_REMOTE_DURATION_MS, PILL_PEEK_REMOTE_DEDUP_MS, PILL_PEEK_SUBJECT_MAX } from "../utils/constants.ts";
+import { PILL_PEEK_DURATION_MS, PILL_PEEK_SUBJECT_MAX } from "../utils/constants.ts";
 import { formatLatestCommitSubject, type RemoteResult } from "../utils/git-remote.ts";
 import { useBusListener } from "./useBusListener.ts";
+import { buildPeekText, buildPeekSignature } from "../utils/pill-peek.ts";
 import {
-  trailingItemsSignature,
-  findChangedTrailingItems,
-  buildPeekText,
-  buildPeekSignature,
-  mergeVanishedTrailingKeys,
-} from "../utils/pill-peek.ts";
+  createTrailingPeekState,
+  reduceTrailingPeek,
+  reduceDevServerStop,
+  startPeekSession,
+  advancePeekQueue as nextPeekQueueStep,
+  type PeekQueueItem,
+} from "../utils/pill-peek-state.ts";
 import { peekIconForKey, peekColorForKey } from "../utils/info-pills.ts";
 import { statusStreamSettled } from "../utils/status-stream-sync.ts";
 import { usePillPeekGitHubActivity } from "./usePillPeekGitHubActivity.ts";
@@ -47,9 +49,6 @@ export function usePillPeek({
   // このpeekが実際に表示される時間（キューで分割された場合はPILL_PEEK_DURATION_MSより
   // 短くなる）。PillPeek.vueがマーキーの再生時間をこれに合わせるため。
   const peekDurationMs = ref(PILL_PEEK_DURATION_MS);
-  let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
-  let prevItemKeys = new Set(prevTrailingSignature.keys());
-  let prevWorkspace = workspaceKey();
   let peekTimer: ReturnType<typeof setTimeout> | null = null;
   // branchのpeekでahead/behindが消えた瞬間、ブランチ名の横に「Pushed (N)」「Pulled (N)」を
   // 出す（0は非表示、直前のahead/behind値が実際に押し出された/取り込まれた件数）。
@@ -61,29 +60,35 @@ export function usePillPeek({
   let lastRemoteResultAt = 0;
   // peekに固有の文言（ファイル操作の完了・PR/Issueへのコメント通知）。通常のpeek文言より優先する。
   const noticeText = ref("");
-  // paneWorkspace等は非同期フェッチのためマウント直後は未解決(undefined)になりうる。
-  // このタイミングでprevTrailingSignatureを確定させると、情報が届いた瞬間に「新規に現れた」
-  // と誤検知してpeekが一瞬表示されてしまう。一度も解決していない間は変化検出をスキップし、
-  // 解決した最初の1回はベースラインの更新だけ行う。
-  let workspaceEverResolved = paneWorkspace.value !== undefined;
   function prsResolvedFor(workspace: string | null | undefined) {
     return !!workspace && prsByWorkspace.value[workspace] !== undefined;
   }
-  let prsEverResolved = prsResolvedFor(workspaceKey());
   function actionsResolvedFor(workspace: string | null | undefined) {
     return !!workspace && runsByWorkspace.value[workspace] !== undefined;
   }
-  let actionsEverResolved = actionsResolvedFor(workspaceKey());
+  // paneWorkspace等は非同期フェッチのためマウント直後は未解決(undefined)になりうる。
+  // 一度も解決していない間は変化検出をスキップし、解決した最初の1回はベースラインの更新だけ行う
+  // （reduceTrailingPeek 側で判定）。
+  let trailingState = createTrailingPeekState({
+    items: trailingPeekItems.value,
+    workspace: workspaceKey(),
+    upstreamHead: peekFields.value?.upstreamHead as string | undefined,
+    workspaceResolved: paneWorkspace.value !== undefined,
+    prsResolved: prsResolvedFor(workspaceKey()),
+    actionsResolved: actionsResolvedFor(workspaceKey()),
+  });
 
   // ほぼ同時に複数のピルが変化した場合、後の変化が前の変化のpeek表示を即座に上書きしない
   // よう、表示中ならキューに積んで前のpeekが閉じてから順番に表示する。表示時間は1件ずつ
   // PILL_PEEK_DURATION_MSではなく、キュー全体の合計がPILL_PEEK_DURATION_MSに収まるよう
   // 残り時間を残件数で割る。
-  const peekQueue: { key: string, pushCount: number, pullCount: number, remote: RemoteResult | null, guaranteed: boolean, text: string }[] = [];
+  let peekQueue: PeekQueueItem[] = [];
   let queueSessionEndsAt = 0;
 
   function advancePeekQueue() {
-    const next = peekQueue.shift();
+    const step = nextPeekQueueStep(peekQueue, queueSessionEndsAt, Date.now());
+    const next = step.item;
+    peekQueue = step.queue;
     if (!next) {
       peekingKey.value = null;
       peekTimer = null;
@@ -98,21 +103,15 @@ export function usePillPeek({
     branchPullCount.value = next.pullCount || 0;
     branchRemoteResult.value = next.remote;
     noticeText.value = next.text;
-    const remainingMs = Math.max(0, queueSessionEndsAt - Date.now());
-    const sharedMs = Math.max(1, Math.round(remainingMs / (peekQueue.length + 1)));
-    // pull/pushの結果・ワークスペース/ジョブの検知は、先行peekで残り時間を使い切られていても
-    // 一定時間は必ず表示する（共有枠に任せると1msで切り替わってしまう）。
-    const guaranteedMs = next.remote ? PILL_PEEK_REMOTE_DURATION_MS : next.guaranteed ? PILL_PEEK_DURATION_MS : 0;
-    const itemMs = guaranteedMs ? Math.max(sharedMs, guaranteedMs) : sharedMs;
-    if (guaranteedMs) queueSessionEndsAt = Math.max(queueSessionEndsAt, Date.now() + itemMs);
-    peekDurationMs.value = itemMs;
-    peekTimer = setTimeout(advancePeekQueue, itemMs);
+    queueSessionEndsAt = step.nextSessionEndsAt;
+    peekDurationMs.value = step.itemMs;
+    peekTimer = setTimeout(advancePeekQueue, step.itemMs);
   }
 
   function triggerPeek(key: string, pushCount = 0, pullCount = 0, remote: RemoteResult | null = null, guaranteed = false, text = "") {
     peekQueue.push({ key, pushCount, pullCount, remote, guaranteed, text });
     if (!peekTimer) {
-      queueSessionEndsAt = Date.now() + (remote ? PILL_PEEK_REMOTE_DURATION_MS : PILL_PEEK_DURATION_MS);
+      queueSessionEndsAt = startPeekSession(remote, Date.now());
       advancePeekQueue();
     }
   }
@@ -142,87 +141,44 @@ export function usePillPeek({
     if (boundId && boundId === sessionId()) triggerPeek("job", 0, 0, null, true);
   });
 
-  // 初回解決キーのベースラインを次シグネチャの値へ揃える（変化扱いにしない）。
-  function carryBaseline(key: string, nextSignature: Map<string, string>) {
-    const value = nextSignature.get(key);
-    if (value === undefined) prevTrailingSignature.delete(key);
-    else prevTrailingSignature.set(key, value);
-  }
-
-  let prevUpstreamHead = peekFields.value?.upstreamHead as string | undefined;
   watch([trailingPeekItems, () => peekFields.value?.upstreamHead as string | undefined], ([items, upstreamHead]) => {
-    const nextSignature = trailingItemsSignature(items);
-    // ワークスペースが変わったら、消えたキー用に残していた前の値は別ワークスペースのものなので捨てる。
-    if (workspaceKey() !== prevWorkspace) {
-      prevWorkspace = workspaceKey();
-      for (const key of [...prevTrailingSignature.keys()]) {
-        if (!prevItemKeys.has(key)) prevTrailingSignature.delete(key);
+    const workspace = workspaceKey();
+    const run = peekFields.value?.branchAction;
+    const result = reduceTrailingPeek(trailingState, {
+      items,
+      workspace,
+      workspaceResolved: paneWorkspace.value !== undefined,
+      prsResolved: prsResolvedFor(workspace),
+      actionsResolved: actionsResolvedFor(workspace),
+      branch: peekFields.value?.branch,
+      ahead: ahead.value,
+      behind: behind.value,
+      upstreamHead,
+      completedActionRun: run?.status === "completed" ? { id: run.id } : null,
+      canFetchSubjects: !!fetchRecentSubjects && !!workspace,
+      now: Date.now(),
+      lastRemoteResultAt,
+      resyncing: !statusStreamSettled.value,
+    });
+    trailingState = result.state;
+    for (const effect of result.effects) {
+      if (effect.type === "peek") {
+        if (effect.claimRunId !== undefined && !claimCompletedRun(effect.claimRunId)) continue;
+        triggerPeek(effect.key, effect.pushCount, effect.pullCount);
+        continue;
       }
+      // 件名は取得でき次第detailへ反映する（取得前・失敗時は「N Pushed/Pulled」のみ）。
+      const { kind, total } = effect;
+      const remote = reactive<RemoteResult>({
+        kind,
+        headline: `${total} ${kind === "push" ? "Pushed" : "Pulled"}`,
+        detail: "",
+      });
+      triggerPeek("branch", 0, 0, remote);
+      void fetchRecentSubjects!(workspace!, Math.min(total, PILL_PEEK_SUBJECT_MAX)).then((subjects) => {
+        remote.detail = formatLatestCommitSubject(subjects[0], total);
+      });
     }
-    const prsJustResolved = !prsEverResolved && prsResolvedFor(workspaceKey());
-    if (prsJustResolved) {
-      prsEverResolved = true;
-      carryBaseline("prs", nextSignature);
-    }
-    const actionsJustResolved = !actionsEverResolved && actionsResolvedFor(workspaceKey());
-    if (actionsJustResolved) {
-      actionsEverResolved = true;
-      carryBaseline("actions", nextSignature);
-    }
-    const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
-    if (justResolved) workspaceEverResolved = true;
-    if (workspaceEverResolved && !justResolved) {
-      for (const changed of findChangedTrailingItems(items, prevTrailingSignature)) {
-        if (changed.key === "actions") {
-          const run = peekFields.value?.branchAction;
-          if (run?.status === "completed" && !claimCompletedRun(run.id)) continue;
-        }
-        let pushCount = 0;
-        let pullCount = 0;
-        if (changed.key === "branch") {
-          // 直前のシグネチャ（branch:ahead:behind）と比べahead/behindが>0から0へ
-          // 変わった＝push/pull完了の瞬間。直前の値がそのまま送信/取得されたコミット数になる。
-          // ブランチ名が変わっている場合はブランチ切替（別ブランチのahead/behindを見ている
-          // だけ）であってpush/pull完了ではないため対象外にする。
-          const [prevBranch, prevAheadStr, prevBehindStr] = (prevTrailingSignature.get("branch") || "").split(":");
-          const prevAhead = Number(prevAheadStr) || 0;
-          const prevBehind = Number(prevBehindStr) || 0;
-          // pushはリモート追跡ref（upstream）を動かす（force pushも同じ）。resetはローカルの
-          // ブランチだけを動かすため、upstreamが動かないままaheadが0になったら「Pushed」にしない。
-          const upstreamMoved = prevUpstreamHead !== upstreamHead;
-          if (prevBranch === peekFields.value?.branch) {
-            if (prevAhead > 0 && ahead.value === 0 && upstreamMoved) pushCount = prevAhead;
-            if (prevBehind > 0 && behind.value === 0) pullCount = prevBehind;
-          }
-        }
-        // 直前にgit:remoteDoneで同じ結果を出している時は、ahead/behindが0に落ちたことの
-        // 検出による「N Pushed/Pulled」を重ねて出さない。
-        const coveredByRemoteResult = (pushCount > 0 || pullCount > 0)
-          && Date.now() - lastRemoteResultAt < PILL_PEEK_REMOTE_DEDUP_MS;
-        if (coveredByRemoteResult) continue;
-        const workspace = workspaceKey();
-        const exactlyOneDirection = (pushCount > 0) !== (pullCount > 0);
-        if (changed.key === "branch" && exactlyOneDirection && fetchRecentSubjects && workspace) {
-          // 件名は取得でき次第detailへ反映する（取得前・失敗時は「N Pushed/Pulled」のみ）。
-          const total = pushCount || pullCount;
-          const remote = reactive<RemoteResult>({
-            kind: pushCount > 0 ? "push" : "pull",
-            headline: `${total} ${pushCount > 0 ? "Pushed" : "Pulled"}`,
-            detail: "",
-          });
-          triggerPeek("branch", 0, 0, remote);
-          void fetchRecentSubjects(workspace, Math.min(total, PILL_PEEK_SUBJECT_MAX)).then((subjects) => {
-            remote.detail = formatLatestCommitSubject(subjects[0], total);
-          });
-          continue;
-        }
-        triggerPeek(changed.key, pushCount, pullCount);
-      }
-    }
-    prevTrailingSignature = mergeVanishedTrailingKeys(prevTrailingSignature, nextSignature, prevItemKeys, !statusStreamSettled.value);
-    prevItemKeys = new Set(nextSignature.keys());
-    // branchの前の値を残している間は、push判定用のupstream_headも動かさない。
-    if (nextSignature.has("branch") || !prevTrailingSignature.has("branch")) prevUpstreamHead = upstreamHead;
   }, { deep: true });
 
   // Dev Serverが検出されなくなった瞬間だけ知らせる。trailingPeekItemsはdevServerEntryが
@@ -230,19 +186,16 @@ export function usePillPeek({
   // （新規出現/値変化しか拾えない）。devServerEntry自体を直接見て真→偽への遷移だけを拾う。
   // status stream の切断中・再同期前に消えた場合は保留し、同期後も無ければ1回だけ出す。
   let devServerStopPending = false;
+  function applyDevServerStop(event: Parameters<typeof reduceDevServerStop>[1]) {
+    const result = reduceDevServerStop(devServerStopPending, event);
+    devServerStopPending = result.pending;
+    if (result.fire) triggerPeek("devserver-stop");
+  }
   watch(devServerEntry, (entry, prevEntry) => {
-    if (entry) {
-      devServerStopPending = false;
-      return;
-    }
-    if (!prevEntry) return;
-    if (statusStreamSettled.value) triggerPeek("devserver-stop");
-    else devServerStopPending = true;
+    applyDevServerStop({ type: "entryChanged", present: !!entry, hadPrevious: !!prevEntry, settled: statusStreamSettled.value });
   });
   watch(statusStreamSettled, (settled) => {
-    if (!settled) return;
-    if (devServerStopPending && !devServerEntry.value) triggerPeek("devserver-stop");
-    devServerStopPending = false;
+    applyDevServerStop({ type: "settledChanged", settled, present: !!devServerEntry.value });
   });
 
   onBeforeUnmount(() => {
@@ -250,7 +203,7 @@ export function usePillPeek({
       clearTimeout(peekTimer);
       peekTimer = null;
     }
-    peekQueue.length = 0;
+    peekQueue = [];
   });
 
   // peekピルの表示に使う派生値もここで返す（TerminalPane / SessionSidebarRow で共有）。
