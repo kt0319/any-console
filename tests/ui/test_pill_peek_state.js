@@ -228,35 +228,30 @@ describe("reduceTrailingPeek: ワークスペース切替", () => {
     expect(switched.state.workspace).toBe("ws2");
   });
 
-  it("切替後に両方にあるキーは前のワークスペースの値と比較される（現状の挙動）", () => {
+  it("切替後に両方にあるキーが違う値でも peek せず、workspace だけ peek する", () => {
     const state = initialState([wsItem("A"), branchItem("main:0:0")]);
-    const { effects } = run(state, { items: [wsItem("B"), branchItem("dev:0:0")], workspace: "ws2", branch: "dev" });
-    expect(effects).toEqual([
-      { type: "peek", key: "workspace", pushCount: 0, pullCount: 0 },
-      { type: "peek", key: "branch", pushCount: 0, pullCount: 0 },
-    ]);
-  });
-
-  it("切替後に両方にあるキーが同じ値なら peek しない", () => {
-    const state = initialState([wsItem("A"), branchItem("main:0:0")]);
-    const { effects } = run(state, { items: [wsItem("B"), branchItem("main:0:0")], workspace: "ws2" });
+    const { effects, state: next } = run(state, { items: [wsItem("B"), branchItem("dev:0:0")], workspace: "ws2", branch: "dev" });
     expect(effects).toEqual([{ type: "peek", key: "workspace", pushCount: 0, pullCount: 0 }]);
+    expect(next.signature.get("branch")).toBe("dev:0:0");
   });
 
-  it("切替でブランチ名が違う場合は push/pull 件数を載せない", () => {
+  it("切替後に前のワークスペースの件数を push/pull として出さない", () => {
     const state = initialState([branchItem("main:3:2")]);
-    const { effects } = run(state, {
-      items: [branchItem("dev:0:0")], workspace: "ws2", branch: "dev", upstreamHead: "u9",
-    });
-    expect(effects).toEqual([{ type: "peek", key: "branch", pushCount: 0, pullCount: 0 }]);
+    const { effects } = run(state, { items: [branchItem("main:0:0")], workspace: "ws2", upstreamHead: "u9" });
+    expect(effects).toEqual([]);
   });
 
-  it("切替で同名ブランチかつ ahead/behind が 0 になると、前のワークスペースの件数を出してしまう（現状の挙動）", () => {
-    const state = initialState([branchItem("main:3:2")]);
-    const { effects } = run(state, {
-      items: [branchItem("main:0:0")], workspace: "ws2", upstreamHead: "u9",
-    });
-    expect(effects).toEqual([{ type: "peek", key: "branch", pushCount: 3, pullCount: 2 }]);
+  it("切替の次の回からは通常どおり変化を検出する", () => {
+    const state = initialState([wsItem("A"), branchItem("main:0:0")]);
+    const switched = run(state, { items: [wsItem("B"), branchItem("dev:0:0")], workspace: "ws2", branch: "dev" });
+    const changed = run(switched.state, { items: [wsItem("B"), branchItem("dev:1:0")], workspace: "ws2", branch: "dev", ahead: 1 });
+    expect(changed.effects).toEqual([{ type: "peek", key: "branch", pushCount: 0, pullCount: 0 }]);
+  });
+
+  it("切替で前のワークスペースにだけあったキーは保持しない", () => {
+    const state = initialState([wsItem("A"), { key: "prs", text: "1:t" }]);
+    const { state: next } = run(state, { items: [wsItem("B")], workspace: "ws2", resyncing: true });
+    expect(next.signature.has("prs")).toBe(false);
   });
 });
 

@@ -88,15 +88,16 @@ export function reduceTrailingPeek(
   input: TrailingPeekInput,
 ): { state: TrailingPeekState; effects: TrailingPeekEffect[] } {
   const nextSignature = trailingItemsSignature(input.items);
-  const signature = new Map(state.signature);
+  let signature = new Map(state.signature);
   let { workspace, workspaceEverResolved, prsEverResolved, actionsEverResolved } = state;
 
-  // ワークスペースが変わったら、消えたキー用に残していた前の値は別ワークスペースのものなので捨てる。
+  // ワークスペースが変わったら、前の値は別ワークスペースのものなので比較に使わず、
+  // 今のワークスペースの値をベースラインにする。workspace自体の変化だけはpeekで知らせる。
   if (input.workspace !== workspace) {
     workspace = input.workspace;
-    for (const key of [...signature.keys()]) {
-      if (!state.itemKeys.has(key)) signature.delete(key);
-    }
+    const prevWorkspaceText = signature.get("workspace");
+    signature = new Map(nextSignature);
+    if (prevWorkspaceText !== undefined) signature.set("workspace", prevWorkspaceText);
   }
   if (!prsEverResolved && input.prsResolved) {
     prsEverResolved = true;
