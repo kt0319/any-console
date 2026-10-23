@@ -5,6 +5,113 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0](https://github.com/kt0319/any-console/compare/v0.20.0...v0.21.0) (2026-10-23)
+
+
+### Features
+
+* Branchesタブでマージ済みブランチを打ち消し線とmergedバッジで表示する ([cd77237](https://github.com/kt0319/any-console/commit/cd77237a28b7d0060cda10b4ed4172c0e8019de9))
+* Changesタブでファイルの差分を開閉でき、ボタンからFilesタブへ移動できるようにする ([1eaa556](https://github.com/kt0319/any-console/commit/1eaa556f397e77a2cbafa890b0497e9310ab2be0))
+* Changesタブで各ファイルの差分を展開表示する ([008755a](https://github.com/kt0319/any-console/commit/008755ab86e250f8b22751ef3e85a7159bf3bcb9))
+* Changesタブで未追跡ファイルのステータスを??ではなくAで表示する ([8c6eb63](https://github.com/kt0319/any-console/commit/8c6eb6316e31560fae778c58d6cd9826128fd96d))
+* Changesタブのファイルごとの差分をボックスで囲んで表示する ([d825a36](https://github.com/kt0319/any-console/commit/d825a36fc781c9c3af5ed1020a018a28c64732cb))
+* Dispatchのブランチ指定でリモートにしかないブランチを選択肢に表示し切り替えられるようにする ([fa064de](https://github.com/kt0319/any-console/commit/fa064de40ecd7f1db988c6aba903f8fe01c4b555))
+* github_activityイベントのWebSocket配信とseqによる再送を追加 ([15c21f8](https://github.com/kt0319/any-console/commit/15c21f8efb59d751773a4e439ec036b096e6f07e))
+* GitHubの新着コメント・レビュー・CI完了を検出するサーバ側プロデューサを追加 ([dd9de18](https://github.com/kt0319/any-console/commit/dd9de18289b9990c1c180295b3fc74a2a565998e))
+* Historyのコミット詳細をChangesと同じファイルごとの差分ボックス表示にする ([58724a5](https://github.com/kt0319/any-console/commit/58724a5a1a6d13bba62ce1f360143335633d1714))
+* Open in Filesを展開行ではなく差分ファイル行の右端のアイコンに戻す ([2124c69](https://github.com/kt0319/any-console/commit/2124c69b7dab0818176d4cc3f0cc072d0f11a286))
+* コミットメッセージ欄を入力内容に合わせて高さが伸びるようにする ([a695ae0](https://github.com/kt0319/any-console/commit/a695ae064a15b27bc7dbdfd82ad8754242b4cfbc))
+* ターミナル上のファイルパスを長押し・Ctrl/⌘+クリックでプレビュー表示できるようにする ([05f8863](https://github.com/kt0319/any-console/commit/05f8863ee00d5588fc22f21e326f6083d1167c17))
+* パスのプレビューダイアログの本文に背景色をつける ([063e435](https://github.com/kt0319/any-console/commit/063e43596162c29e9d89eff8d970cf2fe54cd4d4))
+* ピークの新着コメント・レビュー・CI完了通知をサーバのイベント駆動に切り替え ([42d9746](https://github.com/kt0319/any-console/commit/42d9746440b311a7c55a777a3d29a871be0fad26))
+* ファイルアップロード失敗時のトーストに失敗したファイル名と理由を表示 ([0340d59](https://github.com/kt0319/any-console/commit/0340d59a57c95e0a803fcde36173b828ff13608a))
+* ファイルパスのプレビューを画面いっぱいに広げて表示する ([a7c894c](https://github.com/kt0319/any-console/commit/a7c894c7745edb6c96057fa10d70fe592222a7fb))
+* ファイルプレビューの画像をボタンとタップで拡大できるようにする ([2619fc1](https://github.com/kt0319/any-console/commit/2619fc13d2f81923039fc315407b3aa56ea5c5d8))
+* モバイルのFilesとHistory詳細の操作ボタンを横スライドの1行にする ([6da12b7](https://github.com/kt0319/any-console/commit/6da12b74abcfacad2f5e0c3eca1219686e1f2b39))
+* ワークスペース未紐付けの素のターミナルでもファイルタブからアップロードできるよう対応 ([34779c5](https://github.com/kt0319/any-console/commit/34779c5cef2f788e428e07a6c9b52f335bf365fd))
+* 差分ステータスを1文字に正規化し、未追跡をUで表示する ([c2483e9](https://github.com/kt0319/any-console/commit/c2483e9d1813d5f037224751ef6bb97796c85dc5))
+* 差分ファイル一覧の長いパスを省略せず折り返して表示する ([2bd4eff](https://github.com/kt0319/any-console/commit/2bd4effea88772ca8923ef52a4f445e7c2200ad1))
+* 差分ファイル行に開閉状態のシェブロンを付け、Filesへ移動ボタンのタップ領域を広げる ([4c2dd3e](https://github.com/kt0319/any-console/commit/4c2dd3e3fcbc41db7bf061e868b3fbff9aa2bb6b))
+* 差分ファイル行の右側を簡素化し、Filesで開くボタンを展開時の行へ移す ([27de63d](https://github.com/kt0319/any-console/commit/27de63d7c703be3e3c67023a35cece5c2d8c64a2))
+* 差分ファイル行の右側を行数とステータスの2段にする ([452a21e](https://github.com/kt0319/any-console/commit/452a21e5b1c65d07f57eca1478526d74af83496f))
+* 横スライドの操作ボタン列に、隠れたボタンがあることを示す端のフェードを付ける ([eef79c0](https://github.com/kt0319/any-console/commit/eef79c04046bc2360ee57485cf5ddd0ba819b5ec))
+* 画像プレビューの拡大をボタンからピンチ操作に変更する ([e4306d6](https://github.com/kt0319/any-console/commit/e4306d639012322e449129dae5677e422ee704c3))
+* 素のターミナルのファイルタブでもリネーム・削除・ダウンロードできるよう対応 ([8c21cd9](https://github.com/kt0319/any-console/commit/8c21cd97f7e47035cd91596dd9c25713a1e4e935))
+
+
+### Bug Fixes
+
+* ahead/behindをupstream_headと同じSHAを基準に数え、push完了の検知取りこぼしを防ぐ ([e1d73d3](https://github.com/kt0319/any-console/commit/e1d73d315bcccb9f80cf9a75e15def8e11f7afdc))
+* Changesのタブ復帰時に差分一覧をアンマウントせず開閉状態を維持する ([2621eb3](https://github.com/kt0319/any-console/commit/2621eb3330276edddbb0d50dfc1cbdabdc16c710))
+* Dispatch実行画面のChange branchで現在ブランチ名を表示する ([1c5c4ca](https://github.com/kt0319/any-console/commit/1c5c4cab97578e7bdcbe2b5f9bc609846a89e45a))
+* Dispatch実行画面のブランチ選択で現在のブランチが重複して表示されるのを修正 ([a47892f](https://github.com/kt0319/any-console/commit/a47892f3c77ac4072c0e46ab9dc926d58a6f57f8))
+* Historyのchunkが無い追加ファイルで作業ツリーの現在の内容を表示しないようにする ([d4f25a0](https://github.com/kt0319/any-console/commit/d4f25a032ec7d32e3a3eaea6cbc88b546135b71f))
+* Historyのコミット詳細でタブ切替後にdiffが消えるのを直し、開いた時は閉じた状態にする ([20025a9](https://github.com/kt0319/any-console/commit/20025a9a440a63be9fc6c59232b1838c09026942))
+* Historyのコミット詳細で差分ファイルボックスの左右の余白を詰める ([3fe8c5d](https://github.com/kt0319/any-console/commit/3fe8c5dfb4eedd0b35a0935ff861c46471a3e4bb))
+* KeyboardInputのdraftの型をstringに明示する ([ffbcadf](https://github.com/kt0319/any-console/commit/ffbcadfed5d7f73ad856e0c64bae42f2ace4fcdf))
+* tokioのAsyncFd::newの非推奨化に合わせてAsyncFd::registerへ移行する ([8335124](https://github.com/kt0319/any-console/commit/83351249ecd8e9c81278bcc2590c59f2456f7e9a))
+* サーバ再起動時の再接続・再同期中はピークピルを出さない ([91929f6](https://github.com/kt0319/any-console/commit/91929f69dbad2a2637d7727a6dffd0f04ee1513a))
+* バックグラウンドfetchでリモートで削除済みのブランチを追跡参照から取り除く ([3f87328](https://github.com/kt0319/any-console/commit/3f87328b52665c6a6f12f3003769f3718d134bab))
+* ワークスペース切替直後に別ワークスペースの値と比べて誤ってpeekする不具合を修正 ([a8f1b17](https://github.com/kt0319/any-console/commit/a8f1b170faede3eba24cc1ea7cb3c660877deb79))
+* 全角文字を含む行や折返し行でターミナル上のファイルパスを検出できない不具合を修正 ([7ab8e73](https://github.com/kt0319/any-console/commit/7ab8e737d97d0013d3a53f1532e4b8eca4e511c3))
+* 再接続時のピーク抑制をやめ、消えたキーの前の値を保持して誤検知を防ぐ ([11060ad](https://github.com/kt0319/any-console/commit/11060ad3367e6a89740c35c7cb19e8a538694997))
+* 差分ファイルのOpen in Filesボタンを右寄せにする ([752cd98](https://github.com/kt0319/any-console/commit/752cd98a486b06d2defba899a26f62c4a531f6ef))
+* 差分ファイルボックスの左右の余白を詰める ([10708c3](https://github.com/kt0319/any-console/commit/10708c3f898d9f3e29338aceb178631f63a30ee1))
+* 差分ファイル行のFilesへ移動するアイコンを小さくする ([112255d](https://github.com/kt0319/any-console/commit/112255dd61e834ae49a0d5562dbb3f3b7a1d51bf))
+* 差分ファイル行のシェブロン表示をやめ、開閉ボタンは視覚的に隠してキーボード操作だけ残す ([4eb4d84](https://github.com/kt0319/any-console/commit/4eb4d8494eda72dc90e23e4cc8e156c65804df00))
+* 差分ファイル行の高さを詰めて細くする ([a3eea07](https://github.com/kt0319/any-console/commit/a3eea07c57e0a3e7ef48cb758a629cd0a5aa7242))
+
+
+### Performance Improvements
+
+* 未追跡ファイルの内容取得を読み込み単位で1回に集約し同時実行数を制限する ([4fa414e](https://github.com/kt0319/any-console/commit/4fa414e52d90e301f692f0a523ae5a9abb6a9c0a))
+
+
+### Refactor
+
+* Changesタブの合計numstatを外しコミットフォームを小さくする ([6a6b7dd](https://github.com/kt0319/any-console/commit/6a6b7dd2a017cabb82c3eb4afd79e4eefe63a06f))
+* ChangesとHistoryのファイルごとの差分ボックスの余白を詰める ([684c6ec](https://github.com/kt0319/any-console/commit/684c6ecff6e9abed678a16abf014a8ae0f88471a))
+* Changesの差分ファイル一覧で選択ハイライトを渡さないようにする ([748a455](https://github.com/kt0319/any-console/commit/748a455fb8c7341352b2485d4e9c936041f9ffd2))
+* usePillPeekの判定ロジックを純粋関数の呼び出しに置き換える ([a083628](https://github.com/kt0319/any-console/commit/a0836282f1104ba85eeb908fc5e4094e30fbcc9e))
+* ピークのGitHub新着通知をusePillPeekから別composableへ切り出す ([6dea317](https://github.com/kt0319/any-console/commit/6dea317ce9cc79d94b486da84ccf91e72d05aced))
+* ファイルパスのダイアログをURLダイアログと同じOpen/Copy/Cancelの流れに揃える ([c14be9b](https://github.com/kt0319/any-console/commit/c14be9b9555f1ec763efaf6045f3c73d72b6204b))
+* ファイルパスのプレビュー表示からCopy pathボタンを外す ([f215f7e](https://github.com/kt0319/any-console/commit/f215f7e97b0ed270e23827d79a331809cd0ec627))
+* 件数差分によるコメント通知の推測ロジックを削除 ([bc2af10](https://github.com/kt0319/any-console/commit/bc2af106417f923777e27e258797415e8cd1e7c6))
+* 通知判定に使わなくなったPR・Issue一覧のコメント・レビュー関連フィールドを削除 ([d762de0](https://github.com/kt0319/any-console/commit/d762de0f9d4afc460a2f9d92ae63d74654165b8d))
+
+
+### Tests
+
+* Changesタブで未追跡ファイルを閉じて開き直しても内容が表示されることを確認する ([cbc6da3](https://github.com/kt0319/any-console/commit/cbc6da3596bcfada36a5a2c4b37546310325b02e))
+* ピルpeekの判定ロジックを純粋関数として追加しテストする ([2d4561c](https://github.com/kt0319/any-console/commit/2d4561cb10bb4b2ce01d81d5583009a50a183e59))
+* 新規サブディレクトリへのファイルアップロードの統合テストを追加 ([71d54d1](https://github.com/kt0319/any-console/commit/71d54d130f60cfa546dc586d2a8001681e833ab5))
+
+
+### CI
+
+* bump actions/checkout from 5 to 7 ([#161](https://github.com/kt0319/any-console/issues/161)) ([63c59e5](https://github.com/kt0319/any-console/commit/63c59e5230b915e79c38474683f3a7448c38939a))
+* bump actions/setup-node from 5 to 7 ([#163](https://github.com/kt0319/any-console/issues/163)) ([fd56c0e](https://github.com/kt0319/any-console/commit/fd56c0e5544fc7450720a17962966d6f6e7340a7))
+* bump actions/upload-artifact from 4 to 7 ([#159](https://github.com/kt0319/any-console/issues/159)) ([ee7acd7](https://github.com/kt0319/any-console/commit/ee7acd7c73206fdb87d51acd1135268502343925))
+* bump codecov/codecov-action from 5 to 7 ([#162](https://github.com/kt0319/any-console/issues/162)) ([c02a36f](https://github.com/kt0319/any-console/commit/c02a36ff0b4ead0c23d368b68466dc565ffc6d3f))
+* bump googleapis/release-please-action from 4 to 5 ([#160](https://github.com/kt0319/any-console/issues/160)) ([9424977](https://github.com/kt0319/any-console/commit/94249771d249a1ac7c76f918a59f5a882af9690e))
+* bump tailscale/github-action from 3 to 4 ([#164](https://github.com/kt0319/any-console/issues/164)) ([0391b50](https://github.com/kt0319/any-console/commit/0391b50da9756c1e52fde1c947313c40680d29cc))
+* Dependabotでnpm・cargo・GitHub Actionsの依存を週次更新する ([3a00d2d](https://github.com/kt0319/any-console/commit/3a00d2deaefd9f724303ffeb55a1e58133d36069))
+* Dependabotでvitest関連パッケージを同時に更新するようグループ化する ([e53ae29](https://github.com/kt0319/any-console/commit/e53ae291ebb0ec2160d5b5cafa9ed140159ac0df))
+* vue-tsc非対応のTypeScriptメジャー更新をDependabotの対象から外す ([ae93a65](https://github.com/kt0319/any-console/commit/ae93a650f2414233f0d2cf054e52a8242fad946c))
+
+
+### Dependencies
+
+* bump getrandom from 0.3.4 to 0.4.3 in /server ([#170](https://github.com/kt0319/any-console/issues/170)) ([9d6c005](https://github.com/kt0319/any-console/commit/9d6c005fdda01cafcaf6d943f80e17f9548915ea))
+* Bump happy-dom from 20.9.0 to 21.0.3 ([#177](https://github.com/kt0319/any-console/issues/177)) ([446ade3](https://github.com/kt0319/any-console/commit/446ade3a58875f57b08e5959a7825480a3e6afd6))
+* bump pinia from 3.0.4 to 4.1.0 ([#171](https://github.com/kt0319/any-console/issues/171)) ([efd26bd](https://github.com/kt0319/any-console/commit/efd26bdbaffaedd03c79398e8786a9a821f4f8b6))
+* bump the cargo-minor-patch group across 1 directory with 9 updates ([#174](https://github.com/kt0319/any-console/issues/174)) ([e455768](https://github.com/kt0319/any-console/commit/e4557688caed831d87f3ff042a426dd1db953a33))
+* bump the npm-minor-patch group across 1 directory with 8 updates ([#166](https://github.com/kt0319/any-console/issues/166)) ([e9ed21f](https://github.com/kt0319/any-console/commit/e9ed21f5c2052044fc273dbb6e4ac5be0643e9f3))
+* bump tokio-tungstenite from 0.26.2 to 0.29.0 in /server ([#167](https://github.com/kt0319/any-console/issues/167)) ([0265585](https://github.com/kt0319/any-console/commit/0265585a938b7596cce1686a64a917cc52cdbe15))
+* Bump tokio-tungstenite from 0.29.0 to 0.30.0 in /server ([#176](https://github.com/kt0319/any-console/issues/176)) ([f5a5ec4](https://github.com/kt0319/any-console/commit/f5a5ec44fa7f762a2d875b25660bdee67652ff4f))
+* Bump vitest from 4.1.5 to 5.0.5 in the vitest group ([#175](https://github.com/kt0319/any-console/issues/175)) ([bd7b431](https://github.com/kt0319/any-console/commit/bd7b431c4d6023c9e933418d39dc3296cc5f7eca))
+* bump zip from 2.4.2 to 9.0.5 in /server ([#168](https://github.com/kt0319/any-console/issues/168)) ([922d55f](https://github.com/kt0319/any-console/commit/922d55f130a2fad023e3f361b5877e4b618fd01b))
+
 ## [0.20.0](https://github.com/kt0319/any-console/compare/v0.19.0...v0.20.0) (2026-10-18)
 
 
