@@ -13,9 +13,15 @@ export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"\u0080-\uffff]+|www\.[^
 // 正規表現がhttps://等のプレフィックスを要求するため誤検出はしにくい）。
 const URL_SEARCH_WINDOW_LINES = 6;
 
-// パス風の文字列（ASCIIのパス文字のみ。日本語など非ASCIIは隣接する文章を巻き込むため含めない）。
+// パス風の文字列。非ASCII（日本語ファイル名など）は「/」より後ろのセグメントでのみ許可する。
+// 先頭側まで許すと、スペースの無い日本語の文章（「パスは/tmp/a.png」）を巻き込むため。
+// 全角句読点・全角記号（U+3000-303F, U+FF00-FFEF）は終端として除外する。
 // 実在確認はサーバが行うので、ここでは「/ を含む」か「拡張子がある」ものだけを候補にする。
-export const TERMINAL_PATH_REGEX = /[\w.~@+%-]*(?:\/[\w.~@+%-]+)+\/?|[\w@+%-]+(?:\.[\w@+%-]+)*\.[A-Za-z0-9]+/g;
+const PATH_SEGMENT_CHARS = "\\w.~@+%\\-\\u00c0-\\u1fff\\u3040-\\uff00";
+export const TERMINAL_PATH_REGEX = new RegExp(
+  `[\\w.~@+%-]*(?:\\/[${PATH_SEGMENT_CHARS}]+)+\\/?|[\\w@+%-]+(?:\\.[\\w@+%-]+)*\\.[A-Za-z0-9]+`,
+  "g",
+);
 
 export function normalizeTerminalPath(raw: string): string | null {
   const path = raw.replace(/[.,;:)\]-]+$/, "");

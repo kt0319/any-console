@@ -284,6 +284,18 @@ describe("findPathInBuffer / normalizeTerminalPath", () => {
     }
   });
 
+  it("日本語を含むファイル名のパスを最後まで拾う", () => {
+    const line = "/Users/a/screenshots/1516-grid-原価管理.png";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+    expect(findPathInBuffer(term, 5, 5)).toBe(line);
+  });
+
+  it("パスの直前の日本語や直後の全角句読点は巻き込まない", () => {
+    const line = "画像は/tmp/a/見積書.png。次です";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+    expect(findPathInBuffer(term, line.indexOf("/tmp") * 10 + 5, 5)).toBe("/tmp/a/見積書.png");
+  });
+
   it("パスでない文字列では null", () => {
     const line = "hello world";
     const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
