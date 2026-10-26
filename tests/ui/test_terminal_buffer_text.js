@@ -82,6 +82,18 @@ describe("findUrlInBuffer", () => {
     expect(findUrlInBuffer({ element: null }, 0, 0)).toBeNull();
   });
 
+  it("次の行頭の箇条書きハイフンをURL末尾に含めない", () => {
+    const lines = ["  https://example.com/pullRequests/285", "- FE (frontend) PR #1517"];
+    const term = makeTermWithRect({ lines, cols: 60, rows: 2, rect: { left: 0, top: 0, width: 600, height: 40 } });
+    expect(findUrlInBuffer(term, 10 * 10 + 5, 5)).toBe("https://example.com/pullRequests/285");
+  });
+
+  it("折り返したURLの続き行頭の-は箇条書きとみなさず連結する", () => {
+    const lines = ["  https://example.com/dw-joy", "  -src-api/pullRequests/285", "- FE (frontend)"];
+    const term = makeTermWithRect({ lines, cols: 60, rows: 3, rect: { left: 0, top: 0, width: 600, height: 60 } });
+    expect(findUrlInBuffer(term, 10 * 10 + 5, 5)).toBe("https://example.com/dw-joy-src-api/pullRequests/285");
+  });
+
   it("returns null when click is far outside element bounds", () => {
     const term = makeTermWithRect({ lines: ["see https://example.com/"] });
     expect(findUrlInBuffer(term, -10, 0)).toBeNull();

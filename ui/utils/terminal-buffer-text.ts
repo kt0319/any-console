@@ -25,7 +25,10 @@ export const TERMINAL_PATH_REGEX = new RegExp(
 
 // 絶対パス・~ で始まる行は折返しの続きではなく新しいパスの開始とみなす。
 // これがないと、パスが連続する出力で前のパスの末尾と次のパスが1つに繋がる。
-const PATH_START_LINE_REGEX = /^(?:\/|~\/)/;
+const PATH_START_LINE_REGEX = /^(?:\/|~\/|[-*•]\s|\d+[.)]\s)/;
+
+// 箇条書きの行頭記号は前の行の末尾に直結させない（URL末尾にハイフンが付くため）。
+const BULLET_LINE_REGEX = /^(?:[-*•]\s|\d+[.)]\s)/;
 
 export function normalizeTerminalPath(raw: string): string | null {
   const path = raw.replace(/[.,;:)\]-]+$/, "");
@@ -34,7 +37,7 @@ export function normalizeTerminalPath(raw: string): string | null {
 }
 
 export function findUrlInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
-  const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_URL_REGEX);
+  const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_URL_REGEX, BULLET_LINE_REGEX);
   if (!raw) return null;
   return raw.startsWith("www.") ? "https://" + raw : raw;
 }
