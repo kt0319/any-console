@@ -340,6 +340,17 @@ describe("findPathInBuffer with wide characters and wrapped lines", () => {
     expect(findPathInBuffer(term, 14 * 10 + 5, 5)).toBe("/tmp/a/b.png");
   });
 
+  it("keeps consecutive wrapped absolute paths separate", () => {
+    const term = makeWideTerm([
+      "/Users/k/shots/1516",
+      "  -cost-after.png",
+      "/Users/k/shots/1516",
+      "  -grid-原価管理.png",
+    ], 60);
+    expect(findPathInBuffer(term, 5 * 10 + 5, 0 * 20 + 5)).toBe("/Users/k/shots/1516-cost-after.png");
+    expect(findPathInBuffer(term, 5 * 10 + 5, 3 * 20 + 5)).toBe("/Users/k/shots/1516-grid-原価管理.png");
+  });
+
   it("drops the bullet dash glued from the next line", () => {
     const term = makeWideTerm(["  - /tmp/a/b.png", "  - 次の行"]);
     expect(findPathInBuffer(term, 8 * 10 + 5, 5)).toBe("/tmp/a/b.png");

@@ -23,6 +23,10 @@ export const TERMINAL_PATH_REGEX = new RegExp(
   "g",
 );
 
+// 絶対パス・~ で始まる行は折返しの続きではなく新しいパスの開始とみなす。
+// これがないと、パスが連続する出力で前のパスの末尾と次のパスが1つに繋がる。
+const PATH_START_LINE_REGEX = /^(?:\/|~\/)/;
+
 export function normalizeTerminalPath(raw: string): string | null {
   const path = raw.replace(/[.,;:)\]-]+$/, "");
   if (!path || path === "/" || path === "~") return null;
@@ -36,7 +40,7 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
 }
 
 export function findPathInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
-  const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_PATH_REGEX);
+  const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_PATH_REGEX, PATH_START_LINE_REGEX);
   return raw ? normalizeTerminalPath(raw) : null;
 }
 
@@ -52,7 +56,7 @@ function columnToStringIndex(line: IBufferLine, col: number): number {
   return idx;
 }
 
-function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number, regex: RegExp): string | null {
+function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number, regex: RegExp, tokenStartLineRegex?: RegExp): string | null {
   if (!term || !term.element) return null;
   const screen = term.element.querySelector(".xterm-screen") || term.element;
   const rect = screen.getBoundingClientRect();
@@ -93,6 +97,7 @@ function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, c
     const lineText = cur.translateToString(true);
     const leadingTrimmed = lineText.trimStart();
     const strippedLeading = lineText.length - leadingTrimmed.length;
+    if (tokenStartLineRegex && text && tokenStartLineRegex.test(leadingTrimmed)) text += "\n";
     lineOffsets[i] = text.length - strippedLeading;
     if (i >= endIdx) {
       text += leadingTrimmed;
