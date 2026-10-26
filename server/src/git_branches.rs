@@ -169,6 +169,19 @@ async fn branches_merged_into(ws_path: &FsPath, default_branch: &str) -> HashSet
     }
 }
 
+const DETACHED_HEAD_NAME: &str = "HEAD";
+
+/// detached HEAD では現在ブランチ名が `HEAD` になる一方、`git branch` は
+/// `(HEAD detached at <sha>)` や `(no branch, rebasing <name>)` の疑似行を返すため、
+/// 名前の一致だけでは現在行を特定できない。
+fn is_current_branch_entry(name: &str, current: Option<&str>) -> bool {
+    match current {
+        Some(DETACHED_HEAD_NAME) => name.starts_with('('),
+        Some(current) => name == current,
+        None => false,
+    }
+}
+
 /// 取り込み済み判定。現在ブランチ・デフォルトブランチ自身と、デフォルトと同じコミットを
 /// 指すだけの新規ブランチ（独自のコミットがない）は対象外にする。
 fn is_branch_merged(
@@ -299,7 +312,7 @@ pub async fn list_branches(
         };
         out.push(json!({
             "name": b,
-            "current": Some(b.as_str()) == current.as_deref(),
+            "current": is_current_branch_entry(b, current.as_deref()),
             "is_default": Some(b.as_str()) == default_branch.as_deref(),
             "upstream": upstream,
             "ahead": ahead,
@@ -741,6 +754,26 @@ mod tests {
         assert!(!check("cur", "bbb"));
         assert!(!check("fresh", "aaa"));
         assert!(!check("other", "ccc"));
+    }
+
+    #[test]
+    fn current_entry_matches_detached_pseudo_row_only_when_detached() {
+        assert!(is_current_branch_entry("main", Some("main")));
+        assert!(!is_current_branch_entry("dev", Some("main")));
+        assert!(is_current_branch_entry(
+            "(HEAD detached at 1b291c2)",
+            Some("HEAD")
+        ));
+        assert!(is_current_branch_entry(
+            "(no branch, rebasing main)",
+            Some("HEAD")
+        ));
+        assert!(!is_current_branch_entry("main", Some("HEAD")));
+        assert!(!is_current_branch_entry(
+            "(HEAD detached at 1b291c2)",
+            Some("main")
+        ));
+        assert!(!is_current_branch_entry("main", None));
     }
 
     #[test]

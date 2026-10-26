@@ -469,6 +469,25 @@ async fn branches_listing_includes_current_branch_before_first_commit() {
 }
 
 #[tokio::test]
+async fn branches_listing_marks_detached_head_row_as_current() {
+    let front = spawn_front_with_initial_commit(false).await;
+    std::fs::write(front.ws_path.join("a.txt"), "hello\n").unwrap();
+    common::sh_git(&front.ws_path, &["add", "-A"]);
+    common::sh_git(&front.ws_path, &["commit", "-q", "-m", "first commit"]);
+    common::sh_git(&front.ws_path, &["checkout", "-q", "--detach", "HEAD"]);
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let arr = branches.as_array().unwrap();
+    let current: Vec<&Value> = arr.iter().filter(|b| b["current"] == true).collect();
+    assert_eq!(current.len(), 1);
+    assert!(current[0]["name"]
+        .as_str()
+        .unwrap()
+        .starts_with("(HEAD detached"));
+    let main = arr.iter().find(|b| b["name"] == "main").unwrap();
+    assert_eq!(main["current"], false);
+}
+
+#[tokio::test]
 async fn branches_listing_turns_into_regular_row_after_first_commit() {
     let front = spawn_front_with_initial_commit(false).await;
     std::fs::write(front.ws_path.join("a.txt"), "hello\n").unwrap();
