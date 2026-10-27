@@ -108,13 +108,21 @@ describe("buildTrailingPeekItems", () => {
     expect(buildTrailingPeekItems({}, ALL_ON).some((i) => i.key === "files")).toBe(false);
   });
 
-  it("changesはisGitRepo && isDirtyの時だけ出て、text は F/+/- を含む", () => {
+  it("changesはisGitRepo && isDirtyの時だけ出て、text は +/- を含む（ファイル数Fは出さない）", () => {
     const items = buildTrailingPeekItems(
       { isGitRepo: true, isDirty: true, changedFiles: 3, insertions: 10, deletions: 2 },
       ALL_ON,
     );
-    expect(items.find((i) => i.key === "changes")).toEqual({ key: "changes", text: "3F +10 -2" });
+    expect(items.find((i) => i.key === "changes")).toEqual({ key: "changes", text: "+10 -2" });
     expect(buildTrailingPeekItems({ isGitRepo: true, isDirty: false }, ALL_ON).some((i) => i.key === "changes")).toBe(false);
+  });
+
+  it("changes の text に M/A/D/U のステータス別件数（0件は省略）を先頭に含める", () => {
+    const items = buildTrailingPeekItems(
+      { isGitRepo: true, isDirty: true, changedFiles: 5, insertions: 10, deletions: 2, statusCounts: { M: 2, D: 1, U: 2, A: 0 } },
+      ALL_ON,
+    );
+    expect(items.find((i) => i.key === "changes")).toEqual({ key: "changes", text: "2M 1D 2U +10 -2" });
   });
 
   it("branchはahead/behindを含む固定形式", () => {
@@ -704,6 +712,7 @@ describe("buildPeekSignature", () => {
 
   it("changes/branchは専用フォーマット（buildPeekTextを経由しない）", () => {
     expect(buildPeekSignature("changes", { changedFiles: 2, insertions: 5, deletions: 1 })).toBe("changes:2:5:1");
+    expect(buildPeekSignature("changes", { changedFiles: 2, insertions: 5, deletions: 1, statusCounts: { M: 1, D: 1 } })).toBe("changes:2:5:1:1M 1D");
     expect(buildPeekSignature("branch", { branch: "main", ahead: 1, behind: 0 })).toBe("branch:main:1:0");
   });
 

@@ -4,6 +4,7 @@
 // TerminalPane（浮遊ピル）とセッションサイドバー行の両方から共用する。
 
 import { isDockerContainerActive } from "./docker.ts";
+import { formatStatusCounts } from "./git.ts";
 
 export function trailingItemsSignature(items: { key: string; text: string }[]): Map<string, string> {
   return new Map((items || []).map((it) => [it.key, it.text]));
@@ -57,6 +58,7 @@ export function buildTrailingPeekItems(
     changedFiles?: number;
     insertions?: number;
     deletions?: number;
+    statusCounts?: Record<string, number>;
     branch?: string;
     ahead?: number;
     behind?: number;
@@ -78,6 +80,7 @@ export function buildTrailingPeekItems(
     changedFiles = 0,
     insertions = 0,
     deletions = 0,
+    statusCounts = {},
     branch = "",
     ahead = 0,
     behind = 0,
@@ -94,7 +97,8 @@ export function buildTrailingPeekItems(
     items.push({ key: "files", text: "Files" });
   }
   if (isGitRepo && isDirty && infoPillConfig.changes) {
-    items.push({ key: "changes", text: `${changedFiles}F +${insertions} -${deletions}` });
+    const statuses = formatStatusCounts(statusCounts);
+    items.push({ key: "changes", text: [statuses, `+${insertions}`, `-${deletions}`].filter(Boolean).join(" ") });
   }
   if (isGitRepo && infoPillConfig.branch) {
     items.push({ key: "branch", text: `${branch}:${ahead}:${behind}` });
@@ -179,11 +183,14 @@ export function buildPeekText(
  */
 export function buildPeekSignature(
   peekingKey: string | null,
-  fields: Parameters<typeof buildPeekText>[1] & { changedFiles?: number; insertions?: number; deletions?: number; branch?: string; ahead?: number; behind?: number },
+  fields: Parameters<typeof buildPeekText>[1] & { changedFiles?: number; insertions?: number; deletions?: number; statusCounts?: Record<string, number>; branch?: string; ahead?: number; behind?: number },
 ): string | null {
   if (!peekingKey) return null;
-  const { changedFiles = 0, insertions = 0, deletions = 0, branch = "", ahead = 0, behind = 0 } = fields || {};
-  if (peekingKey === "changes") return `changes:${changedFiles}:${insertions}:${deletions}`;
+  const { changedFiles = 0, insertions = 0, deletions = 0, statusCounts = {}, branch = "", ahead = 0, behind = 0 } = fields || {};
+  if (peekingKey === "changes") {
+    const statuses = formatStatusCounts(statusCounts);
+    return `changes:${changedFiles}:${insertions}:${deletions}${statuses ? `:${statuses}` : ""}`;
+  }
   if (peekingKey === "branch") return `branch:${branch}:${ahead}:${behind}`;
   return `${peekingKey}:${buildPeekText(peekingKey, fields)}`;
 }

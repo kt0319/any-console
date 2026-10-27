@@ -26,17 +26,25 @@ describe("DiffFileBoxList", () => {
     expect(bodies[0].text()).toContain("+b");
   });
 
-  it.each([false, true])("expandAll / collapseAll で全ファイルを一括開閉する（defaultCollapsed=%s）", async (defaultCollapsed) => {
+  it.each([false, true])("toggleAll で全ファイルを一括開閉し、allExpanded が追従する（defaultCollapsed=%s）", async (defaultCollapsed) => {
     const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks, defaultCollapsed } });
-    await wrapper.findAll(".diff-file-row")[0].trigger("click");
-    wrapper.vm.collapseAll();
+    wrapper.vm.toggleAll();
     await flushPromises();
-    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(0);
-    wrapper.vm.expandAll();
+    const expandedAfterFirst = wrapper.findAll(".diff-inline-body").length;
+    expect(expandedAfterFirst).toBe(defaultCollapsed ? 2 : 0);
+    expect(wrapper.vm.allExpanded).toBe(defaultCollapsed);
+    wrapper.vm.toggleAll();
+    await flushPromises();
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(defaultCollapsed ? 0 : 2);
+  });
+
+  it("一部だけ開いている状態の toggleAll は全て開く", async () => {
+    const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks } });
+    await wrapper.findAll(".diff-file-row")[0].trigger("click");
+    expect(wrapper.vm.allExpanded).toBe(false);
+    wrapper.vm.toggleAll();
     await flushPromises();
     expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
-    await wrapper.findAll(".diff-file-row")[0].trigger("click");
-    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
   });
 
   it("chunk の無い追加ファイルは内容を取得せず No diff を表示する（作業ツリーの現在の内容を出さない）", async () => {

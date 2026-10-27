@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus, excludeCurrentBranch } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus, excludeCurrentBranch, summarizeDiffFiles, buildStatusCountItems, formatStatusCounts } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -421,5 +421,40 @@ describe("excludeCurrentBranch", () => {
 
   it("現在のブランチが不明(空)なら一覧をそのまま返す", () => {
     expect(excludeCurrentBranch(["main", "dev"], "")).toEqual(["main", "dev"]);
+  });
+});
+
+describe("summarizeDiffFiles", () => {
+  it("ステータス別件数と挿入/削除行の合計を返す（未取得の行数は0扱い）", () => {
+    const files = [
+      { status: "M", insertions: 3, deletions: 1 },
+      { status: "D", insertions: 0, deletions: 5 },
+      { status: " D", deletions: 2 },
+      { status: "AD", insertions: 1, deletions: 0 },
+      { status: "??" },
+    ];
+    expect(summarizeDiffFiles(files)).toEqual({ statusCounts: { M: 1, D: 2, "-": 1, U: 1 }, insertions: 4, deletions: 8 });
+  });
+
+  it("空配列は全て0", () => {
+    expect(summarizeDiffFiles([])).toEqual({ statusCounts: {}, insertions: 0, deletions: 0 });
+  });
+});
+
+describe("buildStatusCountItems / formatStatusCounts", () => {
+  it("M/A/D/U の順に、0件でないものだけを返す（R や - などは出さない）", () => {
+    const counts = { U: 4, D: 1, A: 0, M: 2, R: 3, "-": 1 };
+    expect(buildStatusCountItems(counts)).toEqual([
+      { label: "M", count: 2, className: "diff-status-mod" },
+      { label: "D", count: 1, className: "diff-status-del" },
+      { label: "U", count: 4, className: "diff-status-untracked" },
+    ]);
+    expect(formatStatusCounts(counts)).toBe("2M 1D 4U");
+  });
+
+  it("未定義・空・全て0なら空", () => {
+    expect(buildStatusCountItems(undefined)).toEqual([]);
+    expect(formatStatusCounts({})).toBe("");
+    expect(formatStatusCounts({ M: 0 })).toBe("");
   });
 });

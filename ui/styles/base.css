@@ -22,6 +22,10 @@
   --docker-blue: #2496ed;
   --border: #3b4261;
   --radius: 8px;
+  --status-mod: #8cb6ff;
+  --status-add: #7edb9a;
+  --status-untracked: #c9e87a;
+  --status-del: #ff8e9a;
   --accent-bg-20: rgba(130, 170, 255, 0.2);
   --accent-bg-12: rgba(130, 170, 255, 0.12);
   --white-30: rgba(255, 255, 255, 0.3);
@@ -416,28 +420,44 @@ button:disabled {
 }
 
 .diff-file-row-status.diff-status-mod {
-  color: #8cb6ff;
+  color: var(--status-mod);
   border-color: rgba(140, 182, 255, 0.45);
   background: rgba(140, 182, 255, 0.12);
 }
 
 .diff-file-row-status.diff-status-add {
-  color: #7edb9a;
+  color: var(--status-add);
   border-color: rgba(126, 219, 154, 0.45);
   background: rgba(126, 219, 154, 0.12);
 }
 
 .diff-file-row-status.diff-status-untracked {
-  color: #c9e87a;
+  color: var(--status-untracked);
   border-color: rgba(201, 232, 122, 0.55);
   border-style: dashed;
   background: rgba(201, 232, 122, 0.12);
 }
 
 .diff-file-row-status.diff-status-del {
-  color: #ff8e9a;
+  color: var(--status-del);
   border-color: rgba(255, 142, 154, 0.45);
   background: rgba(255, 142, 154, 0.12);
+}
+
+.diff-status-count.diff-status-mod {
+  color: var(--status-mod);
+}
+
+.diff-status-count.diff-status-add {
+  color: var(--status-add);
+}
+
+.diff-status-count.diff-status-untracked {
+  color: var(--status-untracked);
+}
+
+.diff-status-count.diff-status-del {
+  color: var(--status-del);
 }
 
 .diff-file-browser-list {

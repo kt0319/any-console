@@ -9,6 +9,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import GitChanges from "../../../ui/components/GitChanges.vue";
 import { on } from "../../../ui/app-bridge.ts";
+import { useConfirm } from "../../../ui/composables/useConfirm.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
 import { UNTRACKED_CONTENT_FETCH_CONCURRENCY } from "../../../ui/utils/constants.ts";
 
@@ -25,7 +26,7 @@ function setupWorkspace() {
 
 function mountGitChanges() {
   return mount(GitChanges, {
-    global: { stubs: { GitCommitForm: true } },
+    global: { stubs: { GitCommitDialog: true } },
   });
 }
 
@@ -106,7 +107,7 @@ describe("GitChanges", () => {
     wrapper.unmount();
   });
 
-  it("上部バーの全展開/全閉じボタンで全ファイルを一括開閉し、バーはファイル一覧より前に並ぶ", async () => {
+  it("上部バーの全展開/全閉じを兼ねる1つのトグルボタンで全ファイルを一括開閉し、バーはファイル一覧より前に並ぶ", async () => {
     setupWorkspace();
     const diff = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\ndiff --git a/b.txt b/b.txt\n--- a/b.txt\n+++ b/b.txt\n@@ -1 +1 @@\n-x\n+y\n";
     vi.stubGlobal("fetch", vi.fn(() => jsonResponse({
@@ -120,21 +121,118 @@ describe("GitChanges", () => {
     const order = wrapper.html();
     expect(order.indexOf("diff-top-bar")).toBeLessThan(order.indexOf("diff-file-list"));
 
-    await wrapper.find("[aria-label='Collapse all files']").trigger("click");
+    const toggle = () => wrapper.find(".diff-expand-btn");
+    expect(wrapper.findAll(".diff-expand-btn")).toHaveLength(1);
+    const visibleLabel = () => toggle().find(".diff-expand-label > span:not(.diff-expand-label-hidden)").text();
+    expect(visibleLabel()).toBe("Collapse all");
+    expect(toggle().classes()).toContain("active");
+    await toggle().trigger("click");
     expect(wrapper.findAll(".diff-inline-body")).toHaveLength(0);
-    await wrapper.find("[aria-label='Expand all files']").trigger("click");
+    expect(visibleLabel()).toBe("Expand all");
+    expect(toggle().classes()).not.toContain("active");
+    await toggle().trigger("click");
     expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
+    expect(visibleLabel()).toBe("Collapse all");
+    expect(toggle().classes()).toContain("active");
+    // 両ラベルを常に描画してボタン幅を固定する（状態で幅が変わらない）
+    expect(toggle().findAll(".diff-expand-label > span")).toHaveLength(2);
     wrapper.unmount();
   });
 
-  it("変更が無いときは全展開/全閉じボタンを出さない", async () => {
+  it("変更が無いときは Commit / Stash を無効にし、変更があれば Commit で Commit ダイアログを開く", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [], diff: "" })));
+    const empty = mountGitChanges();
+    await empty.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    for (const button of empty.findAll(".diff-actions button")) expect(button.attributes("disabled")).toBeDefined();
+    empty.unmount();
+
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [{ path: "a.txt", status: "M" }], diff: "" })));
+    const open = vi.fn();
+    const wrapper = mount(GitChanges, { global: { stubs: { GitCommitDialog: { template: "<div />", setup: (_, { expose }) => expose({ open }) } } } });
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const commit = wrapper.findAll(".diff-actions button").find((b) => b.text() === "Commit");
+    expect(commit.attributes("disabled")).toBeUndefined();
+    await commit.trigger("click");
+    expect(open).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("バー右端にステータス別件数と合計 numstat を表示する（ファイル数Fは出さない）", async () => {
+    setupWorkspace();
+    const diff = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,3 @@\n-old\n+new\n+more\n k\ndiff --git a/b.txt b/b.txt\n--- a/b.txt\n+++ b/b.txt\n@@ -1 +1 @@\n-x\n+y\n";
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({
+      files: [{ path: "a.txt", status: "M", insertions: 2, deletions: 1 }, { path: "b.txt", status: "M", insertions: 1, deletions: 1 }],
+      diff,
+    })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.find(".diff-total-numstat").text()).toBe("2M +3 -2");
+    wrapper.unmount();
+  });
+
+  it("M/A/D/U のステータス別件数を0件を除いて表示する", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({
+      files: [{ path: "a.txt", status: "M" }, { path: "b.txt", status: "D" }, { path: "c.txt", status: " D" }, { path: "d.txt", status: "??" }],
+      diff: "",
+    })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const text = wrapper.find(".diff-total-numstat").text();
+    expect(text).toContain("1M 2D 1U");
+    expect(text).not.toContain("F");
+    expect(text).not.toContain("A");
+    expect(wrapper.find(".diff-status-count.diff-status-del").text()).toBe("2D");
+    wrapper.unmount();
+  });
+
+  it("Stash は確認ダイアログを開き、OK で stash を実行して一覧を再取得する", async () => {
+    setupWorkspace();
+    const calls = [];
+    vi.stubGlobal("fetch", vi.fn((url, init) => {
+      calls.push(`${init?.method || "GET"} ${url}`);
+      if (String(url).endsWith("/stash")) return jsonResponse({ status: "ok", stdout: "Saved" });
+      return jsonResponse({ files: [{ path: "a.txt", status: "M" }], diff: "" });
+    }));
+    const { visible, message, onOk, onCancel } = useConfirm();
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const stash = wrapper.findAll(".diff-actions button").find((b) => b.text() === "Stash");
+    await stash.trigger("click");
+    expect(visible.value).toBe(true);
+    expect(message.value).toContain("Stash 1 changed file,");
+    expect(calls.some((c) => c.endsWith("/stash"))).toBe(false);
+
+    await onOk();
+    await flushPromises();
+    expect(calls.filter((c) => c.startsWith("POST") && c.endsWith("/stash"))).toHaveLength(1);
+    expect(calls.filter((c) => c.endsWith("/diff")).length).toBeGreaterThanOrEqual(2);
+
+    await stash.trigger("click");
+    onCancel();
+    await flushPromises();
+    expect(calls.filter((c) => c.startsWith("POST") && c.endsWith("/stash"))).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("変更が無いときは全展開/全閉じトグルを出さない", async () => {
     setupWorkspace();
     vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [], diff: "" })));
 
     const wrapper = mountGitChanges();
     await wrapper.vm.loadWorkingTreeDiff();
     await flushPromises();
-    expect(wrapper.find("[aria-label='Expand all files']").exists()).toBe(false);
+    expect(wrapper.find(".diff-expand-btn").exists()).toBe(false);
+    expect(wrapper.find(".diff-total-numstat").exists()).toBe(false);
     wrapper.unmount();
   });
 

@@ -52,7 +52,6 @@ export const PILL_PEEK_SUBJECT_MAX = 1;
 // 再接続直後に再送される GitHub 新着を1回のpeekにまとめるための待ち時間
 export const GITHUB_ACTIVITY_BATCH_MS = 200;
 export const UNTRACKED_CONTENT_FETCH_CONCURRENCY = 4;
-export const COMMIT_MESSAGE_MAX_ROWS = 6;
 export const UPLOAD_FAILURE_TOAST_MAX = 3;
 // pull/push の結果peekを出した直後は、ahead/behindが0に落ちたことの検出による
 // 同じ内容の「N Pushed/Pulled」peekを重ねて出さない
@@ -143,6 +142,9 @@ export const GIT_DIFF_STATUS_CLASSES = Object.freeze({
   U: "diff-status-untracked",
   D: "diff-status-del",
 });
+
+// 変更件数のサマリ（Changes のバー・ピークピル）で件数を出すステータスと、その並び順
+export const DIFF_STATUS_SUMMARY_LABELS = Object.freeze(["M", "A", "D", "U"]);
 
 // 画像ビューアの拡大率の範囲（1 = 横幅フィット）とタップで拡大した時の倍率
 export const IMAGE_ZOOM_MIN = 0.5;

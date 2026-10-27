@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import DiffFileItem from "./DiffFileItem.vue";
 import DiffInlineBody from "./DiffInlineBody.vue";
 
@@ -48,9 +48,11 @@ function setAllExpanded(expanded: boolean) {
   toggledPaths.value = new Set(flipsFromDefault ? props.files.map((f) => f.path) : []);
 }
 
+const allExpanded = computed(() => props.files.every((f) => isExpanded(f.path)));
+
 defineExpose({
-  expandAll: () => setAllExpanded(true),
-  collapseAll: () => setAllExpanded(false),
+  allExpanded,
+  toggleAll: () => setAllExpanded(!allExpanded.value),
 });
 
 function toggleFile(path: string) {

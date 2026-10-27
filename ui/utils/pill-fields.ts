@@ -37,6 +37,7 @@ export function buildPillFields(
   const changedFiles = ws?.changed_files || 0;
   const insertions = ws?.insertions || 0;
   const deletions = ws?.deletions || 0;
+  const statusCounts: Record<string, number> = ws?.status_counts || {};
   // findPRForBranch/findRunForBranchの戻り値型はマッチ用フィールドのみの狭い形だが、
   // 実際のオブジェクトはnumber/title/status/conclusion等も持つため any 扱いにする。
   const branchPR: any = isGitRepo && wsName ? findPRForBranch(prsByWorkspace[wsName], branch) : null;
@@ -65,6 +66,7 @@ export function buildPillFields(
     changedFiles,
     insertions,
     deletions,
+    statusCounts,
     hasPr: !!branchPR,
     branchPR,
     hasAction: !!visibleBranchAction,
@@ -81,7 +83,7 @@ export function buildPillFields(
     tooltips: buildInfoPillTooltips({
       name: tooltipName, isGitRepo,
       branch, ahead, behind, hasUpstream: ws?.has_upstream !== false,
-      changedFiles, insertions, deletions,
+      changedFiles, insertions, deletions, statusCounts,
       lastCommitMessage: ws?.last_commit_message,
       devServerEntry, hostname,
       dockerContainers: workspaceDockerContainers,
@@ -113,6 +115,7 @@ export function buildPeekFields(
     changedFiles: pill.changedFiles,
     insertions: pill.insertions,
     deletions: pill.deletions,
+    statusCounts: pill.statusCounts,
     branch: pill.branch,
     ahead: pill.ahead,
     behind: pill.behind,

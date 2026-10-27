@@ -1,5 +1,5 @@
 import { workspaceFileContentPath } from "./endpoints.ts";
-import { GIT_DIFF_STATUS_CLASSES, UNTRACKED_CONTENT_FETCH_CONCURRENCY } from "./constants.ts";
+import { DIFF_STATUS_SUMMARY_LABELS, GIT_DIFF_STATUS_CLASSES, UNTRACKED_CONTENT_FETCH_CONCURRENCY } from "./constants.ts";
 import { runWithConcurrency } from "./concurrency.ts";
 
 export type GitRef = {
@@ -205,6 +205,31 @@ export function diffStatusLabel(status: string): string {
   if (worktree === "M") return "ARC".includes(staged) ? staged : "M";
   if (worktree === "A") return "A";
   return code;
+}
+
+export function summarizeDiffFiles(files: { status: string, insertions?: number | null, deletions?: number | null }[]) {
+  let insertions = 0;
+  let deletions = 0;
+  const statusCounts: Record<string, number> = {};
+  for (const f of files) {
+    insertions += f.insertions ?? 0;
+    deletions += f.deletions ?? 0;
+    const label = diffStatusLabel(f.status);
+    statusCounts[label] = (statusCounts[label] ?? 0) + 1;
+  }
+  return { statusCounts, insertions, deletions };
+}
+
+/** ステータス別件数（ラベル → 件数）のうち、サマリに出す M/A/D/U の0件でないものを表示順で返す。 */
+export function buildStatusCountItems(statusCounts: Record<string, number> | null | undefined): { label: string, count: number, className: string }[] {
+  return DIFF_STATUS_SUMMARY_LABELS
+    .filter((label) => (statusCounts?.[label] ?? 0) > 0)
+    .map((label) => ({ label, count: statusCounts![label], className: GIT_DIFF_STATUS_CLASSES[label as keyof typeof GIT_DIFF_STATUS_CLASSES] }));
+}
+
+/** 例: "2M 1A 1D 1U"（0件は省略。1件も無ければ空文字）。 */
+export function formatStatusCounts(statusCounts: Record<string, number> | null | undefined): string {
+  return buildStatusCountItems(statusCounts).map(({ label, count }) => `${count}${label}`).join(" ");
 }
 
 /** 内容を取得して全体を表示すべき新規ファイル（未追跡 U・追加 A）か。 */

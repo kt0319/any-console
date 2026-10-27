@@ -86,6 +86,7 @@ fn empty_git_info() -> Map<String, Value> {
         "insertions": 0,
         "deletions": 0,
         "changed_files": 0,
+        "status_counts": {},
     })
     .as_object()
     .expect("object literal")
@@ -117,6 +118,30 @@ fn extract_stat(text: &str, keyword: &str) -> i64 {
     0
 }
 
+const UNMERGED_STATUS_CODES: [&str; 7] = ["DD", "AU", "UD", "UA", "DU", "AA", "UU"];
+
+/// UI の `diffStatusLabel`（ui/utils/git.ts）と同じ規則で、porcelain の XY（trim 済み）を
+/// 表示ラベルへ写す。コミットは add -A 後に行われるため、2文字は「コミット時に起きる変化」で決める。
+fn diff_status_label(code: &str) -> String {
+    if code == "??" {
+        return "U".to_string();
+    }
+    if code.len() != 2 || UNMERGED_STATUS_CODES.contains(&code) {
+        return code.to_string();
+    }
+    let bytes = code.as_bytes();
+    let (staged, worktree) = (bytes[0], bytes[1]);
+    let label = match worktree {
+        b'D' if staged == b'A' => "-",
+        b'D' => "D",
+        b'M' if b"ARC".contains(&staged) => return (staged as char).to_string(),
+        b'M' => "M",
+        b'A' => "A",
+        _ => return code.to_string(),
+    };
+    label.to_string()
+}
+
 fn apply_diff_stats(
     info: &mut Map<String, Value>,
     diff_outputs: &[&str],
@@ -126,6 +151,7 @@ fn apply_diff_stats(
     let mut insertions = info["insertions"].as_i64().unwrap_or(0);
     let mut deletions = info["deletions"].as_i64().unwrap_or(0);
     let mut changed_files = info["changed_files"].as_i64().unwrap_or(0);
+    let mut status_counts: Map<String, Value> = Map::new();
     for out in diff_outputs {
         if out.is_empty() {
             continue;
@@ -139,6 +165,14 @@ fn apply_diff_stats(
                 continue;
             }
             changed_files += 1;
+            if let Some(xy) = line.get(..2) {
+                let label = diff_status_label(xy.trim());
+                let count = status_counts
+                    .get(&label)
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0);
+                status_counts.insert(label, json!(count + 1));
+            }
             if let Some(file) = line.strip_prefix("?? ") {
                 insertions += count_file_lines(&directory.join(file));
             }
@@ -147,6 +181,7 @@ fn apply_diff_stats(
     info.insert("insertions".to_string(), json!(insertions));
     info.insert("deletions".to_string(), json!(deletions));
     info.insert("changed_files".to_string(), json!(changed_files));
+    info.insert("status_counts".to_string(), Value::Object(status_counts));
 }
 
 fn parse_revlist_pair(out: &str) -> Option<(i64, i64)> {
@@ -390,6 +425,53 @@ mod tests {
     }
 
     #[test]
+    fn diff_status_label_matches_ui_rules() {
+        for (code, label) in [
+            ("M", "M"),
+            ("A", "A"),
+            ("D", "D"),
+            ("??", "U"),
+            ("MD", "D"),
+            ("RD", "D"),
+            ("AD", "-"),
+            ("AM", "A"),
+            ("MM", "M"),
+            ("RM", "R"),
+            ("DD", "DD"),
+            ("UU", "UU"),
+        ] {
+            assert_eq!(diff_status_label(code), label, "{code}");
+        }
+    }
+
+    #[tokio::test]
+    async fn status_counts_group_entries_by_display_label() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        sh_git(repo, &["init", "-q", "-b", "main"]);
+        sh_git(repo, &["config", "user.email", "t@example.com"]);
+        sh_git(repo, &["config", "user.name", "t"]);
+        for name in ["keep.txt", "gone.txt", "staged-gone.txt"] {
+            std::fs::write(repo.join(name), "x\n").unwrap();
+        }
+        sh_git(repo, &["add", "-A"]);
+        sh_git(repo, &["commit", "-q", "-m", "first"]);
+        std::fs::remove_file(repo.join("gone.txt")).unwrap();
+        sh_git(repo, &["rm", "-q", "staged-gone.txt"]);
+        std::fs::write(repo.join("keep.txt"), "x\ny\n").unwrap();
+        std::fs::write(repo.join("new.txt"), "n\n").unwrap();
+        std::fs::write(repo.join("added.txt"), "a\n").unwrap();
+        sh_git(repo, &["add", "added.txt"]);
+
+        let info = git_info(&GitInfoCache::new(), repo).await;
+        assert_eq!(info["changed_files"], 5);
+        assert_eq!(
+            info["status_counts"],
+            json!({"M": 1, "D": 2, "U": 1, "A": 1})
+        );
+    }
+
+    #[test]
     fn revlist_pair_parse() {
         assert_eq!(parse_revlist_pair("2\t3\n"), Some((2, 3)));
         assert_eq!(parse_revlist_pair("garbage"), None);
@@ -416,6 +498,7 @@ mod tests {
         assert_eq!(info["last_commit_message"], "first");
         assert_eq!(info["upstream_head"], Value::Null);
         assert_eq!(info["changed_files"], 2);
+        assert_eq!(info["status_counts"], json!({"M": 1, "U": 1}));
         // 変更 1 行 + 未追跡 2 行
         assert_eq!(info["insertions"], 3);
         assert_eq!(info["has_upstream"], false);

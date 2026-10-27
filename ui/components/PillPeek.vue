@@ -28,7 +28,7 @@
         :style="marqueeRun ? { animationDuration: marqueeDurationMs + 'ms', '--pill-peek-marquee-offset': marqueeOffset + 'px' } : null"
       >
         <template v-if="peekingKey === 'changes'">
-          <span v-if="changedFiles > 0" class="pill-peek-changes-files">{{ changedFiles }}F</span>
+          <span v-for="item in statusCountItems" :key="item.label" class="diff-status-count" :class="item.className">{{ item.count }}{{ item.label }}</span>
           <span class="pill-peek-changes-plus">+{{ insertions }}</span>
           <span class="pill-peek-changes-minus">-{{ deletions }}</span>
         </template>
@@ -54,6 +54,7 @@ import { ref, computed, watch, nextTick, type ComponentPublicInstance, type Prop
 import { renderIconStr } from "../utils/render-icon.ts";
 import type { RemoteResult } from "../utils/git-remote.ts";
 import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.ts";
+import { buildStatusCountItems } from "../utils/git.ts";
 
 // ピルの値が変化した時に一時表示する1本の長いピル（.pill-peek-wide）。
 // 色・テキストの組み立ては親（TerminalPane）が行い、ここでは表示とマーキー判定のみ担当する。
@@ -68,9 +69,9 @@ const props = defineProps({
   signature: { type: String as PropType<string | null>, default: null },
   tab: { type: Object, required: true },
   maxWidth: { type: Number, required: true },
-  changedFiles: { type: Number, default: 0 },
   insertions: { type: Number, default: 0 },
   deletions: { type: Number, default: 0 },
+  statusCounts: { type: Object as PropType<Record<string, number>>, default: () => ({}) },
   branchName: { type: String, default: "" },
   ahead: { type: Number, default: 0 },
   behind: { type: Number, default: 0 },
@@ -84,6 +85,8 @@ const props = defineProps({
   // された場合はPILL_PEEK_DURATION_MSより短い）。
   peekDurationMs: { type: Number, default: PILL_PEEK_DURATION_MS },
 });
+
+const statusCountItems = computed(() => buildStatusCountItems(props.statusCounts));
 
 // 表示時間ぴったりだと流れ終わった瞬間にピルごと消え最後まで読めないため、
 // PILL_MARQUEE_END_HOLD_MSぶん早めに再生を終え、末尾が見えた状態で静止させる。

@@ -50,6 +50,7 @@ describe("buildInfoPillTooltips", () => {
     const tooltips = buildInfoPillTooltips(data);
     expect(tooltips.files).toBe(filesTooltip({ name: "myproject", isGitRepo: true }));
     expect(tooltips.changes).toBe(changesTooltip({ changedFiles: 3, insertions: 10, deletions: 4 }));
+    expect(changesTooltip({ changedFiles: 3, insertions: 10, deletions: 4, statusCounts: { M: 2, D: 1 } })).toBe("Changes: 3F 2M 1D +10 -4");
     expect(tooltips.branch).toBe(branchTooltip({ branch: "main", ahead: 2, behind: 1, hasUpstream: true, lastCommitMessage: data.lastCommitMessage }));
     expect(tooltips.devserver).toBe(devServerTooltip(data.devServerEntry, "host.example"));
     expect(tooltips.docker).toBe(dockerTooltip(data.dockerContainers));

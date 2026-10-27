@@ -1,34 +1,31 @@
 <template>
   <div class="git-changes-pane-wrapper pane-fill">
     <div class="diff-top-bar">
-      <div v-if="files.length" class="diff-expand-actions">
-        <button
-          type="button"
-          class="diff-expand-btn hover-bg"
-          aria-label="Expand all files"
-          data-tooltip="Expand all files"
-          @click="boxList?.expandAll()"
-        ><span class="mdi mdi-unfold-more-horizontal"></span></button>
-        <button
-          type="button"
-          class="diff-expand-btn hover-bg"
-          aria-label="Collapse all files"
-          data-tooltip="Collapse all files"
-          @click="boxList?.collapseAll()"
-        ><span class="mdi mdi-unfold-less-horizontal"></span></button>
-      </div>
-      <GitCommitForm ref="commitForm" />
       <div v-if="actionButtons.length" class="diff-actions">
         <button
           v-for="action in actionButtons"
           :key="action.label"
           type="button"
           :class="action.class || ''"
-          :disabled="action.loading || action.disabled?.()"
+          :disabled="action.disabled?.()"
           @click="action.handler"
+        >{{ action.label }}</button>
+      </div>
+      <div v-if="files.length" class="diff-bar-right">
+        <span class="diff-total-numstat">
+          <template v-for="part in summaryParts" :key="part.key"><span :class="part.className">{{ part.text }}</span>{{ " " }}</template>
+          <span v-html="totalNumstat"></span>
+        </span>
+        <button
+          type="button"
+          class="diff-expand-btn hover-bg"
+          :class="{ active: boxList?.allExpanded }"
+          @click="boxList?.toggleAll()"
         >
-          <span v-if="action.loading" class="mdi mdi-loading spin"></span>
-          <template v-else>{{ action.label }}</template>
+          <span class="mdi" :class="boxList?.allExpanded ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'" aria-hidden="true"></span>
+          <span class="diff-expand-label">
+            <span v-for="label in toggleAllLabels" :key="label" :class="{ 'diff-expand-label-hidden': label !== toggleAllCurrentLabel }">{{ label }}</span>
+          </span>
         </button>
       </div>
     </div>
@@ -38,22 +35,26 @@
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
       <DiffFileBoxList v-else ref="boxList" :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" @navigate="selectFile" />
     </div>
+    <GitCommitDialog ref="commitDialog" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import DiffFileBoxList from "./DiffFileBoxList.vue";
-import GitCommitForm from "./GitCommitForm.vue";
+import GitCommitDialog from "./GitCommitDialog.vue";
 import { emit } from "../app-bridge.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useGitWorkspaceActions } from "../composables/useGitWorkspaceActions.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
+import { buildNumstatHtml, buildStatusCountItems, summarizeDiffFiles } from "../utils/git.ts";
 import { type AsyncState, asyncError, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { getWorkspace } = useWorkspace();
 const { stashSave } = useGitWorkspaceActions();
+const { confirm } = useConfirm();
 
 interface DiffFileRow {
   path: string;
@@ -66,7 +67,6 @@ interface DiffFileRow {
 interface DiffActionButton {
   label: string;
   class?: string;
-  loading?: boolean;
   disabled?: () => boolean;
   handler: () => void;
 }
@@ -80,14 +80,30 @@ const newFileContents = ref<Record<string, Record<string, any>>>({});
 const listedWorkspace = ref("");
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
-const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
+const commitDialog = ref<InstanceType<typeof GitCommitDialog> | null>(null);
 const boxList = ref<InstanceType<typeof DiffFileBoxList> | null>(null);
 
-const isCommitDisabled = computed(
-  // defineExpose された ref はテンプレート ref 経由では自動アンラップされる（.value を付けると常に undefined）
-  () => !commitForm.value?.commitMessage?.trim() || !!commitForm.value?.submitting,
-);
-const isStashDisabled = computed(() => files.value.length === 0);
+const hasNoChanges = computed(() => files.value.length === 0);
+const summary = computed(() => summarizeDiffFiles(files.value));
+const summaryParts = computed(() => buildStatusCountItems(summary.value.statusCounts).map(({ label, count, className }) => ({
+  key: label, text: `${count}${label}`, className: ["diff-status-count", className],
+})));
+const toggleAllLabels = ["Expand all", "Collapse all"];
+const toggleAllCurrentLabel = computed(() => (boxList.value?.allExpanded ? "Collapse all" : "Expand all"));
+const totalNumstat = computed(() => buildNumstatHtml(summary.value.insertions, summary.value.deletions));
+
+async function confirmAndStash() {
+  const workspace = getWorkspace();
+  if (!workspace) return;
+  const count = files.value.length;
+  await confirm(`Stash ${count} changed ${count === 1 ? "file" : "files"}, including untracked files? The working tree will be reverted.`, {
+    ok: { label: "Stash" },
+    busyLabel: "Stashing...",
+    run: async () => {
+      if (await stashSave(workspace)) await loadWorkingTreeDiff();
+    },
+  });
+}
 
 function selectFile(file: DiffFileRow) {
   emit("git:selectDiffFile", { path: file.path, isWorkingTree: isWorkingTree.value });
@@ -103,24 +119,9 @@ async function loadWorkingTreeDiff() {
   if (!isRefreshingShownList) diffState.value = asyncLoading();
   listedWorkspace.value = workspace;
   isWorkingTree.value = true;
-  const stashBtn = {
-    label: "Stash",
-    loading: false,
-    disabled: () => isStashDisabled.value,
-    handler: async () => {
-      const workspace = getWorkspace();
-      if (!workspace) return;
-      stashBtn.loading = true;
-      try {
-        if (await stashSave(workspace)) await loadWorkingTreeDiff();
-      } finally {
-        stashBtn.loading = false;
-      }
-    },
-  };
   actionButtons.value = [
-    { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },
-    stashBtn,
+    { label: "Commit", class: "primary", disabled: () => hasNoChanges.value, handler: () => commitDialog.value?.open() },
+    { label: "Stash", disabled: () => hasNoChanges.value, handler: confirmAndStash },
   ];
   try {
     const result = await fetchWorkingTreeDiff();
@@ -165,32 +166,62 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 
 .diff-top-bar {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
   padding: 4px 10px;
   flex-shrink: 0;
 }
 
-.diff-expand-actions {
+.diff-bar-right {
   display: flex;
+  align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.diff-total-numstat {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  gap: 4px;
 }
 
 .diff-expand-btn {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  gap: 4px;
   height: 36px;
   min-height: 0;
-  padding: 0;
-  font-size: 18px;
+  padding: 0 8px;
+  font-size: 13px;
   cursor: pointer;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.diff-expand-label {
+  display: grid;
+}
+
+.diff-expand-label > span {
+  grid-area: 1 / 1;
+  text-align: center;
+}
+
+.diff-expand-label-hidden {
+  visibility: hidden;
+}
+
+.diff-expand-btn.active {
+  background: var(--accent-bg-20);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .diff-actions {
@@ -200,8 +231,10 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 }
 
 .diff-actions button {
+  flex: 0 0 auto;
+  width: auto;
   font-size: 13px;
-  padding: 0 12px;
+  padding: 0 10px;
   height: 36px;
   min-height: 0;
 }

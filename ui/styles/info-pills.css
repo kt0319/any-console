@@ -192,10 +192,6 @@
 /* changes/branch は複数の値を1行にまとめて表示するため、それぞれの意味に
    合わせて個別に色分けする（通常ピルの数字バッジ・Push/Pullカウントと
    同じ配色に揃える）。 */
-.pill-peek-changes-files {
-  color: var(--warning);
-}
-
 .pill-peek-changes-plus {
   color: var(--success);
 }

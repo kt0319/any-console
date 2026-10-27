@@ -60,6 +60,11 @@ describe("buildPeekFields", () => {
       workspaceLabel: "app", hasSession: true, hasWorkspace: true, isGitRepo: true, isDirty: true,
       changedFiles: 3, insertions: 4, deletions: 5, branch: "main", ahead: 1, behind: 2, lastCommitMessage: "init",
     });
+    const withStatus = buildPillFields("app", { ...gitWs, status_counts: { M: 2, D: 1 } }, {});
+    expect(withStatus.statusCounts).toEqual({ M: 2, D: 1 });
+    expect(withStatus.tooltips.changes).toBe("Changes: 3F 2M 1D +4 -5");
+    expect(buildPeekFields({ workspace: "app", label: "x", sessionId: "s1" }, withStatus).statusCounts).toEqual({ M: 2, D: 1 });
+    expect(pill.statusCounts).toEqual({});
     expect(buildPeekFields({ workspace: null, label: "term", sessionId: null }, buildPillFields(null, undefined, {})))
       .toMatchObject({ workspaceLabel: "term", hasSession: false, hasWorkspace: false });
   });

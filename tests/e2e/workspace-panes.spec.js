@@ -147,7 +147,7 @@ test.describe("workspace detail panes", () => {
     await expect(page.locator(".git-log-entry-msg", { hasText: COMMIT_MSG_INITIAL })).toBeVisible({ timeout: 10_000 });
   });
 
-  test("Changes ペインで変更ファイルが見えコミットできる（確認ダイアログあり）", async ({ page }) => {
+  test("Changes ペインで変更ファイルが見え、Commit ダイアログからコミットできる", async ({ page }) => {
     // 変更を作ってから Changes を開く
     fs.appendFileSync(path.join(wsDir, "README.md"), "\ne2e change\n");
     await openDetail(page);
@@ -157,13 +157,13 @@ test.describe("workspace detail panes", () => {
     await expect(row).toBeVisible({ timeout: 10_000 });
     await expect(row.locator(".diff-file-row-status")).toHaveText("M");
 
-    // コミットメッセージを入れて Commit → 確認ダイアログ → OK
-    await page.locator(".diff-commit-textarea").fill(COMMIT_MSG_UI);
+    // Commit → ダイアログでメッセージを入力 → Commit
     await page.locator(".diff-actions button", { hasText: "Commit" }).click();
-    const dialog = page.locator(".confirm-dialog");
+    const dialog = page.locator(".commit-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await expect(dialog).toContainText(COMMIT_MSG_UI);
+    await dialog.locator("textarea").fill(COMMIT_MSG_UI);
     await dialog.locator(".dialog-btn-ok").click();
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
 
     // History に反映されている
     await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
@@ -256,13 +256,17 @@ test.describe("workspace detail panes", () => {
     await expect(term).toContainText("job-e2e-42", { timeout: 15_000 });
   });
 
-  test("Stash 保存と Drop ができる（不可逆操作の確認ダイアログあり）", async ({ page }) => {
+  test("Stash 保存（確認ダイアログあり）と Drop ができる（不可逆操作の確認ダイアログあり）", async ({ page }) => {
     // 変更を作って Changes ペインから Stash する
     fs.appendFileSync(path.join(wsDir, "README.md"), "\nstash me\n");
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "Changes" }).click();
     await expect(page.locator(".diff-file-row", { hasText: "README.md" })).toBeVisible({ timeout: 10_000 });
     await page.locator(".diff-actions button", { hasText: "Stash" }).click();
+    const stashDialog = page.locator(".confirm-dialog");
+    await expect(stashDialog).toBeVisible({ timeout: 5000 });
+    await expect(stashDialog).toContainText("Stash 1 changed file");
+    await stashDialog.locator(".dialog-btn-ok").click();
     await expect(page.locator(".diff-file-row", { hasText: "README.md" })).toHaveCount(0, { timeout: 10_000 });
 
     // 開き直すとChangesタブにStashトグルが現れる（Stashesは独立タブから統合済み）

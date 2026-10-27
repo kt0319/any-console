@@ -3,7 +3,7 @@
 // 接続先）が data-tooltip でわかるようにする。固定の説明文言だけだと、
 // 展開しないと現在値を確認できないため。
 
-import { firstCommitLine } from "./git.ts";
+import { firstCommitLine, formatStatusCounts } from "./git.ts";
 import { isDockerContainerActive } from "./docker.ts";
 import { devServerOrigin } from "./preview-url.ts";
 import { dispatchBranchLabel, resolveDispatchJobLabel } from "./dispatch-request.ts";
@@ -28,10 +28,11 @@ export function filesTooltip({ name = "", isGitRepo = false }: { name?: string; 
   return name ? `${name}  ·  ${action}` : action;
 }
 
-export function changesTooltip({ changedFiles = 0, insertions = 0, deletions = 0 }: {
-  changedFiles?: number; insertions?: number; deletions?: number;
+export function changesTooltip({ changedFiles = 0, insertions = 0, deletions = 0, statusCounts = {} }: {
+  changedFiles?: number; insertions?: number; deletions?: number; statusCounts?: Record<string, number>;
 }): string {
-  return `Changes: ${changedFiles}F +${insertions} -${deletions}`;
+  const statuses = formatStatusCounts(statusCounts);
+  return `Changes: ${changedFiles}F${statuses ? ` ${statuses}` : ""} +${insertions} -${deletions}`;
 }
 
 export function devServerTooltip(entry: { scheme?: string; proxy_port?: number } | null | undefined, hostname: string): string {
@@ -87,7 +88,7 @@ export const ADD_PILL_TOOLTIP = "Add or open this directory as a workspace";
 export function buildInfoPillTooltips({
   name = "", isGitRepo = false,
   branch = "", ahead = 0, behind = 0, hasUpstream = true,
-  changedFiles = 0, insertions = 0, deletions = 0,
+  changedFiles = 0, insertions = 0, deletions = 0, statusCounts = {},
   lastCommitMessage = null,
   devServerEntry = null, hostname = "",
   dockerContainers = [],
@@ -98,7 +99,7 @@ export function buildInfoPillTooltips({
 }: {
   name?: string; isGitRepo?: boolean;
   branch?: string; ahead?: number; behind?: number; hasUpstream?: boolean;
-  changedFiles?: number; insertions?: number; deletions?: number;
+  changedFiles?: number; insertions?: number; deletions?: number; statusCounts?: Record<string, number>;
   lastCommitMessage?: string | null;
   devServerEntry?: any; hostname?: string;
   dockerContainers?: { name?: string; state?: string }[];
@@ -109,7 +110,7 @@ export function buildInfoPillTooltips({
 }): Record<string, string> {
   return {
     files: filesTooltip({ name, isGitRepo }),
-    changes: changesTooltip({ changedFiles, insertions, deletions }),
+    changes: changesTooltip({ changedFiles, insertions, deletions, statusCounts }),
     branch: branchTooltip({ branch, ahead, behind, hasUpstream, lastCommitMessage }),
     devserver: devServerTooltip(devServerEntry, hostname),
     docker: dockerTooltip(dockerContainers),
