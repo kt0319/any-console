@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 
 use any_console_server::config::GLOBAL_CONFIG_KEY;
 use any_console_server::config_migrations::{
-    get_config_version, migrate_config_version, CONFIG_SCHEMA_VERSION,
+    get_config_version, stamp_config_version, CONFIG_SCHEMA_VERSION,
 };
 use any_console_server::config_schema::normalize_loaded_config;
 
@@ -36,7 +36,7 @@ fn example_is_at_current_schema_version() {
 #[test]
 fn example_needs_no_migration() {
     let example = load_example();
-    let (migrated, changed) = migrate_config_version(example.clone());
+    let (migrated, changed) = stamp_config_version(example.clone());
     assert!(
         !changed,
         "config.json.example がマイグレーションで書き換わった — 現行スキーマへ更新すること"

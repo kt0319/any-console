@@ -35,7 +35,7 @@ fn set_config_version(mut config: Map<String, Value>, version: i64) -> Map<Strin
 /// v4 未満からのキー変換（radial / pinned_jobs / detached_tab）は打ち切ったため、
 /// 旧バージョンの config はバージョンだけ付け直し、旧キーの設定は引き継がない。
 /// 戻り値の bool は書き戻しが必要かどうか。
-pub fn migrate_config_version(config: Map<String, Value>) -> (Map<String, Value>, bool) {
+pub fn stamp_config_version(config: Map<String, Value>) -> (Map<String, Value>, bool) {
     if config.is_empty() {
         return (config, false);
     }
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn empty_config_untouched() {
-        let (out, migrated) = migrate_config_version(Map::new());
+        let (out, migrated) = stamp_config_version(Map::new());
         assert!(out.is_empty());
         assert!(!migrated);
     }
@@ -99,7 +99,7 @@ mod tests {
         let cfg = as_map(json!({
             "__global__": {"config_version": 2, "pinned_jobs": [{"key": "k1"}]},
         }));
-        let (out, migrated) = migrate_config_version(cfg);
+        let (out, migrated) = stamp_config_version(cfg);
         assert!(migrated);
         let global = out["__global__"].as_object().unwrap();
         assert_eq!(global["config_version"], json!(CONFIG_SCHEMA_VERSION));
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn newer_version_left_untouched() {
         let cfg = as_map(json!({"__global__": {"config_version": 99, "future_field": 1}}));
-        let (out, migrated) = migrate_config_version(cfg.clone());
+        let (out, migrated) = stamp_config_version(cfg.clone());
         assert!(!migrated);
         assert_eq!(out, cfg);
     }
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn current_version_no_write() {
         let cfg = as_map(json!({"__global__": {"config_version": 4}}));
-        let (_, migrated) = migrate_config_version(cfg);
+        let (_, migrated) = stamp_config_version(cfg);
         assert!(!migrated);
     }
 }

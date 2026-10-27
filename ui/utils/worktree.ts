@@ -77,7 +77,7 @@ export function workspaceDisplayName(ws?: { name?: string; worktree?: boolean; w
 
 /**
  * worktreeのワークスペース名（"base:branch"形式、server/src/git_utils.rs の
- * worktree_display_name/split_worktree_name と同じ規則）からベースワークスペース名
+ * worktree_workspace_name/split_worktree_name と同じ規則）からベースワークスペース名
  * を取り出す。worktreeでなければそのまま返す。
  * dispatch履歴をworktreeと元のディレクトリで共有表示するための正規化に使う
  * （dispatch-request.ts の dispatchBaseWorkspaceLabel 参照）。
@@ -95,7 +95,7 @@ export function baseWorkspaceName(name?: string | null): string {
 /**
  * baseWorkspaceName の逆。ベース名とブランチ名から worktree のワークスペース名
  * （"base:branch"形式）を組み立てる（server/src/git_utils.rs の
- * worktree_display_name と同じ規則）。
+ * worktree_workspace_name と同じ規則）。
  * GitChangeBranch.vue の `/worktrees` API 由来の worktree エントリは
  * workspace/name フィールドを持たない（config.json に明示登録された worktree
  * でしか埋まらないため、通常は空）ので、findOpenTabsForWorktree に渡す前に

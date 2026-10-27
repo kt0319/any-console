@@ -76,7 +76,7 @@ export const useAuthStore = defineStore("auth", () => {
     authed.value = false;
   }
 
-  async function checkToken() {
+  async function checkSession() {
     try {
       const res = await fetch(EP_AUTH_CHECK, { credentials: "same-origin" });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
@@ -129,7 +129,7 @@ export const useAuthStore = defineStore("auth", () => {
     registerDevice,
     claimPairing,
     logout,
-    checkToken,
+    checkSession,
     setServerInfo,
     markAuthenticated,
   };

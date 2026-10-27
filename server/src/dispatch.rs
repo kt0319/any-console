@@ -36,7 +36,7 @@ use crate::errors::{bad_request, not_found, server_error, ApiError};
 use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
     git_branch, git_branches, git_remote_branches, resolve_workspace_path, run_git_raw,
-    worktree_display_name, GIT_QUICK_TIMEOUT_SEC,
+    worktree_workspace_name, GIT_QUICK_TIMEOUT_SEC,
 };
 use crate::jobs_common::{serialize_workspace_jobs, TERMINAL_JOB_KEY};
 use crate::paths::Paths;
@@ -266,7 +266,7 @@ impl DispatchRequest {
 
     fn effective_workspace(&self) -> String {
         match self.worktree.as_deref().filter(|w| !w.is_empty()) {
-            Some(wt) => worktree_display_name(&self.workspace, wt),
+            Some(wt) => worktree_workspace_name(&self.workspace, wt),
             None => self.workspace.clone(),
         }
     }
@@ -303,7 +303,7 @@ impl DispatchRequest {
     }
 }
 
-/// `DispatchExecute` の上書きフィールド集合（`#[serde(flatten)]` でそのまま
+/// `DispatchDecision` の上書きフィールド集合（`#[serde(flatten)]` でそのまま
 /// 埋め込む）。
 #[derive(Default, Deserialize)]
 struct DispatchOverrides {
@@ -330,7 +330,7 @@ struct DispatchOverrides {
 /// `POST /dispatch/{id}/decision` のリクエストボディ。`executed: true` で実行、
 /// `false` で破棄（pendingのitemのみ。決定済みのitemに対してfalseは無効）。
 #[derive(Deserialize)]
-pub struct DispatchExecute {
+pub struct DispatchDecision {
     executed: bool,
     #[serde(flatten)]
     overrides: DispatchOverrides,
@@ -928,7 +928,7 @@ pub async fn dispatch(
     dispatch_core(&state, body, &auth_label, is_scoped_token).await
 }
 
-/// dispatch 実行成功時の activity 記録（`dispatch_execute`のpending実行・履歴からの
+/// dispatch 実行成功時の activity 記録（`dispatch_decide`のpending実行・履歴からの
 /// 再送実行の両方で共用する定型）。
 fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
     crate::activity::log_activity(
@@ -1070,11 +1070,11 @@ async fn dispatch_core(
 /// 復元して再送する。「pendingか履歴か」でデータの取得元が違うだけで、
 /// dispatch_idを渡して`executed: true/false`を決めるという操作自体は1つに
 /// 統一している（旧 `dispatch_rerun` はこの関数へ統合済み）。
-pub async fn dispatch_execute(
+pub async fn dispatch_decide(
     State(state): State<Arc<AppState>>,
     Path(dispatch_id): Path<String>,
     auth: RequireAuth,
-    JsonBody(body): JsonBody<DispatchExecute>,
+    JsonBody(body): JsonBody<DispatchDecision>,
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
     // 実際に認証された経路のラベルをそのまま activity ログ・再 dispatch へ渡す

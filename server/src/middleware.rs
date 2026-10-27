@@ -66,7 +66,7 @@ pub async fn rate_limit(
 }
 
 /// 変更系リクエスト（POST/PUT/DELETE/PATCH）のアクセスログ。/auth/check は除外。
-pub async fn client_log(
+pub async fn access_log(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     req: Request,
     next: Next,

@@ -20,7 +20,7 @@ export function useAppAuthGate() {
   }
 
   async function checkAuthOnBoot() {
-    const result = await auth.checkToken();
+    const result = await auth.checkSession();
     if (result.ok) {
       auth.markAuthenticated();
       auth.setServerInfo(result.hostname);

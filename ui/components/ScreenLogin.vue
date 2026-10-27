@@ -58,7 +58,7 @@ import { useAuthStore } from "../stores/auth.ts";
 import { useModal } from "../composables/useModal.ts";
 import { parsePairUrl } from "../utils/pairing.ts";
 
-// auth ストアの registerDevice / claimPairing / checkToken の応答のうち
+// auth ストアの registerDevice / claimPairing / checkSession の応答のうち
 // ここで参照するフィールド（error / hostname は失敗 / 成功時のみ載る）。
 interface AuthResult { ok: boolean; error?: string; hostname?: string }
 
@@ -96,7 +96,7 @@ async function handleLogin() {
     return;
   }
 
-  const result: AuthResult = await auth.checkToken();
+  const result: AuthResult = await auth.checkSession();
   if (result.ok) {
     auth.setServerInfo(result.hostname!);
     visible.value = false;
@@ -186,7 +186,7 @@ async function handleScannedText(text: string) {
     scanError.value = result.error || "Pairing failed.";
     return;
   }
-  const checkResult: AuthResult = await auth.checkToken();
+  const checkResult: AuthResult = await auth.checkSession();
   if (checkResult.ok) auth.setServerInfo(checkResult.hostname!);
   scanClaiming.value = false;
   scanner.close();

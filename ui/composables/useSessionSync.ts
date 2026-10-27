@@ -71,7 +71,7 @@ export function useSessionSync() {
   }
 
   async function restoreExistingSessions(sessionsRes: Response | null, jobsRes: Response | null) {
-    if (terminalStore.hasRestoredTabsFromStorage) return;
+    if (terminalStore.hasRestoredSessions) return;
     terminalStore.restoreSessionsLoading = true;
     terminalStore.restoreSessionsError = "";
     try {
@@ -84,7 +84,7 @@ export function useSessionSync() {
         }
         return;
       }
-      terminalStore.hasRestoredTabsFromStorage = true;
+      terminalStore.hasRestoredSessions = true;
       const sessions = await res.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return;
 

@@ -42,18 +42,18 @@ export function tidyWhitespace(text: string): string {
 }
 
 /** 改行を除去して1行にする（Select & Copyペインの Copy with Trim 用）。 */
-export function trimNewlines(text: string): string {
+export function removeNewlines(text: string): string {
   return text.replace(/\r?\n/g, "");
 }
 
 /** 半角スペース・タブを除去する（Select & Copyペインの Copy with Trim 用）。 */
-export function trimSpaces(text: string): string {
+export function removeSpaces(text: string): string {
   return text.replace(/[ \t]/g, "");
 }
 
-/** trimNewlines + trimSpaces。折り返まれたURL等を1つの文字列に整形してコピーする用途。 */
-export function trimAll(text: string): string {
-  return trimSpaces(trimNewlines(text));
+/** removeNewlines + removeSpaces。折り返まれたURL等を1つの文字列に整形してコピーする用途。 */
+export function removeAllWhitespace(text: string): string {
+  return removeSpaces(removeNewlines(text));
 }
 
 export interface FormatOptions {

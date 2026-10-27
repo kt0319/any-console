@@ -27,7 +27,7 @@ server/                       Backend (Rust, axum)
   src/auth.rs                 Bearer token auth (optional) + API tokens; sole writer of auth.json
                                (device-cookie verification is delegated to devices.rs)
   src/devices.rs               Device cookie storage (registration, listing, revocation)
-  src/middleware.rs            Security headers, rate-limit middleware, client log intake
+  src/middleware.rs            Security headers, rate-limit middleware, access log of mutating requests
   src/errors.rs                ApiError — the {"detail": ...} error response used by all handlers
   src/terminal_session.rs / tmux.rs / pty.rs  tmux × PTY fork/exec × WebSocket bridge
   src/git_utils.rs / git_lock.rs  Git subprocess invocation, workspace lock

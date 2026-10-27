@@ -1,7 +1,7 @@
 //! any-console サーバのエントリポイント。
 //!
 //! 公開ポートで待ち受け、静的ファイル（ui/dist）・ミドルウェア
-//! （security headers / rate limit / client log）・全 API ルートを処理する。
+//! （security headers / rate limit / access log）・全 API ルートを処理する。
 //!
 //! 環境変数:
 //! - ANY_CONSOLE_PROJECT_ROOT : リポジトリルート（既定: カレントディレクトリ）
@@ -92,7 +92,7 @@ async fn main() {
             paths.frontend_dir.display()
         );
     }
-    let auth = Auth::load(paths.data_dir.clone());
+    let auth = Auth::new(paths.data_dir.clone());
 
     let state = Arc::new(AppState {
         paths: paths.clone(),

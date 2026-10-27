@@ -53,7 +53,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   // 反応しない — インラインで find していた従来と同じ性質）。
   const activeTab = computed(() => openTabs.value.find((t) => t.id === activeTabId.value));
   const terminalIdCounter = ref(0);
-  const hasRestoredTabsFromStorage = ref(false);
+  const hasRestoredSessions = ref(false);
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
   const tabFlags = reactive<Record<number, Record<string, unknown>>>({});
@@ -269,7 +269,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     openTabs,
     activeTabId,
     activeTab,
-    hasRestoredTabsFromStorage,
+    hasRestoredSessions,
     restoreSessionsLoading,
     restoreSessionsError,
     tabFlags,

@@ -22,7 +22,7 @@
       <button type="button" class="primary copy-full-btn" @mousedown.prevent @click="copySelection">
         <span class="mdi mdi-content-copy"></span> Copy
       </button>
-      <button type="button" class="copy-full-btn" @mousedown.prevent @click="copyTrimmed(trimAll)">
+      <button type="button" class="copy-full-btn" @mousedown.prevent @click="copyTrimmed(removeAllWhitespace)">
         <span class="mdi mdi-content-copy"></span> Copy with Trim
       </button>
     </div>
@@ -34,7 +34,7 @@ import { ref, reactive, computed } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { getFullBufferText } from "../utils/terminal-buffer-text.ts";
 import { copyText } from "../utils/clipboard.ts";
-import { applyFormat, trimAll } from "../utils/auto-format.ts";
+import { applyFormat, removeAllWhitespace } from "../utils/auto-format.ts";
 import { useToast } from "../composables/useToast.ts";
 
 const FORMAT_KEYS = ["stripLeading", "joinWrapped", "breakLines", "tidy"] as const;

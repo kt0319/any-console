@@ -126,7 +126,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .merge(push_routes())
         .fallback(fallback::handle)
         // 後着の layer が外殻になる: SecurityHeaders → RateLimit → ClientLog → ルート
-        .layer(axum::middleware::from_fn(middleware::client_log))
+        .layer(axum::middleware::from_fn(middleware::access_log))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::rate_limit,
@@ -430,7 +430,7 @@ fn terminal_routes() -> AppRouter {
         .route("/dispatch", post(dispatch::dispatch))
         .route(
             "/dispatch/{dispatch_id}/decision",
-            post(dispatch::dispatch_execute),
+            post(dispatch::dispatch_decide),
         )
         .route(
             "/agent-hooks/events",

@@ -87,7 +87,7 @@ describe("runItem", () => {
   });
 
   // pendingのitemでも、既に決定済みで履歴に残っているだけのitemでも同じ
-  // decision APIを叩く（サーバ側 dispatch_execute が dispatch_id の所在を
+  // decision APIを叩く（サーバ側 dispatch_decide が dispatch_id の所在を
   // 見て振り分けるため、フロント側でpending/recentを区別する必要が無い）。
   it("executed:trueと上書き値を付けてdecision APIを呼び、成功でtrueを返す", async () => {
     apiPostMock.mockResolvedValue({ ok: true, data: {} });

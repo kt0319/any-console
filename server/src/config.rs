@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
-use crate::config_migrations::{get_config_version, migrate_config_version, CONFIG_SCHEMA_VERSION};
+use crate::config_migrations::{get_config_version, stamp_config_version, CONFIG_SCHEMA_VERSION};
 use crate::config_schema::{normalize_loaded_config, validate_config_entry};
 use crate::errors::{server_error, ApiError};
 
@@ -149,7 +149,7 @@ impl ConfigStore {
             Map::new()
         };
 
-        let (migrated, did_migrate) = migrate_config_version(raw);
+        let (migrated, did_migrate) = stamp_config_version(raw);
         let (normalized, errors) =
             normalize_loaded_config(&Value::Object(migrated), GLOBAL_CONFIG_KEY);
         for (name, error) in errors {

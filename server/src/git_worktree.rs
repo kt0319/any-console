@@ -17,7 +17,7 @@ use crate::errors::{bad_request, conflict, not_found, ApiError};
 use crate::git_helpers::validate_branch_name;
 use crate::git_utils::{
     git_branches, git_is_repo, git_worktree_list, registered_paths_by_resolved,
-    resolve_workspace_path, run_git_command, worktree_display_name, GIT_LONG_TIMEOUT_SEC,
+    resolve_workspace_path, run_git_command, worktree_workspace_name, GIT_LONG_TIMEOUT_SEC,
 };
 use crate::paths::safe_resolve_str;
 use crate::state::AppState;
@@ -145,7 +145,7 @@ pub async fn create_worktree(
 
     let base_config = state.config.load_workspace_config(&name);
     let base_display = crate::config::workspace_display_name(base_config.get("name"), &name);
-    let display_name = worktree_display_name(base_display, &branch);
+    let display_name = worktree_workspace_name(base_display, &branch);
     tracing::info!(
         "worktree created workspace={} branch={} path={}",
         name,

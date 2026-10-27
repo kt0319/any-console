@@ -112,7 +112,7 @@ fn dispatch_router(state: Arc<AppState>) -> Router {
         .route("/dispatch", post(dispatch::dispatch))
         .route(
             "/dispatch/{dispatch_id}/decision",
-            post(dispatch::dispatch_execute),
+            post(dispatch::dispatch_decide),
         )
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
         .route(

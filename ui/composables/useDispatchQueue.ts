@@ -82,7 +82,7 @@ export function useDispatchQueue() {
 
   // DispatchRunView の Run から呼ぶ。pendingのitemでも、既に決定済みで履歴
   // （recent）に残っているだけのitemでも同じエンドポイントで実行できる
-  // （サーバ側 dispatch_execute が dispatch_id の所在を見て振り分ける）。
+  // （サーバ側 dispatch_decide が dispatch_id の所在を見て振り分ける）。
   async function runItem(id: string, overrides: Record<string, any>): Promise<boolean> {
     const { ok, data } = await apiPost(dispatchDecisionPath(id), {
       executed: true,

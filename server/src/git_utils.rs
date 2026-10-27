@@ -431,11 +431,11 @@ pub fn split_worktree_name(name: &str) -> Option<(String, String)> {
 }
 
 /// 動的worktreeのワークスペース名 'base:branch' を組み立てる（split の逆）。
-pub fn worktree_display_name(base: &str, branch: &str) -> String {
+pub fn worktree_workspace_name(base: &str, branch: &str) -> String {
     format!("{base}:{branch}")
 }
 
-/// worktree 表示名ならベース名を、そうでなければ名前をそのまま返す。
+/// worktree ワークスペース名ならベース名を、そうでなければ名前をそのまま返す。
 pub fn worktree_base_of(name: &str) -> String {
     split_worktree_name(name)
         .map(|(base, _)| base)
@@ -506,7 +506,7 @@ pub async fn match_workspace_with_worktree(config: &ConfigStore, cwd: &str) -> O
             if branch.is_empty() {
                 break;
             }
-            return Some(worktree_display_name(&base_name, branch));
+            return Some(worktree_workspace_name(&base_name, branch));
         }
     }
     Some(base_name)
@@ -565,7 +565,7 @@ async fn worktree_entries_for_workspace(
         let branch = wt.get("branch").and_then(Value::as_str).unwrap_or("");
         let mut wt_entry = json!({
             "id": Value::Null,
-            "name": worktree_display_name(&base_name, branch),
+            "name": worktree_workspace_name(&base_name, branch),
             "path": wt_path_str,
             "is_git_repo": true,
             "branch": branch,
@@ -744,7 +744,7 @@ mod tests {
         assert_eq!(split_worktree_name("plain-name"), None);
         assert_eq!(split_worktree_name(":no-base"), None);
         assert_eq!(split_worktree_name("no-branch:"), None);
-        assert_eq!(worktree_display_name("proj", "feat/x"), "proj:feat/x");
+        assert_eq!(worktree_workspace_name("proj", "feat/x"), "proj:feat/x");
     }
 
     #[tokio::test]

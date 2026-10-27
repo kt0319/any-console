@@ -122,7 +122,7 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn load(data_dir: PathBuf) -> Self {
+    pub fn new(data_dir: PathBuf) -> Self {
         let disable_auth = std::env::var("ANY_CONSOLE_DISABLE_AUTH")
             .map(|v| v.trim() == "1")
             .unwrap_or(false);
@@ -603,13 +603,13 @@ mod tests {
 
     fn setup(dir: &tempfile::TempDir, token: &str) -> Auth {
         save_json_file(&dir.path().join("auth.json"), &json!({"token": token})).unwrap();
-        Auth::load(dir.path().to_path_buf())
+        Auth::new(dir.path().to_path_buf())
     }
 
     #[test]
     fn no_token_means_disabled() {
         let dir = tempfile::tempdir().unwrap();
-        let auth = Auth::load(dir.path().to_path_buf());
+        let auth = Auth::new(dir.path().to_path_buf());
         let r = auth.authenticate("", None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
@@ -632,7 +632,7 @@ mod tests {
         // 認証全体が無効化されてしまう回帰があった。
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 123})).unwrap();
-        let auth = Auth::load(dir.path().to_path_buf());
+        let auth = Auth::new(dir.path().to_path_buf());
         let r = auth.authenticate("123", None).unwrap();
         assert_eq!(r.kind, AuthKind::Main);
         // 無関係な bearer や空文字では通らない（無認証化していないことの確認）。
@@ -674,7 +674,7 @@ mod tests {
         // 後退ではない）。
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
-        let auth = Auth::load(dir.path().to_path_buf());
+        let auth = Auth::new(dir.path().to_path_buf());
         let r = auth.authenticate("", None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
@@ -695,7 +695,7 @@ mod tests {
         // Python 側は 0 のような falsy な数値は "" 扱いになる（token 未設定と同じ）。
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 0})).unwrap();
-        let auth = Auth::load(dir.path().to_path_buf());
+        let auth = Auth::new(dir.path().to_path_buf());
         let r = auth.authenticate("", None).unwrap();
         assert_eq!(r.kind, AuthKind::Disabled);
     }
