@@ -14,8 +14,8 @@
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"
-        @keydown.enter.prevent="onSubmit"
-        @keydown.esc.prevent="onCancel"
+        @keydown.enter="(e) => runUnlessComposing(e, onSubmit)"
+        @keydown.esc="(e) => runUnlessComposing(e, onCancel)"
       />
       <div class="dialog-buttons">
         <button class="dialog-btn dialog-btn-cancel" @click="onCancel">{{ cancelLabel }}</button>
@@ -29,6 +29,7 @@
 import { ref, watch, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { usePrompt } from "../composables/usePrompt.ts";
+import { runUnlessComposing } from "../utils/keyboard-event.ts";
 
 const {
   visible,

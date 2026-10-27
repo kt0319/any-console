@@ -24,8 +24,8 @@
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
-          @keydown.enter.prevent="submitAddModal"
-          @keydown.esc.prevent="closeAddModal"
+          @keydown.enter="(e) => runUnlessComposing(e, submitAddModal)"
+          @keydown.esc="(e) => runUnlessComposing(e, closeAddModal)"
         />
         <div class="dialog-buttons">
           <button class="dialog-btn dialog-btn-cancel" @click="closeAddModal">Cancel</button>
@@ -143,6 +143,7 @@ import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush, type LocalBranch, type RemoteBranch } from "../utils/git-branch.ts";
 import { worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
+import { runUnlessComposing } from "../utils/keyboard-event.ts";
 
 defineProps({
   expanded: { type: Boolean, default: false },

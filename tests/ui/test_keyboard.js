@@ -18,6 +18,19 @@ describe("listenForEscape", () => {
     release();
   });
 
+  it("IME 変換中の Escape（変換の取消）は処理せず、preventDefault もしない", () => {
+    const handler = vi.fn();
+    const release = listenForEscape(handler);
+    const composing = new KeyboardEvent("keydown", { key: "Escape", cancelable: true, isComposing: true });
+    document.dispatchEvent(composing);
+    const safariComposing = new KeyboardEvent("keydown", { key: "Escape", cancelable: true, keyCode: 229 });
+    document.dispatchEvent(safariComposing);
+    expect(handler).not.toHaveBeenCalled();
+    expect(composing.defaultPrevented).toBe(false);
+    expect(safariComposing.defaultPrevented).toBe(false);
+    release();
+  });
+
   it("ignores non-Escape keys", () => {
     const handler = vi.fn();
     const release = listenForEscape(handler);

@@ -34,6 +34,7 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 import { clampSidebarWidth, sidebarMaxWidth } from "../utils/sidebar-width.ts";
+import { isComposingEvent } from "../utils/keyboard-event.ts";
 import {
   SESSION_SIDEBAR_MIN_WIDTH_PX, SESSION_SIDEBAR_RESIZE_STEP_PX,
 } from "../utils/constants.ts";
@@ -99,7 +100,7 @@ watch(isOpen, () => stopResize());
 
 // Esc で閉じる（モバイルはModal.vue側のuseModalが同様のEscハンドリングを持つ）。
 function onKeydown(e: KeyboardEvent) {
-  if (e.key !== "Escape" || e.defaultPrevented) return;
+  if (e.key !== "Escape" || e.defaultPrevented || isComposingEvent(e)) return;
   if (!layoutStore.isSessionSidebarOpen) return;
   close();
 }

@@ -13,7 +13,7 @@
         @focus="onInputFocus"
         @blur="onInputBlur"
         @input="loadSuggest"
-        @keydown.enter="doAddExisting"
+        @keydown.enter="(e) => runUnlessComposing(e, doAddExisting)"
       />
     </div>
     <div v-if="suggestVisible && suggestEntries.length" class="ws-suggest-list">
@@ -68,6 +68,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_WORKSPACES } from "../utils/endpoints.ts";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.ts";
+import { runUnlessComposing } from "../utils/keyboard-event.ts";
 
 const props = defineProps({
   initialPath: { type: String, default: "" },

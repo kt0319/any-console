@@ -13,7 +13,7 @@
         class="form-input"
         placeholder="Token name (e.g. github-actions)"
         maxlength="80"
-        @keydown.enter="createApiToken"
+        @keydown.enter="(e) => runUnlessComposing(e, createApiToken)"
       />
       <button type="button" class="primary" :disabled="creatingToken || !newTokenName.trim()" @click="createApiToken">
         {{ creatingToken ? "Creating..." : "Create" }}
@@ -73,6 +73,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.ts";
 import { formatRelativeTime } from "../utils/format.ts";
 import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
+import { runUnlessComposing } from "../utils/keyboard-event.ts";
 
 // API Tokens セクション（作成・一覧・失効）。AuthConfig から分離。
 

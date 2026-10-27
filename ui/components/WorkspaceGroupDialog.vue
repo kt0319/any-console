@@ -11,8 +11,8 @@
         aria-label="Group name"
         placeholder="Group name"
         autocomplete="off"
-        @keydown.enter.prevent="submitGroupDialog"
-        @keydown.esc.prevent="groupDialogOpen = false"
+        @keydown.enter="(e) => runUnlessComposing(e, submitGroupDialog)"
+        @keydown.esc="(e) => runUnlessComposing(e, () => { groupDialogOpen = false })"
       />
       <div class="picker-group-dialog-buttons">
         <button v-if="editingGroup" class="dialog-btn group-btn-danger" @click="deleteGroup(editingGroup)">Delete</button>
@@ -33,6 +33,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { EP_GROUPS } from "../utils/endpoints.ts";
+import { runUnlessComposing } from "../utils/keyboard-event.ts";
 
 const workspaceStore = useWorkspaceStore();
 const { apiPost, apiPut, apiDelete } = useApi();

@@ -36,6 +36,30 @@ describe("WorkspaceAddInline", () => {
     vi.unstubAllGlobals();
   });
 
+  it("IME 変換確定の Enter では登録せず、通常の Enter で登録する", async () => {
+    setActivePinia(createPinia());
+    const fetchMock = vi.fn((url, opts = {}) => {
+      if (opts.method === "POST") return jsonResponse({ status: "ok", name: "myproj" });
+      return jsonResponse({ base: "", entries: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const posts = () => fetchMock.mock.calls.filter(([, opts]) => opts?.method === "POST");
+
+    const wrapper = mount(WorkspaceAddInline, mountOptions());
+    await flushPromises();
+    const input = wrapper.find("input");
+    await input.setValue("/tmp/日本語");
+    await input.trigger("keydown", { key: "Enter", keyCode: 229 });
+    await input.trigger("keydown", { key: "Enter", isComposing: true });
+    await flushPromises();
+    expect(posts()).toHaveLength(0);
+
+    await input.trigger("keydown", { key: "Enter" });
+    await flushPromises();
+    expect(posts()).toHaveLength(1);
+    wrapper.unmount();
+  });
+
   it("グループが無ければGroupセレクトを表示しない", () => {
     setActivePinia(createPinia());
     vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ base: "", entries: [] })));

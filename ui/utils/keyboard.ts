@@ -1,3 +1,5 @@
+import { isComposingEvent } from "./keyboard-event.ts";
+
 // タッチデバイス（hover 不可・粗いポインタ）判定。
 // モーダル等で自動フォーカスを抑制し、ソフトキーボードの誤起動を防ぐ用途で使う。
 export function isTouchOnly() {
@@ -23,7 +25,8 @@ export function isCaretOnLastLine(value: string, selectionEnd: number | null | u
 // メタキー結合として解釈するため、次に入力した文字が欠落する不具合になっていた）。
 export function listenForEscape(handler: (e: KeyboardEvent) => void) {
   const onKeydown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
+    // IME 変換中の Esc は変換の取消なので、ダイアログを閉じず IME に任せる
+    if (e.key === "Escape" && !isComposingEvent(e)) {
       e.preventDefault();
       e.stopPropagation();
       handler(e);
