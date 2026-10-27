@@ -2,6 +2,7 @@
   <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
     <form class="keyboard-input-row" autocomplete="off" role="presentation" @submit.prevent="submit">
       <textarea
+        :key="inputKey"
         ref="inputEl"
         v-model="draft"
         class="keyboard-input"
@@ -30,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type PropType, type Ref } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, type PropType, type Ref } from "vue";
 import { useInputStore } from "../stores/input.ts";
 import { useKeyboard } from "../composables/useKeyboard.ts";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.ts";
@@ -38,6 +39,7 @@ import { useSuppressedBlur } from "../composables/useSuppressedBlur.ts";
 import { isComposingEvent } from "../utils/keyboard-event.ts";
 import { isCaretOnFirstLine, isCaretOnLastLine } from "../utils/keyboard.ts";
 import { useLayoutStore } from "../stores/layout.ts";
+import { debugLog } from "../composables/useClientLogs.ts";
 
 const emit = defineEmits(["focused", "submitted"]);
 // フリックバーと物理キーボードで履歴↑↓状態を共有するため、useInputDraftHistoryを
@@ -56,6 +58,10 @@ const draft = defineModel<string>("draft", { default: "" });
 const inputEl = ref<HTMLTextAreaElement | null>(null);
 const focused = ref(false);
 const composing = ref(false);
+// 送信のたびに textarea を作り直す。iOS 27 では、送信直後に value を書き換えて blur した
+// textarea で次の入力を始めると、かな入力は入るが変換候補が出なくなる（アプリを開き直すまで直らない）。
+// 新しい要素なら入力セッションが初期状態から始まる。
+const inputKey = ref(0);
 
 // useHardwareKeyboard / useSuppressedBlur は input 要素前提の型だが、
 // 実際に使うのは両要素共通の focus/blur/selection 系のみ（textarea でも動く）。
@@ -117,6 +123,8 @@ function onFocus() {
 // hasDraft（親のsend/enterアイコン切替）が未確定文字列を拾えない。DOMのinput/
 // compositionupdateを直接見てdraft.valueを追従させる。
 function onInput(e: Event) {
+  // 作り直し前の要素から遅れて届くイベント（blur 時の変換確定など）で draft を書き戻さない
+  if (e.target !== inputEl.value) return;
   const value = (e.target as HTMLTextAreaElement).value;
   if (draft.value !== value) draft.value = value;
 }
@@ -128,7 +136,39 @@ function moveCursor(delta: number) {
   el.setSelectionRange?.(pos, pos);
 }
 
+// iOS の PWA はバックグラウンド化・キーボード閉じ・blur のタイミングによっては変換の途中で
+// compositionend が届かない。フラグが立ったままだと、Enter/Esc/矢印と物理キー入力が
+// 以後ずっと「変換中」として無視され、Vue の v-model も el.composing が true の間は
+// draft → DOM の反映を止めるため、フリックバー等からの入力が画面に出なくなる（開き直すまで直らない）。
+function resetCompositionState(reason: string) {
+  const el = inputEl.value as (HTMLTextAreaElement & { composing?: boolean }) | null;
+  if (composing.value || el?.composing) {
+    debugLog("[IME]", "reset stale composition state", reason);
+  }
+  composing.value = false;
+  if (el) el.composing = false;
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === "visible") resetCompositionState("visible");
+}
+
+function onPageShow() {
+  resetCompositionState("pageshow");
+}
+
+onMounted(() => {
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pageshow", onPageShow);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("pageshow", onPageShow);
+});
+
 function onBlur() {
+  resetCompositionState("blur");
   if (!handleBlur()) return;
   focused.value = false;
   emit("focused", false);
@@ -163,17 +203,19 @@ function submit() {
   // スペース付きコマンドを打つユースケースがあるため）。
   if (!raw.trim()) {
     draft.value = "";
-    if (el) el.value = "";
+    if (el?.value) el.value = "";
     sendKeyToTerminal({ key: "Enter" });
     return;
   }
   sendTextToTerminal(raw);
   inputStore.addInputHistory(raw);
-  draft.value = "";
-  // draft.value を空にしても IME 変換中（el.composing）はVue側がDOM更新を
-  // スキップするため、el.value も直接空にしてIME入力中の未確定文字列を消す。
-  if (el) el.value = "";
+  // 先に blur して変換を確定させる（compositionend / input が同期で走り、v-model が確定文字列を
+  // draft へ戻す）。draft を空にするのはその後。変換セッションが開いたままの要素へは
+  // value を書き込まず、空の状態は要素の作り直しで得る。
   el?.blur();
+  composing.value = false;
+  draft.value = "";
+  inputKey.value += 1;
   emit("submitted");
 }
 
