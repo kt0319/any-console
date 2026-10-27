@@ -42,6 +42,17 @@ watch(() => props.files, (files) => {
   if (kept.length !== toggledPaths.value.size) toggledPaths.value = new Set(kept);
 });
 
+// toggledPaths は「既定の開閉から反転したファイル」なので、既定が閉じなら全開は全パス、既定が開なら全開は空集合になる。
+function setAllExpanded(expanded: boolean) {
+  const flipsFromDefault = expanded === !!props.defaultCollapsed;
+  toggledPaths.value = new Set(flipsFromDefault ? props.files.map((f) => f.path) : []);
+}
+
+defineExpose({
+  expandAll: () => setAllExpanded(true),
+  collapseAll: () => setAllExpanded(false),
+});
+
 function toggleFile(path: string) {
   const next = new Set(toggledPaths.value);
   if (!next.delete(path)) next.add(path);

@@ -26,6 +26,19 @@ describe("DiffFileBoxList", () => {
     expect(bodies[0].text()).toContain("+b");
   });
 
+  it.each([false, true])("expandAll / collapseAll で全ファイルを一括開閉する（defaultCollapsed=%s）", async (defaultCollapsed) => {
+    const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks, defaultCollapsed } });
+    await wrapper.findAll(".diff-file-row")[0].trigger("click");
+    wrapper.vm.collapseAll();
+    await flushPromises();
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(0);
+    wrapper.vm.expandAll();
+    await flushPromises();
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
+    await wrapper.findAll(".diff-file-row")[0].trigger("click");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(1);
+  });
+
   it("chunk の無い追加ファイルは内容を取得せず No diff を表示する（作業ツリーの現在の内容を出さない）", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

@@ -1,24 +1,42 @@
 <template>
   <div class="git-changes-pane-wrapper pane-fill">
+    <div class="diff-top-bar">
+      <div v-if="files.length" class="diff-expand-actions">
+        <button
+          type="button"
+          class="diff-expand-btn hover-bg"
+          aria-label="Expand all files"
+          data-tooltip="Expand all files"
+          @click="boxList?.expandAll()"
+        ><span class="mdi mdi-unfold-more-horizontal"></span></button>
+        <button
+          type="button"
+          class="diff-expand-btn hover-bg"
+          aria-label="Collapse all files"
+          data-tooltip="Collapse all files"
+          @click="boxList?.collapseAll()"
+        ><span class="mdi mdi-unfold-less-horizontal"></span></button>
+      </div>
+      <GitCommitForm ref="commitForm" />
+      <div v-if="actionButtons.length" class="diff-actions">
+        <button
+          v-for="action in actionButtons"
+          :key="action.label"
+          type="button"
+          :class="action.class || ''"
+          :disabled="action.loading || action.disabled?.()"
+          @click="action.handler"
+        >
+          <span v-if="action.loading" class="mdi mdi-loading spin"></span>
+          <template v-else>{{ action.label }}</template>
+        </button>
+      </div>
+    </div>
     <div class="diff-file-list">
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <DiffFileBoxList v-else :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" @navigate="selectFile" />
-    </div>
-    <GitCommitForm ref="commitForm" />
-    <div v-if="actionButtons.length" class="diff-actions">
-      <button
-        v-for="action in actionButtons"
-        :key="action.label"
-        type="button"
-        :class="action.class || ''"
-        :disabled="action.loading || action.disabled?.()"
-        @click="action.handler"
-      >
-        <span v-if="action.loading" class="mdi mdi-loading spin"></span>
-        <template v-else>{{ action.label }}</template>
-      </button>
+      <DiffFileBoxList v-else ref="boxList" :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" @navigate="selectFile" />
     </div>
   </div>
 </template>
@@ -63,6 +81,7 @@ const listedWorkspace = ref("");
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
 const commitForm = ref<InstanceType<typeof GitCommitForm> | null>(null);
+const boxList = ref<InstanceType<typeof DiffFileBoxList> | null>(null);
 
 const isCommitDisabled = computed(
   // defineExpose された ref はテンプレート ref 経由では自動アンラップされる（.value を付けると常に undefined）
@@ -144,18 +163,46 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 
 <style scoped>
 
+.diff-top-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.diff-expand-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.diff-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  font-size: 18px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 .diff-actions {
   display: flex;
   gap: 6px;
-  padding: 6px 10px;
   flex-shrink: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .diff-actions button {
   font-size: 13px;
-  padding: 7px 14px;
+  padding: 0 12px;
+  height: 36px;
   min-height: 0;
 }
 

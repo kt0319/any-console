@@ -90,8 +90,8 @@ defineExpose({ open: () => {}, close: () => {}, submit, submitting, commitMessag
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px 10px 4px;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .diff-commit-textarea {

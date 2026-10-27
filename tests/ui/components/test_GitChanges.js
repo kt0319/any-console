@@ -106,6 +106,38 @@ describe("GitChanges", () => {
     wrapper.unmount();
   });
 
+  it("上部バーの全展開/全閉じボタンで全ファイルを一括開閉し、バーはファイル一覧より前に並ぶ", async () => {
+    setupWorkspace();
+    const diff = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\ndiff --git a/b.txt b/b.txt\n--- a/b.txt\n+++ b/b.txt\n@@ -1 +1 @@\n-x\n+y\n";
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({
+      files: [{ path: "a.txt", status: "M" }, { path: "b.txt", status: "M" }],
+      diff,
+    })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const order = wrapper.html();
+    expect(order.indexOf("diff-top-bar")).toBeLessThan(order.indexOf("diff-file-list"));
+
+    await wrapper.find("[aria-label='Collapse all files']").trigger("click");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(0);
+    await wrapper.find("[aria-label='Expand all files']").trigger("click");
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(2);
+    wrapper.unmount();
+  });
+
+  it("変更が無いときは全展開/全閉じボタンを出さない", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [], diff: "" })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.find("[aria-label='Expand all files']").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it.each(["??", "A", "AM"])("新規ファイル(%s)はインライン表示にファイル内容を出す", async (status) => {
     setupWorkspace();
     vi.stubGlobal("fetch", vi.fn((url) => String(url).includes("/diff")
