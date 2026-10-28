@@ -249,6 +249,38 @@ describe("GitChanges", () => {
     wrapper.unmount();
   });
 
+  it("サーバが未追跡ファイルに行数（insertions）を付けて返しても、全文を表示し No diff にしない", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn((url) => String(url).includes("/diff")
+      ? jsonResponse({ files: [{ name: "new.txt", status: "??", insertions: 2, deletions: 0 }], diff: "" })
+      : jsonResponse({ content: "line1\nline2\n", size: 12 })));
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const body = wrapper.find(".diff-inline-body").text();
+    expect(body).toContain("line1");
+    expect(body).not.toContain("No diff");
+    expect(wrapper.find(".diff-total-numstat").text()).toContain("+2");
+    wrapper.unmount();
+  });
+
+  it("差分（chunk）がある追加ファイルは内容を取得せず差分を表示する", async () => {
+    setupWorkspace();
+    const diff = "diff --git a/added.txt b/added.txt\nnew file mode 100644\n--- /dev/null\n+++ b/added.txt\n@@ -0,0 +1 @@\n+added\n";
+    const fetchMock = vi.fn((url) => String(url).includes("/diff")
+      ? jsonResponse({ files: [{ name: "added.txt", status: "A", insertions: 1, deletions: 0 }], diff })
+      : jsonResponse({ content: "SHOULD-NOT-BE-FETCHED", size: 5 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.find(".diff-inline-body").text()).toContain("+added");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("file-content"))).toBe(false);
+    wrapper.unmount();
+  });
+
   it("未追跡はUバッジで表示する", async () => {
     setupWorkspace();
     vi.stubGlobal("fetch", vi.fn((url) => String(url).includes("/diff")

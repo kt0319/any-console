@@ -133,9 +133,12 @@ export function buildFileNumstatHtml(file: GitFileLike, diffChunk = "", opts: { 
   return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
 }
 
-export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {
+// 差分（chunk）が無い新規ファイル（未追跡 U など）は、現在のファイル内容を取得して全文を表示する。
+// サーバは未追跡にも行数を返すため、行数の有無ではなく chunk の有無で判定する。
+export async function resolveUntrackedNumstat({ workspace, files, diffChunks, apiFetch }: {
   workspace: string | null | undefined,
   files: GitFileLike[] | null | undefined,
+  diffChunks: Record<string, string>,
   apiFetch: (url: string) => Promise<Response | null | undefined>,
 }): Promise<{ lines: Record<string, number>, contents: Record<string, Record<string, any>> }> {
   const lines: Record<string, number> = {};
@@ -144,8 +147,8 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }: {
 
   const targets = files
     .filter((file) => {
-      const hasNumstat = file.insertions != null || file.deletions != null;
-      return isNewFileDiffStatus(String(file.status || "")) && !hasNumstat && (file.path || file.name);
+      const path = file.path || file.name;
+      return isNewFileDiffStatus(String(file.status || "")) && path && !diffChunks[path];
     })
     .map((file) => (file.path || file.name) as string);
 
