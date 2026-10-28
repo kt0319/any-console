@@ -76,7 +76,7 @@
 
 ### Fix 5: グローバル focus-visible
 
-**ファイル**: `ui/styles/a11y.css`（新規）、`ui/vue-main.js`（現 `vue-main.ts`）
+**ファイル**: `ui/styles/a11y.css`（新規）、`ui/vue-main.ts`（監査時は `.js`）
 
 - `:focus:not(:focus-visible) { outline: none }` でマウス操作時の ring を除去
 - `:focus-visible { outline: 2px solid var(--accent) }` でキーボード操作時の ring を追加

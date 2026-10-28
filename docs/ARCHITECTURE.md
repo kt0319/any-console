@@ -35,6 +35,8 @@ server/                       Backend (Rust, axum)
   src/status_stream.rs         /workspaces/statuses/ws — WS fan-out of git status, agent state,
                                and dispatch queue to subscribers
   src/session_watch.rs         WS push of session create/close events
+  src/github_watch.rs          Detects new GitHub comments / reviews / CI completions for workspaces the UI
+                               subscribed to (one fetch loop per workspace, shared across connections)
   src/agent_watch.rs           Agent state polling (working / idle / blocked), blocked push
                                notifications, workspace auto-binding
   src/screen_manifest.rs       Agent state detection from pane content (herdr manifests: bundled + remote + local override)
@@ -49,6 +51,8 @@ server/                       Backend (Rust, axum)
   src/config_migrations.rs     config.json schema versioning
   src/activity.rs              Operation log (data/activity/{workspace}/{date}.jsonl)
   src/rate_limit.rs            In-process rate limiter
+  src/rlimit.rs                Raises RLIMIT_NOFILE at startup (launchd's default soft limit of 256 exhausts
+                               fds with many terminals / WebSockets / preview proxies)
   src/preview.rs               Dev server detection store + HTTP probing + TCP/TLS proxy for
                                direct-port previews
   src/port_scan.rs             LISTEN-port scanning and owning-process lookup (ss/lsof; split out of preview.rs)
@@ -62,8 +66,10 @@ server/                       Backend (Rust, axum)
                                Route handlers (system = tmux management; system_info = /system/info
                                probes; system_update = git-based self-update; docker = container detection; pairing = QR code
                                device pairing; short-lived, single-use tokens — see DECISIONS.md #28)
-  src/git_{branches,diff,files,history,worktree}.rs  Git route handlers (branch ops, diffs,
-                               file browse/upload/download, log/commit/stash, worktrees)
+  src/git_{branches,diff,files,history,worktree}.rs  Git route handlers (branch ops, diffs and
+                               conflict resolution via mark-resolved, file browse/upload/download,
+                               log/commit/stash and abort of an in-progress merge/rebase/cherry-pick/revert,
+                               worktrees)
   src/{state,subprocess,util,json_store,jobs_common,icons,fallback}.rs  Shared plumbing
                                (app state, subprocess helper, JSON persistence, 404 fallback, ...)
 agent_manifests/               Vendored agent-detection manifests (TOML), read by screen_manifest.rs at runtime

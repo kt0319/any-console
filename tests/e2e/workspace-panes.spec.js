@@ -1,5 +1,5 @@
 /**
- * ワークスペース詳細ペイン（Files / Changes+Commit / History（Branches統合））と
+ * ワークスペース詳細ペイン（Files / Changes+Commit+Stash / History（Branches統合））と
  * ディープリンク（?ws=...&pane=...）の E2E スモーク。
  *
  * テスト用の git リポジトリを一時領域に作り、API（Bearer 認証）で

@@ -28,7 +28,7 @@ Website: <https://any-console.highedge.net/>
 - **Mobile-optimized input** — Custom flick keyboard with swipe support
 - **Web terminal** — xterm.js based, multi-tab and split-pane
 - **Workspaces** — Register repos, group them, and drive files / Git / jobs per workspace
-- **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase, worktrees
+- **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase, conflict abort / mark-resolved, worktrees
 - **File browser** — Browse, view, upload, and download workspace files
 - **Job runner** — One-tap shell script execution; define and edit jobs from the UI
 - **Agent state detection** — Sessions running known coding agents show working / idle / blocked state (screen analysis + optional hooks)

@@ -84,7 +84,7 @@
 
 ---
 
-### 7. CLAUDE.md を主とし AGENTS.md は symlink
+### 7. 規約ファイルは AGENTS.md に一本化する（当初は CLAUDE.md 主 + AGENTS.md symlink）
 
 - **Status**: Superseded（下記 Update 参照）
 - **Date**: 2026-02
@@ -92,7 +92,7 @@
 - **Decision**: `CLAUDE.md` を実体ファイルとし、`AGENTS.md` はそのシンボリックリンクにする。
 - **Consequences**: どちらの命名規則にも対応しつつ、内容の二重管理を避けられる。
 - **Alternatives considered**: 両方を実体ファイルにする — 内容の乖離が生じやすい。`AGENTS.md` のみにする — Claude Code が読めない。
-- **Update**: 現行は逆構成。`AGENTS.md` を実体ファイルとし、`CLAUDE.md` は `@AGENTS.md` の1行だけを置いて Claude Code の import 機能で読み込む（symlink は使わない）。他ツールが標準で読む `AGENTS.md` を正にしつつ、Claude Code からも同じ内容が見える。
+- **Update**: 現行は `AGENTS.md` のみを実体ファイルとして置き、`CLAUDE.md` は存在しない（いったん `@AGENTS.md` の1行 import 構成にしたが、その後 `CLAUDE.md` 自体を削除して一本化した）。symlink は使わない。Claude Code 側でも `AGENTS.md` を読ませる場合は、利用者の環境側で `CLAUDE.md` から `@AGENTS.md` を import する。
 
 ---
 
@@ -205,7 +205,7 @@
 - **Date**: 2026-06
 - **Context**: 常駐サービス管理が systemd 専従で、`./any-console` の `start/stop/restart/status/logs/setup` がすべて `systemctl`/`journalctl` 前提だった。ランタイム本体（`python3 -m api.main` + tmux + `pty.fork` + git subprocess）は POSIX 依存で macOS でもそのまま動き、`run`（フォアグラウンド）は既に macOS/WSL 向けに用意されていたが、**自動起動・再起動・ログといった常駐運用の足回りが Linux にしか無かった**。AIコーディングエージェントを自分の箱で走らせスマホから監視する用途では利用者層が Mac 中心で、特に Mac mini / Mac Studio を常時起動サーバにしたいニーズがあった。
 - **Decision**: `./any-console` が `uname -s` で OS を判定し、常駐サービスを Linux = systemd / macOS = launchd の二系統で扱う。macOS では **LaunchDaemon**（`/Library/LaunchDaemons/net.highedge.any-console.plist`）として登録する。LaunchAgent ではなく LaunchDaemon を選ぶのは、**GUI ログインセッション無し（ヘッドレス）で起動時から常駐**させるため。`UserName` に実ユーザーを指定して本人の SSH 鍵・git/gh 設定・tmux 環境をそのまま使い、daemon の最小 env を補うため `PATH`（Homebrew の `/opt/homebrew/bin`・`/usr/local/bin` を含む）と `HOME` を plist で明示する。`RunAtLoad` + `KeepAlive` で systemd の `Restart=always` 相当を得る。`journalctl` が無いので stdout/stderr を `logs/any-console.log` に出し、`logs` は `tail -f`。起動/停止/再起動は `launchctl bootstrap/bootout/kickstart`（system ドメイン）で行う。`status` の稼働判定は sudo を避けるため `pgrep -f api.main` を使う。systemd 経路は一切変更しない。
-- **Consequences**: Mac mini 等を常時起動サーバとして一級運用できる（ログイン不要・再起動後も自動復帰）。`setup`/`update`/`https-setup` も OS 分岐で一貫して動く。新たに launchd という OS 固有機能を抱える（plist 生成・`launchctl` 操作・ログファイル運用）が、これは systemd の対称物であり「クロスプラットフォーム志向（CLAUDE.md）」の範囲内 — プロダクトの思想（単一プロセス・単一トークン・モバイル一級）は変えていない。MacBook はスリープ・持ち歩きで「外出先から監視」に向かないため、README で Mac mini / Studio 常時起動を推奨と明記。`pgrep` 判定はフォアグラウンド `run` も検出するが、稼働中であることに変わりはなく実害なし。
+- **Consequences**: Mac mini 等を常時起動サーバとして一級運用できる（ログイン不要・再起動後も自動復帰）。`setup`/`update`/`https-setup` も OS 分岐で一貫して動く。新たに launchd という OS 固有機能を抱える（plist 生成・`launchctl` 操作・ログファイル運用）が、これは systemd の対称物であり「クロスプラットフォーム志向（AGENTS.md）」の範囲内 — プロダクトの思想（単一プロセス・単一トークン・モバイル一級）は変えていない。MacBook はスリープ・持ち歩きで「外出先から監視」に向かないため、README で Mac mini / Studio 常時起動を推奨と明記。`pgrep` 判定はフォアグラウンド `run` も検出するが、稼働中であることに変わりはなく実害なし。
 - **Alternatives considered**: **LaunchAgent**（`~/Library/LaunchAgents`、sudo 不要）— シンプルだが GUI ログインセッションが必要で、ヘッドレス Mac mini では自動ログイン設定が前提になり「ログイン不要で常駐」という要件を満たせない。**Docker for Mac** — 既存方針どおりホストの鍵・shell 環境を引き込めず実運用に不向き（デモ専用）。**macOS は `run` のみで非対応のまま** — 常駐・自動起動が無く、サーバ用途に耐えない。
 - **Update (2026-08)**: 登録先を LaunchDaemon から**ユーザー LaunchAgent**（`~/Library/LaunchAgents`、sudo 不要）へ変更した。LaunchDaemon（system 域）はユーザーホーム配下の SSL 証明書（`certs/`）の読み取りを macOS が制限し、HTTPS 構成で証明書を読めなかったため。LaunchAgent はログインセッション前提のため、ヘッドレス Mac では自動ログインを有効化して「ログイン時から常駐」とする（README の macOS note に明記）。旧 LaunchDaemon の plist（`/Library/LaunchDaemons/`）が残っている場合は setup / uninstall が移行撤去する。また稼働判定はその後 `pgrep` 方式を廃止し、macOS = `launchctl print` の `state = running` 判定 / Linux = `systemctl is-active` に変更した（pgrep によるプロセス有無の判定は、サービスを stop した上で手動起動しているサーバにも一致してリスポーンループを招くため — `any-console` の `is_service_active()` 参照）。
 
@@ -237,7 +237,7 @@
 - **Context**: ADR #18 で **サーバ側**の根本対応（`/auth/check` の async 化・gh タイムアウト短縮・閾値緩和など）を入れた続きとして、**クライアント側**の監視設計そのものを作り直す。#18 時点でもフロントの接続監視は `/auth/check` を3秒間隔でポーリングし、2秒でタイムアウト・2回連続失敗で全画面「Connection lost」を出す設計だった。同期 `def` エンドポイント（git / `gh` の `subprocess`）が共有スレッドプールを占有すると、`/auth/check` がキューで詰まってタイムアウトし、**ネットワークは無事なのにオフライン誤検知**を起こしていた（#18 の通り、スレッドプールは実機 Raspberry Pi 5〈4コア〉では `min(32, cpu+4)`=8 と小さく、gh CLI 数本で容易に枯渇する）。閾値・タイムアウトの緩和（2s→5s、2→3）は誤検知の窓を広げるだけの対症療法で、根本は「監視の一次情報源が、実際に依存している端末 WS ではなく、負荷で詰まる別経路の HTTP ポーリングだったこと」にあった（#18 の `/auth/check` async 化で生存パスはスレッドプール競合から外したが、監視の二重化そのものは残っていた）。
 - **Decision**: 生存判定の一次情報源を**端末 WebSocket** に置く。判定ロジックは純粋関数（`ui/utils/connectivity.ts`：`isTabWsAlive` / `anyTabWsAlive` / `staleAliveTabs` / `decideOffline`）に切り出してテストする。全画面オフラインは `decideOffline` で決め、**(1) `navigator.onLine=false` は即オフライン、(2) 生きた WS が1本でもあれば決してオフラインにしない、(3) WS が無い時だけ HTTP フォールバックの連続失敗回数で判定** する。生きた WS がある間は HTTP を一切叩かず、常時ポーリング自体を止める。「生きた WS」は *open かつ最近フレーム受信あり* と定義し、サーバの idle keepalive（`WS_PING_INTERVAL_SEC` を 25s→15s に短縮）を約2回分待つ `WS_STALE_THRESHOLD_MS`(35s) を超えて無音なら半開き接続とみなして強制クローズ→backoff 再接続へ回す。加えて `visibilitychange`（PWA 前面復帰）と `online` イベントで即時に確認・再接続する。3状態（真のオフライン＝全画面赤 / サーバ一時無反応＝タブ単位の "reconnecting" で無言自動復帰 / セッション消滅＝タブ単位処理）を分離し、一時無反応を全画面アラートに昇格させない。
 - **Consequences**: 端末が実際に流れている間は負荷でオフライン誤検知しない（生きた WS があれば HTTP 判定を短絡）。常時 HTTP ポーリングが消え、通信も減る。半開き接続（サーバハング等で FIN が来ない）は keepalive 無音で検知でき、サーバ側のタイムアウト検知を待たずに再接続できる。生存判定の分岐が端末ストア（`openTabs` / `tab._lastWriteAt` / `tab.ws`）に依存するため、監視 composable が terminal store を参照する結合が生まれる。keepalive を 15s に縮めた分だけ idle 時の空フレーム送出が増えるが、ペイロード 0 で無視できる。
-- **Alternatives considered**: **閾値・タイムアウトの継続チューニング** — 誤検知の窓を動かすだけで、監視の二重化という根本を残す。**HTTP ポーリングのみを高速化/低速化** — WS の実状態と乖離した別経路である点は変わらず、負荷時の誤検知は消えない。**WS 上に独自の ping/pong 制御メッセージを実装** — 端末ストリームは pty の生バイトを運ぶため制御フレームの多重化が要り侵襲的。既存の idle keepalive（空フレーム）を activity シグナルに流用すれば足りる。**サーバの全 git/gh エンドポイントを専用 executor へ async 移行**（または gh CLI 結果のキャッシュ、#18 の Alternatives 参照）— 生存パスは #18 の `/auth/check` async 化と本項の WS 一次情報源化で既に隔離されており、connection lost 誤検知に対する追加効果は無い。実機のスレッドプールは 8 枠と小さく枯渇し得るが、それは status 等 *他の* 同期エンドポイントの堅牢化であり、worktree 並列運用（エージェント司令塔）regime で `status ポーリングのキャッシュ化` とセットで入れるのが適切。単独では痛みの無い所に広範リファクタを足すことになり、CLAUDE.md の「大規模リファクタ回避」に反するため先送りする。
+- **Alternatives considered**: **閾値・タイムアウトの継続チューニング** — 誤検知の窓を動かすだけで、監視の二重化という根本を残す。**HTTP ポーリングのみを高速化/低速化** — WS の実状態と乖離した別経路である点は変わらず、負荷時の誤検知は消えない。**WS 上に独自の ping/pong 制御メッセージを実装** — 端末ストリームは pty の生バイトを運ぶため制御フレームの多重化が要り侵襲的。既存の idle keepalive（空フレーム）を activity シグナルに流用すれば足りる。**サーバの全 git/gh エンドポイントを専用 executor へ async 移行**（または gh CLI 結果のキャッシュ、#18 の Alternatives 参照）— 生存パスは #18 の `/auth/check` async 化と本項の WS 一次情報源化で既に隔離されており、connection lost 誤検知に対する追加効果は無い。実機のスレッドプールは 8 枠と小さく枯渇し得るが、それは status 等 *他の* 同期エンドポイントの堅牢化であり、worktree 並列運用（エージェント司令塔）regime で `status ポーリングのキャッシュ化` とセットで入れるのが適切。単独では痛みの無い所に広範リファクタを足すことになり、AGENTS.md の「大規模リファクタ回避」に反するため先送りする。
 
 ---
 

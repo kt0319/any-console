@@ -1,7 +1,7 @@
 # AGENTS.md
 
 このファイルは、このリポジトリで作業するコーディングエージェント向けの共通ガイドです。
-`CLAUDE.md` は `@AGENTS.md` の1行のみでこのファイルを読み込みます。
+`CLAUDE.md` は置かず、このファイルに一本化しています（DECISIONS.md ADR 7）。
 
 ---
 
@@ -115,7 +115,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）
   - `keyboard-history.spec.js`: Send History（モバイルの KeyboardBar History タブ）— 入力バーからの送信 → 履歴への記録 → 挿入 → 削除（履歴は localStorage のみのためサーバ側の後始末は不要）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・Jobs のインライン展開 / 折りたたみ・削除（確認ダイアログ）
-  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（Stash は Changes ペイン内の折りたたみ、Branches は History ペイン内）
+  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のインライン Jobs 実行・ディープリンク（Commit / Stash は Changes 上部バーのボタンから開くダイアログ、保存済み Stash 一覧は Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへの他者コミットの反映
   - `branch-empty-repo.spec.js`: コミット0（unborn branch）のリポジトリでも Branches に現在ブランチが表示される
   - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること
