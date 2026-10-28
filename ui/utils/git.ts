@@ -235,6 +235,11 @@ export function formatStatusCounts(statusCounts: Record<string, number> | null |
   return buildStatusCountItems(statusCounts).map(({ label, count }) => `${count}${label}`).join(" ");
 }
 
+/** マージ・rebase 等のコンフリクトが未解決（unmerged）のステータスか。stash・commit はこの状態では失敗する。 */
+export function isUnmergedDiffStatus(status: string): boolean {
+  return UNMERGED_STATUSES.has((status || "").trim());
+}
+
 /** 内容を取得して全体を表示すべき新規ファイル（未追跡 U・追加 A）か。 */
 export function isNewFileDiffStatus(status: string): boolean {
   const label = diffStatusLabel(status);

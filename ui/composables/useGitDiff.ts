@@ -58,7 +58,8 @@ export function useGitDiff() {
         apiFetch: auth.apiFetch.bind(auth),
       });
       storeDiffResult(diffChunks, data.diff || "", fileList);
-      return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, newFileContents };
+      const operation: string | null = data.operation ?? null;
+      return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, newFileContents, operation };
     }) ?? null;
   }
 

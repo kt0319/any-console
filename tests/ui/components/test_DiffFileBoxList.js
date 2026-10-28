@@ -83,4 +83,18 @@ describe("DiffFileBoxList", () => {
     const wrapper = mount(DiffFileBoxList, { props: { files, diffChunks, defaultCollapsed: true } });
     expect(wrapper.findAll(".diff-file-row-toggle")[0].attributes("aria-expanded")).toBe("false");
   });
+
+  it("resolvable のときだけ、コンフリクト中（UU 等）のファイルに Mark resolved を出し、押すと resolve を通知する", async () => {
+    const mixed = [{ path: "a.txt", status: "M" }, { path: "c.txt", status: "UU" }, { path: "d.txt", status: "DU" }];
+    const chunks = { "a.txt": "+a", "c.txt": "+c", "d.txt": "+d" };
+    const plain = mount(DiffFileBoxList, { props: { files: mixed, diffChunks: chunks } });
+    expect(plain.findAll(".diff-file-row-resolve")).toHaveLength(0);
+
+    const wrapper = mount(DiffFileBoxList, { props: { files: mixed, diffChunks: chunks, resolvable: true } });
+    const buttons = wrapper.findAll(".diff-file-row-resolve");
+    expect(buttons).toHaveLength(2);
+    await buttons[0].trigger("click");
+    expect(wrapper.emitted("resolve")).toEqual([[mixed[1]]]);
+    expect(wrapper.findAll(".diff-inline-body")).toHaveLength(3);
+  });
 });

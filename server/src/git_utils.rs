@@ -308,6 +308,27 @@ pub async fn git_branch(directory: &Path) -> Option<String> {
     (!trimmed.is_empty()).then_some(trimmed)
 }
 
+/// `--abort` で取り消せる、進行中の操作（コンフリクト解消待ちなど）。無ければ None。
+/// rebase は MERGE_HEAD を持たないので先に判定する。
+pub async fn in_progress_operation(directory: &Path) -> Option<&'static str> {
+    const MARKERS: [(&str, &str); 5] = [
+        ("rebase-merge", "rebase"),
+        ("rebase-apply", "rebase"),
+        ("MERGE_HEAD", "merge"),
+        ("CHERRY_PICK_HEAD", "cherry-pick"),
+        ("REVERT_HEAD", "revert"),
+    ];
+    let mut args = vec!["rev-parse"];
+    for (marker, _) in MARKERS {
+        args.extend(["--git-path", marker]);
+    }
+    let out = run_git_query(&args, directory, GIT_QUICK_TIMEOUT_SEC).await?;
+    out.lines()
+        .zip(MARKERS)
+        .find(|(path, _)| directory.join(path.trim()).exists())
+        .map(|(_, (_, operation))| operation)
+}
+
 pub async fn git_is_repo(directory: &Path) -> bool {
     run_git_query(
         &["rev-parse", "--is-inside-work-tree"],
@@ -962,5 +983,58 @@ mod tests {
         let refs = String::from_utf8_lossy(&refs.stdout);
         assert!(!refs.contains("origin/topic"), "{refs}");
         assert!(refs.contains("origin/main"), "{refs}");
+    }
+
+    fn raw_git(repo: &Path, args: &[&str]) {
+        // コンフリクトで非0終了するコマンドの実行用（結果は見ない）
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .unwrap();
+    }
+
+    fn conflicting_repo() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path();
+        sh_git(repo, &["init", "-q", "-b", "main"]);
+        sh_git(repo, &["config", "user.email", "t@example.com"]);
+        sh_git(repo, &["config", "user.name", "t"]);
+        std::fs::write(repo.join("f.txt"), "base\n").unwrap();
+        sh_git(repo, &["add", "-A"]);
+        sh_git(repo, &["commit", "-q", "-m", "base"]);
+        sh_git(repo, &["checkout", "-q", "-b", "side"]);
+        std::fs::write(repo.join("f.txt"), "side\n").unwrap();
+        sh_git(repo, &["commit", "-q", "-am", "side"]);
+        sh_git(repo, &["checkout", "-q", "main"]);
+        std::fs::write(repo.join("f.txt"), "main\n").unwrap();
+        sh_git(repo, &["commit", "-q", "-am", "main"]);
+        dir
+    }
+
+    #[tokio::test]
+    async fn in_progress_operation_detects_merge_rebase_and_none() {
+        let dir = conflicting_repo();
+        let repo = dir.path();
+        assert_eq!(in_progress_operation(repo).await, None);
+
+        raw_git(repo, &["merge", "side"]);
+        assert_eq!(in_progress_operation(repo).await, Some("merge"));
+        sh_git(repo, &["merge", "--abort"]);
+        assert_eq!(in_progress_operation(repo).await, None);
+
+        sh_git(repo, &["checkout", "-q", "side"]);
+        raw_git(repo, &["rebase", "main"]);
+        assert_eq!(in_progress_operation(repo).await, Some("rebase"));
+        sh_git(repo, &["rebase", "--abort"]);
+        assert_eq!(in_progress_operation(repo).await, None);
+    }
+
+    #[tokio::test]
+    async fn in_progress_operation_detects_cherry_pick() {
+        let dir = conflicting_repo();
+        let repo = dir.path();
+        raw_git(repo, &["cherry-pick", "side"]);
+        assert_eq!(in_progress_operation(repo).await, Some("cherry-pick"));
     }
 }

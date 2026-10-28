@@ -5,7 +5,7 @@ import { useApi } from "./useApi.ts";
 import { buildActionResult } from "../utils/git-remote.ts";
 
 /**
- * ワークスペース単位の git ミューテーション（checkout / stash save）。
+ * ワークスペース単位の git ミューテーション（checkout / stash save / コンフリクト解消の中止・解消済み化）。
  * 呼び出し側が await して自分の loading 状態を閉じられるよう、成否を返す。
  */
 export function useGitWorkspaceActions() {
@@ -28,5 +28,24 @@ export function useGitWorkspaceActions() {
     return true;
   }
 
-  return { checkoutBranch, stashSave };
+  // コンフリクト解消の中止（merge / rebase / cherry-pick / revert のうち進行中のもの）
+  async function abortOperation(workspace: string, operation: string): Promise<boolean> {
+    const { ok } = await apiCommand(wsEndpoint(workspace, "abort-operation"), {}, { errorMessage: `Abort ${operation} failed` });
+    if (!ok) return false;
+    workspaceStore.fetchStatuses();
+    emit("git:remoteDone", { wsName: workspace, result: buildActionResult(`Aborted ${operation}`, "") });
+    emit("git:commitDone");
+    return true;
+  }
+
+  async function markResolved(workspace: string, path: string): Promise<boolean> {
+    const { ok } = await apiCommand(wsEndpoint(workspace, "mark-resolved"), { path }, { errorMessage: "Mark resolved failed" });
+    if (!ok) return false;
+    workspaceStore.fetchStatuses();
+    emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Marked resolved", path) });
+    emit("git:commitDone");
+    return true;
+  }
+
+  return { checkoutBranch, stashSave, abortOperation, markResolved };
 }

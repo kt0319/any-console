@@ -9,13 +9,13 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
 use crate::auth::RequireAuth;
-use crate::errors::ApiError;
+use crate::errors::{bad_request, ApiError};
 use crate::git_helpers::{
     execute_git_action, is_stash_ref, resolve_workspace_file, validate_commit_ref,
 };
 use crate::git_utils::{
-    resolve_workspace_path, run_git_command, GitOutput, GIT_SHORT_TIMEOUT_SEC,
-    GIT_STANDARD_TIMEOUT_SEC,
+    in_progress_operation, resolve_workspace_path, run_git_command, GitOutput,
+    GIT_SHORT_TIMEOUT_SEC, GIT_STANDARD_TIMEOUT_SEC,
 };
 use crate::state::AppState;
 use crate::util::{JsonBody, QueryParams};
@@ -304,9 +304,13 @@ pub async fn workspace_diff(
         }
     }
     let diff_text = parts.join("\n");
-    Ok(Json(
-        json!({"status": "ok", "files": files, "diff": truncate_diff(&diff_text)}),
-    ))
+    let operation = in_progress_operation(&ws_path).await;
+    Ok(Json(json!({
+        "status": "ok",
+        "files": files,
+        "diff": truncate_diff(&diff_text),
+        "operation": operation,
+    })))
 }
 
 #[derive(Deserialize)]
@@ -327,6 +331,52 @@ pub async fn discard(
         &ws_path,
         &["restore", &body.path],
         "restore",
+        &[],
+        &format!("path={}", body.path),
+    )
+    .await
+    .map(|out| Json(out.to_response_json()))
+}
+
+#[derive(Deserialize)]
+pub struct MarkResolvedRequest {
+    path: String,
+}
+
+/// コンフリクト中のファイルを解消済みにする（`git add`。相手側の削除を採る場合は `git rm --cached`）。
+/// 未解決でないパスは拒否する。
+pub async fn mark_resolved(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<MarkResolvedRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let (ws_path, target, _) = resolve_workspace_file(&state, &name, &body.path).await?;
+    let unmerged = run_git_command(
+        &["ls-files", "--unmerged", "--", &body.path],
+        &ws_path,
+        GIT_SHORT_TIMEOUT_SEC,
+        "ls-files --unmerged",
+        &[],
+    )
+    .await?;
+    if unmerged.stdout.trim().is_empty() {
+        return Err(bad_request(format!(
+            "No unresolved conflict: {}",
+            body.path
+        )));
+    }
+    let args: Vec<&str> = if target.symlink_metadata().is_ok() {
+        vec!["add", "--", &body.path]
+    } else {
+        vec!["rm", "--cached", "--", &body.path]
+    };
+    execute_git_action(
+        &state,
+        &name,
+        &ws_path,
+        &args,
+        "mark-resolved",
         &[],
         &format!("path={}", body.path),
     )

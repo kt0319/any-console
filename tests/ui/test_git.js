@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus, excludeCurrentBranch, summarizeDiffFiles, buildStatusCountItems, formatStatusCounts } from "../../ui/utils/git.ts";
+import { parseGitRefs, firstCommitLine, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, resolveFileNumstat, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGitHubFileUrl, parseFileLog, shortHash, diffStatusLabel, diffStatusClass, isNewFileDiffStatus, excludeCurrentBranch, summarizeDiffFiles, buildStatusCountItems, formatStatusCounts, isUnmergedDiffStatus } from "../../ui/utils/git.ts";
 
 describe("firstCommitLine", () => {
   it("複数行メッセージの1行目だけを返す", () => {
@@ -456,5 +456,12 @@ describe("buildStatusCountItems / formatStatusCounts", () => {
     expect(buildStatusCountItems(undefined)).toEqual([]);
     expect(formatStatusCounts({})).toBe("");
     expect(formatStatusCounts({ M: 0 })).toBe("");
+  });
+});
+
+describe("isUnmergedDiffStatus", () => {
+  it("コンフリクト未解決のステータス（UU/AA/DD/AU/UA/DU/UD）だけ true", () => {
+    for (const code of ["UU", "AA", "DD", "AU", "UA", "DU", "UD", " UU"]) expect(isUnmergedDiffStatus(code)).toBe(true);
+    for (const code of ["M", "A", "D", "??", "MM", "AM", "", undefined]) expect(isUnmergedDiffStatus(code)).toBe(false);
   });
 });

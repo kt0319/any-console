@@ -14,7 +14,8 @@ use crate::git_helpers::{
     resolve_workspace_file, validate_branch_name, validate_commit_ref, validate_stash_ref,
 };
 use crate::git_utils::{
-    resolve_workspace_path, rev_parse_head, run_git_command, GIT_STANDARD_TIMEOUT_SEC,
+    in_progress_operation, resolve_workspace_path, rev_parse_head, run_git_command,
+    GIT_STANDARD_TIMEOUT_SEC,
 };
 use crate::state::AppState;
 use crate::util::{JsonBody, QueryParams};
@@ -320,6 +321,32 @@ pub async fn rebase(
     JsonBody(body): JsonBody<GitActionRequest>,
 ) -> Result<Json<Value>, ApiError> {
     branch_action(&state, &name, &body.branch, "rebase", "git_rebase").await
+}
+
+/// 進行中の merge / rebase / cherry-pick / revert を取り消す（コンフリクト解消の中止）。
+pub async fn abort_operation(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+    _auth: RequireAuth,
+) -> Result<Json<Value>, ApiError> {
+    let ws_path = resolve_workspace_path(&state.config, &name).await?;
+    let operation = in_progress_operation(&ws_path)
+        .await
+        .ok_or_else(|| bad_request("No merge, rebase, cherry-pick or revert in progress"))?;
+    execute_git_action_with_activity(
+        &state,
+        &name,
+        &ws_path,
+        &[operation, "--abort"],
+        &format!("{operation} --abort"),
+        "git_abort",
+        &[],
+        &format!("operation={operation}"),
+        true,
+        activity_fields(&[("operation", json!(operation))]),
+    )
+    .await
+    .map(|out| Json(out.to_response_json()))
 }
 
 pub async fn reset(

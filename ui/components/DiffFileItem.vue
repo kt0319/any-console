@@ -16,6 +16,12 @@
       ></button>
     </template>
     <template #right>
+      <button
+        v-if="resolvable && isUnmergedDiffStatus(file.status)"
+        type="button"
+        class="diff-file-row-resolve"
+        @click.stop="$emit('resolve')"
+      ><span class="mdi mdi-check" aria-hidden="true"></span>Mark resolved</button>
       <span class="diff-file-row-meta">
         <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
         <span :class="['diff-file-row-status', diffStatusClass(file.status)]">{{ diffStatusLabel(file.status) }}</span>
@@ -36,7 +42,7 @@
 import type { PropType } from "vue";
 import FileItem from "./FileItem.vue";
 import { renderFileIconFromPath } from "../utils/file-icon.ts";
-import { diffStatusClass, diffStatusLabel } from "../utils/git.ts";
+import { diffStatusClass, diffStatusLabel, isUnmergedDiffStatus } from "../utils/git.ts";
 
 // 差分ファイル一覧の1行（numstat + ステータスバッジ付き）。
 // Changes（GitChanges.vue）と History のコミットファイル一覧（GitHistory.vue）で共用する。
@@ -48,9 +54,11 @@ defineProps({
   selected: { type: Boolean, default: false },
   navigable: { type: Boolean, default: false },
   expanded: { type: Boolean, default: undefined },
+  // コンフリクト中のファイルに「Mark resolved」を出す（Changes のみ。History のコミット詳細では出さない）
+  resolvable: { type: Boolean, default: false },
 });
 
-defineEmits(["click", "navigate"]);
+defineEmits(["click", "navigate", "resolve"]);
 </script>
 
 <style scoped>
@@ -68,6 +76,21 @@ defineEmits(["click", "navigate"]);
 .diff-file-row:has(.diff-file-row-toggle:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+.diff-file-row-resolve {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  border-radius: 999px;
+  border: 1px solid var(--warning);
+  background: var(--warning-bg-20);
+  color: var(--warning);
+  cursor: pointer;
 }
 
 .diff-file-row-open {

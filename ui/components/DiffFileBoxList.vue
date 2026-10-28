@@ -5,8 +5,10 @@
         :file="file"
         navigable
         :expanded="isExpanded(file.path)"
+        :resolvable="resolvable"
         @click="toggleFile(file.path)"
         @navigate="$emit('navigate', file)"
+        @resolve="$emit('resolve', file)"
       />
       <DiffInlineBody v-if="isExpanded(file.path)" :path="file.path" :chunk="diffChunks[file.path]" :content="newFileContents?.[file.path]" />
     </ul>
@@ -25,9 +27,13 @@ const props = defineProps<{
   diffChunks: Record<string, string>,
   newFileContents?: Record<string, Record<string, any>>,
   defaultCollapsed?: boolean,
+  resolvable?: boolean,
 }>();
 
-defineEmits<{ navigate: [file: { path: string, status: string }] }>();
+defineEmits<{
+  navigate: [file: { path: string, status: string }],
+  resolve: [file: { path: string, status: string }],
+}>();
 
 // 既定の開閉状態から反転させたファイルだけを持つ
 const toggledPaths = ref(new Set<string>());

@@ -249,6 +249,14 @@ fn git_routes() -> AppRouter {
         )
         .route("/workspaces/{name}/git/discard", post(git_diff::discard))
         .route(
+            "/workspaces/{name}/mark-resolved",
+            post(git_diff::mark_resolved),
+        )
+        .route(
+            "/workspaces/{name}/abort-operation",
+            post(git_history::abort_operation),
+        )
+        .route(
             "/workspaces/{name}/branches",
             get(git_branches::list_branches),
         )

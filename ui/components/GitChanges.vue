@@ -10,6 +10,7 @@
           :disabled="action.disabled?.()"
           @click="action.handler"
         >{{ action.label }}</button>
+        <button v-if="operation" type="button" class="diff-abort-btn" @click="confirmAndAbort">Abort {{ operation }}</button>
       </div>
       <div v-if="files.length" class="diff-bar-right">
         <span class="diff-total-numstat">
@@ -33,7 +34,7 @@
       <div v-if="isLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
       <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
-      <DiffFileBoxList v-else ref="boxList" :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" @navigate="selectFile" />
+      <DiffFileBoxList v-else ref="boxList" :key="listedWorkspace" :files="files" :diffChunks="diffChunks" :newFileContents="newFileContents" resolvable @navigate="selectFile" @resolve="confirmAndMarkResolved" />
     </div>
     <GitCommitDialog ref="commitDialog" />
   </div>
@@ -45,16 +46,18 @@ import DiffFileBoxList from "./DiffFileBoxList.vue";
 import GitCommitDialog from "./GitCommitDialog.vue";
 import { emit } from "../app-bridge.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
+import { useToast } from "../composables/useToast.ts";
 import { useGitDiff } from "../composables/useGitDiff.ts";
 import { useGitWorkspaceActions } from "../composables/useGitWorkspaceActions.ts";
 import { useWorkspace } from "../composables/useWorkspace.ts";
-import { buildNumstatHtml, buildStatusCountItems, summarizeDiffFiles } from "../utils/git.ts";
+import { buildNumstatHtml, buildStatusCountItems, isUnmergedDiffStatus, summarizeDiffFiles } from "../utils/git.ts";
 import { type AsyncState, asyncError, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { getWorkspace } = useWorkspace();
-const { stashSave } = useGitWorkspaceActions();
+const { stashSave, abortOperation, markResolved } = useGitWorkspaceActions();
 const { confirm } = useConfirm();
+const toast = useToast();
 
 interface DiffFileRow {
   path: string;
@@ -80,6 +83,7 @@ const newFileContents = ref<Record<string, Record<string, any>>>({});
 const listedWorkspace = ref("");
 const isWorkingTree = ref(false);
 const actionButtons = ref<DiffActionButton[]>([]);
+const operation = ref<string | null>(null);
 const commitDialog = ref<InstanceType<typeof GitCommitDialog> | null>(null);
 const boxList = ref<InstanceType<typeof DiffFileBoxList> | null>(null);
 
@@ -92,9 +96,40 @@ const toggleAllLabels = ["Expand all", "Collapse all"];
 const toggleAllCurrentLabel = computed(() => (boxList.value?.allExpanded ? "Collapse all" : "Expand all"));
 const totalNumstat = computed(() => buildNumstatHtml(summary.value.insertions, summary.value.deletions));
 
+async function confirmAndAbort() {
+  const workspace = getWorkspace();
+  const current = operation.value;
+  if (!workspace || !current) return;
+  await confirm(`Abort the ${current}? Changes made while resolving conflicts will be discarded.`, {
+    ok: { label: `Abort ${current}`, danger: true },
+    busyLabel: "Aborting...",
+    run: async () => {
+      if (await abortOperation(workspace, current)) await loadWorkingTreeDiff();
+    },
+  });
+}
+
+async function confirmAndMarkResolved(file: DiffFileRow) {
+  const workspace = getWorkspace();
+  if (!workspace) return;
+  await confirm(`Mark "${file.path}" as resolved? Make sure the conflict markers are removed.`, {
+    ok: { label: "Mark resolved" },
+    busyLabel: "Staging...",
+    run: async () => {
+      if (await markResolved(workspace, file.path)) await loadWorkingTreeDiff();
+    },
+  });
+}
+
 async function confirmAndStash() {
   const workspace = getWorkspace();
   if (!workspace) return;
+  // コンフリクトが未解決だと git stash は「needs merge / could not write index」で失敗する
+  const unmergedPaths = files.value.filter((f) => isUnmergedDiffStatus(f.status)).map((f) => f.path);
+  if (unmergedPaths.length > 0) {
+    toast.error(`Cannot stash: ${unmergedPaths.length} ${unmergedPaths.length === 1 ? "file has" : "files have"} unresolved conflicts (${unmergedPaths.slice(0, 3).join(", ")}${unmergedPaths.length > 3 ? ", ..." : ""}). Resolve them or abort the merge first.`);
+    return;
+  }
   const count = files.value.length;
   await confirm(`Stash ${count} changed ${count === 1 ? "file" : "files"}, including untracked files? The working tree will be reverted.`, {
     ok: { label: "Stash" },
@@ -131,6 +166,7 @@ async function loadWorkingTreeDiff() {
     }
     diffChunks.value = result.diffChunks;
     newFileContents.value = result.newFileContents;
+    operation.value = result.operation;
     diffState.value = asyncReady(result.fileList);
   } catch (e) {
     diffState.value = asyncError("Failed to load changes");
@@ -141,6 +177,7 @@ async function loadWorkingTreeDiff() {
 async function loadCommitDiff(hash: string) {
   diffState.value = asyncLoading();
   isWorkingTree.value = false;
+  operation.value = null;
   try {
     const result = await fetchCommitDiff(hash);
     if (!result) {
@@ -228,6 +265,11 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.diff-actions .diff-abort-btn {
+  color: var(--error);
+  border-color: var(--error);
 }
 
 .diff-actions button {

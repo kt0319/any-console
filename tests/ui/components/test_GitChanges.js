@@ -224,6 +224,110 @@ describe("GitChanges", () => {
     wrapper.unmount();
   });
 
+  it("コンフリクト未解決のファイルがあると Stash は確認ダイアログを出さず、理由をトーストで示して実行しない", async () => {
+    setupWorkspace();
+    const calls = [];
+    vi.stubGlobal("fetch", vi.fn((url, init) => {
+      calls.push(`${init?.method || "GET"} ${url}`);
+      return jsonResponse({ files: [{ path: "open-api.yml", status: "UU" }, { path: "a.txt", status: "M" }], diff: "" });
+    }));
+    const toasts = [];
+    const off = on("toast:show", (payload) => toasts.push(payload));
+    const { visible } = useConfirm();
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    await wrapper.findAll(".diff-actions button").find((b) => b.text() === "Stash").trigger("click");
+    off();
+    expect(visible.value).toBe(false);
+    expect(calls.some((c) => c.endsWith("/stash"))).toBe(false);
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0].type).toBe("error");
+    expect(toasts[0].message).toContain("open-api.yml");
+    expect(toasts[0].message).toContain("unresolved conflicts");
+    wrapper.unmount();
+  });
+
+  it("進行中の操作（merge 等）があると Abort ボタンを出し、確認後に abort-operation を呼んで再取得する", async () => {
+    setupWorkspace();
+    const calls = [];
+    let aborted = false;
+    vi.stubGlobal("fetch", vi.fn((url, init) => {
+      calls.push(`${init?.method || "GET"} ${url}`);
+      if (String(url).endsWith("/abort-operation")) {
+        aborted = true;
+        return jsonResponse({ status: "ok", stdout: "" });
+      }
+      return jsonResponse({
+        files: aborted ? [] : [{ path: "open-api.yml", status: "UU" }],
+        diff: "",
+        operation: aborted ? null : "merge",
+      });
+    }));
+    const { visible, message, onOk } = useConfirm();
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const abort = wrapper.find(".diff-abort-btn");
+    expect(abort.text()).toBe("Abort merge");
+
+    await abort.trigger("click");
+    expect(visible.value).toBe(true);
+    expect(message.value).toContain("Abort the merge?");
+    expect(calls.some((c) => c.endsWith("/abort-operation"))).toBe(false);
+
+    await onOk();
+    await flushPromises();
+    expect(calls.filter((c) => c.startsWith("POST") && c.endsWith("/abort-operation"))).toHaveLength(1);
+    expect(wrapper.find(".diff-abort-btn").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("進行中の操作が無いときは Abort ボタンを出さない", async () => {
+    setupWorkspace();
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [{ path: "a.txt", status: "M" }], diff: "", operation: null })));
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    expect(wrapper.find(".diff-abort-btn").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("コンフリクト中のファイルだけに Mark resolved を出し、確認後に mark-resolved を呼んで再取得する", async () => {
+    setupWorkspace();
+    const calls = [];
+    const bodies = [];
+    vi.stubGlobal("fetch", vi.fn((url, init) => {
+      calls.push(`${init?.method || "GET"} ${url}`);
+      if (String(url).endsWith("/mark-resolved")) {
+        bodies.push(JSON.parse(init.body));
+        return jsonResponse({ status: "ok", stdout: "" });
+      }
+      return jsonResponse({ files: [{ path: "open-api.yml", status: "UU" }, { path: "a.txt", status: "M" }], diff: "", operation: "merge" });
+    }));
+    const { visible, message, onOk } = useConfirm();
+
+    const wrapper = mountGitChanges();
+    await wrapper.vm.loadWorkingTreeDiff();
+    await flushPromises();
+    const buttons = wrapper.findAll(".diff-file-row-resolve");
+    expect(buttons).toHaveLength(1);
+    expect(wrapper.findAll(".diff-file-row")[0].text()).toContain("open-api.yml");
+
+    await buttons[0].trigger("click");
+    expect(visible.value).toBe(true);
+    expect(message.value).toContain("open-api.yml");
+    expect(bodies).toEqual([]);
+
+    await onOk();
+    await flushPromises();
+    expect(bodies).toEqual([{ path: "open-api.yml" }]);
+    expect(calls.filter((c) => c.endsWith("/diff")).length).toBeGreaterThanOrEqual(2);
+    wrapper.unmount();
+  });
+
   it("変更が無いときは全展開/全閉じトグルを出さない", async () => {
     setupWorkspace();
     vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ files: [], diff: "" })));

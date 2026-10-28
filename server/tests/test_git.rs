@@ -782,3 +782,137 @@ async fn worktree_create_list_delete() {
         .unwrap();
     assert_eq!(resp.status(), 404);
 }
+
+fn raw_git(repo: &std::path::Path, args: &[&str]) {
+    std::process::Command::new("git")
+        .args(args)
+        .current_dir(repo)
+        .output()
+        .unwrap();
+}
+
+fn unmerged_paths(repo: &std::path::Path) -> String {
+    let out = std::process::Command::new("git")
+        .args(["ls-files", "--unmerged"])
+        .current_dir(repo)
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// main の a.txt と side の a.txt が衝突する merge を途中まで進めた状態にする。
+fn start_conflicting_merge(front: &TestFront) {
+    let repo = &front.ws_path;
+    common::sh_git(repo, &["checkout", "-q", "-b", "side"]);
+    std::fs::write(repo.join("a.txt"), "side\n").unwrap();
+    common::sh_git(repo, &["commit", "-q", "-am", "side change"]);
+    common::sh_git(repo, &["checkout", "-q", "main"]);
+    std::fs::write(repo.join("a.txt"), "main\n").unwrap();
+    common::sh_git(repo, &["commit", "-q", "-am", "main change"]);
+    raw_git(repo, &["merge", "side"]);
+}
+
+#[tokio::test]
+async fn abort_operation_is_rejected_when_nothing_is_in_progress() {
+    let front = spawn_front().await;
+    let resp = post_json(&front, "/workspaces/repo/abort-operation", &json!({})).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = resp.json().await.unwrap();
+    assert!(body["detail"].as_str().unwrap().contains("in progress"));
+}
+
+#[tokio::test]
+async fn diff_reports_operation_and_abort_restores_the_pre_merge_state() {
+    let front = spawn_front().await;
+    let before = get_json(&front, "/workspaces/repo/diff").await;
+    assert_eq!(before["operation"], Value::Null);
+
+    start_conflicting_merge(&front);
+    let during = get_json(&front, "/workspaces/repo/diff").await;
+    assert_eq!(during["operation"], "merge");
+    assert_eq!(during["files"][0]["status"], "UU");
+
+    let resp = post_json(&front, "/workspaces/repo/abort-operation", &json!({})).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+
+    let after = get_json(&front, "/workspaces/repo/diff").await;
+    assert_eq!(after["operation"], Value::Null);
+    assert_eq!(after["files"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        std::fs::read_to_string(front.ws_path.join("a.txt")).unwrap(),
+        "main\n"
+    );
+}
+
+#[tokio::test]
+async fn mark_resolved_stages_the_conflicted_file_and_rejects_other_paths() {
+    let front = spawn_front().await;
+    start_conflicting_merge(&front);
+    std::fs::write(front.ws_path.join("untracked.txt"), "x\n").unwrap();
+
+    let not_conflicted = post_json(
+        &front,
+        "/workspaces/repo/mark-resolved",
+        &json!({"path": "untracked.txt"}),
+    )
+    .await;
+    assert_eq!(not_conflicted.status(), 400);
+    let traversal = post_json(
+        &front,
+        "/workspaces/repo/mark-resolved",
+        &json!({"path": "../outside.txt"}),
+    )
+    .await;
+    assert_eq!(traversal.status(), 400);
+    assert!(!unmerged_paths(&front.ws_path).is_empty());
+
+    std::fs::write(front.ws_path.join("a.txt"), "resolved\n").unwrap();
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/mark-resolved",
+        &json!({"path": "a.txt"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+    assert!(unmerged_paths(&front.ws_path).is_empty());
+
+    let again = post_json(
+        &front,
+        "/workspaces/repo/mark-resolved",
+        &json!({"path": "a.txt"}),
+    )
+    .await;
+    assert_eq!(again.status(), 400);
+    let during = get_json(&front, "/workspaces/repo/diff").await;
+    assert_eq!(during["operation"], "merge");
+}
+
+#[tokio::test]
+async fn mark_resolved_accepts_a_deleted_file_when_the_other_side_deleted_it() {
+    let front = spawn_front().await;
+    let repo = &front.ws_path;
+    common::sh_git(repo, &["checkout", "-q", "-b", "side"]);
+    common::sh_git(repo, &["rm", "-q", "a.txt"]);
+    common::sh_git(repo, &["commit", "-q", "-m", "delete a"]);
+    common::sh_git(repo, &["checkout", "-q", "main"]);
+    std::fs::write(repo.join("a.txt"), "main edit\n").unwrap();
+    common::sh_git(repo, &["commit", "-q", "-am", "edit a"]);
+    raw_git(repo, &["merge", "side"]);
+    assert!(!unmerged_paths(repo).is_empty());
+
+    std::fs::remove_file(repo.join("a.txt")).unwrap();
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/mark-resolved",
+        &json!({"path": "a.txt"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+    assert!(unmerged_paths(repo).is_empty());
+}
