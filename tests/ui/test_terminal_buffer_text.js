@@ -363,6 +363,16 @@ describe("findPathInBuffer with wide characters and wrapped lines", () => {
     expect(findPathInBuffer(term, 5 * 10 + 5, 3 * 20 + 5)).toBe("/Users/k/shots/1516-grid-原価管理.png");
   });
 
+  it("次行の行頭にあるプロンプトのアイコン（私用領域の文字）をパス末尾に含めない", () => {
+    const term = makeWideTerm(["/tmp/a/b.png", "\uf179 \uf015 ~ ❯ "], 40);
+    expect(findPathInBuffer(term, 5 * 10 + 5, 0 * 20 + 5)).toBe("/tmp/a/b.png");
+  });
+
+  it("日本語・ハングルのファイル名は拾い、全角記号や私用領域では終端する", () => {
+    const term = makeWideTerm(["/tmp/見積書_한글.png。\uf179"], 60);
+    expect(findPathInBuffer(term, 2 * 10 + 5, 5)).toBe("/tmp/見積書_한글.png");
+  });
+
   it("drops the bullet dash glued from the next line", () => {
     const term = makeWideTerm(["  - /tmp/a/b.png", "  - 次の行"]);
     expect(findPathInBuffer(term, 8 * 10 + 5, 5)).toBe("/tmp/a/b.png");
