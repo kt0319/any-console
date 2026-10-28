@@ -8,6 +8,7 @@
           type="button"
           :class="action.class || ''"
           :disabled="action.disabled?.()"
+          :data-tooltip="action.tooltip?.()"
           @click="action.handler"
         >{{ action.label }}</button>
         <button v-if="operation" type="button" class="diff-abort-btn" @click="confirmAndAbort">Abort {{ operation }}</button>
@@ -71,6 +72,7 @@ interface DiffActionButton {
   label: string;
   class?: string;
   disabled?: () => boolean;
+  tooltip?: () => string | undefined;
   handler: () => void;
 }
 
@@ -88,6 +90,7 @@ const commitDialog = ref<InstanceType<typeof GitCommitDialog> | null>(null);
 const boxList = ref<InstanceType<typeof DiffFileBoxList> | null>(null);
 
 const hasNoChanges = computed(() => files.value.length === 0);
+const hasUnresolvedConflicts = computed(() => files.value.some((f) => isUnmergedDiffStatus(f.status)));
 const summary = computed(() => summarizeDiffFiles(files.value));
 const summaryParts = computed(() => buildStatusCountItems(summary.value.statusCounts).map(({ label, count, className }) => ({
   key: label, text: `${count}${label}`, className: ["diff-status-count", className],
@@ -155,7 +158,13 @@ async function loadWorkingTreeDiff() {
   listedWorkspace.value = workspace;
   isWorkingTree.value = true;
   actionButtons.value = [
-    { label: "Commit", class: "primary", disabled: () => hasNoChanges.value, handler: () => commitDialog.value?.open() },
+    {
+      label: "Commit",
+      class: "primary",
+      disabled: () => hasNoChanges.value || hasUnresolvedConflicts.value,
+      tooltip: () => (hasUnresolvedConflicts.value ? "Resolve conflicts before committing" : undefined),
+      handler: () => commitDialog.value?.open(),
+    },
     { label: "Stash", disabled: () => hasNoChanges.value, handler: confirmAndStash },
   ];
   try {

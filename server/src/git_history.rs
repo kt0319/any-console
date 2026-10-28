@@ -15,7 +15,7 @@ use crate::git_helpers::{
 };
 use crate::git_utils::{
     in_progress_operation, resolve_workspace_path, rev_parse_head, run_git_command,
-    GIT_STANDARD_TIMEOUT_SEC,
+    GIT_SHORT_TIMEOUT_SEC, GIT_STANDARD_TIMEOUT_SEC,
 };
 use crate::state::AppState;
 use crate::util::{JsonBody, QueryParams};
@@ -395,6 +395,17 @@ pub async fn commit(
     let message = body.message.trim().to_string();
     if message.is_empty() {
         return Err(bad_request("Please enter a commit message"));
+    }
+    let unmerged = run_git_command(
+        &["ls-files", "--unmerged"],
+        &ws_path,
+        GIT_SHORT_TIMEOUT_SEC,
+        "ls-files --unmerged",
+        &[],
+    )
+    .await?;
+    if !unmerged.stdout.trim().is_empty() {
+        return Err(bad_request("Resolve conflicts before committing"));
     }
     let add_result = run_git_command(
         &["add", "-A"],

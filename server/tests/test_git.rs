@@ -813,6 +813,40 @@ fn start_conflicting_merge(front: &TestFront) {
 }
 
 #[tokio::test]
+async fn commit_is_rejected_while_conflicts_are_unresolved_and_allowed_after_mark_resolved() {
+    let front = spawn_front().await;
+    start_conflicting_merge(&front);
+
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/commit",
+        &json!({"message": "merge"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["detail"], "Resolve conflicts before committing");
+
+    std::fs::write(front.ws_path.join("a.txt"), "resolved\n").unwrap();
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/mark-resolved",
+        &json!({"path": "a.txt"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/commit",
+        &json!({"message": "merge"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+}
+
+#[tokio::test]
 async fn abort_operation_is_rejected_when_nothing_is_in_progress() {
     let front = spawn_front().await;
     let resp = post_json(&front, "/workspaces/repo/abort-operation", &json!({})).await;
