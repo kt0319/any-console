@@ -59,8 +59,10 @@ fn workspace_entries(all_config: &Map<String, Value>) -> impl Iterator<Item = (&
 
 // ─── GET /workspaces ────────────────────────────────────────────────────────
 
-/// ワークスペース直下（サブディレクトリは見ない）に Docker Compose の既定
-/// ファイル名のいずれかがあるか。Compose 自身のデフォルト探索範囲に合わせる。
+/// ワークスペース直下または `.devcontainer/` 直下（それ以外のサブディレクトリは
+/// 見ない）に Docker Compose の既定ファイル名のいずれかがあるか。
+const COMPOSE_DIRS: &[&str] = &["", ".devcontainer"];
+
 const COMPOSE_FILE_NAMES: &[&str] = &[
     "compose.yaml",
     "compose.yml",
@@ -70,9 +72,11 @@ const COMPOSE_FILE_NAMES: &[&str] = &[
 
 fn workspace_has_compose_file(ws_path: &std::path::Path) -> bool {
     ws_path.is_dir()
-        && COMPOSE_FILE_NAMES
-            .iter()
-            .any(|name| ws_path.join(name).is_file())
+        && COMPOSE_DIRS.iter().any(|dir| {
+            COMPOSE_FILE_NAMES
+                .iter()
+                .any(|name| ws_path.join(dir).join(name).is_file())
+        })
 }
 
 async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
@@ -544,7 +548,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn workspace_has_compose_file_detects_any_known_name_at_root_only() {
+    fn workspace_has_compose_file_detects_any_known_name_at_root_or_devcontainer() {
         let dir = tempfile::tempdir().unwrap();
         assert!(!workspace_has_compose_file(dir.path()));
 
@@ -561,6 +565,15 @@ mod tests {
         std::fs::create_dir(nested.path().join("sub")).unwrap();
         std::fs::write(nested.path().join("sub/compose.yaml"), "services: {}\n").unwrap();
         assert!(!workspace_has_compose_file(nested.path()));
+
+        let devcontainer = tempfile::tempdir().unwrap();
+        std::fs::create_dir(devcontainer.path().join(".devcontainer")).unwrap();
+        std::fs::write(
+            devcontainer.path().join(".devcontainer/docker-compose.yml"),
+            "services: {}\n",
+        )
+        .unwrap();
+        assert!(workspace_has_compose_file(devcontainer.path()));
 
         assert!(!workspace_has_compose_file(
             &dir.path().join("does-not-exist")
