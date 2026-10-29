@@ -174,9 +174,20 @@ async fn list_workspaces_expands_tilde_path_for_git_and_existence_checks() {
 }
 
 #[tokio::test]
-async fn list_workspaces_ignores_compose_file_in_subdirectory() {
+async fn list_workspaces_detects_compose_file_in_devcontainer() {
     let front = spawn_front().await;
     let sub = front.ws_path.join(".devcontainer");
+    std::fs::create_dir_all(&sub).unwrap();
+    std::fs::write(sub.join("docker-compose.yml"), "services: {}\n").unwrap();
+    let body = get_json(&front, "/workspaces").await;
+    let items = body.as_array().unwrap();
+    assert_eq!(items[0]["has_compose_file"], true);
+}
+
+#[tokio::test]
+async fn list_workspaces_ignores_compose_file_in_other_subdirectory() {
+    let front = spawn_front().await;
+    let sub = front.ws_path.join("docker");
     std::fs::create_dir_all(&sub).unwrap();
     std::fs::write(sub.join("docker-compose.yml"), "services: {}\n").unwrap();
     let body = get_json(&front, "/workspaces").await;
