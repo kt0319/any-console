@@ -36,16 +36,16 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
   const paneTouch = createTouchTracker();
   const { apiGet } = useApi();
 
-  // タップ位置のパス風文字列が実在ファイルなら内容つきで terminal:path を通知する。
-  // 実在しない（通常の文字列）場合は何も起きない。
-  async function openPathAt(x: number, y: number): Promise<boolean> {
+  // タップ位置にパス風文字列があれば、URL と同じく即振動し、実在ファイルなら内容つきで
+  // terminal:path を通知する。実在しなければエラートーストを出す。
+  async function openPathAt(x: number, y: number) {
     const path = findPathInBuffer(tab.value?.term, x, y);
     const sessionId = tab.value?.sessionId;
-    if (!path || !sessionId) return false;
-    const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId, path));
-    if (!ok) return false;
+    if (!path || !sessionId) return;
+    if (navigator.vibrate) navigator.vibrate(40);
+    const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId, path), { errorMessage: `Cannot open "${path}"` });
+    if (!ok) return;
     emit("terminal:path", { path, fileContent: data });
-    return true;
   }
 
   let startX = 0;
@@ -77,9 +77,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
       if (touchMoved || circleKeypad?.state.visible) return;
       const url = findUrlInBuffer(tab.value?.term, startX, startY);
       if (!url) {
-        void openPathAt(startX, startY).then((opened) => {
-          if (opened && navigator.vibrate) navigator.vibrate(40);
-        });
+        void openPathAt(startX, startY);
         return;
       }
       if (navigator.vibrate) navigator.vibrate(40);
