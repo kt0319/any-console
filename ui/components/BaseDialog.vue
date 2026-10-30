@@ -14,6 +14,7 @@
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.ts";
 import { isTouchOnly, listenForEscape } from "../utils/keyboard.ts";
+import { DIALOG_Z_INDEX } from "../utils/constants.ts";
 
 /**
  * ダイアログ共通シェル。オーバーレイ描画・フォーカストラップ・Esc で閉じる・
@@ -22,7 +23,7 @@ import { isTouchOnly, listenForEscape } from "../utils/keyboard.ts";
  */
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  zIndex: { type: Number, default: 200 },
+  zIndex: { type: Number, default: DIALOG_Z_INDEX },
   // "first": 開いたら最初のフォーカス可能要素へ移す（タッチ端末では抑制）。
   // "none": フォーカス移動は呼び出し側が行う（入力欄へ直接フォーカスするダイアログ用）。
   initialFocus: { type: String, default: "first" },

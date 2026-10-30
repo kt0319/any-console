@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :visible="visible" :z-index="210" @dismiss="close">
+  <BaseDialog :visible="visible" :z-index="DIALOG_Z_INDEX_RAISED" @dismiss="close">
     <div class="commit-dialog dialog-box" role="dialog" aria-modal="true" aria-label="Commit">
       <div class="dialog-title">Commit</div>
       <textarea
@@ -27,7 +27,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "../composables/useApi.ts";
 import { buildActionResult } from "../utils/git-remote.ts";
 import { emit } from "../app-bridge.ts";
-import { extractApiError } from "../utils/constants.ts";
+import { extractApiError, DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 
 const { apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();

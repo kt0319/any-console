@@ -1,6 +1,6 @@
 <template>
   <div class="git-branch-pane-wrapper pane-fill">
-    <BaseDialog :visible="addModalOpen" :z-index="210" @dismiss="closeAddModal">
+    <BaseDialog :visible="addModalOpen" :z-index="DIALOG_Z_INDEX_RAISED" @dismiss="closeAddModal">
       <div class="branch-add-dialog dialog-box" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
         <div class="dialog-title">Add</div>
         <div class="branch-add-radio-group">
@@ -131,6 +131,7 @@
 </template>
 
 <script setup lang="ts">
+import { DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 import { ref, computed, inject, watch } from "vue";
 import { useBranchList } from "../composables/useBranchList.ts";
 import { useBranchActions } from "../composables/useBranchActions.ts";

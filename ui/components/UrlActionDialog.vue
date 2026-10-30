@@ -1,6 +1,6 @@
 <template>
   <!-- ターミナルURLアクションダイアログ -->
-  <BaseDialog :visible="!!terminalUrl" :z-index="1000" @dismiss="terminalUrl = ''">
+  <BaseDialog :visible="!!terminalUrl" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="terminalUrl = ''">
     <div class="url-action-dialog" role="dialog" aria-modal="true" aria-label="Open URL">
       <div class="url-action-url">{{ terminalUrl }}</div>
       <div class="url-action-buttons">
@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import { DIALOG_Z_INDEX_TOP } from "../utils/constants.ts";
 import { ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { useBusListener } from "../composables/useBusListener.ts";

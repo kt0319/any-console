@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :visible="visible" :z-index="210" initial-focus="none" @dismiss="onCancel">
+  <BaseDialog :visible="visible" :z-index="DIALOG_Z_INDEX_RAISED" initial-focus="none" @dismiss="onCancel">
     <div class="prompt-dialog dialog-box" style="--dialog-width: 420px" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
       <div v-if="title" class="dialog-title">{{ title }}</div>
       <p v-if="message" class="prompt-message">{{ message }}</p>
@@ -26,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+import { DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 import { ref, watch, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { usePrompt } from "../composables/usePrompt.ts";

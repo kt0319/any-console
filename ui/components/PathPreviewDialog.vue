@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :visible="!!path" :z-index="1000" @dismiss="close">
+  <BaseDialog :visible="!!path" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="close">
     <div class="path-preview-dialog" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Open file">
       <div class="path-preview-path">{{ path }}</div>
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
@@ -16,6 +16,7 @@
 </template>
 
 <script setup lang="ts">
+import { DIALOG_Z_INDEX_TOP } from "../utils/constants.ts";
 import { computed, ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import FileTextViewer from "./FileTextViewer.vue";

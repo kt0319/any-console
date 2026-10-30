@@ -174,3 +174,8 @@ export const SESSION_SIDEBAR_MAX_WIDTH_PX = 640;
 export const SESSION_SIDEBAR_MAX_VIEWPORT_RATIO = 0.5;
 export const SESSION_SIDEBAR_RESIZE_STEP_PX = 16;
 export const LS_KEY_SESSION_SIDEBAR_WIDTH = "any_console_session_sidebar_width";
+
+// BaseDialog の重なり順。通常 / 他の UI より前面に出す確認・入力系 / ターミナルの URL・パス操作（全 UI の最前面）
+export const DIALOG_Z_INDEX = 200;
+export const DIALOG_Z_INDEX_RAISED = 210;
+export const DIALOG_Z_INDEX_TOP = 1000;

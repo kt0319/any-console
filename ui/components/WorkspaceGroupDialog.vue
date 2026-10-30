@@ -1,6 +1,6 @@
 <template>
   <!-- グループ名入力モーダル -->
-  <BaseDialog :visible="groupDialogOpen" :z-index="210" initial-focus="none" @dismiss="groupDialogOpen = false">
+  <BaseDialog :visible="groupDialogOpen" :z-index="DIALOG_Z_INDEX_RAISED" initial-focus="none" @dismiss="groupDialogOpen = false">
     <div class="picker-group-dialog dialog-box" style="--dialog-width: 320px" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
       <div class="dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
       <input
@@ -27,6 +27,7 @@
 </template>
 
 <script setup lang="ts">
+import { DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 import { ref, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
