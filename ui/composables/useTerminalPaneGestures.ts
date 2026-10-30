@@ -18,7 +18,7 @@ interface CircleKeypadLike {
 }
 
 // ターミナル本体のタッチは
-//   - 長押し: URL / ファイルパスを開く
+//   - 長押し・タップ（合成クリック）: URL / ファイルパスを開く
 //   - スワイプ: サークルキー（Select & Copy も含む）
 //   - 短いタップ: split mode のときだけ pane 選択
 // を扱う。
@@ -167,8 +167,8 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  // PC向け: クリックで URL を、Ctrl/⌘+クリックでファイルパスを開く。ドラッグ選択は移動量チェック（TAP_MAX_DELTA_PX）
-  // で除外されるため、通常クリックでも選択操作とは衝突しない。
+  // クリック（モバイルのタップが合成するクリックを含む）で URL・ファイルパスを開く。ドラッグ選択は
+  // 移動量チェック（TAP_MAX_DELTA_PX）で除外されるため、通常クリックでも選択操作とは衝突しない。
   let urlClickStartX = 0;
   let urlClickStartY = 0;
   let onUrlClickMouseUp: ((ev: MouseEvent) => void) | null = null;
@@ -188,7 +188,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
         emit("terminal:url", { uri: url });
         return;
       }
-      if (ev.ctrlKey || ev.metaKey) openPathAt(urlClickStartX, urlClickStartY);
+      openPathAt(urlClickStartX, urlClickStartY);
     };
     document.addEventListener("mouseup", onUrlClickMouseUp);
   }
