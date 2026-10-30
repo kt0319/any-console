@@ -149,12 +149,20 @@ function resetCompositionState(reason: string) {
   if (el) el.composing = false;
 }
 
+// 復帰時に OS 側の入力セッションがずれ、かな入力は入るのに変換候補が出なくなることがある（推測）。
+// 送信時と同じく、フォーカスしていない（キーボードが閉じている）なら要素を作り直して初期状態に戻す。
+function recoverInputOnResume(reason: string) {
+  resetCompositionState(reason);
+  if (isFocused()) return;
+  inputKey.value += 1;
+}
+
 function onVisibilityChange() {
-  if (document.visibilityState === "visible") resetCompositionState("visible");
+  if (document.visibilityState === "visible") recoverInputOnResume("visible");
 }
 
 function onPageShow() {
-  resetCompositionState("pageshow");
+  recoverInputOnResume("pageshow");
 }
 
 onMounted(() => {

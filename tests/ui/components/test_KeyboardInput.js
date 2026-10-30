@@ -60,9 +60,33 @@ describe("KeyboardInput の中断された IME 変換状態", () => {
     expect(wrapper.emitted("submitted")).toBeUndefined();
     setVisibility("visible");
     await flushPromises();
-    await textarea.setValue("ls");
-    await textarea.trigger("keydown", { key: "Enter" });
+    const resumed = wrapper.find("textarea");
+    await resumed.setValue("ls");
+    await resumed.trigger("keydown", { key: "Enter" });
     expect(wrapper.emitted("submitted")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("前面復帰時、フォーカスしていなければ textarea を作り直し、入力途中の draft は保持する", async () => {
+    const wrapper = mountInput();
+    const oldEl = wrapper.find("textarea").element;
+    await wrapper.find("textarea").setValue("git st");
+    setVisibility("hidden");
+    setVisibility("visible");
+    await flushPromises();
+    const newEl = wrapper.find("textarea").element;
+    expect(newEl).not.toBe(oldEl);
+    expect(newEl.value).toBe("git st");
+    wrapper.unmount();
+  });
+
+  it("前面復帰時、フォーカス中の textarea は作り直さない", async () => {
+    const wrapper = mountInput();
+    const el = wrapper.find("textarea").element;
+    el.focus();
+    setVisibility("visible");
+    await flushPromises();
+    expect(wrapper.find("textarea").element).toBe(el);
     wrapper.unmount();
   });
 
@@ -70,8 +94,10 @@ describe("KeyboardInput の中断された IME 変換状態", () => {
     const wrapper = mountInput();
     const textarea = await startComposition(wrapper);
     window.dispatchEvent(new Event("pageshow"));
-    await textarea.setValue("ls");
-    await textarea.trigger("keydown", { key: "Enter" });
+    await flushPromises();
+    const resumed = wrapper.find("textarea");
+    await resumed.setValue("ls");
+    await resumed.trigger("keydown", { key: "Enter" });
     expect(wrapper.emitted("submitted")).toHaveLength(1);
     wrapper.unmount();
   });
