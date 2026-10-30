@@ -130,23 +130,25 @@ describe("a11y: UrlActionDialog", () => {
     const wrapper = mount(UrlActionDialog, { attachTo: document.body });
     emit("terminal:url", { uri: "https://example.com/path" });
     await nextTick();
-    await expectNoA11yViolations(wrapper.find(".url-action-dialog").element);
+    expect(wrapper.find(".dialog-title").text()).toBe("Open URL");
+    expect(wrapper.find(".dialog-copy-input").element.value).toBe("https://example.com/path");
+    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Cancel", "Open"]);
+    await expectNoA11yViolations(wrapper.find(".dialog-box").element);
     wrapper.unmount();
   });
 });
 
 describe("a11y: PathPreviewDialog", () => {
-  it("パスのタップですぐにプレビューを開き、下に Copy path と Close を1行で表示する（a11y 違反なし）", async () => {
+  it("パスのタップですぐにプレビューを開き、タイトル・コピー欄・右寄せの Close を表示する（a11y 違反なし）", async () => {
     const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
     emit("terminal:path", { path: "/etc/hosts", fileContent: { content: "127.0.0.1 localhost\n", size: 20 } });
     await nextTick();
-    expect(wrapper.find(".path-preview-path").text()).toBe("/etc/hosts");
+    expect(wrapper.find(".dialog-title").text()).toBe("Open file");
+    expect(wrapper.find(".dialog-copy-input").element.value).toBe("/etc/hosts");
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
-    expect(wrapper.text()).not.toContain("Open");
-    const buttons = wrapper.findAll(".path-preview-buttons > .path-preview-btn");
-    expect(buttons.map((b) => b.text())).toEqual(["Copy path", "Close"]);
+    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Close"]);
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
-    await wrapper.find(".path-preview-btn-cancel").trigger("click");
+    await wrapper.find(".dialog-buttons .dialog-btn-cancel").trigger("click");
     expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
     wrapper.unmount();
   });
