@@ -5,6 +5,7 @@
       <DialogCopyField :value="path" label="path" />
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
         <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" />
+        <div v-else class="path-preview-loading">Loading...</div>
       </div>
       <div class="dialog-buttons">
         <button class="dialog-btn dialog-btn-cancel" @click="close">Close</button>
@@ -19,8 +20,11 @@ import { computed, ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import DialogCopyField from "./DialogCopyField.vue";
 import FileTextViewer from "./FileTextViewer.vue";
+import { useApi } from "../composables/useApi.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
+import { terminalSessionOpenPath } from "../utils/endpoints.ts";
 
+const { apiGet } = useApi();
 const path = ref("");
 const fileContent = ref<Record<string, any> | null>(null);
 const isImage = computed(() => !!(fileContent.value?.image && fileContent.value?.data_url));
@@ -30,9 +34,16 @@ function close() {
   fileContent.value = null;
 }
 
-useBusListener("terminal:path", (detail) => {
-  path.value = detail.path;
-  fileContent.value = detail.fileContent;
+useBusListener("terminal:path", async ({ path: requested, sessionId }) => {
+  path.value = requested;
+  fileContent.value = null;
+  const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId, requested), { errorMessage: `Cannot open "${requested}"` });
+  if (path.value !== requested) return;
+  if (!ok) {
+    close();
+    return;
+  }
+  fileContent.value = data;
 });
 </script>
 
@@ -87,5 +98,11 @@ useBusListener("terminal:path", (detail) => {
 .path-preview-body-image :deep(.file-content-image.file-content-image-zoomed) {
   max-width: none;
   max-height: none;
+}
+
+.path-preview-loading {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px;
 }
 </style>

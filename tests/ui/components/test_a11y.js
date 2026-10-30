@@ -139,16 +139,38 @@ describe("a11y: UrlActionDialog", () => {
 });
 
 describe("a11y: PathPreviewDialog", () => {
-  it("パスのタップですぐにプレビューを開き、タイトル・コピー欄・右寄せの Close を表示する（a11y 違反なし）", async () => {
+  function mockOpenPath(result) {
+    setActivePinia(createPinia());
+    const auth = useAuthStore();
+    auth.apiFetch = vi.fn(() => Promise.resolve(result));
+    return auth;
+  }
+
+  it("パスのタップですぐにダイアログを開き（Loading...）、取得後にプレビューへ切り替わる（a11y 違反なし）", async () => {
+    mockOpenPath({ ok: true, json: async () => ({ content: "127.0.0.1 localhost\n", size: 20 }) });
     const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
-    emit("terminal:path", { path: "/etc/hosts", fileContent: { content: "127.0.0.1 localhost\n", size: 20 } });
+    emit("terminal:path", { path: "/etc/hosts", sessionId: "s1" });
     await nextTick();
     expect(wrapper.find(".dialog-title").text()).toBe("Open file");
     expect(wrapper.find(".dialog-copy-input").element.value).toBe("/etc/hosts");
+    expect(wrapper.text()).toContain("Loading...");
+
+    await flushPromises();
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
     expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Close"]);
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
     await wrapper.find(".dialog-buttons .dialog-btn-cancel").trigger("click");
+    expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("取得に失敗したらダイアログを閉じる", async () => {
+    mockOpenPath({ ok: false, json: async () => ({ detail: "not found" }) });
+    const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
+    emit("terminal:path", { path: "/nope", sessionId: "s1" });
+    await nextTick();
+    expect(wrapper.find(".path-preview-dialog").exists()).toBe(true);
+    await flushPromises();
     expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
     wrapper.unmount();
   });

@@ -4,8 +4,6 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { createTouchTracker } from "../utils/gesture.ts";
 import { findPathInBuffer, findUrlInBuffer } from "../utils/terminal-buffer-text.ts";
 import { emit } from "../app-bridge.ts";
-import { terminalSessionOpenPath } from "../utils/endpoints.ts";
-import { useApi } from "./useApi.ts";
 import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeypad.ts";
 import { LONG_PRESS_URL_MS, TAP_MAX_DELTA_PX } from "../utils/constants.ts";
 
@@ -34,18 +32,15 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
 }) {
   const layoutStore = useLayoutStore();
   const paneTouch = createTouchTracker();
-  const { apiGet } = useApi();
 
-  // タップ位置にパス風文字列があれば、URL と同じく即振動し、実在ファイルなら内容つきで
-  // terminal:path を通知する。実在しなければエラートーストを出す。
-  async function openPathAt(x: number, y: number) {
+  // タップ位置にパス風文字列があれば、URL と同じく即振動してダイアログを開く。
+  // 実在確認と内容の取得は PathPreviewDialog が行う。
+  function openPathAt(x: number, y: number) {
     const path = findPathInBuffer(tab.value?.term, x, y);
     const sessionId = tab.value?.sessionId;
     if (!path || !sessionId) return;
     if (navigator.vibrate) navigator.vibrate(40);
-    const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId, path), { errorMessage: `Cannot open "${path}"` });
-    if (!ok) return;
-    emit("terminal:path", { path, fileContent: data });
+    emit("terminal:path", { path, sessionId });
   }
 
   let startX = 0;
@@ -77,7 +72,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
       if (touchMoved || circleKeypad?.state.visible) return;
       const url = findUrlInBuffer(tab.value?.term, startX, startY);
       if (!url) {
-        void openPathAt(startX, startY);
+        openPathAt(startX, startY);
         return;
       }
       if (navigator.vibrate) navigator.vibrate(40);
@@ -193,7 +188,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
         emit("terminal:url", { uri: url });
         return;
       }
-      if (ev.ctrlKey || ev.metaKey) void openPathAt(urlClickStartX, urlClickStartY);
+      if (ev.ctrlKey || ev.metaKey) openPathAt(urlClickStartX, urlClickStartY);
     };
     document.addEventListener("mouseup", onUrlClickMouseUp);
   }
