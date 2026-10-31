@@ -19,6 +19,7 @@ const URL_SEARCH_WINDOW_LINES = 6;
 // 全角句読点・全角記号（U+3000-303F, U+FF00-FFEF）と、プロンプトのアイコンに使われる
 // 私用領域（Nerd Font 等。U+E000-F8FF）は終端にする（次行の行頭アイコンが連結されて実在しないパスになる）。
 // 実在確認はサーバが行うので、ここでは「/ を含む」か「拡張子がある」ものだけを候補にする。
+// 末尾が「/」のものはディレクトリで開けるファイルではないため findPathInBuffer で候補から外す。
 const PATH_SEGMENT_CHARS = "\\w.~@+%\\-\\u00c0-\\u1fff\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff";
 export const TERMINAL_PATH_REGEX = new RegExp(
   `[\\w.~@+%-]*(?:\\/[${PATH_SEGMENT_CHARS}]+)+\\/?|[\\w@+%-]+(?:\\.[\\w@+%-]+)*\\.[A-Za-z0-9]+`,
@@ -46,7 +47,8 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
 
 export function findPathInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
   const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_PATH_REGEX, PATH_START_LINE_REGEX);
-  return raw ? normalizeTerminalPath(raw) : null;
+  if (!raw || raw.endsWith("/")) return null;
+  return normalizeTerminalPath(raw);
 }
 
 // 全角文字は2セルだが translateToString では1文字になるため、セル列を文字列上の位置へ換算する。

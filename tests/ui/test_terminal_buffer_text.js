@@ -308,6 +308,13 @@ describe("findPathInBuffer / normalizeTerminalPath", () => {
     expect(findPathInBuffer(term, line.indexOf("/tmp") * 10 + 5, 5)).toBe("/tmp/a/見積書.png");
   });
 
+  it("末尾が / のパス（ディレクトリ）は拾わない", () => {
+    for (const [line, token] of [["ls server/src/", "server/src/"], ["cd /tmp/a/", "/tmp/a/"], ["cd ~/work/", "~/work/"]]) {
+      const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+      expect(findPathInBuffer(term, line.indexOf(token) * 10 + 15, 5)).toBeNull();
+    }
+  });
+
   it("パスでない文字列では null", () => {
     const line = "hello world";
     const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
