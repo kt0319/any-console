@@ -4,6 +4,7 @@ name: macOS setup
 # メインの CI (ci.yml) は ubuntu-latest のみのため、macOS 依存分岐（launchd 判定、
 # lsof/ps によるポート検出など）の壊れを見逃さないための補完。
 # macos-latest runner は課金レートが高いため、macOS 関連ファイルを触った時だけ動かす。
+# release-please のリリースPRはスキップする（マージ後の main push で走るため）。
 # PR ブランチへの push は pull_request の 1 回だけ実行する（push は main のみ。ci.yml と同じ方針）。
 on:
   push:
@@ -11,6 +12,7 @@ on:
     paths:
       - "any-console"
       - "server/**"
+      - "!server/tests/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/macos-setup.yml"
@@ -19,6 +21,7 @@ on:
     paths:
       - "any-console"
       - "server/**"
+      - "!server/tests/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/macos-setup.yml"
@@ -30,6 +33,7 @@ concurrency:
 
 jobs:
   macos-setup:
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: macos-latest
     timeout-minutes: 10
     steps:
