@@ -4,9 +4,10 @@ name: macOS setup
 # メインの CI (ci.yml) は ubuntu-latest のみのため、macOS 依存分岐（launchd 判定、
 # lsof/ps によるポート検出など）の壊れを見逃さないための補完。
 # macos-latest runner は課金レートが高いため、macOS 関連ファイルを触った時だけ動かす。
+# PR ブランチへの push は pull_request の 1 回だけ実行する（push は main のみ。ci.yml と同じ方針）。
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     paths:
       - "any-console"
       - "server/**"
@@ -22,9 +23,15 @@ on:
       - "package-lock.json"
       - ".github/workflows/macos-setup.yml"
 
+# 同一 PR への連続 push では古い実行をキャンセルする（main は完走させる）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   macos-setup:
     runs-on: macos-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
