@@ -677,11 +677,11 @@ describe("usePillPeek", () => {
       expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 1);
       await Promise.resolve();
       await Promise.resolve();
-      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2026 and 2 more");
+      expect(peek.branchRemoteResult.value.detail).toBe("feat: a");
       expect(peek.peekSignature.value).toContain("feat: a");
     });
 
-    it("pull完了の検出でも件名を添える（件名数が件数より少なければ残件数を付ける）", async () => {
+    it("pull完了の検出でも件名を添える（残件数は付けない）", async () => {
       const fetchRecentSubjects = vi.fn(async () => ["feat: a"]);
       const { peek, behind } = mountPillPeek({ ahead: 0, behind: 5, fetchRecentSubjects });
       behind.value = 0;
@@ -690,7 +690,7 @@ describe("usePillPeek", () => {
       expect(fetchRecentSubjects).toHaveBeenCalledWith("ws1", 1);
       await Promise.resolve();
       await Promise.resolve();
-      expect(peek.branchRemoteResult.value.detail).toBe("feat: a \u2026 and 4 more");
+      expect(peek.branchRemoteResult.value.detail).toBe("feat: a");
     });
 
     it("件名の取得に失敗（空配列）しても「N Pushed」のpeekは出る", async () => {

@@ -21,16 +21,6 @@ const ZERO_COMMIT_TEXT: Record<RemoteLabel, string> = {
   "Push (set upstream)": "Nothing to push",
 };
 
-/**
- * 最新コミットの件名を返す。total が1件より多い時は末尾に残件数を付ける。
- * （サーバ応答の commits.messages / git-log の先頭1件のどちらにも使う）
- */
-export function formatLatestCommitSubject(subject: string | undefined, total: number): string {
-  if (!subject) return "";
-  const remaining = total - 1;
-  return remaining > 0 ? `${subject} … and ${remaining} more` : subject;
-}
-
 export function buildRemoteResult(
   label: RemoteLabel,
   data: { commits?: { count?: number, messages?: unknown[] } } | null | undefined,
@@ -45,7 +35,7 @@ export function buildRemoteResult(
   return {
     kind: label === "Pull" ? "pull" : "push",
     headline: `${count} ${PAST_TENSE_VERB[label]}`,
-    detail: formatLatestCommitSubject(latestSubject, count),
+    detail: latestSubject ?? "",
   };
 }
 
