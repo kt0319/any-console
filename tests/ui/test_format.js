@@ -60,11 +60,17 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime(null)).toBe("");
   });
 
-  it("returns 'now' for under 1 hour", () => {
+  it("returns 'now' for under 1 minute", () => {
     const now = Math.floor(Date.now() / 1000);
     expect(formatRelativeTime(now)).toBe("now");
-    expect(formatRelativeTime(now - 60)).toBe("now");
-    expect(formatRelativeTime(now - 3000)).toBe("now");
+    expect(formatRelativeTime(now - 59)).toBe("now");
+  });
+
+  it("formats minutes under an hour", () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(formatRelativeTime(now - 60)).toBe("1m ago");
+    expect(formatRelativeTime(now - 3000)).toBe("50m ago");
+    expect(formatRelativeTime(now - 3599)).toBe("59m ago");
   });
 
   it("formats hours under a day", () => {
@@ -85,7 +91,7 @@ describe("formatRelativeTime", () => {
 
   it("formats months under a year", () => {
     const now = Math.floor(Date.now() / 1000);
-    expect(formatRelativeTime(now - 86400 * 60)).toBe("2m ago");
+    expect(formatRelativeTime(now - 86400 * 60)).toBe("2mo ago");
   });
 
   it("formats years for older timestamps", () => {
