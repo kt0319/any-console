@@ -34,7 +34,7 @@ Website: <https://any-console.highedge.net/>
 - **Agent state detection** — Sessions running known coding agents show working / idle / blocked state (screen analysis + optional hooks)
 - **Push notifications** — Web Push (VAPID) for blocked agents, job phrases, and dispatch approvals
 - **GitHub integration** — Issues, PRs, and Actions runs per workspace (via `gh`)
-- **Dispatch API** — Queue commands from CI/automation over HTTP, approved from the UI
+- **Dispatch API** — Queue commands from CI/automation over HTTP, approved from the UI (or run immediately with a restricted direct-scope token)
 - **Dev server preview** — Detects listening dev servers and proxies them (TLS-capable)
 - **PWA** — Installable on phone and desktop
 - **Lightweight stack** — Vue 3 + Pinia frontend (Vite), Rust (axum) backend
@@ -147,7 +147,7 @@ curl -X POST https://<your-device>.ts.net/dispatch \
   }'
 ```
 
-The request always waits in an approval queue — open it from the workspace detail's Dispatch tab, or via a push notification if enabled. Only after a human approves does the text actually get sent (immediate execution is not supported; `"direct": true` is rejected with 400).
+By default the request waits in an approval queue — open it from the workspace detail's Dispatch tab, or via a push notification if enabled. Only after a human approves does the text actually get sent. Immediate execution (`"direct": true`) is rejected with 400 for the main token and for dispatch-scope tokens; it is available only to [direct-scope tokens](#direct-scope-tokens).
 
 Key fields on the request body (`server/src/dispatch.rs`):
 
@@ -162,7 +162,50 @@ Key fields on the request body (`server/src/dispatch.rs`):
 | `dedup_key` | Opaque string; a new request with the same key replaces the still-pending one instead of queuing a duplicate (useful for repeated CI-failure dispatches) |
 | `image_paths` | Server-local file paths (e.g. from `POST /upload-image`); on run, they're appended to `text` as `Image: <path>` lines so CLI agents in the session can read them with their own file tools — they are not sent as binary data |
 
-For CI/automation, use a **scoped dispatch token** instead of your main token — create one from Settings > Auth > API Tokens. It can only queue dispatch requests and cannot approve queue items or access anything else, so a leaked CI secret can't be used to run arbitrary commands on its own.
+### API token scopes
+
+**Never put your main token in a crontab, CI secret or script.** Create a scoped token from Settings > Auth > API Tokens (or `POST /api-tokens`). Scoped tokens only work on `POST /dispatch` — every other API, the status-stream WebSocket and `POST /dispatch/{id}/decision` reject them — and can be issued and revoked independently.
+
+| Credential | `direct` omitted / `false` | `"direct": true` |
+|---|---|---|
+| Main token / device cookie | Approval queue | 400 |
+| `dispatch` scope | Approval queue | 400 |
+| `direct` scope | 400 (cannot queue) | Runs immediately if the restrictions below pass |
+
+#### Direct-scope tokens
+
+A direct token starts an agent job immediately, without approval, so a leaked token can run an agent but nothing more than these limits allow. Each request must satisfy all of:
+
+- `job` is required and must not be `terminal` (no raw text into a shell).
+- `worktree` is required — the job never runs in the main checkout. The worktree must already exist.
+- It always starts a **new** session: `session_id` is rejected (400) and existing sessions are never reused.
+- `dedup_key` is rejected (400); it has no meaning for an immediate run. `branch` / `create_branch` / `base_branch` / `image_paths` are validated like any other dispatch.
+- The workspace is within the token's `allowed_workspaces` (403 otherwise).
+- The token has runs left today: at most `max_per_day` (default 10, minimum 1) accepted requests per rolling 24 hours (429 otherwise). Failed launches count. The count is kept in the activity log, so it survives restarts.
+- The token has not passed `expires_at` (401 otherwise).
+
+Every run (and every failed launch) sends a push notification with the token name, workspace/worktree and the start of the text, is recorded in the Dispatch history as `executed` / `failed` with `auth: "direct:<token name>"`, and can be re-run from the history with the main token.
+
+```bash
+# create a direct token (main token required)
+curl -X POST https://<your-device>.ts.net/api-tokens \
+  -H "Authorization: Bearer <main-token>" -H "Content-Type: application/json" \
+  -d '{"name": "nightly-cron", "scope": "direct", "max_per_day": 4, "allowed_workspaces": ["my-project"], "expires_at": 1893456000}'
+
+# crontab: start the agent every night in an existing worktree
+0 3 * * * curl -fsS -X POST https://<your-device>.ts.net/dispatch -H "Authorization: Bearer $(cat ~/.any-console-direct-token)" -H "Content-Type: application/json" -d '{"workspace": "my-project", "worktree": "auto/nightly", "job": "claude", "text": "Run the test suite and fix flaky tests", "direct": true}'
+```
+
+Keep the token in a file readable only by you. Be especially careful before placing a direct token outside your own machines (CI, cloud services): the agent can run commands inside the worktree, so the damage a leaked token can do is bounded by your agent's permission settings (dangerous actions still stop at the agent's own approval prompt and show up as a blocked notification) — workspaces are **not** an OS-level sandbox; everything runs as the same user.
+
+| Status | Meaning |
+|---|---|
+| `202` | Queued for approval (main token / device / dispatch scope) |
+| `200` | Direct run started; body has `dispatch_id` and `session_id` |
+| `400` | Restriction violated (see above), `direct: true` from a credential that may not use it, or the launch failed (the failure is recorded in the history) |
+| `401` | Invalid, revoked or expired token |
+| `403` | Workspace is not in the token's `allowed_workspaces` |
+| `429` | The token reached `max_per_day` |
 
 ## HTTPS
 
