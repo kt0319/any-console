@@ -34,7 +34,7 @@ Website: <https://any-console.highedge.net/>
 - **Agent state detection** — Sessions running known coding agents show working / idle / blocked state (screen analysis + optional hooks)
 - **Push notifications** — Web Push (VAPID) for blocked agents, job phrases, and dispatch approvals
 - **GitHub integration** — Issues, PRs, and Actions runs per workspace (via `gh`)
-- **Dispatch API** — Queue commands from CI/automation over HTTP, approved from the UI
+- **Dispatch API** — Queue commands from CI/automation over HTTP, approved from the UI (or fixed, validated "recipes" that may auto-run)
 - **Dev server preview** — Detects listening dev servers and proxies them (TLS-capable)
 - **PWA** — Installable on phone and desktop
 - **Lightweight stack** — Vue 3 + Pinia frontend (Vite), Rust (axum) backend
@@ -163,6 +163,65 @@ Key fields on the request body (`server/src/dispatch.rs`):
 | `image_paths` | Server-local file paths (e.g. from `POST /upload-image`); on run, they're appended to `text` as `Image: <path>` lines so CLI agents in the session can read them with their own file tools — they are not sent as binary data |
 
 For CI/automation, use a **scoped dispatch token** instead of your main token — create one from Settings > Auth > API Tokens. It can only queue dispatch requests and cannot approve queue items or access anything else, so a leaked CI secret can't be used to run arbitrary commands on its own.
+
+### Dispatch recipes
+
+A **dispatch recipe** is a fixed dispatch definition stored on the server. The caller sends only the recipe ID and a few validated arguments; the prompt, job and worktree come from the recipe, so a leaked token cannot be used to send arbitrary text. A recipe whose `approve` is `auto` skips the approval queue — see the conditions below.
+
+Define recipes under `__global__.dispatch_recipes` in `config.json`:
+
+```json
+{
+  "__global__": {
+    "dispatch_recipes": [
+      {
+        "id": "ci-fix",
+        "workspace": "any-console",
+        "branch": "{branch}",
+        "job": "claude",
+        "text": "CI failed on {branch}. Run: {url}\nFirst run `gh run view --log-failed` to inspect the failure log before fixing.",
+        "dedup": "ci-failure:{workspace}:{branch}",
+        "params": {
+          "branch": { "pattern": "[A-Za-z0-9._/-]{1,100}", "required": true },
+          "url": { "pattern": "https://github\\.com/kt0319/any-console/actions/runs/\\d+(/.*)?", "required": true }
+        },
+        "approve": "manual",
+        "max_per_day": 5
+      }
+    ]
+  }
+}
+```
+
+- Template variables (`{name}`) are limited to the declared `params` and the built-in `{workspace}`. Every param needs a `pattern` (matched against the whole value). Values are inserted into the templates as plain strings — never into a shell or command line — and the expanded `worktree` / `branch` / `base_branch` / `dedup` are validated again.
+- `job` must be a defined job (`terminal` is rejected). `max_per_day` (1 or more) caps how many times the recipe can be started in the last 24 hours; `cooldown_sec` is the minimum interval between `auto` runs. The counts come from the activity log, so they survive restarts.
+- `approve: "auto"` is valid only when `worktree` is set, `max_per_day` is 1 or more and the job exists in the workspace's jobs; otherwise the recipe is rejected (it never falls back to `manual`). The `worktree` must already exist as a git worktree of the workspace — recipes do not create worktrees. An auto run launches immediately, is recorded in the Dispatch history as `recipe:<id>` (`executed` / `failed`), and always sends a push notification. Agent permission prompts are untouched, so risky actions still stop at the agent's own approval.
+- Invalid recipes are logged and ignored; the server still starts. Set `__global__.dispatch_recipes_paused` to `true` to stop all recipes (409).
+
+```bash
+# list recipes (main token / device only)
+curl https://<your-device>.ts.net/dispatch/recipes -H "Authorization: Bearer <main-token>"
+
+# run a recipe (scoped token must list the recipe in allowed_recipes)
+curl -X POST https://<your-device>.ts.net/dispatch/recipes/ci-fix \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "feature/x", "url": "https://github.com/kt0319/any-console/actions/runs/123"}'
+```
+
+Create a token that can run specific recipes with `POST /api-tokens` and `{"name": "ci", "allowed_recipes": ["ci-fix"]}`. A scoped token with no `allowed_recipes` (including tokens created before this feature) cannot run any recipe, and cannot list recipes.
+
+| Status | Meaning |
+|---|---|
+| `202` | `approve: manual` — queued; body has `dispatch_id` |
+| `200` | `approve: auto` — started; body has `dispatch_id` and `session_id` |
+| `400` | Unknown field in the body (`text` / `job` / `worktree` / `direct` … are rejected), missing or non-matching param, or the launch failed |
+| `401` / `403` | Invalid token / the token's `allowed_recipes` does not include the recipe |
+| `404` | Recipe does not exist, is disabled or invalid |
+| `409` | Recipes are paused |
+| `429` | `max_per_day` reached or `auto` cooldown still running |
+
+`.github/workflows/dispatch-on-ci-failure.yml` calls `POST /dispatch/recipes/ci-fix` with only `{branch, url}`. The plain `POST /dispatch` is unchanged.
 
 ## HTTPS
 
