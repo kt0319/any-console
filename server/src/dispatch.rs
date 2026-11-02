@@ -48,10 +48,14 @@ use crate::util::{default_true, now_epoch, JsonBody};
 const RECENT_LIMIT: usize = 10;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
 const API_TOKEN_SCOPE_LABEL_PREFIX: &str = "token:";
+const DIRECT_LABEL_PREFIX: &str = "direct:";
 /// 決定（実行/破棄）済みdispatchの添付画像を保持する期間。超過分は
 /// `sweep_expired_dispatch_images` が削除し、Recent側の `image_paths` を
 /// 空にした上で `images_expired: true` を立てる。
 const DISPATCH_IMAGE_TTL_SEC: i64 = 24 * 60 * 60;
+/// direct スコープのトークンの起動回数を数える期間（直近 24 時間）。
+const DIRECT_WINDOW_SEC: i64 = 24 * 60 * 60;
+const ACTIVITY_EVENT_DIRECT_FIRED: &str = "direct_fired";
 
 // ─── 永続化状態 ──────────────────────────────────────────────────────────────
 
@@ -62,6 +66,9 @@ pub struct DispatchState {
     pub pending: Mutex<Map<String, Value>>,
     /// run/discardが決定された直近の項目（新しい順、最大 `RECENT_LIMIT` 件）。
     pub recent: Mutex<Vec<Value>>,
+    /// direct スコープのトークンの回数上限判定（activity ログの読み取りから起動回数の
+    /// 記録まで）を直列化する。並行到着で同時に上限を通過しないため。
+    pub direct_gate: Mutex<()>,
 }
 
 impl DispatchState {
@@ -167,6 +174,7 @@ async fn record_recent(
     dispatch_id: &str,
     mut request: Value,
     outcome: &str,
+    extra: Option<&Map<String, Value>>,
 ) {
     // DispatchRequest のフィールドへ正規化してから格納する（実行時は model_dump 済み、
     // 破棄時は _PENDING の生 payload — branch_status 等の実行時メタが混ざるため）。
@@ -191,10 +199,11 @@ async fn record_recent(
         map.insert("decided_at".to_string(), json!(now_epoch()));
     }
     let mut recent = state.dispatch.recent.lock().await;
-    recent.insert(
-        0,
-        json!({"id": dispatch_id, "request": request, "outcome": outcome}),
-    );
+    let mut item = json!({"id": dispatch_id, "request": request, "outcome": outcome});
+    if let (Some(extra), Value::Object(map)) = (extra, &mut item) {
+        map.extend(extra.clone());
+    }
+    recent.insert(0, item);
     recent.truncate(RECENT_LIMIT);
     drop(recent);
     persist_recent(state).await;
@@ -343,6 +352,17 @@ struct JobDef {
     label: String,
     icon: String,
     icon_color: String,
+}
+
+impl JobDef {
+    fn label_only(job: &str) -> Self {
+        Self {
+            command: String::new(),
+            label: job.to_string(),
+            icon: String::new(),
+            icon_color: String::new(),
+        }
+    }
 }
 
 fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDef, ApiError> {
@@ -892,25 +912,38 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
 
 // ─── 認証（POST /dispatch 専用: メイン/デバイス + dispatch scope token）─
 
-/// (auth_label, is_scoped_token)。
+/// (auth_label, 呼び出し元の API トークンエントリ)。メイントークン・デバイスなら None。
+/// dispatch スコープのラベルは `token:<id>`、direct スコープは `direct:<トークン名>`。
 async fn verify_dispatch_auth(
     state: &Arc<AppState>,
     bearer: &str,
     headers: &http::HeaderMap,
-) -> Result<(String, bool), ApiError> {
+) -> Result<(String, Option<Value>), ApiError> {
     let cookies = parse_cookies(headers);
     if let Some(result) = state.auth.authenticate(bearer, Some(&cookies)) {
         return Ok(match result.kind {
-            AuthKind::Disabled => ("disabled".to_string(), false),
-            AuthKind::Main => ("main".to_string(), false),
-            AuthKind::Device => (result.label, false),
+            AuthKind::Disabled => ("disabled".to_string(), None),
+            AuthKind::Main => ("main".to_string(), None),
+            AuthKind::Device => (result.label, None),
         });
     }
     if let Some(entry) = state.auth.verify_and_touch_api_token(bearer) {
-        if entry.get("scope").and_then(Value::as_str) == Some(crate::auth::API_TOKEN_SCOPE_DISPATCH)
-        {
-            let token_id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
-            return Ok((format!("{API_TOKEN_SCOPE_LABEL_PREFIX}{token_id}"), true));
+        let token_id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
+        match entry.get("scope").and_then(Value::as_str) {
+            Some(crate::auth::API_TOKEN_SCOPE_DISPATCH) => {
+                return Ok((
+                    format!("{API_TOKEN_SCOPE_LABEL_PREFIX}{token_id}"),
+                    Some(entry),
+                ));
+            }
+            Some(crate::auth::API_TOKEN_SCOPE_DIRECT) => {
+                let name = entry
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or(token_id);
+                return Ok((format!("{DIRECT_LABEL_PREFIX}{name}"), Some(entry)));
+            }
+            _ => {}
         }
     }
     Err(crate::errors::unauthorized("Invalid token"))
@@ -924,8 +957,16 @@ pub async fn dispatch(
     JsonBody(body): JsonBody<DispatchRequest>,
 ) -> Result<axum::response::Response, ApiError> {
     let bearer = crate::auth::bearer_from_headers(&headers);
-    let (auth_label, is_scoped_token) = verify_dispatch_auth(&state, bearer, &headers).await?;
-    dispatch_core(&state, body, &auth_label, is_scoped_token).await
+    let (auth_label, token_entry) = verify_dispatch_auth(&state, bearer, &headers).await?;
+    match token_entry {
+        Some(entry)
+            if entry.get("scope").and_then(Value::as_str)
+                == Some(crate::auth::API_TOKEN_SCOPE_DIRECT) =>
+        {
+            dispatch_direct(&state, body, &entry, &auth_label).await
+        }
+        other => dispatch_core(&state, body, &auth_label, other.is_some()).await,
+    }
 }
 
 /// dispatch 実行成功時の activity 記録（`dispatch_decide`のpending実行・履歴からの
@@ -1065,6 +1106,173 @@ async fn dispatch_core(
         .into_response())
 }
 
+// ─── direct スコープ（制限つきの即時実行。ADR 34）──────────────────────────
+
+fn workspace_allowed(state: &AppState, requested: &str, allowed: &[String]) -> bool {
+    if allowed.iter().any(|w| w == requested) {
+        return true;
+    }
+    let cfg = state.config.load_all();
+    let Some(key) = crate::config::ConfigStore::find_workspace_key(&cfg, requested) else {
+        return false;
+    };
+    let name = cfg
+        .get(&key)
+        .and_then(|entry| entry.get("name"))
+        .and_then(Value::as_str);
+    allowed
+        .iter()
+        .any(|w| *w == key || Some(w.as_str()) == name)
+}
+
+/// 直近 24 時間にこのトークンが受理された direct の件数。件数は workspace を
+/// 横断するため、`_global` の activity ログに `direct_fired` として記録して数える
+/// （recent 履歴は 10 件で他の dispatch と共有のため、数え落として上限を超える）。
+fn count_direct_fired(data_dir: &FsPath, token_id: &str, now: i64) -> usize {
+    let mut dates = vec![crate::util::utc_date_of_epoch(now - DIRECT_WINDOW_SEC)];
+    let today = crate::util::utc_date_of_epoch(now);
+    if dates[0] != today {
+        dates.push(today);
+    }
+    dates
+        .iter()
+        .filter_map(|date| {
+            std::fs::read_to_string(
+                data_dir
+                    .join("activity")
+                    .join("_global")
+                    .join(format!("{date}.jsonl")),
+            )
+            .ok()
+        })
+        .flat_map(|content| {
+            content
+                .lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .collect::<Vec<_>>()
+        })
+        .filter(|entry| {
+            entry["type"].as_str() == Some(ACTIVITY_EVENT_DIRECT_FIRED)
+                && entry["token_id"].as_str() == Some(token_id)
+                && entry["at"]
+                    .as_i64()
+                    .is_some_and(|at| at > now - DIRECT_WINDOW_SEC && at <= now)
+        })
+        .count()
+}
+
+/// direct スコープで `direct: true` の要求を検証して即時起動する。
+/// 承認後の実行と同じ `execute_and_record` を通し、結果は recent 履歴に
+/// `auth: direct:<トークン名>` と `token_id` 付きで残る。起動したことは成否にかかわらず
+/// push 通知する。
+async fn dispatch_direct(
+    state: &Arc<AppState>,
+    mut body: DispatchRequest,
+    token: &Value,
+    auth_label: &str,
+) -> Result<axum::response::Response, ApiError> {
+    use axum::response::IntoResponse;
+
+    if !body.direct {
+        return Err(bad_request(
+            "direct tokens cannot queue dispatches; send \"direct\": true",
+        ));
+    }
+    if body.job.is_empty() || body.job == TERMINAL_JOB_KEY {
+        return Err(bad_request(
+            "direct tokens require \"job\" to be an agent job (terminal is not allowed)",
+        ));
+    }
+    if body.worktree.as_deref().is_none_or(|w| w.trim().is_empty()) {
+        return Err(bad_request("direct tokens require \"worktree\""));
+    }
+    if body.session_id.is_some() {
+        return Err(bad_request(
+            "direct tokens always start a new session; \"session_id\" is not allowed",
+        ));
+    }
+    if body.dedup_key.is_some() {
+        return Err(bad_request(
+            "\"dedup_key\" has no effect on direct dispatches",
+        ));
+    }
+
+    let token_id = token.get("id").and_then(Value::as_str).unwrap_or_default();
+    let limits = crate::auth::DirectTokenLimits::from_entry(token);
+    if let Some(allowed) = &limits.allowed_workspaces {
+        if !workspace_allowed(state, &body.workspace, allowed) {
+            return Err(crate::errors::forbidden(format!(
+                "This token is not allowed to run in workspace: {}",
+                body.workspace
+            )));
+        }
+    }
+
+    {
+        let _gate = state.dispatch.direct_gate.lock().await;
+        let now = now_epoch();
+        if count_direct_fired(&state.paths.data_dir, token_id, now) >= limits.max_per_day as usize {
+            return Err(crate::errors::too_many_requests(format!(
+                "Daily limit reached for this token ({} per 24h)",
+                limits.max_per_day
+            )));
+        }
+        crate::activity::log_activity(
+            &state.paths.data_dir,
+            None,
+            ACTIVITY_EVENT_DIRECT_FIRED,
+            crate::git_helpers::activity_fields(&[
+                ("token_id", json!(token_id)),
+                ("at", json!(now)),
+            ]),
+        );
+    }
+
+    sweep_expired_dispatch_images(state).await;
+    // 既存セッションへ送り込まず、常に新しいセッションを起動する。
+    body.match_mode = "none".to_string();
+    let dispatch_id = crate::util::token_urlsafe(8);
+    let effective_ws = body.effective_workspace();
+    let started = format!(
+        "{auth_label}\n{}",
+        dispatch_notification_body(&effective_ws, &body, &JobDef::label_only(&body.job))
+    );
+    let mut source = Map::new();
+    source.insert("auth".to_string(), json!(auth_label));
+    source.insert("token_id".to_string(), json!(token_id));
+    let result = execute_and_record(
+        state,
+        &dispatch_id,
+        body,
+        Some(json!(now_epoch())),
+        &DispatchOverrides::default(),
+        auth_label,
+        Some(&source),
+    )
+    .await;
+    let (title, text) = match &result {
+        Ok(_) => ("Dispatch (direct)", started),
+        Err(e) => (
+            "Dispatch (direct) failed",
+            format!("{started}\n{}", e.detail),
+        ),
+    };
+    crate::push::spawn_push_notification(
+        state,
+        title,
+        text,
+        format!("/?openDispatchQueue=1&dispatchId={dispatch_id}"),
+        "dispatch",
+        None,
+    );
+    let mut response = result?;
+    if let Value::Object(map) = &mut response {
+        map.insert("dispatch_id".to_string(), json!(dispatch_id));
+        map.insert("status".to_string(), json!("executed"));
+    }
+    Ok(Json(response).into_response())
+}
+
 /// `POST /dispatch/{id}/decision`。まだpendingキューにあるitemはその場で実行/破棄、
 /// 既にpendingから外れた（=決定済みの）itemはrecent履歴から元のリクエストを
 /// 復元して再送する。「pendingか履歴か」でデータの取得元が違うだけで、
@@ -1099,7 +1307,7 @@ pub async fn dispatch_decide(
                 "dispatch_discarded",
                 Map::new(),
             );
-            record_recent(&state, &dispatch_id, payload, "discarded").await;
+            record_recent(&state, &dispatch_id, payload, "discarded", None).await;
             persist_and_broadcast(&state).await;
             return Ok(Json(json!({"status": "ok"})).into_response());
         }
@@ -1115,6 +1323,7 @@ pub async fn dispatch_decide(
             received_at,
             &body.overrides,
             auth_label,
+            None,
         )
         .await?;
         return Ok(Json(result).into_response());
@@ -1151,6 +1360,7 @@ pub async fn dispatch_decide(
         Some(json!(now_epoch())),
         &body.overrides,
         auth_label,
+        None,
     )
     .await?;
     Ok(Json(result).into_response())
@@ -1165,6 +1375,7 @@ async fn execute_and_record(
     received_at: Option<Value>,
     overrides: &DispatchOverrides,
     auth_label: &str,
+    extra: Option<&Map<String, Value>>,
 ) -> Result<Value, ApiError> {
     request.apply_overrides(overrides);
     // 添付画像は記録先 dispatch_id の専用領域へ集約してから launch する。
@@ -1178,7 +1389,7 @@ async fn execute_and_record(
         recorded.insert("received_at".to_string(), received_at);
     }
     let outcome = if result.is_ok() { "executed" } else { "failed" };
-    record_recent(state, dispatch_id, Value::Object(recorded), outcome).await;
+    record_recent(state, dispatch_id, Value::Object(recorded), outcome, extra).await;
     persist_and_broadcast(state).await;
     result
 }
@@ -1384,7 +1595,7 @@ mod tests {
             "worktree": "feat/x",
             "branch_status": "exists",
         });
-        record_recent(&state, "d1", payload, "discarded").await;
+        record_recent(&state, "d1", payload, "discarded", None).await;
         let recent = state.dispatch.recent.lock().await;
         assert_eq!(recent[0]["request"]["effective_workspace"], "proj:feat/x");
         assert!(
@@ -1402,7 +1613,7 @@ mod tests {
         let state = test_state(&dir).await;
         let before = now_epoch();
         let payload = json!({"workspace": "proj", "received_at": before});
-        record_recent(&state, "d1", payload, "executed").await;
+        record_recent(&state, "d1", payload, "executed", None).await;
         let recent = state.dispatch.recent.lock().await;
         assert_eq!(recent[0]["request"]["received_at"], before);
         let decided_at = recent[0]["request"]["decided_at"].as_i64().unwrap();
@@ -1477,7 +1688,7 @@ mod tests {
             .await
             .insert("d1".to_string(), json!({"workspace": "proj"}));
         persist_pending(&state).await;
-        record_recent(&state, "d0", json!({"workspace": "proj"}), "executed").await;
+        record_recent(&state, "d0", json!({"workspace": "proj"}), "executed", None).await;
 
         let state2 = test_state(&dir).await;
         load_persisted_and_seed_bridge(&state2).await;
@@ -1679,5 +1890,30 @@ mod tests {
         assert_eq!(recent[0]["request"]["image_paths"], json!([]));
         assert_eq!(recent[0]["request"]["images_expired"], json!(true));
         assert!(!state.paths.dispatch_images_dir("disp1").exists());
+    }
+
+    fn log_direct_fired(dir: &std::path::Path, token_id: &str, at: i64) {
+        crate::activity::log_activity(
+            dir,
+            None,
+            ACTIVITY_EVENT_DIRECT_FIRED,
+            crate::git_helpers::activity_fields(&[
+                ("token_id", json!(token_id)),
+                ("at", json!(at)),
+            ]),
+        );
+    }
+
+    #[test]
+    fn count_direct_fired_counts_only_this_token_within_24_hours() {
+        let dir = tempfile::tempdir().unwrap();
+        let now = now_epoch();
+        log_direct_fired(dir.path(), "tok_a", now);
+        log_direct_fired(dir.path(), "tok_a", now - 60);
+        log_direct_fired(dir.path(), "tok_b", now);
+        log_direct_fired(dir.path(), "tok_a", now - DIRECT_WINDOW_SEC - 1);
+        assert_eq!(count_direct_fired(dir.path(), "tok_a", now), 2);
+        assert_eq!(count_direct_fired(dir.path(), "tok_b", now), 1);
+        assert_eq!(count_direct_fired(dir.path(), "tok_none", now), 0);
     }
 }

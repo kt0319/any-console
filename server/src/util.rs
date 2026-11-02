@@ -183,6 +183,12 @@ pub fn utc_now_parts() -> (i64, u32, u32, u64, u64, u64) {
     (y, mo, d, h, m, s)
 }
 
+/// UNIX 秒を UTC の "YYYY-MM-DD" にする（activity ログのファイル名と同じ書式）。
+pub fn utc_date_of_epoch(secs: i64) -> String {
+    let (y, mo, d) = civil_from_days(secs.div_euclid(86400));
+    format!("{y:04}-{mo:02}-{d:02}")
+}
+
 /// Howard Hinnant の days->civil アルゴリズム。
 fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
