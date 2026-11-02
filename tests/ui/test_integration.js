@@ -828,8 +828,9 @@ describe("AuthConfig: API Tokens", () => {
 
     await radios[1].setValue(true);
     expect(wrapper.find(".api-token-limits").exists()).toBe(true);
-    expect(wrapper.text()).toContain("proj");
-    expect(wrapper.text()).toContain("other");
+    const options = wrapper.findAll(".api-token-limits select option");
+    expect(options.map((o) => o.text())).toEqual(["All workspaces", "proj", "other"]);
+    expect(wrapper.findAll('.api-token-limits input[type="checkbox"]')).toHaveLength(0);
     wrapper.unmount();
   });
 
@@ -865,7 +866,7 @@ describe("AuthConfig: API Tokens", () => {
     await wrapper.findAll('input[type="radio"]')[1].setValue(true);
     await wrapper.find('input[type="number"]').setValue(3);
     await wrapper.find('input[type="datetime-local"]').setValue("2099-01-02T03:04");
-    await wrapper.findAll('.api-token-workspaces input[type="checkbox"]')[0].setValue(true);
+    await wrapper.find(".api-token-limits select").setValue("proj");
     await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
     await flushPromises();
 
@@ -877,6 +878,26 @@ describe("AuthConfig: API Tokens", () => {
       allowed_workspaces: ["proj"],
       expires_at: Math.floor(new Date("2099-01-02T03:04").getTime() / 1000),
     });
+    wrapper.unmount();
+  });
+
+  it("direct でワークスペースを選ばなければ allowed_workspaces を送らない", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+      ["/workspaces", "GET", () => jsonResponse([{ name: "proj" }])],
+      [EP_API_TOKENS, "POST", () => jsonResponse({ id: "tok_10", name: "cron", scope: "direct", token: "t" })],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    await wrapper.find('input[placeholder^="Token name"]').setValue("cron");
+    await wrapper.findAll('input[type="radio"]')[1].setValue(true);
+    await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
+    await flushPromises();
+
+    const post = fetchMock.mock.calls.find(([url, opts]) => url === EP_API_TOKENS && opts?.method === "POST");
+    expect(JSON.parse(post[1].body)).toEqual({ name: "cron", scope: "direct", max_per_day: 10 });
     wrapper.unmount();
   });
 

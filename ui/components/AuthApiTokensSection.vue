@@ -21,12 +21,13 @@
         <span class="ws-settings-label">Expires at (optional)</span>
         <input v-model="newTokenExpiresAt" type="datetime-local" class="form-input" />
       </label>
-      <fieldset class="api-token-workspaces">
-        <legend class="api-token-scope-legend">Allowed workspaces (none selected = all)</legend>
-        <label v-for="w in workspaceNames" :key="w" class="form-check-label">
-          <input v-model="newTokenWorkspaces" type="checkbox" :value="w" /> {{ w }}
-        </label>
-      </fieldset>
+      <label class="api-token-limit-row">
+        <span class="ws-settings-label">Workspace</span>
+        <select v-model="newTokenWorkspace" class="form-input">
+          <option value="">All workspaces</option>
+          <option v-for="w in workspaceNames" :key="w" :value="w">{{ w }}</option>
+        </select>
+      </label>
     </div>
     <div class="ws-settings-row" style="gap:8px">
       <input
@@ -120,7 +121,7 @@ const DEFAULT_MAX_PER_DAY = 10;
 const newTokenScope = ref<"dispatch" | "direct">("dispatch");
 const newTokenMaxPerDay = ref<number>(DEFAULT_MAX_PER_DAY);
 const newTokenExpiresAt = ref("");
-const newTokenWorkspaces = ref<string[]>([]);
+const newTokenWorkspace = ref("");
 
 const expiresAtEpoch = computed(() => {
   if (!newTokenExpiresAt.value) return null;
@@ -166,7 +167,7 @@ async function createApiToken() {
   const body: Record<string, unknown> = { name, scope: newTokenScope.value };
   if (newTokenScope.value === "direct") {
     body.max_per_day = newTokenMaxPerDay.value;
-    if (newTokenWorkspaces.value.length) body.allowed_workspaces = newTokenWorkspaces.value;
+    if (newTokenWorkspace.value) body.allowed_workspaces = [newTokenWorkspace.value];
     if (expiresAtEpoch.value !== null) body.expires_at = expiresAtEpoch.value;
   }
   const { ok, data } = await apiPost(EP_API_TOKENS, body, { errorMessage: "Failed to create token" });
@@ -178,7 +179,7 @@ async function createApiToken() {
   newTokenScope.value = "dispatch";
   newTokenMaxPerDay.value = DEFAULT_MAX_PER_DAY;
   newTokenExpiresAt.value = "";
-  newTokenWorkspaces.value = [];
+  newTokenWorkspace.value = "";
   await loadApiTokens();
 }
 
@@ -214,8 +215,7 @@ onMounted(() => {
   color: var(--bg-primary);
 }
 
-.api-token-scope,
-.api-token-workspaces {
+.api-token-scope {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
