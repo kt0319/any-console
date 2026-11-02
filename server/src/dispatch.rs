@@ -6,7 +6,8 @@
 //! `/dispatch/{id}/decision`（`executed: true`=実行 / `false`=破棄の二択）だけが
 //! 担う。同じエンドポイントは決定済み（pendingから外れた）itemに対しても働き、
 //! recent履歴から元のリクエストを復元して再送する。
-//! `direct: true` の即時実行はセキュリティモデルを単純にするため拒否する。
+//! `direct: true` の即時実行は、メイントークン・dispatch スコープでは拒否し、制限を満たす
+//! direct スコープのトークンにだけ許可する（`dispatch_direct`、ADR 34）。
 //!
 //! 新規作成セッションに予約するテキスト（`pending_text`）は tmux 環境変数
 //! （`TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER`）へ永続化する。ターミナル WS の
