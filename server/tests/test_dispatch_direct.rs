@@ -541,10 +541,41 @@ async fn issuing_direct_tokens_validates_scope_and_limits() {
         json!({"name": "x", "scope": "admin"}),
         json!({"name": "x", "max_per_day": 3}),
         json!({"name": "x", "scope": "dispatch", "allowed_workspaces": ["proj"]}),
+        json!({"name": "x", "scope": "dispatch", "expires_at": now_epoch() - 1}),
     ] {
         assert_eq!(post(bad.clone()).await.status(), 400, "{bad}");
     }
 
     let legacy: Value = post(json!({"name": "ci"})).await.json().await.unwrap();
     assert_eq!(legacy["scope"], "dispatch");
+    assert!(legacy.get("expires_at").is_none());
+
+    let expiring: Value = post(json!({"name": "ci", "expires_at": now_epoch() + 3600}))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(expiring["scope"], "dispatch");
+    assert!(expiring["expires_at"].is_i64());
+}
+
+#[tokio::test]
+async fn expired_dispatch_token_returns_401() {
+    let front = spawn_front().await;
+    let (_meta, raw) = front
+        .state
+        .auth
+        .create_dispatch_api_token("old", Some(now_epoch() - 1));
+    let resp = front
+        .dispatch(&raw, json!({"workspace": "proj", "text": "hello"}))
+        .await;
+    assert_eq!(resp.status(), 401);
+    let (_meta, live) = front
+        .state
+        .auth
+        .create_dispatch_api_token("live", Some(now_epoch() + 3600));
+    let resp = front
+        .dispatch(&live, json!({"workspace": "proj", "text": "hello"}))
+        .await;
+    assert_eq!(resp.status(), 202);
 }

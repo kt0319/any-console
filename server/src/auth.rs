@@ -337,6 +337,19 @@ impl Auth {
         self.insert_api_token(name, scope, Map::new())
     }
 
+    /// dispatch スコープのトークンを発行する。`expires_at`（任意）を過ぎると認証できない。
+    pub fn create_dispatch_api_token(
+        &self,
+        name: &str,
+        expires_at: Option<i64>,
+    ) -> (Value, String) {
+        let mut extra = Map::new();
+        if let Some(expires_at) = expires_at {
+            extra.insert("expires_at".to_string(), json!(expires_at));
+        }
+        self.insert_api_token(name, API_TOKEN_SCOPE_DISPATCH, extra)
+    }
+
     /// direct スコープのトークンを発行する。制限（1日の上限・ワークスペース・有効期限）は
     /// トークン自身に保存する。
     pub fn create_direct_api_token(
@@ -475,13 +488,23 @@ pub struct CreateApiTokenBody {
     /// "dispatch"（既定）または "direct"。
     #[serde(default)]
     pub scope: Option<String>,
-    /// 以下は direct スコープのときだけ指定できる制限。
+    /// direct スコープのときだけ指定できる制限。
     #[serde(default)]
     pub max_per_day: Option<u32>,
     #[serde(default)]
     pub allowed_workspaces: Option<Vec<String>>,
+    /// 有効期限（UNIX 秒）。どちらのスコープでも指定できる。
     #[serde(default)]
     pub expires_at: Option<i64>,
+}
+
+fn validate_expires_at(expires_at: Option<i64>) -> Result<(), crate::errors::ApiError> {
+    match expires_at {
+        Some(at) if at <= now_epoch() => Err(crate::errors::bad_request(
+            "expires_at must be in the future",
+        )),
+        _ => Ok(()),
+    }
 }
 
 fn direct_limits_from_body(
@@ -492,11 +515,7 @@ fn direct_limits_from_body(
     if max_per_day < 1 {
         return Err(bad_request("max_per_day must be 1 or more"));
     }
-    if let Some(expires_at) = body.expires_at {
-        if expires_at <= now_epoch() {
-            return Err(bad_request("expires_at must be in the future"));
-        }
-    }
+    validate_expires_at(body.expires_at)?;
     let allowed_workspaces = match &body.allowed_workspaces {
         None => None,
         Some(items) => {
@@ -530,16 +549,17 @@ pub async fn create_api_token(
     } else {
         trimmed
     };
-    let has_direct_limits = body.max_per_day.is_some()
-        || body.allowed_workspaces.is_some()
-        || body.expires_at.is_some();
+    let has_direct_limits = body.max_per_day.is_some() || body.allowed_workspaces.is_some();
     let (mut meta, raw_token) = match body.scope.as_deref().unwrap_or(API_TOKEN_SCOPE_DISPATCH) {
         API_TOKEN_SCOPE_DISPATCH if has_direct_limits => {
             return Err(crate::errors::bad_request(
-                "max_per_day / allowed_workspaces / expires_at are only valid for scope \"direct\"",
+                "max_per_day / allowed_workspaces are only valid for scope \"direct\"",
             ));
         }
-        API_TOKEN_SCOPE_DISPATCH => state.auth.create_api_token(name, API_TOKEN_SCOPE_DISPATCH),
+        API_TOKEN_SCOPE_DISPATCH => {
+            validate_expires_at(body.expires_at)?;
+            state.auth.create_dispatch_api_token(name, body.expires_at)
+        }
         API_TOKEN_SCOPE_DIRECT => state
             .auth
             .create_direct_api_token(name, &direct_limits_from_body(&body)?),
@@ -1121,5 +1141,28 @@ mod tests {
             direct_limits_from_body(&CreateApiTokenBody::default()).unwrap(),
             DirectTokenLimits::default()
         );
+    }
+
+    #[test]
+    fn dispatch_token_can_expire() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "main-token");
+        let (meta, raw) = auth.create_dispatch_api_token("ci", Some(now_epoch() + 3600));
+        assert_eq!(meta["scope"], API_TOKEN_SCOPE_DISPATCH);
+        assert!(meta["expires_at"].is_i64());
+        assert!(auth.verify_and_touch_api_token(&raw).is_some());
+
+        let (_meta, expired) = auth.create_dispatch_api_token("old", Some(now_epoch() - 1));
+        assert!(auth.verify_and_touch_api_token(&expired).is_none());
+
+        let (meta, _raw) = auth.create_dispatch_api_token("forever", None);
+        assert!(meta.get("expires_at").is_none());
+    }
+
+    #[test]
+    fn validate_expires_at_rejects_only_past_values() {
+        assert!(validate_expires_at(None).is_ok());
+        assert!(validate_expires_at(Some(now_epoch() + 60)).is_ok());
+        assert!(validate_expires_at(Some(now_epoch() - 1)).is_err());
     }
 }
