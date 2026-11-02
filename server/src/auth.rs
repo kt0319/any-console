@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use subtle::ConstantTimeEq;
 
 use crate::util::now_epoch;
@@ -21,10 +21,14 @@ use crate::util::now_epoch;
 pub const COOKIE_DEVICE_ID: &str = "any_console_device";
 pub const COOKIE_DEVICE_SECRET: &str = "any_console_secret";
 
-/// スコープ付き API トークン（v1: "dispatch" のみ）。将来 GitHub Actions 等の外部
-/// 連携から /dispatch を呼ぶ際、全 API を解錠するメイントークンをそのまま渡さない
-/// ための用途限定トークン。
+/// スコープ付き API トークン。外部連携から /dispatch を呼ぶ際、全 API を解錠する
+/// メイントークンをそのまま渡さないための用途限定トークン。
+/// "dispatch" は承認キューへ積むだけ、"direct" は制限付きで即時実行する
+/// （ADR 27 / ADR 34）。どちらも `POST /dispatch` にしか通らない。
 pub const API_TOKEN_SCOPE_DISPATCH: &str = "dispatch";
+pub const API_TOKEN_SCOPE_DIRECT: &str = "direct";
+pub const DIRECT_TOKEN_DEFAULT_MAX_PER_DAY: u32 = 10;
+const DIRECT_TOKEN_MAX_ALLOWED_WORKSPACES: usize = 100;
 pub const API_TOKEN_MAX_NAME_LEN: usize = 80;
 /// last_used 更新はリクエストのたびに auth.json を read-modify-write するため、
 /// 高頻度呼び出し（CI連携等）でのディスク I/O・ロック保持時間を抑える目的で間引く。
@@ -103,6 +107,48 @@ struct TokenCache {
     token: String,
     mtime: Option<std::time::SystemTime>,
     loaded: bool,
+}
+
+/// direct スコープのトークンの制限。未指定フィールドの既定値は `Default`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DirectTokenLimits {
+    pub max_per_day: u32,
+    pub allowed_workspaces: Option<Vec<String>>,
+    pub expires_at: Option<i64>,
+}
+
+impl Default for DirectTokenLimits {
+    fn default() -> Self {
+        Self {
+            max_per_day: DIRECT_TOKEN_DEFAULT_MAX_PER_DAY,
+            allowed_workspaces: None,
+            expires_at: None,
+        }
+    }
+}
+
+impl DirectTokenLimits {
+    /// 保存済みの api_tokens エントリから制限を読む（フィールドが無ければ既定値）。
+    pub fn from_entry(entry: &Value) -> Self {
+        Self {
+            max_per_day: entry
+                .get("max_per_day")
+                .and_then(Value::as_u64)
+                .and_then(|n| u32::try_from(n).ok())
+                .filter(|n| *n >= 1)
+                .unwrap_or(DIRECT_TOKEN_DEFAULT_MAX_PER_DAY),
+            allowed_workspaces: entry
+                .get("allowed_workspaces")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                }),
+            expires_at: entry.get("expires_at").and_then(Value::as_i64),
+        }
+    }
 }
 
 pub struct Auth {
@@ -288,6 +334,33 @@ impl Auth {
     /// ここでしか取得できず、サーバには devices.json と同じ HMAC-SHA256 ハッシュ
     /// （data/server_key）のみを保存する。
     pub fn create_api_token(&self, name: &str, scope: &str) -> (Value, String) {
+        self.insert_api_token(name, scope, Map::new())
+    }
+
+    /// direct スコープのトークンを発行する。制限（1日の上限・ワークスペース・有効期限）は
+    /// トークン自身に保存する。
+    pub fn create_direct_api_token(
+        &self,
+        name: &str,
+        limits: &DirectTokenLimits,
+    ) -> (Value, String) {
+        let mut extra = Map::new();
+        extra.insert("max_per_day".to_string(), json!(limits.max_per_day));
+        if let Some(workspaces) = &limits.allowed_workspaces {
+            extra.insert("allowed_workspaces".to_string(), json!(workspaces));
+        }
+        if let Some(expires_at) = limits.expires_at {
+            extra.insert("expires_at".to_string(), json!(expires_at));
+        }
+        self.insert_api_token(name, API_TOKEN_SCOPE_DIRECT, extra)
+    }
+
+    fn insert_api_token(
+        &self,
+        name: &str,
+        scope: &str,
+        extra: Map<String, Value>,
+    ) -> (Value, String) {
         let token_id = format!("tok_{}", crate::util::token_hex(8));
         let raw_token = crate::util::token_urlsafe(32);
         let hash = crate::devices::hash_secret(&self.data_dir, &self.devices, &raw_token);
@@ -300,14 +373,15 @@ impl Auth {
                 trimmed.chars().take(API_TOKEN_MAX_NAME_LEN).collect()
             }
         };
-        let entry = json!({
-            "id": token_id,
-            "name": display_name,
-            "scope": scope,
-            "secret_hash": hash,
-            "created_at": now,
-            "last_used": Value::Null,
-        });
+        let mut entry = Map::new();
+        entry.insert("id".to_string(), json!(token_id));
+        entry.insert("name".to_string(), json!(display_name));
+        entry.insert("scope".to_string(), json!(scope));
+        entry.insert("secret_hash".to_string(), json!(hash));
+        entry.insert("created_at".to_string(), json!(now));
+        entry.insert("last_used".to_string(), Value::Null);
+        entry.extend(extra);
+        let entry = Value::Object(entry);
         {
             let _guard = self.auth_file_lock.lock().expect("auth_file lock poisoned");
             let mut tokens = self.load_api_tokens_unlocked();
@@ -357,7 +431,7 @@ impl Auth {
 
     /// raw_token がどれかの api_tokens エントリと一致すれば last_used を
     /// スロットリング付きで更新して返す（secret_hash を含む生の entry）。
-    /// 一致しなければ None。
+    /// 一致しない・`expires_at` を過ぎている場合は None（期限切れは last_used も更新しない）。
     pub fn verify_and_touch_api_token(&self, raw_token: &str) -> Option<Value> {
         if raw_token.is_empty() {
             return None;
@@ -370,6 +444,13 @@ impl Auth {
             constant_time_eq(stored, &expected)
         })?;
         let now = now_epoch();
+        if tokens[idx]
+            .get("expires_at")
+            .and_then(Value::as_i64)
+            .is_some_and(|expires_at| expires_at <= now)
+        {
+            return None;
+        }
         let last_used = tokens[idx].get("last_used").and_then(Value::as_i64);
         if last_used.is_none_or(|t| now - t >= API_TOKEN_LAST_USED_THROTTLE_SEC) {
             if let Value::Object(ref mut entry) = tokens[idx] {
@@ -383,7 +464,7 @@ impl Auth {
 
 // ─── /api-tokens/* ───────────────────────────────────────────────────────
 //
-// すべてメイントークン認証（`RequireAuth`）のみを要求する。dispatch scope の
+// すべてメイントークン認証（`RequireAuth`）のみを要求する。dispatch / direct scope の
 // API トークン自身でこれらのエンドポイントを呼ぶことはできない
 // （`Auth::verify_and_touch_api_token` は `POST /dispatch` にしか使わないため）。
 
@@ -391,24 +472,87 @@ impl Auth {
 pub struct CreateApiTokenBody {
     #[serde(default)]
     pub name: String,
+    /// "dispatch"（既定）または "direct"。
+    #[serde(default)]
+    pub scope: Option<String>,
+    /// 以下は direct スコープのときだけ指定できる制限。
+    #[serde(default)]
+    pub max_per_day: Option<u32>,
+    #[serde(default)]
+    pub allowed_workspaces: Option<Vec<String>>,
+    #[serde(default)]
+    pub expires_at: Option<i64>,
+}
+
+fn direct_limits_from_body(
+    body: &CreateApiTokenBody,
+) -> Result<DirectTokenLimits, crate::errors::ApiError> {
+    use crate::errors::bad_request;
+    let max_per_day = body.max_per_day.unwrap_or(DIRECT_TOKEN_DEFAULT_MAX_PER_DAY);
+    if max_per_day < 1 {
+        return Err(bad_request("max_per_day must be 1 or more"));
+    }
+    if let Some(expires_at) = body.expires_at {
+        if expires_at <= now_epoch() {
+            return Err(bad_request("expires_at must be in the future"));
+        }
+    }
+    let allowed_workspaces = match &body.allowed_workspaces {
+        None => None,
+        Some(items) => {
+            let cleaned: Vec<String> = items.iter().map(|w| w.trim().to_string()).collect();
+            if cleaned.is_empty()
+                || cleaned.len() > DIRECT_TOKEN_MAX_ALLOWED_WORKSPACES
+                || cleaned.iter().any(String::is_empty)
+            {
+                return Err(bad_request(
+                    "allowed_workspaces must be a non-empty list of workspace names",
+                ));
+            }
+            Some(cleaned)
+        }
+    };
+    Ok(DirectTokenLimits {
+        max_per_day,
+        allowed_workspaces,
+        expires_at: body.expires_at,
+    })
 }
 
 pub async fn create_api_token(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
     crate::util::JsonBody(body): crate::util::JsonBody<CreateApiTokenBody>,
-) -> Json<Value> {
+) -> Result<Json<Value>, crate::errors::ApiError> {
     let trimmed = body.name.trim();
     let name = if trimmed.is_empty() {
         "Unnamed token"
     } else {
         trimmed
     };
-    let (mut meta, raw_token) = state.auth.create_api_token(name, API_TOKEN_SCOPE_DISPATCH);
+    let has_direct_limits = body.max_per_day.is_some()
+        || body.allowed_workspaces.is_some()
+        || body.expires_at.is_some();
+    let (mut meta, raw_token) = match body.scope.as_deref().unwrap_or(API_TOKEN_SCOPE_DISPATCH) {
+        API_TOKEN_SCOPE_DISPATCH if has_direct_limits => {
+            return Err(crate::errors::bad_request(
+                "max_per_day / allowed_workspaces / expires_at are only valid for scope \"direct\"",
+            ));
+        }
+        API_TOKEN_SCOPE_DISPATCH => state.auth.create_api_token(name, API_TOKEN_SCOPE_DISPATCH),
+        API_TOKEN_SCOPE_DIRECT => state
+            .auth
+            .create_direct_api_token(name, &direct_limits_from_body(&body)?),
+        other => {
+            return Err(crate::errors::bad_request(format!(
+                "Unknown scope: {other}"
+            )));
+        }
+    };
     if let Value::Object(ref mut map) = meta {
         map.insert("token".to_string(), json!(raw_token));
     }
-    Json(meta)
+    Ok(Json(meta))
 }
 
 pub async fn list_api_tokens(
@@ -866,5 +1010,116 @@ mod tests {
         let second = auth.verify_and_touch_api_token(&raw).unwrap();
         // 直後の再検証は throttle 内なので last_used は変わらない。
         assert_eq!(first["last_used"], second["last_used"]);
+    }
+
+    #[test]
+    fn direct_token_stores_limits_and_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "main-token");
+        let (meta, raw) = auth.create_direct_api_token("cron", &DirectTokenLimits::default());
+        assert_eq!(meta["scope"], API_TOKEN_SCOPE_DIRECT);
+        assert_eq!(meta["max_per_day"], DIRECT_TOKEN_DEFAULT_MAX_PER_DAY);
+        assert!(meta.get("allowed_workspaces").is_none());
+        assert!(meta.get("expires_at").is_none());
+        assert!(meta.get("secret_hash").is_none());
+
+        let entry = auth.verify_and_touch_api_token(&raw).unwrap();
+        assert_eq!(
+            DirectTokenLimits::from_entry(&entry),
+            DirectTokenLimits::default()
+        );
+
+        let limits = DirectTokenLimits {
+            max_per_day: 3,
+            allowed_workspaces: Some(vec!["proj".to_string()]),
+            expires_at: Some(now_epoch() + 3600),
+        };
+        let (_meta, raw2) = auth.create_direct_api_token("limited", &limits);
+        let entry2 = auth.verify_and_touch_api_token(&raw2).unwrap();
+        assert_eq!(DirectTokenLimits::from_entry(&entry2), limits);
+    }
+
+    #[test]
+    fn direct_token_from_entry_defaults_when_fields_are_missing_or_invalid() {
+        let legacy = json!({"id": "tok_x", "scope": "dispatch"});
+        assert_eq!(
+            DirectTokenLimits::from_entry(&legacy),
+            DirectTokenLimits::default()
+        );
+        let zero = json!({"max_per_day": 0});
+        assert_eq!(
+            DirectTokenLimits::from_entry(&zero).max_per_day,
+            DIRECT_TOKEN_DEFAULT_MAX_PER_DAY
+        );
+    }
+
+    #[test]
+    fn expired_api_token_does_not_verify_and_is_not_touched() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "main-token");
+        let limits = DirectTokenLimits {
+            expires_at: Some(now_epoch() - 1),
+            ..Default::default()
+        };
+        let (meta, raw) = auth.create_direct_api_token("old", &limits);
+        assert!(auth.verify_and_touch_api_token(&raw).is_none());
+        let stored = auth.get_api_token(meta["id"].as_str().unwrap()).unwrap();
+        assert_eq!(stored["last_used"], Value::Null);
+    }
+
+    #[test]
+    fn direct_token_can_be_revoked() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "main-token");
+        let (meta, raw) = auth.create_direct_api_token("cron", &DirectTokenLimits::default());
+        assert!(auth.verify_and_touch_api_token(&raw).is_some());
+        assert!(auth.revoke_api_token(meta["id"].as_str().unwrap()));
+        assert!(auth.verify_and_touch_api_token(&raw).is_none());
+    }
+
+    #[test]
+    fn dispatch_token_is_unchanged_by_direct_limits() {
+        let dir = tempfile::tempdir().unwrap();
+        let auth = setup(&dir, "main-token");
+        let (meta, raw) = auth.create_api_token("ci", API_TOKEN_SCOPE_DISPATCH);
+        for field in ["max_per_day", "allowed_workspaces", "expires_at"] {
+            assert!(meta.get(field).is_none(), "{field}");
+        }
+        assert!(auth.verify_and_touch_api_token(&raw).is_some());
+    }
+
+    #[test]
+    fn issuing_a_direct_token_validates_the_limits() {
+        let ok = CreateApiTokenBody {
+            scope: Some("direct".to_string()),
+            max_per_day: Some(5),
+            allowed_workspaces: Some(vec![" proj ".to_string()]),
+            expires_at: Some(now_epoch() + 60),
+            ..Default::default()
+        };
+        let limits = direct_limits_from_body(&ok).unwrap();
+        assert_eq!(limits.allowed_workspaces, Some(vec!["proj".to_string()]));
+
+        let zero = CreateApiTokenBody {
+            max_per_day: Some(0),
+            ..Default::default()
+        };
+        assert!(direct_limits_from_body(&zero).is_err());
+        let past = CreateApiTokenBody {
+            expires_at: Some(now_epoch() - 1),
+            ..Default::default()
+        };
+        assert!(direct_limits_from_body(&past).is_err());
+        for bad in [vec![], vec!["".to_string()]] {
+            let body = CreateApiTokenBody {
+                allowed_workspaces: Some(bad),
+                ..Default::default()
+            };
+            assert!(direct_limits_from_body(&body).is_err());
+        }
+        assert_eq!(
+            direct_limits_from_body(&CreateApiTokenBody::default()).unwrap(),
+            DirectTokenLimits::default()
+        );
     }
 }
