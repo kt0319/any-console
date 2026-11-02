@@ -62,6 +62,9 @@ pub struct DispatchState {
     pub pending: Mutex<Map<String, Value>>,
     /// run/discardが決定された直近の項目（新しい順、最大 `RECENT_LIMIT` 件）。
     pub recent: Mutex<Vec<Value>>,
+    /// recipe の上限判定（activity ログの読み取り）から起動回数の記録までを直列化する
+    /// （並行到着で同時に上限を通過しないため）。
+    pub recipe_gate: Mutex<()>,
 }
 
 impl DispatchState {
@@ -167,6 +170,7 @@ async fn record_recent(
     dispatch_id: &str,
     mut request: Value,
     outcome: &str,
+    origin: Option<&str>,
 ) {
     // DispatchRequest のフィールドへ正規化してから格納する（実行時は model_dump 済み、
     // 破棄時は _PENDING の生 payload — branch_status 等の実行時メタが混ざるため）。
@@ -191,10 +195,11 @@ async fn record_recent(
         map.insert("decided_at".to_string(), json!(now_epoch()));
     }
     let mut recent = state.dispatch.recent.lock().await;
-    recent.insert(
-        0,
-        json!({"id": dispatch_id, "request": request, "outcome": outcome}),
-    );
+    let mut item = json!({"id": dispatch_id, "request": request, "outcome": outcome});
+    if let Some(origin) = origin {
+        item["origin"] = json!(origin);
+    }
+    recent.insert(0, item);
     recent.truncate(RECENT_LIMIT);
     drop(recent);
     persist_recent(state).await;
@@ -343,6 +348,17 @@ struct JobDef {
     label: String,
     icon: String,
     icon_color: String,
+}
+
+impl JobDef {
+    fn label_only(job: &str) -> Self {
+        Self {
+            command: String::new(),
+            label: job.to_string(),
+            icon: String::new(),
+            icon_color: String::new(),
+        }
+    }
 }
 
 fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDef, ApiError> {
@@ -892,25 +908,28 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
 
 // ─── 認証（POST /dispatch 専用: メイン/デバイス + dispatch scope token）─
 
-/// (auth_label, is_scoped_token)。
-async fn verify_dispatch_auth(
+/// (auth_label, dispatch スコープ API トークンのエントリ)。メイントークン・デバイスなら None。
+pub(crate) async fn verify_dispatch_auth(
     state: &Arc<AppState>,
     bearer: &str,
     headers: &http::HeaderMap,
-) -> Result<(String, bool), ApiError> {
+) -> Result<(String, Option<Value>), ApiError> {
     let cookies = parse_cookies(headers);
     if let Some(result) = state.auth.authenticate(bearer, Some(&cookies)) {
         return Ok(match result.kind {
-            AuthKind::Disabled => ("disabled".to_string(), false),
-            AuthKind::Main => ("main".to_string(), false),
-            AuthKind::Device => (result.label, false),
+            AuthKind::Disabled => ("disabled".to_string(), None),
+            AuthKind::Main => ("main".to_string(), None),
+            AuthKind::Device => (result.label, None),
         });
     }
     if let Some(entry) = state.auth.verify_and_touch_api_token(bearer) {
         if entry.get("scope").and_then(Value::as_str) == Some(crate::auth::API_TOKEN_SCOPE_DISPATCH)
         {
             let token_id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
-            return Ok((format!("{API_TOKEN_SCOPE_LABEL_PREFIX}{token_id}"), true));
+            return Ok((
+                format!("{API_TOKEN_SCOPE_LABEL_PREFIX}{token_id}"),
+                Some(entry),
+            ));
         }
     }
     Err(crate::errors::unauthorized("Invalid token"))
@@ -924,8 +943,8 @@ pub async fn dispatch(
     JsonBody(body): JsonBody<DispatchRequest>,
 ) -> Result<axum::response::Response, ApiError> {
     let bearer = crate::auth::bearer_from_headers(&headers);
-    let (auth_label, is_scoped_token) = verify_dispatch_auth(&state, bearer, &headers).await?;
-    dispatch_core(&state, body, &auth_label, is_scoped_token).await
+    let (auth_label, token_entry) = verify_dispatch_auth(&state, bearer, &headers).await?;
+    dispatch_core(&state, body, &auth_label, token_entry.is_some()).await
 }
 
 /// dispatch 実行成功時の activity 記録（`dispatch_decide`のpending実行・履歴からの
@@ -965,12 +984,30 @@ async fn launch_logged(
 /// `POST /dispatch` の本体（認証確定後）。
 async fn dispatch_core(
     state: &Arc<AppState>,
-    mut body: DispatchRequest,
+    body: DispatchRequest,
     auth_label: &str,
     is_scoped_token: bool,
 ) -> Result<axum::response::Response, ApiError> {
     use axum::response::IntoResponse;
 
+    let dispatch_id = enqueue(state, body, auth_label, is_scoped_token, None).await?;
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(json!({"status": "pending", "id": dispatch_id})),
+    )
+        .into_response())
+}
+
+/// 承認キューへ積む（dedup・push 通知・永続化・WS 配信まで）。確定した dispatch_id を返す。
+/// `origin` は履歴の起点ラベル（`recipe:<id>`）で、payload にだけ持たせる
+/// （`DispatchRequest` のフィールドにすると外部の `POST /dispatch` から偽装できる）。
+async fn enqueue(
+    state: &Arc<AppState>,
+    mut body: DispatchRequest,
+    auth_label: &str,
+    is_scoped_token: bool,
+    origin: Option<&str>,
+) -> Result<String, ApiError> {
     sweep_expired_dispatch_images(state).await;
 
     if body.direct {
@@ -991,6 +1028,9 @@ async fn dispatch_core(
     let mut payload = body.to_json_map();
     payload.insert("effective_workspace".to_string(), json!(effective_ws));
     payload.insert("received_at".to_string(), json!(now_epoch()));
+    if let Some(origin) = origin {
+        payload.insert("origin".to_string(), json!(origin));
+    }
     if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
         payload.insert(
             "branch_status".to_string(),
@@ -1058,11 +1098,62 @@ async fn dispatch_core(
 
     persist_and_broadcast(state).await;
 
-    Ok((
-        axum::http::StatusCode::ACCEPTED,
-        Json(json!({"status": "pending", "id": dispatch_id})),
+    Ok(dispatch_id)
+}
+
+/// recipe の `approve: manual` 用。承認キューへ積む。
+pub(crate) async fn enqueue_recipe(
+    state: &Arc<AppState>,
+    body: DispatchRequest,
+    auth_label: &str,
+    origin: &str,
+) -> Result<String, ApiError> {
+    enqueue(state, body, auth_label, true, Some(origin)).await
+}
+
+/// recipe の `approve: auto` 用。キューを経由せず起動し、履歴に `origin` 付きで
+/// executed / failed を記録する。起動したことは成否にかかわらず必ず push 通知する。
+pub(crate) async fn execute_recipe_auto(
+    state: &Arc<AppState>,
+    body: DispatchRequest,
+    auth_label: &str,
+    origin: &str,
+) -> Result<(String, Value), ApiError> {
+    let dispatch_id = crate::util::token_urlsafe(8);
+    let effective_ws = body.effective_workspace();
+    let notification_body = |outcome: &str| {
+        format!(
+            "{origin} {outcome}\n{}",
+            dispatch_notification_body(&effective_ws, &body, &JobDef::label_only(&body.job))
+        )
+    };
+    let started = notification_body("auto-run");
+    let result = execute_and_record(
+        state,
+        &dispatch_id,
+        body.clone(),
+        Some(json!(now_epoch())),
+        &DispatchOverrides::default(),
+        auth_label,
+        Some(origin),
     )
-        .into_response())
+    .await;
+    let (title, text) = match &result {
+        Ok(_) => ("Dispatch auto-run", started),
+        Err(e) => (
+            "Dispatch auto-run failed",
+            format!("{started}\n{}", e.detail),
+        ),
+    };
+    crate::push::spawn_push_notification(
+        state,
+        title,
+        text,
+        format!("/?openDispatchQueue=1&dispatchId={dispatch_id}"),
+        "dispatch",
+        None,
+    );
+    result.map(|value| (dispatch_id, value))
 }
 
 /// `POST /dispatch/{id}/decision`。まだpendingキューにあるitemはその場で実行/破棄、
@@ -1099,7 +1190,15 @@ pub async fn dispatch_decide(
                 "dispatch_discarded",
                 Map::new(),
             );
-            record_recent(&state, &dispatch_id, payload, "discarded").await;
+            let origin = payload_origin(&payload);
+            record_recent(
+                &state,
+                &dispatch_id,
+                payload,
+                "discarded",
+                origin.as_deref(),
+            )
+            .await;
             persist_and_broadcast(&state).await;
             return Ok(Json(json!({"status": "ok"})).into_response());
         }
@@ -1108,6 +1207,7 @@ pub async fn dispatch_decide(
             serde_json::from_value(payload.clone()).map_err(|e| server_error(e.to_string()))?;
         // received_atはDispatchRequestのフィールドではないためpayloadから引き継ぐ。
         let received_at = payload.get("received_at").cloned();
+        let origin = payload_origin(&payload);
         let result = execute_and_record(
             &state,
             &dispatch_id,
@@ -1115,6 +1215,7 @@ pub async fn dispatch_decide(
             received_at,
             &body.overrides,
             auth_label,
+            origin.as_deref(),
         )
         .await?;
         return Ok(Json(result).into_response());
@@ -1151,9 +1252,17 @@ pub async fn dispatch_decide(
         Some(json!(now_epoch())),
         &body.overrides,
         auth_label,
+        None,
     )
     .await?;
     Ok(Json(result).into_response())
+}
+
+fn payload_origin(payload: &Value) -> Option<String> {
+    payload
+        .get("origin")
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 /// 上書きを適用して launch し、成否（executed / failed）を履歴に記録する。
@@ -1165,6 +1274,7 @@ async fn execute_and_record(
     received_at: Option<Value>,
     overrides: &DispatchOverrides,
     auth_label: &str,
+    origin: Option<&str>,
 ) -> Result<Value, ApiError> {
     request.apply_overrides(overrides);
     // 添付画像は記録先 dispatch_id の専用領域へ集約してから launch する。
@@ -1178,7 +1288,7 @@ async fn execute_and_record(
         recorded.insert("received_at".to_string(), received_at);
     }
     let outcome = if result.is_ok() { "executed" } else { "failed" };
-    record_recent(state, dispatch_id, Value::Object(recorded), outcome).await;
+    record_recent(state, dispatch_id, Value::Object(recorded), outcome, origin).await;
     persist_and_broadcast(state).await;
     result
 }
@@ -1384,7 +1494,7 @@ mod tests {
             "worktree": "feat/x",
             "branch_status": "exists",
         });
-        record_recent(&state, "d1", payload, "discarded").await;
+        record_recent(&state, "d1", payload, "discarded", None).await;
         let recent = state.dispatch.recent.lock().await;
         assert_eq!(recent[0]["request"]["effective_workspace"], "proj:feat/x");
         assert!(
@@ -1402,7 +1512,7 @@ mod tests {
         let state = test_state(&dir).await;
         let before = now_epoch();
         let payload = json!({"workspace": "proj", "received_at": before});
-        record_recent(&state, "d1", payload, "executed").await;
+        record_recent(&state, "d1", payload, "executed", None).await;
         let recent = state.dispatch.recent.lock().await;
         assert_eq!(recent[0]["request"]["received_at"], before);
         let decided_at = recent[0]["request"]["decided_at"].as_i64().unwrap();
@@ -1477,7 +1587,7 @@ mod tests {
             .await
             .insert("d1".to_string(), json!({"workspace": "proj"}));
         persist_pending(&state).await;
-        record_recent(&state, "d0", json!({"workspace": "proj"}), "executed").await;
+        record_recent(&state, "d0", json!({"workspace": "proj"}), "executed", None).await;
 
         let state2 = test_state(&dir).await;
         load_persisted_and_seed_bridge(&state2).await;

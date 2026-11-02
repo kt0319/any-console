@@ -13,6 +13,7 @@ pub mod config_migrations;
 pub mod config_schema;
 pub mod devices;
 pub mod dispatch;
+pub mod dispatch_recipes;
 pub mod docker;
 pub mod errors;
 pub mod fallback;
@@ -436,6 +437,11 @@ fn terminal_routes() -> AppRouter {
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
         .route("/run", post(job_runner::run_terminal_job))
         .route("/dispatch", post(dispatch::dispatch))
+        .route("/dispatch/recipes", get(dispatch_recipes::list_recipes))
+        .route(
+            "/dispatch/recipes/{recipe_id}",
+            post(dispatch_recipes::run_recipe),
+        )
         .route(
             "/dispatch/{dispatch_id}/decision",
             post(dispatch::dispatch_decide),

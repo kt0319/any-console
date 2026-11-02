@@ -16,6 +16,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
+use crate::dispatch_recipes::is_valid_recipe_id;
 use crate::util::now_epoch;
 
 pub const COOKIE_DEVICE_ID: &str = "any_console_device";
@@ -288,6 +289,17 @@ impl Auth {
     /// ここでしか取得できず、サーバには devices.json と同じ HMAC-SHA256 ハッシュ
     /// （data/server_key）のみを保存する。
     pub fn create_api_token(&self, name: &str, scope: &str) -> (Value, String) {
+        self.create_api_token_with_recipes(name, scope, &[])
+    }
+
+    /// `allowed_recipes` はこのトークンが `POST /dispatch/recipes/{id}` で呼べる
+    /// recipe ID。空なら recipe は呼べない（フィールドを持たない既存トークンも同じ扱い）。
+    pub fn create_api_token_with_recipes(
+        &self,
+        name: &str,
+        scope: &str,
+        allowed_recipes: &[String],
+    ) -> (Value, String) {
         let token_id = format!("tok_{}", crate::util::token_hex(8));
         let raw_token = crate::util::token_urlsafe(32);
         let hash = crate::devices::hash_secret(&self.data_dir, &self.devices, &raw_token);
@@ -304,6 +316,7 @@ impl Auth {
             "id": token_id,
             "name": display_name,
             "scope": scope,
+            "allowed_recipes": allowed_recipes,
             "secret_hash": hash,
             "created_at": now,
             "last_used": Value::Null,
@@ -391,24 +404,39 @@ impl Auth {
 pub struct CreateApiTokenBody {
     #[serde(default)]
     pub name: String,
+    #[serde(default)]
+    pub allowed_recipes: Vec<String>,
 }
 
 pub async fn create_api_token(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
     crate::util::JsonBody(body): crate::util::JsonBody<CreateApiTokenBody>,
-) -> Json<Value> {
+) -> Result<Json<Value>, crate::errors::ApiError> {
     let trimmed = body.name.trim();
     let name = if trimmed.is_empty() {
         "Unnamed token"
     } else {
         trimmed
     };
-    let (mut meta, raw_token) = state.auth.create_api_token(name, API_TOKEN_SCOPE_DISPATCH);
+    if let Some(bad) = body
+        .allowed_recipes
+        .iter()
+        .find(|id| !is_valid_recipe_id(id))
+    {
+        return Err(crate::errors::bad_request(format!(
+            "Invalid recipe id: {bad}"
+        )));
+    }
+    let (mut meta, raw_token) = state.auth.create_api_token_with_recipes(
+        name,
+        API_TOKEN_SCOPE_DISPATCH,
+        &body.allowed_recipes,
+    );
     if let Value::Object(ref mut map) = meta {
         map.insert("token".to_string(), json!(raw_token));
     }
-    Json(meta)
+    Ok(Json(meta))
 }
 
 pub async fn list_api_tokens(
