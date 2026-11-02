@@ -1,14 +1,20 @@
 name: Dispatch on CI failure
 
-# CI（ci.yml の name: と一致させること）が失敗した時、any-console の /dispatch
-# エンドポイントへ承認キュー登録を投げる。実行はしない（direct は送らない）。
-# キューに積まれた項目はワークスペース詳細の Dispatch タブから人間が承認するまで実行されない。
+# CI（ci.yml の name: と一致させること）が失敗した時、any-console の
+# POST /dispatch/recipes/ci-fix（dispatch recipe, ADR 34）へブランチと run の URL だけを送る。
+# プロンプト・job・worktree は any-console 側の recipe 定義で固定される。
+# recipe が approve: manual ならキューに積まれ、ワークスペース詳細の Dispatch タブから
+# 人間が承認するまで実行されない（approve: auto の recipe は即時実行され push 通知が飛ぶ）。
 #
 # マージ後にユーザーが手動で行う必要がある設定:
 #   - Tailscale ACL で tag:ci をこの any-console ホストの該当ポートだけに絞る
 #   - Tailscale OAuth クライアントを発行し、Secrets に TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET を登録
 #   - any-console の Settings > Auth > API Tokens で scope=dispatch のトークンを発行し、
-#     Secrets に ANY_CONSOLE_DISPATCH_TOKEN として登録（メイントークンは絶対に使わないこと）
+#     Secrets に ANY_CONSOLE_DISPATCH_TOKEN として登録（メイントークンは絶対に使わないこと）。
+#     発行時のボディに "allowed_recipes": ["ci-fix"] を指定する（POST /api-tokens。
+#     allowed_recipes に含まれる recipe しか呼べない）
+#   - any-console の config の global セクション dispatch_recipes に id: ci-fix の recipe を登録
+#     （設定例は README の Dispatch recipes 節）
 on:
   workflow_run:
     workflows: ["CI"]
@@ -31,31 +37,24 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: Queue dispatch on any-console
+      - name: Run ci-fix recipe on any-console
         env:
           # head_branch は fork 攻撃者が制御できる値なので、run: に ${{ }} で直書きせず
           # env 経由で渡し、jq --arg で JSON 化する（シェルインジェクション対策）。
+          # サーバ側でも recipe の params パターンで再検証される。
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
-          WORKSPACE: any-console
           ANY_CONSOLE_DISPATCH_TOKEN: ${{ secrets.ANY_CONSOLE_DISPATCH_TOKEN }}
         run: |
           set -euo pipefail
 
-          dedup_key="ci-failure:${WORKSPACE}:${HEAD_BRANCH}"
-          text="CI failed on branch ${HEAD_BRANCH}. Run: ${RUN_URL}. First run \`gh run view --log-failed\` to inspect the failure log before fixing."
-
           payload=$(jq -n \
-            --arg workspace "$WORKSPACE" \
             --arg branch "$HEAD_BRANCH" \
-            --arg dedup_key "$dedup_key" \
-            --arg text "$text" \
-            '{workspace: $workspace, branch: $branch, dedup_key: $dedup_key, text: $text}')
+            --arg url "$RUN_URL" \
+            '{branch: $branch, url: $url}')
 
-          # direct は送らない（省略 = 承認キュー行きが既定）。dispatch scope トークンは
-          # direct:true を指定すると 400 で拒否されるため、誤混入しても安全側で止まる。
           curl --fail --show-error --silent \
-            -X POST "https://mini.tail794a9.ts.net/dispatch" \
+            -X POST "https://mini.tail794a9.ts.net/dispatch/recipes/ci-fix" \
             -H "Authorization: Bearer ${ANY_CONSOLE_DISPATCH_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$payload"
