@@ -315,6 +315,17 @@ describe("findPathInBuffer / normalizeTerminalPath", () => {
     }
   });
 
+  it("拡張子のない相対パス（ブランチ名）は拾わず、絶対パス・./ 始まりは拾う", () => {
+    for (const [line, token, expected] of [
+      ["Pushed to feature/DW_JOY_DEV-1677 ok", "feature/DW_JOY_DEV-1677", null],
+      ["cat /etc/hosts", "/etc/hosts", "/etc/hosts"],
+      ["run ./scripts/run", "./scripts/run", "./scripts/run"],
+    ]) {
+      const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+      expect(findPathInBuffer(term, line.indexOf(token) * 10 + 15, 5)).toBe(expected);
+    }
+  });
+
   it("パスでない文字列では null", () => {
     const line = "hello world";
     const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });

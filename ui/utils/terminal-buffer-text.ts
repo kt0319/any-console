@@ -19,6 +19,7 @@ const URL_SEARCH_WINDOW_LINES = 6;
 // 全角句読点・全角記号（U+3000-303F, U+FF00-FFEF）と、プロンプトのアイコンに使われる
 // 私用領域（Nerd Font 等。U+E000-F8FF）は終端にする（次行の行頭アイコンが連結されて実在しないパスになる）。
 // 実在確認はサーバが行うので、ここでは「/ を含む」か「拡張子がある」ものだけを候補にする。
+// 相対パスで最終セグメントに拡張子がないもの（feature/DW_JOY_DEV-1677 のようなブランチ名）は候補から外す。
 // 末尾が「/」のものはディレクトリで開けるファイルではないため findPathInBuffer で候補から外す。
 const PATH_SEGMENT_CHARS = "\\w.~@+%\\-\\u00c0-\\u1fff\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff";
 export const TERMINAL_PATH_REGEX = new RegExp(
@@ -32,6 +33,9 @@ const PATH_START_LINE_REGEX = /^(?:\/|~\/|[-*•]\s|\d+[.)]\s)/;
 
 // 箇条書きの行頭記号は前の行の末尾に直結させない（URL末尾にハイフンが付くため）。
 const BULLET_LINE_REGEX = /^(?:[-*•]\s|\d+[.)]\s)/;
+
+const RELATIVE_PATH_REGEX = /^[^/~.]/;
+const EXTENSION_SUFFIX_REGEX = /\.[A-Za-z0-9]+$/;
 
 export function normalizeTerminalPath(raw: string): string | null {
   const path = raw.replace(/[.,;:)\]-]+$/, "");
@@ -48,7 +52,9 @@ export function findUrlInBuffer(term: Terminal | null | undefined, clientX: numb
 export function findPathInBuffer(term: Terminal | null | undefined, clientX: number, clientY: number): string | null {
   const raw = findMatchInBuffer(term, clientX, clientY, TERMINAL_PATH_REGEX, PATH_START_LINE_REGEX);
   if (!raw || raw.endsWith("/")) return null;
-  return normalizeTerminalPath(raw);
+  const path = normalizeTerminalPath(raw);
+  if (path && RELATIVE_PATH_REGEX.test(path) && !EXTENSION_SUFFIX_REGEX.test(path)) return null;
+  return path;
 }
 
 // 全角文字は2セルだが translateToString では1文字になるため、セル列を文字列上の位置へ換算する。
