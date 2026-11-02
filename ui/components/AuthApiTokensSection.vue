@@ -7,31 +7,7 @@
       Scoped tokens for external integrations. They only work on <code>POST /dispatch</code> — never anything else.
       <b>dispatch</b> tokens can only queue a request for approval. <b>direct</b> tokens run an agent job immediately in a new session on a worktree, within the limits below, and every run sends a push notification. Both can be given an expiry.
     </div>
-    <fieldset class="api-token-scope">
-      <legend class="api-token-scope-legend">Scope</legend>
-      <label class="form-check-label"><input v-model="newTokenScope" type="radio" value="dispatch" /> dispatch</label>
-      <label class="form-check-label"><input v-model="newTokenScope" type="radio" value="direct" /> direct</label>
-    </fieldset>
-    <div class="api-token-limits">
-      <label class="api-token-limit-row">
-        <span class="ws-settings-label">Expires at (optional)</span>
-        <input v-model="newTokenExpiresAt" type="datetime-local" class="form-input" />
-      </label>
-      <template v-if="newTokenScope === 'direct'">
-        <label class="api-token-limit-row">
-          <span class="ws-settings-label">Max runs per day</span>
-          <input v-model.number="newTokenMaxPerDay" type="number" min="1" step="1" class="form-input api-token-number" />
-        </label>
-        <label class="api-token-limit-row">
-          <span class="ws-settings-label">Workspace</span>
-          <select v-model="newTokenWorkspace" class="form-input">
-            <option value="">All workspaces</option>
-            <option v-for="w in workspaceNames" :key="w" :value="w">{{ w }}</option>
-          </select>
-        </label>
-      </template>
-    </div>
-    <div class="ws-settings-row" style="gap:8px">
+    <div class="api-token-form">
       <input
         v-model="newTokenName"
         type="text"
@@ -40,7 +16,31 @@
         maxlength="80"
         @keydown.enter="(e) => runUnlessComposing(e, createApiToken)"
       />
-      <button type="button" class="primary" :disabled="creatingToken || !newTokenName.trim() || !limitsValid" @click="createApiToken">
+      <fieldset class="api-token-scope">
+        <legend class="api-token-scope-legend">Scope</legend>
+        <label class="form-check-label"><input v-model="newTokenScope" type="radio" value="dispatch" /> dispatch</label>
+        <label class="form-check-label"><input v-model="newTokenScope" type="radio" value="direct" /> direct</label>
+      </fieldset>
+      <div class="api-token-limits">
+        <label class="api-token-limit-row">
+          <span class="ws-settings-label">Expires at (optional)</span>
+          <input v-model="newTokenExpiresAt" type="datetime-local" class="form-input" />
+        </label>
+        <template v-if="newTokenScope === 'direct'">
+          <label class="api-token-limit-row">
+            <span class="ws-settings-label">Max runs per day</span>
+            <input v-model.number="newTokenMaxPerDay" type="number" min="1" step="1" class="form-input api-token-number" />
+          </label>
+          <label class="api-token-limit-row">
+            <span class="ws-settings-label">Workspace</span>
+            <select v-model="newTokenWorkspace" class="form-input">
+              <option value="">All workspaces</option>
+              <option v-for="w in workspaceNames" :key="w" :value="w">{{ w }}</option>
+            </select>
+          </label>
+        </template>
+      </div>
+      <button type="button" class="primary api-token-create" :disabled="creatingToken || !newTokenName.trim() || !limitsValid" @click="createApiToken">
         {{ creatingToken ? "Creating..." : "Create" }}
       </button>
     </div>
@@ -221,7 +221,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 0;
   border: none;
 }
@@ -233,11 +233,25 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-.api-token-limits {
+.api-token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 8px;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+
+.api-token-create {
+  align-self: flex-end;
+}
+
+.api-token-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .api-token-limit-row {
@@ -245,7 +259,6 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .api-token-number {
