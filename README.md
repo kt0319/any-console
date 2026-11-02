@@ -176,12 +176,13 @@ Key fields on the request body (`server/src/dispatch.rs`):
 
 A direct token starts an agent job immediately, without approval, so a leaked token can run an agent but nothing more than these limits allow. Each request must satisfy all of:
 
-- `job` is required and must not be `terminal` (no raw text into a shell).
+- `job` is required and must be an **agent job**: the job's command must start with a known agent (the executable name must match an agent in `agent_manifests/`, e.g. `claude`; a leading `VAR=value` is allowed). `terminal` and ordinary commands are rejected with 400, because once such a command exits the text would be typed into a shell. Wrapper scripts (`my-agent.sh`, `npx claude`, …) are rejected too.
 - `worktree` is required — the job never runs in the main checkout. The worktree must already exist.
 - It always starts a **new** session: `session_id` is rejected (400) and existing sessions are never reused.
+- The request text is delivered to the agent by the server itself — nobody needs to open the terminal. It is sent once the agent is up and idle; if the agent is not running at that point (it failed to start or has exited back to a shell), the text is **not** typed into the shell, and you get a "not delivered" push notification. The history entry shows `executed` once the session has been launched.
 - `dedup_key` is rejected (400); it has no meaning for an immediate run. `branch` / `create_branch` / `base_branch` / `image_paths` are validated like any other dispatch.
 - The workspace is within the token's `allowed_workspaces` (403 otherwise).
-- The token has runs left today: at most `max_per_day` (default 10, minimum 1) accepted requests per rolling 24 hours (429 otherwise). Failed launches count. The count is kept in the activity log, so it survives restarts.
+- The token has runs left today: at most `max_per_day` (default 10, minimum 1) accepted requests per rolling 24 hours (429 otherwise). Failed launches count. The count is kept in the activity log, so it survives restarts. If that log cannot be read or written, the request fails with 500 instead of running without being counted.
 - The token has not passed `expires_at` (401 otherwise).
 
 Every run (and every failed launch) sends a push notification with the token name, workspace/worktree and the start of the text, is recorded in the Dispatch history as `executed` / `failed` with `auth: "direct:<token name>"`, and can be re-run from the history with the main token.
@@ -202,7 +203,8 @@ Keep the token in a file readable only by you. Be especially careful before plac
 |---|---|
 | `202` | Queued for approval (main token / device / dispatch scope) |
 | `200` | Direct run started; body has `dispatch_id` and `session_id` |
-| `400` | Restriction violated (see above), `direct: true` from a credential that may not use it, or the launch failed (the failure is recorded in the history) |
+| `400` | Restriction violated (see above; including a job that is not an agent), `direct: true` from a credential that may not use it, or the launch failed (the failure is recorded in the history) |
+| `500` | The daily-limit log could not be read or written; nothing was started |
 | `401` | Invalid, revoked or expired token |
 | `403` | Workspace is not in the token's `allowed_workspaces` |
 | `429` | The token reached `max_per_day` |
