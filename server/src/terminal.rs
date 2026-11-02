@@ -858,13 +858,10 @@ async fn deliver_pending_text_to_agent_process(
     if text.is_empty() {
         return Ok(());
     }
-    if wait_agent_process(state, full_tmux_name, start_timeout)
-        .await
-        .is_none()
-    {
+    let Some(manifest) = wait_agent_process(state, full_tmux_name, start_timeout).await else {
         return Err("The agent did not start; the input was not delivered".to_string());
-    }
-    wait_agent_idle_if_known(state, full_tmux_name).await;
+    };
+    wait_agent_idle(full_tmux_name, &manifest).await;
     if running_agent(state, full_tmux_name).await.is_none() {
         return Err("The agent exited before the input could be delivered".to_string());
     }
@@ -874,12 +871,21 @@ async fn deliver_pending_text_to_agent_process(
     Ok(())
 }
 
+/// 前面のエージェントを特定する。プロセス名で当たらないときは、前面プロセスの argv で
+/// 照合する（node / python などのランタイム上で動くエージェント向け。`agent_watch` と同じ）。
 async fn running_agent(
     state: &Arc<AppState>,
     full_tmux_name: &str,
 ) -> Option<Arc<screen_manifest::Manifest>> {
     let (command, _) = tmux::pane_command_and_title(full_tmux_name).await?;
-    state.manifest_store.identify_agent(Some(&command))
+    if let Some(manifest) = state.manifest_store.identify_agent(Some(&command)) {
+        return Some(manifest);
+    }
+    let pane_pid = tmux::pane_pid(full_tmux_name).await?;
+    let argvs = crate::foreground::ForegroundInspector::new()
+        .argvs(pane_pid as i32)
+        .await;
+    state.manifest_store.identify_agent_from_argvs(&argvs)
 }
 
 async fn wait_agent_process(
@@ -918,6 +924,10 @@ async fn wait_agent_idle_if_known(state: &Arc<AppState>, full_tmux_name: &str) {
     let Some(manifest) = state.manifest_store.identify_agent(Some(&command)) else {
         return;
     };
+    wait_agent_idle(full_tmux_name, &manifest).await;
+}
+
+async fn wait_agent_idle(full_tmux_name: &str, manifest: &Arc<screen_manifest::Manifest>) {
     let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC);
     while tokio::time::Instant::now() < deadline {
         let Some(capture) = tmux::capture_visible_pane(full_tmux_name).await else {
@@ -928,7 +938,7 @@ async fn wait_agent_idle_if_known(state: &Arc<AppState>, full_tmux_name: &str) {
             .map(|(_, title)| title)
             .unwrap_or_default();
         let (state_str, source) =
-            agent_watch::resolve_session_state(&capture, None, Some(&manifest), &title);
+            agent_watch::resolve_session_state(&capture, None, Some(manifest), &title);
         if state_str == screen_manifest::STATE_IDLE
             && source == agent_watch::AgentStateSource::Manifest
         {
@@ -1110,5 +1120,39 @@ mod tests {
         assert!(!screen.contains("must-not-run"));
         crate::subprocess::run_subprocess_safe(&["tmux", "kill-session", "-t", &name], 5.0, None)
             .await;
+    }
+
+    #[tokio::test]
+    async fn running_agent_is_found_through_the_runtime_script_name() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("agent_manifests")).unwrap();
+        std::fs::write(
+            dir.path().join("agent_manifests/sleep.toml"),
+            "id = \"sleep\"\nversion = \"2026.01.01.1\"\nmin_engine_version = 1\nupdated_at = \"2026-01-01T00:00:00Z\"\n\n[[rules]]\nid = \"idle\"\nstate = \"idle\"\npriority = 100\nregion = \"whole_recent\"\ncontains = [\"x\"]\n",
+        )
+        .unwrap();
+        // プロセス名は python3 になるが、スクリプト名（sleep）でエージェントと識別できる。
+        let script = dir.path().join("sleep");
+        std::fs::write(&script, "import time\ntime.sleep(60)\n").unwrap();
+
+        let name = format!("test-runtime-agent-{}", crate::util::token_hex(4));
+        // 実運用と同じく、ペインのシェルからジョブのコマンドを実行する。
+        crate::subprocess::run_subprocess_safe(
+            &["tmux", "new-session", "-d", "-s", &name],
+            5.0,
+            None,
+        )
+        .await;
+        assert!(tmux::wait_pane_ready(&name, 10.0).await);
+        let command = format!("python3 {}", script.display());
+        assert!(tmux::send_keys_to_tmux(&name, &command, true).await);
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
+        let found = wait_agent_process(&state, &name, Duration::from_secs(5)).await;
+        crate::subprocess::run_subprocess_safe(&["tmux", "kill-session", "-t", &name], 5.0, None)
+            .await;
+        assert_eq!(found.map(|m| m.id.clone()), Some("sleep".to_string()));
     }
 }
