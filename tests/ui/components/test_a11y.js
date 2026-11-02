@@ -252,6 +252,32 @@ describe("a11y: AuthConfig (API Tokens section)", () => {
 
     wrapper.unmount();
   });
+
+  it("direct スコープ選択時の制限入力と direct トークン一覧に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    vi.stubGlobal("fetch", vi.fn((url, opts = {}) => {
+      const method = opts.method || "GET";
+      if (url === "/api-tokens" && method === "GET") {
+        return jsonResponse([{
+          id: "tok_2", name: "cron", scope: "direct", max_per_day: 5,
+          allowed_workspaces: ["proj"], expires_at: 4102444800, last_used: null,
+        }]);
+      }
+      if (url === "/workspaces") return jsonResponse([{ name: "proj" }, { name: "other" }]);
+      return jsonResponse({});
+    }));
+
+    const wrapper = mount(AuthConfig, {
+      global: { provide: { modalTitle: ref("") } },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    await wrapper.findAll('input[type="radio"]')[1].setValue(true);
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+
+    wrapper.unmount();
+  });
 });
 
 describe("a11y: InfoPillRow", () => {

@@ -810,6 +810,124 @@ describe("AuthConfig: API Tokens", () => {
     expect(wrapper.text()).not.toContain("ci");
     wrapper.unmount();
   });
+
+  it("scope の既定は dispatch で、direct を選んだときだけ制限入力が出る", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+      ["/workspaces", "GET", () => jsonResponse([{ name: "proj" }, { name: "other" }])],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+
+    const radios = wrapper.findAll('input[type="radio"]');
+    expect(radios.map((r) => r.element.value)).toEqual(["dispatch", "direct"]);
+    expect(radios[0].element.checked).toBe(true);
+    expect(wrapper.find(".api-token-limits").exists()).toBe(false);
+
+    await radios[1].setValue(true);
+    expect(wrapper.find(".api-token-limits").exists()).toBe(true);
+    expect(wrapper.text()).toContain("proj");
+    expect(wrapper.text()).toContain("other");
+    wrapper.unmount();
+  });
+
+  it("dispatch スコープの作成は制限を送らない", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "POST", () => jsonResponse({ id: "tok_5", name: "ci", scope: "dispatch", token: "t" })],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    await wrapper.find('input[placeholder^="Token name"]').setValue("ci");
+    await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
+    await flushPromises();
+
+    const post = fetchMock.mock.calls.find(([url, opts]) => url === EP_API_TOKENS && opts?.method === "POST");
+    expect(JSON.parse(post[1].body)).toEqual({ name: "ci", scope: "dispatch" });
+    wrapper.unmount();
+  });
+
+  it("direct スコープの作成は max_per_day・allowed_workspaces・expires_at を送る", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+      ["/workspaces", "GET", () => jsonResponse([{ name: "proj" }, { name: "other" }])],
+      [EP_API_TOKENS, "POST", () => jsonResponse({ id: "tok_6", name: "cron", scope: "direct", token: "t" })],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    await wrapper.find('input[placeholder^="Token name"]').setValue("cron");
+    await wrapper.findAll('input[type="radio"]')[1].setValue(true);
+    await wrapper.find('input[type="number"]').setValue(3);
+    await wrapper.find('input[type="datetime-local"]').setValue("2099-01-02T03:04");
+    await wrapper.findAll('.api-token-workspaces input[type="checkbox"]')[0].setValue(true);
+    await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
+    await flushPromises();
+
+    const post = fetchMock.mock.calls.find(([url, opts]) => url === EP_API_TOKENS && opts?.method === "POST");
+    expect(JSON.parse(post[1].body)).toEqual({
+      name: "cron",
+      scope: "direct",
+      max_per_day: 3,
+      allowed_workspaces: ["proj"],
+      expires_at: Math.floor(new Date("2099-01-02T03:04").getTime() / 1000),
+    });
+    wrapper.unmount();
+  });
+
+  it("direct の max_per_day が 1 未満、または有効期限が過去なら Create を無効にする", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    await wrapper.find('input[placeholder^="Token name"]').setValue("cron");
+    await wrapper.findAll('input[type="radio"]')[1].setValue(true);
+    const createBtn = () => wrapper.findAll("button").find((b) => b.text() === "Create");
+    expect(createBtn().element.disabled).toBe(false);
+
+    await wrapper.find('input[type="number"]').setValue(0);
+    expect(createBtn().element.disabled).toBe(true);
+    await wrapper.find('input[type="number"]').setValue(1);
+    expect(createBtn().element.disabled).toBe(false);
+
+    await wrapper.find('input[type="datetime-local"]').setValue("2000-01-01T00:00");
+    expect(createBtn().element.disabled).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("一覧は direct トークンの制限と最終使用日時を表示し、dispatch には出さない", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([
+        { id: "tok_7", name: "cron", scope: "direct", max_per_day: 5, allowed_workspaces: ["proj", "other"], expires_at: 4102444800, last_used: null },
+        { id: "tok_8", name: "old", scope: "direct", max_per_day: 10, expires_at: 946684800, last_used: null },
+        { id: "tok_9", name: "ci", scope: "dispatch", last_used: null },
+      ])],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+
+    const rows = wrapper.findAll(".device-row");
+    expect(rows[0].find(".device-tag").text()).toBe("direct");
+    expect(rows[0].text()).toContain("Max 5/day");
+    expect(rows[0].text()).toContain("Workspaces: proj, other");
+    expect(rows[0].text()).toContain("Expires");
+    expect(rows[0].text()).toContain("Last used: Never");
+    expect(rows[1].text()).toContain("Workspaces: all");
+    expect(rows[1].text()).toContain("Expired");
+    expect(rows[2].find(".device-tag").text()).toBe("dispatch");
+    expect(rows[2].text()).not.toContain("Max");
+    wrapper.unmount();
+  });
 });
 
 // ── SendSnippet / SendHistory: 設定画面からの挿入 ──────────────────────────
