@@ -811,7 +811,7 @@ describe("AuthConfig: API Tokens", () => {
     wrapper.unmount();
   });
 
-  it("scope の既定は dispatch で、direct を選んだときだけ制限入力が出る", async () => {
+  it("scope の既定は dispatch で、direct を選んだときだけ回数・ワークスペースの入力が出る（期限は両方）", async () => {
     stubFetch([
       [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
       ["/devices", "GET", () => jsonResponse([])],
@@ -824,10 +824,12 @@ describe("AuthConfig: API Tokens", () => {
     const radios = wrapper.findAll('input[type="radio"]');
     expect(radios.map((r) => r.element.value)).toEqual(["dispatch", "direct"]);
     expect(radios[0].element.checked).toBe(true);
-    expect(wrapper.find(".api-token-limits").exists()).toBe(false);
+    expect(wrapper.find('input[type="datetime-local"]').exists()).toBe(true);
+    expect(wrapper.find('input[type="number"]').exists()).toBe(false);
+    expect(wrapper.find(".api-token-limits select").exists()).toBe(false);
 
     await radios[1].setValue(true);
-    expect(wrapper.find(".api-token-limits").exists()).toBe(true);
+    expect(wrapper.find('input[type="number"]').exists()).toBe(true);
     const options = wrapper.findAll(".api-token-limits select option");
     expect(options.map((o) => o.text())).toEqual(["All workspaces", "proj", "other"]);
     expect(wrapper.findAll('.api-token-limits input[type="checkbox"]')).toHaveLength(0);
@@ -901,6 +903,34 @@ describe("AuthConfig: API Tokens", () => {
     wrapper.unmount();
   });
 
+  it("dispatch スコープでも有効期限を送り、過去の期限なら Create を無効にする", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "POST", () => jsonResponse({ id: "tok_11", name: "ci", scope: "dispatch", token: "t" })],
+    ]);
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    await wrapper.find('input[placeholder^="Token name"]').setValue("ci");
+    const createBtn = () => wrapper.findAll("button").find((b) => b.text() === "Create");
+
+    await wrapper.find('input[type="datetime-local"]').setValue("2000-01-01T00:00");
+    expect(createBtn().element.disabled).toBe(true);
+    await wrapper.find('input[type="datetime-local"]').setValue("2099-01-02T03:04");
+    expect(createBtn().element.disabled).toBe(false);
+    await createBtn().trigger("click");
+    await flushPromises();
+
+    const post = fetchMock.mock.calls.find(([url, opts]) => url === EP_API_TOKENS && opts?.method === "POST");
+    expect(JSON.parse(post[1].body)).toEqual({
+      name: "ci",
+      scope: "dispatch",
+      expires_at: Math.floor(new Date("2099-01-02T03:04").getTime() / 1000),
+    });
+    wrapper.unmount();
+  });
+
   it("direct の max_per_day が 1 未満、または有効期限が過去なら Create を無効にする", async () => {
     stubFetch([
       [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
@@ -932,6 +962,7 @@ describe("AuthConfig: API Tokens", () => {
         { id: "tok_7", name: "cron", scope: "direct", max_per_day: 5, allowed_workspaces: ["proj", "other"], expires_at: 4102444800, last_used: null },
         { id: "tok_8", name: "old", scope: "direct", max_per_day: 10, expires_at: 946684800, last_used: null },
         { id: "tok_9", name: "ci", scope: "dispatch", last_used: null },
+        { id: "tok_10", name: "ci2", scope: "dispatch", expires_at: 4102444800, last_used: null },
       ])],
     ]);
     const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
@@ -947,6 +978,10 @@ describe("AuthConfig: API Tokens", () => {
     expect(rows[1].text()).toContain("Expired");
     expect(rows[2].find(".device-tag").text()).toBe("dispatch");
     expect(rows[2].text()).not.toContain("Max");
+    expect(rows[2].text()).not.toContain("Expire");
+    expect(rows[3].find(".device-tag").text()).toBe("dispatch");
+    expect(rows[3].text()).toContain("Expires");
+    expect(rows[3].text()).not.toContain("Max");
     wrapper.unmount();
   });
 });

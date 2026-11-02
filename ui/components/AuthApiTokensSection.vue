@@ -5,29 +5,31 @@
     </div>
     <div class="settings-note" style="margin-bottom: 8px;">
       Scoped tokens for external integrations. They only work on <code>POST /dispatch</code> — never anything else.
-      <b>dispatch</b> tokens can only queue a request for approval. <b>direct</b> tokens run an agent job immediately in a new session on a worktree, within the limits below, and every run sends a push notification.
+      <b>dispatch</b> tokens can only queue a request for approval. <b>direct</b> tokens run an agent job immediately in a new session on a worktree, within the limits below, and every run sends a push notification. Both can be given an expiry.
     </div>
     <fieldset class="api-token-scope">
       <legend class="api-token-scope-legend">Scope</legend>
       <label class="form-check-label"><input v-model="newTokenScope" type="radio" value="dispatch" /> dispatch</label>
       <label class="form-check-label"><input v-model="newTokenScope" type="radio" value="direct" /> direct</label>
     </fieldset>
-    <div v-if="newTokenScope === 'direct'" class="api-token-limits">
-      <label class="api-token-limit-row">
-        <span class="ws-settings-label">Max runs per day</span>
-        <input v-model.number="newTokenMaxPerDay" type="number" min="1" step="1" class="form-input api-token-number" />
-      </label>
+    <div class="api-token-limits">
       <label class="api-token-limit-row">
         <span class="ws-settings-label">Expires at (optional)</span>
         <input v-model="newTokenExpiresAt" type="datetime-local" class="form-input" />
       </label>
-      <label class="api-token-limit-row">
-        <span class="ws-settings-label">Workspace</span>
-        <select v-model="newTokenWorkspace" class="form-input">
-          <option value="">All workspaces</option>
-          <option v-for="w in workspaceNames" :key="w" :value="w">{{ w }}</option>
-        </select>
-      </label>
+      <template v-if="newTokenScope === 'direct'">
+        <label class="api-token-limit-row">
+          <span class="ws-settings-label">Max runs per day</span>
+          <input v-model.number="newTokenMaxPerDay" type="number" min="1" step="1" class="form-input api-token-number" />
+        </label>
+        <label class="api-token-limit-row">
+          <span class="ws-settings-label">Workspace</span>
+          <select v-model="newTokenWorkspace" class="form-input">
+            <option value="">All workspaces</option>
+            <option v-for="w in workspaceNames" :key="w" :value="w">{{ w }}</option>
+          </select>
+        </label>
+      </template>
     </div>
     <div class="ws-settings-row" style="gap:8px">
       <input
@@ -129,20 +131,20 @@ const expiresAtEpoch = computed(() => {
   return Number.isNaN(ms) ? NaN : Math.floor(ms / 1000);
 });
 const limitsValid = computed(() => {
-  if (newTokenScope.value !== "direct") return true;
-  const maxOk = Number.isInteger(newTokenMaxPerDay.value) && newTokenMaxPerDay.value >= 1;
   const expires = expiresAtEpoch.value;
   const expiresOk = expires === null || (!Number.isNaN(expires) && expires * 1000 > Date.now());
+  const maxOk = newTokenScope.value !== "direct"
+    || (Number.isInteger(newTokenMaxPerDay.value) && newTokenMaxPerDay.value >= 1);
   return maxOk && expiresOk;
 });
 
 function tokenSub(t: ApiToken): string {
   const lastUsed = `Last used: ${t.last_used ? formatRelativeTime(t.last_used) : "Never"}`;
-  if (t.scope !== "direct") return lastUsed;
-  const workspaces = t.allowed_workspaces?.length ? t.allowed_workspaces.join(", ") : "all";
   const expires = t.expires_at
     ? `${t.expires_at * 1000 <= Date.now() ? "Expired" : "Expires"} ${formatClockDateTime(t.expires_at)}`
     : "No expiry";
+  if (t.scope !== "direct") return t.expires_at ? `${expires} · ${lastUsed}` : lastUsed;
+  const workspaces = t.allowed_workspaces?.length ? t.allowed_workspaces.join(", ") : "all";
   return `Max ${t.max_per_day ?? DEFAULT_MAX_PER_DAY}/day · Workspaces: ${workspaces} · ${expires} · ${lastUsed}`;
 }
 
@@ -165,10 +167,10 @@ async function createApiToken() {
   if (!name || creatingToken.value || !limitsValid.value) return;
   creatingToken.value = true;
   const body: Record<string, unknown> = { name, scope: newTokenScope.value };
+  if (expiresAtEpoch.value !== null) body.expires_at = expiresAtEpoch.value;
   if (newTokenScope.value === "direct") {
     body.max_per_day = newTokenMaxPerDay.value;
     if (newTokenWorkspace.value) body.allowed_workspaces = [newTokenWorkspace.value];
-    if (expiresAtEpoch.value !== null) body.expires_at = expiresAtEpoch.value;
   }
   const { ok, data } = await apiPost(EP_API_TOKENS, body, { errorMessage: "Failed to create token" });
   creatingToken.value = false;

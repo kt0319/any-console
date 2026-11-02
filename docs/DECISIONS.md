@@ -330,7 +330,7 @@
 - **Decision**: `data/auth.json` にメイントークンとは別のリスト `api_tokens` を追加し、各要素を `{id, name, scope, secret_hash, created_at, last_used}` として保存する。v1 の `scope` は `"dispatch"` の1種類のみとし、汎用的な RBAC は作らない。保存は raw トークンではなく Trusted Device（`server/src/devices.rs`）と全く同じ HMAC-SHA256（`data/server_key`）ハッシュのみで、raw トークンは発行時のレスポンスで一度だけ返す。API トークン検証（`Auth::verify_and_touch_api_token`）は `POST /dispatch` にのみ適用し、通常認証（メイントークン / デバイス cookie）に加えて dispatch scope のトークンも受け付ける。`POST /dispatch` はメイントークンでも dispatch トークンでも承認キューへ積むことだけを許可し、`direct: true`（即時実行）は 400 で拒否する。`/dispatch/{id}/decision`・ステータスストリーム WS・その他全 API は引き続きメイントークンのみで、dispatch トークンでは一切通らない。
 - **Consequences**: GitHub Secrets に置く鍵の権限が「dispatch のキュー登録のみ」に絞られ、漏洩時の被害が限定される（承認・実行には依然としてメイントークンが要るため、盗まれたトークンだけで自己承認はできない）。ユーザーは Settings > Auth から用途ごとに複数のトークンを発行・失効できる。反面、認証の分岐が増え（メイントークン / デバイス cookie / dispatch トークン）、通常認証（`RequireAuth`）に API トークンも受け付けさせるかをエンドポイント追加のたびに意識する必要がある。scope が1種類のみのため、将来別用途のトークンが要る場合は再検討が要る。
 - **Alternatives considered**: **メイントークンをそのまま GitHub Secrets に使う** — 実装は最小だが ADR 3 の「単一トークンが全 API を解錠する」設計上、外部連携用の鍵が漏れた場合の被害が全API・全ワークスペースに及ぶため却下。**ユーザー/ロール管理を導入し RBAC で絞る** — 個人ツールの規模に対して過剰設計であり ADR 3 の方針と衝突する。**scope を複数種類（例: "read", "dispatch", "admin"）用意する** — v1 では dispatch 連携以外に外部トークンを使う用途が無く、投機的な一般化になるため見送り、必要になった時点で追加する。
-- **追記**: ADR 34 で `direct` スコープを追加した。メイントークン・dispatch スコープの `direct: true` は引き続き 400 のまま、direct スコープのトークンだけが制限つきの即時実行を行える。
+- **追記**: ADR 34 で `direct` スコープを追加した。メイントークン・dispatch スコープの `direct: true` は引き続き 400 のまま、direct スコープのトークンだけが制限つきの即時実行を行える。 あわせて、有効期限（`expires_at`）は dispatch スコープにも設定できるようにした（期限の判定はスコープを問わず認証時に行う。回数上限とワークスペース限定は direct のみ）。
 
 ---
 

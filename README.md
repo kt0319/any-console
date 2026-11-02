@@ -164,7 +164,7 @@ Key fields on the request body (`server/src/dispatch.rs`):
 
 ### API token scopes
 
-**Never put your main token in a crontab, CI secret or script.** Create a scoped token from Settings > Auth > API Tokens (or `POST /api-tokens`). Scoped tokens only work on `POST /dispatch` — every other API, the status-stream WebSocket and `POST /dispatch/{id}/decision` reject them — and can be issued and revoked independently.
+**Never put your main token in a crontab, CI secret or script.** Create a scoped token from Settings > Auth > API Tokens (or `POST /api-tokens`). Scoped tokens only work on `POST /dispatch` — every other API, the status-stream WebSocket and `POST /dispatch/{id}/decision` reject them — and can be issued and revoked independently. Both scopes accept an optional `expires_at` (UNIX seconds, must be in the future); once it has passed the token is rejected with 401. Set one on tokens you place in CI secrets or other places outside your machines.
 
 | Credential | `direct` omitted / `false` | `"direct": true` |
 |---|---|---|
