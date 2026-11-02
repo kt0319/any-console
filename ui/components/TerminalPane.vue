@@ -61,7 +61,7 @@
         <div v-else key="normal" class="pill-normal-group">
         <InfoPillRow
           :tab="tab"
-          :max-width="trailingMaxWidth"
+          :max-width="pillRowMaxWidth"
           :is-git-repo="pill.isGitRepo"
           :is-worktree="!!paneWorkspace?.worktree"
           :is-dirty="pill.dirty"
@@ -229,7 +229,9 @@ let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 // 分割モードでは.terminal-paneがビューポートよりずっと狭い。.pill-trailingの横スクロール
 // 上限幅を100vw基準にすると、はみ出したBranches/Changes等のボタンがoverflowクリップで隠れて
 // 届かなくなるため、実測したペイン幅から閉じるボタン等を差し引いた残りを上限にする。
-const { maxWidth: trailingMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
+// ピーク（長い1行テキスト）は画面幅の半分で止めるが、アイコンのピル行はその上限を
+// かけず、ペイン幅いっぱいまで全部並べる。
+const { maxWidth: trailingMaxWidth, availableWidth: pillRowMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
 
 // ピルは常にアイコンのみ表示し、値が更新された時だけピル行を隠して変化した
 // キーの情報を1本の長いピル（PillPeek.vue）に数秒だけ差し替える（peekingKey）。
