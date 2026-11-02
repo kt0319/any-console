@@ -29,5 +29,7 @@ export function useElementMaxWidth(elRef: Ref<HTMLElement | null>, reservedPx: n
   // 基準にしても効かないため、基準要素自身の幅の半分を上限にする。
   const cap = computed(() => (capToSelfHalf ? width.value / 2 : window.innerWidth / 2));
   const maxWidth = computed(() => Math.max(0, Math.min(width.value - reservedPx, cap.value)));
-  return { maxWidth };
+  // 上限（cap）をかけない幅。アイコンだけのピル行のように、全部を並べたいものが使う。
+  const availableWidth = computed(() => Math.max(0, width.value - reservedPx));
+  return { maxWidth, availableWidth };
 }

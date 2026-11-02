@@ -21,7 +21,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: min(80vw, 450px);
+  /* ペイン幅いっぱい（左右の余白ぶんを除く）まで、ピルを全部並べる。 */
+  max-width: calc(100% - 20px);
 }
 
 /* Display設定のInfo Pillsで「Float (Bottom)」を選んだ場合。right はそのまま

@@ -18,8 +18,8 @@ function mountWithMaxWidth(reservedPx, capToSelfHalf = false) {
   const el = ref(null);
   const wrapper = mount(defineComponent({
     setup() {
-      const { maxWidth } = useElementMaxWidth(el, reservedPx, capToSelfHalf);
-      return { maxWidth };
+      const { maxWidth, availableWidth } = useElementMaxWidth(el, reservedPx, capToSelfHalf);
+      return { maxWidth, availableWidth };
     },
     render() { return h("div", { ref: (r) => { el.value = r; } }); },
   }), { attachTo: document.body });
@@ -73,6 +73,20 @@ describe("useElementMaxWidth", () => {
     roCallback([{ contentRect: { width: 300 } }]);
     await wrapper.vm.$nextTick();
     expect(wrapper.vm.maxWidth).toBe(150);
+    wrapper.unmount();
+  });
+
+  it("availableWidth は画面幅の上限をかけず、実測幅からreservedPxを引いた値を返す", async () => {
+    global.ResizeObserver = FakeResizeObserver;
+    window.innerWidth = 400;
+    const { wrapper } = mountWithMaxWidth(80);
+    roCallback([{ contentRect: { width: 390 } }]);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.maxWidth).toBe(200);
+    expect(wrapper.vm.availableWidth).toBe(310);
+    roCallback([{ contentRect: { width: 50 } }]);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.availableWidth).toBe(0);
     wrapper.unmount();
   });
 });
