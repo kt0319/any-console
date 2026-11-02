@@ -9,6 +9,7 @@
       <span class="mdi mdi-clock-outline"></span>{{ timeLabel }}
     </span>
   </span>
+  <span v-if="originLabel" class="dispatch-queue-origin">{{ originLabel }}</span>
   <span v-if="request.text" class="dispatch-queue-text">{{ request.text }}</span>
 </template>
 
@@ -25,7 +26,12 @@ import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 const props = defineProps({
   request: { type: Object, required: true },
   outcome: { type: String, default: "" },
+  // dispatch recipe 経由の起点ラベル（`recipe:<id>`）。決定済み行は履歴項目側、
+  // 承認待ち行はリクエスト側に載っている。
+  origin: { type: String, default: "" },
 });
+
+const originLabel = computed(() => props.origin || props.request.origin || "");
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
 // hoverしたときだけ絶対時刻（日付込み）をtooltipで確認できるようにする。
@@ -79,6 +85,11 @@ const timeTooltip = computed(() => {
 
 .dispatch-queue-time .mdi {
   font-size: 12px;
+}
+
+.dispatch-queue-origin {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .dispatch-queue-text {
