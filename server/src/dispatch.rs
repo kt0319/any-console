@@ -1129,37 +1129,50 @@ fn workspace_allowed(state: &AppState, requested: &str, allowed: &[String]) -> b
 /// 直近 24 時間にこのトークンが受理された direct の件数。件数は workspace を
 /// 横断するため、`_global` の activity ログに `direct_fired` として記録して数える
 /// （recent 履歴は 10 件で他の dispatch と共有のため、数え落として上限を超える）。
-fn count_direct_fired(data_dir: &FsPath, token_id: &str, now: i64) -> usize {
+/// このログは上限判定の根拠なので、ファイルが無いだけの場合以外の読み取り失敗
+/// （読めない・UTF-8 でない・行が壊れている）は数え落とさずエラーにする。
+fn count_direct_fired(data_dir: &FsPath, token_id: &str, now: i64) -> Result<usize, ApiError> {
     let mut dates = vec![crate::util::utc_date_of_epoch(now - DIRECT_WINDOW_SEC)];
     let today = crate::util::utc_date_of_epoch(now);
     if dates[0] != today {
         dates.push(today);
     }
-    dates
-        .iter()
-        .filter_map(|date| {
-            std::fs::read_to_string(
-                data_dir
-                    .join("activity")
-                    .join("_global")
-                    .join(format!("{date}.jsonl")),
-            )
-            .ok()
-        })
-        .flat_map(|content| {
-            content
-                .lines()
-                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-                .collect::<Vec<_>>()
-        })
-        .filter(|entry| {
-            entry["type"].as_str() == Some(ACTIVITY_EVENT_DIRECT_FIRED)
+    let mut count = 0;
+    for date in dates {
+        let path = data_dir
+            .join("activity")
+            .join("_global")
+            .join(format!("{date}.jsonl"));
+        let content = match std::fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => {
+                tracing::error!(
+                    "direct quota ledger unreadable path={}: {e}",
+                    path.display()
+                );
+                return Err(server_error("Direct run quota could not be checked"));
+            }
+        };
+        for line in content.lines().filter(|l| !l.trim().is_empty()) {
+            let Ok(entry) = serde_json::from_str::<Value>(line) else {
+                tracing::error!(
+                    "direct quota ledger has a broken line path={}",
+                    path.display()
+                );
+                return Err(server_error("Direct run quota could not be checked"));
+            };
+            if entry["type"].as_str() == Some(ACTIVITY_EVENT_DIRECT_FIRED)
                 && entry["token_id"].as_str() == Some(token_id)
                 && entry["at"]
                     .as_i64()
                     .is_some_and(|at| at > now - DIRECT_WINDOW_SEC && at <= now)
-        })
-        .count()
+            {
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
 }
 
 /// direct スコープで `direct: true` の要求を検証して即時起動する。
@@ -1212,13 +1225,15 @@ async fn dispatch_direct(
     {
         let _gate = state.dispatch.direct_gate.lock().await;
         let now = now_epoch();
-        if count_direct_fired(&state.paths.data_dir, token_id, now) >= limits.max_per_day as usize {
+        let used = count_direct_fired(&state.paths.data_dir, token_id, now)?;
+        if used >= limits.max_per_day as usize {
             return Err(crate::errors::too_many_requests(format!(
                 "Daily limit reached for this token ({} per 24h)",
                 limits.max_per_day
             )));
         }
-        crate::activity::log_activity(
+        // 台帳に記録できなければ起動しない（記録なしに起動すると上限を消費できない）。
+        crate::activity::try_log_activity(
             &state.paths.data_dir,
             None,
             ACTIVITY_EVENT_DIRECT_FIRED,
@@ -1226,7 +1241,11 @@ async fn dispatch_direct(
                 ("token_id", json!(token_id)),
                 ("at", json!(now)),
             ]),
-        );
+        )
+        .map_err(|e| {
+            tracing::error!("direct quota ledger write failed: {e}");
+            server_error("Direct run quota could not be recorded")
+        })?;
     }
 
     sweep_expired_dispatch_images(state).await;
@@ -1913,8 +1932,30 @@ mod tests {
         log_direct_fired(dir.path(), "tok_a", now - 60);
         log_direct_fired(dir.path(), "tok_b", now);
         log_direct_fired(dir.path(), "tok_a", now - DIRECT_WINDOW_SEC - 1);
-        assert_eq!(count_direct_fired(dir.path(), "tok_a", now), 2);
-        assert_eq!(count_direct_fired(dir.path(), "tok_b", now), 1);
-        assert_eq!(count_direct_fired(dir.path(), "tok_none", now), 0);
+        assert_eq!(count_direct_fired(dir.path(), "tok_a", now).unwrap(), 2);
+        assert_eq!(count_direct_fired(dir.path(), "tok_b", now).unwrap(), 1);
+        assert_eq!(count_direct_fired(dir.path(), "tok_none", now).unwrap(), 0);
+    }
+
+    #[test]
+    fn count_direct_fired_treats_a_missing_ledger_as_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            count_direct_fired(dir.path(), "tok_a", now_epoch()).unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn count_direct_fired_fails_closed_when_the_ledger_cannot_be_read() {
+        let now = now_epoch();
+        let today = crate::util::utc_date_of_epoch(now);
+        for content in [&b"\xff\xfe not utf-8\n"[..], &b"{broken json\n"[..]] {
+            let dir = tempfile::tempdir().unwrap();
+            let ledger = dir.path().join("activity").join("_global");
+            std::fs::create_dir_all(&ledger).unwrap();
+            std::fs::write(ledger.join(format!("{today}.jsonl")), content).unwrap();
+            assert!(count_direct_fired(dir.path(), "tok_a", now).is_err());
+        }
     }
 }
