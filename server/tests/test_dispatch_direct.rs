@@ -96,7 +96,7 @@ impl Front {
 
     fn add_worktree(&self, branch: &str, dir_name: &str) {
         let wt = self.repo.parent().unwrap().join(dir_name);
-        git(
+        common::sh_git(
             &self.repo,
             &["worktree", "add", &wt.to_string_lossy(), "-b", branch],
         );
@@ -111,19 +111,6 @@ fn direct_body() -> Value {
         "text": "fix the failing test",
         "direct": true,
     })
-}
-
-fn git(repo: &std::path::Path, args: &[&str]) {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
 }
 
 fn direct_router(state: Arc<AppState>) -> Router {
@@ -149,12 +136,33 @@ async fn spawn_front() -> Front {
 
     let repo = dir.path().join("proj");
     std::fs::create_dir_all(&repo).unwrap();
-    git(&repo, &["init", "-q", "-b", "main"]);
-    git(&repo, &["config", "user.email", "t@example.com"]);
-    git(&repo, &["config", "user.name", "tester"]);
+    common::sh_git(&repo, &["init", "-q", "-b", "main"]);
+    common::sh_git(&repo, &["config", "user.email", "t@example.com"]);
+    common::sh_git(&repo, &["config", "user.name", "tester"]);
     std::fs::write(repo.join("a.txt"), "hi\n").unwrap();
-    git(&repo, &["add", "-A"]);
-    git(&repo, &["commit", "-q", "-m", "first"]);
+    common::sh_git(&repo, &["add", "-A"]);
+    common::sh_git(&repo, &["commit", "-q", "-m", "first"]);
+
+    // `sleep` を既知のエージェントとして識別できるよう、テスト用のマニフェストを置く。
+    // 起動したジョブのコマンド行（`sleep 600`）が画面に出たら idle とみなす。
+    let manifest_dir = dir.path().join("agent_manifests");
+    std::fs::create_dir_all(&manifest_dir).unwrap();
+    std::fs::write(
+        manifest_dir.join("sleep.toml"),
+        r#"id = "sleep"
+version = "2026.01.01.1"
+min_engine_version = 1
+updated_at = "2026-01-01T00:00:00Z"
+
+[[rules]]
+id = "idle_literal"
+state = "idle"
+priority = 100
+region = "whole_recent"
+contains = ["sleep 600"]
+"#,
+    )
+    .unwrap();
 
     let store = ConfigStore::new(dir.path().join("config.json"));
     let mut cfg = store.load_all();
@@ -166,7 +174,10 @@ async fn spawn_front() -> Front {
     store
         .save_global_section(
             "jobs",
-            json!({"fixer": {"command": "true", "label": "Fixer"}}),
+            json!({
+                "fixer": {"command": "sleep 600", "label": "Fixer"},
+                "build": {"command": "true", "label": "Build"},
+            }),
         )
         .unwrap();
 
@@ -249,6 +260,32 @@ async fn direct_token_starts_the_agent_job_in_a_worktree_immediately() {
     );
     assert!(front.push_calls.lock().unwrap()[0].body_len > 0);
 
+    // 誰もターミナルへ接続していなくても、依頼のテキストが起動したエージェントへ届く。
+    let tmux_name = front
+        .state
+        .terminal_session(body["session_id"].as_str().unwrap())
+        .await
+        .unwrap()
+        .lock()
+        .await
+        .tmux_session_name
+        .clone();
+    let mut delivered = false;
+    for _ in 0..100 {
+        let screen = any_console_server::tmux::capture_visible_pane(&tmux_name)
+            .await
+            .unwrap_or_default();
+        if screen.contains("fix the failing test") {
+            delivered = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(
+        delivered,
+        "the text must be delivered without a websocket attach"
+    );
+
     let activity_dir = front
         .state
         .paths
@@ -321,6 +358,28 @@ async fn direct_requests_that_break_the_restrictions_return_400() {
     }
     assert!(front.state.dispatch.pending.lock().await.is_empty());
     assert!(front.state.dispatch.recent.lock().await.is_empty());
+}
+
+#[tokio::test]
+async fn direct_token_cannot_run_a_job_that_is_not_an_agent() {
+    let front = spawn_front().await;
+    let token = front.direct_token("cron", &DirectTokenLimits::default());
+    // `true` は終了してシェルに戻るため、テキストがシェルへの入力になってしまう。
+    let mut body = direct_body();
+    body["job"] = json!("build");
+    let resp = front.dispatch(&token, body).await;
+    assert_eq!(resp.status(), 400);
+    let detail: Value = resp.json().await.unwrap();
+    assert!(detail["detail"].as_str().unwrap().contains("agent"));
+
+    let mut unknown = direct_body();
+    unknown["job"] = json!("no-such-job");
+    assert_eq!(front.dispatch(&token, unknown).await.status(), 400);
+
+    assert!(front.state.dispatch.recent.lock().await.is_empty());
+    // 回数も消費していない（検証で弾いた要求は数えない）。
+    let ledger = front.state.paths.data_dir.join("activity").join("_global");
+    assert!(!ledger.exists());
 }
 
 #[tokio::test]

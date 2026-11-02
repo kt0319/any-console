@@ -1175,6 +1175,54 @@ fn count_direct_fired(data_dir: &FsPath, token_id: &str, now: i64) -> Result<usi
     Ok(count)
 }
 
+/// ジョブのコマンドの先頭（`VAR=value` の環境変数指定を除く）が既知のエージェントか。
+/// テキストは起動後のセッションの前面プロセスへ送るため、エージェントとして
+/// 識別できないジョブ（終了してシェルに戻るコマンドなど）は direct では使わせない。
+fn job_command_is_known_agent(state: &AppState, command: &str) -> bool {
+    first_program_of_command(command)
+        .is_some_and(|program| state.manifest_store.identify_agent(Some(program)).is_some())
+}
+
+fn first_program_of_command(command: &str) -> Option<&str> {
+    command.split_whitespace().find(|token| {
+        let is_env_assignment = token.split_once('=').is_some_and(|(name, _)| {
+            !name.is_empty()
+                && !name.starts_with(|c: char| c.is_ascii_digit())
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        });
+        !is_env_assignment
+    })
+}
+
+/// 起動したセッションへ、ブラウザの接続なしでテキストを送る（無人の呼び出しでは
+/// 誰もターミナルを開かないため）。送れなかった場合は push 通知と activity に残す。
+fn spawn_agent_input_delivery(state: &Arc<AppState>, launched: &Value, auth_label: &str) {
+    let (Some(session_id), Some(workspace)) = (
+        launched["session_id"].as_str().map(str::to_string),
+        launched["workspace"].as_str().map(str::to_string),
+    ) else {
+        return;
+    };
+    let state = state.clone();
+    let auth_label = auth_label.to_string();
+    tokio::spawn(async move {
+        let Err(detail) = crate::terminal::deliver_pending_text_to_agent(&state, &session_id).await
+        else {
+            return;
+        };
+        tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
+        log_dispatch_failed(&state, &workspace, &detail);
+        crate::push::spawn_push_notification(
+            &state,
+            "Dispatch (direct) input not delivered",
+            format!("{auth_label}\n{workspace}\n{detail}"),
+            format!("/?workspace={workspace}&session={session_id}"),
+            "dispatch",
+            None,
+        );
+    });
+}
+
 /// direct スコープで `direct: true` の要求を検証して即時起動する。
 /// 承認後の実行と同じ `execute_and_record` を通し、結果は recent 履歴に
 /// `auth: direct:<トークン名>` と `token_id` 付きで残る。起動したことは成否にかかわらず
@@ -1220,6 +1268,13 @@ async fn dispatch_direct(
                 body.workspace
             )));
         }
+    }
+
+    let job_def = resolve_job_def(state, &body.workspace, &body.job)?;
+    if !job_command_is_known_agent(state, &job_def.command) {
+        return Err(bad_request(
+            "direct tokens can only run agent jobs: the job command must start with a known agent (see agent_manifests/)",
+        ));
     }
 
     {
@@ -1286,6 +1341,7 @@ async fn dispatch_direct(
         None,
     );
     let mut response = result?;
+    spawn_agent_input_delivery(state, &response, auth_label);
     if let Value::Object(map) = &mut response {
         map.insert("dispatch_id".to_string(), json!(dispatch_id));
         map.insert("status".to_string(), json!("executed"));
@@ -1957,5 +2013,19 @@ mod tests {
             std::fs::write(ledger.join(format!("{today}.jsonl")), content).unwrap();
             assert!(count_direct_fired(dir.path(), "tok_a", now).is_err());
         }
+    }
+
+    #[test]
+    fn first_program_of_command_skips_env_assignments() {
+        assert_eq!(first_program_of_command("claude --x"), Some("claude"));
+        assert_eq!(
+            first_program_of_command("FOO=1 BAR_2=x claude"),
+            Some("claude")
+        );
+        assert_eq!(first_program_of_command("  codex  "), Some("codex"));
+        assert_eq!(first_program_of_command("npm run build"), Some("npm"));
+        assert_eq!(first_program_of_command("./run=weird"), Some("./run=weird"));
+        assert_eq!(first_program_of_command(""), None);
+        assert_eq!(first_program_of_command("FOO=1"), None);
     }
 }
