@@ -12,7 +12,7 @@ import { resolveDispatchJobLabel } from "../utils/dispatch-request.ts";
 import { emit, on } from "../app-bridge.ts";
 
 type DispatchQueueItem = { id: string, request: Record<string, any> };
-type DispatchRecentItem = DispatchQueueItem & { outcome: string };
+type DispatchRecentItem = DispatchQueueItem & { outcome: string, auth?: string };
 
 // Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。サーバがステータス
 // ストリーム WS（type="dispatch_queue"）で配信する全量スナップショットをそのまま
