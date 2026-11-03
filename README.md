@@ -177,7 +177,7 @@ Key fields on the request body (`server/src/dispatch.rs`):
 A direct token starts an agent job immediately, without approval, so a leaked token can run an agent but nothing more than these limits allow. Each request must satisfy all of:
 
 - `job` is required and must be an **agent job**: the job's command must start with a known agent (the executable name must match an agent in `agent_manifests/`, e.g. `claude`; a leading `VAR=value` is allowed). `terminal` and ordinary commands are rejected with 400, because once such a command exits the text would be typed into a shell. Wrapper scripts (`my-agent.sh`, `npx claude`, …) are rejected too.
-- `worktree` is required — the job never runs in the main checkout. The worktree must already exist.
+- `worktree` is required — the job never runs in the main checkout. If no worktree has this branch checked out, one is created under `.worktrees/` for an **existing** branch (local, or fetched from `origin`). A direct token never creates a new branch, and the branch checked out in the main working tree is rejected.
 - It always starts a **new** session: `session_id` is rejected (400) and existing sessions are never reused.
 - The request text is delivered to the agent by the server itself — nobody needs to open the terminal. It is sent once the agent is up and idle; if the agent is not running at that point (it failed to start or has exited back to a shell), the text is **not** typed into the shell, and you get a "not delivered" push notification. The history entry shows `executed` once the session has been launched.
 - `dedup_key` is rejected (400); it has no meaning for an immediate run. `branch` / `create_branch` / `base_branch` / `image_paths` are validated like any other dispatch.
@@ -193,7 +193,7 @@ curl -X POST https://<your-device>.ts.net/api-tokens \
   -H "Authorization: Bearer <main-token>" -H "Content-Type: application/json" \
   -d '{"name": "nightly-cron", "scope": "direct", "max_per_day": 4, "allowed_workspaces": ["my-project"], "expires_at": 1893456000}'
 
-# crontab: start the agent every night in an existing worktree
+# crontab: start the agent every night in a worktree (created on first use if the branch exists)
 0 3 * * * curl -fsS -X POST https://<your-device>.ts.net/dispatch -H "Authorization: Bearer $(cat ~/.any-console-direct-token)" -H "Content-Type: application/json" -d '{"workspace": "my-project", "worktree": "auto/nightly", "job": "claude", "text": "Run the test suite and fix flaky tests", "direct": true}'
 ```
 

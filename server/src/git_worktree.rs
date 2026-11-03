@@ -99,6 +99,87 @@ pub struct CreateWorktreeRequest {
     base: Option<String>,
 }
 
+/// 既存ブランチ（ローカル、またはリモートにあるもの）の worktree が無ければ作る。
+/// 新規ブランチは作らず、メイン作業ツリーで使用中のブランチも対象外。direct dispatch が
+/// 呼ぶため、`create_worktree` と違って作れる範囲を絞っている。
+pub(crate) async fn ensure_worktree_for_existing_branch(
+    state: &Arc<AppState>,
+    name: &str,
+    branch: &str,
+) -> Result<(), ApiError> {
+    let branch = validate_branch_name(branch)?;
+    if branch.starts_with('-') || branch.contains("..") {
+        return Err(bad_request(format!("Invalid branch name: {branch}")));
+    }
+
+    let _guard = state.git_locks.acquire(name).await?;
+    let ws_path = resolve_git_repo_path(state, name).await?;
+    let worktrees = git_worktree_list(&ws_path).await;
+    let branch_of = |wt: &Value| wt.get("branch").and_then(Value::as_str).map(str::to_string);
+    if worktrees
+        .iter()
+        .skip(1)
+        .any(|wt| branch_of(wt).as_deref() == Some(branch.as_str()))
+    {
+        return Ok(());
+    }
+    if worktrees.first().and_then(branch_of).as_deref() == Some(branch.as_str()) {
+        return Err(bad_request(format!(
+            "Branch '{branch}' is checked out in the main working tree; direct dispatch needs its own worktree"
+        )));
+    }
+
+    let main_path = main_worktree_path(&worktrees).unwrap_or_else(|| ws_path.clone());
+    let target = worktree_target_path(&main_path, &branch);
+    if target.exists() {
+        return Err(conflict(format!(
+            "Worktree path already exists: {}",
+            target.display()
+        )));
+    }
+
+    let target_str = target.to_string_lossy().into_owned();
+    let remote_ref = format!("origin/{branch}");
+    let args: Vec<&str> = if git_branches(&ws_path).await.contains(&branch) {
+        vec!["worktree", "add", &target_str, &branch]
+    } else {
+        let fetched = run_git_command(
+            &["fetch", "origin", &branch],
+            &ws_path,
+            GIT_LONG_TIMEOUT_SEC,
+            "fetch",
+            &[],
+        )
+        .await?;
+        crate::git_helpers::ensure_git_result_ok(
+            &fetched,
+            "Failed to fetch the branch from origin",
+        )?;
+        vec![
+            "worktree",
+            "add",
+            "--track",
+            "-b",
+            &branch,
+            &target_str,
+            &remote_ref,
+        ]
+    };
+    let result =
+        run_git_command(&args, &ws_path, GIT_LONG_TIMEOUT_SEC, "worktree add", &[]).await?;
+    crate::git_helpers::invalidate_and_publish_git_info(state, name, &ws_path);
+    crate::git_helpers::ensure_git_result_ok(&result, "Failed to create worktree")?;
+    tracing::info!(
+        "worktree created for direct dispatch workspace={name} branch={branch} path={}",
+        target.display()
+    );
+    Ok(())
+}
+
+fn worktree_target_path(main_path: &FsPath, branch: &str) -> PathBuf {
+    main_path.join(".worktrees").join(sanitize_segment(branch))
+}
+
 pub async fn create_worktree(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -117,7 +198,7 @@ pub async fn create_worktree(
     let main_path = main_worktree_path(&worktrees).unwrap_or_else(|| ws_path.clone());
 
     // メイン作業ツリー内の ".worktrees/<safe-branch>" に作る
-    let target = main_path.join(".worktrees").join(sanitize_segment(&branch));
+    let target = worktree_target_path(&main_path, &branch);
     if target.exists() {
         return Err(conflict(format!(
             "Worktree path already exists: {}",

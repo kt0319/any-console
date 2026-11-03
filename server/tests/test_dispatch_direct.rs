@@ -539,6 +539,11 @@ async fn failed_direct_run_is_recorded_notified_and_rerunnable_from_history() {
         "a failed direct run must be notified too"
     );
 
+    assert!(
+        !front.repo.join(".git/refs/heads/auto/later").exists(),
+        "a direct run must not create a branch"
+    );
+
     // worktree を用意してから、メイントークンで履歴から再実行する。
     front.add_worktree("auto/later", "proj-later");
     let rerun = common::client()
@@ -637,4 +642,71 @@ async fn expired_dispatch_token_returns_401() {
         .dispatch(&live, json!({"workspace": "proj", "text": "hello"}))
         .await;
     assert_eq!(resp.status(), 202);
+}
+
+#[tokio::test]
+async fn direct_token_creates_a_worktree_for_an_existing_local_branch() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    common::sh_git(&front.repo, &["branch", "auto/ci-fix"]);
+    let token = front.direct_token("cron", &DirectTokenLimits::default());
+
+    let resp = front.dispatch(&token, direct_body()).await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.repo.join(".worktrees/auto-ci-fix/a.txt").exists());
+}
+
+#[tokio::test]
+async fn direct_token_creates_a_worktree_for_a_branch_that_only_exists_on_origin() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let origin = front.repo.parent().unwrap().join("origin.git");
+    std::fs::create_dir_all(&origin).unwrap();
+    common::sh_git(&origin, &["init", "-q", "--bare"]);
+    common::sh_git(
+        &front.repo,
+        &["remote", "add", "origin", &origin.to_string_lossy()],
+    );
+    common::sh_git(&front.repo, &["branch", "auto/ci-fix"]);
+    common::sh_git(&front.repo, &["push", "-q", "origin", "auto/ci-fix"]);
+    common::sh_git(&front.repo, &["branch", "-D", "auto/ci-fix"]);
+    let token = front.direct_token("cron", &DirectTokenLimits::default());
+
+    let resp = front.dispatch(&token, direct_body()).await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.repo.join(".worktrees/auto-ci-fix/a.txt").exists());
+}
+
+#[tokio::test]
+async fn direct_token_cannot_take_over_the_branch_checked_out_in_the_main_working_tree() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let token = front.direct_token("cron", &DirectTokenLimits::default());
+    let mut body = direct_body();
+    body["worktree"] = json!("main");
+
+    let resp = front.dispatch(&token, body).await;
+    assert_eq!(resp.status(), 400);
+    assert!(!front.repo.join(".worktrees").exists());
+}
+
+#[tokio::test]
+async fn direct_token_rejects_branch_names_that_look_like_git_options() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let token = front.direct_token("cron", &DirectTokenLimits::default());
+    for name in ["--upload-pack", "a..b"] {
+        let mut body = direct_body();
+        body["worktree"] = json!(name);
+        let resp = front.dispatch(&token, body).await;
+        assert_eq!(resp.status(), 400, "{name}");
+    }
 }

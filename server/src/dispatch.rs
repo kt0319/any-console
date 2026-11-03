@@ -807,6 +807,10 @@ async fn resolve_and_launch_session(
 }
 
 async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, ApiError> {
+    if let Some(worktree) = body.worktree.as_deref().filter(|_| body.direct) {
+        crate::git_worktree::ensure_worktree_for_existing_branch(state, &body.workspace, worktree)
+            .await?;
+    }
     let effective_ws = body.effective_workspace();
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
