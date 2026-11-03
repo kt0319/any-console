@@ -51,6 +51,7 @@ const TMUX_META_ENV_NAMES: &[&str] = &[
     "TMUX_DETACHED",
     "TMUX_PENDING_TEXT",
     "TMUX_PENDING_ENTER",
+    "TMUX_PENDING_AGENT_ONLY",
 ];
 
 // ─── hook 用環境変数 ─────────────────────────────────────────────────────────

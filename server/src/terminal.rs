@@ -803,6 +803,22 @@ async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session
     // （複数行 text が1行の tmux 環境変数値として壊れずに運べるようにするため）。
     let text = tmux::decode_pending_text(encoded);
     let enter = meta.get("TMUX_PENDING_ENTER").map(String::as_str) != Some("0");
+    let agent_only = meta.get("TMUX_PENDING_AGENT_ONLY").map(String::as_str) == Some("1");
+    if agent_only {
+        // direct dispatch の入力は、ブラウザ接続や再起動後の復元でここへ来ても
+        // エージェントが前面にいる時だけ送る（シェルへ流さない）。
+        if let Err(detail) = deliver_pending_text_to_agent_process(
+            state,
+            full_tmux_name,
+            Duration::from_secs_f64(AGENT_START_TIMEOUT_SEC),
+            Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC),
+        )
+        .await
+        {
+            tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
+        }
+        return;
+    }
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_TEXT").await;
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_ENTER").await;
     // job が claude/codex 等の既知エージェントとして識別できる場合だけ、
@@ -833,6 +849,7 @@ pub(crate) async fn deliver_pending_text_to_agent(
         state,
         &full_tmux_name,
         Duration::from_secs_f64(AGENT_START_TIMEOUT_SEC),
+        Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC),
     )
     .await
 }
@@ -845,6 +862,7 @@ async fn deliver_pending_text_to_agent_process(
     state: &Arc<AppState>,
     full_tmux_name: &str,
     start_timeout: Duration,
+    ready_timeout: Duration,
 ) -> Result<(), String> {
     tokio::time::sleep(Duration::from_secs_f64(PENDING_TEXT_DELAY_SEC)).await;
     let meta = tmux::load_tmux_metadata(full_tmux_name).await;
@@ -855,13 +873,18 @@ async fn deliver_pending_text_to_agent_process(
     let enter = meta.get("TMUX_PENDING_ENTER").map(String::as_str) != Some("0");
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_TEXT").await;
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_ENTER").await;
+    tmux::unset_environment(full_tmux_name, "TMUX_PENDING_AGENT_ONLY").await;
     if text.is_empty() {
         return Ok(());
     }
     let Some(manifest) = wait_agent_process(state, full_tmux_name, start_timeout).await else {
         return Err("The agent did not start; the input was not delivered".to_string());
     };
-    wait_agent_idle(full_tmux_name, &manifest).await;
+    if !wait_agent_idle(full_tmux_name, &manifest, ready_timeout).await {
+        return Err(
+            "The agent did not become ready for input; the input was not delivered".to_string(),
+        );
+    }
     if running_agent(state, full_tmux_name).await.is_none() {
         return Err("The agent exited before the input could be delivered".to_string());
     }
@@ -924,14 +947,22 @@ async fn wait_agent_idle_if_known(state: &Arc<AppState>, full_tmux_name: &str) {
     let Some(manifest) = state.manifest_store.identify_agent(Some(&command)) else {
         return;
     };
-    wait_agent_idle(full_tmux_name, &manifest).await;
+    let ready_timeout = Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC);
+    if !wait_agent_idle(full_tmux_name, &manifest, ready_timeout).await {
+        tracing::warn!("agent not idle before pending text send session={full_tmux_name}");
+    }
 }
 
-async fn wait_agent_idle(full_tmux_name: &str, manifest: &Arc<screen_manifest::Manifest>) {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC);
+/// manifest 由来の idle を観測できれば true。タイムアウトや画面取得失敗は false。
+async fn wait_agent_idle(
+    full_tmux_name: &str,
+    manifest: &Arc<screen_manifest::Manifest>,
+    timeout: Duration,
+) -> bool {
+    let deadline = tokio::time::Instant::now() + timeout;
     while tokio::time::Instant::now() < deadline {
         let Some(capture) = tmux::capture_visible_pane(full_tmux_name).await else {
-            break;
+            return false;
         };
         let title = tmux::pane_command_and_title(full_tmux_name)
             .await
@@ -942,10 +973,11 @@ async fn wait_agent_idle(full_tmux_name: &str, manifest: &Arc<screen_manifest::M
         if state_str == screen_manifest::STATE_IDLE
             && source == agent_watch::AgentStateSource::Manifest
         {
-            return;
+            return true;
         }
         tokio::time::sleep(Duration::from_secs_f64(AGENT_READY_POLL_INTERVAL_SEC)).await;
     }
+    false
 }
 
 #[cfg(test)]
@@ -1106,8 +1138,13 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
-        let result =
-            deliver_pending_text_to_agent_process(&state, &name, Duration::from_millis(600)).await;
+        let result = deliver_pending_text_to_agent_process(
+            &state,
+            &name,
+            Duration::from_millis(600),
+            Duration::from_millis(600),
+        )
+        .await;
         assert!(result.is_err());
 
         let meta = tmux::load_tmux_metadata(&name).await;
@@ -1154,5 +1191,87 @@ mod tests {
         crate::subprocess::run_subprocess_safe(&["tmux", "kill-session", "-t", &name], 5.0, None)
             .await;
         assert_eq!(found.map(|m| m.id.clone()), Some("sleep".to_string()));
+    }
+
+    #[tokio::test]
+    async fn agent_only_pending_text_is_not_typed_into_a_shell_by_the_websocket_flush() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let name = format!("test-agent-only-{}", crate::util::token_hex(4));
+        crate::subprocess::run_subprocess_safe(
+            &["tmux", "new-session", "-d", "-s", &name],
+            5.0,
+            None,
+        )
+        .await;
+        let encoded = tmux::encode_pending_text("echo must-not-run");
+        tmux::set_environment(
+            &name,
+            &[
+                ("TMUX_PENDING_TEXT", &encoded),
+                ("TMUX_PENDING_ENTER", "1"),
+                ("TMUX_PENDING_AGENT_ONLY", "1"),
+            ],
+        )
+        .await;
+        assert!(tmux::wait_pane_ready(&name, 10.0).await);
+
+        let dir = tempfile::tempdir().unwrap();
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
+        flush_pending_text(&state, &name, "test-session").await;
+
+        let meta = tmux::load_tmux_metadata(&name).await;
+        assert!(!meta.contains_key("TMUX_PENDING_TEXT"));
+        let screen = tmux::capture_visible_pane(&name).await.unwrap_or_default();
+        assert!(!screen.contains("must-not-run"));
+        crate::subprocess::run_subprocess_safe(&["tmux", "kill-session", "-t", &name], 5.0, None)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn agent_delivery_fails_when_the_agent_never_becomes_idle() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("agent_manifests")).unwrap();
+        std::fs::write(
+            dir.path().join("agent_manifests/sleep.toml"),
+            "id = \"sleep\"\nversion = \"2026.01.01.1\"\nmin_engine_version = 1\nupdated_at = \"2026-01-01T00:00:00Z\"\n\n[[rules]]\nid = \"idle\"\nstate = \"idle\"\npriority = 100\nregion = \"whole_recent\"\ncontains = [\"never-shown-marker\"]\n",
+        )
+        .unwrap();
+        let script = dir.path().join("sleep");
+        std::fs::write(&script, "import time\ntime.sleep(60)\n").unwrap();
+
+        let name = format!("test-never-idle-{}", crate::util::token_hex(4));
+        crate::subprocess::run_subprocess_safe(
+            &["tmux", "new-session", "-d", "-s", &name],
+            5.0,
+            None,
+        )
+        .await;
+        assert!(tmux::wait_pane_ready(&name, 10.0).await);
+        let command = format!("python3 {}", script.display());
+        assert!(tmux::send_keys_to_tmux(&name, &command, true).await);
+        let encoded = tmux::encode_pending_text("echo must-not-be-sent");
+        tmux::set_environment(
+            &name,
+            &[("TMUX_PENDING_TEXT", &encoded), ("TMUX_PENDING_ENTER", "1")],
+        )
+        .await;
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
+        let result = deliver_pending_text_to_agent_process(
+            &state,
+            &name,
+            Duration::from_secs(5),
+            Duration::from_millis(800),
+        )
+        .await;
+        let screen = tmux::capture_visible_pane(&name).await.unwrap_or_default();
+        crate::subprocess::run_subprocess_safe(&["tmux", "kill-session", "-t", &name], 5.0, None)
+            .await;
+        assert!(result.is_err());
+        assert!(!screen.contains("must-not-be-sent"));
     }
 }

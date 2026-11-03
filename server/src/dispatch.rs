@@ -722,7 +722,7 @@ fn compose_text_with_images(text: &str, image_paths: &[String]) -> String {
 
 /// 新規作成セッションへ pending text を予約する（tmux 環境変数経由 — モジュール
 /// 冒頭の設計判断コメント参照）。
-async fn set_pending_text(tmux_name: &str, text: &str, enter: bool) {
+async fn set_pending_text(tmux_name: &str, text: &str, enter: bool, agent_only: bool) {
     // 改行を含む複数行 text も1行の tmux 環境変数値として安全に運べるよう
     // hex エンコードする（`tmux::encode_pending_text` のドキュメント参照）。
     let encoded = tmux::encode_pending_text(text);
@@ -731,6 +731,10 @@ async fn set_pending_text(tmux_name: &str, text: &str, enter: bool) {
         &[
             ("TMUX_PENDING_TEXT", &encoded),
             ("TMUX_PENDING_ENTER", if enter { "1" } else { "0" }),
+            (
+                "TMUX_PENDING_AGENT_ONLY",
+                if agent_only { "1" } else { "0" },
+            ),
         ],
     )
     .await;
@@ -794,7 +798,7 @@ async fn resolve_and_launch_session(
             }
             if has_input {
                 let text = compose_text_with_images(&body.text, &body.image_paths);
-                set_pending_text(&tmux_name, &text, body.enter).await;
+                set_pending_text(&tmux_name, &text, body.enter, body.direct).await;
             }
             (sid, true)
         }
