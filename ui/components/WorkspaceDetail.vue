@@ -83,7 +83,7 @@
           :item-id="selectedDispatchId"
           :preferred-session-id="dispatchPillSessionId"
           @back="selectedDispatchId = null"
-          @done="onDispatchRunDone"
+          :after-run="onDispatchRunDone"
         />
         <DispatchWorkspacePane v-else @select="selectedDispatchId = $event" />
       </div>

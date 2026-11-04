@@ -138,8 +138,11 @@ const props = defineProps({
   // サーバー側で既存セッションが見つからず existing_session_id が無い場合の
   // Session選択のデフォルトに使う。
   preferredSessionId: { type: String as PropType<string | null>, default: null },
+  // Runで新規タブが作られるとこのコンポーネント自身が破棄され、その後のemitはVueに
+  // 捨てられる。親のダイアログを確実に閉じるため、emitではなく関数propで通知する。
+  afterRun: { type: Function as PropType<() => void>, default: undefined },
 });
-const emits = defineEmits(["back", "done"]);
+const emits = defineEmits(["back"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { queue, recent, runItem } = useDispatchQueue();
@@ -413,14 +416,14 @@ async function run() {
       // worktree作成成功時点でモーダルを閉じ、以降のdispatch実行は結果を待たずバックグラウンド
       // で継続する（作成〜実行の2段階待ちでモーダルが開いたままになるのを避けるため）。
       // 実行自体が失敗した場合はrunItem内のapiPostが通常のエラートーストで通知する。
-      emits("done");
+      props.afterRun?.();
       runItem(itemId, overrides).catch(() => {});
       return;
     }
     const ok = await runItem(itemId, overrides);
     // Run 成功後はそのままセッションを見せたいので、一覧へ戻さずワークスペース
-    // 詳細ごと閉じる（emits("done")、WorkspaceDetail.vue参照）。
-    if (ok) emits("done");
+    // 詳細ごと閉じる（afterRun、WorkspaceDetail.vue参照）。
+    if (ok) props.afterRun?.();
   } finally {
     running.value = false;
   }

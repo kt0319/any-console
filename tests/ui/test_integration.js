@@ -501,6 +501,34 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
     }
   });
 
+  it("Run 成功時、実行中にコンポーネントが破棄されても afterRun で親へ通知する", async () => {
+    const originalFetch = global.fetch;
+    let wrapper;
+    global.fetch = vi.fn(async (url, init) => {
+      if (String(url).includes("/decision") && init?.method === "POST") {
+        // Runで新規タブが作られアクティブタブが切り替わり、WorkspaceDetailごと破棄される状況
+        wrapper.unmount();
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+      const afterRun = vi.fn();
+
+      wrapper = mount(DispatchRunView, { props: { itemId: "d1", afterRun } });
+      await flushPromises();
+      await findRunButton(wrapper).trigger("click");
+      await flushPromises();
+
+      expect(afterRun).toHaveBeenCalledTimes(1);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it("Change branch の初期値が実在しないブランチなら Run を disable してエラーを表示する", async () => {
     const originalFetch = global.fetch;
     global.fetch = vi.fn(async (url) => {
