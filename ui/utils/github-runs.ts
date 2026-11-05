@@ -29,6 +29,7 @@ export function mapGitHubRun(item: Record<string, any>) {
     status: item.status || "",
     conclusion: item.conclusion || "",
     headBranch: item.headBranch || "",
+    event: item.event || "",
     url: item.url || "",
   };
 }
@@ -53,11 +54,13 @@ export function findPRForBranch(
  * ピルが拾い続ける）不具合を防ぐ。
  */
 export function findRunForBranch(
-  runs: { headBranch?: string; workflowName?: string; status?: string; conclusion?: string }[] | null | undefined,
+  runs: { headBranch?: string; event?: string; workflowName?: string; status?: string; conclusion?: string }[] | null | undefined,
   branch: string | null | undefined,
 ): { headBranch?: string; status?: string; conclusion?: string } | null {
   if (!Array.isArray(runs) || !branch) return null;
-  const matches = runs.filter((run) => run.headBranch === branch);
+  // workflow_run で起動した run（Dispatch on CI failure 等）の headBranch は対象ブランチでなく
+  // 既定ブランチになるため、ブランチの run としては扱わない。
+  const matches = runs.filter((run) => run.headBranch === branch && run.event !== "workflow_run");
   if (matches.length === 0) return null;
   const seenWorkflows = new Set<string>();
   const latestPerWorkflow = matches.filter((run) => {

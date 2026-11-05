@@ -48,6 +48,15 @@ describe("findRunForBranch", () => {
     expect(findRunForBranch(runs, "main")).toEqual({ id: 10, headBranch: "main" });
   });
 
+  it("workflow_runで起動したrunは既定ブランチ上でもブランチのrunとして扱わない", () => {
+    const withNotifier = [
+      { id: 20, headBranch: "main", event: "workflow_run", workflowName: "Dispatch on CI failure", status: "completed", conclusion: "failure" },
+      { id: 21, headBranch: "main", event: "push", workflowName: "CI", status: "completed", conclusion: "success" },
+    ];
+    expect(findRunForBranch(withNotifier, "main")).toEqual(withNotifier[1]);
+    expect(findRunForBranch([withNotifier[0]], "main")).toBeNull();
+  });
+
   it("一致が無い/一覧未取得/ブランチ未解決はnull", () => {
     expect(findRunForBranch(runs, "other")).toBeNull();
     expect(findRunForBranch(null, "main")).toBeNull();

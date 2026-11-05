@@ -24,13 +24,13 @@ describe("useWorkspaceRuns", () => {
       ok: true,
       data: {
         status: "ok",
-        data: [{ databaseId: 1, displayTitle: "CI", status: "completed", conclusion: "success", headBranch: "main", url: "https://x" }],
+        data: [{ databaseId: 1, displayTitle: "CI", status: "completed", conclusion: "success", headBranch: "main", event: "push", url: "https://x" }],
       },
     });
     const { useWorkspaceRuns } = await freshModule();
     const { fetchRuns, runsByWorkspace } = useWorkspaceRuns();
     const items = await fetchRuns("ws1");
-    expect(items).toEqual([{ id: 1, name: "CI", workflowName: "", status: "completed", conclusion: "success", headBranch: "main", url: "https://x" }]);
+    expect(items).toEqual([{ id: 1, name: "CI", workflowName: "", status: "completed", conclusion: "success", headBranch: "main", event: "push", url: "https://x" }]);
     expect(runsByWorkspace.value.ws1).toEqual(items);
   });
 
