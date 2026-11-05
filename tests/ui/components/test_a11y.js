@@ -151,7 +151,7 @@ describe("a11y: PathPreviewDialog", () => {
     const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
     emit("terminal:path", { path: "/etc/hosts", sessionId: "s1" });
     await nextTick();
-    expect(wrapper.find(".dialog-title").text()).toBe("Open file");
+    expect(wrapper.find(".dialog-title").text()).toBe("Preview file");
     expect(wrapper.find(".dialog-copy-input").element.value).toBe("/etc/hosts");
     expect(wrapper.text()).toContain("Loading...");
 

@@ -1,8 +1,8 @@
 <template>
   <BaseDialog :visible="!!path" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="close">
-    <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Open file">
+    <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Preview file">
       <DialogCloseButton @close="close" />
-      <div class="dialog-title dialog-title-closable">Open file</div>
+      <div class="dialog-title dialog-title-closable">Preview file</div>
       <DialogCopyField :value="path" label="path" />
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
         <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" />
@@ -87,6 +87,10 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 .path-preview-dialog-image {
   padding: 6px;
   gap: 6px;
+}
+
+.path-preview-dialog-image .dialog-title {
+  padding: 4px 38px 0 8px;
 }
 
 .path-preview-body-image {
