@@ -93,6 +93,19 @@ export function baseWorkspaceName(name?: string | null): string {
 }
 
 /**
+ * 新しいタブを置く位置。worktreeのタブは同じベースワークスペースの最後のタブの
+ * 隣に入れ、同じベースのタブが無ければ末尾にする。
+ */
+export function tabInsertIndex(tabs: { workspace?: string | null }[], workspace?: string | null): number {
+  const base = baseWorkspaceName(workspace);
+  if (!base || base === workspace) return tabs.length;
+  for (let i = tabs.length - 1; i >= 0; i--) {
+    if (baseWorkspaceName(tabs[i].workspace) === base) return i + 1;
+  }
+  return tabs.length;
+}
+
+/**
  * baseWorkspaceName の逆。ベース名とブランチ名から worktree のワークスペース名
  * （"base:branch"形式）を組み立てる（server/src/git_utils.rs の
  * worktree_workspace_name と同じ規則）。

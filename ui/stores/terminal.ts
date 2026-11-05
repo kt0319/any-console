@@ -3,6 +3,7 @@ import { ref, reactive, computed, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { LS_KEY_ACTIVE_SESSION } from "../utils/constants.ts";
+import { tabInsertIndex } from "../utils/worktree.ts";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.ts";
 import { useAuthStore } from "./auth.ts";
 import { useAgentStateStore } from "./agent-state.ts";
@@ -139,7 +140,9 @@ export const useTerminalStore = defineStore("terminal", () => {
       _elementBound: false,
     });
 
-    openTabs.value.push(tab);
+    const insertAt = restored ? openTabs.value.length : tabInsertIndex(openTabs.value, tab.workspace);
+    openTabs.value.splice(insertAt, 0, tab);
+    if (insertAt < openTabs.value.length - 1) saveTabOrder();
     return tab;
   }
 

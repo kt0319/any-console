@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeResidueNote, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName } from "../../ui/utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeResidueNote, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName, tabInsertIndex } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -160,5 +160,22 @@ describe("worktreeWorkspaceName", () => {
     expect(worktreeWorkspaceName("", "feat/x")).toBe("");
     expect(worktreeWorkspaceName("app", "")).toBe("");
     expect(worktreeWorkspaceName(undefined, undefined)).toBe("");
+  });
+});
+
+describe("tabInsertIndex", () => {
+  const tabs = [{ workspace: "app" }, { workspace: "app:feat" }, { workspace: "other" }, { workspace: null }];
+
+  it("worktreeのタブは同じベースの最後のタブの隣に入れる", () => {
+    expect(tabInsertIndex(tabs, "app:fix")).toBe(2);
+  });
+
+  it("同じベースのタブが無ければ末尾にする", () => {
+    expect(tabInsertIndex(tabs, "none:fix")).toBe(4);
+  });
+
+  it("worktreeでないタブは末尾にする", () => {
+    expect(tabInsertIndex(tabs, "app")).toBe(4);
+    expect(tabInsertIndex(tabs, null)).toBe(4);
   });
 });
