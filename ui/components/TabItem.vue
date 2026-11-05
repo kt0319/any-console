@@ -18,6 +18,7 @@
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
   >
+    <span v-if="isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span v-if="showWsIcon" class="tab-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
       <span v-if="isDirty" class="dirty-badge" aria-label="uncommitted changes"></span>
@@ -26,7 +27,6 @@
       <span v-html="iconHtml"></span>
       <span v-if="!showWsIcon && isDirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
-    <span v-if="isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span class="tab-extra">
       {{ label }}
       <span

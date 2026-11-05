@@ -1,12 +1,12 @@
 <template>
   <span class="session-sidebar-main">
+    <span v-if="item.isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree"></span>
     <span v-if="wsIconHtml" class="session-sidebar-icon session-sidebar-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
       <span v-if="item.dirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
     <span v-if="jobIconHtml" class="session-sidebar-icon" v-html="jobIconHtml"></span>
     <span v-if="!wsIconHtml && !jobIconHtml && !item.isWorktree" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
-    <span v-if="item.isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree"></span>
     <span class="session-sidebar-label" :class="{ 'session-sidebar-label-dim': dim }">{{ item.label }}</span>
     <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
   </span>
