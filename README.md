@@ -158,7 +158,7 @@ Key fields on the request body (`server/src/dispatch.rs`):
 | `text` | Text to send to the session (e.g. a shell command) |
 | `branch` | Checkout this branch before running (rejected with 400 if the workspace has uncommitted changes and the branch differs from the current one) |
 | `create_branch` / `base_branch` | Create `branch` (from `base_branch`, default: current HEAD) when it does not exist yet, instead of failing |
-| `worktree` | Target the git worktree of `workspace` that has this branch checked out, instead of the base checkout |
+| `worktree` | Target the git worktree of `workspace` that has this branch checked out, instead of the base checkout. If no worktree has it yet, one is created under `.worktrees/` when the request is run (approved) — only for an **existing** branch (local, or fetched from `origin`); a new branch is never created and the branch checked out in the main working tree is rejected |
 | `dedup_key` | Opaque string; a new request with the same key replaces the still-pending one instead of queuing a duplicate (useful for repeated CI-failure dispatches) |
 | `image_paths` | Server-local file paths (e.g. from `POST /upload-image`); on run, they're appended to `text` as `Image: <path>` lines so CLI agents in the session can read them with their own file tools — they are not sent as binary data |
 

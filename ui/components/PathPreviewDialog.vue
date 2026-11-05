@@ -95,11 +95,13 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 /* ダイアログの高さが内容で決まるため、画像の上限はパス行とボタン行を除いた画面高さで与える */
 .path-preview-body-image :deep(.file-content-image-wrap) {
   padding: 0;
-  align-items: center;
   max-height: calc(var(--app-dvh) - var(--path-preview-chrome-height));
 }
 
+/* 縦中央寄せは align-items:center ではなく auto マージンで行う（center だと拡大して枠より
+   高くなった画像の上側が、スクロールで届かない領域にはみ出す） */
 .path-preview-body-image :deep(.file-content-image) {
+  margin: auto;
   max-height: calc(var(--app-dvh) - var(--path-preview-chrome-height));
   border: none;
   border-radius: 0;
