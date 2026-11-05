@@ -33,6 +33,9 @@ const PENDING_TEXT_DELAY_SEC: f64 = 0.5;
 /// 画面上でidleになるまで待つ上限（`wait_agent_idle_if_known`参照）。
 const AGENT_READY_TIMEOUT_SEC: f64 = 8.0;
 const AGENT_READY_POLL_INTERVAL_SEC: f64 = 0.2;
+/// direct dispatch の入力送信が、他の attach の flush 権（保留テキスト設定前の空振りなら
+/// 手放される）を待つ上限。`PENDING_TEXT_DELAY_SEC` 後に結論が出るので余裕を持たせる。
+const PENDING_CLAIM_WAIT_SEC: f64 = 3.0;
 /// direct dispatch で、job の起動後にエージェントのプロセスが現れるのを待つ上限。
 const AGENT_START_TIMEOUT_SEC: f64 = 15.0;
 const WS_PING_INTERVAL_SEC: u64 = 15;
@@ -703,8 +706,13 @@ async fn handle_terminal_ws(
     if let Some(full_name) = flush_target {
         let session_id_for_flush = session_id.clone();
         let state_for_flush = state.clone();
+        let session_for_flush = session_arc.clone();
         tokio::spawn(async move {
-            flush_pending_text(&state_for_flush, &full_name, &session_id_for_flush).await;
+            let had_pending_text =
+                flush_pending_text(&state_for_flush, &full_name, &session_id_for_flush).await;
+            if !had_pending_text {
+                session_for_flush.lock().await.release_pending_text_flush();
+            }
         });
     }
 
@@ -812,11 +820,13 @@ async fn handle_resize(
 /// dispatch が新規セッションに予約したテキストを attach 後の初期 redraw を
 /// 待ってから送る（Python `_flush_pending_text` 相当。永続先が tmux 環境変数
 /// なのでプロセスをまたいでも安全 — 詳細は dispatch.rs のコメント参照）。
-async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session_id: &str) {
+///
+/// 保留テキストが無くて何もしなかったときは false を返す（呼び出し側が flush 権を手放す）。
+async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session_id: &str) -> bool {
     tokio::time::sleep(Duration::from_secs_f64(PENDING_TEXT_DELAY_SEC)).await;
     let meta = tmux::load_tmux_metadata(full_tmux_name).await;
     let Some(encoded) = meta.get("TMUX_PENDING_TEXT").filter(|s| !s.is_empty()) else {
-        return;
+        return false;
     };
     // dispatch.rs 側の set_pending_text が hex エンコードして保存している
     // （複数行 text が1行の tmux 環境変数値として壊れずに運べるようにするため）。
@@ -836,7 +846,7 @@ async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session
         {
             tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
         }
-        return;
+        return true;
     }
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_TEXT").await;
     tmux::unset_environment(full_tmux_name, "TMUX_PENDING_ENTER").await;
@@ -847,11 +857,17 @@ async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session
     if !text.is_empty() && !tmux::send_keys_to_tmux(full_tmux_name, &text, enter).await {
         tracing::warn!("pending text send-keys failed session={session_id}");
     }
+    true
 }
 
 /// direct dispatch 用に、ブラウザの接続なしで pending text をエージェントへ送る。
 /// `flush_pending_text` と同じく flush 権を1回だけクレームするので、後からターミナルへ
 /// attach されても二重には送られない。
+///
+/// セッションは保留テキストの設定前に公開されるため、早く attach した WS が flush 権を
+/// 持っていることがある。その WS は保留テキストが無ければ権利を手放し、あれば自分で
+/// 送って環境変数を消す。どちらになるかを待ってから、取れたら送り、消えていたら
+/// 送信済みとして扱う。
 pub(crate) async fn deliver_pending_text_to_agent(
     state: &Arc<AppState>,
     session_id: &str,
@@ -860,17 +876,55 @@ pub(crate) async fn deliver_pending_text_to_agent(
         .terminal_session(session_id)
         .await
         .map_err(|e| e.detail)?;
-    let claimed = session_arc.lock().await.claim_pending_text_flush();
-    let Some(full_tmux_name) = claimed else {
-        return Ok(());
-    };
-    deliver_pending_text_to_agent_process(
+    deliver_pending_text_when_claimable(
         state,
-        &full_tmux_name,
+        &session_arc,
+        Duration::from_secs_f64(PENDING_CLAIM_WAIT_SEC),
         Duration::from_secs_f64(AGENT_START_TIMEOUT_SEC),
         Duration::from_secs_f64(AGENT_READY_TIMEOUT_SEC),
     )
     .await
+}
+
+async fn deliver_pending_text_when_claimable(
+    state: &Arc<AppState>,
+    session_arc: &Arc<tokio::sync::Mutex<crate::terminal_session::TerminalSession>>,
+    claim_wait: Duration,
+    start_timeout: Duration,
+    ready_timeout: Duration,
+) -> Result<(), String> {
+    let deadline = tokio::time::Instant::now() + claim_wait;
+    loop {
+        let (claimed, full_tmux_name) = {
+            let mut session = session_arc.lock().await;
+            (
+                session.claim_pending_text_flush(),
+                session.tmux_session_name.clone(),
+            )
+        };
+        if let Some(full_tmux_name) = claimed {
+            return deliver_pending_text_to_agent_process(
+                state,
+                &full_tmux_name,
+                start_timeout,
+                ready_timeout,
+            )
+            .await;
+        }
+        let meta = tmux::load_tmux_metadata(&full_tmux_name).await;
+        if meta
+            .get("TMUX_PENDING_TEXT")
+            .is_none_or(|text| text.is_empty())
+        {
+            return Ok(());
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Err(
+                "Another connection holds the input delivery and did not finish it".to_string(),
+            );
+        }
+        tokio::time::sleep(Duration::from_secs_f64(AGENT_READY_POLL_INTERVAL_SEC)).await;
+    }
 }
 
 /// 前面がエージェントのプロセスであることを確かめてから送る。job のコマンドが
@@ -1292,5 +1346,126 @@ mod tests {
             .await;
         assert!(result.is_err());
         assert!(!screen.contains("must-not-be-sent"));
+    }
+
+    async fn registered_test_session(
+        state: &Arc<AppState>,
+    ) -> Arc<tokio::sync::Mutex<crate::terminal_session::TerminalSession>> {
+        let (_, session_arc) = state
+            .terminal_registry
+            .create_registered_session(
+                &state.paths.data_dir,
+                &state.config,
+                &state.paths.tmux_prefix,
+                crate::terminal_session::NewSessionSpec::default(),
+            )
+            .await
+            .expect("session should be created");
+        let name = session_arc.lock().await.tmux_session_name.clone();
+        assert!(tmux::wait_pane_ready(&name, 10.0).await);
+        session_arc
+    }
+
+    #[tokio::test]
+    async fn direct_delivery_still_runs_after_an_early_attach_found_no_pending_text() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
+        let session_arc = registered_test_session(&state).await;
+        let name = session_arc.lock().await.tmux_session_name.clone();
+
+        // 保留テキストの設定前に attach した WS が flush 権を取り、空振りして手放す。
+        assert!(session_arc
+            .lock()
+            .await
+            .claim_pending_text_flush()
+            .is_some());
+        assert!(!flush_pending_text(&state, &name, "early").await);
+        session_arc.lock().await.release_pending_text_flush();
+
+        let encoded = tmux::encode_pending_text("echo must-not-run");
+        tmux::set_environment(
+            &name,
+            &[("TMUX_PENDING_TEXT", &encoded), ("TMUX_PENDING_ENTER", "1")],
+        )
+        .await;
+        let result = deliver_pending_text_when_claimable(
+            &state,
+            &session_arc,
+            Duration::from_secs(2),
+            Duration::from_millis(600),
+            Duration::from_millis(600),
+        )
+        .await;
+
+        // 権利を取って送信を試みた（素のシェルなので、エージェント不在として失敗し、
+        // 保留テキストは消える）。
+        let detail = result.expect_err("a plain shell is not an agent");
+        assert!(detail.contains("agent did not start"), "{detail}");
+        let meta = tmux::load_tmux_metadata(&name).await;
+        assert!(!meta.contains_key("TMUX_PENDING_TEXT"));
+        crate::subprocess::kill_tmux_by_name(&name).await;
+    }
+
+    #[tokio::test]
+    async fn direct_delivery_is_done_when_another_attach_already_consumed_the_text() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
+        let session_arc = registered_test_session(&state).await;
+        let name = session_arc.lock().await.tmux_session_name.clone();
+        assert!(session_arc
+            .lock()
+            .await
+            .claim_pending_text_flush()
+            .is_some());
+
+        let result = deliver_pending_text_when_claimable(
+            &state,
+            &session_arc,
+            Duration::from_secs(2),
+            Duration::from_millis(600),
+            Duration::from_millis(600),
+        )
+        .await;
+        assert!(result.is_ok());
+        crate::subprocess::kill_tmux_by_name(&name).await;
+    }
+
+    #[tokio::test]
+    async fn direct_delivery_fails_when_another_attach_keeps_the_claim_without_finishing() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let state = Arc::new(crate::state::test_app_state(dir.path(), "test-", 1000));
+        let session_arc = registered_test_session(&state).await;
+        let name = session_arc.lock().await.tmux_session_name.clone();
+        assert!(session_arc
+            .lock()
+            .await
+            .claim_pending_text_flush()
+            .is_some());
+        let encoded = tmux::encode_pending_text("echo pending");
+        tmux::set_environment(
+            &name,
+            &[("TMUX_PENDING_TEXT", &encoded), ("TMUX_PENDING_ENTER", "1")],
+        )
+        .await;
+
+        let result = deliver_pending_text_when_claimable(
+            &state,
+            &session_arc,
+            Duration::from_millis(600),
+            Duration::from_millis(600),
+            Duration::from_millis(600),
+        )
+        .await;
+        assert!(result.is_err());
+        crate::subprocess::kill_tmux_by_name(&name).await;
     }
 }
