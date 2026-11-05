@@ -5,7 +5,7 @@ import { useToast } from "./useToast.ts";
 import { emit } from "../app-bridge.ts";
 import { triggerBlobDownload } from "../utils/download.ts";
 import { extractFilenameFromContentDisposition } from "../utils/content-disposition.ts";
-import { workspaceDownloadPath, terminalSessionDownloadPath, terminalSessionDeleteFilePath } from "../utils/endpoints.ts";
+import { workspaceDownloadPath, terminalSessionDownloadPath, terminalSessionDeleteFilePath, terminalSessionOpenPathDownload } from "../utils/endpoints.ts";
 import { basename } from "../utils/path.ts";
 
 // getTerminalSessionId が空でない時は、ワークスペース未紐付けの素のターミナルとして
@@ -41,6 +41,11 @@ export function useWorkspaceFile({ getTerminalSessionId = () => "" }: { getTermi
     return result ?? false;
   }
 
+  // ターミナルに表示されたパス（絶対・~・相対。cwdの外も可）を開いたダイアログ用。
+  async function downloadTerminalOpenedPath(sessionId: string, filePath: string) {
+    return await fetchAndSaveDownload(terminalSessionOpenPathDownload(sessionId, filePath), filePath);
+  }
+
   async function deleteWorkspaceFile(filePath: string, { errorMessage = "Delete failed" }: { errorMessage?: string } = {}) {
     const text = `Deleted ${basename(filePath)}`;
     const sessionId = getTerminalSessionId();
@@ -57,5 +62,5 @@ export function useWorkspaceFile({ getTerminalSessionId = () => "" }: { getTermi
     return result ?? false;
   }
 
-  return { downloadWorkspaceFile, deleteWorkspaceFile };
+  return { downloadWorkspaceFile, downloadTerminalOpenedPath, deleteWorkspaceFile };
 }

@@ -157,11 +157,45 @@ describe("a11y: PathPreviewDialog", () => {
 
     await flushPromises();
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
-    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Close"]);
+    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Close", "Download"]);
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
     await wrapper.find(".dialog-buttons .dialog-btn-cancel").trigger("click");
     expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
     wrapper.unmount();
+  });
+
+  it("Download は読み込み中は押せず、押すと open-path/download から取得して保存する", async () => {
+    const blob = new Blob(["127.0.0.1 localhost\n"]);
+    const auth = mockOpenPath({
+      ok: true,
+      json: async () => ({ content: "127.0.0.1 localhost\n", size: 20 }),
+      blob: async () => blob,
+      headers: { get: () => null },
+    });
+    const createObjectURL = vi.fn(() => "blob:x");
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
+    try {
+      emit("terminal:path", { path: "/etc/hosts", sessionId: "s1" });
+      await nextTick();
+      const downloadBtn = () => wrapper.findAll(".dialog-buttons > .dialog-btn").find((b) => b.text().includes("Download"));
+      expect(downloadBtn().attributes("disabled")).toBeDefined();
+
+      await flushPromises();
+      expect(downloadBtn().attributes("disabled")).toBeUndefined();
+      auth.apiFetch.mockClear();
+      await downloadBtn().trigger("click");
+      await flushPromises();
+      expect(auth.apiFetch).toHaveBeenCalledWith("/terminal/sessions/s1/open-path/download?path=%2Fetc%2Fhosts");
+      expect(createObjectURL).toHaveBeenCalledWith(blob);
+    } finally {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+      wrapper.unmount();
+    }
   });
 
   it("取得に失敗したらダイアログを閉じる", async () => {

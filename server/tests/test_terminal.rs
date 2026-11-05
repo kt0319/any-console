@@ -72,6 +72,10 @@ fn terminal_router(state: Arc<AppState>) -> Router {
             "/terminal/sessions/{session_id}/download",
             get(terminal::download_terminal_session_file),
         )
+        .route(
+            "/terminal/sessions/{session_id}/open-path/download",
+            get(terminal::download_terminal_session_open_path),
+        )
         .route("/terminal/ws/{session_id}", get(terminal::terminal_ws))
         .with_state(state)
 }
@@ -322,6 +326,73 @@ async fn terminal_session_rename_download_delete_stay_inside_cwd() {
     let resp = post("delete-file", json!({"path": "dir"})).await.unwrap();
     assert_eq!(resp.status(), 200);
     assert!(!cwd.path().join("dir").exists());
+
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
+/// Open file ダイアログのダウンロードは open-path と同じ解決規則で、cwd の外（絶対パス）
+/// のファイルも返し、存在しないパス・ディレクトリは 404、認証なしは 401 になること。
+#[tokio::test]
+async fn open_path_download_resolves_like_open_path() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let cwd = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    std::fs::write(cwd.path().join("rel.txt"), b"relative").unwrap();
+    std::fs::create_dir(cwd.path().join("dir")).unwrap();
+    let outside = elsewhere.path().join("outside.txt");
+    std::fs::write(&outside, b"outside").unwrap();
+    let session_id = "open-path-download";
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::run_subprocess_safe(
+        &[
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            &full_name,
+            "-c",
+            &cwd.path().to_string_lossy(),
+        ],
+        5.0,
+        None,
+    )
+    .await;
+    let url = format!(
+        "http://{}/terminal/sessions/{session_id}/open-path/download",
+        front.addr
+    );
+    let get = |path: &str| {
+        common::client()
+            .get(&url)
+            .query(&[("path", path)])
+            .bearer_auth(TOKEN)
+            .send()
+    };
+
+    let resp = get("rel.txt").await.unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(resp.headers()["content-disposition"]
+        .to_str()
+        .unwrap()
+        .contains("rel.txt"));
+    assert_eq!(resp.bytes().await.unwrap().as_ref(), b"relative");
+
+    let resp = get(&outside.to_string_lossy()).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.bytes().await.unwrap().as_ref(), b"outside");
+
+    assert_eq!(get("missing.txt").await.unwrap().status(), 404);
+    assert_eq!(get("dir").await.unwrap().status(), 404);
+    let unauthenticated = common::client()
+        .get(&url)
+        .query(&[("path", "rel.txt")])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unauthenticated.status(), 401);
 
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }
