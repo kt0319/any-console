@@ -23,7 +23,7 @@ test.describe("detached sessions", () => {
     await tabs.last().locator(".tab-close").click();
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await dialog.locator(".confirm-btn-extra2").click();
+    await dialog.locator(".confirm-btn-extra").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 5000 });
 
     // Openタブの「Detached Sessions」カテゴリに現れる。
@@ -47,7 +47,7 @@ test.describe("detached sessions", () => {
     await tabs.last().locator(".tab-close").click();
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await dialog.locator(".confirm-btn-extra2").click();
+    await dialog.locator(".confirm-btn-extra").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 5000 });
 
     await openWorkspaces(page);
