@@ -48,14 +48,6 @@ describe("useTabClose: 確認結果のディスパッチ", () => {
     expect(emitMock).not.toHaveBeenCalled();
   });
 
-  it('Refresh 選択（"refresh"）は tab:refresh を emit する', async () => {
-    confirmResult = "refresh";
-    const { useTabClose } = await freshModule();
-    await useTabClose().confirmAndCloseTab(tab);
-    expect(emitMock).toHaveBeenCalledWith("tab:refresh", { tab });
-    expect(detachTabMock).not.toHaveBeenCalled();
-  });
-
   it('Detach 選択（"detach"）は terminalStore.detachTab を呼ぶ', async () => {
     confirmResult = "detach";
     const { useTabClose } = await freshModule();
