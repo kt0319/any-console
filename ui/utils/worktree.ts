@@ -93,14 +93,23 @@ export function baseWorkspaceName(name?: string | null): string {
 }
 
 /**
- * 新しいタブを置く位置。worktreeのタブは同じベースワークスペースの最後のタブの
- * 隣に入れ、同じベースのタブが無ければ末尾にする。
+ * 新しいタブを置く位置。worktreeのタブは同じベースワークスペースの最後のタブの隣に入れる。
+ * ベースワークスペースのタブは、同じワークスペースのタブがあればその最後の隣、
+ * worktreeのタブだけがあればその先頭の左に入れる。同じベースのタブが無ければ末尾にする。
  */
 export function tabInsertIndex(tabs: { workspace?: string | null }[], workspace?: string | null): number {
   const base = baseWorkspaceName(workspace);
-  if (!base || base === workspace) return tabs.length;
+  if (!base) return tabs.length;
+  const sameBase = (i: number) => baseWorkspaceName(tabs[i].workspace) === base;
+  if (base === workspace) {
+    for (let i = tabs.length - 1; i >= 0; i--) {
+      if (tabs[i].workspace === base) return i + 1;
+    }
+    const firstWorktree = tabs.findIndex((_, i) => sameBase(i));
+    return firstWorktree === -1 ? tabs.length : firstWorktree;
+  }
   for (let i = tabs.length - 1; i >= 0; i--) {
-    if (baseWorkspaceName(tabs[i].workspace) === base) return i + 1;
+    if (sameBase(i)) return i + 1;
   }
   return tabs.length;
 }

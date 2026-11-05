@@ -39,6 +39,7 @@
             :active-tab-id="activeTabId"
             :is-panel-bottom="isPanelBottom"
             :is-narrow="isNarrowViewport"
+            :in-group="group.items.length > 1"
             @select="onSelect"
           />
         </div>

@@ -174,8 +174,17 @@ describe("tabInsertIndex", () => {
     expect(tabInsertIndex(tabs, "none:fix")).toBe(4);
   });
 
-  it("worktreeでないタブは末尾にする", () => {
-    expect(tabInsertIndex(tabs, "app")).toBe(4);
+  it("ワークスペースのタブは同じワークスペースの最後のタブの隣に入れる", () => {
+    expect(tabInsertIndex(tabs, "app")).toBe(1);
+  });
+
+  it("ワークスペースのタブは、worktreeのタブだけがあればその先頭の左に入れる", () => {
+    const onlyWorktrees = [{ workspace: "other" }, { workspace: "app:a" }, { workspace: "app:b" }];
+    expect(tabInsertIndex(onlyWorktrees, "app")).toBe(1);
+  });
+
+  it("同じベースが無いワークスペースのタブとworktreeでないタブは末尾にする", () => {
+    expect(tabInsertIndex(tabs, "none")).toBe(4);
     expect(tabInsertIndex(tabs, null)).toBe(4);
   });
 });

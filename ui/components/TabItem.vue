@@ -59,6 +59,8 @@ const props = defineProps({
   // ラベル表示可否等、タブ自体の幅広/幅狭に使う。isPanelBottomとは独立
   // （実際の画面幅で決まる。TabBar.vue参照）。
   isNarrow: { type: Boolean, default: false },
+  // 同じワークスペースのタブとグループ表示されているか（TabBar.vue参照）。
+  inGroup: { type: Boolean, default: false },
 });
 
 const emits = defineEmits(["select"]);
@@ -145,8 +147,9 @@ const wsIconHtml = computed(() => {
   return "";
 });
 
-// worktreeはグループ背景でベースと結び付いて見えるため、ベースと同じワークスペースアイコンは出さない。
-const showWsIcon = computed(() => !!wsIconHtml.value && !isWorktree.value);
+// worktreeがベースとグループ表示されている間は、グループ背景で結び付いて見えるため
+// ベースと同じワークスペースアイコンは出さない。
+const showWsIcon = computed(() => !!wsIconHtml.value && !(isWorktree.value && props.inGroup));
 
 const iconHtml = computed(() => {
   terminalStore.tabWorkspaceVersion;
