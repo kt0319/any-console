@@ -51,6 +51,7 @@ const TMUX_META_ENV_NAMES: &[&str] = &[
     "TMUX_DETACHED",
     "TMUX_PENDING_TEXT",
     "TMUX_PENDING_ENTER",
+    "TMUX_PENDING_AGENT_ONLY",
 ];
 
 // ─── hook 用環境変数 ─────────────────────────────────────────────────────────
@@ -459,6 +460,13 @@ pub async fn pane_command_and_title(tmux_name: &str) -> Option<(String, String)>
         .await
         .unwrap_or_default();
     Some((command, title))
+}
+
+/// ペインのシェル（セッションの最初のプロセス）の PID。
+pub async fn pane_pid(tmux_name: &str) -> Option<i64> {
+    display_message_int(tmux_name, "#{pane_pid}")
+        .await
+        .filter(|pid| *pid > 0)
 }
 
 pub async fn get_session_cwd(tmux_name: &str) -> Option<String> {

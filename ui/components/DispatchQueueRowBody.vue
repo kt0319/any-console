@@ -9,6 +9,7 @@
       <span class="mdi mdi-clock-outline"></span>{{ timeLabel }}
     </span>
   </span>
+  <span v-if="auth" class="dispatch-queue-auth">{{ auth }}</span>
   <span v-if="request.text" class="dispatch-queue-text">{{ request.text }}</span>
 </template>
 
@@ -25,6 +26,8 @@ import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 const props = defineProps({
   request: { type: Object, required: true },
   outcome: { type: String, default: "" },
+  // direct スコープのトークンで実行された履歴項目の実行元（`direct:<トークン名>`）。
+  auth: { type: String, default: "" },
 });
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
@@ -79,6 +82,11 @@ const timeTooltip = computed(() => {
 
 .dispatch-queue-time .mdi {
   font-size: 12px;
+}
+
+.dispatch-queue-auth {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .dispatch-queue-text {

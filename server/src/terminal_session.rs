@@ -284,6 +284,13 @@ impl TerminalSession {
             Some(self.tmux_session_name.clone())
         }
     }
+
+    /// flush 権を取ったが保留テキストがまだ無く、何も送らずに終わった attach が権利を
+    /// 手放す（セッションは保留テキストの設定前に公開されるため、早い attach が
+    /// 空振りしたまま権利を持ち続けると、後から設定されたテキストが誰にも送られない）。
+    pub fn release_pending_text_flush(&mut self) {
+        self.pending_text_claimed = false;
+    }
 }
 
 /// `create_registered_session` の作成パラメータ。呼び出し側は必要な項目だけを
@@ -621,5 +628,14 @@ mod tests {
             .await
             .claim_pending_text_flush()
             .is_none());
+    }
+
+    #[tokio::test]
+    async fn released_pending_text_flush_can_be_claimed_again() {
+        let mut session = TerminalSession::new("tmux-release".to_string());
+        assert!(session.claim_pending_text_flush().is_some());
+        assert!(session.claim_pending_text_flush().is_none());
+        session.release_pending_text_flush();
+        assert!(session.claim_pending_text_flush().is_some());
     }
 }

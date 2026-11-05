@@ -25,6 +25,20 @@ pub fn log_activity(
     fields: Map<String, Value>,
 ) {
     let ws = workspace.filter(|w| !w.is_empty()).unwrap_or("_global");
+    if try_log_activity(data_dir, workspace, event_type, fields).is_err() {
+        tracing::warn!("activity log write failed ws={ws} type={event_type}");
+    }
+}
+
+/// `log_activity` と同じ追記を行い、失敗を呼び出し元へ返す。ログを台帳（上限判定の
+/// 根拠）として使う呼び出し元が、書けなかったことを無視して先へ進まないための版。
+pub fn try_log_activity(
+    data_dir: &Path,
+    workspace: Option<&str>,
+    event_type: &str,
+    fields: Map<String, Value>,
+) -> std::io::Result<()> {
+    let ws = workspace.filter(|w| !w.is_empty()).unwrap_or("_global");
     let (t, date) = utc_now_strings();
     let mut entry = Map::new();
     entry.insert("t".to_string(), Value::String(t));
@@ -34,25 +48,19 @@ pub fn log_activity(
         .join("activity")
         .join(ws)
         .join(format!("{date}.jsonl"));
-    let write = || -> std::io::Result<()> {
-        std::fs::create_dir_all(path.parent().expect("activity path parent"))?;
-        let mut f = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)?;
-        // 行本体 + 改行を1回の write_all にまとめる（Python 版 `f.write(json + "\n")`
-        // と同じ）。O_APPEND の write(2) はこのサイズなら1回の呼び出し単位で
-        // atomic なため、2回に分けていた場合に起きる「他プロセス/他スレッドの
-        // 書き込みが改行の前に割り込んで行が壊れる」競合を防ぐ（Codex レビュー
-        // 指摘 — Python プロセスも同じファイルへ並行追記しうる）。
-        let mut line = serde_json::to_string(&Value::Object(entry.clone()))?;
-        line.push('\n');
-        f.write_all(line.as_bytes())?;
-        Ok(())
-    };
-    if write().is_err() {
-        tracing::warn!("activity log write failed ws={ws} type={event_type}");
-    }
+    std::fs::create_dir_all(path.parent().expect("activity path parent"))?;
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)?;
+    // 行本体 + 改行を1回の write_all にまとめる（Python 版 `f.write(json + "\n")`
+    // と同じ）。O_APPEND の write(2) はこのサイズなら1回の呼び出し単位で
+    // atomic なため、2回に分けていた場合に起きる「他プロセス/他スレッドの
+    // 書き込みが改行の前に割り込んで行が壊れる」競合を防ぐ（Codex レビュー
+    // 指摘 — Python プロセスも同じファイルへ並行追記しうる）。
+    let mut line = serde_json::to_string(&Value::Object(entry))?;
+    line.push('\n');
+    f.write_all(line.as_bytes())
 }
 
 #[cfg(test)]

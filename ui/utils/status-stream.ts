@@ -17,7 +17,7 @@ export function buildStatusStreamUrl(proto: string, host: string): string {
 export type StatusStreamMessage =
   | { type: "statuses"; statuses: Record<string, any>[] }
   | { type: "agent_states"; states: { session_id: string; state: string }[] }
-  | { type: "dispatch_queue"; items: { id: string; request: Record<string, any> }[]; recent: { id: string; request: Record<string, any>; outcome: string }[] }
+  | { type: "dispatch_queue"; items: { id: string; request: Record<string, any> }[]; recent: { id: string; request: Record<string, any>; outcome: string; auth?: string }[] }
   | { type: "phrase_notify"; session_id: string; phrase: string; workspace: string | null }
   | { type: "phrase_notify_clear"; session_id: string }
   | { type: "session_created" | "session_removed"; session_id: string }
