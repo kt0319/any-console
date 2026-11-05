@@ -371,22 +371,41 @@ fn resolve_terminal_open_path(
     }
 }
 
-pub async fn open_terminal_session_path(
-    State(state): State<Arc<AppState>>,
-    Path(session_id): Path<String>,
-    _auth: RequireAuth,
-    QueryParams(query): QueryParams<FileContentQuery>,
-) -> Result<Json<Value>, ApiError> {
-    let cwd = terminal_session_root(&state, &session_id).await?;
+async fn resolve_terminal_open_file(
+    state: &Arc<AppState>,
+    session_id: &str,
+    input: &str,
+) -> Result<PathBuf, ApiError> {
+    let cwd = terminal_session_root(state, session_id).await?;
     let home = std::env::var_os("HOME").map(PathBuf::from);
-    let candidate = resolve_terminal_open_path(&cwd, home.as_deref(), query.path.trim());
+    let candidate = resolve_terminal_open_path(&cwd, home.as_deref(), input.trim());
     let target = candidate
         .canonicalize()
         .map_err(|_| not_found("File not found"))?;
     if !target.is_file() {
         return Err(not_found("File not found"));
     }
+    Ok(target)
+}
+
+pub async fn open_terminal_session_path(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    QueryParams(query): QueryParams<FileContentQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let target = resolve_terminal_open_file(&state, &session_id, &query.path).await?;
     crate::git_files::read_file_content_response(&target.to_string_lossy(), &target).map(Json)
+}
+
+pub async fn download_terminal_session_open_path(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    _auth: RequireAuth,
+    QueryParams(query): QueryParams<FileContentQuery>,
+) -> Result<Response, ApiError> {
+    let target = resolve_terminal_open_file(&state, &session_id, &query.path).await?;
+    crate::git_files::download_file(&target).await
 }
 
 // ─── PUT /terminal/sessions/{id}/workspace, /detached ───────────────────────

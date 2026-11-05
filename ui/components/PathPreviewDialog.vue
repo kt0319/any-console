@@ -9,6 +9,9 @@
       </div>
       <div class="dialog-buttons">
         <button class="dialog-btn dialog-btn-cancel" @click="close">Close</button>
+        <button class="dialog-btn dialog-btn-ok" :disabled="!fileContent" @click="download">
+          <span class="mdi mdi-download"></span>Download
+        </button>
       </div>
     </div>
   </BaseDialog>
@@ -22,22 +25,30 @@ import DialogCopyField from "./DialogCopyField.vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import { useApi } from "../composables/useApi.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
+import { useWorkspaceFile } from "../composables/useWorkspaceFile.ts";
 import { terminalSessionOpenPath } from "../utils/endpoints.ts";
 
 const { apiGet } = useApi();
+const { downloadTerminalOpenedPath } = useWorkspaceFile();
 const path = ref("");
+const sessionId = ref("");
 const fileContent = ref<Record<string, any> | null>(null);
 const isImage = computed(() => !!(fileContent.value?.image && fileContent.value?.data_url));
+
+function download() {
+  return downloadTerminalOpenedPath(sessionId.value, path.value);
+}
 
 function close() {
   path.value = "";
   fileContent.value = null;
 }
 
-useBusListener("terminal:path", async ({ path: requested, sessionId }) => {
+useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSessionId }) => {
   path.value = requested;
+  sessionId.value = requestedSessionId;
   fileContent.value = null;
-  const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId, requested), { errorMessage: `Cannot open "${requested}"` });
+  const { ok, data } = await apiGet(terminalSessionOpenPath(requestedSessionId, requested), { errorMessage: `Cannot open "${requested}"` });
   if (path.value !== requested) return;
   if (!ok) {
     close();

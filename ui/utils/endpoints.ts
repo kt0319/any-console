@@ -106,6 +106,10 @@ export function terminalSessionOpenPath(sessionId: string, filePath: string): st
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/open-path?path=${encodeURIComponent(filePath)}`;
 }
 
+export function terminalSessionOpenPathDownload(sessionId: string, filePath: string): string {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/open-path/download?path=${encodeURIComponent(filePath)}`;
+}
+
 export function terminalSessionWorkspacePath(sessionId: string): string {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/workspace`;
 }

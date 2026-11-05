@@ -748,24 +748,29 @@ pub async fn download(
     download_under(&ws_path, &q.path).await
 }
 
+/// 検証済みのファイルをそのまま添付ファイルとして返す。
+pub async fn download_file(target: &FsPath) -> Result<Response, ApiError> {
+    let file = tokio::fs::File::open(target)
+        .await
+        .map_err(|e| map_io_error("Read failed", e))?;
+    let stream = tokio_util::io::ReaderStream::new(file);
+    let filename = target
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    Ok(attachment_response(
+        Body::from_stream(stream),
+        &filename,
+        "application/octet-stream",
+    ))
+}
+
 /// `root` 配下のファイルを返す。ディレクトリは zip 化して返す。
 pub async fn download_under(root: &FsPath, path: &str) -> Result<Response, ApiError> {
     let (target, _) = resolve_and_validate_workspace_path(root, path)?;
 
     if target.is_file() {
-        let file = tokio::fs::File::open(&target)
-            .await
-            .map_err(|e| map_io_error("Read failed", e))?;
-        let stream = tokio_util::io::ReaderStream::new(file);
-        let filename = target
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        return Ok(attachment_response(
-            Body::from_stream(stream),
-            &filename,
-            "application/octet-stream",
-        ));
+        return download_file(&target).await;
     }
 
     if target.is_dir() {
