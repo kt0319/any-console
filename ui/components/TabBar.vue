@@ -256,6 +256,7 @@ function onSettingsClick() {
 .tab-group.grouped {
   display: flex;
   gap: 7px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-tertiary);
 }
