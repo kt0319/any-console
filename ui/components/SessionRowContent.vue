@@ -5,7 +5,7 @@
       <span v-if="item.dirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
     <span v-if="jobIconHtml" class="session-sidebar-icon" v-html="jobIconHtml"></span>
-    <span v-if="!wsIconHtml && !jobIconHtml" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
+    <span v-if="!wsIconHtml && !jobIconHtml && !item.isWorktree" class="mdi mdi-console session-sidebar-icon session-sidebar-icon-default"></span>
     <span v-if="item.isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree"></span>
     <span class="session-sidebar-label" :class="{ 'session-sidebar-label-dim': dim }">{{ item.label }}</span>
     <span v-if="item.phraseNotify" class="mdi mdi-bell-ring-outline session-sidebar-notify" aria-label="phrase detected"></span>
@@ -28,7 +28,7 @@ const props = defineProps({
   dim: { type: Boolean, default: false },
 });
 
-const wsIconHtml = computed(() => (props.item.wsIcon ? renderIconStr(props.item.wsIcon.name, props.item.wsIcon.color, 18) : ""));
+const wsIconHtml = computed(() => (props.item.wsIcon && !props.item.isWorktree ? renderIconStr(props.item.wsIcon.name, props.item.wsIcon.color, 18) : ""));
 const jobIconHtml = computed(() => (props.item.jobIcon ? renderIconStr(props.item.jobIcon.name, props.item.jobIcon.color, 18) : ""));
 </script>
 

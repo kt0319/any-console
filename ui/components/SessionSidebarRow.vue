@@ -1,5 +1,5 @@
 <template>
-  <li class="session-sidebar-li" :class="rowStateClasses">
+  <li class="session-sidebar-li" :class="[rowStateClasses, { 'session-group': item.inGroup, 'session-group-last': item.groupLast }]">
     <span ref="row1El" class="session-sidebar-row1" :class="rowStateClasses" @click="emits('select')">
       <button
         type="button"

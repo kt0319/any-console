@@ -107,6 +107,16 @@ describe("sessionSidebarItems", () => {
     expect(wt.dirty).toBe(false);
   });
 
+  it("同じベースワークスペースが連続する行は inGroup が立ち、最後の行だけ groupLast が立つ", () => {
+    const grouped = [
+      { id: 1, sessionId: "s1", workspace: "app", label: "app" },
+      { id: 2, sessionId: "s2", workspace: "app:feat", label: "app" },
+      { id: 3, sessionId: "s3", workspace: "other", label: "other" },
+    ];
+    const items = sessionSidebarItems(grouped, []);
+    expect(items.map((i) => [i.inGroup, i.groupLast])).toEqual([[true, false], [true, true], [false, false]]);
+  });
+
   it("label 未設定のベアターミナルは [terminal] になる", () => {
     const items = sessionSidebarItems([{ id: 9, sessionId: "s9", workspace: null, label: "" }], []);
     expect(items[0].label).toBe("[terminal]");

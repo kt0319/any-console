@@ -12,6 +12,17 @@
   position: relative;
 }
 
+/* ベースとworktreeの行をタブバー（TabBar.vue の .tab-group）と同じ背景でまとめ、
+   グループ内の行の境界は点線にして最後の行だけ実線で区切る。 */
+.session-sidebar-li.session-group {
+  background: var(--bg-tertiary);
+  border-bottom-style: dashed;
+}
+
+.session-sidebar-li.session-group-last {
+  border-bottom-style: solid;
+}
+
 /* 行1（アイコン・ワークスペース名 + インフォピル）・行2（ブランチ名・
    ステータス）は見た目上ひとつのクリック可能な行として振る舞う。背景・
    アクティブ色・左ボーダーはここ（各行のラッパー）に統一して持たせ、中の

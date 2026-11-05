@@ -1,4 +1,5 @@
 import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
+import { groupTabsByBaseWorkspace } from "./worktree.ts";
 import { buildPillFields, type PillFieldsContext } from "./pill-fields.ts";
 
 // セッションサイドバー（TabBar のハンバーガーから開く一覧）の表示行を
@@ -55,7 +56,7 @@ export function sessionSidebarItems(
   } = {},
 ) {
   const { tabFlags = {}, agentStates = {}, doneSessions = {}, phraseNotifySessions = {} } = ctx;
-  return (tabs || [])
+  const rows = (tabs || [])
     .filter((tab) => !tabFlags[tab.id]?.autoDiscovered)
     .map((tab) => {
       const ws = tab.workspace ? (workspaces || []).find((w) => w.name === tab.workspace) : undefined;
@@ -80,8 +81,17 @@ export function sessionSidebarItems(
         ...pill,
         agent: agentStateDescriptor(resolveAgentBadgeState(agentStates[tab.sessionId], !!doneSessions[tab.sessionId])),
         phraseNotify: !!phraseNotifySessions[tab.sessionId],
+        inGroup: false,
+        groupLast: false,
       };
     });
+  // タブバーと同じく、同じベースワークスペースが連続する行を1グループとして印を付ける。
+  for (const group of groupTabsByBaseWorkspace(rows)) {
+    if (group.items.length < 2) continue;
+    for (const row of group.items) row.inGroup = true;
+    group.items[group.items.length - 1].groupLast = true;
+  }
+  return rows;
 }
 
 /**
