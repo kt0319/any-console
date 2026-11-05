@@ -638,3 +638,28 @@ async fn expired_dispatch_token_returns_401() {
         .await;
     assert_eq!(resp.status(), 202);
 }
+
+#[tokio::test]
+async fn direct_token_gets_a_worktree_created_for_an_existing_branch() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    common::sh_git(&front.repo, &["branch", "auto/ci-fix"]);
+    let token = front.direct_token("cron", &DirectTokenLimits::default());
+
+    let resp = front.dispatch(&token, direct_body()).await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.repo.join(".worktrees/auto-ci-fix/a.txt").exists());
+
+    let missing = {
+        let mut body = direct_body();
+        body["worktree"] = json!("auto/never-existed");
+        front.dispatch(&token, body).await
+    };
+    assert_eq!(missing.status(), 400);
+    assert!(!front
+        .repo
+        .join(".git/refs/heads/auto/never-existed")
+        .exists());
+}
