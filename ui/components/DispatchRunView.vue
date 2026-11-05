@@ -9,7 +9,7 @@
     <div v-if="request" class="ws-settings-section">
       <div class="ws-settings-row">
         <span class="ws-settings-label">Session</span>
-        <select v-model="selectedSessionId" class="form-input" :disabled="isAsyncPending(sessionsState)">
+        <select v-model="selectedSessionId" class="form-input" :disabled="isAsyncPending(sessionsState) || selectedCreateWorktree">
           <option :value="NEW_SESSION_VALUE">+ New session</option>
           <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
             {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}{{ s.session_id === currentSessionId ? ' (this session)' : '' }}
@@ -334,6 +334,12 @@ onMounted(() => {
       sessionsState.value = asyncError("Failed to load sessions");
     }
   });
+});
+
+// 新規作成するworktreeには新規セッションしか使えない（既存セッションのままだと入力が
+// 別ディレクトリのセッションへ送られ、作ったworktreeが使われない）。
+watch(selectedCreateWorktree, (creating) => {
+  if (creating) selectedSessionId.value = NEW_SESSION_VALUE;
 });
 
 // 既存セッションを選んだら、そのセッションの実際の Workspace / Job を
