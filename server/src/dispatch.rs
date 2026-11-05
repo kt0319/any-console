@@ -782,6 +782,10 @@ async fn resolve_and_launch_session(
 }
 
 async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, ApiError> {
+    if let Some(worktree) = body.worktree.as_deref().filter(|w| !w.is_empty()) {
+        crate::git_worktree::ensure_worktree_for_existing_branch(state, &body.workspace, worktree)
+            .await?;
+    }
     let effective_ws = body.effective_workspace();
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
@@ -985,7 +989,13 @@ async fn dispatch_core(
     }
 
     let effective_ws = body.effective_workspace();
-    let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
+    // worktree は承認後の実行時（launch）に無ければ作られるため、登録時はベースの存在だけ確かめる。
+    let path_owner = if body.worktree.as_deref().is_some_and(|w| !w.is_empty()) {
+        body.workspace.as_str()
+    } else {
+        effective_ws.as_str()
+    };
+    let ws_path = resolve_workspace_path(&state.config, path_owner).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
 
     let mut payload = body.to_json_map();

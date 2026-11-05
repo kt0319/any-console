@@ -102,6 +102,7 @@ struct TestFront {
     addr: SocketAddr,
     state: Arc<AppState>,
     scoped_token: String,
+    repo: std::path::PathBuf,
     push_calls: Arc<StdMutex<Vec<ReceivedPush>>>,
     _dir: tempfile::TempDir,
     _tmux_cleanup: common::TmuxSessionCleanup,
@@ -199,6 +200,7 @@ async fn spawn_front() -> TestFront {
         addr,
         state,
         scoped_token,
+        repo: ws_path,
         push_calls,
         _dir: dir,
         _tmux_cleanup: tmux_cleanup,
@@ -1072,4 +1074,101 @@ async fn discarded_dispatch_keeps_received_at_and_stamps_decided_at() {
     let recent = front.state.dispatch.recent.lock().await;
     assert_eq!(recent[0]["request"]["received_at"], received_at);
     assert!(recent[0]["request"]["decided_at"].as_i64().unwrap() >= received_at);
+}
+
+/// 承認キューへ積んでから実行を承認し、decision のレスポンスを返す。
+async fn queue_and_approve(front: &TestFront, body: Value) -> reqwest::Response {
+    let resp = common::client()
+        .post(format!("http://{}/dispatch", front.addr))
+        .bearer_auth(TOKEN)
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 202);
+    let dispatch_id = resp.json::<Value>().await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    common::client()
+        .post(format!(
+            "http://{}/dispatch/{dispatch_id}/decision",
+            front.addr
+        ))
+        .bearer_auth(TOKEN)
+        .json(&json!({"executed": true}))
+        .send()
+        .await
+        .unwrap()
+}
+
+async fn kill_launched_session(front: &TestFront, resp: Value) {
+    let session_id = resp["session_id"].as_str().unwrap();
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
+#[tokio::test]
+async fn approved_worktree_dispatch_creates_the_worktree_of_an_existing_local_branch() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    common::sh_git(&front.repo, &["branch", "auto/ci-fix"]);
+
+    let resp = queue_and_approve(
+        &front,
+        json!({"workspace": "proj", "worktree": "auto/ci-fix"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.repo.join(".worktrees/auto-ci-fix/a.txt").exists());
+    kill_launched_session(&front, resp.json().await.unwrap()).await;
+}
+
+#[tokio::test]
+async fn approved_worktree_dispatch_creates_the_worktree_of_a_branch_that_only_exists_on_origin() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let origin = front.repo.parent().unwrap().join("origin.git");
+    std::fs::create_dir_all(&origin).unwrap();
+    common::sh_git(&origin, &["init", "-q", "--bare"]);
+    common::sh_git(
+        &front.repo,
+        &["remote", "add", "origin", &origin.to_string_lossy()],
+    );
+    common::sh_git(&front.repo, &["branch", "auto/ci-fix"]);
+    common::sh_git(&front.repo, &["push", "-q", "origin", "auto/ci-fix"]);
+    common::sh_git(&front.repo, &["branch", "-D", "auto/ci-fix"]);
+
+    let resp = queue_and_approve(
+        &front,
+        json!({"workspace": "proj", "worktree": "auto/ci-fix"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.repo.join(".worktrees/auto-ci-fix/a.txt").exists());
+    kill_launched_session(&front, resp.json().await.unwrap()).await;
+}
+
+#[tokio::test]
+async fn approved_worktree_dispatch_never_creates_a_branch_or_takes_over_the_main_checkout() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    for (worktree, label) in [
+        ("auto/missing", "missing branch"),
+        ("main", "branch checked out in the main working tree"),
+        ("--upload-pack", "option-like name"),
+        ("a..b", "parent reference"),
+    ] {
+        let resp =
+            queue_and_approve(&front, json!({"workspace": "proj", "worktree": worktree})).await;
+        assert_eq!(resp.status(), 400, "{label}");
+    }
+    assert!(!front.repo.join(".git/refs/heads/auto/missing").exists());
+    assert!(!front.repo.join(".worktrees").exists());
 }
