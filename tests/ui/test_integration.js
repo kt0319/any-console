@@ -529,6 +529,39 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
     }
   });
 
+  it("Create worktree を選ぶと Session は + New session に切り替わり、選択できなくなる", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("/branches")) return { ok: true, json: async () => [{ name: "main" }] };
+      if (String(url).includes("/terminal/sessions")) {
+        return { ok: true, json: async () => [{ session_id: "s1", workspace: "ws1", job_name: "terminal" }] };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    try {
+      applyDispatchQueue([{ id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } }]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+      const wrapper = mount(DispatchRunView, { props: { itemId: "d1", preferredSessionId: "s1" } });
+      await flushPromises();
+      const sessionSelect = () => wrapper.findAll("select")[0];
+      expect(sessionSelect().element.value).toBe("s1");
+      expect(sessionSelect().attributes("disabled")).toBeUndefined();
+
+      await wrapper.find('input[type="radio"][value="worktree"]').setValue(true);
+      await flushPromises();
+      expect(sessionSelect().element.value).toBe("__new_session__");
+      expect(sessionSelect().attributes("disabled")).toBeDefined();
+
+      await wrapper.find('input[type="radio"][value=""]').setValue(true);
+      await flushPromises();
+      expect(sessionSelect().attributes("disabled")).toBeUndefined();
+      wrapper.unmount();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it("Change branch の初期値が実在しないブランチなら Run を disable してエラーを表示する", async () => {
     const originalFetch = global.fetch;
     global.fetch = vi.fn(async (url) => {
