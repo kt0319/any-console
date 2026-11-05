@@ -22,8 +22,14 @@ const URL_SEARCH_WINDOW_LINES = 6;
 // 相対パスで最終セグメントに拡張子がないもの（feature/DW_JOY_DEV-1677 のようなブランチ名）は候補から外す。
 // 末尾が「/」のものはディレクトリで開けるファイルではないため findPathInBuffer で候補から外す。
 const PATH_SEGMENT_CHARS = "\\w.~@+%\\-\\u00c0-\\u1fff\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff";
+// 丸カッコは対になった「(…)」だけをパスの一部にする（Next.js の app/(auth)/page.tsx や
+// Screenshot(1).png など）。単独の「)」は含めないので、「(src/a.ts)」の閉じカッコは巻き込まない。
+const PATH_PAREN_GROUP = `\\([${PATH_SEGMENT_CHARS}]*\\)`;
+const PATH_SEGMENT = `(?:[${PATH_SEGMENT_CHARS}]|${PATH_PAREN_GROUP})+`;
+const PATH_LEADING_CHAR = `(?:[\\w.~@+%-]|${PATH_PAREN_GROUP})`;
+const FILE_NAME_CHAR = `(?:[\\w@+%-]|${PATH_PAREN_GROUP})`;
 export const TERMINAL_PATH_REGEX = new RegExp(
-  `[\\w.~@+%-]*(?:\\/[${PATH_SEGMENT_CHARS}]+)+\\/?|[\\w@+%-]+(?:\\.[\\w@+%-]+)*\\.[A-Za-z0-9]+`,
+  `${PATH_LEADING_CHAR}*(?:\\/${PATH_SEGMENT})+\\/?|${FILE_NAME_CHAR}+(?:\\.${FILE_NAME_CHAR}+)*\\.[A-Za-z0-9]+`,
   "g",
 );
 
@@ -37,8 +43,17 @@ const BULLET_LINE_REGEX = /^(?:[-*•]\s|\d+[.)]\s)/;
 const RELATIVE_PATH_REGEX = /^[^/~.]/;
 const EXTENSION_SUFFIX_REGEX = /\.[A-Za-z0-9]+$/;
 
+function countChar(text: string, ch: string): number {
+  return text.split(ch).length - 1;
+}
+
 export function normalizeTerminalPath(raw: string): string | null {
-  const path = raw.replace(/[.,;:)\]-]+$/, "");
+  let path = raw;
+  while (path && ".,;:)]-".includes(path[path.length - 1])) {
+    // 対になる「(」がある「)」はパスの一部（app/(auth) など）
+    if (path.endsWith(")") && countChar(path, "(") >= countChar(path, ")")) break;
+    path = path.slice(0, -1);
+  }
   if (!path || path === "/" || path === "~") return null;
   return path;
 }

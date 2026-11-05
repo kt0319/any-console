@@ -326,6 +326,26 @@ describe("findPathInBuffer / normalizeTerminalPath", () => {
     }
   });
 
+  it("丸カッコを含むパス（(auth) や file(1).png）を途中で切らずに拾う", () => {
+    for (const [line, token] of [
+      ["edit src/app/(auth)/login/page.tsx now", "src/app/(auth)/login/page.tsx"],
+      ["open /Users/a/Screenshot(1).png", "/Users/a/Screenshot(1).png"],
+      ["see photo(2).png", "photo(2).png"],
+    ]) {
+      const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+      for (const offset of [0, Math.floor(token.length / 2), token.length - 1]) {
+        expect(findPathInBuffer(term, (line.indexOf(token) + offset) * 10 + 5, 5)).toBe(token);
+      }
+    }
+  });
+
+  it("括弧で囲まれたパスの閉じカッコは含めない", () => {
+    const line = "(see src/a/b.ts) and (/etc/hosts)";
+    const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
+    expect(findPathInBuffer(term, line.indexOf("src/a") * 10 + 5, 5)).toBe("src/a/b.ts");
+    expect(findPathInBuffer(term, line.indexOf("/etc") * 10 + 5, 5)).toBe("/etc/hosts");
+  });
+
   it("パスでない文字列では null", () => {
     const line = "hello world";
     const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: rect(line) });
@@ -334,6 +354,8 @@ describe("findPathInBuffer / normalizeTerminalPath", () => {
 
   it("normalizeTerminalPath は末尾の句読点を落とし、記号だけなら null", () => {
     expect(normalizeTerminalPath("a/b.ts).")).toBe("a/b.ts");
+    expect(normalizeTerminalPath("a/(b)")).toBe("a/(b)");
+    expect(normalizeTerminalPath("a/(b))")).toBe("a/(b)");
     expect(normalizeTerminalPath("/")).toBeNull();
     expect(normalizeTerminalPath("~")).toBeNull();
   });
