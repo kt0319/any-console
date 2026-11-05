@@ -90,7 +90,7 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 }
 
 .path-preview-dialog-image .dialog-title {
-  padding: 4px 38px 0 8px;
+  padding: 13px 38px 0 8px;
 }
 
 .path-preview-body-image {

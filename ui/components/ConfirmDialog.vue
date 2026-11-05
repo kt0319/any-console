@@ -51,7 +51,7 @@ const {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px 20px 16px;
+  padding: 20px 20px 16px;
   width: fit-content;
   min-width: 280px;
   max-width: calc(100vw - 40px);

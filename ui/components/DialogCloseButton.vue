@@ -20,7 +20,7 @@ const emit = defineEmits<{ close: [] }>();
 <style scoped>
 .dialog-close-btn {
   position: absolute;
-  top: 0;
+  top: 8px;
   right: 0;
   display: flex;
   align-items: center;
