@@ -1154,6 +1154,76 @@ async fn approved_worktree_dispatch_creates_the_worktree_of_a_branch_that_only_e
 }
 
 #[tokio::test]
+async fn approved_worktree_dispatch_fetches_a_branch_the_clone_does_not_track() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let origin = front.repo.parent().unwrap().join("origin.git");
+    std::fs::create_dir_all(&origin).unwrap();
+    common::sh_git(&origin, &["init", "-q", "--bare"]);
+    common::sh_git(
+        &front.repo,
+        &["remote", "add", "origin", &origin.to_string_lossy()],
+    );
+    common::sh_git(&front.repo, &["branch", "auto/ci-fix"]);
+    common::sh_git(&front.repo, &["push", "-q", "origin", "auto/ci-fix"]);
+    common::sh_git(&front.repo, &["branch", "-D", "auto/ci-fix"]);
+    // 単一ブランチ clone と同じく、fetch refspec が main しか含まない
+    common::sh_git(
+        &front.repo,
+        &[
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/main:refs/remotes/origin/main",
+        ],
+    );
+
+    let resp = queue_and_approve(
+        &front,
+        json!({"workspace": "proj", "worktree": "auto/ci-fix"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert!(front.repo.join(".worktrees/auto-ci-fix/a.txt").exists());
+    let config = std::fs::read_to_string(front.repo.join(".git/config")).unwrap();
+    assert!(
+        config.contains("[branch \"auto/ci-fix\"]")
+            && config.contains("merge = refs/heads/auto/ci-fix"),
+        "the new branch must track origin: {config}"
+    );
+    kill_launched_session(&front, resp.json().await.unwrap()).await;
+}
+
+#[tokio::test]
+async fn approved_worktree_dispatch_keeps_using_an_existing_worktree_with_an_unusual_branch_name() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let wt = front.repo.parent().unwrap().join("proj-plus");
+    common::sh_git(
+        &front.repo,
+        &[
+            "worktree",
+            "add",
+            &wt.to_string_lossy(),
+            "-b",
+            "feature+fix",
+        ],
+    );
+
+    let resp = queue_and_approve(
+        &front,
+        json!({"workspace": "proj", "worktree": "feature+fix"}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert!(!front.repo.join(".worktrees").exists());
+    kill_launched_session(&front, resp.json().await.unwrap()).await;
+}
+
+#[tokio::test]
 async fn approved_worktree_dispatch_never_creates_a_branch_or_takes_over_the_main_checkout() {
     if common::skip_if_no_tmux() {
         return;

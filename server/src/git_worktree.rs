@@ -107,10 +107,7 @@ pub(crate) async fn ensure_worktree_for_existing_branch(
     name: &str,
     branch: &str,
 ) -> Result<(), ApiError> {
-    let branch = validate_branch_name(branch)?;
-    if branch.starts_with('-') || branch.contains("..") {
-        return Err(bad_request(format!("Invalid branch name: {branch}")));
-    }
+    let branch = branch.trim().to_string();
 
     let _guard = state.git_locks.acquire(name).await?;
     let ws_path = resolve_git_repo_path(state, name).await?;
@@ -125,8 +122,14 @@ pub(crate) async fn ensure_worktree_for_existing_branch(
     }
     if worktrees.first().and_then(branch_of).as_deref() == Some(branch.as_str()) {
         return Err(bad_request(format!(
-            "Branch '{branch}' is checked out in the main working tree; direct dispatch needs its own worktree"
+            "Branch '{branch}' is checked out in the main working tree; a dispatch with a worktree needs its own worktree"
         )));
+    }
+
+    // 作成が必要なときだけ名前を絞る（既に worktree がある有効なブランチ名は上で通している）。
+    let branch = validate_branch_name(&branch)?;
+    if branch.starts_with('-') || branch.contains("..") {
+        return Err(bad_request(format!("Invalid branch name: {branch}")));
     }
 
     let main_path = main_worktree_path(&worktrees).unwrap_or_else(|| ws_path.clone());
@@ -140,11 +143,15 @@ pub(crate) async fn ensure_worktree_for_existing_branch(
 
     let target_str = target.to_string_lossy().into_owned();
     let remote_ref = format!("origin/{branch}");
-    let args: Vec<&str> = if git_branches(&ws_path).await.contains(&branch) {
+    let from_origin = !git_branches(&ws_path).await.contains(&branch);
+    let args: Vec<&str> = if !from_origin {
         vec!["worktree", "add", &target_str, &branch]
     } else {
+        // 単一ブランチ clone のように fetch refspec がそのブランチを含まない場合でも
+        // origin/<branch> が作られるよう、取得先を明示する。
+        let refspec = format!("+refs/heads/{branch}:refs/remotes/origin/{branch}");
         let fetched = run_git_command(
-            &["fetch", "origin", &branch],
+            &["fetch", "origin", &refspec],
             &ws_path,
             GIT_LONG_TIMEOUT_SEC,
             "fetch",
@@ -155,10 +162,12 @@ pub(crate) async fn ensure_worktree_for_existing_branch(
             &fetched,
             "Failed to fetch the branch from origin",
         )?;
+        // 単一ブランチ clone では origin/<branch> がブランチ扱いにならず --track が失敗する
+        // ため、upstream は作成後に設定で明示する。
         vec![
             "worktree",
             "add",
-            "--track",
+            "--no-track",
             "-b",
             &branch,
             &target_str,
@@ -169,10 +178,35 @@ pub(crate) async fn ensure_worktree_for_existing_branch(
         run_git_command(&args, &ws_path, GIT_LONG_TIMEOUT_SEC, "worktree add", &[]).await?;
     crate::git_helpers::invalidate_and_publish_git_info(state, name, &ws_path);
     crate::git_helpers::ensure_git_result_ok(&result, "Failed to create worktree")?;
+    if from_origin {
+        set_origin_upstream(&ws_path, &branch).await?;
+    }
     tracing::info!(
         "worktree created for direct dispatch workspace={name} branch={branch} path={}",
         target.display()
     );
+    Ok(())
+}
+
+async fn set_origin_upstream(ws_path: &FsPath, branch: &str) -> Result<(), ApiError> {
+    let settings = [
+        (format!("branch.{branch}.remote"), "origin".to_string()),
+        (
+            format!("branch.{branch}.merge"),
+            format!("refs/heads/{branch}"),
+        ),
+    ];
+    for (key, value) in settings {
+        let result = run_git_command(
+            &["config", &key, &value],
+            ws_path,
+            GIT_LONG_TIMEOUT_SEC,
+            "config",
+            &[],
+        )
+        .await?;
+        crate::git_helpers::ensure_git_result_ok(&result, "Failed to set the branch upstream")?;
+    }
     Ok(())
 }
 
