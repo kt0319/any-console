@@ -157,7 +157,7 @@ describe("a11y: PathPreviewDialog", () => {
 
     await flushPromises();
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
-    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Close", "Download"]);
+    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Download", "Close"]);
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
     await wrapper.find(".dialog-buttons .dialog-btn-cancel").trigger("click");
     expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);

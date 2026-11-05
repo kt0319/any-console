@@ -8,10 +8,10 @@
         <div v-else class="path-preview-loading">Loading...</div>
       </div>
       <div class="dialog-buttons">
-        <button class="dialog-btn dialog-btn-cancel" @click="close">Close</button>
-        <button class="dialog-btn dialog-btn-ok" :disabled="!fileContent" @click="download">
+        <button class="dialog-btn dialog-btn-ok path-preview-download" :disabled="!fileContent" @click="download">
           <span class="mdi mdi-download"></span>Download
         </button>
+        <button class="dialog-btn dialog-btn-cancel" @click="close">Close</button>
       </div>
     </div>
   </BaseDialog>
@@ -59,6 +59,10 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 </script>
 
 <style scoped>
+.path-preview-download {
+  margin-right: auto;
+}
+
 .path-preview-dialog {
   --path-preview-chrome-height: 190px;
   width: calc(100vw - 16px);
