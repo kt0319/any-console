@@ -6,13 +6,20 @@
       aria-modal="true"
       aria-describedby="confirm-msg"
     >
+      <button
+        type="button"
+        class="confirm-close-btn"
+        aria-label="Cancel"
+        data-tooltip="Cancel"
+        :disabled="busy"
+        @click="onCancel"
+      ><span class="mdi mdi-close"></span></button>
       <p id="confirm-msg" class="confirm-message">{{ message }}</p>
       <div v-if="extraButton?.desc || extra2Button?.desc" class="confirm-extra-desc">
         <div v-if="extraButton?.desc">{{ extraButton.desc }}</div>
         <div v-if="extra2Button?.desc">{{ extra2Button.desc }}</div>
       </div>
       <div class="confirm-buttons">
-        <button class="dialog-btn dialog-btn-cancel" :disabled="busy" @click="onCancel">Cancel</button>
         <button v-if="extraButton" class="dialog-btn confirm-btn-extra" :disabled="busy" @click="onExtra">
           <span v-if="extraButton.icon" class="mdi" :class="extraButton.icon"></span>{{ extraButton.label }}
         </button>
@@ -46,6 +53,7 @@ const {
 
 <style scoped>
 .confirm-dialog {
+  position: relative;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -65,6 +73,29 @@ const {
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
+  padding-right: 24px;
+}
+
+.confirm-close-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .confirm-close-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+  }
 }
 
 .confirm-buttons {

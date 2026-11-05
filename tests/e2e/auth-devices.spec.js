@@ -72,7 +72,7 @@ test.describe("auth devices and api tokens", () => {
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText(`Revoke device "${deviceName}"?`);
-    await dialog.locator(".dialog-btn-cancel").click();
+    await dialog.locator(".confirm-close-btn").click();
     await expect(dialog).toBeHidden();
     await expect(row).toBeVisible();
 

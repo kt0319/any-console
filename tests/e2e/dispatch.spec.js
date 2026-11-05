@@ -146,7 +146,7 @@ test.describe("dispatch", () => {
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     await expect(dialog).toContainText("Discard dispatch");
-    await dialog.locator(".dialog-btn-cancel").click();
+    await dialog.locator(".confirm-close-btn").click();
     await expect(dialog).toBeHidden();
     await expect(pendingRow).toBeVisible();
 

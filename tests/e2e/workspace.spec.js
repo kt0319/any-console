@@ -107,7 +107,7 @@ test.describe("workspace lifecycle", () => {
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText(`Delete "${wsName}"?`);
-    await dialog.locator(".dialog-btn-cancel").click();
+    await dialog.locator(".confirm-close-btn").click();
     await expect(dialog).toBeHidden();
 
     // OK で削除され、一覧から消える

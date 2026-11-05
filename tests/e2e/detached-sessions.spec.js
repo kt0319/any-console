@@ -58,7 +58,7 @@ test.describe("detached sessions", () => {
     await detachedRow.locator('[aria-label="Close session"]').click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText("Close session");
-    await dialog.locator(".dialog-btn-cancel").click();
+    await dialog.locator(".confirm-close-btn").click();
     await expect(dialog).toBeHidden();
     await expect(detachedRow).toBeVisible();
     expect(await listSessionIds(page)).toContain(newSessionId);
