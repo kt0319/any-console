@@ -1198,6 +1198,32 @@ fn first_program_of_command(command: &str) -> Option<&str> {
     })
 }
 
+/// direct の入力がエージェントへ届かなかったことを、activity と push 通知に残す。
+/// 背景の送信と、WS が flush 権を持った場合の送信（`terminal::flush_pending_text`）の
+/// 両方から呼ぶ。`auth_label` は WS 側では分からないため任意。
+pub(crate) fn report_direct_input_not_delivered(
+    state: &Arc<AppState>,
+    workspace: &str,
+    session_id: &str,
+    auth_label: Option<&str>,
+    detail: &str,
+) {
+    tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
+    log_dispatch_failed(state, workspace, detail);
+    let body = match auth_label {
+        Some(label) => format!("{label}\n{workspace}\n{detail}"),
+        None => format!("{workspace}\n{detail}"),
+    };
+    crate::push::spawn_push_notification(
+        state,
+        "Dispatch (direct) input not delivered",
+        body,
+        format!("/?workspace={workspace}&session={session_id}"),
+        "dispatch",
+        None,
+    );
+}
+
 /// 起動したセッションへ、ブラウザの接続なしでテキストを送る（無人の呼び出しでは
 /// 誰もターミナルを開かないため）。送れなかった場合は push 通知と activity に残す。
 fn spawn_agent_input_delivery(state: &Arc<AppState>, launched: &Value, auth_label: &str) {
@@ -1214,15 +1240,12 @@ fn spawn_agent_input_delivery(state: &Arc<AppState>, launched: &Value, auth_labe
         else {
             return;
         };
-        tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
-        log_dispatch_failed(&state, &workspace, &detail);
-        crate::push::spawn_push_notification(
+        report_direct_input_not_delivered(
             &state,
-            "Dispatch (direct) input not delivered",
-            format!("{auth_label}\n{workspace}\n{detail}"),
-            format!("/?workspace={workspace}&session={session_id}"),
-            "dispatch",
-            None,
+            &workspace,
+            &session_id,
+            Some(&auth_label),
+            &detail,
         );
     });
 }

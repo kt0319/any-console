@@ -844,7 +844,14 @@ async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session
         )
         .await
         {
-            tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
+            let workspace = match state.terminal_session(session_id).await {
+                Ok(session) => session.lock().await.workspace.clone(),
+                Err(_) => None,
+            }
+            .unwrap_or_else(|| session_id.to_string());
+            crate::dispatch::report_direct_input_not_delivered(
+                state, &workspace, session_id, None, &detail,
+            );
         }
         return true;
     }
@@ -1298,6 +1305,14 @@ mod tests {
         assert!(!meta.contains_key("TMUX_PENDING_TEXT"));
         let screen = tmux::capture_visible_pane(&name).await.unwrap_or_default();
         assert!(!screen.contains("must-not-run"));
+
+        // 届かなかったことは、背景の送信と同じく activity に残る（push 通知も同じ経路）。
+        let activity_dir = state.paths.data_dir.join("activity").join("test-session");
+        let logged: String = std::fs::read_dir(&activity_dir)
+            .expect("the failure must be recorded")
+            .filter_map(|e| std::fs::read_to_string(e.unwrap().path()).ok())
+            .collect();
+        assert!(logged.contains("dispatch_failed"), "{logged}");
         crate::subprocess::run_subprocess_safe(&["tmux", "kill-session", "-t", &name], 5.0, None)
             .await;
     }
