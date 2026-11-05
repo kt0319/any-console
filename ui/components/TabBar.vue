@@ -25,15 +25,23 @@
       @scroll="updateScrollFade"
     >
       <div class="tab-bar-tabs" role="tablist" aria-label="Open terminal tabs">
-        <TabItem
-          v-for="item in sortedItems"
-          :key="item.tab.id || item.tab.wsUrl"
-          :tab="item.tab"
-          :active-tab-id="activeTabId"
-          :is-panel-bottom="isPanelBottom"
-          :is-narrow="isNarrowViewport"
-          @select="onSelect"
-        />
+        <div
+          v-for="group in tabGroups"
+          :key="group.key"
+          class="tab-group"
+          role="presentation"
+          :class="{ grouped: group.items.length > 1 }"
+        >
+          <TabItem
+            v-for="item in group.items"
+            :key="item.tab.id || item.tab.wsUrl"
+            :tab="item.tab"
+            :active-tab-id="activeTabId"
+            :is-panel-bottom="isPanelBottom"
+            :is-narrow="isNarrowViewport"
+            @select="onSelect"
+          />
+        </div>
       </div>
       <button
         type="button"
@@ -71,6 +79,7 @@ import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 import { useSettingsNav } from "../composables/useSettingsNav.ts";
 import { emit } from "../app-bridge.ts";
 import { nextTabIndex } from "../utils/tab-nav.ts";
+import { groupTabsByBaseWorkspace } from "../utils/worktree.ts";
 import { scrollFadeMaskImage } from "../utils/scroll-fade.ts";
 import { TAB_BAR_FADE_WIDTH_PX } from "../utils/constants.ts";
 
@@ -94,6 +103,8 @@ const sortedItems = computed(() => {
     .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
     .map((tab, i) => ({ type: "tab", tab, index: i }));
 });
+
+const tabGroups = computed(() => groupTabsByBaseWorkspace(sortedItems.value));
 
 function onSelect(tab: TerminalTab, { skipFocus = false } = {}) {
   emit("tab:select", { tab, skipFocus });
@@ -234,6 +245,19 @@ function onSettingsClick() {
   display: flex;
   flex-shrink: 0;
   gap: 7px;
+}
+
+.tab-group {
+  display: contents;
+}
+
+/* ベースとそのworktreeのタブを1つの塊として見せる。単独のタブは display: contents
+   のまま、従来どおり.tab-bar-tabsの直接の子として並ぶ。 */
+.tab-group.grouped {
+  display: flex;
+  gap: 7px;
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
 }
 
 .tab-menu-btn {

@@ -118,3 +118,23 @@ export function worktreeWorkspaceName(base?: string | null, branch?: string | nu
   if (!base || !branch) return "";
   return `${base}:${branch}`;
 }
+
+/**
+ * 並び順を保ったまま、同じベースワークスペースが連続するタブを1グループにまとめる。
+ * ワークスペース未紐付けのタブは常に単独のグループになる。
+ */
+export function groupTabsByBaseWorkspace<T extends { tab: { id?: number; workspace?: string | null } }>(
+  items: T[],
+): { key: string; items: T[] }[] {
+  const groups: { key: string; base: string; items: T[] }[] = [];
+  for (const item of items) {
+    const base = baseWorkspaceName(item.tab.workspace);
+    const last = groups[groups.length - 1];
+    if (base && last && last.base === base) {
+      last.items.push(item);
+    } else {
+      groups.push({ key: `${base}#${item.tab.id}`, base, items: [item] });
+    }
+  }
+  return groups.map(({ key, items: grouped }) => ({ key, items: grouped }));
+}

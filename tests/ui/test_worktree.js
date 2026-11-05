@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeResidueNote, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName, tabInsertIndex } from "../../ui/utils/worktree.ts";
+import { worktreeBranchLabel, worktreeConfirmLabel, removeWorktreeConfirmMessage, worktreeResidueNote, workspaceDisplayName, findOpenTabsForWorktree, baseWorkspaceName, worktreeWorkspaceName, tabInsertIndex, groupTabsByBaseWorkspace } from "../../ui/utils/worktree.ts";
 
 describe("worktreeBranchLabel", () => {
   it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
@@ -177,5 +177,23 @@ describe("tabInsertIndex", () => {
   it("worktreeでないタブは末尾にする", () => {
     expect(tabInsertIndex(tabs, "app")).toBe(4);
     expect(tabInsertIndex(tabs, null)).toBe(4);
+  });
+});
+
+describe("groupTabsByBaseWorkspace", () => {
+  const item = (id, workspace) => ({ tab: { id, workspace } });
+
+  it("同じベースが連続するタブを1グループにする", () => {
+    const groups = groupTabsByBaseWorkspace([item(1, "app"), item(2, "app:feat"), item(3, "other"), item(4, null)]);
+    expect(groups.map((g) => g.items.map((i) => i.tab.id))).toEqual([[1, 2], [3], [4]]);
+  });
+
+  it("離れた同じベースは別グループのままにする", () => {
+    const groups = groupTabsByBaseWorkspace([item(1, "app"), item(2, "other"), item(3, "app:feat")]);
+    expect(groups).toHaveLength(3);
+  });
+
+  it("ワークスペース未紐付けのタブは連続していても結合しない", () => {
+    expect(groupTabsByBaseWorkspace([item(1, null), item(2, null)])).toHaveLength(2);
   });
 });
