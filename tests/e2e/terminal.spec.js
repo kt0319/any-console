@@ -66,7 +66,7 @@ test.describe("terminal", () => {
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText("Close");
-    await dialog.locator(".confirm-close-btn").click();
+    await dialog.locator(".dialog-close-btn").click();
     await expect(dialog).toBeHidden();
     await expect(tabs).toHaveCount(countBefore + 1);
 

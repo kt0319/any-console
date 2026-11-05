@@ -1,7 +1,8 @@
 <template>
   <BaseDialog :visible="!!path" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="close">
     <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Open file">
-      <div class="dialog-title">Open file</div>
+      <DialogCloseButton @close="close" />
+      <div class="dialog-title dialog-title-closable">Open file</div>
       <DialogCopyField :value="path" label="path" />
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
         <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" />
@@ -11,7 +12,6 @@
         <button class="dialog-btn dialog-btn-ok path-preview-download" :disabled="!fileContent" @click="download">
           <span class="mdi mdi-download"></span>Download
         </button>
-        <button class="dialog-btn dialog-btn-cancel" @click="close">Close</button>
       </div>
     </div>
   </BaseDialog>
@@ -21,6 +21,7 @@
 import { DIALOG_Z_INDEX_TOP } from "../utils/constants.ts";
 import { computed, ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
+import DialogCloseButton from "./DialogCloseButton.vue";
 import DialogCopyField from "./DialogCopyField.vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import { useApi } from "../composables/useApi.ts";

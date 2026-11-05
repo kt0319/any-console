@@ -6,14 +6,7 @@
       aria-modal="true"
       aria-describedby="confirm-msg"
     >
-      <button
-        type="button"
-        class="confirm-close-btn"
-        aria-label="Cancel"
-        data-tooltip="Cancel"
-        :disabled="busy"
-        @click="onCancel"
-      ><span class="mdi mdi-close"></span></button>
+      <DialogCloseButton :disabled="busy" @close="onCancel" />
       <p id="confirm-msg" class="confirm-message">{{ message }}</p>
       <div v-if="extraButton?.desc || extra2Button?.desc" class="confirm-extra-desc">
         <div v-if="extraButton?.desc">{{ extraButton.desc }}</div>
@@ -43,6 +36,7 @@
 
 <script setup lang="ts">
 import BaseDialog from "./BaseDialog.vue";
+import DialogCloseButton from "./DialogCloseButton.vue";
 import { useConfirm } from "../composables/useConfirm.ts";
 
 const {
@@ -74,28 +68,6 @@ const {
   word-break: break-word;
   margin: 0;
   padding-right: 24px;
-}
-
-.confirm-close-btn {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .confirm-close-btn:hover:not(:disabled) {
-    color: var(--text-primary);
-  }
 }
 
 .confirm-buttons {

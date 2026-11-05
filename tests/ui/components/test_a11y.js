@@ -132,7 +132,7 @@ describe("a11y: UrlActionDialog", () => {
     await nextTick();
     expect(wrapper.find(".dialog-title").text()).toBe("Open URL");
     expect(wrapper.find(".dialog-copy-input").element.value).toBe("https://example.com/path");
-    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Cancel", "Open"]);
+    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Open"]);
     await expectNoA11yViolations(wrapper.find(".dialog-box").element);
     wrapper.unmount();
   });
@@ -157,9 +157,9 @@ describe("a11y: PathPreviewDialog", () => {
 
     await flushPromises();
     expect(wrapper.text()).toContain("127.0.0.1 localhost");
-    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Download", "Close"]);
+    expect(wrapper.findAll(".dialog-buttons > .dialog-btn").map((b) => b.text())).toEqual(["Download"]);
     await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
-    await wrapper.find(".dialog-buttons .dialog-btn-cancel").trigger("click");
+    await wrapper.find(".dialog-close-btn").trigger("click");
     expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
     wrapper.unmount();
   });

@@ -2,10 +2,10 @@
   <!-- ターミナルURLアクションダイアログ -->
   <BaseDialog :visible="!!terminalUrl" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="terminalUrl = ''">
     <div class="dialog-box" style="--dialog-width: 480px" role="dialog" aria-modal="true" aria-label="Open URL">
-      <div class="dialog-title">Open URL</div>
+      <DialogCloseButton @close="terminalUrl = ''" />
+      <div class="dialog-title dialog-title-closable">Open URL</div>
       <DialogCopyField :value="terminalUrl" label="URL" />
       <div class="dialog-buttons">
-        <button class="dialog-btn dialog-btn-cancel" @click="terminalUrl = ''">Cancel</button>
         <button class="dialog-btn dialog-btn-ok" @click="doUrlOpen">
           <span class="mdi mdi-open-in-new"></span>Open
         </button>
@@ -18,6 +18,7 @@
 import { DIALOG_Z_INDEX_TOP } from "../utils/constants.ts";
 import { ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
+import DialogCloseButton from "./DialogCloseButton.vue";
 import DialogCopyField from "./DialogCopyField.vue";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { openExternal } from "../utils/open-external.ts";
