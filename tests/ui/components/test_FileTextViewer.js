@@ -39,11 +39,13 @@ describe("FileTextViewer 画像の拡大", () => {
     expect(wrapper.find(".file-content-image").attributes("style")).toContain("width:");
   });
 
-  it("画像タップで拡大し、もう一度タップでフィットに戻る", async () => {
+  it("画像タップで150%から300%まで段階的に拡大し、最後のタップでフィットに戻る", async () => {
     const wrapper = mountImage();
     const img = wrapper.find(".file-content-image");
-    await img.trigger("click");
-    expect(img.attributes("style")).toContain("width: 200%");
+    for (const width of ["150%", "200%", "250%", "300%"]) {
+      await img.trigger("click");
+      expect(img.attributes("style")).toContain(`width: ${width}`);
+    }
     await img.trigger("click");
     expect(img.attributes("style") ?? "").not.toContain("width");
   });
