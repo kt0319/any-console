@@ -49,9 +49,9 @@ export const INFO_PILLS = [
     label: "Dev Server",
     note: "Only shown when a dev server is auto-detected listening in this workspace's directory.",
     peekIcon: "mdi-server",
-    // Dev Serverは通常ピルと同じアクセント色をアイコンだけに使う
+    // Dev Serverは通常ピルと同じライム色をアイコンだけに使う
     // （テキストはこのクラスで色付けしないため icon-only 不要）。
-    peekColor: "pill-peek-accent",
+    peekColor: "pill-peek-lime",
   },
   {
     key: "docker",

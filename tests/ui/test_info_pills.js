@@ -6,7 +6,7 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey("changes")).toBe("pill-peek-warning");
     expect(peekColorForKey("prs")).toBe("pill-peek-purple");
     expect(peekColorForKey("branch")).toEqual(["pill-peek-success", "pill-peek-icon-only"]);
-    expect(peekColorForKey("devserver")).toBe("pill-peek-accent");
+    expect(peekColorForKey("devserver")).toBe("pill-peek-lime");
     expect(peekColorForKey("docker")).toBe("pill-peek-docker");
     expect(peekColorForKey("dispatch")).toBe("pill-peek-pink");
     expect(peekColorForKey("actions")).toBe("pill-peek-brown");

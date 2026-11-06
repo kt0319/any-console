@@ -117,9 +117,9 @@
 .pill-peek-purple .pill-peek-text { color: var(--purple); }
 .pill-peek-success .pill-peek-icon,
 .pill-peek-success .pill-peek-text { color: var(--success); }
-/* Dev Serverは通常ピル（.pill-server-btn）と同じアクセント色をアイコンだけに
+/* Dev Serverは通常ピル（.pill-server-btn）と同じライム色をアイコンだけに
    使う（テキストは元々このクラスで色付けしないため icon-only 不要）。 */
-.pill-peek-accent .pill-peek-icon { color: var(--accent); }
+.pill-peek-lime .pill-peek-icon { color: var(--lime); }
 /* Actionsはアイコンを状態に関わらず常に通常ピル（.pill-actions-btn）と
    同じブラウン固定にする。名前部分（[job名]、.pill-peek-actions-name）は
    白固定、ステータス部分（.pill-peek-actions-status）だけをpush/pullの
