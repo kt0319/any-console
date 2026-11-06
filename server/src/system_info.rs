@@ -253,10 +253,35 @@ async fn get_tailscale_info() -> Option<Value> {
             };
             truthy(d.get("TCP")) || truthy(d.get("Web"))
         });
-    Some(json!({
+    let mut info = json!({
         "version": version,
         "serve_running": serve_running,
-    }))
+    });
+    if let Some(cert) = get_https_cert_info().await {
+        info["https_cert"] = cert;
+    }
+    Some(info)
+}
+
+/// `tailscale serve` が公開している HTTPS（443 優先）の証明書の期限。
+/// 公開していない・接続できない場合は None（UI は項目自体を出さない）。
+async fn get_https_cert_info() -> Option<Value> {
+    let status = run_tailscale_json(&["serve", "status", "--json"]).await?;
+    let (host, port) = pick_https_endpoint(status.get("Web")?.as_object()?.keys())?;
+    let expires_at = crate::cert_expiry::fetch_cert_expiry_unix(&host, port).await?;
+    Some(json!({ "host": host, "expires_at": expires_at }))
+}
+
+/// serve status の Web キー（`host:port`）から、443 を優先して接続先を選ぶ。
+fn pick_https_endpoint<'a>(keys: impl Iterator<Item = &'a String>) -> Option<(String, u16)> {
+    let mut endpoints: Vec<(String, u16)> = keys
+        .filter_map(|key| {
+            let (host, port) = key.rsplit_once(':')?;
+            Some((host.to_string(), port.parse().ok()?))
+        })
+        .collect();
+    endpoints.sort_by_key(|(_, port)| (*port != 443, *port));
+    endpoints.into_iter().next()
 }
 
 /// `gh` CLIがログイン済みならそのユーザー名（GitHubログイン名）を返す。
@@ -337,6 +362,21 @@ pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Jso
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn https_endpoint_prefers_443() {
+        let keys = ["h.ts.net:8443".to_string(), "h.ts.net:443".to_string()];
+        assert_eq!(
+            pick_https_endpoint(keys.iter()),
+            Some(("h.ts.net".to_string(), 443))
+        );
+        let only_alt = ["h.ts.net:8443".to_string()];
+        assert_eq!(
+            pick_https_endpoint(only_alt.iter()),
+            Some(("h.ts.net".to_string(), 8443))
+        );
+        assert_eq!(pick_https_endpoint(["bad".to_string()].iter()), None);
+    }
 
     #[test]
     fn uptime_formatting_matches_python() {
