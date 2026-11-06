@@ -51,8 +51,7 @@ hljs.registerLanguage("markdown", markdown);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("ini", ini);
 hljs.registerLanguage("dockerfile", dockerfile);
-import { IMAGE_TAP_ZOOM } from "../utils/constants.ts";
-import { pinchDistance, pinchZoom, wheelZoom } from "../utils/pinch-zoom.ts";
+import { nextTapZoom, pinchDistance, pinchZoom, wheelZoom } from "../utils/pinch-zoom.ts";
 import { escapeHtml } from "../utils/escape-html.ts";
 import { formatSize } from "../utils/format.ts";
 
@@ -107,7 +106,7 @@ function onImageWheel(e: WheelEvent) {
 }
 
 function toggleZoom() {
-  zoom.value = zoom.value === 1 ? IMAGE_TAP_ZOOM : 1;
+  zoom.value = nextTapZoom(zoom.value);
 }
 
 const codeEl = ref<HTMLElement | null>(null);

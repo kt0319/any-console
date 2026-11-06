@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pinchDistance, pinchZoom, clampImageZoom, wheelZoom } from "../../ui/utils/pinch-zoom.ts";
+import { pinchDistance, pinchZoom, clampImageZoom, wheelZoom, nextTapZoom } from "../../ui/utils/pinch-zoom.ts";
 import { IMAGE_ZOOM_MAX, IMAGE_ZOOM_MIN } from "../../ui/utils/constants.ts";
 
 describe("pinch-zoom", () => {
@@ -22,5 +22,13 @@ describe("pinch-zoom", () => {
     expect(wheelZoom(1, -50)).toBeGreaterThan(1);
     expect(wheelZoom(1, 50)).toBeLessThan(1);
     expect(clampImageZoom(100)).toBe(IMAGE_ZOOM_MAX);
+  });
+
+  it("nextTapZoom は 1 → 2 → 4 → 1 の3段階で巡回し、ピンチ後の中途半端な倍率からも次の段階へ進む", () => {
+    expect(nextTapZoom(1)).toBe(2);
+    expect(nextTapZoom(2)).toBe(4);
+    expect(nextTapZoom(4)).toBe(1);
+    expect(nextTapZoom(1.5)).toBe(2);
+    expect(nextTapZoom(6)).toBe(1);
   });
 });
