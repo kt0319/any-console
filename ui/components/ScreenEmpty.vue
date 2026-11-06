@@ -77,6 +77,7 @@ import { emit } from "../app-bridge.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
+import { certExpiryStatus } from "../utils/cert-expiry.ts";
 import { isMobileUserAgent } from "../utils/device.ts";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.ts";
 import { useLayoutStore } from "../stores/layout.ts";
@@ -100,7 +101,7 @@ const pinnedJobs = computed(() => recentJobs.value.filter((j) => j.pinned));
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
-const serverInfo = ref<{ hostname?: string, version?: string, gh_authenticated?: boolean } | null>(null);
+const serverInfo = ref<{ hostname?: string, version?: string, gh_authenticated?: boolean, tailscale?: { https_cert?: { expires_at: number } } } | null>(null);
 
 // 「Open on your phone」導線: 認証必須な環境で出す一回きりのオンボーディング促し。
 // 完了後も項目自体は消さず、チェックマークで完了を示す（何を設定済みか後から
@@ -137,12 +138,21 @@ const doneEnableNotifications = computed(() => push.isSubscribed.value);
 const eligibleGhAuth = computed(() => true);
 const doneGhAuth = computed(() => serverInfo.value?.gh_authenticated === true);
 
+// HTTPS証明書の期限切れ・期限間近の警告。期限が取れない環境（serve未使用など）では出さない。
+const certStatus = computed(() => {
+  const cert = serverInfo.value?.tailscale?.https_cert;
+  return cert ? certExpiryStatus(cert.expires_at) : null;
+});
+const eligibleCertExpiry = computed(() => certStatus.value !== null);
+const doneCertExpiry = computed(() => certStatus.value?.warn === false);
+
 // Setup項目が全て完了していたら初期状態でトグルを閉じる。開閉状態はユーザー操作を
 // 尊重し、allSetupDoneが変化した時（=データ読み込み完了時）だけ自動で追従させる。
 // Setup 項目の一覧（テンプレート表示・全完了判定・セクション表示可否の
 // 3箇所で同じリストを使う — 項目追加はここ1箇所で済ませる）。
 const setupItems = computed(() => [
   { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value, icon: "mdi-lock-outline", label: "Set up HTTPS", onClick: showHttpsInstructions },
+  { eligible: eligibleCertExpiry.value, done: doneCertExpiry.value, icon: "mdi-certificate-outline", label: "HTTPS certificate", onClick: showCertExpiry },
   { eligible: eligiblePwaInstall.value, done: donePwaInstall.value, icon: "mdi-cellphone-arrow-down", label: "Install as app", onClick: installPwa },
   { eligible: eligiblePhonePairing.value, done: donePhonePairing.value, icon: "mdi-cellphone", label: "Open on your phone", onClick: openPhonePairing },
   { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value, icon: "mdi-bell-outline", label: "Enable notifications", onClick: enableNotifications },
@@ -192,6 +202,16 @@ async function showHttpsInstructions() {
     + "Use your configured port if you changed it. HTTPS is required for installing this as an app and for push notifications.",
     { ok: { label: "Got it" } },
   );
+}
+
+async function showCertExpiry() {
+  if (!certStatus.value) return;
+  const { warn, expired, summary } = certStatus.value;
+  const advice = warn
+    ? (expired ? "The certificate has expired. " : "The certificate expires soon. ")
+      + "Tailscale normally renews it automatically; if it does not, run \"tailscale cert\" on the server for this host."
+    : "Tailscale renews it automatically before it expires.";
+  await confirm(`HTTPS certificate: ${summary}. ${advice}`, { ok: { label: "Got it" } });
 }
 
 async function showGhAuthInstructions() {

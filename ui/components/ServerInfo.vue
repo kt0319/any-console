@@ -8,7 +8,7 @@
       <div v-if="section.error" class="status-message error">{{ section.error }}</div>
       <div v-else>
         <div v-for="(row, i) in section.rows" :key="i" class="si-row">
-          <span class="si-label">{{ row.label }}</span>
+          <span class="si-label"><span v-if="row.warn" class="mdi mdi-alert si-warn" aria-label="Certificate needs attention" data-tooltip="Certificate needs attention"></span>{{ row.label }}</span>
           <span class="si-vals">
             <span v-for="v in row.values" :key="v">{{ v }}</span>
           </span>
@@ -75,6 +75,7 @@
 import { ref, reactive, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
+import { certExpiryStatus } from "../utils/cert-expiry.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.ts";
@@ -129,7 +130,7 @@ async function updApply() {
   upd.applying = false;
 }
 // 1カードの1行分。
-type SiRow = { label: string, values: (string | number)[] };
+type SiRow = { label: string, values: (string | number)[], warn?: boolean };
 type SiSection = {
   label: string,
   rows: SiRow[],
@@ -168,9 +169,11 @@ function formatAuth(auth: Record<string, any> | null) {
 
 function tailscaleRows(ts: Record<string, any> | null | undefined) {
   if (!ts) return [];
+  const cert = ts.https_cert ? certExpiryStatus(ts.https_cert.expires_at) : null;
   return [
     row("Version", ts.version),
     row("Serve", ts.serve_running === null ? "Unknown" : (ts.serve_running ? "Running" : "Not running")),
+    ...(cert ? [{ ...row("HTTPS certificate", cert.summary), warn: cert.warn }] : []),
   ];
 }
 
@@ -266,6 +269,7 @@ defineExpose({ load });
 .si-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .si-row:last-child { border-bottom: none; }
 .si-label { flex: 1; color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.si-warn { color: var(--warning, #ffaa00); margin-right: 6px; }
 .si-vals { display: flex; gap: 16px; color: var(--text-primary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }

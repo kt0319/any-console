@@ -151,6 +151,9 @@ export const IMAGE_ZOOM_MIN = 0.5;
 export const IMAGE_ZOOM_MAX = 6;
 export const IMAGE_TAP_ZOOM_LEVELS = [1, 2, 3, 4];
 
+// HTTPS 証明書の期限がこの日数を切ったら警告を出す（System info / スタートページ）
+export const CERT_EXPIRY_WARN_DAYS = 14;
+
 // 起動時のフォント読み込み待ちタイムアウト（vue-main.ts）
 export const FONT_LOAD_TIMEOUT_MS = 3000;
 // チャンク読み込みエラー時の自動リロードのループ防止窓（vue-main.ts）
