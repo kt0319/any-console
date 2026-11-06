@@ -136,6 +136,14 @@ describe("a11y: UrlActionDialog", () => {
     await expectNoA11yViolations(wrapper.find(".dialog-box").element);
     wrapper.unmount();
   });
+
+  it("title 指定時はタイトルを差し替える", async () => {
+    const wrapper = mount(UrlActionDialog, { attachTo: document.body });
+    emit("terminal:url", { uri: "https://example.com/", title: "Open preview server" });
+    await nextTick();
+    expect(wrapper.find(".dialog-title").text()).toBe("Open preview server");
+    wrapper.unmount();
+  });
 });
 
 describe("a11y: PathPreviewDialog", () => {

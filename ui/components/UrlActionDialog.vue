@@ -1,9 +1,9 @@
 <template>
   <!-- ターミナルURLアクションダイアログ -->
   <BaseDialog :visible="!!terminalUrl" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="terminalUrl = ''">
-    <div class="dialog-box" style="--dialog-width: 480px" role="dialog" aria-modal="true" aria-label="Open URL">
+    <div class="dialog-box" style="--dialog-width: 480px" role="dialog" aria-modal="true" :aria-label="title">
       <DialogCloseButton @close="terminalUrl = ''" />
-      <div class="dialog-title dialog-title-closable">Open URL</div>
+      <div class="dialog-title dialog-title-closable">{{ title }}</div>
       <DialogCopyField :value="terminalUrl" label="URL" />
       <div class="dialog-buttons">
         <button class="dialog-btn dialog-btn-ok" @click="doUrlOpen">
@@ -23,12 +23,17 @@ import DialogCopyField from "./DialogCopyField.vue";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { openExternal } from "../utils/open-external.ts";
 
+const DEFAULT_TITLE = "Open URL";
 const terminalUrl = ref("");
+const title = ref(DEFAULT_TITLE);
 
 function doUrlOpen() {
   openExternal(terminalUrl.value);
   terminalUrl.value = "";
 }
 
-useBusListener("terminal:url", ({ uri }) => { terminalUrl.value = uri; });
+useBusListener("terminal:url", ({ uri, title: requestedTitle }) => {
+  terminalUrl.value = uri;
+  title.value = requestedTitle ?? DEFAULT_TITLE;
+});
 </script>

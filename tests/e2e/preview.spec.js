@@ -96,11 +96,9 @@ test.describe("port preview", () => {
     await page.waitForTimeout(2000);
 
     await pill.click();
-    const dialog = page.locator(".confirm-dialog");
+    const dialog = page.locator('[role="dialog"][aria-label="Open preview server"]');
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await expect(dialog.locator(".confirm-message")).toContainText(`:${PROXY_PORT}`);
-    // Copy（URLコピーのみで開かない操作）が Open と並んで選べること
-    await expect(dialog.locator(".confirm-btn-extra", { hasText: "Copy" })).toBeVisible();
+    await expect(dialog.locator(".dialog-copy-input")).toHaveValue(new RegExp(`:${PROXY_PORT}`));
 
     const [popup] = await Promise.all([
       context.waitForEvent("page"),

@@ -72,7 +72,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
   async function openDevServer() {
     const p = devServerEntry.value;
     if (!p) return;
-    await confirmOpenDevServer(p);
+    confirmOpenDevServer(p);
   }
 
   // 件数によらず常にDispatchタブを開く（個別詳細はDispatchタブの行から進む）。

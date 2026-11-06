@@ -102,7 +102,7 @@ function workspaceIconHtml(name: string) {
 // Server pill（TerminalPane）と同じOpen/Copy選択の確認フローにする
 // （直接開かず、URLだけ確認・コピーもできるようにする）。
 async function openPreview(row: CombinedRow) {
-  await confirmOpenDevServer({ port: row.port, proxy_port: row.proxyPort });
+  confirmOpenDevServer({ port: row.port, proxy_port: row.proxyPort });
 }
 
 function killDevServer(row: CombinedRow) {
