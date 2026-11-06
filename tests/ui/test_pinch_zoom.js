@@ -24,12 +24,11 @@ describe("pinch-zoom", () => {
     expect(clampImageZoom(100)).toBe(IMAGE_ZOOM_MAX);
   });
 
-  it("nextTapZoom は 1 → 1.5 → 2 → 2.5 → 3 → 1 で巡回し、ピンチ後の中途半端な倍率からも次の段階へ進む", () => {
-    expect(nextTapZoom(1)).toBe(1.5);
-    expect(nextTapZoom(1.5)).toBe(2);
-    expect(nextTapZoom(2)).toBe(2.5);
-    expect(nextTapZoom(2.5)).toBe(3);
-    expect(nextTapZoom(3)).toBe(1);
+  it("nextTapZoom は 1 → 2 → 3 → 4 → 1 で巡回し、ピンチ後の中途半端な倍率からも次の段階へ進む", () => {
+    expect(nextTapZoom(1)).toBe(2);
+    expect(nextTapZoom(2)).toBe(3);
+    expect(nextTapZoom(3)).toBe(4);
+    expect(nextTapZoom(4)).toBe(1);
     expect(nextTapZoom(1.7)).toBe(2);
     expect(nextTapZoom(6)).toBe(1);
   });

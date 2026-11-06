@@ -2,10 +2,10 @@
   <BaseDialog :visible="!!path" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="close">
     <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Preview file">
       <DialogCloseButton @close="close" />
-      <div class="dialog-title dialog-title-closable">Preview file</div>
+      <div class="dialog-title dialog-title-closable">Preview file<span v-if="isImage" class="path-preview-zoom">{{ zoomLabel }}</span></div>
       <DialogCopyField :value="path" label="path" />
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
-        <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" />
+        <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" @zoom="imageZoom = $event" />
         <div v-else class="path-preview-loading">Loading...</div>
       </div>
       <div class="dialog-buttons">
@@ -34,6 +34,8 @@ const { downloadTerminalOpenedPath } = useWorkspaceFile();
 const path = ref("");
 const sessionId = ref("");
 const fileContent = ref<Record<string, any> | null>(null);
+const imageZoom = ref(1);
+const zoomLabel = computed(() => `${Math.round(imageZoom.value * 100)}%`);
 const isImage = computed(() => !!(fileContent.value?.image && fileContent.value?.data_url));
 
 function download() {
@@ -71,6 +73,13 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
   /* .dialog-overlay の padding（20px）を打ち消し、画面端との余白を 8px にする */
   margin: -12px;
   box-sizing: border-box;
+}
+
+.path-preview-zoom {
+  margin-left: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .path-preview-body {
