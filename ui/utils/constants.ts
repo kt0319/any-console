@@ -149,7 +149,7 @@ export const DIFF_STATUS_SUMMARY_LABELS = Object.freeze(["M", "A", "D", "U"]);
 // 画像ビューアの拡大率の範囲（1 = 横幅フィット）とタップで拡大した時の倍率
 export const IMAGE_ZOOM_MIN = 0.5;
 export const IMAGE_ZOOM_MAX = 6;
-export const IMAGE_TAP_ZOOM_LEVELS = [1, 2, 4];
+export const IMAGE_TAP_ZOOM_LEVELS = [1, 1.5, 2, 2.5, 3];
 
 // 起動時のフォント読み込み待ちタイムアウト（vue-main.ts）
 export const FONT_LOAD_TIMEOUT_MS = 3000;
