@@ -129,10 +129,7 @@ import { useGitRemoteAction } from "../composables/useGitRemoteAction.ts";
 import { useRecentJobs } from "../composables/useRecentJobs.ts";
 import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 import { useApi } from "../composables/useApi.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
-import { removeWorktreeConfirmMessage } from "../utils/worktree.ts";
-import { useWorktreeRemove } from "../composables/useWorktreeRemove.ts";
-import { useWorktreeCleanup } from "../composables/useWorktreeCleanup.ts";
+import { useWorktreeRemoveConfirm } from "../composables/useWorktreeRemoveConfirm.ts";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
 import DetachedSessionsList from "./DetachedSessionsList.vue";
@@ -154,9 +151,7 @@ modalTitle.value = "Open Session";
 const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, wsEndpoint } = useApi();
-const { removeWorktreeRequest } = useWorktreeRemove();
-const { findResidue, cleanupResidue } = useWorktreeCleanup();
-const { confirm } = useConfirm();
+const { confirmAndRemoveWorktree } = useWorktreeRemoveConfirm();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const pinnedJobs = computed(() => recentJobs.value.filter((j) => j.pinned));
@@ -274,20 +269,8 @@ function openEditWs(ws: Record<string, any>) {
   pushView("WorkspaceEdit", { workspace: ws });
 }
 
-async function removeWorktree(base: Record<string, any>, wt: Record<string, any>) {
-  const residue = await findResidue(wt);
-  await confirm(removeWorktreeConfirmMessage(wt, {
-    openTabs: residue.openTabs.length,
-    detachedSessions: residue.detachedSessions.length,
-    devServers: residue.devServers.length,
-  }), {
-    busyLabel: "Removing...",
-    run: async () => {
-      if (!await removeWorktreeRequest(base.name, wt)) return;
-      await cleanupResidue(residue);
-      await workspaceStore.fetchWorkspaces();
-    },
-  });
+function removeWorktree(base: Record<string, any>, wt: Record<string, any>) {
+  return confirmAndRemoveWorktree(base.name, wt);
 }
 
 onMounted(() => {

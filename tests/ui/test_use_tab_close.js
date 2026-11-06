@@ -13,6 +13,16 @@ vi.mock("../../ui/stores/terminal.ts", () => ({
   useTerminalStore: () => ({ detachTab: detachTabMock }),
 }));
 
+const confirmAndRemoveWorktreeMock = vi.fn();
+vi.mock("../../ui/composables/useWorktreeRemoveConfirm.ts", () => ({
+  useWorktreeRemoveConfirm: () => ({ confirmAndRemoveWorktree: confirmAndRemoveWorktreeMock }),
+}));
+
+const worktreeEntry = { name: "ws1:feat", worktree: true, worktree_base: "ws1", worktree_branch: "feat" };
+vi.mock("../../ui/stores/workspace.ts", () => ({
+  useWorkspaceStore: () => ({ allWorkspaces: [{ name: "ws1" }, worktreeEntry] }),
+}));
+
 // confirm の戻り値（ダイアログでの選択）をテストごとに切り替える。
 let confirmResult = /** @type {boolean | string} */ (true);
 vi.mock("../../ui/composables/useConfirm.ts", () => ({
@@ -30,6 +40,7 @@ beforeEach(() => {
   emitMock.mockClear();
   detachTabMock.mockClear();
   confirmResult = true;
+  confirmAndRemoveWorktreeMock.mockClear();
 });
 
 describe("useTabClose: 確認結果のディスパッチ", () => {
@@ -64,5 +75,20 @@ describe("useTabClose: 確認結果のディスパッチ", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(emitMock).not.toHaveBeenCalled();
     expect(detachTabMock).not.toHaveBeenCalled();
+  });
+
+  it('worktree のタブで "worktree" 選択なら worktree 削除フローへ進み、タブ自体は直接閉じない', async () => {
+    confirmResult = "worktree";
+    const { useTabClose } = await freshModule();
+    await useTabClose().confirmAndCloseTab({ id: 8, workspace: "ws1:feat", label: "ws1:feat" });
+    expect(confirmAndRemoveWorktreeMock).toHaveBeenCalledWith("ws1", worktreeEntry);
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it("worktree でないタブでは worktree 削除フローに進まない", async () => {
+    confirmResult = "worktree";
+    const { useTabClose } = await freshModule();
+    await useTabClose().confirmAndCloseTab(tab);
+    expect(confirmAndRemoveWorktreeMock).not.toHaveBeenCalled();
   });
 });
