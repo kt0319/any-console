@@ -53,6 +53,7 @@ export const PILL_PEEK_SUBJECT_MAX = 1;
 export const GITHUB_ACTIVITY_BATCH_MS = 200;
 export const UNTRACKED_CONTENT_FETCH_CONCURRENCY = 4;
 export const UPLOAD_FAILURE_TOAST_MAX = 3;
+export const LARGE_UPLOAD_WARN_BYTES = 10 * 1024 * 1024;
 // pull/push の結果peekを出した直後は、ahead/behindが0に落ちたことの検出による
 // 同じ内容の「N Pushed/Pulled」peekを重ねて出さない
 export const PILL_PEEK_REMOTE_DEDUP_MS = 5000;

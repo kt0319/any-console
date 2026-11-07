@@ -9,7 +9,7 @@ import { MSG_DELETE_FAILED } from "../utils/constants.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.ts";
-import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, type UploadFailure } from "../utils/file-upload-path.ts";
+import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, formatLargeUploadWarning, type UploadFailure } from "../utils/file-upload-path.ts";
 import { basename, dirname } from "../utils/path.ts";
 import { workspaceFilesPath, terminalSessionFilesPath, terminalSessionRenamePath, terminalSessionUploadPath } from "../utils/endpoints.ts";
 
@@ -171,20 +171,27 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
 
     let successCount = 0;
     const failures: UploadFailure[] = [];
+    const uploaded: { name: string, size: number }[] = [];
     for (const file of targets) {
       const reason = await uploadOne(target, uploadPath, file, overwrite);
-      if (reason === null) successCount += 1;
-      else failures.push({ name: file.name, reason });
+      if (reason === null) {
+        successCount += 1;
+        uploaded.push({ name: file.name, size: file.size });
+      } else failures.push({ name: file.name, reason });
     }
     for (const entry of nestedEntries) {
       const { dir } = splitRelativePath(entry.relativePath);
       const targetDir = resolveUploadTargetDir(uploadPath, dir);
       const reason = await uploadOne(target, targetDir, entry.file, false);
-      if (reason === null) successCount += 1;
-      else failures.push({ name: entry.relativePath, reason });
+      if (reason === null) {
+        successCount += 1;
+        uploaded.push({ name: entry.relativePath, size: entry.file.size });
+      } else failures.push({ name: entry.relativePath, reason });
     }
 
     emitUploadResult(target, successCount, failures, skippedCount);
+    const largeWarning = formatLargeUploadWarning(uploaded);
+    if (largeWarning) toast.warning(largeWarning);
     await navigateToPath(uploadPath);
   }
 
