@@ -10,7 +10,7 @@ import { formatSize } from "../utils/format.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.ts";
-import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, formatLargeUploadWarning, type UploadFailure } from "../utils/file-upload-path.ts";
+import { splitRelativePath, resolveUploadTargetDir, formatUploadFailures, formatLargeUploadWarning, uploadTooLargeReason, type UploadFailure } from "../utils/file-upload-path.ts";
 import { basename, dirname } from "../utils/path.ts";
 import { workspaceFilesPath, terminalSessionFilesPath, terminalSessionRenamePath, terminalSessionUploadPath } from "../utils/endpoints.ts";
 
@@ -116,6 +116,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
 
   /** 成功時は null、失敗時は理由（サーバの detail、無ければ HTTP ステータス）を返す。 */
   async function uploadOne(target: UploadTarget, uploadPath: string, file: File, overwrite: boolean): Promise<string | null> {
+    const tooLarge = uploadTooLargeReason(file.size);
+    if (tooLarge) return tooLarge;
     const formData = new FormData();
     formData.append("path", uploadPath);
     formData.append("file", file);

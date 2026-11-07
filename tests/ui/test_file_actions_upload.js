@@ -15,12 +15,14 @@ import { on } from "../../ui/app-bridge.ts";
 const { triggerBlobDownloadMock } = vi.hoisted(() => ({ triggerBlobDownloadMock: vi.fn() }));
 vi.mock("../../ui/utils/download.ts", () => ({ triggerBlobDownload: triggerBlobDownloadMock }));
 
-function fakeFile(name) {
-  return { name };
+const MB = 1024 * 1024;
+
+function fakeFile(name, size = 100) {
+  return { name, size };
 }
 
-function fakeEntry(name) {
-  return { file: fakeFile(name), relativePath: name };
+function fakeEntry(name, size) {
+  return { file: fakeFile(name, size), relativePath: name };
 }
 
 function jsonResponse(data) {
@@ -141,6 +143,40 @@ describe("useFileActions: 複数ファイルドロップの上書き衝突", () 
 
     expect(toasts.map((t) => t.message)).toEqual(["1 file(s) failed to upload: proj/.git/config (Invalid path)"]);
     expect(fileOps).toEqual([{ wsName: "ws1", text: "1 file(s) uploaded" }]);
+  });
+
+  it("サーバ上限を超えるファイルは送信せずに理由をトーストする", async () => {
+    const auth = setupAuthFetch({});
+    const { uploadDroppedFiles } = useFileActions({
+      getCurrentPath: () => "",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+    });
+
+    await uploadDroppedFiles([fakeEntry("big.mp3", 11 * MB)]);
+
+    const uploadCalls = auth.apiFetch.mock.calls.filter(([url]) => String(url).includes("/upload"));
+    expect(uploadCalls).toEqual([]);
+    expect(toasts.map((t) => t.message)).toEqual(["1 file(s) failed to upload: big.mp3 (File too large (max 10MB))"]);
+  });
+
+  it("1MB以上のファイルは送信中トーストを出し、完了後に消して警告する", async () => {
+    setupAuthFetch({});
+    const { uploadDroppedFiles } = useFileActions({
+      getCurrentPath: () => "",
+      getFileContent: () => null,
+      navigateToPath: vi.fn(),
+    });
+    const dismissed = [];
+    const offDismiss = on("toast:dismiss", (payload) => dismissed.push(payload.key));
+
+    await uploadDroppedFiles([fakeEntry("song.mp3", 2 * MB), fakeEntry("small.txt")]);
+    offDismiss();
+
+    const pending = toasts.filter((t) => t.duration === 0);
+    expect(pending.map((t) => t.message)).toEqual(["Uploading song.mp3 (2.0 MB)"]);
+    expect(dismissed).toEqual([pending[0].key]);
+    expect(toasts.at(-1).message).toBe("Large file uploaded: song.mp3 (2.0 MB)");
   });
 
   it("理由がJSONで返らない失敗はHTTPステータスで示す", async () => {

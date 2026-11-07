@@ -2,7 +2,7 @@
 // upload API（path=ディレクトリ, file=ファイル本体, ファイル名に"/"は不可）
 // に渡せる形へ分解・合成するための純粋関数群。
 
-import { LARGE_UPLOAD_WARN_BYTES, UPLOAD_FAILURE_TOAST_MAX } from "./constants.ts";
+import { LARGE_UPLOAD_WARN_BYTES, MAX_UPLOAD_BYTES, UPLOAD_FAILURE_TOAST_MAX } from "./constants.ts";
 import { formatSize } from "./format.ts";
 import { basename, dirname } from "./path.ts";
 
@@ -37,4 +37,10 @@ export function formatLargeUploadWarning(uploaded: { name: string, size: number 
   const shown = large.slice(0, UPLOAD_FAILURE_TOAST_MAX).map((f) => `${f.name} (${formatSize(f.size)})`);
   const remaining = large.length - shown.length;
   return `Large file uploaded: ${shown.join("; ")}${remaining > 0 ? `; … and ${remaining} more` : ""}`;
+}
+
+/** サーバの上限を超えるファイルは送る前に弾く。送れるなら null。 */
+export function uploadTooLargeReason(size: number): string | null {
+  if (size <= MAX_UPLOAD_BYTES) return null;
+  return `File too large (max ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB)`;
 }
