@@ -121,7 +121,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
     formData.append("file", file);
     if (overwrite) formData.append("overwrite", "true");
     const pendingKey = file.size >= LARGE_UPLOAD_WARN_BYTES ? `upload:${uploadPath}/${file.name}` : null;
-    if (pendingKey) toast.showPending(`Uploading ${file.name} (${formatSize(file.size)})…`, pendingKey);
+    if (pendingKey) toast.showPending(`Uploading ${file.name} (${formatSize(file.size)})`, pendingKey);
     try {
       const res = await auth.apiFetch(target.uploadEndpoint, { method: "POST", body: formData });
       if (!res) return "Unauthorized";

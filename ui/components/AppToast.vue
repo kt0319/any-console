@@ -18,7 +18,9 @@
         @pointerup="onPointerUp(toast, $event)"
         @pointercancel="onPointerCancel(toast)"
       >
-        <div v-for="(line, i) in toast.lines" :key="i" class="toast-line">{{ line }}</div>
+        <div v-for="(line, i) in toast.lines" :key="i" class="toast-line">
+          {{ line }}<span v-if="toast.key && i === toast.lines.length - 1" class="loading-dots" aria-hidden="true"></span>
+        </div>
       </div>
     </TransitionGroup>
   </Teleport>

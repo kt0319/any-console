@@ -30,6 +30,15 @@ afterEach(() => {
 });
 
 describe("AppToast", () => {
+  it("key 付きの出しっぱなしトーストにだけ点滅する … を出す", async () => {
+    wrapper.vm.show("Uploading...", "info", 0, null, "upload:a");
+    wrapper.vm.show("done", "success");
+    await nextTick();
+    const [pending, normal] = bodyFindAll(".toast");
+    expect(pending.querySelector(".loading-dots")).toBeTruthy();
+    expect(normal.querySelector(".loading-dots")).toBeNull();
+  });
+
   it("duration 0 のトーストは時間が経っても消えず、dismissByKey で消える", async () => {
     vi.useFakeTimers();
     try {
