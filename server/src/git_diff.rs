@@ -35,15 +35,30 @@ fn truncate_diff(diff_text: &str) -> String {
     }
 }
 
-/// ファイル行数（Python `count_file_lines` — 読めなければ 0）。
-pub fn count_file_lines(path: &FsPath) -> i64 {
-    match std::fs::read(path) {
-        Ok(bytes) => {
-            bytes.iter().filter(|&&b| b == b'\n').count() as i64
-                + i64::from(!bytes.is_empty() && *bytes.last().unwrap() != b'\n')
-        }
-        Err(_) => 0,
+const BINARY_DETECTION_BYTES: usize = 8000;
+
+/// git と同じく、先頭 8000 バイトに NUL を含むものをバイナリとみなす。
+fn is_binary_content(bytes: &[u8]) -> bool {
+    bytes.iter().take(BINARY_DETECTION_BYTES).any(|&b| b == 0)
+}
+
+/// 未追跡ファイルの行数。バイナリは行の概念が無いので None、読めなければ 0。
+fn count_text_file_lines(path: &FsPath) -> Option<i64> {
+    let Ok(bytes) = std::fs::read(path) else {
+        return Some(0);
+    };
+    if is_binary_content(&bytes) {
+        return None;
     }
+    Some(
+        bytes.iter().filter(|&&b| b == b'\n').count() as i64
+            + i64::from(!bytes.is_empty() && *bytes.last().unwrap() != b'\n'),
+    )
+}
+
+/// ファイル行数（読めない・バイナリは 0）。
+pub fn count_file_lines(path: &FsPath) -> i64 {
+    count_text_file_lines(path).unwrap_or(0)
 }
 
 // ─── numstat / ファイルリスト整形 ─────────────────────────────────────────
@@ -285,12 +300,10 @@ pub async fn workspace_diff(
                 let status_code = line[..2].trim();
                 let file_name = &line[3..];
                 if status_code == "??" && !numstat.contains_key(file_name) {
+                    let lines = count_text_file_lines(&ws_path.join(file_name));
                     numstat.insert(
                         file_name.to_string(),
-                        json!({
-                            "insertions": count_file_lines(&ws_path.join(file_name)),
-                            "deletions": 0,
-                        }),
+                        json!({"insertions": lines, "deletions": lines.map(|_| 0)}),
                     );
                 }
                 files.push(build_file_entry(file_name, &numstat, Some(status_code)));
@@ -422,5 +435,14 @@ mod tests {
         std::fs::write(&p, "a\nb\nc").unwrap();
         assert_eq!(count_file_lines(&p), 3);
         assert_eq!(count_file_lines(&dir.path().join("missing")), 0);
+    }
+
+    #[test]
+    fn binary_files_have_no_line_count() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("a.bin");
+        std::fs::write(&p, b"\x89PNG\n\x00\n\n\n").unwrap();
+        assert_eq!(count_text_file_lines(&p), None);
+        assert_eq!(count_file_lines(&p), 0);
     }
 }
