@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0](https://github.com/kt0319/any-console/compare/v0.21.0...v0.22.0) (2026-11-07)
+
+
+### Features
+
+* 10MB以上のファイルのアップロード中は完了までトーストを表示し続ける ([f816d29](https://github.com/kt0319/any-console/commit/f816d2915b11c4582e3778c318664965b4dc37f6))
+* 10MB以上のファイルをアップロードしたときに警告トーストを表示する ([f1f4a80](https://github.com/kt0319/any-console/commit/f1f4a80180d9768b6c669fc1ebb395c47cc2da1b))
+* directスコープのAPIトークンで、制限つきの即時dispatchを可能にする ([#185](https://github.com/kt0319/any-console/issues/185)) ([3e00c23](https://github.com/kt0319/any-console/commit/3e00c23f0a315255897b321a9828afecc88cd154))
+* dispatchのworktree指定で、既存ブランチのworktreeが無ければ実行時に自動で作成する ([#184](https://github.com/kt0319/any-console/issues/184)) ([4c967b1](https://github.com/kt0319/any-console/commit/4c967b1d1e70faa83afc608b3982c83e5a2866c0))
+* HTTPS証明書の期限切れ・期限間近をSystem infoとスタートページに警告表示する ([5ee3258](https://github.com/kt0319/any-console/commit/5ee32588718112ff7353b8c46a90547521bff89c))
+* Open fileダイアログにダウンロードボタンを追加する ([7226f3b](https://github.com/kt0319/any-console/commit/7226f3b816d06db5492c93489cbb69661da28935))
+* Open fileとOpen URLのダイアログにも右上の×ボタンを付け、確認ダイアログと共通の部品にする ([25c9b82](https://github.com/kt0319/any-console/commit/25c9b8250dc9120d68ef730b7a1741596b869a7f))
+* system infoにtailscale serveで公開中のHTTPS証明書の有効期限を追加する ([3b2defe](https://github.com/kt0319/any-console/commit/3b2defe354e884a2c38606316291d02e678bf105))
+* worktreeのタブを同じワークスペースのタブの隣に開くようにする ([69381c0](https://github.com/kt0319/any-console/commit/69381c0917219e23b68c904259b32032efdf557b))
+* アップロード中トーストの末尾にアニメーションする...を付ける ([cb440cd](https://github.com/kt0319/any-console/commit/cb440cd80334f4c4abed7069e6701c686f26c89d))
+* セッションサイドバーでもベースとworktreeの行をグループ背景でまとめて表示する ([9b0343a](https://github.com/kt0319/any-console/commit/9b0343a573e189e3d6c9bfe1fbff102f2d9ccd31))
+* タブバーのworktreeグループに枠線を付け、worktreeのタブではワークスペースアイコンを出さないようにする ([8218389](https://github.com/kt0319/any-console/commit/821838989a006afc691b423ed3427e9f7000a6dd))
+* タブバーのworktreeグループの角丸をなくし、worktreeアイコンをタブと行の先頭に移す ([41a910c](https://github.com/kt0319/any-console/commit/41a910ce4841f294c474121a31c872303e8bf0bb))
+* ファイルプレビューのタイトルをPreview fileにし、画像表示時のタイトル余白を調整する ([5e0f1b9](https://github.com/kt0319/any-console/commit/5e0f1b9839e5c48d6477b544ba5894c1bd7aba30))
+* ベースのないworktreeのタブにワークスペースアイコンを出し、ワークスペースのタブをworktreeの左に開くようにする ([9d065e9](https://github.com/kt0319/any-console/commit/9d065e98cbdb3142e7efe440023c6950692fc480))
+* ワークツリーのタブを閉じる確認にワークツリーごと削除する選択肢を追加する ([cce4437](https://github.com/kt0319/any-console/commit/cce44373ae6faa5f6aa5cc81e84b9da04917d14b))
+* 上限超過のファイルは送信前に弾き、大きいファイルの警告閾値を1MBに下げる ([a12ec27](https://github.com/kt0319/any-console/commit/a12ec2775a4f5eebf5166abe4a4d05b3c8ade19e))
+* 同じワークスペースのタブ（ベースとworktree）をタブバーで1つの塊として表示する ([cad8e6d](https://github.com/kt0319/any-console/commit/cad8e6d3312d35bc50d127bd8c9e0028aa10932f))
+* 画像のタップ拡大を1〜4倍の整数段階にし、プレビューのタイトルに拡大率を表示する ([fc2362c](https://github.com/kt0319/any-console/commit/fc2362c57de4b157321f503cb3313f6c7b0f4138))
+* 画像プレビューのタップ拡大の段階を1.5・2・2.5・3倍に細かくする ([ae12c9b](https://github.com/kt0319/any-console/commit/ae12c9bf67f70439e3dfff1ae554d432160b9c49))
+* 画像プレビューのタップ拡大を等倍・2倍・4倍の3段階にする ([669be11](https://github.com/kt0319/any-console/commit/669be11c1b2dba3dbd1080118a8acd154660a75a))
+* 確認ダイアログのCancelボタンを右上の×ボタンに変更する ([3591a6f](https://github.com/kt0319/any-console/commit/3591a6ff7b45b9643f9e216b71ecdfd359a6fa74))
+
+
+### Bug Fixes
+
+* Dev Serverのピークピルのアイコン色を通常ピルと同じライム色に揃える ([de78977](https://github.com/kt0319/any-console/commit/de789777b889c4c6945e7d60d3dc6eb897a45ec7))
+* Dispatch実行で新規タブに切り替わってもワークスペース詳細のダイアログが閉じるようにする ([c345876](https://github.com/kt0319/any-console/commit/c3458762c515dacba7225f19503e2c4a8173047d))
+* Dispatch実行画面でCreate worktreeを選んだらSessionを新規セッションに切り替える ([a97f8e8](https://github.com/kt0319/any-console/commit/a97f8e8b08aaef3ef4a87935e0ed6232e813b9f6))
+* Open fileダイアログで画像を拡大した際に、上端までスクロールできない問題を修正 ([99e52fc](https://github.com/kt0319/any-console/commit/99e52fcff9f0492ccc24fe80d8a15bc4bd170aef))
+* Open fileダイアログのボタンを、Downloadを左端・Closeを右に並べる ([55ae7c6](https://github.com/kt0319/any-console/commit/55ae7c671667e13bcfe0e18be9a32544924ee977))
+* Refresh削除後のDetachボタンのセレクタに合わせてe2eを修正する ([dca9fa5](https://github.com/kt0319/any-console/commit/dca9fa5d244e3a365a906fec617325eb263a7a1f))
+* workflow_runで起動したrunをブランチのActionsピルの対象から外す ([9ee9ecf](https://github.com/kt0319/any-console/commit/9ee9ecf5e5be53a0c77087cf13f6d90733e27096))
+* ターミナルに表示されたパスに丸カッコが含まれていても途中で切らずに開けるようにする ([c8a93c4](https://github.com/kt0319/any-console/commit/c8a93c41b7e1658b20841860c2c45757ff17d721))
+* ターミナルのピル行を画面幅の半分で打ち切らず、ペイン幅いっぱいまで全部並べる ([b37681e](https://github.com/kt0319/any-console/commit/b37681ea4416e61ecc531ea7d6d36e0092113cfc))
+* ダイアログの×ボタンとタイトルの縦位置を揃える ([837a912](https://github.com/kt0319/any-console/commit/837a912df6ae7e76114b3a485352ad44d9426cb4))
+* タブバーのworktreeグループから枠線をなくす ([13da542](https://github.com/kt0319/any-console/commit/13da542c1ba300eaca38de074533e92fac6a04c6))
+* ワークツリーのジョブをRecent Jobsに記録しないようにする ([8a4f20d](https://github.com/kt0319/any-console/commit/8a4f20d8307816da392fb039c5889472e0757712))
+* 未追跡のバイナリファイルの変更行数を改行バイトで数えないようにする ([9e2f156](https://github.com/kt0319/any-console/commit/9e2f15681786dfeb15e4e0e6bb95ef4ad9db20f3))
+* 画像プレビューのタイトルとパス欄の間隔を広げる ([a660877](https://github.com/kt0319/any-console/commit/a660877fe8847bd355b0d7c38f4893d7a59273a8))
+* 相対時刻表示が1時間未満をすべてnowと表示していたのを分単位にし、月の表記をmoにする ([2287a93](https://github.com/kt0319/any-console/commit/2287a9371ff9e1d538bb4712980e231e35194160))
+
+
+### Refactor
+
+* Dev Serverプレビューを開く確認をOpen URLダイアログに統合し、タイトルをOpen preview serverにする ([8e05152](https://github.com/kt0319/any-console/commit/8e05152136c600787996890dad12cf1ab7b55c93))
+* タブを閉じる確認ダイアログからRefreshボタンを削除する ([8208fde](https://github.com/kt0319/any-console/commit/8208fde4cae3fa550e1c6eb2c99014df31534df5))
+
+
+### Tests
+
+* 画像タップ拡大の段階変更に合わせてFileTextViewerのテストを修正する ([c9d115e](https://github.com/kt0319/any-console/commit/c9d115ecf4f57b32f7fc523e59213bf01f115fce))
+
+
+### CI
+
+* CI失敗時の通知を承認キュー登録から、directトークンによるエージェントの即時起動に変更する ([a32c5ad](https://github.com/kt0319/any-console/commit/a32c5ad1e8c44995ee03a55f35acf23c3fbf307e))
+
 ## [0.21.0](https://github.com/kt0319/any-console/compare/v0.20.0...v0.21.0) (2026-11-02)
 
 
