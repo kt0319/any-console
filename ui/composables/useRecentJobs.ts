@@ -91,6 +91,7 @@ export function useRecentJobs() {
     ws: Record<string, any>,
     job: { name: string, label?: string, icon?: string, icon_color?: string, command?: string, confirm?: boolean, detached?: boolean },
   ) {
+    if (ws.worktree) return;
     const key = `${ws.name}:${job.name}`;
     const existing = recentJobs.value.find((j) => j.key === key);
     _touch({

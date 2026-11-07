@@ -67,6 +67,18 @@ describe("useRecentJobs: サーバーとの同期", () => {
     );
   });
 
+  it("ワークツリーのジョブは記録せず、サーバーへも送らない", async () => {
+    apiGetMock.mockResolvedValue({ ok: true, data: { recent_jobs: [] } });
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, recordJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    recordJob({ name: "ws1/feature", worktree: true }, { name: "build", command: "make build" });
+
+    expect(recentJobs.value).toEqual([]);
+    expect(apiPutMock).not.toHaveBeenCalled();
+  });
+
   it("togglePin でピン留め状態を含む一覧をサーバーへ PUT する", async () => {
     apiGetMock.mockResolvedValue({ ok: true, data: { recent_jobs: [job("ws1:build")] } });
     const { useRecentJobs } = await freshModule();
