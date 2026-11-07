@@ -5,7 +5,8 @@ import { useWorkspace } from "./useWorkspace.ts";
 import { useWorkspaceFile } from "./useWorkspaceFile.ts";
 import { useToast } from "./useToast.ts";
 import { emit } from "../app-bridge.ts";
-import { MSG_DELETE_FAILED } from "../utils/constants.ts";
+import { LARGE_UPLOAD_WARN_BYTES, MSG_DELETE_FAILED } from "../utils/constants.ts";
+import { formatSize } from "../utils/format.ts";
 import { useConfirm } from "./useConfirm.ts";
 import { confirmIrreversible } from "../utils/confirm-irreversible.ts";
 import { usePrompt } from "./usePrompt.ts";
@@ -119,6 +120,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
     formData.append("path", uploadPath);
     formData.append("file", file);
     if (overwrite) formData.append("overwrite", "true");
+    const pendingKey = file.size >= LARGE_UPLOAD_WARN_BYTES ? `upload:${uploadPath}/${file.name}` : null;
+    if (pendingKey) toast.showPending(`Uploading ${file.name} (${formatSize(file.size)})…`, pendingKey);
     try {
       const res = await auth.apiFetch(target.uploadEndpoint, { method: "POST", body: formData });
       if (!res) return "Unauthorized";
@@ -127,6 +130,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
       return body?.detail || `HTTP ${res.status}`;
     } catch (e) {
       return e instanceof Error ? e.message : String(e);
+    } finally {
+      if (pendingKey) toast.dismiss(pendingKey);
     }
   }
 

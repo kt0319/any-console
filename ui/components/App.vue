@@ -56,7 +56,8 @@ useAppConnectivity();
 const { showLogin, authenticated, onAuthenticated, checkAuthOnBoot } = useAppAuthGate();
 const appToast = ref<InstanceType<typeof AppToast> | null>(null);
 
-useBusListener("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
+useBusListener("toast:show", ({ message, type, duration, action, key }) => appToast.value?.show(message, type, duration, action, key));
+useBusListener("toast:dismiss", ({ key }) => appToast.value?.dismissByKey(key));
 
 onMounted(async () => {
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");

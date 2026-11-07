@@ -30,6 +30,23 @@ afterEach(() => {
 });
 
 describe("AppToast", () => {
+  it("duration 0 のトーストは時間が経っても消えず、dismissByKey で消える", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper.vm.show("Uploading...", "info", 0, null, "upload:a");
+      await nextTick();
+      vi.advanceTimersByTime(60_000);
+      await nextTick();
+      expect(bodyFind(".toast")?.textContent).toContain("Uploading...");
+
+      wrapper.vm.dismissByKey("upload:a");
+      await nextTick();
+      expect(bodyFindAll(".toast").length).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("show() でトーストを表示する", async () => {
     wrapper.vm.show("テストメッセージ", "error");
     await nextTick();

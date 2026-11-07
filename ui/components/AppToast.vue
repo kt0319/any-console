@@ -40,6 +40,7 @@ interface ToastItem {
   type: string;
   top: number;
   action: ToastAction | null;
+  key: string | null;
   swipeDy: number;
   // スワイプ追跡用の一時フィールド
   _ty?: number;
@@ -103,19 +104,27 @@ function onPointerCancel(toast: ToastItem) {
   toast._ty = undefined;
 }
 
-function show(message: string | { message?: string } | null | undefined, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action: ToastAction | null = null) {
-  const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
-  const id = ++idCounter;
-  const toast: ToastItem = { id, message: text, lines: text.split("\n"), type, top: 24, action, swipeDy: 0 };
-  toasts.value.push(toast);
+function dismissByKey(key: string) {
+  toasts.value = toasts.value.filter((t) => t.key !== key);
   nextTick(restack);
-  setTimeout(() => {
-    toasts.value = toasts.value.filter((t) => t.id !== id);
-    nextTick(restack);
-  }, duration);
 }
 
-defineExpose({ show });
+// duration が 0 のトーストは自動で消えない（key を付けて dismissByKey で消す）。
+function show(message: string | { message?: string } | null | undefined, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action: ToastAction | null = null, key: string | null = null) {
+  const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
+  const id = ++idCounter;
+  const toast: ToastItem = { id, message: text, lines: text.split("\n"), type, top: 24, action, key, swipeDy: 0 };
+  toasts.value.push(toast);
+  nextTick(restack);
+  if (duration > 0) {
+    setTimeout(() => {
+      toasts.value = toasts.value.filter((t) => t.id !== id);
+      nextTick(restack);
+    }, duration);
+  }
+}
+
+defineExpose({ show, dismissByKey });
 </script>
 
 <style scoped>
