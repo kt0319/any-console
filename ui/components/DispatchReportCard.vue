@@ -7,11 +7,6 @@
       <span v-if="state === 'reported'" class="dispatch-report-chip" :class="`tone-${verificationToneClass}`">{{ verificationLabel }}</span>
     </div>
 
-    <dl class="dispatch-report-block">
-      <dt>Request</dt>
-      <dd class="dispatch-report-text">{{ item.request.text || "(no text)" }}</dd>
-    </dl>
-
     <p v-if="state === 'unsupported'" class="dispatch-report-note">This job does not report results. Check the session for what was done.</p>
     <p v-else-if="state === 'unreported'" class="dispatch-report-note">The agent has not reported a result. Being idle or finished does not mean the work is complete or verified.</p>
 
