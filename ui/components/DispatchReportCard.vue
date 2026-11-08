@@ -7,8 +7,7 @@
       <span v-if="state === 'reported'" class="dispatch-report-chip" :class="`tone-${verificationToneClass}`">{{ verificationLabel }}</span>
     </div>
 
-    <p v-if="state === 'unsupported'" class="dispatch-report-note">This job does not report results. Check the session for what was done.</p>
-    <p v-else-if="state === 'unreported'" class="dispatch-report-note">The agent has not reported a result. Being idle or finished does not mean the work is complete or verified.</p>
+    <p v-if="state === 'unreported'" class="dispatch-report-note">The agent has not reported a result. Being idle or finished does not mean the work is complete or verified.</p>
 
     <template v-if="submitted">
       <dl class="dispatch-report-block">
@@ -104,7 +103,6 @@ const state = computed(() => reportState(props.item));
 const submitted = computed(() => props.item.report?.submitted as Record<string, any> | undefined);
 const badge = computed(() => reportBadge(props.item));
 const reportLabel = computed(() => {
-  if (state.value === "unsupported") return "No report configured";
   if (state.value === "unreported") return "Result not reported";
   return badge.value?.label || "Reported";
 });
