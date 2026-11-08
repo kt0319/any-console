@@ -7,7 +7,7 @@
       <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
     </div>
     <DispatchReportCard
-      v-if="isRerun && recentItem"
+      v-if="isRerun && recentItem && ['unreported', 'reported'].includes(reportState(recentItem))"
       :item="recentItem"
       @open-session="focusSession(recentItem.session_id, request?.effective_workspace)"
       @open-preview="(url) => emit('terminal:url', { uri: url, title: 'Open preview server' })"
@@ -131,6 +131,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { excludeCurrentBranch } from "../utils/git.ts";
 import DispatchReportCard from "./DispatchReportCard.vue";
+import { reportState } from "../utils/dispatch-report.ts";
 import { emit } from "../app-bridge.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
