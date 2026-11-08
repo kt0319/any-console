@@ -53,6 +53,8 @@ export const PILL_PEEK_SUBJECT_MAX = 1;
 export const GITHUB_ACTIVITY_BATCH_MS = 200;
 export const UNTRACKED_CONTENT_FETCH_CONCURRENCY = 4;
 export const UPLOAD_FAILURE_TOAST_MAX = 3;
+// any-console が dev server の TCP proxy を立てるポート（target + 20000）。
+export const PREVIEW_PROXY_PORT_OFFSET = 20000;
 export const LARGE_UPLOAD_WARN_BYTES = 1024 * 1024;
 // サーバの MAX_UPLOAD_SIZE（server/src/util.rs）と同値
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;

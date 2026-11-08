@@ -62,7 +62,7 @@ server/                       Backend (Rust, axum)
                                execute_git_action wrappers with activity logging
   src/git_info.rs              Per-workspace git-status collection pipeline (parallel queries,
                                TTL cache with stale-overwrite guard)
-  src/{workspaces,groups,jobs,terminal,system,system_info,system_update,settings,github,docker,dispatch,job_runner,pairing,upload_image}.rs
+  src/{workspaces,groups,jobs,terminal,system,system_info,system_update,settings,github,docker,dispatch,dispatch_report,job_runner,pairing,upload_image}.rs
                                Route handlers (system = tmux management; system_info = /system/info
                                probes; system_update = git-based self-update; docker = container detection; pairing = QR code
                                device pairing; short-lived, single-use tokens — see DECISIONS.md #28)

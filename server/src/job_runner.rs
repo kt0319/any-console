@@ -140,6 +140,7 @@ pub async fn run_terminal_job(
             job_name: body.job_name.clone(),
             job_label: body.job_label.clone(),
             interactive: body.interactive,
+            ..Default::default()
         })
         .await?;
     crate::session_watch::notify_session_created(&state, &session_id);

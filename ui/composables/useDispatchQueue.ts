@@ -5,6 +5,7 @@ import { useToast } from "./useToast.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import {
   dispatchDecisionPath,
+  dispatchReviewPath,
   EP_JOBS_WORKSPACES,
 } from "../utils/endpoints.ts";
 import { useSessionTabAttach } from "./useSessionTabAttach.ts";
@@ -12,7 +13,14 @@ import { resolveDispatchJobLabel } from "../utils/dispatch-request.ts";
 import { emit, on } from "../app-bridge.ts";
 
 type DispatchQueueItem = { id: string, request: Record<string, any> };
-type DispatchRecentItem = DispatchQueueItem & { outcome: string, auth?: string };
+type DispatchRecentItem = DispatchQueueItem & {
+  outcome: string,
+  auth?: string,
+  session_id?: string,
+  report_enabled?: boolean,
+  report?: Record<string, any>,
+  reviewed_at?: number,
+};
 
 // Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。サーバがステータス
 // ストリーム WS（type="dispatch_queue"）で配信する全量スナップショットをそのまま
@@ -116,5 +124,12 @@ export function useDispatchQueue() {
     return ok;
   }
 
-  return { queue, recent, runItem, rejectItem, discardItem, jobLabel, allJobs };
+  // 利用者の「確認済み」切替。確認状態を変えるだけで、マージ等の副作用は持たない。
+  async function reviewItem(id: string, reviewed: boolean): Promise<boolean> {
+    const { ok } = await apiPost(dispatchReviewPath(id), { reviewed },
+      { errorMessage: "Failed to update review state" });
+    return ok;
+  }
+
+  return { queue, recent, runItem, reviewItem, focusSession, rejectItem, discardItem, jobLabel, allJobs };
 }

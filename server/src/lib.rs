@@ -14,6 +14,7 @@ pub mod config_migrations;
 pub mod config_schema;
 pub mod devices;
 pub mod dispatch;
+pub mod dispatch_report;
 pub mod docker;
 pub mod errors;
 pub mod fallback;
@@ -444,6 +445,16 @@ fn terminal_routes() -> AppRouter {
         .route(
             "/dispatch/{dispatch_id}/decision",
             post(dispatch::dispatch_decide),
+        )
+        .route(
+            "/dispatch/{dispatch_id}/report",
+            post(dispatch_report::post_report).layer(axum::extract::DefaultBodyLimit::max(
+                dispatch_report::MAX_REPORT_BODY_BYTES,
+            )),
+        )
+        .route(
+            "/dispatch/{dispatch_id}/review",
+            post(dispatch_report::post_review),
         )
         .route(
             "/agent-hooks/events",
