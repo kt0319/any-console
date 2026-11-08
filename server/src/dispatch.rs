@@ -864,14 +864,17 @@ async fn launch(
     let effective_ws = body.effective_workspace();
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
-    let report_run = if job_def.report {
+    // direct は誰もターミナルを見ていない実行なので、ジョブ設定に関わらず結果を報告させる
+    // （依頼文が無い direct は渡す先が無いため対象外）。
+    let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
+    let report_run = if job_def.report || (body.direct && has_input) {
         if !job_command_is_known_agent(state, &job_def.command) {
             return Err(bad_request(format!(
                 "Job \"{}\" has result reporting enabled but its command is not a known agent",
                 body.job
             )));
         }
-        if body.text.is_empty() && body.image_paths.is_empty() {
+        if !has_input {
             return Err(bad_request(
                 "Result reporting requires dispatch text to hand over to the agent",
             ));
@@ -2168,6 +2171,14 @@ mod tests {
     }
 
     fn report_workspace_state(dir: &tempfile::TempDir, job_command: &str) -> Arc<AppState> {
+        report_workspace_state_with(dir, job_command, true)
+    }
+
+    fn report_workspace_state_with(
+        dir: &tempfile::TempDir,
+        job_command: &str,
+        report: bool,
+    ) -> Arc<AppState> {
         let manifests = dir.path().join("agent_manifests");
         std::fs::create_dir_all(&manifests).unwrap();
         std::fs::copy(
@@ -2182,7 +2193,7 @@ mod tests {
         std::fs::create_dir_all(&ws_dir).unwrap();
         std::fs::write(
             dir.path().join("config.json"),
-            json!({"proj": {"path": ws_dir, "jobs": {"rep": {"command": job_command, "report": true}}}})
+            json!({"proj": {"path": ws_dir, "jobs": {"rep": {"command": job_command, "report": report}}}})
                 .to_string(),
         )
         .unwrap();
@@ -2330,6 +2341,58 @@ mod tests {
 
         for result in [&first, &second] {
             crate::subprocess::kill_tmux_by_name(&tmux_of(result)).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn direct_run_reports_even_when_the_job_has_no_report_flag() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let state = report_workspace_state_with(&dir, "claude", false);
+        let mut direct = report_request("do it");
+        direct.direct = true;
+        let launched = execute_and_record(
+            &state,
+            "d1",
+            direct,
+            None,
+            &DispatchOverrides::default(),
+            "direct:ci",
+            None,
+        )
+        .await
+        .unwrap();
+        let plain = execute_and_record(
+            &state,
+            "p1",
+            report_request("do it"),
+            None,
+            &DispatchOverrides::default(),
+            "main",
+            None,
+        )
+        .await
+        .unwrap();
+        {
+            let recent = state.dispatch.recent.lock().await;
+            assert_eq!(
+                recent.iter().find(|r| r["id"] == "d1").unwrap()["report_enabled"],
+                true
+            );
+            assert!(recent
+                .iter()
+                .find(|r| r["id"] == "p1")
+                .unwrap()
+                .get("report_enabled")
+                .is_none());
+        }
+        for result in [&launched, &plain] {
+            let name = state
+                .paths
+                .tmux_session_name(result["session_id"].as_str().unwrap());
+            crate::subprocess::kill_tmux_by_name(&name).await;
         }
     }
 }
