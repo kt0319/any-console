@@ -50,10 +50,6 @@ export function dispatchDecisionPath(dispatchId: string): string {
   return `/dispatch/${encodeURIComponent(dispatchId)}/decision`;
 }
 
-export function dispatchReviewPath(dispatchId: string): string {
-  return `/dispatch/${encodeURIComponent(dispatchId)}/review`;
-}
-
 export function pairingStatusPath(pairingId: string): string {
   return `/auth/pairing/${encodeURIComponent(pairingId)}/status`;
 }

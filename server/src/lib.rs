@@ -453,10 +453,6 @@ fn terminal_routes() -> AppRouter {
             )),
         )
         .route(
-            "/dispatch/{dispatch_id}/review",
-            post(dispatch_report::post_review),
-        )
-        .route(
             "/agent-hooks/events",
             post(agent_hooks::post_agent_hook_event),
         )

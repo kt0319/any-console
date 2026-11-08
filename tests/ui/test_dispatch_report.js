@@ -58,10 +58,6 @@ describe("verificationTone / reportBadge", () => {
     expect(reportBadge(reported({ status: "partial" })).tone).toBe("warn");
     expect(reportBadge(reported({ status: "unable" })).tone).toBe("error");
   });
-
-  it("確認済みは別の状態として示す", () => {
-    expect(reportBadge(reported({}, { reviewed_at: 1 }))).toEqual({ label: "Reviewed", tone: "muted" });
-  });
 });
 
 describe("サーバ確認の成果物", () => {

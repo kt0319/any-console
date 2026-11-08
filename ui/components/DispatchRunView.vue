@@ -9,8 +9,6 @@
     <DispatchReportCard
       v-if="isRerun && recentItem"
       :item="recentItem"
-      :reviewing="reviewing"
-      @review="setReviewed"
       @open-session="focusSession(recentItem.session_id, request?.effective_workspace)"
       @open-preview="(url) => emit('terminal:url', { uri: url, title: 'Open preview server' })"
     />
@@ -155,7 +153,7 @@ const props = defineProps({
 const emits = defineEmits(["back"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const { queue, recent, runItem, reviewItem, focusSession } = useDispatchQueue();
+const { queue, recent, runItem, focusSession } = useDispatchQueue();
 const { imagePaths, previewUrls, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
@@ -171,16 +169,6 @@ const recentItem = computed(() => queueItem.value ? null : (recent.value.find((r
 const item = computed(() => queueItem.value || recentItem.value);
 const request = computed(() => item.value?.request || null);
 const isRerun = computed(() => !queueItem.value && !!recentItem.value);
-
-const reviewing = ref(false);
-async function setReviewed(reviewed: boolean) {
-  reviewing.value = true;
-  try {
-    await reviewItem(itemId, reviewed);
-  } finally {
-    reviewing.value = false;
-  }
-}
 
 const branch = ref("");
 // Create branch/worktree で入力する新規ブランチ名。Change branch側のbranch

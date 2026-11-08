@@ -17,8 +17,8 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use crate::auth::{constant_time_eq, RequireAuth};
-use crate::errors::{bad_request, conflict, not_found, unauthorized, unprocessable, ApiError};
+use crate::auth::constant_time_eq;
+use crate::errors::{bad_request, conflict, unauthorized, unprocessable, ApiError};
 use crate::state::AppState;
 use crate::util::{now_epoch, JsonBody};
 
@@ -386,45 +386,6 @@ fn notify_reported(
     );
 }
 
-#[derive(Deserialize)]
-pub struct ReviewBody {
-    pub reviewed: bool,
-}
-
-async fn set_reviewed(
-    state: &Arc<AppState>,
-    dispatch_id: &str,
-    reviewed: bool,
-) -> Result<(), ApiError> {
-    {
-        let mut recent = state.dispatch.recent.lock().await;
-        let item = recent
-            .iter_mut()
-            .find(|r| r["id"] == dispatch_id)
-            .ok_or_else(|| not_found("Dispatch item not found"))?;
-        if reviewed {
-            item["reviewed_at"] = json!(now_epoch());
-        } else if let Some(map) = item.as_object_mut() {
-            map.remove("reviewed_at");
-        }
-    }
-    crate::dispatch::persist_recent(state).await;
-    crate::dispatch::broadcast_queue(state).await;
-    Ok(())
-}
-
-/// `POST /dispatch/{id}/review`。利用者の確認状態だけを切り替える（マージ・デプロイ・
-/// worktree 削除などの副作用は持たない）。
-pub async fn post_review(
-    State(state): State<Arc<AppState>>,
-    Path(dispatch_id): Path<String>,
-    _auth: RequireAuth,
-    JsonBody(body): JsonBody<ReviewBody>,
-) -> Result<Json<Value>, ApiError> {
-    set_reviewed(&state, &dispatch_id, body.reviewed).await?;
-    Ok(Json(json!({"status": "ok"})))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -710,27 +671,5 @@ mod tests {
         let a = ReportRun::new(&state, "run1");
         let b = ReportRun::new(&state, "run1");
         assert_ne!(a.token, b.token);
-    }
-
-    #[tokio::test]
-    async fn review_toggles_reviewed_at_without_touching_the_report() {
-        let dir = tempfile::tempdir().unwrap();
-        let state = state_in(&dir);
-        seed_run(&state, "run1", TOKEN, "executed").await;
-        let _ = report(&state, "run1", TOKEN, valid_body()).await.unwrap();
-        let before = stored_report(&state, "run1").await;
-
-        set_reviewed(&state, "run1", true).await.unwrap();
-        {
-            let recent = state.dispatch.recent.lock().await;
-            assert!(recent[0]["reviewed_at"].as_i64().unwrap() > 0);
-        }
-        set_reviewed(&state, "run1", false).await.unwrap();
-        {
-            let recent = state.dispatch.recent.lock().await;
-            assert!(recent[0].get("reviewed_at").is_none());
-        }
-        assert_eq!(stored_report(&state, "run1").await, before);
-        assert!(set_reviewed(&state, "nope", true).await.is_err());
     }
 }
