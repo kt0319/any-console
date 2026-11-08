@@ -5,7 +5,6 @@
       <span v-if="agentState" class="dispatch-report-chip">Agent: {{ agentState }}</span>
       <span class="dispatch-report-chip" :class="`tone-${reportTone}`">{{ reportLabel }}</span>
       <span v-if="state === 'reported'" class="dispatch-report-chip" :class="`tone-${verificationToneClass}`">{{ verificationLabel }}</span>
-      <span class="dispatch-report-chip">{{ item.reviewed_at ? "Reviewed" : "Not reviewed" }}</span>
     </div>
 
     <dl class="dispatch-report-block">
@@ -66,12 +65,7 @@
       <button v-if="previewUrl" type="button" @click="emits('open-preview', previewUrl)">
         <span class="mdi mdi-open-in-new"></span> Open preview
       </button>
-      <button type="button" :disabled="reviewing" @click="emits('review', !item.reviewed_at)">
-        <span class="mdi" :class="item.reviewed_at ? 'mdi-undo' : 'mdi-check'"></span>
-        {{ item.reviewed_at ? "Clear reviewed" : "Mark reviewed" }}
-      </button>
     </div>
-    <p class="dispatch-report-note">Marking as reviewed does not merge, deploy or delete anything.</p>
   </section>
 </template>
 
@@ -94,10 +88,8 @@ import {
 
 const props = defineProps({
   item: { type: Object as PropType<DispatchReportItem & Record<string, any>>, required: true },
-  reviewing: { type: Boolean, default: false },
 });
 const emits = defineEmits<{
-  (e: "review", reviewed: boolean): void;
   (e: "open-session"): void;
   (e: "open-preview", url: string): void;
 }>();

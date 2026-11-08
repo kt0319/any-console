@@ -19,7 +19,6 @@ export type DispatchReportItem = {
   outcome?: string,
   report_enabled?: boolean,
   report?: { submitted?: Submitted, verified?: Record<string, any>, reported_at?: number },
-  reviewed_at?: number,
   session_id?: string,
 };
 
@@ -59,7 +58,6 @@ export function reportBadge(item: DispatchReportItem): { label: string, tone: To
   const state = reportState(item);
   if (state === "none" || state === "unsupported") return null;
   if (state === "unreported") return { label: "Result not reported", tone: "muted" };
-  if (item.reviewed_at) return { label: "Reviewed", tone: "muted" };
   if (verificationTone(item) === "failed") return { label: "Verification failed", tone: "error" };
   const status = item.report?.submitted?.status || "";
   const tone: Tone = status === "completed" && verificationTone(item) === "passed" ? "ok" : status === "unable" ? "error" : "warn";
