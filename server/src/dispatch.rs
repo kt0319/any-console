@@ -361,8 +361,6 @@ struct JobDef {
     label: String,
     icon: String,
     icon_color: String,
-    /// 実行ごとの結果報告を有効にしたジョブ（`dispatch_report.rs`）。
-    report: bool,
 }
 
 impl JobDef {
@@ -372,7 +370,6 @@ impl JobDef {
             label: job.to_string(),
             icon: String::new(),
             icon_color: String::new(),
-            report: false,
         }
     }
 }
@@ -384,7 +381,6 @@ fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDe
             label: "Terminal".to_string(),
             icon: String::new(),
             icon_color: String::new(),
-            report: false,
         });
     }
     let jobs = serialize_workspace_jobs(state, workspace);
@@ -412,10 +408,6 @@ fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDe
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string(),
-        report: entry
-            .get("report")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
     })
 }
 
@@ -764,14 +756,9 @@ async fn resolve_and_launch_session(
     effective_ws: &str,
     ws_path: &FsPath,
     job_def: &JobDef,
-    report_run: Option<&ReportRun>,
-) -> Result<(String, bool), ApiError> {
-    // 報告は実行専用の環境変数をセッション作成時に注入するため、報告つきの実行は
-    // 既存セッションへ送り込まず、常に新しいセッションを起動する。
-    let existing = match report_run {
-        Some(_) => None,
-        None => resolve_session(state, body, effective_ws).await,
-    };
+    dispatch_id: &str,
+) -> Result<(String, bool, Option<ReportRun>), ApiError> {
+    let existing = resolve_session(state, body, effective_ws).await;
 
     if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
         let existing_workspace = match &existing {
@@ -794,6 +781,11 @@ async fn resolve_and_launch_session(
     }
 
     let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
+    // 報告は実行専用の環境変数をセッション作成時にしか注入できない。そのため、依頼文を
+    // エージェントへ渡す新規セッションの起動だけが対象で、既存セッションへの送信は報告なし。
+    let report_run =
+        (existing.is_none() && has_input && job_command_is_known_agent(state, &job_def.command))
+            .then(|| ReportRun::new(state, dispatch_id));
     let compose_input = || {
         let mut text = compose_text_with_images(&body.text, &body.image_paths);
         if report_run.is_some() {
@@ -813,7 +805,10 @@ async fn resolve_and_launch_session(
             (sid, false)
         }
         None => {
-            let extra_env = report_run.map(ReportRun::session_env).unwrap_or_default();
+            let extra_env = report_run
+                .as_ref()
+                .map(ReportRun::session_env)
+                .unwrap_or_default();
             let (sid, sess) = create_session(
                 state,
                 effective_ws,
@@ -842,7 +837,7 @@ async fn resolve_and_launch_session(
             (sid, true)
         }
     };
-    Ok((session_id, created))
+    Ok((session_id, created, report_run))
 }
 
 /// `launch` の結果。`report_token_hash` は報告つきの実行でだけ入り、履歴にのみ保存する
@@ -864,34 +859,9 @@ async fn launch(
     let effective_ws = body.effective_workspace();
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
-    // direct は誰もターミナルを見ていない実行なので、ジョブ設定に関わらず結果を報告させる
-    // （依頼文が無い direct は渡す先が無いため対象外）。
-    let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
-    let report_run = if job_def.report || (body.direct && has_input) {
-        if !job_command_is_known_agent(state, &job_def.command) {
-            return Err(bad_request(format!(
-                "Job \"{}\" has result reporting enabled but its command is not a known agent",
-                body.job
-            )));
-        }
-        if !has_input {
-            return Err(bad_request(
-                "Result reporting requires dispatch text to hand over to the agent",
-            ));
-        }
-        Some(ReportRun::new(state, dispatch_id))
-    } else {
-        None
-    };
-    let (session_id, created) = resolve_and_launch_session(
-        state,
-        body,
-        &effective_ws,
-        &ws_path,
-        &job_def,
-        report_run.as_ref(),
-    )
-    .await?;
+    let (session_id, created, report_run) =
+        resolve_and_launch_session(state, body, &effective_ws, &ws_path, &job_def, dispatch_id)
+            .await?;
     Ok(Launched {
         response: json!({
             "status": "ok",
@@ -1743,7 +1713,6 @@ mod tests {
             label: "Terminal".to_string(),
             icon: String::new(),
             icon_color: String::new(),
-            report: false,
         };
         let body = dispatch_notification_body("proj", &req, &job_def);
         assert_eq!(body, "proj\n2 images");
@@ -1760,7 +1729,6 @@ mod tests {
             label: "Build".to_string(),
             icon: String::new(),
             icon_color: String::new(),
-            report: false,
         };
         let body = dispatch_notification_body("proj:feat/x", &req, &job_def);
         assert!(body.starts_with("proj:feat/x\nBuild \u{b7} feat/x\n"));
@@ -1777,7 +1745,6 @@ mod tests {
             label: "Terminal".to_string(),
             icon: String::new(),
             icon_color: String::new(),
-            report: false,
         };
         assert_eq!(dispatch_notification_body("proj", &req, &job_def), "proj");
     }
@@ -2171,14 +2138,6 @@ mod tests {
     }
 
     fn report_workspace_state(dir: &tempfile::TempDir, job_command: &str) -> Arc<AppState> {
-        report_workspace_state_with(dir, job_command, true)
-    }
-
-    fn report_workspace_state_with(
-        dir: &tempfile::TempDir,
-        job_command: &str,
-        report: bool,
-    ) -> Arc<AppState> {
         let manifests = dir.path().join("agent_manifests");
         std::fs::create_dir_all(&manifests).unwrap();
         std::fs::copy(
@@ -2193,7 +2152,7 @@ mod tests {
         std::fs::create_dir_all(&ws_dir).unwrap();
         std::fs::write(
             dir.path().join("config.json"),
-            json!({"proj": {"path": ws_dir, "jobs": {"rep": {"command": job_command, "report": report}}}})
+            json!({"proj": {"path": ws_dir, "jobs": {"rep": {"command": job_command}}}})
                 .to_string(),
         )
         .unwrap();
@@ -2204,15 +2163,19 @@ mod tests {
         DispatchRequest {
             job: "rep".to_string(),
             text: text.to_string(),
+            match_mode: "none".to_string(),
             ..base_request()
         }
     }
 
     #[tokio::test]
-    async fn report_job_that_is_not_a_known_agent_fails_visibly() {
+    async fn non_agent_job_is_launched_without_a_report() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let state = report_workspace_state(&dir, "echo hi");
-        let err = execute_and_record(
+        let launched = execute_and_record(
             &state,
             "run1",
             report_request("do it"),
@@ -2222,15 +2185,20 @@ mod tests {
             None,
         )
         .await
-        .unwrap_err();
-        assert!(err.detail.contains("not a known agent"), "{}", err.detail);
-        let recent = state.dispatch.recent.lock().await;
-        assert_eq!(recent[0]["outcome"], "failed");
-        assert!(recent[0].get("report_enabled").is_none());
+        .unwrap();
+        {
+            let recent = state.dispatch.recent.lock().await;
+            assert_eq!(recent[0]["outcome"], "executed");
+            assert!(recent[0].get("report_enabled").is_none());
+        }
+        let name = state
+            .paths
+            .tmux_session_name(launched["session_id"].as_str().unwrap());
+        crate::subprocess::kill_tmux_by_name(&name).await;
     }
 
     #[tokio::test]
-    async fn approved_report_job_gets_run_scoped_env_and_accepts_only_that_runs_report() {
+    async fn agent_dispatch_gets_run_scoped_env_and_accepts_only_that_runs_report() {
         if crate::tmux::skip_if_no_tmux() {
             return;
         }
@@ -2345,28 +2313,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn direct_run_reports_even_when_the_job_has_no_report_flag() {
+    async fn dispatch_into_an_existing_session_is_not_reported() {
         if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
-        let state = report_workspace_state_with(&dir, "claude", false);
-        let mut direct = report_request("do it");
-        direct.direct = true;
-        let launched = execute_and_record(
+        let state = report_workspace_state(&dir, "claude");
+        let first = execute_and_record(
             &state,
-            "d1",
-            direct,
-            None,
-            &DispatchOverrides::default(),
-            "direct:ci",
-            None,
-        )
-        .await
-        .unwrap();
-        let plain = execute_and_record(
-            &state,
-            "p1",
+            "new",
             report_request("do it"),
             None,
             &DispatchOverrides::default(),
@@ -2375,24 +2330,30 @@ mod tests {
         )
         .await
         .unwrap();
+        let mut reuse = report_request("more");
+        reuse.match_mode = "any".to_string();
+        let second = execute_and_record(
+            &state,
+            "reuse",
+            reuse,
+            None,
+            &DispatchOverrides::default(),
+            "main",
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(second["session_id"], first["session_id"]);
+        assert_eq!(second["created"], false);
         {
             let recent = state.dispatch.recent.lock().await;
-            assert_eq!(
-                recent.iter().find(|r| r["id"] == "d1").unwrap()["report_enabled"],
-                true
-            );
-            assert!(recent
-                .iter()
-                .find(|r| r["id"] == "p1")
-                .unwrap()
-                .get("report_enabled")
-                .is_none());
+            let find = |id: &str| recent.iter().find(|r| r["id"] == id).unwrap().clone();
+            assert_eq!(find("new")["report_enabled"], true);
+            assert!(find("reuse").get("report_enabled").is_none());
         }
-        for result in [&launched, &plain] {
-            let name = state
-                .paths
-                .tmux_session_name(result["session_id"].as_str().unwrap());
-            crate::subprocess::kill_tmux_by_name(&name).await;
-        }
+        let name = state
+            .paths
+            .tmux_session_name(first["session_id"].as_str().unwrap());
+        crate::subprocess::kill_tmux_by_name(&name).await;
     }
 }

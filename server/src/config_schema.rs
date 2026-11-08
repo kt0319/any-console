@@ -184,10 +184,6 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
             key: "detached",
             kind: FieldKind::Bool,
         },
-        FieldSpec {
-            key: "report",
-            kind: FieldKind::Bool,
-        },
     ];
     let out = dump_model(data, &specs)?;
     // command は必須（空文字も不可）
