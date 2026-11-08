@@ -220,7 +220,7 @@ Mark an agent job with **Report results (Dispatch)** (`"report": true` in the jo
  "artifacts": {"commits": ["abc1234"], "branch": "feat/x", "preview_port": 3000}}
 ```
 
-The report is stored with the run in the Dispatch history (workspace detail > Dispatch), shown separately from "launched" and the agent's live state. Everything in it is the agent's own claim; only the existence of the listed commits/branch is checked by the server. A run without a report is shown as "Result not reported" — an idle or exited agent is never treated as done. Limits: the job must start with a known agent and the dispatch must carry text; only the 10 most recent history entries accept reports; the same body sent twice is accepted once, a different second report gets 409. Reporting is opt-in per job; it applies to approved dispatches and `direct` runs of that job alike.
+The report is stored with the run in the Dispatch history (workspace detail > Dispatch), shown separately from "launched" and the agent's live state. Everything in it is the agent's own claim; only the existence of the listed commits/branch is checked by the server. A run without a report is shown as "Result not reported" — an idle or exited agent is never treated as done. Limits: the job must start with a known agent and the dispatch must carry text; only the 10 most recent history entries accept reports; the same body sent twice is accepted once, a different second report gets 409. Reporting is opt-in per job; `direct` runs always report (nobody is watching their terminal), as long as they carry text.
 
 ## HTTPS
 
