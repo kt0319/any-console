@@ -33,6 +33,7 @@ use serde_json::{json, Map, Value};
 use tokio::sync::Mutex;
 
 use crate::auth::{parse_cookies, AuthKind, RequireAuth};
+use crate::dispatch_report::{self, ReportRun};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
 use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
@@ -56,6 +57,8 @@ const DIRECT_LABEL_PREFIX: &str = "direct:";
 const DISPATCH_IMAGE_TTL_SEC: i64 = 24 * 60 * 60;
 /// direct スコープのトークンの起動回数を数える期間（直近 24 時間）。
 const DIRECT_WINDOW_SEC: i64 = 24 * 60 * 60;
+/// recent 項目に保存する実行ごとの報告トークンの HMAC（配信・API 応答には含めない）。
+const REPORT_TOKEN_HASH_FIELD: &str = "report_token_hash";
 const ACTIVITY_EVENT_DIRECT_FIRED: &str = "direct_fired";
 
 // ─── 永続化状態 ──────────────────────────────────────────────────────────────
@@ -122,7 +125,7 @@ async fn persist_pending(state: &Arc<AppState>) {
     );
 }
 
-async fn persist_recent(state: &Arc<AppState>) {
+pub(crate) async fn persist_recent(state: &Arc<AppState>) {
     let recent = state.dispatch.recent.lock().await.clone();
     crate::json_store::save_or_warn(
         &recent_file(&state.paths),
@@ -131,18 +134,23 @@ async fn persist_recent(state: &Arc<AppState>) {
     );
 }
 
-async fn queue_payload(state: &Arc<AppState>) -> Value {
+pub(crate) async fn queue_payload(state: &Arc<AppState>) -> Value {
     let pending = state.dispatch.pending.lock().await;
     let items: Vec<Value> = pending
         .iter()
         .map(|(id, req)| json!({"id": id, "request": req}))
         .collect();
-    let recent = state.dispatch.recent.lock().await.clone();
+    let mut recent = state.dispatch.recent.lock().await.clone();
+    for item in &mut recent {
+        if let Some(map) = item.as_object_mut() {
+            map.remove(REPORT_TOKEN_HASH_FIELD);
+        }
+    }
     json!({"type": "dispatch_queue", "items": items, "recent": recent})
 }
 
 /// キューの現在の全量を status stream 購読者へ配信する。
-async fn broadcast_queue(state: &Arc<AppState>) {
+pub(crate) async fn broadcast_queue(state: &Arc<AppState>) {
     let payload = queue_payload(state).await;
     state.status_stream.broadcast(payload);
 }
@@ -353,6 +361,8 @@ struct JobDef {
     label: String,
     icon: String,
     icon_color: String,
+    /// 実行ごとの結果報告を有効にしたジョブ（`dispatch_report.rs`）。
+    report: bool,
 }
 
 impl JobDef {
@@ -362,6 +372,7 @@ impl JobDef {
             label: job.to_string(),
             icon: String::new(),
             icon_color: String::new(),
+            report: false,
         }
     }
 }
@@ -373,6 +384,7 @@ fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDe
             label: "Terminal".to_string(),
             icon: String::new(),
             icon_color: String::new(),
+            report: false,
         });
     }
     let jobs = serialize_workspace_jobs(state, workspace);
@@ -400,6 +412,10 @@ fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDe
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string(),
+        report: entry
+            .get("report")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
     })
 }
 
@@ -511,6 +527,7 @@ async fn create_session(
     ws_path: Option<&FsPath>,
     job: &str,
     job_def: &JobDef,
+    extra_env: Vec<(String, String)>,
 ) -> Result<(String, Arc<Mutex<TerminalSession>>), ApiError> {
     let (session_id, session_arc) = state
         .create_terminal_session(crate::terminal_session::NewSessionSpec {
@@ -521,6 +538,7 @@ async fn create_session(
             job_name: (job != TERMINAL_JOB_KEY).then(|| job.to_string()),
             job_label: Some(job_def.label.clone()),
             interactive: true,
+            extra_env,
         })
         .await?;
     crate::session_watch::notify_session_created(state, &session_id);
@@ -746,8 +764,14 @@ async fn resolve_and_launch_session(
     effective_ws: &str,
     ws_path: &FsPath,
     job_def: &JobDef,
+    report_run: Option<&ReportRun>,
 ) -> Result<(String, bool), ApiError> {
-    let existing = resolve_session(state, body, effective_ws).await;
+    // 報告は実行専用の環境変数をセッション作成時に注入するため、報告つきの実行は
+    // 既存セッションへ送り込まず、常に新しいセッションを起動する。
+    let existing = match report_run {
+        Some(_) => None,
+        None => resolve_session(state, body, effective_ws).await,
+    };
 
     if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
         let existing_workspace = match &existing {
@@ -770,10 +794,17 @@ async fn resolve_and_launch_session(
     }
 
     let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
+    let compose_input = || {
+        let mut text = compose_text_with_images(&body.text, &body.image_paths);
+        if report_run.is_some() {
+            text.push_str(&dispatch_report::report_instruction());
+        }
+        text
+    };
     let (session_id, created) = match existing {
         Some((sid, sess)) => {
             if has_input {
-                let text = compose_text_with_images(&body.text, &body.image_paths);
+                let text = compose_input();
                 let tmux_name = { sess.lock().await.tmux_session_name.clone() };
                 if !tmux::send_keys_to_tmux(&tmux_name, &text, body.enter).await {
                     tracing::warn!("dispatch text send-keys failed session={sid}");
@@ -782,8 +813,16 @@ async fn resolve_and_launch_session(
             (sid, false)
         }
         None => {
-            let (sid, sess) =
-                create_session(state, effective_ws, Some(ws_path), &body.job, job_def).await?;
+            let extra_env = report_run.map(ReportRun::session_env).unwrap_or_default();
+            let (sid, sess) = create_session(
+                state,
+                effective_ws,
+                Some(ws_path),
+                &body.job,
+                job_def,
+                extra_env,
+            )
+            .await?;
             let tmux_name = { sess.lock().await.tmux_session_name.clone() };
             tmux::wait_pane_ready(&tmux_name, tmux::TMUX_PANE_READY_TIMEOUT_SEC).await;
             if !job_def.command.is_empty() {
@@ -797,7 +836,7 @@ async fn resolve_and_launch_session(
                 }
             }
             if has_input {
-                let text = compose_text_with_images(&body.text, &body.image_paths);
+                let text = compose_input();
                 set_pending_text(&tmux_name, &text, body.enter, body.direct).await;
             }
             (sid, true)
@@ -806,7 +845,18 @@ async fn resolve_and_launch_session(
     Ok((session_id, created))
 }
 
-async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, ApiError> {
+/// `launch` の結果。`report_token_hash` は報告つきの実行でだけ入り、履歴にのみ保存する
+/// （クライアントへ返す `response` には含めない）。
+struct Launched {
+    response: Value,
+    report_token_hash: Option<String>,
+}
+
+async fn launch(
+    state: &Arc<AppState>,
+    body: &DispatchRequest,
+    dispatch_id: &str,
+) -> Result<Launched, ApiError> {
     if let Some(worktree) = body.worktree.as_deref().filter(|w| !w.is_empty()) {
         crate::git_worktree::ensure_worktree_for_existing_branch(state, &body.workspace, worktree)
             .await?;
@@ -814,17 +864,43 @@ async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, 
     let effective_ws = body.effective_workspace();
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
-    let (session_id, created) =
-        resolve_and_launch_session(state, body, &effective_ws, &ws_path, &job_def).await?;
-    Ok(json!({
-        "status": "ok",
-        "session_id": session_id,
-        "workspace": effective_ws,
-        "job": body.job,
-        "created": created,
-        "url": format!("/?workspace={effective_ws}&session={session_id}"),
-        "ws_url": format!("/terminal/ws/{session_id}"),
-    }))
+    let report_run = if job_def.report {
+        if !job_command_is_known_agent(state, &job_def.command) {
+            return Err(bad_request(format!(
+                "Job \"{}\" has result reporting enabled but its command is not a known agent",
+                body.job
+            )));
+        }
+        if body.text.is_empty() && body.image_paths.is_empty() {
+            return Err(bad_request(
+                "Result reporting requires dispatch text to hand over to the agent",
+            ));
+        }
+        Some(ReportRun::new(state, dispatch_id))
+    } else {
+        None
+    };
+    let (session_id, created) = resolve_and_launch_session(
+        state,
+        body,
+        &effective_ws,
+        &ws_path,
+        &job_def,
+        report_run.as_ref(),
+    )
+    .await?;
+    Ok(Launched {
+        response: json!({
+            "status": "ok",
+            "session_id": session_id,
+            "workspace": effective_ws,
+            "job": body.job,
+            "created": created,
+            "url": format!("/?workspace={effective_ws}&session={session_id}"),
+            "ws_url": format!("/terminal/ws/{session_id}"),
+        }),
+        report_token_hash: report_run.as_ref().map(|run| run.token_hash(state)),
+    })
 }
 
 // ─── dedup / 通知本文 / branch_status ───────────────────────────────────────
@@ -998,12 +1074,13 @@ fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
 async fn launch_logged(
     state: &Arc<AppState>,
     req: &DispatchRequest,
+    dispatch_id: &str,
     auth_label: &str,
-) -> Result<Value, ApiError> {
-    match launch(state, req).await {
-        Ok(result) => {
-            log_dispatch_executed(state, &result, auth_label);
-            Ok(result)
+) -> Result<Launched, ApiError> {
+    match launch(state, req, dispatch_id).await {
+        Ok(launched) => {
+            log_dispatch_executed(state, &launched.response, auth_label);
+            Ok(launched)
         }
         Err(e) => {
             log_dispatch_failed(state, &req.workspace, &e.detail);
@@ -1496,15 +1573,36 @@ async fn execute_and_record(
         request.image_paths =
             sync_dispatch_image_dir(&state.paths, dispatch_id, &request.image_paths).await;
     }
-    let result = launch_logged(state, &request, auth_label).await;
+    let launched = launch_logged(state, &request, dispatch_id, auth_label).await;
     let mut recorded = request.to_json_map();
     if let Some(received_at) = received_at {
         recorded.insert("received_at".to_string(), received_at);
     }
-    let outcome = if result.is_ok() { "executed" } else { "failed" };
-    record_recent(state, dispatch_id, Value::Object(recorded), outcome, extra).await;
+    let outcome = if launched.is_ok() {
+        "executed"
+    } else {
+        "failed"
+    };
+    let mut item_extra = extra.cloned().unwrap_or_default();
+    if let Ok(launched) = &launched {
+        for key in ["session_id", "created"] {
+            item_extra.insert(key.to_string(), launched.response[key].clone());
+        }
+        if let Some(hash) = &launched.report_token_hash {
+            item_extra.insert(REPORT_TOKEN_HASH_FIELD.to_string(), json!(hash));
+            item_extra.insert("report_enabled".to_string(), json!(true));
+        }
+    }
+    record_recent(
+        state,
+        dispatch_id,
+        Value::Object(recorded),
+        outcome,
+        Some(&item_extra),
+    )
+    .await;
     persist_and_broadcast(state).await;
-    result
+    launched.map(|l| l.response)
 }
 
 #[cfg(test)]
@@ -1642,6 +1740,7 @@ mod tests {
             label: "Terminal".to_string(),
             icon: String::new(),
             icon_color: String::new(),
+            report: false,
         };
         let body = dispatch_notification_body("proj", &req, &job_def);
         assert_eq!(body, "proj\n2 images");
@@ -1658,6 +1757,7 @@ mod tests {
             label: "Build".to_string(),
             icon: String::new(),
             icon_color: String::new(),
+            report: false,
         };
         let body = dispatch_notification_body("proj:feat/x", &req, &job_def);
         assert!(body.starts_with("proj:feat/x\nBuild \u{b7} feat/x\n"));
@@ -1674,6 +1774,7 @@ mod tests {
             label: "Terminal".to_string(),
             icon: String::new(),
             icon_color: String::new(),
+            report: false,
         };
         assert_eq!(dispatch_notification_body("proj", &req, &job_def), "proj");
     }
@@ -2064,5 +2165,171 @@ mod tests {
         assert_eq!(first_program_of_command("./run=weird"), Some("./run=weird"));
         assert_eq!(first_program_of_command(""), None);
         assert_eq!(first_program_of_command("FOO=1"), None);
+    }
+
+    fn report_workspace_state(dir: &tempfile::TempDir, job_command: &str) -> Arc<AppState> {
+        let manifests = dir.path().join("agent_manifests");
+        std::fs::create_dir_all(&manifests).unwrap();
+        std::fs::copy(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../agent_manifests/claude.toml"
+            ),
+            manifests.join("claude.toml"),
+        )
+        .unwrap();
+        let ws_dir = dir.path().join("ws");
+        std::fs::create_dir_all(&ws_dir).unwrap();
+        std::fs::write(
+            dir.path().join("config.json"),
+            json!({"proj": {"path": ws_dir, "jobs": {"rep": {"command": job_command, "report": true}}}})
+                .to_string(),
+        )
+        .unwrap();
+        Arc::new(crate::state::test_app_state(dir.path(), "test-", 10_000))
+    }
+
+    fn report_request(text: &str) -> DispatchRequest {
+        DispatchRequest {
+            job: "rep".to_string(),
+            text: text.to_string(),
+            ..base_request()
+        }
+    }
+
+    #[tokio::test]
+    async fn report_job_that_is_not_a_known_agent_fails_visibly() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = report_workspace_state(&dir, "echo hi");
+        let err = execute_and_record(
+            &state,
+            "run1",
+            report_request("do it"),
+            None,
+            &DispatchOverrides::default(),
+            "main",
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.detail.contains("not a known agent"), "{}", err.detail);
+        let recent = state.dispatch.recent.lock().await;
+        assert_eq!(recent[0]["outcome"], "failed");
+        assert!(recent[0].get("report_enabled").is_none());
+    }
+
+    #[tokio::test]
+    async fn approved_report_job_gets_run_scoped_env_and_accepts_only_that_runs_report() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let state = report_workspace_state(&dir, "claude");
+        let first = execute_and_record(
+            &state,
+            "run1",
+            report_request("do it"),
+            None,
+            &DispatchOverrides::default(),
+            "main",
+            None,
+        )
+        .await
+        .unwrap();
+        // 履歴からの再実行は別の dispatch_id（別の試行）になる。
+        let second = execute_and_record(
+            &state,
+            "run2",
+            report_request("do it"),
+            None,
+            &DispatchOverrides::default(),
+            "main",
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(first["created"], true);
+        assert_eq!(second["created"], true);
+        assert_ne!(first["session_id"], second["session_id"]);
+
+        let tmux_of = |result: &Value| {
+            state
+                .paths
+                .tmux_session_name(result["session_id"].as_str().unwrap())
+        };
+        let env_of = |name: String, key: &'static str| async move {
+            crate::subprocess::run_tmux_cmd(&["show-environment", "-t", &name, key])
+                .await
+                .map(|out| out.stdout.trim().to_string())
+                .unwrap_or_default()
+        };
+        let token1 = env_of(tmux_of(&first), dispatch_report::REPORT_TOKEN_ENV)
+            .await
+            .split_once('=')
+            .unwrap()
+            .1
+            .to_string();
+        let url2 = env_of(tmux_of(&second), dispatch_report::REPORT_URL_ENV).await;
+        assert!(url2.ends_with("/dispatch/run2/report"), "{url2}");
+
+        // 依頼文に渡る pending text には報告手順が付くが、トークンの値は含まれない。
+        let pending = env_of(tmux_of(&first), "TMUX_PENDING_TEXT").await;
+        let pending = crate::tmux::decode_pending_text(pending.split_once('=').unwrap().1);
+        assert!(pending.starts_with("do it"));
+        assert!(pending.contains("$ANY_CONSOLE_REPORT_TOKEN"));
+        assert!(!pending.contains(&token1));
+
+        // 履歴の依頼文には手順が混ざらず、ハッシュは配信ペイロードに出ない。
+        let payload = queue_payload(&state).await.to_string();
+        assert!(!payload.contains("report_token_hash") && !payload.contains(&token1));
+        assert!(payload.contains("\"report_enabled\":true"));
+        {
+            let recent = state.dispatch.recent.lock().await;
+            assert_eq!(
+                recent.iter().find(|r| r["id"] == "run1").unwrap()["request"]["text"],
+                "do it"
+            );
+        }
+
+        let body: dispatch_report::ReportBody = serde_json::from_value(json!({
+            "summary": "ok", "status": "completed"
+        }))
+        .unwrap();
+        let headers = |token: &str| {
+            let mut h = axum::http::HeaderMap::new();
+            h.insert(dispatch_report::REPORT_TOKEN_HEADER, token.parse().unwrap());
+            h
+        };
+        let wrong_run = dispatch_report::post_report(
+            State(state.clone()),
+            Path("run2".to_string()),
+            headers(&token1),
+            JsonBody(body.clone()),
+        )
+        .await;
+        assert!(wrong_run.is_err());
+        let _ = dispatch_report::post_report(
+            State(state.clone()),
+            Path("run1".to_string()),
+            headers(&token1),
+            JsonBody(body),
+        )
+        .await
+        .unwrap();
+        let recent = state.dispatch.recent.lock().await;
+        assert!(
+            recent.iter().find(|r| r["id"] == "run1").unwrap()["report"]["submitted"].is_object()
+        );
+        assert!(recent
+            .iter()
+            .find(|r| r["id"] == "run2")
+            .unwrap()
+            .get("report")
+            .is_none());
+        drop(recent);
+
+        for result in [&first, &second] {
+            crate::subprocess::kill_tmux_by_name(&tmux_of(result)).await;
+        }
     }
 }

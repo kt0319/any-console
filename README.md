@@ -209,6 +209,19 @@ Keep the token in a file readable only by you. Be especially careful before plac
 | `403` | Workspace is not in the token's `allowed_workspaces` |
 | `429` | The token reached `max_per_day` |
 
+### Result reports
+
+Mark an agent job with **Report results (Dispatch)** (`"report": true` in the job config) and an approved dispatch of that job starts a new session that knows how to report back. The text sent to the agent gets a short instruction appended; it names the environment variables `ANY_CONSOLE_REPORT_URL` / `ANY_CONSOLE_REPORT_TOKEN`, which are scoped to that single run (the values never appear in the prompt, history or logs). The agent `POST`s JSON to `/dispatch/{dispatch_id}/report` with `X-Report-Token`:
+
+```json
+{"summary": "...", "status": "completed|partial|unable",
+ "changes": ["..."], "verifications": [{"name": "cargo test", "result": "passed|failed|skipped|unknown", "detail": ""}],
+ "open_issues": ["..."], "decisions_needed": ["..."],
+ "artifacts": {"commits": ["abc1234"], "branch": "feat/x", "preview_port": 3000}}
+```
+
+The report is stored with the run in the Dispatch history (workspace detail > Dispatch), shown separately from "launched", the agent's live state and your own review. Everything in it is the agent's own claim; only the existence of the listed commits/branch is checked by the server. A run without a report is shown as "Result not reported" — an idle or exited agent is never treated as done. "Mark reviewed" records that you looked; it never merges, deploys or removes a worktree. Limits: the job must start with a known agent and the dispatch must carry text; only the 10 most recent history entries accept reports; the same body sent twice is accepted once, a different second report gets 409. Reporting is opt-in per job; it applies to approved dispatches and `direct` runs of that job alike.
+
 ## HTTPS
 
 PWA installation and service workers require HTTPS.

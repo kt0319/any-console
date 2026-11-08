@@ -9,12 +9,14 @@
       <span class="mdi mdi-clock-outline"></span>{{ timeLabel }}
     </span>
   </span>
+  <span v-if="badge" class="dispatch-queue-report" :class="`tone-${badge.tone}`">{{ badge.label }}</span>
   <span v-if="auth" class="dispatch-queue-auth">{{ auth }}</span>
   <span v-if="request.text" class="dispatch-queue-text">{{ request.text }}</span>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { reportBadge } from "../utils/dispatch-report.ts";
 import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 
 // Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
@@ -28,7 +30,11 @@ const props = defineProps({
   outcome: { type: String, default: "" },
   // direct スコープのトークンで実行された履歴項目の実行元（`direct:<トークン名>`）。
   auth: { type: String, default: "" },
+  // 結果報告つきの履歴項目（報告の有無・検証結果・確認状態からバッジを導く）。
+  item: { type: Object, default: null },
 });
+
+const badge = computed(() => (props.item ? reportBadge(props.item) : null));
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
 // hoverしたときだけ絶対時刻（日付込み）をtooltipで確認できるようにする。
@@ -83,6 +89,16 @@ const timeTooltip = computed(() => {
 .dispatch-queue-time .mdi {
   font-size: 12px;
 }
+
+.dispatch-queue-report {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dispatch-queue-report.tone-ok { color: var(--success); }
+.dispatch-queue-report.tone-warn { color: var(--warning); }
+.dispatch-queue-report.tone-error { color: var(--error); }
 
 .dispatch-queue-auth {
   font-size: 12px;

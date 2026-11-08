@@ -209,6 +209,7 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
         "icon_color": s("icon_color", ""),
         "confirm": b("confirm", true),
         "detached": b("detached", false),
+        "report": b("report", false),
         "notify_phrase": s("notify_phrase", ""),
     });
     if let Some(c) = is_common {
@@ -269,6 +270,8 @@ pub struct JobRequest {
     pub confirm: bool,
     #[serde(default)]
     pub detached: bool,
+    #[serde(default)]
+    pub report: bool,
     #[serde(default)]
     pub notify_phrase: String,
 }
@@ -356,6 +359,9 @@ async fn build_job_entry(
     }
     if body.detached {
         entry.insert("detached".to_string(), json!(true));
+    }
+    if body.report {
+        entry.insert("report".to_string(), json!(true));
     }
     if !notify_phrase.is_empty() {
         entry.insert("notify_phrase".to_string(), json!(notify_phrase));
