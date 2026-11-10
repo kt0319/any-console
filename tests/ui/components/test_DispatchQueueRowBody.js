@@ -44,6 +44,20 @@ describe("DispatchQueueRowBody", () => {
     expect(head({ request: {}, jobLabel: "Build" })).toBe("Build");
   });
 
+  it.each([
+    [{ status: "completed", verifications: [{ name: "t", result: "passed" }] }, "mdi-clipboard-check-outline", "Reported completed"],
+    [{ status: "partial", verifications: [{ name: "t", result: "passed" }] }, "mdi-clipboard-alert-outline", "Reported partial"],
+    [{ status: "unable", verifications: [] }, "mdi-clipboard-remove-outline", "Reported unable"],
+  ])("結果報告はテキストではなくアイコン（aria-label付き）で示す", (submitted, icon, label) => {
+    const wrapper = mount(DispatchQueueRowBody, {
+      props: { request: { text: "x" }, outcome: "executed", item: { outcome: "executed", report_enabled: true, report: { submitted } } },
+    });
+    const el = wrapper.find(".dispatch-queue-report");
+    expect(el.classes()).toContain(icon);
+    expect(el.attributes("aria-label")).toBe(label);
+    expect(wrapper.text()).not.toContain(label);
+  });
+
   it("outcome が無い承認待ち行には結果アイコンを出さない", () => {
     const wrapper = mount(DispatchQueueRowBody, { props: { request: { text: "echo hi" } } });
     expect(wrapper.find(".dispatch-queue-recent-head").exists()).toBe(false);

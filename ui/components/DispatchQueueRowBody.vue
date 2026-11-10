@@ -3,13 +3,13 @@
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
+      <span v-if="badge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
     <span v-if="timeLabel" class="dispatch-queue-time" :data-tooltip="timeTooltip">
       <span class="mdi mdi-clock-outline"></span>{{ timeLabel }}
     </span>
   </span>
-  <span v-if="badge" class="dispatch-queue-report" :class="`tone-${badge.tone}`">{{ badge.label }}</span>
   <span v-if="auth" class="dispatch-queue-auth">{{ auth }}</span>
   <span v-if="request.text" class="dispatch-queue-text">{{ request.text }}</span>
 </template>
@@ -35,6 +35,13 @@ const props = defineProps({
   // ジョブの表示用label（terminal等の既定ジョブや未解決の時は空文字）。
   jobLabel: { type: String, default: "" },
 });
+
+const REPORT_ICONS: Record<string, string> = {
+  ok: "mdi-clipboard-check-outline",
+  warn: "mdi-clipboard-alert-outline",
+  error: "mdi-clipboard-remove-outline",
+  muted: "mdi-clipboard-clock-outline",
+};
 
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
 
@@ -102,8 +109,8 @@ const timeTooltip = computed(() => {
 }
 
 .dispatch-queue-report {
-  align-self: flex-start;
-  font-size: 12px;
+  flex-shrink: 0;
+  font-size: 15px;
   color: var(--text-muted);
 }
 

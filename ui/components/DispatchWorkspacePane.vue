@@ -89,7 +89,7 @@ const recent = computed(() => {
 
 <style scoped>
 .dispatch-queue-tab {
-  padding: 8px;
+  padding: 8px 0;
 }
 
 .settings-section-label {
@@ -97,28 +97,25 @@ const recent = computed(() => {
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  padding: 4px 4px 0;
+  padding: 4px 12px 0;
 }
 
 .dispatch-queue-hint {
   color: var(--text-muted);
   font-size: 13px;
-  padding: 12px 4px;
+  padding: 12px;
 }
 
 .dispatch-queue-list {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .dispatch-queue-row {
   display: flex;
   align-items: stretch;
-  gap: 6px;
+  border-bottom: 1px solid var(--border);
 }
 
 .dispatch-queue-row-main {
@@ -127,18 +124,19 @@ const recent = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: none;
   border-left: 3px solid transparent;
-  border-radius: var(--radius, 6px);
-  background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
+  border-radius: 0;
+  background: transparent;
   color: var(--text-primary);
   text-align: left;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .dispatch-queue-row-main:hover {
-    border-color: var(--accent);
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.04));
   }
 }
 
@@ -154,11 +152,8 @@ const recent = computed(() => {
 }
 
 /* 実行済みは対応不要な履歴なので、承認/却下の別をアイコン色だけに留め、
-   行自体はpendingより沈んだ見た目にする（枠線をpendingと同じ濃さで
-   出すと「まだ対応が要る」ように見えて紛らわしいため）。 */
+   行自体はpendingより沈んだ見た目にする。 */
 .dispatch-queue-recent-row {
-  background: transparent;
-  border-color: var(--border);
   opacity: 0.65;
 }
 </style>
