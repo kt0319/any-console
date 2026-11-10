@@ -121,13 +121,7 @@ const timeTooltip = computed(() => {
 .dispatch-queue-direct {
   flex-shrink: 0;
   font-size: 15px;
-  color: var(--warning);
 }
-
-.dispatch-queue-report.tone-ok { color: var(--success); }
-.dispatch-queue-report.tone-warn,
-.dispatch-queue-report.tone-muted { color: var(--warning); }
-.dispatch-queue-report.tone-error { color: var(--error); }
 
 .dispatch-queue-auth {
   font-size: 12px;
@@ -160,4 +154,11 @@ const timeTooltip = computed(() => {
 .dispatch-queue-recent-failed .dispatch-queue-recent-head .mdi {
   color: var(--error);
 }
+
+/* 行クラスの色（上の3つ）より優先させるため、head 配下で指定する。 */
+.dispatch-queue-recent-head .dispatch-queue-direct { color: var(--warning); }
+.dispatch-queue-recent-head .dispatch-queue-report.tone-ok { color: var(--success); }
+.dispatch-queue-recent-head .dispatch-queue-report.tone-warn,
+.dispatch-queue-recent-head .dispatch-queue-report.tone-muted { color: var(--warning); }
+.dispatch-queue-recent-head .dispatch-queue-report.tone-error { color: var(--error); }
 </style>
