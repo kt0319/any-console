@@ -38,6 +38,12 @@ describe("DispatchQueueRowBody", () => {
     expect(wrapper.find(".dispatch-queue-recent-head .dispatch-queue-ws").text()).toBe("feature/x");
   });
 
+  it("ブランチが無ければ worktree、それも無ければジョブ名をアイコンの右に出す", () => {
+    const head = (props) => mount(DispatchQueueRowBody, { props: { outcome: "executed", ...props } }).find(".dispatch-queue-recent-head .dispatch-queue-ws").text();
+    expect(head({ request: { worktree: "feat/x" }, jobLabel: "Build" })).toBe("feat/x");
+    expect(head({ request: {}, jobLabel: "Build" })).toBe("Build");
+  });
+
   it("outcome が無い承認待ち行には結果アイコンを出さない", () => {
     const wrapper = mount(DispatchQueueRowBody, { props: { request: { text: "echo hi" } } });
     expect(wrapper.find(".dispatch-queue-recent-head").exists()).toBe(false);

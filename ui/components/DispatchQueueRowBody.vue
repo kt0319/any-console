@@ -2,7 +2,7 @@
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
-      <span class="dispatch-queue-ws">{{ request.branch || outcomeLabel }}</span>
+      <span class="dispatch-queue-ws">{{ headLabel }}</span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
     <span v-if="timeLabel" class="dispatch-queue-time" :data-tooltip="timeTooltip">
@@ -23,7 +23,7 @@ import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 // のタブ（DispatchWorkspacePane.vue）で既にワークスペースが絞られているため、
 // ワークスペース名・ジョブ名は表示しない。
 // pending 行と Recently decided 行で同じ表示ルールを共有する。
-// outcome（executed/discarded/failed）がある時だけ先頭に結果アイコンを付け、ブランチ指定が無い行ではアイコンの右に結果ラベルを出す。
+// outcome（executed/discarded/failed）がある時だけ先頭に結果アイコンを付け、アイコンの右にはブランチ → worktree → ジョブ名 → 結果ラベルの順で最初に取れたものを出す。
 
 const props = defineProps({
   request: { type: Object, required: true },
@@ -32,6 +32,8 @@ const props = defineProps({
   auth: { type: String, default: "" },
   // 結果報告つきの履歴項目（報告の有無・検証結果・確認状態からバッジを導く）。
   item: { type: Object, default: null },
+  // ジョブの表示用label（terminal等の既定ジョブや未解決の時は空文字）。
+  jobLabel: { type: String, default: "" },
 });
 
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
@@ -59,6 +61,8 @@ const OUTCOME_LABELS: Record<string, string> = {
   discarded: "Discarded",
 };
 const outcomeLabel = computed(() => OUTCOME_LABELS[props.outcome] || OUTCOME_LABELS.discarded);
+
+const headLabel = computed(() => props.request.branch || props.request.worktree || props.jobLabel || outcomeLabel.value);
 
 const timeTooltip = computed(() => {
   const label = props.outcome ? "Decided at" : "Received at";

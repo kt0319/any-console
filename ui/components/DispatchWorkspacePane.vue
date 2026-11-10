@@ -33,7 +33,7 @@
               :class="`dispatch-queue-recent-${item.outcome}`"
               @click="emits('select', item.id)"
             >
-              <DispatchQueueRowBody :request="item.request" :outcome="item.outcome" :auth="item.auth" :item="item" />
+              <DispatchQueueRowBody :request="item.request" :outcome="item.outcome" :auth="item.auth" :item="item" :job-label="jobLabel(item.request)" />
             </button>
           </li>
         </ul>
@@ -60,7 +60,7 @@ import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
 const workspaceStore = useWorkspaceStore();
 const emits = defineEmits(["select"]);
-const { queue, recent: allRecent, discardItem } = useDispatchQueue();
+const { queue, recent: allRecent, discardItem, jobLabel } = useDispatchQueue();
 
 const pending = computed(() =>
   queue.value.filter((item) => dispatchWorkspaceLabel(item.request) === workspaceStore.selectedWorkspace),
