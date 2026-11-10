@@ -2,8 +2,8 @@
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span v-if="!showDirectOnly" class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
-      <span v-if="showDirectOnly && !reportedBadge" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" :aria-label="directLabel" :data-tooltip="directLabel"></span>
-      <span v-if="reportedBadge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[reportedBadge.tone], `tone-${reportedBadge.tone}`]" role="img" :aria-label="reportedBadge.label" :data-tooltip="reportedBadge.label"></span>
+      <span v-if="showDirectOnly && !badge" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
+      <span v-else-if="badge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { isDirectRun, reportBadge, reportState } from "../utils/dispatch-report.ts";
+import { isDirectRun, reportBadge } from "../utils/dispatch-report.ts";
 import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 
 // Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
@@ -38,18 +38,16 @@ const props = defineProps({
 });
 
 const REPORT_ICONS: Record<string, string> = {
+  muted: "mdi-clipboard-clock-outline",
   ok: "mdi-clipboard-check-outline",
   warn: "mdi-clipboard-alert-outline",
   error: "mdi-clipboard-remove-outline",
 };
 
 const isDirect = computed(() => isDirectRun({ auth: props.auth }));
-// direct の成功は雷だけで示す。失敗・破棄は結果アイコン（失敗は赤）だけにして見落とさない。
+// direct の成功は結果のチェックを出さず、報告アイコン（報告対象外のときだけ雷）で示す。失敗・破棄は結果アイコン（失敗は赤）だけにして見落とさない。
 const showDirectOnly = computed(() => isDirect.value && props.outcome === "executed");
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
-// direct の行は報告が届くまで雷のまま、届いたら報告アイコンに置き換える。
-const reportedBadge = computed(() => (props.item && reportState(props.item) === "reported" ? badge.value : null));
-const directLabel = computed(() => (badge.value ? `Direct run · ${badge.value.label}` : "Direct run (no approval)"));
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
 // hoverしたときだけ絶対時刻（日付込み）をtooltipで確認できるようにする。
@@ -151,6 +149,7 @@ const timeTooltip = computed(() => {
 
 .dispatch-queue-recent-discarded .dispatch-queue-recent-head .mdi {
   color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .dispatch-queue-recent-failed .dispatch-queue-recent-head .mdi {
@@ -160,6 +159,7 @@ const timeTooltip = computed(() => {
 /* 行クラスの色（上の3つ）より優先させるため、head 配下で指定する。 */
 .dispatch-queue-recent-head .mdi.dispatch-queue-direct { color: var(--warning); }
 .dispatch-queue-recent-head .dispatch-queue-report.tone-ok { color: var(--success); }
-.dispatch-queue-recent-head .dispatch-queue-report.tone-warn { color: var(--warning); }
+.dispatch-queue-recent-head .dispatch-queue-report.tone-warn,
+.dispatch-queue-recent-head .dispatch-queue-report.tone-muted { color: var(--warning); }
 .dispatch-queue-recent-head .dispatch-queue-report.tone-error { color: var(--error); }
 </style>
