@@ -9,7 +9,6 @@
     <DispatchReportCard
       v-if="isRerun && recentItem && ['unreported', 'reported'].includes(reportState(recentItem))"
       :item="recentItem"
-      @open-session="focusSession(recentItem.session_id, request?.effective_workspace)"
       @open-preview="(url) => emit('terminal:url', { uri: url, title: 'Open preview server' })"
     />
     <div v-if="request" class="ws-settings-section">
@@ -162,7 +161,7 @@ const props = defineProps({
 const emits = defineEmits(["back"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const { queue, recent, runItem, discardItem, focusSession } = useDispatchQueue();
+const { queue, recent, runItem, discardItem } = useDispatchQueue();
 const { imagePaths, previewUrls, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();

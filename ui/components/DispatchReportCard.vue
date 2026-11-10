@@ -53,9 +53,6 @@
     </template>
 
     <div class="dispatch-report-actions">
-      <button v-if="item.session_id" type="button" @click="emits('open-session')">
-        <span class="mdi mdi-console"></span> Open session
-      </button>
       <button v-if="previewUrl" type="button" @click="emits('open-preview', previewUrl)">
         <span class="mdi mdi-open-in-new"></span> Open preview
       </button>
@@ -84,7 +81,6 @@ const props = defineProps({
   item: { type: Object as PropType<DispatchReportItem & Record<string, any>>, required: true },
 });
 const emits = defineEmits<{
-  (e: "open-session"): void;
   (e: "open-preview", url: string): void;
 }>();
 

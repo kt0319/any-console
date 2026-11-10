@@ -122,5 +122,5 @@ export function useDispatchQueue() {
     return ok;
   }
 
-  return { queue, recent, runItem, focusSession, rejectItem, discardItem, jobLabel, allJobs };
+  return { queue, recent, runItem, rejectItem, discardItem, jobLabel, allJobs };
 }
