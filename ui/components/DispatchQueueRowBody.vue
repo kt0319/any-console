@@ -3,8 +3,8 @@
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span v-if="!showDirectOnly" class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
       <span v-if="isDirect && !reportedBadge" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" :aria-label="directLabel" :data-tooltip="directLabel"></span>
-      <span class="dispatch-queue-ws">{{ headLabel }}</span>
       <span v-if="reportedBadge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[reportedBadge.tone], `tone-${reportedBadge.tone}`]" role="img" :aria-label="reportedBadge.label" :data-tooltip="reportedBadge.label"></span>
+      <span class="dispatch-queue-ws">{{ headLabel }}</span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
     <span v-if="timeLabel" class="dispatch-queue-time" :data-tooltip="timeTooltip">
