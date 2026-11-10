@@ -4,13 +4,6 @@
       <button type="button" class="dispatch-run-back-btn" aria-label="Back to dispatch list" data-tooltip="Back" @click="emits('back')">
         <span class="mdi mdi-arrow-left"></span>
       </button>
-      <span
-        v-if="isDirectRun(recentItem)"
-        class="mdi mdi-flash-outline dispatch-run-direct"
-        role="img"
-        aria-label="Direct run"
-        :data-tooltip="recentItem?.auth"
-      ></span>
       <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
     </div>
     <DispatchReportCard
@@ -144,7 +137,7 @@ import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { excludeCurrentBranch } from "../utils/git.ts";
 import DispatchReportCard from "./DispatchReportCard.vue";
-import { isDirectRun, reportState } from "../utils/dispatch-report.ts";
+import { reportState } from "../utils/dispatch-report.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
@@ -504,11 +497,6 @@ async function discard() {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-}
-
-.dispatch-run-direct {
-  font-size: 16px;
-  color: var(--warning);
 }
 
 /* "Base branch" 等の長いラベルに合わせて列幅を揃える（Session/Workspace/Job と同じ開始位置にする）。 */

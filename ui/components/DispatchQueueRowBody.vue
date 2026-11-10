@@ -1,8 +1,8 @@
 <template>
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
-      <span v-if="isDirect" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
       <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
+      <span v-if="isDirect" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
       <span v-if="badge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
     </span>
