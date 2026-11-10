@@ -57,13 +57,13 @@ describe("DispatchQueueRowBody", () => {
     expect(direct.find(".dispatch-queue-auth").exists()).toBe(false);
   });
 
-  it("direct で実行済みの行は結果のチェックの代わりに雷を出し、失敗は結果アイコンのままにする", () => {
+  it("direct で実行された行は、成功も失敗も結果アイコンの代わりに雷を出す", () => {
     const props = { request: { text: "fix" }, auth: "direct:nightly-cron" };
-    const executed = mount(DispatchQueueRowBody, { props: { ...props, outcome: "executed" } });
-    expect(executed.find(".dispatch-queue-direct").exists()).toBe(true);
-    expect(executed.find(".mdi-check-circle-outline").exists()).toBe(false);
-    const failed = mount(DispatchQueueRowBody, { props: { ...props, outcome: "failed" } });
-    expect(failed.find(".dispatch-queue-direct").exists()).toBe(false);
-    expect(failed.find(".mdi-alert-circle-outline").exists()).toBe(true);
+    for (const outcome of ["executed", "failed"]) {
+      const wrapper = mount(DispatchQueueRowBody, { props: { ...props, outcome } });
+      expect(wrapper.find(".dispatch-queue-direct").attributes("aria-label")).toBe(`Direct run: ${outcome}`);
+      expect(wrapper.find(".mdi-check-circle-outline").exists()).toBe(false);
+      expect(wrapper.find(".mdi-alert-circle-outline").exists()).toBe(false);
+    }
   });
 });

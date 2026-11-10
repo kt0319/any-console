@@ -1,7 +1,7 @@
 <template>
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
-      <span v-if="isDirectExecuted" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
+      <span v-if="isDirectRunResult" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" :aria-label="`Direct run: ${outcome}`" :data-tooltip="`Direct run (no approval): ${outcome}`"></span>
       <span v-else class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
     </span>
@@ -33,7 +33,7 @@ const props = defineProps({
   jobLabel: { type: String, default: "" },
 });
 
-const isDirectExecuted = computed(() => props.outcome === "executed" && isDirectRun({ auth: props.auth }));
+const isDirectRunResult = computed(() => props.outcome !== "discarded" && isDirectRun({ auth: props.auth }));
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
 // hoverしたときだけ絶対時刻（日付込み）をtooltipで確認できるようにする。
@@ -130,6 +130,4 @@ const timeTooltip = computed(() => {
   color: var(--error);
 }
 
-/* 行クラスの色（上の3つ）より優先させるため、head 配下で指定する。 */
-.dispatch-queue-recent-head .mdi.dispatch-queue-direct { color: var(--warning); }
 </style>
