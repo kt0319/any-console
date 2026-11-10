@@ -4,9 +4,13 @@
       <button type="button" class="dispatch-run-back-btn" aria-label="Back to dispatch list" data-tooltip="Back" @click="emits('back')">
         <span class="mdi mdi-arrow-left"></span>
       </button>
-      <span v-if="isDirectRun(recentItem)" class="dispatch-run-direct" :data-tooltip="recentItem?.auth">
-        <span class="mdi mdi-flash-outline" aria-hidden="true"></span> Direct run
-      </span>
+      <span
+        v-if="isDirectRun(recentItem)"
+        class="mdi mdi-flash-outline dispatch-run-direct"
+        role="img"
+        aria-label="Direct run"
+        :data-tooltip="recentItem?.auth"
+      ></span>
       <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
     </div>
     <DispatchReportCard
@@ -503,10 +507,7 @@ async function discard() {
 }
 
 .dispatch-run-direct {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--warning);
 }
 
