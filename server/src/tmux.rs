@@ -14,6 +14,9 @@ use crate::subprocess::{run_tmux_cmd, CmdResult};
 
 pub const TMUX_PANE_READY_TIMEOUT_SEC: f64 = 2.0;
 pub const TMUX_PANE_POLL_INTERVAL_SEC: f64 = 0.05;
+/// 複数行テキストの送信後、Enter を送るまでの待ち。直後に送るとエージェントの入力欄が
+/// ペーストの続きと見なして Enter を改行として取り込み、送信されない。
+const MULTILINE_ENTER_DELAY_SEC: f64 = 0.5;
 /// シェルready確認プローブの識別子。`printf`の引数に`$$`（シェルPID）を渡す
 /// ことで、ローカルエコーで見える未展開の入力テキスト（`..._$$`）と、
 /// シェルが実際にコマンドを実行した後の出力（`..._1234`のように数字が続く）
@@ -320,6 +323,9 @@ pub async fn send_keys_to_tmux(session_name: &str, text: &str, enter: bool) -> b
         .is_some_and(|r| r.success());
     if !ok || !enter {
         return ok;
+    }
+    if text.contains('\n') {
+        tokio::time::sleep(Duration::from_secs_f64(MULTILINE_ENTER_DELAY_SEC)).await;
     }
     run_tmux_cmd(&["send-keys", "-t", session_name, "Enter"])
         .await
