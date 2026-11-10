@@ -47,7 +47,7 @@ use crate::terminal_session::TerminalSession;
 use crate::tmux;
 use crate::util::{default_true, now_epoch, JsonBody};
 
-const RECENT_LIMIT: usize = 10;
+const RECENT_LIMIT: usize = 50;
 const PUSH_TEXT_PREVIEW_LEN: usize = 120;
 const API_TOKEN_SCOPE_LABEL_PREFIX: &str = "token:";
 const DIRECT_LABEL_PREFIX: &str = "direct:";
@@ -1194,7 +1194,7 @@ fn workspace_allowed(state: &AppState, requested: &str, allowed: &[String]) -> b
 
 /// 直近 24 時間にこのトークンが受理された direct の件数。件数は workspace を
 /// 横断するため、`_global` の activity ログに `direct_fired` として記録して数える
-/// （recent 履歴は 10 件で他の dispatch と共有のため、数え落として上限を超える）。
+/// （recent 履歴は 50 件で他の dispatch と共有のため、数え落として上限を超える）。
 /// このログは上限判定の根拠なので、ファイルが無いだけの場合以外の読み取り失敗
 /// （読めない・UTF-8 でない・行が壊れている）は数え落とさずエラーにする。
 fn count_direct_fired(data_dir: &FsPath, token_id: &str, now: i64) -> Result<usize, ApiError> {
