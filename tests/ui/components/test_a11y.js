@@ -154,6 +154,21 @@ describe("a11y: PathPreviewDialog", () => {
     return auth;
   }
 
+  it("ワークスペース内のファイルはダイアログを閉じてFilesタブで開く（workspace_pathを渡す）", async () => {
+    mockOpenPath({ ok: true, json: async () => ({ content: "x", size: 1, workspace_path: "src/a.rs" }) });
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
+    useTerminalStore().openTabs = [{ id: 1, sessionId: "s1", workspace: "ws1" }];
+    const opened = [];
+    const off = on("git:openFileModal", (detail) => opened.push(detail));
+    const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
+    emit("terminal:path", { path: "/work/ws1/src/a.rs", sessionId: "s1" });
+    await flushPromises();
+    off();
+    expect(opened).toEqual([{ pane: "files", filePath: "src/a.rs" }]);
+    expect(wrapper.find(".path-preview-dialog").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it("パスのタップですぐにダイアログを開き（Loading...）、取得後にプレビューへ切り替わる（a11y 違反なし）", async () => {
     mockOpenPath({ ok: true, json: async () => ({ content: "127.0.0.1 localhost\n", size: 20 }) });
     const wrapper = mount(PathPreviewDialog, { attachTo: document.body });

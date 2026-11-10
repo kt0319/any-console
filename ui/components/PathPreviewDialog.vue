@@ -27,10 +27,15 @@ import FileTextViewer from "./FileTextViewer.vue";
 import { useApi } from "../composables/useApi.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { useWorkspaceFile } from "../composables/useWorkspaceFile.ts";
+import { useTerminalStore } from "../stores/terminal.ts";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { emit } from "../app-bridge.ts";
 import { terminalSessionOpenPath } from "../utils/endpoints.ts";
 
 const { apiGet } = useApi();
 const { downloadTerminalOpenedPath } = useWorkspaceFile();
+const terminalStore = useTerminalStore();
+const workspaceStore = useWorkspaceStore();
 const path = ref("");
 const sessionId = ref("");
 const fileContent = ref<Record<string, any> | null>(null);
@@ -55,6 +60,13 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
   if (path.value !== requested) return;
   if (!ok) {
     close();
+    return;
+  }
+  const workspace = terminalStore.openTabs.find((t) => t.sessionId === requestedSessionId)?.workspace;
+  if (workspace && data?.workspace_path) {
+    close();
+    workspaceStore.selectedWorkspace = workspace;
+    emit("git:openFileModal", { pane: "files", filePath: data.workspace_path });
     return;
   }
   fileContent.value = data;

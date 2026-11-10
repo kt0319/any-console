@@ -80,6 +80,7 @@ import { computed, ref, toRef, watch, onMounted, onBeforeUnmount, type ComputedR
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
+import { dirname } from "../utils/path.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useFileDragDrop } from "../composables/useFileDragDrop.ts";
 import { useFileActions } from "../composables/useFileActions.ts";
@@ -295,7 +296,14 @@ watch(
   { immediate: true },
 );
 
-defineExpose({ load: () => navigateToPath(""), navigateToPath });
+// 親フォルダを一覧に読み込んでからファイルを開く（パンくずで親へ戻れるようにするため）。
+async function openFileAt(path: string) {
+  await navigateToPath(dirname(path));
+  currentPath.value = path;
+  await openFile(path);
+}
+
+defineExpose({ load: () => navigateToPath(""), navigateToPath, openFileAt });
 </script>
 
 <style scoped>

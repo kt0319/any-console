@@ -398,7 +398,33 @@ pub async fn open_terminal_session_path(
     QueryParams(query): QueryParams<FileContentQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let target = resolve_terminal_open_file(&state, &session_id, &query.path).await?;
-    crate::git_files::read_file_content_response(&target.to_string_lossy(), &target).map(Json)
+    let mut response =
+        crate::git_files::read_file_content_response(&target.to_string_lossy(), &target)?;
+    if let Some(rel) = session_workspace_relative_path(&state, &session_id, &target).await {
+        response["workspace_path"] = json!(rel);
+    }
+    Ok(Json(response))
+}
+
+/// ワークスペース未紐付け・解決失敗・配下でない場合は None（プレビュー表示に倒す）。
+async fn session_workspace_relative_path(
+    state: &Arc<AppState>,
+    session_id: &str,
+    target: &std::path::Path,
+) -> Option<String> {
+    let session = state.terminal_session(session_id).await.ok()?;
+    let workspace = session.lock().await.workspace.clone()?;
+    let root = resolve_workspace_path(&state.config, &workspace)
+        .await
+        .ok()?;
+    relative_within(&root, target)
+}
+
+fn relative_within(root: &std::path::Path, target: &std::path::Path) -> Option<String> {
+    let root = root.canonicalize().ok()?;
+    let rel = target.strip_prefix(&root).ok()?;
+    let rel = rel.to_string_lossy();
+    (!rel.is_empty()).then(|| rel.into_owned())
 }
 
 pub async fn download_terminal_session_open_path(
@@ -1084,6 +1110,26 @@ mod tests {
         assert_eq!(
             resolve_terminal_open_path(cwd, None, "~/x.txt"),
             PathBuf::from("/work/proj/~/x.txt")
+        );
+    }
+
+    #[test]
+    fn relative_within_returns_path_only_under_root() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let canonical_root = root.path().canonicalize().unwrap();
+        let inside = canonical_root.join("src/a.rs");
+        assert_eq!(
+            relative_within(root.path(), &inside),
+            Some("src/a.rs".to_string())
+        );
+        assert_eq!(relative_within(root.path(), &canonical_root), None);
+        assert_eq!(
+            relative_within(
+                root.path(),
+                &outside.path().canonicalize().unwrap().join("a.rs")
+            ),
+            None
         );
     }
 

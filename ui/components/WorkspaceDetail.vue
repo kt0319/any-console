@@ -262,7 +262,7 @@ function handleBack() {
   return false;
 }
 
-function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean, sessionId?: string | null } | null | undefined) {
+function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean, sessionId?: string | null, filePath?: string } | null | undefined) {
   options = options || {};
   const paneKey = options.pane || DEFAULT_PANE;
   // branchピル経由（paneKey === "branch"）はHistoryタブを開くと同時にBranch一覧セクション
@@ -295,11 +295,15 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
     resetDispatchSelection();
   });
 
-  switchPane(resolvedPane, { expandBranch: wantBranchExpanded, expandStash: wantStashExpanded });
+  switchPane(resolvedPane, {
+    expandBranch: wantBranchExpanded,
+    expandStash: wantStashExpanded,
+    openFilePath: resolvedPane === "files" ? options.filePath : undefined,
+  });
   if (resolvedPane === "dispatch") openDispatchItem(options.dispatchItemId, options.sessionId);
 }
 
-type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean };
+type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean, openFilePath?: string };
 
 // ペイン切替時の初期化処理（issues/actions/docker/prs は v-if + onMounted で自動ロードする
 // ためエントリ無し）。タブを追加する時は tabs のエントリ・utils/workspace-panes.ts とあわせてここへ足す。
@@ -321,9 +325,14 @@ const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
   jobs: () => {
     nextTick(() => jobsPane.value?.load());
   },
-  files: () => {
+  files: (opts) => {
     nextTick(() => {
       const filesKey = terminalSessionId.value || workspaceStore.selectedWorkspace;
+      if (opts.openFilePath) {
+        paneLoader.markLoaded("files", filesKey);
+        fileBrowser.value?.openFileAt(opts.openFilePath);
+        return;
+      }
       paneLoader.ensure("files", filesKey, () => fileBrowser.value?.load());
     });
   },
