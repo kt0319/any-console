@@ -2,9 +2,20 @@
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
-      <span v-if="isDirect" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
+      <span
+        v-if="directReport"
+        class="dispatch-queue-pill"
+        :class="`tone-${directReport.tone}`"
+        role="img"
+        :aria-label="`Direct run, ${directReport.label}`"
+        :data-tooltip="`Direct run · ${directReport.label}`"
+      >
+        <span class="mdi mdi-flash" aria-hidden="true"></span>
+        <span class="mdi" :class="REPORT_ICONS[directReport.tone]" aria-hidden="true"></span>
+      </span>
+      <span v-else-if="isDirect" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
-      <span v-if="badge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
+      <span v-if="badge && !directReport" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
     <span v-if="timeLabel" class="dispatch-queue-time" :data-tooltip="timeTooltip">
@@ -17,7 +28,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { isDirectRun, reportBadge } from "../utils/dispatch-report.ts";
+import { isDirectRun, reportBadge, reportState } from "../utils/dispatch-report.ts";
 import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 
 // Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
@@ -46,6 +57,7 @@ const REPORT_ICONS: Record<string, string> = {
 
 const isDirect = computed(() => isDirectRun({ auth: props.auth }));
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
+const directReport = computed(() => (isDirect.value && props.item && reportState(props.item) === "reported" ? badge.value : null));
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
 // hoverしたときだけ絶対時刻（日付込み）をtooltipで確認できるようにする。
@@ -121,6 +133,21 @@ const timeTooltip = computed(() => {
   font-size: 15px;
   color: var(--warning);
 }
+
+.dispatch-queue-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 13px;
+}
+
+.dispatch-queue-pill.tone-ok { color: var(--success); }
+.dispatch-queue-pill.tone-warn { color: var(--warning); }
+.dispatch-queue-pill.tone-error { color: var(--error); }
 
 .dispatch-queue-report.tone-ok { color: var(--success); }
 .dispatch-queue-report.tone-warn { color: var(--warning); }
