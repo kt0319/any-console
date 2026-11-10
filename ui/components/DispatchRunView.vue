@@ -4,10 +4,10 @@
       <button type="button" class="dispatch-run-back-btn" aria-label="Back to dispatch list" data-tooltip="Back" @click="emits('back')">
         <span class="mdi mdi-arrow-left"></span>
       </button>
-      <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
       <span v-if="isDirectRun(recentItem)" class="dispatch-run-direct" :data-tooltip="recentItem?.auth">
         <span class="mdi mdi-flash-outline" aria-hidden="true"></span> Direct run
       </span>
+      <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
     </div>
     <DispatchReportCard
       v-if="isRerun && recentItem && ['unreported', 'reported'].includes(reportState(recentItem))"
