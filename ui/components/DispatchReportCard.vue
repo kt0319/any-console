@@ -1,7 +1,6 @@
 <template>
   <section class="dispatch-report" aria-label="Dispatch result">
     <div class="dispatch-report-states">
-      <span class="dispatch-report-chip">Launch: {{ item.outcome }}</span>
       <span v-if="agentState" class="dispatch-report-chip">Agent: {{ agentState }}</span>
       <span class="dispatch-report-chip" :class="`tone-${reportTone}`">{{ reportLabel }}</span>
     </div>
