@@ -129,6 +129,18 @@
           <span class="mdi" :class="peekIconForKey('dispatch')"></span>
           <span v-if="dispatchCount > 1" class="pill-branch-count">{{ dispatchCount }}</span>
         </button>
+        <button
+          v-else-if="key === 'report' && hasReport && infoPillConfig.report"
+          type="button"
+          class="pill-chip pill-devserver-btn pill-report-btn"
+          :class="pillActivityClass"
+          :aria-label="tooltips.report"
+          :data-tooltip="tooltips.report"
+          @pointerdown.stop
+          @click.stop="emits('open', 'report')"
+        >
+          <span class="mdi" :class="peekIconForKey('report')"></span>
+        </button>
         </template>
     </div>
   </div>
@@ -161,6 +173,7 @@ const props = defineProps({
   hasDocker: { type: Boolean, default: false },
   issuesCount: { type: Number, default: 0 },
   dispatchCount: { type: Number, default: 0 },
+  hasReport: { type: Boolean, default: false },
   // キーごとのツールチップ文言（ui/utils/info-pill-tooltips.ts で組み立て）。
   tooltips: { type: Object, required: true },
 });

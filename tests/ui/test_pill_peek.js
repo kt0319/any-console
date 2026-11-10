@@ -27,6 +27,7 @@ const ALL_ON = {
   issues: true,
   add: true,
   dispatch: true,
+  report: true,
 };
 
 describe("trailingItemsSignature / findChangedTrailingItems", () => {
@@ -188,6 +189,12 @@ describe("buildTrailingPeekItems", () => {
     expect(items.find((i) => i.key === "dispatch")).toEqual({ key: "dispatch", text: "d1,d2" });
   });
 
+  it("reportは報告済みのdispatchがある時だけ出て、そのidを持つ", () => {
+    expect(buildTrailingPeekItems({ reportItemId: "r1" }, ALL_ON).find((i) => i.key === "report")).toEqual({ key: "report", text: "r1" });
+    expect(buildTrailingPeekItems({}, ALL_ON).some((i) => i.key === "report")).toBe(false);
+    expect(buildTrailingPeekItems({ reportItemId: "r1" }, { ...ALL_ON, report: false }).some((i) => i.key === "report")).toBe(false);
+  });
+
   it("infoPillConfigでオフにしたキーは出ない", () => {
     const cfg = { ...ALL_ON, branch: false };
     const items = buildTrailingPeekItems({ isGitRepo: true, branch: "main" }, cfg);
@@ -214,6 +221,7 @@ describe("buildPeekText", () => {
     expect(buildPeekText("issues", {})).toBe("GitHub Issues");
     expect(buildPeekText("add", {})).toBe("Add");
     expect(buildPeekText("dispatch", { dispatchTooltip: "Run pending" })).toBe("Run pending");
+    expect(buildPeekText("report", { reportTooltip: "Dispatch: Reported completed" })).toBe("Dispatch: Reported completed");
     expect(buildPeekText("workspace", { workspaceLabel: "my-ws" })).toBe("my-ws");
     expect(buildPeekText("unknown-key", {})).toBe("");
   });

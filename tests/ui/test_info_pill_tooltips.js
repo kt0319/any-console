@@ -17,13 +17,14 @@ describe("buildInfoPillTooltips", () => {
   it("既定値（すべて未指定）でも全キーの文言を返す", () => {
     const tooltips = buildInfoPillTooltips({});
     expect(Object.keys(tooltips).sort()).toEqual([
-      "actions", "add", "branch", "changes", "devserver", "dispatch", "docker", "files", "issues", "prs",
+      "actions", "add", "branch", "changes", "devserver", "dispatch", "docker", "files", "issues", "prs", "report",
     ]);
     expect(tooltips.branch).toBe("Branches: ");
     expect(tooltips.devserver).toBe("Dev Server");
     expect(tooltips.prs).toBe("GitHub PRs");
     expect(tooltips.actions).toBe("GitHub Actions");
     expect(tooltips.dispatch).toBe("Dispatch");
+    expect(tooltips.report).toBe("Dispatch report");
     expect(tooltips.add).toBe(ADD_PILL_TOOLTIP);
   });
 

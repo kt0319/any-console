@@ -215,6 +215,7 @@ const INFO_PILL_FIELDS: &[&str] = &[
     "issues",
     "add",
     "dispatch",
+    "report",
 ];
 
 /// 未知のキーを除外し、重複は初出のみ残し、欠けているキーはデフォルト順で末尾に補う。
@@ -255,6 +256,8 @@ pub struct InfoPillSettings {
     add: bool,
     #[serde(default = "default_true")]
     dispatch: bool,
+    #[serde(default = "default_true")]
+    report: bool,
     #[serde(default)]
     order: Vec<String>,
 }
@@ -274,6 +277,7 @@ impl InfoPillSettings {
             "files" => self.files,
             "add" => self.add,
             "dispatch" => self.dispatch,
+            "report" => self.report,
             _ => unreachable!("unknown info pill field: {key}"),
         }
     }

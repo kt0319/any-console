@@ -81,6 +81,13 @@ export const INFO_PILLS = [
     peekIcon: "mdi-inbox-arrow-down-outline",
     peekColor: "pill-peek-pink",
   },
+  {
+    key: "report",
+    label: "Report",
+    note: "Only shown on a session started by a direct dispatch once the agent has reported its result. Tapping it opens that dispatch.",
+    peekIcon: "mdi-clipboard-check-outline",
+    peekColor: "pill-peek-success",
+  },
 ];
 
 // 設定のフィールド一覧 兼 デフォルト表示順（テーブルの並び＝デフォルト順）。

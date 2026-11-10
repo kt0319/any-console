@@ -11,7 +11,7 @@ const gitWs = {
 
 const ALL_PILLS_ON = {
   branch: true, prs: true, actions: true, changes: true, devserver: true,
-  docker: true, issues: true, files: true, add: true, dispatch: true,
+  docker: true, issues: true, files: true, add: true, dispatch: true, report: true,
 };
 
 describe("buildPillFields", () => {
@@ -32,6 +32,18 @@ describe("buildPillFields", () => {
     expect(pill.dockerContainers).toEqual([]);
     expect(pill.dispatchItems).toEqual([]);
     expect(pill.wsResolved).toBe(false);
+  });
+
+  it("報告済みのdispatchは、同じセッションのピルにだけ出る", () => {
+    const reported = { id: "d1", outcome: "executed", session_id: "s1", report: { submitted: { status: "completed" } } };
+    const unreported = { id: "d2", outcome: "executed", session_id: "s2", report_enabled: true };
+    const ctx = { dispatchRecent: [unreported, reported] };
+    const own = buildPillFields("app", gitWs, ctx, undefined, "s1");
+    expect(own.hasReport).toBe(true);
+    expect(own.reportItem.id).toBe("d1");
+    expect(own.tooltips.report).toBe("Dispatch: Reported completed");
+    expect(buildPillFields("app", gitWs, ctx, undefined, "s2").hasReport).toBe(false);
+    expect(buildPillFields("app", gitWs, ctx).hasReport).toBe(false);
   });
 
   it("tooltipNameを省略するとワークスペース名、指定するとその名前をツールチップに使う", () => {

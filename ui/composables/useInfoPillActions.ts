@@ -6,6 +6,8 @@ import { terminalSessionCwdPath } from "../utils/endpoints.ts";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.ts";
 import { useDevServerOpen } from "./useDevServerOpen.ts";
 import { openWorkspaceAdd } from "./useSessionOpenNav.ts";
+import { useDispatchQueue } from "./useDispatchQueue.ts";
+import { reportState } from "../utils/dispatch-report.ts";
 
 // Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が同じopenPane(key)を使う。
 export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behind }: {
@@ -18,6 +20,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
   const workspaceStore = useWorkspaceStore();
   const { apiGet } = useApi();
   const { confirmOpenDevServer } = useDevServerOpen();
+  const { recent: dispatchRecent } = useDispatchQueue();
 
   function openWorkspacePane(pane: string, extra: Record<string, any> = {}) {
     if (!tab.value.workspace) return;
@@ -83,6 +86,13 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     openWorkspacePane("dispatch", { sessionId: tab.value.sessionId || null });
   }
 
+  // 報告はこのセッションで起動した dispatch に紐づくため、その実行画面を直接開く。
+  function openReport() {
+    const item = dispatchRecent.value.find((r) => r.session_id === tab.value.sessionId && reportState(r) === "reported");
+    if (!item) return;
+    openWorkspacePane("dispatch", { sessionId: tab.value.sessionId || null, dispatchItemId: item.id });
+  }
+
   // devserver-stopは「検出されなくなった」通知のみで遷移先が無いためdefaultへ。
   function openPane(key: string | null | undefined) {
     switch (key) {
@@ -103,6 +113,8 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
         return registerCurrentDir();
       case "dispatch":
         return openDispatch();
+      case "report":
+        return openReport();
       default:
         return undefined;
     }

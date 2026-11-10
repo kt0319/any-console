@@ -6,6 +6,7 @@
 import { firstCommitLine, formatStatusCounts } from "./git.ts";
 import { isDockerContainerActive } from "./docker.ts";
 import { devServerOrigin } from "./preview-url.ts";
+import { reportBadge, type DispatchReportItem } from "./dispatch-report.ts";
 import { dispatchBranchLabel, resolveDispatchJobLabel } from "./dispatch-request.ts";
 
 export function branchTooltip({ branch = "", ahead = 0, behind = 0, hasUpstream = true, lastCommitMessage = null }: {
@@ -66,6 +67,11 @@ export function dispatchTooltip(
   return items.length ? `Dispatch: ${items.length} pending` : "Dispatch";
 }
 
+export function reportTooltip(item: DispatchReportItem | null | undefined): string {
+  const badge = item ? reportBadge(item) : null;
+  return badge ? `Dispatch: ${badge.label}` : "Dispatch report";
+}
+
 export function issuesTooltip(count: number): string {
   return count > 0 ? `GitHub Issues: ${count} open` : "GitHub Issues";
 }
@@ -95,6 +101,7 @@ export function buildInfoPillTooltips({
   issuesCount = 0,
   dispatchItems = [],
   dispatchAllJobs = {},
+  reportItem = null,
   branchPR = null, branchAction = null,
 }: {
   name?: string; isGitRepo?: boolean;
@@ -106,6 +113,7 @@ export function buildInfoPillTooltips({
   issuesCount?: number;
   dispatchItems?: { request: Record<string, any> }[];
   dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
+  reportItem?: DispatchReportItem | null;
   branchPR?: any; branchAction?: any;
 }): Record<string, string> {
   return {
@@ -116,6 +124,7 @@ export function buildInfoPillTooltips({
     docker: dockerTooltip(dockerContainers),
     issues: issuesTooltip(issuesCount),
     dispatch: dispatchTooltip(dispatchItems, dispatchAllJobs),
+    report: reportTooltip(reportItem),
     prs: prsTooltip(branchPR),
     actions: actionsTooltip(branchAction),
     add: ADD_PILL_TOOLTIP,

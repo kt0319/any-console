@@ -73,6 +73,7 @@
           :has-docker="pill.hasDocker"
           :issues-count="pill.issuesCount"
           :dispatch-count="pill.dispatchCount"
+          :has-report="pill.hasReport"
           :tooltips="pill.tooltips"
           @open="openPane"
         />
@@ -188,7 +189,7 @@ const githubWorkspaceKey = computed(() => (paneWorkspace.value?.is_git_repo === 
 const { prsByWorkspace, runsByWorkspace, issuesByWorkspace } = useGitHubPollingFor(
   computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
 
-const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
+const { queue: dispatchQueue, recent: dispatchRecent, allJobs: dispatchAllJobs } = useDispatchQueue();
 
 // ピルの表示値はセッションサイドバーと同じ buildPillFields で組み立てる。paneWorkspace が
 // tabWorkspaceVersion に依存しているため、ワークスペースの紐付け変更でも再計算される。
@@ -200,8 +201,9 @@ const pill = computed(() => buildPillFields(props.tab.workspace, paneWorkspace.v
   issuesByWorkspace: issuesByWorkspace.value,
   dispatchQueue: dispatchQueue.value,
   dispatchAllJobs: dispatchAllJobs.value,
+  dispatchRecent: dispatchRecent.value,
   hostname: location.hostname,
-}, props.tab.workspace || props.tab.label || ""));
+}, props.tab.workspace || props.tab.label || "", props.tab.sessionId));
 const isGitRepo = computed(() => pill.value.isGitRepo);
 const ahead = computed(() => pill.value.ahead);
 const behind = computed(() => pill.value.behind);

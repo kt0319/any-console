@@ -107,7 +107,7 @@ const githubWorkspaceKeys = computed(() => {
 const { prsByWorkspace, runsByWorkspace, issuesByWorkspace } = useGitHubPollingFor(githubWorkspaceKeys);
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling } = usePreviewPorts();
 const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling } = useDockerContainers();
-const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
+const { queue: dispatchQueue, recent: dispatchRecent, allJobs: dispatchAllJobs } = useDispatchQueue();
 
 // 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、タブ一覧の下に
 // 別枠で出す（タブが既にあるワークスペースはInfoPillRowのdispatchピルで足りるため対象外）。
@@ -175,6 +175,7 @@ const items = computed(() => {
     issuesByWorkspace: issuesByWorkspace.value,
     dispatchQueue: dispatchQueue.value,
     dispatchAllJobs: dispatchAllJobs.value,
+    dispatchRecent: dispatchRecent.value,
     hostname: location.hostname,
   });
 });
