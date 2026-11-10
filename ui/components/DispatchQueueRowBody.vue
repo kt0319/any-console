@@ -2,7 +2,7 @@
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span v-if="!showDirectOnly" class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
-      <span v-if="isDirect && !reportedBadge" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" :aria-label="directLabel" :data-tooltip="directLabel"></span>
+      <span v-if="showDirectOnly && !reportedBadge" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" :aria-label="directLabel" :data-tooltip="directLabel"></span>
       <span v-if="reportedBadge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[reportedBadge.tone], `tone-${reportedBadge.tone}`]" role="img" :aria-label="reportedBadge.label" :data-tooltip="reportedBadge.label"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
     </span>
@@ -44,7 +44,7 @@ const REPORT_ICONS: Record<string, string> = {
 };
 
 const isDirect = computed(() => isDirectRun({ auth: props.auth }));
-// direct の成功は雷だけで示す（失敗・破棄は結果アイコンを残して見落とさない）。
+// direct の成功は雷だけで示す。失敗・破棄は結果アイコン（失敗は赤）だけにして見落とさない。
 const showDirectOnly = computed(() => isDirect.value && props.outcome === "executed");
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
 // direct の行は報告が届くまで雷のまま、届いたら報告アイコンに置き換える。
