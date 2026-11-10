@@ -28,7 +28,11 @@ export function useTabClose() {
     tab: TerminalTab,
     onClose: (tab: TerminalTab) => void | Promise<void> = (t) => emit("tab:close", { tab: t }),
   ) {
-    const worktree = findWorktreeOfTab(tab);
+    let worktree = findWorktreeOfTab(tab);
+    if (!worktree && tab.workspace && baseWorkspaceName(tab.workspace) !== tab.workspace) {
+      await useWorkspaceStore().fetchWorkspaces();
+      worktree = findWorktreeOfTab(tab);
+    }
     const result = await confirmCloseTab(confirm, tab, !!worktree);
     if (result === true) await onClose(tab);
     else if (result === "detach") terminalStore.detachTab(tab.id);
