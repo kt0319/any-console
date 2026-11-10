@@ -3,6 +3,7 @@
     <span v-if="outcome" class="dispatch-queue-recent-head">
       <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
+      <span v-if="isDirect" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
       <span v-if="badge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
     </span>
     <span v-else-if="request.branch" class="dispatch-queue-ws">{{ request.branch }}</span>
@@ -16,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { reportBadge } from "../utils/dispatch-report.ts";
+import { isDirectRun, reportBadge } from "../utils/dispatch-report.ts";
 import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 
 // Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
@@ -43,6 +44,7 @@ const REPORT_ICONS: Record<string, string> = {
   muted: "mdi-clipboard-clock-outline",
 };
 
+const isDirect = computed(() => isDirectRun({ auth: props.auth }));
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
@@ -112,6 +114,12 @@ const timeTooltip = computed(() => {
   flex-shrink: 0;
   font-size: 15px;
   color: var(--text-muted);
+}
+
+.dispatch-queue-direct {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--warning);
 }
 
 .dispatch-queue-report.tone-ok { color: var(--success); }

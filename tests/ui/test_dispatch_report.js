@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   artifactsMissing,
+  isDirectRun,
   branchCheck,
   commitCheck,
   reportBadge,
@@ -68,5 +69,14 @@ describe("サーバ確認の成果物", () => {
     const unchecked = reported();
     unchecked.report.verified = { commits: { unk: null }, branch_exists: null };
     expect(artifactsMissing(unchecked)).toBe(false);
+  });
+});
+
+describe("isDirectRun", () => {
+  it("direct トークンで実行された項目だけを direct と判定する", () => {
+    expect(isDirectRun({ auth: "direct:nightly-cron" })).toBe(true);
+    expect(isDirectRun({ auth: "main" })).toBe(false);
+    expect(isDirectRun({})).toBe(false);
+    expect(isDirectRun(null)).toBe(false);
   });
 });

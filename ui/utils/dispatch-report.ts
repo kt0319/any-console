@@ -18,6 +18,11 @@ export type DispatchReportItem = {
   session_id?: string,
 };
 
+/** direct スコープのトークンで承認なしに実行された履歴項目（auth は `direct:<トークン名>`）。 */
+export function isDirectRun(item: { auth?: string } | null | undefined): boolean {
+  return !!item?.auth?.startsWith("direct:");
+}
+
 export function reportState(item: DispatchReportItem): ReportState {
   if (item.outcome !== "executed") return "none";
   if (item.report?.submitted) return "reported";
