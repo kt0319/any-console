@@ -1,6 +1,6 @@
 //! Dispatch 実行ごとの結果報告（ADR 36）。
 //!
-//! `report: true` のエージェントジョブで起動した新規セッションにだけ、実行（`dispatch_id`）専用の
+//! direct 実行で起動した新規セッションにだけ、実行（`dispatch_id`）専用の
 //! 報告先 URL とトークンを環境変数（`ANY_CONSOLE_REPORT_URL` / `ANY_CONSOLE_REPORT_TOKEN`）で
 //! 注入する。トークンは依頼文・ログ・履歴に残さず、履歴にはその HMAC だけを保存する。
 //!
@@ -31,10 +31,7 @@ const GIT_VERIFY_TIMEOUT_SEC: f64 = 5.0;
 
 const MAX_SUMMARY_CHARS: usize = 2000;
 const MAX_LINE_CHARS: usize = 500;
-const MAX_NAME_CHARS: usize = 200;
-const MAX_DETAIL_CHARS: usize = 1000;
 const MAX_LIST_ITEMS: usize = 50;
-const MAX_VERIFICATIONS: usize = 30;
 const MAX_COMMITS: usize = 20;
 const MIN_COMMIT_HEX: usize = 7;
 const MAX_COMMIT_HEX: usize = 40;
@@ -47,24 +44,6 @@ pub enum ReportStatus {
     Unable,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum VerificationResult {
-    Passed,
-    Failed,
-    Skipped,
-    Unknown,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Verification {
-    pub name: String,
-    pub result: VerificationResult,
-    #[serde(default)]
-    pub detail: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Artifacts {
@@ -72,8 +51,6 @@ pub struct Artifacts {
     pub commits: Vec<String>,
     #[serde(default)]
     pub branch: Option<String>,
-    #[serde(default)]
-    pub preview_port: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -82,13 +59,7 @@ pub struct ReportBody {
     pub summary: String,
     pub status: ReportStatus,
     #[serde(default)]
-    pub changes: Vec<String>,
-    #[serde(default)]
-    pub verifications: Vec<Verification>,
-    #[serde(default)]
     pub open_issues: Vec<String>,
-    #[serde(default)]
-    pub decisions_needed: Vec<String>,
     #[serde(default)]
     pub artifacts: Artifacts,
 }
@@ -123,18 +94,7 @@ fn is_commit_hex(value: &str) -> bool {
 impl ReportBody {
     pub fn validate(&self) -> Result<(), ApiError> {
         check_text("summary", &self.summary, MAX_SUMMARY_CHARS, true)?;
-        check_lines("changes", &self.changes)?;
         check_lines("open_issues", &self.open_issues)?;
-        check_lines("decisions_needed", &self.decisions_needed)?;
-        if self.verifications.len() > MAX_VERIFICATIONS {
-            return Err(unprocessable(format!(
-                "verifications exceeds max items {MAX_VERIFICATIONS}"
-            )));
-        }
-        for v in &self.verifications {
-            check_text("verifications.name", &v.name, MAX_NAME_CHARS, true)?;
-            check_text("verifications.detail", &v.detail, MAX_DETAIL_CHARS, false)?;
-        }
         if self.artifacts.commits.len() > MAX_COMMITS {
             return Err(unprocessable(format!(
                 "artifacts.commits exceeds max items {MAX_COMMITS}"
@@ -200,15 +160,13 @@ pub fn report_instruction() -> String {
 ---
 [any-console 結果報告]
 作業の最後に、結果を any-console へ1回だけ報告してください（利用者はこの報告で結果を確認します）。
-実施していない検証は "skipped"、確認できなかったものは "unknown" とし、成功したと書かないでください。
+確認できていないことを、できたと書かないでください。
 環境変数の値は表示せず、そのまま使ってください。
 
 curl -sS -X POST "${url_env}" -H "X-Report-Token: ${token_env}" -H "Content-Type: application/json" -d @- <<'JSON'
-{{"summary": "何ができたか", "status": "completed|partial|unable",
- "changes": ["変更内容"],
- "verifications": [{{"name": "cargo test", "result": "passed|failed|skipped|unknown", "detail": ""}}],
- "open_issues": ["未解決事項"], "decisions_needed": ["利用者に判断してほしいこと"],
- "artifacts": {{"commits": ["コミットハッシュ"], "branch": "ブランチ名", "preview_port": 3000}}}}
+{{"summary": "何をしたか・結果", "status": "completed|partial|unable",
+ "open_issues": ["未解決事項・利用者に判断してほしいこと"],
+ "artifacts": {{"commits": ["コミットハッシュ"], "branch": "ブランチ名"}}}}
 JSON"#,
         url_env = REPORT_URL_ENV,
         token_env = REPORT_TOKEN_ENV,
@@ -401,14 +359,8 @@ mod tests {
         serde_json::from_value(json!({
             "summary": "added the feature",
             "status": "partial",
-            "changes": ["edited a.rs"],
-            "verifications": [
-                {"name": "cargo test", "result": "passed"},
-                {"name": "e2e", "result": "skipped", "detail": "no browser"}
-            ],
             "open_issues": ["docs missing"],
-            "decisions_needed": ["merge now?"],
-            "artifacts": {"commits": [], "branch": null, "preview_port": 3000}
+            "artifacts": {"commits": [], "branch": null}
         }))
         .unwrap()
     }
@@ -464,7 +416,7 @@ mod tests {
 
         let stored = stored_report(&state, "run1").await;
         assert_eq!(stored["submitted"]["status"], "partial");
-        assert_eq!(stored["submitted"]["verifications"][1]["result"], "skipped");
+        assert_eq!(stored["submitted"]["open_issues"][0], "docs missing");
         assert!(stored["reported_at"].as_i64().unwrap() > 0);
         assert_eq!(stored["verified"]["branch_exists"], Value::Null);
     }
@@ -566,7 +518,7 @@ mod tests {
         assert!(huge.validate().is_err());
 
         let mut many = valid_body();
-        many.changes = vec!["c".to_string(); MAX_LIST_ITEMS + 1];
+        many.open_issues = vec!["c".to_string(); MAX_LIST_ITEMS + 1];
         assert!(many.validate().is_err());
 
         let mut bad_commit = valid_body();
@@ -592,11 +544,8 @@ mod tests {
         assert!(serde_json::from_value::<ReportBody>(with_files).is_err());
         let bad_status = json!({"summary": "s", "status": "verified"});
         assert!(serde_json::from_value::<ReportBody>(bad_status).is_err());
-        let bad_result = json!({
-            "summary": "s", "status": "completed",
-            "verifications": [{"name": "t", "result": "ok"}]
-        });
-        assert!(serde_json::from_value::<ReportBody>(bad_result).is_err());
+        let dropped_field = json!({"summary": "s", "status": "completed", "changes": ["c"]});
+        assert!(serde_json::from_value::<ReportBody>(dropped_field).is_err());
     }
 
     #[tokio::test]
@@ -628,7 +577,6 @@ mod tests {
         let artifacts = Artifacts {
             commits: vec![head.clone(), "deadbee".to_string()],
             branch: Some("main".to_string()),
-            preview_port: None,
         };
         let verified = verify_artifacts(&state, "proj", &artifacts).await;
         assert_eq!(verified["commits"][&head], true);

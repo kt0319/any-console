@@ -781,11 +781,13 @@ async fn resolve_and_launch_session(
     }
 
     let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
-    // 報告は実行専用の環境変数をセッション作成時にしか注入できない。そのため、依頼文を
-    // エージェントへ渡す新規セッションの起動だけが対象で、既存セッションへの送信は報告なし。
-    let report_run =
-        (existing.is_none() && has_input && job_command_is_known_agent(state, &job_def.command))
-            .then(|| ReportRun::new(state, dispatch_id));
+    // 報告は、人が見ていない direct 実行の結果を知るためのもの。実行専用の環境変数は
+    // セッション作成時にしか注入できないので、依頼文を渡す新規セッションの起動だけが対象になる。
+    let report_run = (body.direct
+        && existing.is_none()
+        && has_input
+        && job_command_is_known_agent(state, &job_def.command))
+    .then(|| ReportRun::new(state, dispatch_id));
     let compose_input = || {
         let mut text = compose_text_with_images(&body.text, &body.image_paths);
         if report_run.is_some() {
@@ -2164,8 +2166,39 @@ mod tests {
             job: "rep".to_string(),
             text: text.to_string(),
             match_mode: "none".to_string(),
+            direct: true,
             ..base_request()
         }
+    }
+
+    #[tokio::test]
+    async fn approved_dispatch_is_launched_without_a_report() {
+        if crate::tmux::skip_if_no_tmux() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let state = report_workspace_state(&dir, "claude");
+        let mut approved = report_request("do it");
+        approved.direct = false;
+        let launched = execute_and_record(
+            &state,
+            "run1",
+            approved,
+            None,
+            &DispatchOverrides::default(),
+            "main",
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(launched["created"], true);
+        let recent = state.dispatch.recent.lock().await;
+        assert!(recent[0].get("report_enabled").is_none());
+        drop(recent);
+        let name = state
+            .paths
+            .tmux_session_name(launched["session_id"].as_str().unwrap());
+        crate::subprocess::kill_tmux_by_name(&name).await;
     }
 
     #[tokio::test]

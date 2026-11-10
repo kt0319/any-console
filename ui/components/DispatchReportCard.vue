@@ -4,39 +4,18 @@
       <span class="dispatch-report-chip">Launch: {{ item.outcome }}</span>
       <span v-if="agentState" class="dispatch-report-chip">Agent: {{ agentState }}</span>
       <span class="dispatch-report-chip" :class="`tone-${reportTone}`">{{ reportLabel }}</span>
-      <span v-if="state === 'reported'" class="dispatch-report-chip" :class="`tone-${verificationToneClass}`">{{ verificationLabel }}</span>
     </div>
 
-    <p v-if="state === 'unreported'" class="dispatch-report-note">The agent has not reported a result. Being idle or finished does not mean the work is complete or verified.</p>
+    <p v-if="state === 'unreported'" class="dispatch-report-note">The agent has not reported a result. Being idle or finished does not mean the work is complete.</p>
 
     <template v-if="submitted">
       <dl class="dispatch-report-block">
         <dt>Summary <span class="dispatch-report-note">(reported by the agent: {{ submitted.status }})</span></dt>
         <dd class="dispatch-report-text">{{ submitted.summary }}</dd>
       </dl>
-      <dl v-if="submitted.changes?.length" class="dispatch-report-block">
-        <dt>Changes</dt>
-        <dd><ul><li v-for="(line, i) in submitted.changes" :key="i">{{ line }}</li></ul></dd>
-      </dl>
-      <dl class="dispatch-report-block">
-        <dt>Verification <span class="dispatch-report-note">(reported by the agent, not checked by the server)</span></dt>
-        <dd>
-          <p v-if="!submitted.verifications?.length" class="dispatch-report-note">No verification was reported.</p>
-          <ul v-else>
-            <li v-for="(v, i) in submitted.verifications" :key="i" :class="`result-${v.result}`">
-              <span class="mdi" :class="RESULT_ICONS[v.result] || RESULT_ICONS.unknown" aria-hidden="true"></span>
-              <strong>{{ v.result }}</strong> {{ v.name }}<span v-if="v.detail"> — {{ v.detail }}</span>
-            </li>
-          </ul>
-        </dd>
-      </dl>
       <dl v-if="submitted.open_issues?.length" class="dispatch-report-block">
         <dt>Open issues</dt>
         <dd><ul><li v-for="(line, i) in submitted.open_issues" :key="i">{{ line }}</li></ul></dd>
-      </dl>
-      <dl v-if="submitted.decisions_needed?.length" class="dispatch-report-block">
-        <dt>Needs your decision</dt>
-        <dd><ul><li v-for="(line, i) in submitted.decisions_needed" :key="i">{{ line }}</li></ul></dd>
       </dl>
       <dl v-if="hasArtifacts" class="dispatch-report-block">
         <dt>Artifacts <span class="dispatch-report-note">(existence checked by the server)</span></dt>
@@ -46,17 +25,10 @@
               commit <code>{{ commit }}</code> — {{ CHECK_LABELS[commitCheck(item, commit)] }}
             </li>
             <li v-if="submitted.artifacts.branch">branch <code>{{ submitted.artifacts.branch }}</code> — {{ CHECK_LABELS[branchCheck(item)] }}</li>
-            <li v-if="submitted.artifacts.preview_port">preview port {{ submitted.artifacts.preview_port }}</li>
           </ul>
         </dd>
       </dl>
     </template>
-
-    <div class="dispatch-report-actions">
-      <button v-if="previewUrl" type="button" @click="emits('open-preview', previewUrl)">
-        <span class="mdi mdi-open-in-new"></span> Open preview
-      </button>
-    </div>
   </section>
 </template>
 
@@ -66,11 +38,8 @@ import { useAgentStateStore } from "../stores/agent-state.ts";
 import {
   branchCheck,
   commitCheck,
-  previewProxyPort,
   reportBadge,
   reportState,
-  verificationTone,
-  verificationCounts,
   type DispatchReportItem,
 } from "../utils/dispatch-report.ts";
 
@@ -80,16 +49,6 @@ import {
 const props = defineProps({
   item: { type: Object as PropType<DispatchReportItem & Record<string, any>>, required: true },
 });
-const emits = defineEmits<{
-  (e: "open-preview", url: string): void;
-}>();
-
-const RESULT_ICONS: Record<string, string> = {
-  passed: "mdi-check-circle-outline",
-  failed: "mdi-close-circle-outline",
-  skipped: "mdi-minus-circle-outline",
-  unknown: "mdi-help-circle-outline",
-};
 const CHECK_LABELS = { found: "found", missing: "not found", unknown: "could not check" };
 
 const agentStates = useAgentStateStore().agentStates;
@@ -104,25 +63,9 @@ const reportLabel = computed(() => {
 });
 const reportTone = computed(() => badge.value?.tone || "muted");
 
-const verificationToneClass = computed(() => {
-  const tone = verificationTone(props.item);
-  return tone === "passed" ? "ok" : tone === "failed" ? "error" : "warn";
-});
-const verificationLabel = computed(() => {
-  const tone = verificationTone(props.item);
-  if (tone === "none") return "No verification reported";
-  const c = verificationCounts(props.item);
-  return `Verification: ${c.passed} passed, ${c.failed} failed, ${c.skipped} skipped, ${c.unknown} unknown`;
-});
-
 const hasArtifacts = computed(() => {
   const a = submitted.value?.artifacts;
-  return !!(a && (a.commits?.length || a.branch || a.preview_port));
-});
-
-const previewUrl = computed(() => {
-  const port = previewProxyPort(submitted.value?.artifacts?.preview_port);
-  return port ? `${location.protocol}//${location.hostname}:${port}/` : "";
+  return !!(a && (a.commits?.length || a.branch));
 });
 </script>
 
@@ -160,18 +103,4 @@ const previewUrl = computed(() => {
 .dispatch-report-block ul { margin: 0; padding-left: 18px; }
 .dispatch-report-text { white-space: pre-wrap; word-break: break-word; }
 .dispatch-report-note { margin: 0; font-size: 12px; font-weight: 400; color: var(--text-muted); }
-
-.result-failed strong { color: var(--error); }
-.result-passed strong { color: var(--success); }
-.result-skipped strong, .result-unknown strong { color: var(--warning); }
-
-.dispatch-report-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.dispatch-report-actions button {
-  min-height: 44px;
-}
 </style>

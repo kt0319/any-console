@@ -582,11 +582,8 @@ describe("a11y: DispatchReportCard", () => {
             submitted: {
               summary: "<img src=x onerror=alert(1)>",
               status: "partial",
-              changes: ["a"],
-              verifications: [{ name: "test", result: "failed", detail: "boom" }],
               open_issues: ["x"],
-              decisions_needed: ["y"],
-              artifacts: { commits: ["abc1234"], branch: "feat/x", preview_port: 3000 },
+              artifacts: { commits: ["abc1234"], branch: "feat/x" },
             },
             verified: { commits: { abc1234: true }, branch_exists: null },
           },

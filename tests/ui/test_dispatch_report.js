@@ -1,18 +1,16 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import {
+  artifactsMissing,
   branchCheck,
   commitCheck,
-  previewProxyPort,
   reportBadge,
   reportState,
-  verificationTone,
 } from "../../ui/utils/dispatch-report.ts";
 
 const submitted = (over = {}) => ({
   summary: "done",
   status: "completed",
-  verifications: [{ name: "test", result: "passed" }],
   ...over,
 });
 const reported = (over = {}, extra = {}) => ({
@@ -28,7 +26,7 @@ describe("reportState", () => {
     expect(reportBadge({ outcome: "executed", report_enabled: true })).toEqual({ label: "Result not reported", tone: "muted" });
   });
 
-  it("報告に対応しないジョブと起動失敗は報告の対象外", () => {
+  it("報告に対応しない実行と起動失敗は報告の対象外", () => {
     expect(reportState({ outcome: "executed" })).toBe("unsupported");
     expect(reportState({ outcome: "failed", report_enabled: true })).toBe("none");
     expect(reportBadge({ outcome: "executed" })).toBeNull();
@@ -39,24 +37,18 @@ describe("reportState", () => {
   });
 });
 
-describe("verificationTone / reportBadge", () => {
-  it("検証が失敗していれば完了の申告でも成功として表示しない", () => {
-    const item = reported({ verifications: [{ name: "t", result: "failed" }, { name: "l", result: "passed" }] });
-    expect(verificationTone(item)).toBe("failed");
-    expect(reportBadge(item)).toEqual({ label: "Verification failed", tone: "error" });
-  });
-
-  it("未実施・確認不能が混じる、または検証の報告が無い場合は passed にしない", () => {
-    expect(verificationTone(reported({ verifications: [{ name: "a", result: "passed" }, { name: "b", result: "skipped" }] }))).toBe("incomplete");
-    expect(verificationTone(reported({ verifications: [{ name: "a", result: "unknown" }] }))).toBe("incomplete");
-    expect(verificationTone(reported({ verifications: [] }))).toBe("none");
-    expect(reportBadge(reported({ verifications: [] })).tone).toBe("warn");
-  });
-
-  it("全件 passed かつ completed のときだけ ok", () => {
+describe("reportBadge", () => {
+  it("申告の状態をそのままバッジにする", () => {
     expect(reportBadge(reported())).toEqual({ label: "Reported completed", tone: "ok" });
-    expect(reportBadge(reported({ status: "partial" })).tone).toBe("warn");
-    expect(reportBadge(reported({ status: "unable" })).tone).toBe("error");
+    expect(reportBadge(reported({ status: "partial" }))).toEqual({ label: "Reported partial", tone: "warn" });
+    expect(reportBadge(reported({ status: "unable" }))).toEqual({ label: "Reported unable", tone: "error" });
+  });
+
+  it("サーバが存在を確認できなかった成果物があれば、完了の申告でも成功として表示しない", () => {
+    const item = reported();
+    item.report.verified = { commits: { dead: false }, branch_exists: true };
+    expect(artifactsMissing(item)).toBe(true);
+    expect(reportBadge(item)).toEqual({ label: "Verification failed", tone: "error" });
   });
 });
 
@@ -72,8 +64,9 @@ describe("サーバ確認の成果物", () => {
     expect(branchCheck(reported())).toBe("unknown");
   });
 
-  it("プレビューは proxy ポートへ変換する", () => {
-    expect(previewProxyPort(3000)).toBe(23000);
-    expect(previewProxyPort(null)).toBeNull();
+  it("確認できなかった（null）だけでは missing にしない", () => {
+    const unchecked = reported();
+    unchecked.report.verified = { commits: { unk: null }, branch_exists: null };
+    expect(artifactsMissing(unchecked)).toBe(false);
   });
 });

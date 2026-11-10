@@ -9,7 +9,6 @@
     <DispatchReportCard
       v-if="isRerun && recentItem && ['unreported', 'reported'].includes(reportState(recentItem))"
       :item="recentItem"
-      @open-preview="(url) => emit('terminal:url', { uri: url, title: 'Open preview server' })"
     />
     <div v-if="request" class="ws-settings-section">
       <div class="ws-settings-row">
@@ -139,7 +138,6 @@ import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { excludeCurrentBranch } from "../utils/git.ts";
 import DispatchReportCard from "./DispatchReportCard.vue";
 import { reportState } from "../utils/dispatch-report.ts";
-import { emit } from "../app-bridge.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
