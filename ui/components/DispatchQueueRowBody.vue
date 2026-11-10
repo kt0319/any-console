@@ -11,7 +11,6 @@
       <span class="mdi mdi-clock-outline"></span>{{ timeLabel }}
     </span>
   </span>
-  <span v-if="auth" class="dispatch-queue-auth">{{ auth }}</span>
   <span v-if="request.text" class="dispatch-queue-text">{{ request.text }}</span>
 </template>
 
@@ -29,7 +28,7 @@ import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 const props = defineProps({
   request: { type: Object, required: true },
   outcome: { type: String, default: "" },
-  // direct スコープのトークンで実行された履歴項目の実行元（`direct:<トークン名>`）。
+  // direct スコープのトークンで実行された履歴項目の実行元（`direct:<トークン名>`）。direct の判定にだけ使い、表示はしない。
   auth: { type: String, default: "" },
   // 結果報告つきの履歴項目（報告の有無・検証結果・確認状態からバッジを導く）。
   item: { type: Object, default: null },
@@ -122,11 +121,6 @@ const timeTooltip = computed(() => {
 .dispatch-queue-direct {
   flex-shrink: 0;
   font-size: 15px;
-}
-
-.dispatch-queue-auth {
-  font-size: 12px;
-  color: var(--text-muted);
 }
 
 .dispatch-queue-text {

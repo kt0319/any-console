@@ -63,12 +63,11 @@ describe("DispatchQueueRowBody", () => {
     expect(wrapper.find(".dispatch-queue-recent-head").exists()).toBe(false);
   });
 
-  it("direct スコープで実行された履歴項目は実行元を表示し、それ以外には出さない", () => {
+  it("direct スコープで実行された履歴項目でも、トークン名は表示しない", () => {
     const direct = mount(DispatchQueueRowBody, {
       props: { request: { text: "fix" }, outcome: "executed", auth: "direct:nightly-cron" },
     });
-    expect(direct.find(".dispatch-queue-auth").text()).toBe("direct:nightly-cron");
-    const manual = mount(DispatchQueueRowBody, { props: { request: { text: "fix" }, outcome: "executed" } });
-    expect(manual.find(".dispatch-queue-auth").exists()).toBe(false);
+    expect(direct.text()).not.toContain("nightly-cron");
+    expect(direct.find(".dispatch-queue-auth").exists()).toBe(false);
   });
 });
