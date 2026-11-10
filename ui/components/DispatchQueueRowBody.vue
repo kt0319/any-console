@@ -1,7 +1,7 @@
 <template>
   <span class="dispatch-queue-head-row">
     <span v-if="outcome" class="dispatch-queue-recent-head">
-      <span class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
+      <span v-if="!showDirectOnly" class="mdi" :class="outcomeIcon" role="img" :aria-label="outcome" :data-tooltip="outcome"></span>
       <span v-if="isDirect" class="mdi mdi-flash-outline dispatch-queue-direct" role="img" aria-label="Direct run" data-tooltip="Direct run (no approval)"></span>
       <span class="dispatch-queue-ws">{{ headLabel }}</span>
       <span v-if="badge" class="mdi dispatch-queue-report" :class="[REPORT_ICONS[badge.tone], `tone-${badge.tone}`]" role="img" :aria-label="badge.label" :data-tooltip="badge.label"></span>
@@ -45,6 +45,8 @@ const REPORT_ICONS: Record<string, string> = {
 };
 
 const isDirect = computed(() => isDirectRun({ auth: props.auth }));
+// direct の成功は雷だけで示す（失敗・破棄は結果アイコンを残して見落とさない）。
+const showDirectOnly = computed(() => isDirect.value && props.outcome === "executed");
 const badge = computed(() => (props.item ? reportBadge(props.item) : null));
 
 // pending行は受付時刻、決定済み行は決定時刻を「何分前」で表示する。
