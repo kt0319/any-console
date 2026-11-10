@@ -123,7 +123,8 @@ const timeTooltip = computed(() => {
 }
 
 .dispatch-queue-report.tone-ok { color: var(--success); }
-.dispatch-queue-report.tone-warn { color: var(--warning); }
+.dispatch-queue-report.tone-warn,
+.dispatch-queue-report.tone-muted { color: var(--warning); }
 .dispatch-queue-report.tone-error { color: var(--error); }
 
 .dispatch-queue-auth {

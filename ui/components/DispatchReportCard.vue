@@ -94,7 +94,8 @@ const hasArtifacts = computed(() => {
 }
 
 .dispatch-report-chip.tone-ok { color: var(--success); border-color: var(--success); }
-.dispatch-report-chip.tone-warn { color: var(--warning); border-color: var(--warning); }
+.dispatch-report-chip.tone-warn,
+.dispatch-report-chip.tone-muted { color: var(--warning); border-color: var(--warning); }
 .dispatch-report-chip.tone-error { color: var(--error); border-color: var(--error); }
 
 .dispatch-report-block { margin: 0; }
