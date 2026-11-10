@@ -7,6 +7,7 @@ import { useSessionSync } from "./useSessionSync.ts";
 import { emit, on } from "../app-bridge.ts";
 import { statusStreamSettled } from "../utils/status-stream-sync.ts";
 import { debugLog } from "./useClientLogs.ts";
+import { reloadIfNewBuild } from "../utils/build-update.ts";
 import {
   buildStatusStreamUrl,
   buildViewingMessage,
@@ -79,6 +80,7 @@ export function useStatusStream() {
       // たびに現在値を送り直す必要がある。
       sendViewing();
       sendWatchGitHub();
+      reloadIfNewBuild().catch((e) => console.error("reloadIfNewBuild failed:", e));
       // 切断中の変更を取りこぼしている可能性があるため、接続のたびに全量を同期する
       void workspaceStore.fetchStatuses().finally(() => {
         if (socket === ws) statusStreamSettled.value = true;

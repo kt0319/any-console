@@ -22,6 +22,7 @@ import { installErrorReporter } from "./utils/error-reporter.ts";
 import { installTooltip } from "./utils/tooltip.ts";
 import { emit } from "./app-bridge.ts";
 import { safeJsonLoad } from "./utils/storage.ts";
+import { reloadIfNewBuild } from "./utils/build-update.ts";
 import { CHUNK_RELOAD_GUARD_MS, FONT_LOAD_TIMEOUT_MS, LS_KEY_NOTIF_PREFS } from "./utils/constants.ts";
 
 // 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
@@ -55,6 +56,9 @@ function installChunkErrorAutoReload() {
 }
 
 installChunkErrorAutoReload();
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) reloadIfNewBuild().catch((e) => console.error("reloadIfNewBuild failed:", e));
+});
 installTooltip();
 
 async function bootstrap() {

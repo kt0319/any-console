@@ -161,6 +161,7 @@ export const CERT_EXPIRY_WARN_DAYS = 14;
 export const FONT_LOAD_TIMEOUT_MS = 3000;
 // チャンク読み込みエラー時の自動リロードのループ防止窓（vue-main.ts）
 export const CHUNK_RELOAD_GUARD_MS = 10000;
+export const BUILD_UPDATE_RELOAD_GUARD_MS = 10000;
 // ターミナル上の URL 長押し検出（useTerminalPaneGestures.ts）
 export const LONG_PRESS_URL_MS = 400;
 export const TAP_MAX_DELTA_PX = 10;
