@@ -148,8 +148,7 @@ const timeTooltip = computed(() => {
 }
 
 .dispatch-queue-recent-discarded .dispatch-queue-recent-head .mdi {
-  color: var(--text-muted);
-  opacity: 0.6;
+  color: var(--error);
 }
 
 .dispatch-queue-recent-failed .dispatch-queue-recent-head .mdi {
