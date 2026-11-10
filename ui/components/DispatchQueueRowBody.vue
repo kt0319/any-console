@@ -158,7 +158,7 @@ const timeTooltip = computed(() => {
 }
 
 /* 行クラスの色（上の3つ）より優先させるため、head 配下で指定する。 */
-.dispatch-queue-recent-head .dispatch-queue-direct { color: var(--warning); }
+.dispatch-queue-recent-head .mdi.dispatch-queue-direct { color: var(--warning); }
 .dispatch-queue-recent-head .dispatch-queue-report.tone-ok { color: var(--success); }
 .dispatch-queue-recent-head .dispatch-queue-report.tone-warn { color: var(--warning); }
 .dispatch-queue-recent-head .dispatch-queue-report.tone-error { color: var(--error); }
