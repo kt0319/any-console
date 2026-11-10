@@ -241,8 +241,7 @@ onBeforeUnmount(() => {
 }
 
 /* タブがまだ無い（開いていない）ワークスペースの承認待ち行は、開いている
-   セッションより沈んだ見た目にして非アクティブだと分かるようにする
-   （Dispatchタブの「Recently decided」行と同じopacityの語彙）。 */
+   セッションより沈んだ見た目にして非アクティブだと分かるようにする。 */
 .session-sidebar-li-pending {
   opacity: 0.6;
 }

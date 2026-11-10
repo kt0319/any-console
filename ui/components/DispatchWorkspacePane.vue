@@ -24,7 +24,6 @@
       </template>
 
       <template v-if="recent.length">
-        <div class="settings-section-label dispatch-queue-recent-label">Recently decided</div>
         <ul class="dispatch-queue-list">
           <li v-for="item in recent" :key="item.id" class="dispatch-queue-row">
             <button
@@ -127,7 +126,6 @@ const recent = computed(() => {
   min-height: 44px;
   padding: 10px 12px;
   border: none;
-  border-left: 3px solid transparent;
   border-radius: 0;
   background: transparent;
   color: var(--text-primary);
@@ -140,20 +138,12 @@ const recent = computed(() => {
   }
 }
 
-/* Pendingは対応が必要な行なので、アクティブ行（session-sidebar.css）と
-   同じ語彙（accent地色 + 左ボーダー）で目立たせる。 */
-.dispatch-queue-pending-row {
-  background: var(--accent-bg-12);
-  border-left-color: var(--accent);
-}
-
-.dispatch-queue-recent-label {
-  margin-top: 16px;
-}
-
-/* 実行済みは対応不要な履歴なので、承認/却下の別をアイコン色だけに留め、
-   行自体はpendingより沈んだ見た目にする。 */
+/* pendingと履歴は文字の明るさだけで区別する（履歴は対応不要なので沈ませる）。 */
 .dispatch-queue-recent-row {
-  opacity: 0.65;
+  color: var(--text-muted);
+}
+
+.dispatch-queue-recent-row :deep(.dispatch-queue-text) {
+  color: var(--text-muted);
 }
 </style>
