@@ -180,7 +180,6 @@ pub async fn create_tmux_session(
     config: &ConfigStore,
     workspace_path: Option<&str>,
     session_name: &str,
-    extra_env: &[(String, String)],
 ) -> std::io::Result<()> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
@@ -198,7 +197,6 @@ pub async fn create_tmux_session(
         env.push(("WORKSPACE".to_string(), ws.to_string()));
     }
     env.extend(hook_session_env(data_dir, config, session_name));
-    env.extend(extra_env.iter().cloned());
 
     let cols = TERMINAL_DEFAULT_COLS.to_string();
     let rows = TERMINAL_DEFAULT_ROWS.to_string();
@@ -734,7 +732,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let name = format!("test-{}", crate::util::token_hex(4));
 
-        create_tmux_session(dir.path(), &config, None, &name, &[])
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(crate::subprocess::tmux_session_exists(&name).await);
@@ -771,46 +769,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn extra_env_reaches_the_shell_of_that_session_only() {
-        if super::skip_if_no_tmux() {
-            return;
-        }
-        let dir = tempfile::tempdir().unwrap();
-        let config = ConfigStore::new(dir.path().join("config.json"));
-        let with_env = format!("test-env-{}", crate::util::token_hex(4));
-        let without_env = format!("test-noenv-{}", crate::util::token_hex(4));
-        let extra = [(
-            "ANY_CONSOLE_REPORT_TOKEN".to_string(),
-            "run-secret".to_string(),
-        )];
-
-        create_tmux_session(dir.path(), &config, None, &with_env, &extra)
-            .await
-            .expect("session should be created");
-        create_tmux_session(dir.path(), &config, None, &without_env, &[])
-            .await
-            .expect("session should be created");
-
-        let show = |name: String| async move {
-            crate::subprocess::run_tmux_cmd(&[
-                "show-environment",
-                "-t",
-                &name,
-                "ANY_CONSOLE_REPORT_TOKEN",
-            ])
-            .await
-            .map(|out| out.stdout)
-            .unwrap_or_default()
-        };
-        assert!(show(with_env.clone())
-            .await
-            .contains("ANY_CONSOLE_REPORT_TOKEN=run-secret"));
-        assert!(!show(without_env.clone()).await.contains("run-secret"));
-        crate::subprocess::kill_tmux_by_name(&with_env).await;
-        crate::subprocess::kill_tmux_by_name(&without_env).await;
-    }
-
-    #[tokio::test]
     async fn wait_shell_ready_confirms_probe_output_then_allows_send_keys() {
         if super::skip_if_no_tmux() {
             return;
@@ -819,7 +777,7 @@ mod tests {
         let config = ConfigStore::new(dir.path().join("config.json"));
         let name = format!("test-ready-{}", crate::util::token_hex(4));
 
-        create_tmux_session(dir.path(), &config, None, &name, &[])
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);
@@ -857,7 +815,7 @@ mod tests {
         let session_id = "s1";
         let name = format!("{prefix}{session_id}");
 
-        create_tmux_session(dir.path(), &config, None, &name, &[])
+        create_tmux_session(dir.path(), &config, None, &name)
             .await
             .expect("session should be created");
         assert!(wait_pane_ready(&name, TMUX_PANE_READY_TIMEOUT_SEC).await);

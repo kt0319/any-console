@@ -33,7 +33,6 @@ use serde_json::{json, Map, Value};
 use tokio::sync::Mutex;
 
 use crate::auth::{parse_cookies, AuthKind, RequireAuth};
-use crate::dispatch_report::{self, ReportRun};
 use crate::errors::{bad_request, not_found, server_error, ApiError};
 use crate::git_helpers::{invalidate_and_publish_git_info, validate_branch_name};
 use crate::git_utils::{
@@ -57,8 +56,8 @@ const DIRECT_LABEL_PREFIX: &str = "direct:";
 const DISPATCH_IMAGE_TTL_SEC: i64 = 24 * 60 * 60;
 /// direct スコープのトークンの起動回数を数える期間（直近 24 時間）。
 const DIRECT_WINDOW_SEC: i64 = 24 * 60 * 60;
-/// recent 項目に保存する実行ごとの報告トークンの HMAC（配信・API 応答には含めない）。
-const REPORT_TOKEN_HASH_FIELD: &str = "report_token_hash";
+/// 廃止した結果報告が履歴項目に残したフィールド。読み込み時に取り除く。
+const LEGACY_REPORT_FIELDS: [&str; 3] = ["report_token_hash", "report_enabled", "report"];
 const ACTIVITY_EVENT_DIRECT_FIRED: &str = "direct_fired";
 
 // ─── 永続化状態 ──────────────────────────────────────────────────────────────
@@ -109,6 +108,14 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
             })
             .take(RECENT_LIMIT)
             .cloned()
+            .map(|mut item| {
+                if let Some(map) = item.as_object_mut() {
+                    for field in LEGACY_REPORT_FIELDS {
+                        map.remove(field);
+                    }
+                }
+                item
+            })
             .collect();
         *state.dispatch.recent.lock().await = valid;
     }
@@ -140,12 +147,7 @@ pub(crate) async fn queue_payload(state: &Arc<AppState>) -> Value {
         .iter()
         .map(|(id, req)| json!({"id": id, "request": req}))
         .collect();
-    let mut recent = state.dispatch.recent.lock().await.clone();
-    for item in &mut recent {
-        if let Some(map) = item.as_object_mut() {
-            map.remove(REPORT_TOKEN_HASH_FIELD);
-        }
-    }
+    let recent = state.dispatch.recent.lock().await.clone();
     json!({"type": "dispatch_queue", "items": items, "recent": recent})
 }
 
@@ -519,7 +521,6 @@ async fn create_session(
     ws_path: Option<&FsPath>,
     job: &str,
     job_def: &JobDef,
-    extra_env: Vec<(String, String)>,
 ) -> Result<(String, Arc<Mutex<TerminalSession>>), ApiError> {
     let (session_id, session_arc) = state
         .create_terminal_session(crate::terminal_session::NewSessionSpec {
@@ -530,7 +531,6 @@ async fn create_session(
             job_name: (job != TERMINAL_JOB_KEY).then(|| job.to_string()),
             job_label: Some(job_def.label.clone()),
             interactive: true,
-            extra_env,
         })
         .await?;
     crate::session_watch::notify_session_created(state, &session_id);
@@ -756,8 +756,7 @@ async fn resolve_and_launch_session(
     effective_ws: &str,
     ws_path: &FsPath,
     job_def: &JobDef,
-    dispatch_id: &str,
-) -> Result<(String, bool, Option<ReportRun>), ApiError> {
+) -> Result<(String, bool), ApiError> {
     let existing = resolve_session(state, body, effective_ws).await;
 
     if let Some(branch) = body.branch.as_deref().filter(|_| body.worktree.is_none()) {
@@ -781,24 +780,10 @@ async fn resolve_and_launch_session(
     }
 
     let has_input = !body.text.is_empty() || !body.image_paths.is_empty();
-    // 報告は、人が見ていない direct 実行の結果を知るためのもの。実行専用の環境変数は
-    // セッション作成時にしか注入できないので、依頼文を渡す新規セッションの起動だけが対象になる。
-    let report_run = (body.direct
-        && existing.is_none()
-        && has_input
-        && job_command_is_known_agent(state, &job_def.command))
-    .then(|| ReportRun::new(state, dispatch_id));
-    let compose_input = || {
-        let mut text = compose_text_with_images(&body.text, &body.image_paths);
-        if report_run.is_some() {
-            text.push_str(&dispatch_report::report_instruction());
-        }
-        text
-    };
     let (session_id, created) = match existing {
         Some((sid, sess)) => {
             if has_input {
-                let text = compose_input();
+                let text = compose_text_with_images(&body.text, &body.image_paths);
                 let tmux_name = { sess.lock().await.tmux_session_name.clone() };
                 if !tmux::send_keys_to_tmux(&tmux_name, &text, body.enter).await {
                     tracing::warn!("dispatch text send-keys failed session={sid}");
@@ -807,19 +792,8 @@ async fn resolve_and_launch_session(
             (sid, false)
         }
         None => {
-            let extra_env = report_run
-                .as_ref()
-                .map(ReportRun::session_env)
-                .unwrap_or_default();
-            let (sid, sess) = create_session(
-                state,
-                effective_ws,
-                Some(ws_path),
-                &body.job,
-                job_def,
-                extra_env,
-            )
-            .await?;
+            let (sid, sess) =
+                create_session(state, effective_ws, Some(ws_path), &body.job, job_def).await?;
             let tmux_name = { sess.lock().await.tmux_session_name.clone() };
             tmux::wait_pane_ready(&tmux_name, tmux::TMUX_PANE_READY_TIMEOUT_SEC).await;
             if !job_def.command.is_empty() {
@@ -833,27 +807,16 @@ async fn resolve_and_launch_session(
                 }
             }
             if has_input {
-                let text = compose_input();
+                let text = compose_text_with_images(&body.text, &body.image_paths);
                 set_pending_text(&tmux_name, &text, body.enter, body.direct).await;
             }
             (sid, true)
         }
     };
-    Ok((session_id, created, report_run))
+    Ok((session_id, created))
 }
 
-/// `launch` の結果。`report_token_hash` は報告つきの実行でだけ入り、履歴にのみ保存する
-/// （クライアントへ返す `response` には含めない）。
-struct Launched {
-    response: Value,
-    report_token_hash: Option<String>,
-}
-
-async fn launch(
-    state: &Arc<AppState>,
-    body: &DispatchRequest,
-    dispatch_id: &str,
-) -> Result<Launched, ApiError> {
+async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, ApiError> {
     if let Some(worktree) = body.worktree.as_deref().filter(|w| !w.is_empty()) {
         crate::git_worktree::ensure_worktree_for_existing_branch(state, &body.workspace, worktree)
             .await?;
@@ -861,21 +824,17 @@ async fn launch(
     let effective_ws = body.effective_workspace();
     let ws_path = resolve_workspace_path(&state.config, &effective_ws).await?;
     let job_def = resolve_job_def(state, &effective_ws, &body.job)?;
-    let (session_id, created, report_run) =
-        resolve_and_launch_session(state, body, &effective_ws, &ws_path, &job_def, dispatch_id)
-            .await?;
-    Ok(Launched {
-        response: json!({
-            "status": "ok",
-            "session_id": session_id,
-            "workspace": effective_ws,
-            "job": body.job,
-            "created": created,
-            "url": format!("/?workspace={effective_ws}&session={session_id}"),
-            "ws_url": format!("/terminal/ws/{session_id}"),
-        }),
-        report_token_hash: report_run.as_ref().map(|run| run.token_hash(state)),
-    })
+    let (session_id, created) =
+        resolve_and_launch_session(state, body, &effective_ws, &ws_path, &job_def).await?;
+    Ok(json!({
+        "status": "ok",
+        "session_id": session_id,
+        "workspace": effective_ws,
+        "job": body.job,
+        "created": created,
+        "url": format!("/?workspace={effective_ws}&session={session_id}"),
+        "ws_url": format!("/terminal/ws/{session_id}"),
+    }))
 }
 
 // ─── dedup / 通知本文 / branch_status ───────────────────────────────────────
@@ -1049,12 +1008,11 @@ fn log_dispatch_executed(state: &AppState, result: &Value, auth_label: &str) {
 async fn launch_logged(
     state: &Arc<AppState>,
     req: &DispatchRequest,
-    dispatch_id: &str,
     auth_label: &str,
-) -> Result<Launched, ApiError> {
-    match launch(state, req, dispatch_id).await {
+) -> Result<Value, ApiError> {
+    match launch(state, req).await {
         Ok(launched) => {
-            log_dispatch_executed(state, &launched.response, auth_label);
+            log_dispatch_executed(state, &launched, auth_label);
             Ok(launched)
         }
         Err(e) => {
@@ -1548,7 +1506,7 @@ async fn execute_and_record(
         request.image_paths =
             sync_dispatch_image_dir(&state.paths, dispatch_id, &request.image_paths).await;
     }
-    let launched = launch_logged(state, &request, dispatch_id, auth_label).await;
+    let launched = launch_logged(state, &request, auth_label).await;
     let mut recorded = request.to_json_map();
     if let Some(received_at) = received_at {
         recorded.insert("received_at".to_string(), received_at);
@@ -1561,11 +1519,7 @@ async fn execute_and_record(
     let mut item_extra = extra.cloned().unwrap_or_default();
     if let Ok(launched) = &launched {
         for key in ["session_id", "created"] {
-            item_extra.insert(key.to_string(), launched.response[key].clone());
-        }
-        if let Some(hash) = &launched.report_token_hash {
-            item_extra.insert(REPORT_TOKEN_HASH_FIELD.to_string(), json!(hash));
-            item_extra.insert("report_enabled".to_string(), json!(true));
+            item_extra.insert(key.to_string(), launched[key].clone());
         }
     }
     record_recent(
@@ -1577,7 +1531,7 @@ async fn execute_and_record(
     )
     .await;
     persist_and_broadcast(state).await;
-    launched.map(|l| l.response)
+    launched
 }
 
 #[cfg(test)]
@@ -1886,6 +1840,36 @@ mod tests {
         std::env::remove_var("ANY_CONSOLE_DATA_DIR");
     }
 
+    #[tokio::test]
+    async fn legacy_report_fields_are_dropped_when_recent_is_loaded() {
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("ANY_CONSOLE_DATA_DIR", dir.path());
+        let state = test_state(&dir).await;
+        let mut legacy = Map::new();
+        legacy.insert("report_token_hash".to_string(), json!("h"));
+        legacy.insert("report_enabled".to_string(), json!(true));
+        legacy.insert("report".to_string(), json!({"submitted": {}}));
+        legacy.insert("session_id".to_string(), json!("s1"));
+        record_recent(
+            &state,
+            "d0",
+            json!({"workspace": "proj"}),
+            "executed",
+            Some(&legacy),
+        )
+        .await;
+
+        let state2 = test_state(&dir).await;
+        load_persisted_and_seed_bridge(&state2).await;
+        let recent = state2.dispatch.recent.lock().await;
+        let item = recent[0].as_object().unwrap();
+        for field in LEGACY_REPORT_FIELDS {
+            assert!(!item.contains_key(field), "{field}");
+        }
+        assert_eq!(item["session_id"], "s1");
+        std::env::remove_var("ANY_CONSOLE_DATA_DIR");
+    }
+
     async fn test_state(dir: &tempfile::TempDir) -> Arc<AppState> {
         // rate_limit はテストの連続リクエストが制限に触れないよう引き上げる。
         Arc::new(crate::state::test_app_state(dir.path(), "test-", 10_000))
@@ -2137,256 +2121,5 @@ mod tests {
         assert_eq!(first_program_of_command("./run=weird"), Some("./run=weird"));
         assert_eq!(first_program_of_command(""), None);
         assert_eq!(first_program_of_command("FOO=1"), None);
-    }
-
-    fn report_workspace_state(dir: &tempfile::TempDir, job_command: &str) -> Arc<AppState> {
-        let manifests = dir.path().join("agent_manifests");
-        std::fs::create_dir_all(&manifests).unwrap();
-        std::fs::copy(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../agent_manifests/claude.toml"
-            ),
-            manifests.join("claude.toml"),
-        )
-        .unwrap();
-        let ws_dir = dir.path().join("ws");
-        std::fs::create_dir_all(&ws_dir).unwrap();
-        std::fs::write(
-            dir.path().join("config.json"),
-            json!({"proj": {"path": ws_dir, "jobs": {"rep": {"command": job_command}}}})
-                .to_string(),
-        )
-        .unwrap();
-        Arc::new(crate::state::test_app_state(dir.path(), "test-", 10_000))
-    }
-
-    fn report_request(text: &str) -> DispatchRequest {
-        DispatchRequest {
-            job: "rep".to_string(),
-            text: text.to_string(),
-            match_mode: "none".to_string(),
-            direct: true,
-            ..base_request()
-        }
-    }
-
-    #[tokio::test]
-    async fn approved_dispatch_is_launched_without_a_report() {
-        if crate::tmux::skip_if_no_tmux() {
-            return;
-        }
-        let dir = tempfile::tempdir().unwrap();
-        let state = report_workspace_state(&dir, "claude");
-        let mut approved = report_request("do it");
-        approved.direct = false;
-        let launched = execute_and_record(
-            &state,
-            "run1",
-            approved,
-            None,
-            &DispatchOverrides::default(),
-            "main",
-            None,
-        )
-        .await
-        .unwrap();
-        assert_eq!(launched["created"], true);
-        let recent = state.dispatch.recent.lock().await;
-        assert!(recent[0].get("report_enabled").is_none());
-        drop(recent);
-        let name = state
-            .paths
-            .tmux_session_name(launched["session_id"].as_str().unwrap());
-        crate::subprocess::kill_tmux_by_name(&name).await;
-    }
-
-    #[tokio::test]
-    async fn non_agent_job_is_launched_without_a_report() {
-        if crate::tmux::skip_if_no_tmux() {
-            return;
-        }
-        let dir = tempfile::tempdir().unwrap();
-        let state = report_workspace_state(&dir, "echo hi");
-        let launched = execute_and_record(
-            &state,
-            "run1",
-            report_request("do it"),
-            None,
-            &DispatchOverrides::default(),
-            "main",
-            None,
-        )
-        .await
-        .unwrap();
-        {
-            let recent = state.dispatch.recent.lock().await;
-            assert_eq!(recent[0]["outcome"], "executed");
-            assert!(recent[0].get("report_enabled").is_none());
-        }
-        let name = state
-            .paths
-            .tmux_session_name(launched["session_id"].as_str().unwrap());
-        crate::subprocess::kill_tmux_by_name(&name).await;
-    }
-
-    #[tokio::test]
-    async fn agent_dispatch_gets_run_scoped_env_and_accepts_only_that_runs_report() {
-        if crate::tmux::skip_if_no_tmux() {
-            return;
-        }
-        let dir = tempfile::tempdir().unwrap();
-        let state = report_workspace_state(&dir, "claude");
-        let first = execute_and_record(
-            &state,
-            "run1",
-            report_request("do it"),
-            None,
-            &DispatchOverrides::default(),
-            "main",
-            None,
-        )
-        .await
-        .unwrap();
-        // 履歴からの再実行は別の dispatch_id（別の試行）になる。
-        let second = execute_and_record(
-            &state,
-            "run2",
-            report_request("do it"),
-            None,
-            &DispatchOverrides::default(),
-            "main",
-            None,
-        )
-        .await
-        .unwrap();
-        assert_eq!(first["created"], true);
-        assert_eq!(second["created"], true);
-        assert_ne!(first["session_id"], second["session_id"]);
-
-        let tmux_of = |result: &Value| {
-            state
-                .paths
-                .tmux_session_name(result["session_id"].as_str().unwrap())
-        };
-        let env_of = |name: String, key: &'static str| async move {
-            crate::subprocess::run_tmux_cmd(&["show-environment", "-t", &name, key])
-                .await
-                .map(|out| out.stdout.trim().to_string())
-                .unwrap_or_default()
-        };
-        let token1 = env_of(tmux_of(&first), dispatch_report::REPORT_TOKEN_ENV)
-            .await
-            .split_once('=')
-            .unwrap()
-            .1
-            .to_string();
-        let url2 = env_of(tmux_of(&second), dispatch_report::REPORT_URL_ENV).await;
-        assert!(url2.ends_with("/dispatch/run2/report"), "{url2}");
-
-        // 依頼文に渡る pending text には報告手順が付くが、トークンの値は含まれない。
-        let pending = env_of(tmux_of(&first), "TMUX_PENDING_TEXT").await;
-        let pending = crate::tmux::decode_pending_text(pending.split_once('=').unwrap().1);
-        assert!(pending.starts_with("do it"));
-        assert!(pending.contains("$ANY_CONSOLE_REPORT_TOKEN"));
-        assert!(!pending.contains(&token1));
-
-        // 履歴の依頼文には手順が混ざらず、ハッシュは配信ペイロードに出ない。
-        let payload = queue_payload(&state).await.to_string();
-        assert!(!payload.contains("report_token_hash") && !payload.contains(&token1));
-        assert!(payload.contains("\"report_enabled\":true"));
-        {
-            let recent = state.dispatch.recent.lock().await;
-            assert_eq!(
-                recent.iter().find(|r| r["id"] == "run1").unwrap()["request"]["text"],
-                "do it"
-            );
-        }
-
-        let body: dispatch_report::ReportBody = serde_json::from_value(json!({
-            "summary": "ok", "status": "completed"
-        }))
-        .unwrap();
-        let headers = |token: &str| {
-            let mut h = axum::http::HeaderMap::new();
-            h.insert(dispatch_report::REPORT_TOKEN_HEADER, token.parse().unwrap());
-            h
-        };
-        let wrong_run = dispatch_report::post_report(
-            State(state.clone()),
-            Path("run2".to_string()),
-            headers(&token1),
-            JsonBody(body.clone()),
-        )
-        .await;
-        assert!(wrong_run.is_err());
-        let _ = dispatch_report::post_report(
-            State(state.clone()),
-            Path("run1".to_string()),
-            headers(&token1),
-            JsonBody(body),
-        )
-        .await
-        .unwrap();
-        let recent = state.dispatch.recent.lock().await;
-        assert!(
-            recent.iter().find(|r| r["id"] == "run1").unwrap()["report"]["submitted"].is_object()
-        );
-        assert!(recent
-            .iter()
-            .find(|r| r["id"] == "run2")
-            .unwrap()
-            .get("report")
-            .is_none());
-        drop(recent);
-
-        for result in [&first, &second] {
-            crate::subprocess::kill_tmux_by_name(&tmux_of(result)).await;
-        }
-    }
-
-    #[tokio::test]
-    async fn dispatch_into_an_existing_session_is_not_reported() {
-        if crate::tmux::skip_if_no_tmux() {
-            return;
-        }
-        let dir = tempfile::tempdir().unwrap();
-        let state = report_workspace_state(&dir, "claude");
-        let first = execute_and_record(
-            &state,
-            "new",
-            report_request("do it"),
-            None,
-            &DispatchOverrides::default(),
-            "main",
-            None,
-        )
-        .await
-        .unwrap();
-        let mut reuse = report_request("more");
-        reuse.match_mode = "any".to_string();
-        let second = execute_and_record(
-            &state,
-            "reuse",
-            reuse,
-            None,
-            &DispatchOverrides::default(),
-            "main",
-            None,
-        )
-        .await
-        .unwrap();
-        assert_eq!(second["session_id"], first["session_id"]);
-        assert_eq!(second["created"], false);
-        {
-            let recent = state.dispatch.recent.lock().await;
-            let find = |id: &str| recent.iter().find(|r| r["id"] == id).unwrap().clone();
-            assert_eq!(find("new")["report_enabled"], true);
-            assert!(find("reuse").get("report_enabled").is_none());
-        }
-        let name = state
-            .paths
-            .tmux_session_name(first["session_id"].as_str().unwrap());
-        crate::subprocess::kill_tmux_by_name(&name).await;
     }
 }

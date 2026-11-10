@@ -582,7 +582,6 @@ async fn ensure_tmux_session(
         &state.config,
         workspace_path.as_deref(),
         &full_name,
-        &[],
     )
     .await
     {
