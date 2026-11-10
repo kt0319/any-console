@@ -6,10 +6,6 @@
       </button>
       <span class="dispatch-run-title">{{ isRerun ? "Rerun Dispatch" : "Run Dispatch" }}</span>
     </div>
-    <DispatchReportCard
-      v-if="isRerun && recentItem && ['unreported', 'reported'].includes(reportState(recentItem))"
-      :item="recentItem"
-    />
     <div v-if="request" class="ws-settings-section">
       <div class="ws-settings-row">
         <span class="ws-settings-label">Session</span>
@@ -136,8 +132,6 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
 import { excludeCurrentBranch } from "../utils/git.ts";
-import DispatchReportCard from "./DispatchReportCard.vue";
-import { reportState } from "../utils/dispatch-report.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 

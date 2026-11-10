@@ -16,8 +16,6 @@ type DispatchRecentItem = DispatchQueueItem & {
   outcome: string,
   auth?: string,
   session_id?: string,
-  report_enabled?: boolean,
-  report?: Record<string, any>,
 };
 
 // Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。サーバがステータス

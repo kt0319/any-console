@@ -44,20 +44,6 @@ describe("DispatchQueueRowBody", () => {
     expect(head({ request: {}, jobLabel: "Build" })).toBe("Build");
   });
 
-  it.each([
-    [{ status: "completed", verifications: [{ name: "t", result: "passed" }] }, "mdi-clipboard-check-outline", "Reported completed"],
-    [{ status: "partial", verifications: [{ name: "t", result: "passed" }] }, "mdi-clipboard-alert-outline", "Reported partial"],
-    [{ status: "unable", verifications: [] }, "mdi-clipboard-remove-outline", "Reported unable"],
-  ])("結果報告はテキストではなくアイコン（aria-label付き）で示す", (submitted, icon, label) => {
-    const wrapper = mount(DispatchQueueRowBody, {
-      props: { request: { text: "x" }, outcome: "executed", item: { outcome: "executed", report_enabled: true, report: { submitted } } },
-    });
-    const el = wrapper.find(".dispatch-queue-report");
-    expect(el.classes()).toContain(icon);
-    expect(el.attributes("aria-label")).toBe(label);
-    expect(wrapper.text()).not.toContain(label);
-  });
-
   it("outcome が無い承認待ち行には結果アイコンを出さない", () => {
     const wrapper = mount(DispatchQueueRowBody, { props: { request: { text: "echo hi" } } });
     expect(wrapper.find(".dispatch-queue-recent-head").exists()).toBe(false);
@@ -69,5 +55,15 @@ describe("DispatchQueueRowBody", () => {
     });
     expect(direct.text()).not.toContain("nightly-cron");
     expect(direct.find(".dispatch-queue-auth").exists()).toBe(false);
+  });
+
+  it("direct で実行済みの行は結果のチェックの代わりに雷を出し、失敗は結果アイコンのままにする", () => {
+    const props = { request: { text: "fix" }, auth: "direct:nightly-cron" };
+    const executed = mount(DispatchQueueRowBody, { props: { ...props, outcome: "executed" } });
+    expect(executed.find(".dispatch-queue-direct").exists()).toBe(true);
+    expect(executed.find(".mdi-check-circle-outline").exists()).toBe(false);
+    const failed = mount(DispatchQueueRowBody, { props: { ...props, outcome: "failed" } });
+    expect(failed.find(".dispatch-queue-direct").exists()).toBe(false);
+    expect(failed.find(".mdi-alert-circle-outline").exists()).toBe(true);
   });
 });

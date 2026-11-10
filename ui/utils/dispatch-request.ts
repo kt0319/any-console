@@ -60,3 +60,8 @@ export function resolveDispatchJobLabel(
   const ws = request?.workspace || "";
   return allJobs?.[ws]?.[jobKey]?.label || "";
 }
+
+/** direct スコープのトークンで承認なしに実行された履歴項目（auth は `direct:<トークン名>`）。 */
+export function isDirectRun(item: { auth?: string } | null | undefined): boolean {
+  return !!item?.auth?.startsWith("direct:");
+}

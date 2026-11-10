@@ -566,34 +566,3 @@ describe("a11y: TerminalSettingsModal", () => {
     wrapper.unmount();
   });
 });
-
-describe("a11y: DispatchReportCard", () => {
-  it("結果カードに a11y 違反が無く、報告本文はHTMLとして解釈されない", async () => {
-    setActivePinia(createPinia());
-    const { default: DispatchReportCard } = await import("../../../ui/components/DispatchReportCard.vue");
-    const wrapper = mount(DispatchReportCard, {
-      props: {
-        item: {
-          outcome: "executed",
-          report_enabled: true,
-          session_id: "s1",
-          request: { text: "do it" },
-          report: {
-            submitted: {
-              summary: "<img src=x onerror=alert(1)>",
-              status: "partial",
-              open_issues: ["x"],
-              artifacts: { commits: ["abc1234"], branch: "feat/x" },
-            },
-            verified: { commits: { abc1234: true }, branch_exists: null },
-          },
-        },
-      },
-      attachTo: document.body,
-    });
-    expect(wrapper.find("img").exists()).toBe(false);
-    expect(wrapper.text()).toContain("<img src=x onerror=alert(1)>");
-    await expectNoA11yViolations(wrapper.element);
-    wrapper.unmount();
-  });
-});

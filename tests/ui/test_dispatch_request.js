@@ -5,6 +5,7 @@ import {
   dispatchJobLabel,
   dispatchBranchLabel,
   resolveDispatchJobLabel,
+  isDirectRun,
 } from "../../ui/utils/dispatch-request.ts";
 
 describe("dispatchWorkspaceLabel", () => {
@@ -80,5 +81,14 @@ describe("resolveDispatchJobLabel", () => {
   it("allJobs未取得（起動直後等）でも空文字", () => {
     expect(resolveDispatchJobLabel({ workspace: "ws1", job: "job_1" }, null)).toBe("");
     expect(resolveDispatchJobLabel({ workspace: "ws1", job: "job_1" }, undefined)).toBe("");
+  });
+});
+
+describe("isDirectRun", () => {
+  it("direct トークンで実行された項目だけを direct と判定する", () => {
+    expect(isDirectRun({ auth: "direct:nightly-cron" })).toBe(true);
+    expect(isDirectRun({ auth: "main" })).toBe(false);
+    expect(isDirectRun({})).toBe(false);
+    expect(isDirectRun(null)).toBe(false);
   });
 });

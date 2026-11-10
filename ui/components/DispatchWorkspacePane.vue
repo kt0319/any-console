@@ -32,7 +32,7 @@
               :class="`dispatch-queue-recent-${item.outcome}`"
               @click="emits('select', item.id)"
             >
-              <DispatchQueueRowBody :request="item.request" :outcome="item.outcome" :auth="item.auth" :item="item" :job-label="jobLabel(item.request)" />
+              <DispatchQueueRowBody :request="item.request" :outcome="item.outcome" :auth="item.auth" :job-label="jobLabel(item.request)" />
             </button>
           </li>
         </ul>
