@@ -47,6 +47,13 @@ export function useSessionSync() {
     return { ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs }), restored: true };
   }
 
+  // dispatch が実行時に作る worktree はワークスペース一覧にまだ無いため、先に取り込んでから
+  // タブを作る（worktree アイコン・ラベルがワークスペース情報に依存する）。
+  async function _refreshWorkspacesForUnknown(sessions: { workspace?: string | null }[]) {
+    const known = new Set(workspaceStore.allWorkspaces.map((w) => w.name));
+    if (sessions.some((s) => s.workspace && !known.has(s.workspace))) await workspaceStore.fetchWorkspaces();
+  }
+
   async function _safeResJson(res: Response | null) {
     try {
       if (res && res.ok) return await res.json();
@@ -139,8 +146,9 @@ export function useSessionSync() {
 
       if (newSessions.length) {
         const allJobs = await _loadAllJobs(null, newSessions);
+        await _refreshWorkspacesForUnknown(newSessions);
         for (const s of newSessions) {
-          const tab = terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
+          const tab = terminalStore.addTerminalTab({ ..._buildTabParams(s, allJobs), adjacent: true });
           // interactive=false（外部ツールから /run を直接叩いた等、UIの操作を
           // 経由していないセッション）だけタブバーから隠す。UIの「+」等で別の
           // 端末から開かれたセッションは interactive=true で届くので、この

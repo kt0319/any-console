@@ -92,7 +92,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側はそれぞれ独立した非同期処理で
   // 「既存タブが無いか」を確認してから呼ぶが、確認から呼び出しまでのawaitの間に別経路が
   // 同じセッションのタブを追加してしまうレースがあるため、store側の唯一の追加窓口でチェックする。
-  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }: {
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored, adjacent }: {
     wsUrl: string,
     workspace?: string | null,
     wsIcon?: string | null,
@@ -102,6 +102,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     jobName?: string | null,
     jobLabel?: string | null,
     restored?: boolean,
+    adjacent?: boolean,
   }) {
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
     const existing = openTabs.value.find((t) => t.sessionId === sessionId);
@@ -140,7 +141,7 @@ export const useTerminalStore = defineStore("terminal", () => {
       _elementBound: false,
     });
 
-    const insertAt = restored ? openTabs.value.length : tabInsertIndex(openTabs.value, tab.workspace);
+    const insertAt = restored && !adjacent ? openTabs.value.length : tabInsertIndex(openTabs.value, tab.workspace);
     openTabs.value.splice(insertAt, 0, tab);
     if (insertAt < openTabs.value.length - 1) saveTabOrder();
     return tab;

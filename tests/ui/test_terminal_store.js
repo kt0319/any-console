@@ -215,6 +215,14 @@ describe("terminal store: addTerminalTab の重複防止", () => {
     store.addTerminalTab({ wsUrl: "/terminal/ws/sess2", workspace: "ws1" });
     expect(store.openTabs.length).toBe(2);
   });
+
+  it("restored でも adjacent なら同じベースのタブの隣に入り、無指定なら末尾に入る", () => {
+    store.addTerminalTab({ wsUrl: "/terminal/ws/a", workspace: "ws1" });
+    store.addTerminalTab({ wsUrl: "/terminal/ws/b", workspace: "other" });
+    store.addTerminalTab({ wsUrl: "/terminal/ws/c", workspace: "ws1:wt", restored: true, adjacent: true });
+    store.addTerminalTab({ wsUrl: "/terminal/ws/d", workspace: "ws1:wt2", restored: true });
+    expect(store.openTabs.map((t) => t.sessionId)).toEqual(["a", "c", "b", "d"]);
+  });
 });
 
 describe("terminal store: agentStates", () => {
