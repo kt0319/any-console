@@ -22,6 +22,22 @@ describe("DispatchQueueRowBody", () => {
     wrapper.unmount();
   });
 
+  it.each([
+    ["executed", "Executed"],
+    ["failed", "Failed"],
+    ["discarded", "Discarded"],
+  ])("outcome=%s でブランチ指定が無い行は、アイコンの右に %s を出す", (outcome, label) => {
+    const wrapper = mount(DispatchQueueRowBody, { props: { request: { text: "echo hi" }, outcome } });
+    expect(wrapper.find(".dispatch-queue-recent-head .dispatch-queue-ws").text()).toBe(label);
+  });
+
+  it("ブランチ指定がある行はアイコンの右にブランチ名を出す", () => {
+    const wrapper = mount(DispatchQueueRowBody, {
+      props: { request: { text: "echo hi", branch: "feature/x" }, outcome: "executed" },
+    });
+    expect(wrapper.find(".dispatch-queue-recent-head .dispatch-queue-ws").text()).toBe("feature/x");
+  });
+
   it("outcome が無い承認待ち行には結果アイコンを出さない", () => {
     const wrapper = mount(DispatchQueueRowBody, { props: { request: { text: "echo hi" } } });
     expect(wrapper.find(".dispatch-queue-recent-head").exists()).toBe(false);
