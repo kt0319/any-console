@@ -9,11 +9,11 @@ import { on } from "../../ui/app-bridge.ts";
 const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
 
-const DEFAULT_ORDER = ["files", "changes", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch", "report"];
+const DEFAULT_ORDER = ["files", "changes", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch"];
 
 const ALL_TRUE = {
   branch: true, prs: true, actions: true, changes: true,
-  devserver: true, docker: true, issues: true, files: true, add: true, dispatch: true, report: true,
+  devserver: true, docker: true, issues: true, files: true, add: true, dispatch: true,
 };
 
 describe("info-pill-config store: load 堅牢化", () => {
@@ -62,7 +62,7 @@ describe("info-pill-config store: load 堅牢化", () => {
   });
 
   it("load はサーバのorderを反映する", async () => {
-    const customOrder = ["branch", "files", "changes", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch", "report"];
+    const customOrder = ["branch", "files", "changes", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch"];
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ ...ALL_TRUE, order: customOrder }));
     await store.load();
     expect(store.order).toEqual(customOrder);
@@ -100,7 +100,7 @@ describe("info-pill-config store: load 堅牢化", () => {
   it("reorderは指定インデックスへ並べ替えてsaveする（useListDragSortのonReorder互換）", async () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
     store.reorder(0, 1);
-    expect(store.order).toEqual(["changes", "files", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch", "report"]);
+    expect(store.order).toEqual(["changes", "files", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch"]);
     expect(auth.apiFetch).toHaveBeenCalledTimes(1);
 
     store.reorder(1, 0);

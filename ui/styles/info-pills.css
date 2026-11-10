@@ -331,10 +331,6 @@
   color: var(--pink);
 }
 
-.pill-report-btn .mdi {
-  color: var(--success);
-}
-
 .pill-numstat-btn {
   padding: 0 10px;
   flex-shrink: 0;

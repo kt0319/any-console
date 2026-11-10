@@ -66,7 +66,7 @@ export function sessionSidebarItems(
       // 形式にする（tab.labelはuseTerminalLifecycle.tsが実cwdのディレクトリ名を反映する）。
       const bareTerminalLabel = tab.label ? `[terminal] ${tab.label}` : "[terminal]";
       const label = ws?.worktree ? (ws.worktree_base || ws.name || "") : (tab.workspace || bareTerminalLabel);
-      const pill = buildPillFields(tab.workspace, ws, ctx, undefined, tab.sessionId);
+      const pill = buildPillFields(tab.workspace, ws, ctx);
       return {
         tab,
         id: tab.id,

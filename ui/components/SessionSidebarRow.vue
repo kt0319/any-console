@@ -51,7 +51,6 @@
           :has-docker="item.hasDocker"
           :issues-count="item.issuesCount"
           :dispatch-count="item.dispatchCount"
-          :has-report="item.hasReport"
           :tooltips="item.tooltips"
           @open="emits('pillOpen', $event)"
         />

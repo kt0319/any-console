@@ -9,7 +9,6 @@ describe("peekColorForKey", () => {
     expect(peekColorForKey("devserver")).toBe("pill-peek-lime");
     expect(peekColorForKey("docker")).toBe("pill-peek-docker");
     expect(peekColorForKey("dispatch")).toBe("pill-peek-pink");
-    expect(peekColorForKey("report")).toBe("pill-peek-success");
     expect(peekColorForKey("actions")).toBe("pill-peek-brown");
   });
 
@@ -67,7 +66,7 @@ describe("INFO_PILLS", () => {
     // バックエンド server/src/settings.rs の INFO_PILL_FIELDS と同じキー集合を
     // 保つこと（あちらは settings.rs 内のユニットテストで検証）。
     expect(INFO_PILL_FIELDS).toEqual([
-      "files", "changes", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch", "report",
+      "files", "changes", "branch", "prs", "actions", "devserver", "docker", "issues", "add", "dispatch",
     ]);
   });
 });

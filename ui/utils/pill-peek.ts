@@ -68,7 +68,6 @@ export function buildTrailingPeekItems(
     dockerContainers?: { name?: string; state?: string }[];
     issuesCount?: number;
     dispatchItems?: { id: string }[];
-    reportItemId?: string;
   },
   infoPillConfig: Record<string, boolean>,
 ): { key: string; text: string }[] {
@@ -91,7 +90,6 @@ export function buildTrailingPeekItems(
     dockerContainers = [],
     issuesCount = 0,
     dispatchItems = [],
-    reportItemId = "",
   } = fields || {};
   const items: { key: string; text: string }[] = [];
   items.push({ key: "workspace", text: workspaceLabel });
@@ -127,9 +125,6 @@ export function buildTrailingPeekItems(
   if (dispatchItems.length > 0 && infoPillConfig.dispatch) {
     items.push({ key: "dispatch", text: dispatchItems.map((i) => i.id).join(",") });
   }
-  if (reportItemId && infoPillConfig.report) {
-    items.push({ key: "report", text: reportItemId });
-  }
   return items;
 }
 
@@ -148,7 +143,6 @@ export function buildPeekText(
     dockerContainers?: { name?: string; state?: string }[];
     issuesCount?: number;
     dispatchTooltip?: string;
-    reportTooltip?: string;
   },
 ): string {
   const {
@@ -160,7 +154,6 @@ export function buildPeekText(
     dockerContainers = [],
     issuesCount = 0,
     dispatchTooltip = "",
-    reportTooltip = "",
   } = fields || {};
   switch (peekingKey) {
     case "files": return "Files";
@@ -177,7 +170,6 @@ export function buildPeekText(
     case "issues": return issuesCount > 0 ? `GitHub Issues: ${issuesCount} open` : "GitHub Issues";
     case "add": return "Add";
     case "dispatch": return dispatchTooltip;
-    case "report": return reportTooltip;
     case "workspace": return workspaceLabel;
     case "job": return jobLabel;
     default: return "";

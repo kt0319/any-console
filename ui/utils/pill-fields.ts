@@ -2,7 +2,6 @@ import { findPRForBranch, findRunForBranch, isNoticeableRun } from "./github-run
 import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
 import { buildInfoPillTooltips } from "./info-pill-tooltips.ts";
 import { isDockerContainerActive } from "./docker.ts";
-import { reportState, type DispatchReportItem } from "./dispatch-report.ts";
 
 // Info Pills（TerminalPaneの浮遊ピル・セッションサイドバー行）の表示値を組み立てる純粋関数群。
 // 両者が同じ関数を通すことで、同じワークスペースなら同じピルが同じ内容・同じpeek対象になる。
@@ -15,7 +14,6 @@ export type PillFieldsContext = {
   issuesByWorkspace?: Record<string, any[]>;
   dispatchQueue?: { request: Record<string, any> }[];
   dispatchAllJobs?: Record<string, Record<string, { label?: string }>>;
-  dispatchRecent?: (DispatchReportItem & { id: string })[];
   hostname?: string;
 };
 
@@ -30,9 +28,8 @@ export function buildPillFields(
   ws: any,
   ctx: PillFieldsContext,
   tooltipName: string = wsName || "",
-  sessionId: string | null | undefined = null,
 ) {
-  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dockerContainers = [], issuesByWorkspace = {}, dispatchQueue = [], dispatchAllJobs = {}, dispatchRecent = [], hostname = "" } = ctx;
+  const { prsByWorkspace = {}, runsByWorkspace = {}, previewPorts = [], dockerContainers = [], issuesByWorkspace = {}, dispatchQueue = [], dispatchAllJobs = {}, hostname = "" } = ctx;
   const isGitRepo = ws?.is_git_repo === true;
   const branch = ws?.branch || "";
   const ahead = ws?.ahead || 0;
@@ -56,11 +53,6 @@ export function buildPillFields(
   const dispatchItems = wsName
     ? dispatchQueue.filter((item) => dispatchWorkspaceLabel(item.request) === wsName)
     : [];
-  // 報告はそのセッション（direct 実行で起動した worktree セッション）に紐づくため、
-  // ワークスペース名ではなく session_id で引く。recent は新しい順。
-  const reportItem = sessionId
-    ? (dispatchRecent.find((item) => item.session_id === sessionId && reportState(item) === "reported") || null)
-    : null;
   // github/issues はサーバ既定で open のみを返す。
   const issuesCount = isGitRepo && wsName ? (issuesByWorkspace[wsName] || []).length : 0;
   return {
@@ -86,8 +78,6 @@ export function buildPillFields(
     issuesCount,
     dispatchCount: dispatchItems.length,
     dispatchItems,
-    hasReport: !!reportItem,
-    reportItem,
     lastCommitMessage: ws?.last_commit_message,
     upstreamHead: ws?.upstream_head as string | undefined,
     tooltips: buildInfoPillTooltips({
@@ -98,7 +88,7 @@ export function buildPillFields(
       devServerEntry, hostname,
       dockerContainers: workspaceDockerContainers,
       issuesCount,
-      dispatchItems, dispatchAllJobs, reportItem,
+      dispatchItems, dispatchAllJobs,
       branchPR, branchAction,
     }),
   };
@@ -138,7 +128,5 @@ export function buildPeekFields(
     issuesCount: pill.issuesCount,
     dispatchItems: pill.dispatchItems,
     dispatchTooltip: pill.tooltips.dispatch,
-    reportItemId: pill.reportItem?.id || "",
-    reportTooltip: pill.tooltips.report,
   };
 }
