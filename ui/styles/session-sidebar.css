@@ -12,15 +12,9 @@
   position: relative;
 }
 
-/* ベースとworktreeの行をタブバー（TabBar.vue の .tab-group）と同じ背景でまとめ、
-   グループ内の行の間は罫線を引かず、最後の行だけ罫線で区切る。 */
+/* ベースとworktreeの行をタブバー（TabBar.vue の .tab-group）と同じ背景でまとめる。 */
 .session-sidebar-li.session-group {
   background: var(--bg-tertiary);
-  border-bottom: none;
-}
-
-.session-sidebar-li.session-group-last {
-  border-bottom: 1px solid var(--border);
 }
 
 /* 行1（アイコン・ワークスペース名 + インフォピル）・行2（ブランチ名・
