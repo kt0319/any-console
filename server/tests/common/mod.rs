@@ -5,6 +5,9 @@
 //! 1箇所にするのが目的。テストごとに異なる値だけ `StateOptions` で上書きする。
 #![allow(dead_code)] // 各テストクレートは必要なヘルパーだけを使う
 
+#[path = "../../src/tmux_test_isolation.rs"]
+mod tmux_test_isolation;
+
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -46,6 +49,7 @@ impl Default for StateOptions {
 /// tempdir 直下を project_root、`{dir}/data` を data_dir とした `AppState` を
 /// 組み立てる。auth.json 等のファイルは呼び出し側が事前に書き込んでおく。
 pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
+    tmux_test_isolation::isolate_tmux_server();
     let data_dir = dir.join("data");
     let config_file = dir.join("config.json");
     Arc::new(AppState {
@@ -87,6 +91,7 @@ pub fn test_app_state(dir: &Path, opts: StateOptions) -> Arc<AppState> {
 /// そのプレフィックスのセッションを drop 時に終了するガード。ガードはテスト用サーバと
 /// 同じ寿命で保持する（テストが途中で失敗しても、kill 漏れのセッションが残らないように）。
 pub fn unique_tmux_prefix() -> (String, TmuxSessionCleanup) {
+    tmux_test_isolation::isolate_tmux_server();
     let prefix = format!("test-{}-", any_console_server::util::token_hex(3));
     (prefix.clone(), TmuxSessionCleanup { prefix })
 }
@@ -137,6 +142,7 @@ pub fn client() -> reqwest::Client {
 
 /// tmux が使えない環境（CI コンテナ等）でスキップするための共通ガード。
 pub fn skip_if_no_tmux() -> bool {
+    tmux_test_isolation::isolate_tmux_server();
     std::process::Command::new("tmux")
         .arg("-V")
         .output()

@@ -302,13 +302,19 @@ pub fn attach_tmux_session(session_name: &str, cols: u16, rows: u16) -> std::io:
     let path = std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".to_string());
     let lang = std::env::var("LANG").unwrap_or_else(|_| "en_US.UTF-8".to_string());
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    let env: Vec<(&str, &str)> = vec![
+    let tmux_tmpdir = std::env::var("TMUX_TMPDIR").ok();
+    let mut env: Vec<(&str, &str)> = vec![
         ("TERM", TERMINAL_TERM_TYPE),
         ("HOME", home.as_str()),
         ("PATH", path.as_str()),
         ("LANG", lang.as_str()),
         ("SHELL", shell.as_str()),
     ];
+    // env を丸ごと渡す attach だけは、他の tmux 呼び出しと違い TMUX_TMPDIR を引き継がない。
+    // 設定済みなら渡さないと、別のソケットのサーバへ繋ぎに行ってしまう。
+    if let Some(dir) = tmux_tmpdir.as_deref() {
+        env.push(("TMUX_TMPDIR", dir));
+    }
     let spec = ExecSpec::resolve("tmux", &["attach-session", "-t", session_name], &env)?;
     pty::spawn(&spec, cols, rows)
 }
@@ -600,6 +606,7 @@ pub async fn unset_environment(tmux_name: &str, key: &str) -> Option<CmdResult> 
 /// （terminal / agent_watch / terminal_session のテストからも使う）。
 #[cfg(test)]
 pub fn skip_if_no_tmux() -> bool {
+    crate::tmux_test_isolation::isolate_tmux_server();
     std::process::Command::new("tmux")
         .arg("-V")
         .output()

@@ -273,10 +273,7 @@ mod tests {
     #[tokio::test]
     async fn tmux_format_tabs_survive_locale_coercion() {
         // tmux 未導入環境（rust CI ジョブ等）ではスキップ
-        if run_subprocess_safe(&["tmux", "-V"], 5.0, None)
-            .await
-            .is_none()
-        {
+        if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let name = format!("test-{}", crate::util::token_hex(4));

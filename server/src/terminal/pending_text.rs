@@ -254,23 +254,12 @@ pub(super) async fn wait_agent_idle(
 mod tests {
     use super::*;
 
-    const TEST_SESSION_CREATE_ATTEMPTS: usize = 5;
-
-    // 並列テストが最後のセッションを kill した瞬間に tmux サーバが終了し、同時の new-session が
-    // 失敗することがあるため、セッションが実在するまで作り直す。
     async fn create_test_tmux_session(name: &str) {
-        for _ in 0..TEST_SESSION_CREATE_ATTEMPTS {
-            crate::subprocess::run_subprocess_safe(
-                &["tmux", "new-session", "-d", "-s", name],
-                5.0,
-                None,
-            )
-            .await;
-            if crate::subprocess::tmux_session_exists(name).await {
-                return;
-            }
-        }
-        panic!("tmux session {name} could not be created");
+        let created = crate::subprocess::run_tmux_cmd(&["new-session", "-d", "-s", name]).await;
+        assert!(
+            created.as_ref().is_some_and(|r| r.success()),
+            "tmux session {name} could not be created: {created:?}"
+        );
     }
 
     #[tokio::test]

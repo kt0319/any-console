@@ -63,6 +63,8 @@ pub mod system_update;
 pub mod terminal;
 pub mod terminal_session;
 pub mod tmux;
+#[cfg(test)]
+mod tmux_test_isolation;
 pub mod upload_image;
 pub mod util;
 pub mod workspaces;

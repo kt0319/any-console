@@ -50,6 +50,7 @@ pub struct AppState {
 /// 衝突回避のため、`rate_limit` はレート制限に触れたくないテストのため引数で受ける。
 #[cfg(test)]
 pub fn test_app_state(dir: &std::path::Path, tmux_prefix: &str, rate_limit: u32) -> AppState {
+    crate::tmux_test_isolation::isolate_tmux_server();
     let data_dir = dir.join("data");
     AppState {
         paths: Paths {
