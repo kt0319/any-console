@@ -96,6 +96,24 @@ export function buildPillFields(
 
 export type PillFields = ReturnType<typeof buildPillFields>;
 
+/** InfoPillRow に渡す表示値（バインド用）。TerminalPane・セッションサイドバーの各行が同じ形で渡す。 */
+export function buildInfoPillRowProps(pill: PillFields, isWorktree: boolean) {
+  return {
+    isGitRepo: pill.isGitRepo,
+    isWorktree,
+    isDirty: pill.dirty,
+    ahead: pill.ahead,
+    behind: pill.behind,
+    hasPr: pill.hasPr,
+    hasAction: pill.hasAction,
+    hasDevServer: pill.hasDevServer,
+    hasDocker: pill.hasDocker,
+    issuesCount: pill.issuesCount,
+    dispatchCount: pill.dispatchCount,
+    tooltips: pill.tooltips,
+  };
+}
+
 /**
  * peek（値の変化を1本の長いピルで数秒見せる）の変化検出・表示に使うフィールド。
  * actionsは成功完了の瞬間もpeekで知らせたいため、フィルタ前のbranchActionを使う。

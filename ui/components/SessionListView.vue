@@ -34,18 +34,7 @@
                 class="session-sidebar-pills"
                 :tab="{ workspace: p.workspace, wsIcon: p.wsIcon }"
                 :max-width="PILL_MAX_WIDTH_UNLIMITED_PX"
-                :is-git-repo="p.isGitRepo"
-                :is-worktree="p.isWorktree"
-                :is-dirty="p.dirty"
-                :ahead="p.ahead"
-                :behind="p.behind"
-                :has-pr="p.hasPr"
-                :has-action="p.hasAction"
-                :has-dev-server="p.hasDevServer"
-                :has-docker="p.hasDocker"
-                :issues-count="p.issuesCount"
-                :dispatch-count="p.dispatchCount"
-                :tooltips="p.tooltips"
+                v-bind="buildInfoPillRowProps(p, p.isWorktree)"
                 @open="onPendingPillOpen(p, $event)"
               />
             </span>
@@ -76,6 +65,7 @@ import SessionRowMeta from "./SessionRowMeta.vue";
 import SessionSidebarRow from "./SessionSidebarRow.vue";
 import { emit } from "../app-bridge.ts";
 import { PILL_MAX_WIDTH_UNLIMITED_PX } from "../utils/constants.ts";
+import { buildInfoPillRowProps } from "../utils/pill-fields.ts";
 
 type SessionItem = ReturnType<typeof sessionSidebarItems>[number];
 type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number];

@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { buildPeekFields, buildPillFields } from "../../ui/utils/pill-fields.ts";
+import { buildInfoPillRowProps, buildPeekFields, buildPillFields } from "../../ui/utils/pill-fields.ts";
 import { buildTrailingPeekItems } from "../../ui/utils/pill-peek.ts";
 
 const gitWs = {
@@ -39,6 +39,27 @@ describe("buildPillFields", () => {
     const byLabel = buildPillFields(null, undefined, {}, "my-terminal");
     expect(JSON.stringify(byWs.tooltips)).toContain("app");
     expect(JSON.stringify(byLabel.tooltips)).toContain("my-terminal");
+  });
+});
+
+describe("buildInfoPillRowProps", () => {
+  it("ピルの表示値を InfoPillRow のプロップ名に対応づけ、isWorktree は引数で渡す", () => {
+    const pill = buildPillFields("app", gitWs, {});
+    expect(buildInfoPillRowProps(pill, true)).toEqual({
+      isGitRepo: true,
+      isWorktree: true,
+      isDirty: true,
+      ahead: 1,
+      behind: 2,
+      hasPr: false,
+      hasAction: false,
+      hasDevServer: false,
+      hasDocker: false,
+      issuesCount: 0,
+      dispatchCount: 0,
+      tooltips: pill.tooltips,
+    });
+    expect(buildInfoPillRowProps(pill, false).isWorktree).toBe(false);
   });
 });
 

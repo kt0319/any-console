@@ -43,18 +43,7 @@
             class="session-sidebar-pills"
             :tab="item.tab"
             :max-width="pillsMaxWidth"
-            :is-git-repo="item.isGitRepo"
-            :is-worktree="item.isWorktree"
-            :is-dirty="item.dirty"
-            :ahead="item.ahead"
-            :behind="item.behind"
-            :has-pr="item.hasPr"
-            :has-action="item.hasAction"
-            :has-dev-server="item.hasDevServer"
-            :has-docker="item.hasDocker"
-            :issues-count="item.issuesCount"
-            :dispatch-count="item.dispatchCount"
-            :tooltips="item.tooltips"
+            v-bind="buildInfoPillRowProps(item as PillFields, item.isWorktree)"
             @open="emits('pillOpen', $event)"
           />
         </Transition>
@@ -78,7 +67,7 @@ import SessionRowMeta from "./SessionRowMeta.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { usePeekPills } from "../composables/usePeekPills.ts";
-import { buildPeekFields, type PillFields } from "../utils/pill-fields.ts";
+import { buildInfoPillRowProps, buildPeekFields, type PillFields } from "../utils/pill-fields.ts";
 import { useElementMaxWidth } from "../composables/useElementMaxWidth.ts";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 

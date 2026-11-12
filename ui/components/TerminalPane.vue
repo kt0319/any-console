@@ -62,18 +62,7 @@
         <InfoPillRow
           :tab="tab"
           :max-width="pillRowMaxWidth"
-          :is-git-repo="pill.isGitRepo"
-          :is-worktree="!!paneWorkspace?.worktree"
-          :is-dirty="pill.dirty"
-          :ahead="pill.ahead"
-          :behind="pill.behind"
-          :has-pr="pill.hasPr"
-          :has-action="pill.hasAction"
-          :has-dev-server="pill.hasDevServer"
-          :has-docker="pill.hasDocker"
-          :issues-count="pill.issuesCount"
-          :dispatch-count="pill.dispatchCount"
-          :tooltips="pill.tooltips"
+          v-bind="buildInfoPillRowProps(pill, !!paneWorkspace?.worktree)"
           @open="openPane"
         />
         <button
@@ -135,7 +124,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.ts";
-import { buildPeekFields, buildPillFields } from "../utils/pill-fields.ts";
+import { buildInfoPillRowProps, buildPeekFields, buildPillFields } from "../utils/pill-fields.ts";
 import { getLastPointerType } from "../utils/pointer-type.ts";
 
 const props = defineProps({
