@@ -1338,6 +1338,23 @@ describe("TabItem: markRawなtabの変更がtabWorkspaceVersion経由で再描�
     expect(wrapper.find(".mdi-rocket").exists()).toBe(true);
   });
 
+  it("worktreeのタブは、ベースのタブの右に続く時だけブランチ名を出す", async () => {
+    const workspaceStore = useWorkspaceStore();
+    workspaceStore.allWorkspaces = [
+      { name: "proj:feat", worktree: true, worktree_base: "proj", branch: "feat/x", clean: true },
+    ];
+    const tab = markRaw({ id: 3, sessionId: "s3", workspace: "proj:feat", label: "proj", wsIcon: null, icon: null, jobName: null, jobLabel: null });
+    useTerminalStore().openTabs = [tab];
+
+    const head = mount(TabItem, { props: { tab, activeTabId: 3, inGroup: true, followsBase: false } });
+    expect(head.get(".tab-extra").text()).toContain("proj");
+    expect(head.get(".tab-extra").text()).not.toContain("feat/x");
+
+    const next = mount(TabItem, { props: { tab, activeTabId: 3, inGroup: true, followsBase: true } });
+    expect(next.get(".tab-extra").text()).toContain("feat/x");
+    expect(next.find(".worktree-icon").exists()).toBe(true);
+  });
+
   it("setTabJobでjobアイコンが即座に更新される", async () => {
     const terminalStore = useTerminalStore();
     const tab = markRaw({ id: 2, sessionId: "s2", workspace: null, label: "terminal", wsIcon: null, icon: null, jobName: null, jobLabel: null });

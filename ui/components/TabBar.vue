@@ -33,13 +33,14 @@
           :class="{ grouped: group.items.length > 1 }"
         >
           <TabItem
-            v-for="item in group.items"
+            v-for="(item, index) in group.items"
             :key="item.tab.id || item.tab.wsUrl"
             :tab="item.tab"
             :active-tab-id="activeTabId"
             :is-panel-bottom="isPanelBottom"
             :is-narrow="isNarrowViewport"
             :in-group="group.items.length > 1"
+            :follows-base="index > 0"
             @select="onSelect"
           />
         </div>

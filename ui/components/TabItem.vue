@@ -61,6 +61,8 @@ const props = defineProps({
   isNarrow: { type: Boolean, default: false },
   // 同じワークスペースのタブとグループ表示されているか（TabBar.vue参照）。
   inGroup: { type: Boolean, default: false },
+  // グループ内でベースワークスペースのタブの右に続いているか（TabBar.vue参照）。
+  followsBase: { type: Boolean, default: false },
 });
 
 const emits = defineEmits(["select"]);
@@ -110,7 +112,11 @@ const label = computed(() => {
     const ws = tabWorkspace.value;
     // worktreeアイコン(worktree-icon)で既に判別できるため、タブ名には
     // worktree名（"ベース名 | ブランチ"）を出さずベース名だけにする。
-    if (ws?.worktree) return ws.worktree_base || props.tab.workspace;
+    // ベースのタブの右に続く時は、ベース名が左のタブで分かるのでブランチ名を出す。
+    if (ws?.worktree) {
+      if (props.inGroup && props.followsBase && ws.branch) return ws.branch;
+      return ws.worktree_base || props.tab.workspace;
+    }
     return props.tab.workspace;
   }
   return props.tab.label || "terminal";
