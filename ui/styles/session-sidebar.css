@@ -48,7 +48,7 @@
 
 /* 行1と行2の背景は繋げたまま（marginだと間に隙間が出て2行がひとつの行に見えない）、
    内側の余白で中身の間隔だけ少し空ける。 */
-.session-sidebar-row1:has(+ .session-sidebar-row2) {
+.session-sidebar-row1 {
   padding-bottom: 6px;
 }
 
