@@ -60,8 +60,8 @@ export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // 同じ内容の「N Pushed/Pulled」peekを重ねて出さない
 export const PILL_PEEK_REMOTE_DEDUP_MS = 5000;
 // ピル行の実測幅からピル群の上限幅を出す時に差し引く固定分。
-// サイドバー行: 閉じるボタン＋余白（SessionSidebarRow.vue）。
-export const SIDEBAR_PILL_ROW_RESERVED_PX = 40;
+// サイドバー行: 行2のブランチ名との余白（SessionSidebarRow.vue）。
+export const SIDEBAR_PILL_ROW_RESERVED_PX = 4;
 // ターミナルペイン: 閉じるボタン・ワークスペースピル本体・余白（TerminalPane.vue）。
 export const PANE_PILL_TRAILING_RESERVED_PX = 80;
 // 幅制限を実質かけない場合に渡す上限値（Pendingワークスペース行など）。

@@ -26,6 +26,9 @@
             <button type="button" class="session-sidebar-item">
               <SessionRowContent :item="p" dim />
             </button>
+          </span>
+          <span class="session-sidebar-row2" @click="onOpenPendingDispatch(p)">
+            <SessionRowMeta :item="p" />
             <span class="session-sidebar-pills-row">
               <InfoPillRow
                 class="session-sidebar-pills"
@@ -46,9 +49,6 @@
                 @open="onPendingPillOpen(p, $event)"
               />
             </span>
-          </span>
-          <span class="session-sidebar-row2" @click="onOpenPendingDispatch(p)">
-            <SessionRowMeta :item="p" />
           </span>
         </li>
         </ul>
