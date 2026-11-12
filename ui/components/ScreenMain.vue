@@ -57,22 +57,17 @@ import { useTerminal } from "../composables/useTerminal.ts";
 import { useViewport } from "../composables/useViewport.ts";
 import { useSessionSync } from "../composables/useSessionSync.ts";
 import { useSnippetPersist } from "../composables/useSnippetPersist.ts";
-import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
-import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
-import { useSettingsNav } from "../composables/useSettingsNav.ts";
-import { useWorkspaceDetailNav } from "../composables/useWorkspaceDetailNav.ts";
-import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.ts";
-import { useClientLogs } from "../composables/useClientLogs.ts";
 import { useAppBootstrap } from "../composables/useAppBootstrap.ts";
 import { useTerminalLifecycle } from "../composables/useTerminalLifecycle.ts";
 import { useSessionResume } from "../composables/useSessionResume.ts";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
+import { useActiveTabLabel } from "../composables/useActiveTabLabel.ts";
+import { useAnyOverlayOpen } from "../composables/useAnyOverlayOpen.ts";
+import { useDebugInfoLine } from "../composables/useDebugInfoLine.ts";
 import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
 import { emit } from "../app-bridge.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
-import { isEmptyPaneId } from "../utils/empty-pane.ts";
-import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -117,38 +112,8 @@ watch(isEmptyScreenVisible, async (isEmpty) => {
   }
 });
 
-const activeTabLabel = computed(() => {
-  // tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
-  // ベアターミナルにワークスペースを紐付けた直後もタイトルに反映されるよう、
-  // tabWorkspaceVersion を読んで依存に含める。
-  terminalStore.tabWorkspaceVersion;
-  if (isEmptyScreenVisible.value) return "";
-  let tabId = terminalStore.activeTabId;
-  if (layoutStore.isSplitMode) {
-    const paneId = layoutStore.splitPaneTabIds[layoutStore.activePaneIndex];
-    if (paneId != null && !isEmptyPaneId(paneId)) tabId = paneId;
-  }
-  const tab = terminalStore.openTabs.find((t) => t.id === tabId);
-  const label = tabTitleLabel(tab, workspaceStore.allWorkspaces);
-  return layoutStore.isSplitMode ? `[split] ${label}` : label;
-});
-
-const debugMode = useDebugMode();
-const { logs: clientLogs, levelLabel } = useClientLogs();
-const debugLevels = useDebugLevels();
-
-const latestLog = computed(() => {
-  for (let i = clientLogs.value.length - 1; i >= 0; i--) {
-    if (debugLevels.value.has(clientLogs.value[i].level)) return clientLogs.value[i];
-  }
-  return null;
-});
-const debugInfo = computed(() => {
-  const log = latestLog.value;
-  if (!log) return "(no logs yet)";
-  const label = log.level === "log" ? "" : `[${levelLabel(log.level)}] `;
-  return `${label}${log.msg}`;
-});
+const activeTabLabel = useActiveTabLabel(isEmptyScreenVisible);
+const { debugMode, latestLog, debugInfo } = useDebugInfoLine();
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 // インラインサイドバー vs Modal.vueの全面オーバーレイの出し分けは、タブ位置設定ではなく
@@ -161,19 +126,7 @@ const titleBarAtBottom = computed(() => layoutStore.titleBarAtBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
-// isSettingsOpenは「いずれかのオーバーレイが表示中か」を表す既存フラグ（useTerminalInput/
-// useGlobalShortcutsがショートカット抑止に使う）。4つの独立オーバーレイに分離したためここで集約する。
-const { isOpen: isSessionListOverlayOpen } = useSessionListOverlay();
-const { isOpen: isSessionOpenNavOpen } = useSessionOpenNav();
-const { isOpen: isSettingsNavOpen } = useSettingsNav();
-const { isOpen: isWorkspaceDetailOpen } = useWorkspaceDetailNav();
-watch(
-  [isSessionListOverlayOpen, isSessionOpenNavOpen, isSettingsNavOpen, isWorkspaceDetailOpen],
-  ([sessionList, sessionOpen, settings, workspaceDetail]) => {
-    layoutStore.isSettingsOpen = sessionList || sessionOpen || settings || workspaceDetail;
-  },
-  { immediate: true },
-);
+useAnyOverlayOpen();
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");

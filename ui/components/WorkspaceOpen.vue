@@ -116,18 +116,8 @@
   </div>
 </template>
 
-<script lang="ts">
-import { LS_KEY_COLLAPSED_WORKSPACE_GROUPS } from "../utils/constants.ts";
-import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
-
-// グループの折りたたみ状態をモジュールスコープで保持し、localStorage にも保存する（再マウント・リロード後も維持）
-const _collapsedGroups = new Set<string>(
-  safeJsonLoad<string[]>(LS_KEY_COLLAPSED_WORKSPACE_GROUPS, []).filter((id) => typeof id === "string"),
-);
-</script>
-
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted, onBeforeUnmount, watch } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.ts";
@@ -144,6 +134,7 @@ import { buildFlatList, workspacesInGroup } from "../utils/workspace-groups.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceOrdering } from "../composables/useWorkspaceOrdering.ts";
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
+import { useCollapsedWorkspaceGroups } from "../composables/useCollapsedWorkspaceGroups.ts";
 
 // default null はテスト用。実行時は常に provide されるため non-null で扱う。
 const modalView = useModalView();
@@ -164,7 +155,7 @@ const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinn
 const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 
 const wsListEl = ref<HTMLElement | null>(null);
-const collapsedGroups = reactive(_collapsedGroups);
+const { collapsedGroups, toggleGroup } = useCollapsedWorkspaceGroups();
 
 const groupDialog = ref<InstanceType<typeof WorkspaceGroupDialog> | null>(null);
 
@@ -202,15 +193,6 @@ const {
   onDragStart,
   cleanupWsDrag,
 } = useWorkspaceOrdering({ flatList, listEl: wsListEl });
-
-function toggleGroup(groupId: string) {
-  if (collapsedGroups.has(groupId)) {
-    collapsedGroups.delete(groupId);
-  } else {
-    collapsedGroups.add(groupId);
-  }
-  safeJsonSave(LS_KEY_COLLAPSED_WORKSPACE_GROUPS, [...collapsedGroups]);
-}
 
 function doAction(ws: Record<string, any>, action: string) {
   gitAction(ws.name, action, { branch: ws.branch });
