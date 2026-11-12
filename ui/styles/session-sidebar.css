@@ -147,9 +147,13 @@
      もう片方のhover-bgは効かない。行全体（li）を1つのホバー対象として扱い、
      どちらの行の上にいても両方が同じ背景で連動するようにする（分断して
      見えないようにするため）。 */
+  /* 背景はグループ行の地色（--bg-tertiary）と同じ色にならないよう白を薄く重ね、
+     左端の線と文字色でも、どの項目の上にいるかを示す。アクティブ行の強調色とは混同しない淡い色にする。 */
   .session-sidebar-li:hover .session-sidebar-row1:not(.active),
   .session-sidebar-li:hover .session-sidebar-row2:not(.active) {
-    background: var(--bg-tertiary);
+    background: rgba(255, 255, 255, 0.07);
+    border-left-color: var(--text-muted);
+    color: var(--text-primary);
   }
 }
 
