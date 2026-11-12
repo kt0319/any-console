@@ -46,6 +46,12 @@
   padding: 0 12px;
 }
 
+/* ベースの項目に連結した1行表示のworktreeは、字下げして子の項目だと分かるようにし、
+   ベースの2行目との境目を見分けやすくする。 */
+.session-sidebar-li.session-compact .session-sidebar-row2 {
+  padding-left: 28px;
+}
+
 /* 行1と行2の背景は繋げたまま（marginだと間に隙間が出て2行がひとつの行に見えない）、
    内側の余白で中身の間隔だけ少し空ける。 */
 .session-sidebar-row1 {

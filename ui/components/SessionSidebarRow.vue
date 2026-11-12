@@ -1,5 +1,5 @@
 <template>
-  <li class="session-sidebar-li" :class="[rowStateClasses, { 'session-group': item.inGroup, 'session-group-last': item.groupLast }]">
+  <li class="session-sidebar-li" :class="[rowStateClasses, { 'session-group': item.inGroup, 'session-group-last': item.groupLast, 'session-compact': item.compact }]">
     <span v-if="!item.compact" class="session-sidebar-row1" :class="rowStateClasses" @click="emits('select')">
       <button
         type="button"
