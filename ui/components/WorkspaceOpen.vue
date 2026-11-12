@@ -117,8 +117,13 @@
 </template>
 
 <script lang="ts">
-// グループの折りたたみ状態をモジュールスコープで保持（再マウント後も維持）
-const _collapsedGroups = new Set<string>();
+import { LS_KEY_COLLAPSED_WORKSPACE_GROUPS } from "../utils/constants.ts";
+import { safeJsonLoad, safeJsonSave } from "../utils/storage.ts";
+
+// グループの折りたたみ状態をモジュールスコープで保持し、localStorage にも保存する（再マウント・リロード後も維持）
+const _collapsedGroups = new Set<string>(
+  safeJsonLoad<string[]>(LS_KEY_COLLAPSED_WORKSPACE_GROUPS, []).filter((id) => typeof id === "string"),
+);
 </script>
 
 <script setup lang="ts">
@@ -204,6 +209,7 @@ function toggleGroup(groupId: string) {
   } else {
     collapsedGroups.add(groupId);
   }
+  safeJsonSave(LS_KEY_COLLAPSED_WORKSPACE_GROUPS, [...collapsedGroups]);
 }
 
 function doAction(ws: Record<string, any>, action: string) {
