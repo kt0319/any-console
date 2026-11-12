@@ -88,7 +88,7 @@ fn first_program_of_command(command: &str) -> Option<&str> {
 }
 
 /// direct の入力がエージェントへ届かなかったことを、activity と push 通知に残す。
-/// 背景の送信と、WS が flush 権を持った場合の送信（`terminal::flush_pending_text`）の
+/// 背景の送信と、WS が flush 権を持った場合の送信（`terminal/pending_text.rs` の `flush_pending_text`）の
 /// 両方から呼ぶ。
 pub(crate) fn report_direct_input_not_delivered(
     state: &Arc<AppState>,
