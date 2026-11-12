@@ -23,6 +23,12 @@
   border-bottom-style: solid;
 }
 
+/* 項目（グループは最後の行）の下に余白を空け、直下の項目を誤タップしにくくする。 */
+.session-sidebar-li:not(.session-group),
+.session-sidebar-li.session-group-last {
+  margin-bottom: 8px;
+}
+
 /* 行1（アイコン・ワークスペース名 + インフォピル）・行2（ブランチ名・
    ステータス）は見た目上ひとつのクリック可能な行として振る舞う。背景・
    アクティブ色・左ボーダーはここ（各行のラッパー）に統一して持たせ、中の
