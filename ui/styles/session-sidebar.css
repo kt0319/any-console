@@ -46,7 +46,12 @@
   padding: 0 12px;
 }
 
-/* 行2はピル・閉じるボタンが並ぶため、上下に余白を持たせて隣の行のピルを誤タップしにくくする。 */
+/* 行2はピル・閉じるボタンが並ぶため、上下に余白を持たせて隣の行のピルを誤タップしにくくする。
+   その分、行1は低くして、行1と行2の中身が離れすぎないようにする。 */
+.session-sidebar-row1 {
+  min-height: 40px;
+}
+
 .session-sidebar-row2 {
   min-height: 56px;
 }
@@ -55,16 +60,6 @@
    ベースの2行目との境目を見分けやすくする。 */
 .session-sidebar-li.session-compact .session-sidebar-row2 {
   padding-left: 28px;
-}
-
-/* 行1と行2の背景は繋げたまま（marginだと間に隙間が出て2行がひとつの行に見えない）、
-   内側の余白で中身の間隔だけ少し空ける。 */
-.session-sidebar-row1 {
-  padding-bottom: 6px;
-}
-
-.session-sidebar-row1 + .session-sidebar-row2 {
-  padding-top: 6px;
 }
 
 .session-sidebar-row1:active,
