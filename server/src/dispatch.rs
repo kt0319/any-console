@@ -1317,7 +1317,9 @@ async fn dispatch_direct(
         let _gate = state.dispatch.direct_gate.lock().await;
         let now = now_epoch();
         let used = count_direct_fired(&state.paths.data_dir, token_id, now)?;
-        if used >= limits.max_per_day as usize {
+        if limits.max_per_day != crate::auth::DIRECT_TOKEN_UNLIMITED_PER_DAY
+            && used >= limits.max_per_day as usize
+        {
             return Err(crate::errors::too_many_requests(format!(
                 "Daily limit reached for this token ({} per 24h)",
                 limits.max_per_day

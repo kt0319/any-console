@@ -992,7 +992,7 @@ describe("AuthConfig: API Tokens", () => {
     wrapper.unmount();
   });
 
-  it("direct の max_per_day が 1 未満、または有効期限が過去なら Create を無効にする", async () => {
+  it("direct の max_per_day が負数、または有効期限が過去なら Create を無効にする", async () => {
     stubFetch([
       [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
       ["/devices", "GET", () => jsonResponse([])],
@@ -1005,9 +1005,10 @@ describe("AuthConfig: API Tokens", () => {
     const createBtn = () => wrapper.findAll("button").find((b) => b.text() === "Create");
     expect(createBtn().element.disabled).toBe(false);
 
-    await wrapper.find('input[type="number"]').setValue(0);
+    await wrapper.find('input[type="number"]').setValue(-1);
     expect(createBtn().element.disabled).toBe(true);
-    await wrapper.find('input[type="number"]').setValue(1);
+    await wrapper.find('input[type="number"]').setValue(0);
+    expect(createBtn().element.disabled).toBe(false);
     expect(createBtn().element.disabled).toBe(false);
 
     await wrapper.find('input[type="datetime-local"]').setValue("2000-01-01T00:00");
@@ -1024,6 +1025,7 @@ describe("AuthConfig: API Tokens", () => {
         { id: "tok_8", name: "old", scope: "direct", max_per_day: 10, expires_at: 946684800, last_used: null },
         { id: "tok_9", name: "ci", scope: "dispatch", last_used: null },
         { id: "tok_10", name: "ci2", scope: "dispatch", expires_at: 4102444800, last_used: null },
+        { id: "tok_11", name: "free", scope: "direct", max_per_day: 0, last_used: null },
       ])],
     ]);
     const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
@@ -1037,6 +1039,8 @@ describe("AuthConfig: API Tokens", () => {
     expect(rows[0].text()).toContain("Last used: Never");
     expect(rows[1].text()).toContain("Workspaces: all");
     expect(rows[1].text()).toContain("Expired");
+    expect(rows[4].text()).toContain("Unlimited runs");
+    expect(rows[4].text()).not.toContain("Max");
     expect(rows[2].find(".device-tag").text()).toBe("dispatch");
     expect(rows[2].text()).not.toContain("Max");
     expect(rows[2].text()).not.toContain("Expire");

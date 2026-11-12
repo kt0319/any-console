@@ -28,8 +28,8 @@
         </label>
         <template v-if="newTokenScope === 'direct'">
           <label class="api-token-limit-row">
-            <span class="ws-settings-label">Max runs per day</span>
-            <input v-model.number="newTokenMaxPerDay" type="number" min="1" step="1" class="form-input api-token-number" />
+            <span class="ws-settings-label">Max runs per day (0 = unlimited)</span>
+            <input v-model.number="newTokenMaxPerDay" type="number" min="0" step="1" class="form-input api-token-number" />
           </label>
           <label class="api-token-limit-row">
             <span class="ws-settings-label">Workspace</span>
@@ -134,7 +134,7 @@ const limitsValid = computed(() => {
   const expires = expiresAtEpoch.value;
   const expiresOk = expires === null || (!Number.isNaN(expires) && expires * 1000 > Date.now());
   const maxOk = newTokenScope.value !== "direct"
-    || (Number.isInteger(newTokenMaxPerDay.value) && newTokenMaxPerDay.value >= 1);
+    || (Number.isInteger(newTokenMaxPerDay.value) && newTokenMaxPerDay.value >= 0);
   return maxOk && expiresOk;
 });
 
@@ -145,7 +145,9 @@ function tokenSub(t: ApiToken): string {
     : "No expiry";
   if (t.scope !== "direct") return t.expires_at ? `${expires} · ${lastUsed}` : lastUsed;
   const workspaces = t.allowed_workspaces?.length ? t.allowed_workspaces.join(", ") : "all";
-  return `Max ${t.max_per_day ?? DEFAULT_MAX_PER_DAY}/day · Workspaces: ${workspaces} · ${expires} · ${lastUsed}`;
+  const maxPerDay = t.max_per_day ?? DEFAULT_MAX_PER_DAY;
+  const limit = maxPerDay === 0 ? "Unlimited runs" : `Max ${maxPerDay}/day`;
+  return `${limit} · Workspaces: ${workspaces} · ${expires} · ${lastUsed}`;
 }
 
 const apiTokens = ref<ApiToken[]>([]);

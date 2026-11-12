@@ -28,6 +28,8 @@ pub const COOKIE_DEVICE_SECRET: &str = "any_console_secret";
 pub const API_TOKEN_SCOPE_DISPATCH: &str = "dispatch";
 pub const API_TOKEN_SCOPE_DIRECT: &str = "direct";
 pub const DIRECT_TOKEN_DEFAULT_MAX_PER_DAY: u32 = 10;
+/// `max_per_day` がこの値のトークンは1日の実行回数に上限を設けない。
+pub const DIRECT_TOKEN_UNLIMITED_PER_DAY: u32 = 0;
 const DIRECT_TOKEN_MAX_ALLOWED_WORKSPACES: usize = 100;
 pub const API_TOKEN_MAX_NAME_LEN: usize = 80;
 /// last_used 更新はリクエストのたびに auth.json を read-modify-write するため、
@@ -135,7 +137,6 @@ impl DirectTokenLimits {
                 .get("max_per_day")
                 .and_then(Value::as_u64)
                 .and_then(|n| u32::try_from(n).ok())
-                .filter(|n| *n >= 1)
                 .unwrap_or(DIRECT_TOKEN_DEFAULT_MAX_PER_DAY),
             allowed_workspaces: entry
                 .get("allowed_workspaces")
@@ -512,9 +513,6 @@ fn direct_limits_from_body(
 ) -> Result<DirectTokenLimits, crate::errors::ApiError> {
     use crate::errors::bad_request;
     let max_per_day = body.max_per_day.unwrap_or(DIRECT_TOKEN_DEFAULT_MAX_PER_DAY);
-    if max_per_day < 1 {
-        return Err(bad_request("max_per_day must be 1 or more"));
-    }
     validate_expires_at(body.expires_at)?;
     let allowed_workspaces = match &body.allowed_workspaces {
         None => None,
@@ -1066,10 +1064,10 @@ mod tests {
             DirectTokenLimits::from_entry(&legacy),
             DirectTokenLimits::default()
         );
-        let zero = json!({"max_per_day": 0});
+        let unlimited = json!({"max_per_day": 0});
         assert_eq!(
-            DirectTokenLimits::from_entry(&zero).max_per_day,
-            DIRECT_TOKEN_DEFAULT_MAX_PER_DAY
+            DirectTokenLimits::from_entry(&unlimited).max_per_day,
+            DIRECT_TOKEN_UNLIMITED_PER_DAY
         );
     }
 
@@ -1120,11 +1118,14 @@ mod tests {
         let limits = direct_limits_from_body(&ok).unwrap();
         assert_eq!(limits.allowed_workspaces, Some(vec!["proj".to_string()]));
 
-        let zero = CreateApiTokenBody {
+        let unlimited = CreateApiTokenBody {
             max_per_day: Some(0),
             ..Default::default()
         };
-        assert!(direct_limits_from_body(&zero).is_err());
+        assert_eq!(
+            direct_limits_from_body(&unlimited).unwrap().max_per_day,
+            DIRECT_TOKEN_UNLIMITED_PER_DAY
+        );
         let past = CreateApiTokenBody {
             expires_at: Some(now_epoch() - 1),
             ..Default::default()

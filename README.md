@@ -182,7 +182,7 @@ A direct token starts an agent job immediately, without approval, so a leaked to
 - The request text is delivered to the agent by the server itself — nobody needs to open the terminal. It is sent once the agent is up and idle; if the agent is not running at that point (it failed to start or has exited back to a shell), the text is **not** typed into the shell, and you get a "not delivered" push notification. The history entry shows `executed` once the session has been launched.
 - `dedup_key` is rejected (400); it has no meaning for an immediate run. `branch` / `create_branch` / `base_branch` / `image_paths` are validated like any other dispatch.
 - The workspace is within the token's `allowed_workspaces` (403 otherwise).
-- The token has runs left today: at most `max_per_day` (default 10, minimum 1) accepted requests per rolling 24 hours (429 otherwise). Failed launches count. The count is kept in the activity log, so it survives restarts. If that log cannot be read or written, the request fails with 500 instead of running without being counted.
+- The token has runs left today: at most `max_per_day` (default 10; `0` means unlimited) accepted requests per rolling 24 hours (429 otherwise). Failed launches count. The count is kept in the activity log, so it survives restarts. If that log cannot be read or written, the request fails with 500 instead of running without being counted.
 - The token has not passed `expires_at` (401 otherwise).
 
 Every run (and every failed launch) sends a push notification (titled `Dispatch (direct)`) with the workspace/worktree and the start of the text, is recorded in the Dispatch history as `executed` / `failed` with `auth: "direct:<token name>"`, and can be re-run from the history with the main token.
