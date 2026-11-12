@@ -63,8 +63,6 @@ const DIRECT_LABEL_PREFIX: &str = "direct:";
 const DISPATCH_IMAGE_TTL_SEC: i64 = 24 * 60 * 60;
 /// direct スコープのトークンの起動回数を数える期間（直近 24 時間）。
 const DIRECT_WINDOW_SEC: i64 = 24 * 60 * 60;
-/// 廃止した結果報告が履歴項目に残したフィールド。読み込み時に取り除く。
-const LEGACY_REPORT_FIELDS: [&str; 3] = ["report_token_hash", "report_enabled", "report"];
 const ACTIVITY_EVENT_DIRECT_FIRED: &str = "direct_fired";
 
 // ─── 永続化状態 ──────────────────────────────────────────────────────────────
@@ -115,14 +113,6 @@ pub async fn load_persisted_and_seed_bridge(state: &Arc<AppState>) {
             })
             .take(RECENT_LIMIT)
             .cloned()
-            .map(|mut item| {
-                if let Some(map) = item.as_object_mut() {
-                    for field in LEGACY_REPORT_FIELDS {
-                        map.remove(field);
-                    }
-                }
-                item
-            })
             .collect();
         *state.dispatch.recent.lock().await = valid;
     }
@@ -1393,36 +1383,6 @@ mod tests {
             Some(&json!({"workspace": "proj"}))
         );
         assert_eq!(state2.dispatch.recent.lock().await.len(), 1);
-        std::env::remove_var("ANY_CONSOLE_DATA_DIR");
-    }
-
-    #[tokio::test]
-    async fn legacy_report_fields_are_dropped_when_recent_is_loaded() {
-        let dir = tempfile::tempdir().unwrap();
-        std::env::set_var("ANY_CONSOLE_DATA_DIR", dir.path());
-        let state = test_state(&dir).await;
-        let mut legacy = Map::new();
-        legacy.insert("report_token_hash".to_string(), json!("h"));
-        legacy.insert("report_enabled".to_string(), json!(true));
-        legacy.insert("report".to_string(), json!({"submitted": {}}));
-        legacy.insert("session_id".to_string(), json!("s1"));
-        record_recent(
-            &state,
-            "d0",
-            json!({"workspace": "proj"}),
-            "executed",
-            Some(&legacy),
-        )
-        .await;
-
-        let state2 = test_state(&dir).await;
-        load_persisted_and_seed_bridge(&state2).await;
-        let recent = state2.dispatch.recent.lock().await;
-        let item = recent[0].as_object().unwrap();
-        for field in LEGACY_REPORT_FIELDS {
-            assert!(!item.contains_key(field), "{field}");
-        }
-        assert_eq!(item["session_id"], "s1");
         std::env::remove_var("ANY_CONSOLE_DATA_DIR");
     }
 }

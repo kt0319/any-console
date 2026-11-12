@@ -43,7 +43,6 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 | `docs/DECISIONS.md` | 主要な設計判断（ADRスタイル）の背景と代替案 |
 | `docs/A11Y_AUDIT.md` | アクセシビリティ監査結果と TODO |
 | `docs/IPHONE_QUICKSTART.md` | iPhone からの利用手順（Tailscale 経由の接続・ホーム画面追加・プッシュ通知） |
-| `docs/RUST_MIGRATION.md` / `docs/TS_MIGRATION.md` | バックエンド Rust 移行・フロントエンド TypeScript 移行の記録（どちらも完了済み） |
 | `package.json` / `server/Cargo.toml` | 依存関係（ランタイム・開発） |
 
 ---

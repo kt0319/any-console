@@ -1,4 +1,4 @@
-//! any-console Rust バックエンド（全ルートをネイティブ実装 — 移行の経緯は docs/RUST_MIGRATION.md）。
+//! any-console Rust バックエンド（全ルートをネイティブ実装）。
 //!
 //! バイナリ（main.rs）と統合テストが共有するライブラリ部。モジュール構成は
 //! 移植元だった Python `api/` のファイル構成に由来する。

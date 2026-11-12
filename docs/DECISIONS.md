@@ -104,7 +104,7 @@
 - **Decision**: Python 3.11 以上を要件とする。
 - **Consequences**: `tomllib` 標準化・`TaskGroup`・型ヒントの改善・パフォーマンス向上の恩恵を受けられる。古い環境への対応コストを払わなくて済む。個人ツールなので LTS 範囲であれば十分。
 - **Alternatives considered**: 3.9 / 3.10 — 対応バージョンは広がるが、型ヒントの表現力と標準ライブラリの充実度で 3.11 が明確に優れる。
-- **Update (2026-08, RUST_MIGRATION.md Phase 6)**: バックエンドは Rust へ完全移行し `api/` は削除済み。Python 3.11+ の要件自体は残るが、対象は `./any-console` ランチャー自身の JSON 操作ヘルパーのみ（バージョン非依存の処理のため実際には撤廃してもよいが、要件を変えるメリットが薄く現状維持）。バックエンドとしての Python 依存は無くなった。
+- **Update (2026-08, Rust への移行完了)**: バックエンドは Rust へ完全移行し `api/` は削除済み。Python 3.11+ の要件自体は残るが、対象は `./any-console` ランチャー自身の JSON 操作ヘルパーのみ（バージョン非依存の処理のため実際には撤廃してもよいが、要件を変えるメリットが薄く現状維持）。バックエンドとしての Python 依存は無くなった。
 - **Update (2026-08)**: ランチャーの JSON 操作ヘルパーも `any-console-server` 自身の CLI サブコマンド（`server/src/cli.rs` — config / workspaces / jobs / hooks / auth / tailscale / paths）へ統合し、python3 のランタイム依存を完全に撤廃した。Python バージョン要件はもう存在しない。
 
 ---
