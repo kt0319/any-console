@@ -451,6 +451,21 @@ async fn direct_token_daily_limit_returns_429() {
 }
 
 #[tokio::test]
+async fn direct_token_with_zero_max_per_day_has_no_daily_limit() {
+    let front = spawn_front().await;
+    let token = front.direct_token(
+        "free",
+        &DirectTokenLimits {
+            max_per_day: 0,
+            ..Default::default()
+        },
+    );
+    for _ in 0..3 {
+        assert_eq!(front.dispatch(&token, direct_body()).await.status(), 400);
+    }
+}
+
+#[tokio::test]
 async fn expired_direct_token_returns_401() {
     let front = spawn_front().await;
     let token = front.direct_token(
@@ -593,8 +608,14 @@ async fn issuing_direct_tokens_validates_scope_and_limits() {
         .unwrap();
     assert_eq!(defaults["max_per_day"], 10);
 
+    let unlimited: Value = post(json!({"name": "free", "scope": "direct", "max_per_day": 0}))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(unlimited["max_per_day"], 0);
+
     for bad in [
-        json!({"name": "x", "scope": "direct", "max_per_day": 0}),
         json!({"name": "x", "scope": "direct", "expires_at": now_epoch() - 1}),
         json!({"name": "x", "scope": "direct", "allowed_workspaces": []}),
         json!({"name": "x", "scope": "admin"}),
