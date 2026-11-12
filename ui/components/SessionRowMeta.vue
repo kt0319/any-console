@@ -43,8 +43,12 @@ defineProps({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
+}
+
+.session-sidebar-branch-name .mdi {
+  font-size: 18px;
 }
 
 .session-sidebar-agent.agent-state-working {
