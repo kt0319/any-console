@@ -1191,18 +1191,32 @@ mod tests {
         assert_eq!(cmd.feed(b"\r"), Some("echo pasted".to_string()));
     }
 
+    const TEST_SESSION_CREATE_ATTEMPTS: usize = 5;
+
+    // 並列テストが最後のセッションを kill した瞬間に tmux サーバが終了し、同時の new-session が
+    // 失敗することがあるため、セッションが実在するまで作り直す。
+    async fn create_test_tmux_session(name: &str) {
+        for _ in 0..TEST_SESSION_CREATE_ATTEMPTS {
+            crate::subprocess::run_subprocess_safe(
+                &["tmux", "new-session", "-d", "-s", name],
+                5.0,
+                None,
+            )
+            .await;
+            if crate::subprocess::tmux_session_exists(name).await {
+                return;
+            }
+        }
+        panic!("tmux session {name} could not be created");
+    }
+
     #[tokio::test]
     async fn flush_pending_text_sends_and_clears_env() {
         if crate::tmux::skip_if_no_tmux() {
             return;
         }
         let name = format!("test-pending-{}", crate::util::token_hex(4));
-        crate::subprocess::run_subprocess_safe(
-            &["tmux", "new-session", "-d", "-s", &name],
-            5.0,
-            None,
-        )
-        .await;
+        create_test_tmux_session(&name).await;
         let encoded = tmux::encode_pending_text("echo pending-flush");
         tmux::set_environment(
             &name,
@@ -1248,12 +1262,7 @@ mod tests {
             return;
         }
         let name = format!("test-agent-delivery-{}", crate::util::token_hex(4));
-        crate::subprocess::run_subprocess_safe(
-            &["tmux", "new-session", "-d", "-s", &name],
-            5.0,
-            None,
-        )
-        .await;
+        create_test_tmux_session(&name).await;
         let encoded = tmux::encode_pending_text("echo must-not-run");
         tmux::set_environment(
             &name,
@@ -1303,12 +1312,7 @@ mod tests {
 
         let name = format!("test-runtime-agent-{}", crate::util::token_hex(4));
         // 実運用と同じく、ペインのシェルからジョブのコマンドを実行する。
-        crate::subprocess::run_subprocess_safe(
-            &["tmux", "new-session", "-d", "-s", &name],
-            5.0,
-            None,
-        )
-        .await;
+        create_test_tmux_session(&name).await;
         assert!(tmux::wait_pane_ready(&name, 10.0).await);
         let command = format!("python3 {}", script.display());
         assert!(tmux::send_keys_to_tmux(&name, &command, true).await);
@@ -1325,12 +1329,7 @@ mod tests {
             return;
         }
         let name = format!("test-agent-only-{}", crate::util::token_hex(4));
-        crate::subprocess::run_subprocess_safe(
-            &["tmux", "new-session", "-d", "-s", &name],
-            5.0,
-            None,
-        )
-        .await;
+        create_test_tmux_session(&name).await;
         let encoded = tmux::encode_pending_text("echo must-not-run");
         tmux::set_environment(
             &name,
@@ -1379,12 +1378,7 @@ mod tests {
         std::fs::write(&script, "import time\ntime.sleep(60)\n").unwrap();
 
         let name = format!("test-never-idle-{}", crate::util::token_hex(4));
-        crate::subprocess::run_subprocess_safe(
-            &["tmux", "new-session", "-d", "-s", &name],
-            5.0,
-            None,
-        )
-        .await;
+        create_test_tmux_session(&name).await;
         assert!(tmux::wait_pane_ready(&name, 10.0).await);
         let command = format!("python3 {}", script.display());
         assert!(tmux::send_keys_to_tmux(&name, &command, true).await);
