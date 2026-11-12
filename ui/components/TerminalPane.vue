@@ -136,22 +136,15 @@ import { useTerminalImageDrop } from "../composables/useTerminalImageDrop.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.ts";
 import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
-import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
-import { useDockerContainers } from "../composables/useDockerContainers.ts";
-import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
-import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
-import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
-import { usePeekPills } from "../composables/usePeekPills.ts";
 import { useElementMaxWidth } from "../composables/useElementMaxWidth.ts";
+import { useTerminalPanePills } from "../composables/useTerminalPanePills.ts";
 import CircleKeypad from "./CircleKeypad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
 import SessionPillBar from "./SessionPillBar.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.ts";
-import { buildInfoPillRowProps, buildPeekFields, buildPillFields } from "../utils/pill-fields.ts";
-import { agentStateDescriptor, resolveAgentBadgeState } from "../utils/session-sidebar.ts";
-import { useAgentStateStore } from "../stores/agent-state.ts";
+import { buildInfoPillRowProps } from "../utils/pill-fields.ts";
 import { getLastPointerType } from "../utils/pointer-type.ts";
 
 const props = defineProps({
@@ -177,63 +170,16 @@ const paneWorkspace = computed(() => {
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
 
-// Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
-// 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
-// devServerEntry を絶対に持てない（下記参照）ため、それらのタブはポーリングに参加しない。
-const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
-
-// Dockerピルも Dev Server と同じ立て付け（ポーリング集約 + workspace一致でフィルタ）。
-const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling, fetchContainers: fetchDockerContainers } = useDockerContainers();
-
-// start/stop は冪等なので、ワークスペースの有無に合わせて毎回呼んでよい。
-function syncWorkspacePolling() {
-  if (props.tab.workspace) {
-    startPreviewPolling();
-    startDockerPolling();
-  } else {
-    stopPreviewPolling();
-    stopDockerPolling();
-  }
-}
-
-const githubWorkspaceKey = computed(() => (paneWorkspace.value?.is_git_repo === true && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
-
-// GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
-// （無関係なPRの存在では出さない）。PR/Actions/Issuesのポーリング開始・停止は
-// useGitHubPollingFor に集約。
-const { prsByWorkspace, runsByWorkspace, issuesByWorkspace } = useGitHubPollingFor(
-  computed(() => (githubWorkspaceKey.value ? [githubWorkspaceKey.value] : [])));
-
-const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
-
-// ピルの表示値はセッションサイドバーと同じ buildPillFields で組み立てる。paneWorkspace が
-// tabWorkspaceVersion に依存しているため、ワークスペースの紐付け変更でも再計算される。
-const pill = computed(() => buildPillFields(props.tab.workspace, paneWorkspace.value, {
-  prsByWorkspace: prsByWorkspace.value,
-  runsByWorkspace: runsByWorkspace.value,
-  previewPorts: previewPorts.value,
-  dockerContainers: dockerContainers.value,
-  issuesByWorkspace: issuesByWorkspace.value,
-  dispatchQueue: dispatchQueue.value,
-  dispatchAllJobs: dispatchAllJobs.value,
-  hostname: location.hostname,
-}, props.tab.workspace || props.tab.label || ""));
-const isGitRepo = computed(() => pill.value.isGitRepo);
-const ahead = computed(() => pill.value.ahead);
-const behind = computed(() => pill.value.behind);
-const devServerEntry = computed(() => pill.value.devServerEntry);
-
-const { openPane } = useInfoPillActions({
-  tab: tabRef as Ref<Record<string, any>>,
-  isGitRepo,
-  devServerEntry,
-  ahead,
-  behind,
-});
-
-function onPeekClick() {
-  openPane(peekingKey.value);
-}
+const {
+  pill,
+  peek,
+  barItem,
+  openPane,
+  onPeekClick,
+  syncWorkspacePolling,
+  refreshWorkspacePolling,
+  stopWorkspacePolling,
+} = useTerminalPanePills(tabRef, paneWorkspace);
 
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
@@ -249,24 +195,6 @@ let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 // かけず、ペイン幅いっぱいまで全部並べる。
 const { maxWidth: trailingMaxWidth, availableWidth: pillRowMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
 
-// ピルは常にアイコンのみ表示し、値が更新された時だけピル行を隠して変化した
-// キーの情報を1本の長いピル（PillPeek.vue）に数秒だけ差し替える（peekingKey）。
-
-const peekFields = computed(() => buildPeekFields(props.tab, pill.value));
-
-// trailingPeekItems の組み立て・変化検出・キュー・タイマーは usePeekPills に集約
-// （SessionSidebarRow と共用）。
-const peek = usePeekPills({
-  peekFields,
-  paneWorkspace,
-  sessionId: () => props.tab.sessionId,
-  workspaceKey: () => props.tab.workspace,
-  prsByWorkspace,
-  runsByWorkspace,
-  devServerEntry,
-  ahead,
-  behind,
-});
 const {
   peekingKey,
   peekDurationMs,
@@ -280,17 +208,6 @@ const {
   peekActionName,
   peekActionStatusText,
 } = peek;
-
-// バー表示の帯（SessionPillBar）がセッションサイドバーの行2と同じ項目形で受け取る。
-const agentStateStore = useAgentStateStore();
-const barItem = computed(() => ({
-  ...pill.value,
-  isWorktree: !!paneWorkspace.value?.worktree,
-  agent: agentStateDescriptor(resolveAgentBadgeState(
-    agentStateStore.agentStates[props.tab.sessionId as string],
-    !!agentStateStore.doneSessions[props.tab.sessionId as string],
-  )),
-}));
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {
@@ -448,8 +365,7 @@ onMounted(() => {
 watch(() => terminalStore.tabWorkspaceVersion, () => {
   syncWorkspacePolling();
   if (!props.tab.workspace) return;
-  fetchPreviewPorts();
-  fetchDockerContainers();
+  refreshWorkspacePolling();
 });
 
 watch(isActive, async (active) => {
@@ -476,8 +392,7 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
-  stopPreviewPolling();
-  stopDockerPolling();
+  stopWorkspacePolling();
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }
