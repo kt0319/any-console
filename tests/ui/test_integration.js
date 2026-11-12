@@ -1233,7 +1233,7 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     localStorage.removeItem("any_console_session_sidebar_width");
   });
 
-  it("エージェント状態がある行は行2のブランチ名の左に、ステータスをアイコンだけで表示する", async () => {
+  it("エージェント状態がある行は行2のブランチアイコンを、ステータスのアイコンに置き換える", async () => {
     const { terminalStore } = seedSidebar();
     useAgentStateStore().agentStates.s1 = "working";
     await flushPromises();
@@ -1245,9 +1245,9 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     const lis = wrapper.findAll(".session-sidebar-li");
     expect(lis[0].text()).toContain("main");
     expect(lis[0].text()).not.toContain("Working");
-    const meta = lis[0].find(".session-sidebar-meta");
-    expect(meta.element.firstElementChild.classList.contains("session-sidebar-agent")).toBe(true);
-    expect(meta.find(".session-sidebar-agent").attributes("aria-label")).toBe("Working");
+    const icon = lis[0].find(".session-sidebar-meta .session-sidebar-agent");
+    expect(icon.attributes("aria-label")).toBe("Working");
+    expect(lis[0].find(".session-sidebar-meta .mdi-source-branch").exists()).toBe(false);
   });
 
   it("エージェント状態が無い行は行2にブランチ名だけ表示する", async () => {
@@ -1256,6 +1256,8 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     const lis = wrapper.findAll(".session-sidebar-li");
     expect(lis[0].text()).toContain("main");
     expect(lis[0].text()).not.toContain("Working");
+    expect(lis[0].find(".session-sidebar-meta .mdi-source-branch").exists()).toBe(true);
+    expect(lis[0].find(".session-sidebar-agent").exists()).toBe(false);
   });
 
   it("PC: 行クリックで tab:select が emit されサイドバーは開いたまま", async () => {

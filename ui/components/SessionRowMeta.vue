@@ -1,18 +1,24 @@
 <template>
   <span class="session-sidebar-meta">
-    <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className" role="img" :aria-label="item.agent.label" :data-tooltip="item.agent.label">
-      <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>
-    </span>
-    <span v-if="item.branch" class="session-sidebar-branch-name">
-      <span class="mdi mdi-source-branch" aria-hidden="true"></span>{{ item.branch }}
+    <span v-if="item.branch || item.agent" class="session-sidebar-branch-name">
+      <span
+        v-if="item.agent"
+        class="mdi session-sidebar-agent"
+        :class="[item.agent.icon, item.agent.className]"
+        role="img"
+        :aria-label="item.agent.label"
+        :data-tooltip="item.agent.label"
+      ></span>
+      <span v-else class="mdi mdi-source-branch" aria-hidden="true"></span>{{ item.branch }}
     </span>
   </span>
 </template>
 
 <script setup lang="ts">
 // SessionSidebarRow.vue/SessionListView.vue（pending dispatch行）が使う行2の
-// 中身（左: エージェント状態/Pendingのアイコン、右: ブランチ名）。行1
-// （SessionRowContent.vue）から分離し、両方を同時に表示できるようにする。
+// 中身（ブランチ名）。ブランチのアイコンは、エージェント状態/Pendingがある時は
+// その状態のアイコンに置き換わる。行1（SessionRowContent.vue）から分離し、
+// 両方を同時に表示できるようにする。
 
 defineProps({
   item: { type: Object, required: true },
@@ -41,19 +47,8 @@ defineProps({
   color: var(--text-muted);
 }
 
-.session-sidebar-agent {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-  font-size: 14px;
-}
-
 .session-sidebar-agent.agent-state-working {
   color: var(--accent);
-}
-
-.session-sidebar-agent.agent-state-working .mdi {
   animation: spin 1.6s linear infinite;
 }
 
