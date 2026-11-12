@@ -1,6 +1,6 @@
 <template>
   <li class="session-sidebar-li" :class="[rowStateClasses, { 'session-group': item.inGroup, 'session-group-last': item.groupLast }]">
-    <span class="session-sidebar-row1" :class="rowStateClasses" @click="emits('select')">
+    <span v-if="!item.compact" class="session-sidebar-row1" :class="rowStateClasses" @click="emits('select')">
       <button
         type="button"
         class="session-sidebar-item"
@@ -10,7 +10,7 @@
       </button>
     </span>
     <span ref="row2El" class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
-      <SessionRowMeta :item="item" />
+      <SessionRowMeta :item="item" :compact="item.compact" />
       <span class="session-sidebar-pills-row">
         <Transition name="pill-fade" mode="out-in">
           <PillPeek

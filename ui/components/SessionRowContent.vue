@@ -1,6 +1,5 @@
 <template>
   <span class="session-sidebar-main">
-    <span v-if="item.isWorktree" class="mdi mdi-file-tree worktree-icon" aria-label="worktree"></span>
     <span v-if="wsIconHtml" class="session-sidebar-icon session-sidebar-icon-badge-wrap">
       <span v-html="wsIconHtml"></span>
       <span v-if="item.dirty" class="dirty-badge" aria-label="uncommitted changes"></span>

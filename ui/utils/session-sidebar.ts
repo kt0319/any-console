@@ -83,6 +83,7 @@ export function sessionSidebarItems(
         phraseNotify: !!phraseNotifySessions[tab.sessionId],
         inGroup: false,
         groupLast: false,
+        compact: false,
       };
     });
   // タブバーと同じく、同じベースワークスペースが連続する行を1グループとして印を付ける。
@@ -90,6 +91,8 @@ export function sessionSidebarItems(
     if (group.items.length < 2) continue;
     for (const row of group.items) row.inGroup = true;
     group.items[group.items.length - 1].groupLast = true;
+    // グループの先頭行がワークスペース名を出すので、2行目以降のworktreeは名前の行を省いて1行にする。
+    for (const row of group.items.slice(1)) row.compact = row.isWorktree;
   }
   return rows;
 }

@@ -117,6 +117,33 @@ describe("sessionSidebarItems", () => {
     expect(items.map((i) => [i.inGroup, i.groupLast])).toEqual([[true, false], [true, true], [false, false]]);
   });
 
+  it("グループの2行目以降のworktreeだけ、名前の行を省いた1行表示（compact）になる", () => {
+    const grouped = [
+      { id: 1, sessionId: "s1", workspace: "app", label: "app" },
+      { id: 2, sessionId: "s2", workspace: "app:feat", label: "app" },
+      { id: 3, sessionId: "s3", workspace: "app:fix", label: "app" },
+      { id: 4, sessionId: "s4", workspace: "other", label: "other" },
+    ];
+    const workspaces = [
+      { name: "app:feat", worktree: true, worktree_base: "app" },
+      { name: "app:fix", worktree: true, worktree_base: "app" },
+    ];
+    const items = sessionSidebarItems(grouped, workspaces);
+    expect(items.map((i) => i.compact)).toEqual([false, true, true, false]);
+  });
+
+  it("グループの先頭がworktreeなら、その行はワークスペース名を出す（compactにしない）", () => {
+    const grouped = [
+      { id: 1, sessionId: "s1", workspace: "app:feat", label: "app" },
+      { id: 2, sessionId: "s2", workspace: "app:fix", label: "app" },
+    ];
+    const workspaces = [
+      { name: "app:feat", worktree: true, worktree_base: "app" },
+      { name: "app:fix", worktree: true, worktree_base: "app" },
+    ];
+    expect(sessionSidebarItems(grouped, workspaces).map((i) => i.compact)).toEqual([false, true]);
+  });
+
   it("label 未設定のベアターミナルは [terminal] になる", () => {
     const items = sessionSidebarItems([{ id: 9, sessionId: "s9", workspace: null, label: "" }], []);
     expect(items[0].label).toBe("[terminal]");
