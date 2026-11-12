@@ -12,9 +12,15 @@
   position: relative;
 }
 
-/* ベースとworktreeの行をタブバー（TabBar.vue の .tab-group）と同じ背景でまとめる。 */
+/* ベースとworktreeの行をタブバー（TabBar.vue の .tab-group）と同じ背景でまとめ、
+   左端の線をグループ全体でつなぐ（アクティブ行は選択色が優先）。 */
 .session-sidebar-li.session-group {
   background: var(--bg-tertiary);
+}
+
+.session-sidebar-li.session-group .session-sidebar-row1:not(.active),
+.session-sidebar-li.session-group .session-sidebar-row2:not(.active) {
+  border-left-color: var(--group-line);
 }
 
 /* 行1（アイコン・ワークスペース名 + インフォピル）・行2（ブランチ名・

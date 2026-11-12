@@ -30,7 +30,7 @@
           :key="group.key"
           class="tab-group"
           role="presentation"
-          :class="{ grouped: group.items.length > 1 }"
+          :class="{ grouped: group.items.length > 1, 'tab-group-top': isPanelBottom }"
         >
           <TabItem
             v-for="(item, index) in group.items"
@@ -259,6 +259,11 @@ function onSettingsClick() {
   display: flex;
   gap: 7px;
   background: var(--bg-tertiary);
+  box-shadow: inset 0 -2px 0 var(--group-line);
+}
+
+.tab-group.grouped.tab-group-top {
+  box-shadow: inset 0 2px 0 var(--group-line);
 }
 
 .tab-menu-btn {
