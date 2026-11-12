@@ -66,6 +66,8 @@ server/                       Backend (Rust, axum)
                                Route handlers (system = tmux management; system_info = /system/info
                                probes; system_update = git-based self-update; docker = container detection; pairing = QR code
                                device pairing; short-lived, single-use tokens — see DECISIONS.md #28)
+  src/dispatch/{images,direct}.rs  Submodules of dispatch.rs (attached-image lifecycle; direct-scope
+                               immediate runs — see DECISIONS.md #34)
   src/git_{branches,diff,files,history,worktree}.rs  Git route handlers (branch ops, diffs and
                                conflict resolution via mark-resolved, file browse/upload/download,
                                log/commit/stash and abort of an in-progress merge/rebase/cherry-pick/revert,
