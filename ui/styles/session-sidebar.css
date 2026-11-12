@@ -20,7 +20,7 @@
 
 .session-sidebar-li.session-group .session-sidebar-row1:not(.active),
 .session-sidebar-li.session-group .session-sidebar-row2:not(.active) {
-  background-image: linear-gradient(to right, var(--group-line) 2px, transparent 2px);
+  background-image: linear-gradient(to right, var(--group-line) 3px, transparent 3px);
   background-origin: border-box;
   background-repeat: no-repeat;
 }
@@ -36,7 +36,7 @@
   align-items: center;
   gap: 4px;
   width: 100%;
-  border-left: 4px solid transparent;
+  border-left: 3px solid transparent;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -163,7 +163,7 @@
   color: var(--text-primary);
 }
 
-/* working（出力中）・blocked/phrase通知は、行全体ではなく左4pxのアクティブ
+/* working（出力中）・blocked/phrase通知は、行全体ではなく左3pxのアクティブ
    インジケーター（border-left。アクティブ行が常時 var(--accent) で点灯する
    のと同じ場所）の中だけで動かす。以前はタブと同じ「行全体が流れる/点滅する」
    演出（ui/styles/base.css）を共用していたが、セッション一覧はタブより行数が
@@ -175,7 +175,7 @@
    両方に別々の演出（別々のアニメーションインスタンス）を付けていたため、
    2つの要素の間でアニメーションのタイミングがズレて統一感なく見えていた。
    li側は元々border-bottomのみでレイアウト用のボーダーを持たないため、
-   ::beforeで独立した4px幅のオーバーレイを敷く（blocked/phrase通知の点滅も
+   ::beforeで独立した3px幅のオーバーレイを敷く（blocked/phrase通知の点滅も
    border-left-colorではなくこの::beforeで揃え、演出方式を1本化する）。
 
    working: タブ（ui/styles/base.css working-pulse）と同じ「一方向に流れ
@@ -190,7 +190,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 4px;
+  width: 3px;
   height: 100%;
 }
 
