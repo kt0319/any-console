@@ -3,6 +3,7 @@
     <span v-if="item.agent" class="session-sidebar-agent" :class="item.agent.className" role="img" :aria-label="item.agent.label" :data-tooltip="item.agent.label">
       <span class="mdi" :class="item.agent.icon" aria-hidden="true"></span>
     </span>
+    <span v-else class="session-sidebar-agent" aria-hidden="true"></span>
     <span v-if="item.branch" class="session-sidebar-branch-name">
       <span class="mdi mdi-source-branch" aria-hidden="true"></span>{{ item.branch }}
     </span>
@@ -11,7 +12,7 @@
 
 <script setup lang="ts">
 // SessionSidebarRow.vue/SessionListView.vue（pending dispatch行）が使う行2の
-// 中身（左: エージェント状態/Pendingのアイコン、右: ブランチ名）。行1
+// 中身（左: エージェント状態/Pendingのアイコン用の固定幅スロット、右: ブランチ名）。行1
 // （SessionRowContent.vue）から分離し、両方を同時に表示できるようにする。
 
 defineProps({
@@ -44,9 +45,14 @@ defineProps({
 .session-sidebar-agent {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  width: 14px;
   flex-shrink: 0;
   font-size: 14px;
+}
+
+.session-sidebar-agent.agent-state-idle {
+  color: var(--text-muted);
 }
 
 .session-sidebar-agent.agent-state-working {

@@ -1256,6 +1256,9 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     const lis = wrapper.findAll(".session-sidebar-li");
     expect(lis[0].text()).toContain("main");
     expect(lis[0].text()).not.toContain("Working");
+    const slot = lis[0].find(".session-sidebar-meta").element.firstElementChild;
+    expect(slot.classList.contains("session-sidebar-agent")).toBe(true);
+    expect(slot.children).toHaveLength(0);
   });
 
   it("PC: 行クリックで tab:select が emit されサイドバーは開いたまま", async () => {

@@ -8,24 +8,24 @@ import { buildPillFields, type PillFieldsContext } from "./pill-fields.ts";
 /**
  * エージェント状態（terminalStore.agentStates の値）ごとの表示メタ。
  * 色のみで状態を示さないため、アイコンとラベルを必ず併記する。
- * idleは「何もしていない」通常状態でありノイズになるためバッジを出さない
- * （resolveAgentBadgeState が idle を常に null に潰す）。
+ * idle はエージェントのセッションが何もしていない状態で、控えめな灰色の丸で示す
+ * （状態を持たない通常のシェルには出さない）。
  */
 export const AGENT_STATE_META = Object.freeze({
   working: Object.freeze({ icon: "mdi-autorenew", label: "Working", className: "agent-state-working" }),
   blocked: Object.freeze({ icon: "mdi-alert-circle-outline", label: "Blocked", className: "agent-state-blocked" }),
   done: Object.freeze({ icon: "mdi-check-circle-outline", label: "Done", className: "agent-state-done" }),
+  idle: Object.freeze({ icon: "mdi-circle-outline", label: "Idle", className: "agent-state-idle" }),
 });
 
 /**
  * 生のエージェント状態(working/blocked/idle)と doneSessions（working→idle
  * 遷移をタブを見るまで保持するフラグ）から、バッジ表示に使う実効状態を
- * 決める。idleはdoneでない限り常に非表示。
+ * 決める。idle は done でない限り idle のまま返す（状態の無いセッションは null）。
  */
 export function resolveAgentBadgeState(rawState?: string, isDone?: boolean): string | null {
   if (isDone) return "done";
-  if (!rawState || rawState === "idle") return null;
-  return rawState;
+  return rawState || null;
 }
 
 /**

@@ -28,9 +28,9 @@ describe("agentStateDescriptor", () => {
     expect(agentStateDescriptor(undefined)).toBeNull();
   });
 
-  it("idleはAGENT_STATE_METAに定義が無い（バッジを出さない）", () => {
-    expect(AGENT_STATE_META.idle).toBeUndefined();
-    expect(agentStateDescriptor("idle")).toBeNull();
+  it("idleは灰色の丸で示す", () => {
+    expect(agentStateDescriptor("idle")).toBe(AGENT_STATE_META.idle);
+    expect(AGENT_STATE_META.idle.icon).toBe("mdi-circle-outline");
   });
 });
 
@@ -40,8 +40,8 @@ describe("resolveAgentBadgeState", () => {
     expect(resolveAgentBadgeState(undefined, true)).toBe("done");
   });
 
-  it("doneでなければidleはnullに潰す", () => {
-    expect(resolveAgentBadgeState("idle", false)).toBeNull();
+  it("doneでなければidleはそのまま返し、状態が無ければnullを返す", () => {
+    expect(resolveAgentBadgeState("idle", false)).toBe("idle");
     expect(resolveAgentBadgeState(undefined, false)).toBeNull();
   });
 
@@ -146,12 +146,12 @@ describe("sessionSidebarItems", () => {
     expect(items[1].phraseNotify).toBe(true);
   });
 
-  it("idleはバッジ非表示、doneSessionsに含まれていればdoneを表示する", () => {
+  it("idleは灰色の丸、doneSessionsに含まれていればdoneを表示する", () => {
     const items = sessionSidebarItems(tabs, workspaces, {
       agentStates: { s1: "idle", s2: "idle" },
       doneSessions: { s2: true },
     });
-    expect(items[0].agent).toBeNull();
+    expect(items[0].agent).toBe(AGENT_STATE_META.idle);
     expect(items[1].agent).toBe(AGENT_STATE_META.done);
   });
 
