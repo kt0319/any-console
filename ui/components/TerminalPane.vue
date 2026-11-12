@@ -33,7 +33,31 @@
       }"
       ref="pillEl"
     >
-        <Transition name="pill-fade" mode="out-in">
+        <SessionPillBar v-if="layoutStore.isInfoPillBar" :item="barItem" :tab="tab" :peek="peek" @open="openPane">
+          <template #actions>
+            <button
+              v-if="layoutStore.isSplitMode"
+              type="button"
+              class="pill-close-btn pill-minus-btn"
+              aria-label="Remove from split"
+              data-tooltip="Remove from split"
+              @pointerdown.stop="onSplitCloseDown"
+              @pointerup.stop="onSplitCloseUp"
+              @click.stop
+            ><span class="mdi mdi-minus"></span></button>
+            <button
+              v-else
+              type="button"
+              class="pill-close-btn pill-tab-close-btn"
+              aria-label="Close tab"
+              data-tooltip="Close tab"
+              @pointerdown.stop="onTabCloseDown"
+              @pointerup.stop="onTabCloseUp"
+              @click.stop
+            ><span class="mdi mdi-close"></span></button>
+          </template>
+        </SessionPillBar>
+        <Transition v-else name="pill-fade" mode="out-in">
         <PillPeek
           v-if="peekingKey"
           :key="peekingKey"
@@ -123,8 +147,11 @@ import CircleKeypad from "./CircleKeypad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import InfoPillRow from "./InfoPillRow.vue";
 import PillPeek from "./PillPeek.vue";
+import SessionPillBar from "./SessionPillBar.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.ts";
 import { buildInfoPillRowProps, buildPeekFields, buildPillFields } from "../utils/pill-fields.ts";
+import { agentStateDescriptor, resolveAgentBadgeState } from "../utils/session-sidebar.ts";
+import { useAgentStateStore } from "../stores/agent-state.ts";
 import { getLastPointerType } from "../utils/pointer-type.ts";
 
 const props = defineProps({
@@ -229,6 +256,17 @@ const peekFields = computed(() => buildPeekFields(props.tab, pill.value));
 
 // trailingPeekItems の組み立て・変化検出・キュー・タイマーは usePeekPills に集約
 // （SessionSidebarRow と共用）。
+const peek = usePeekPills({
+  peekFields,
+  paneWorkspace,
+  sessionId: () => props.tab.sessionId,
+  workspaceKey: () => props.tab.workspace,
+  prsByWorkspace,
+  runsByWorkspace,
+  devServerEntry,
+  ahead,
+  behind,
+});
 const {
   peekingKey,
   peekDurationMs,
@@ -241,17 +279,18 @@ const {
   peekSignature,
   peekActionName,
   peekActionStatusText,
-} = usePeekPills({
-  peekFields,
-  paneWorkspace,
-  sessionId: () => props.tab.sessionId,
-  workspaceKey: () => props.tab.workspace,
-  prsByWorkspace,
-  runsByWorkspace,
-  devServerEntry,
-  ahead,
-  behind,
-});
+} = peek;
+
+// バー表示の帯（SessionPillBar）がセッションサイドバーの行2と同じ項目形で受け取る。
+const agentStateStore = useAgentStateStore();
+const barItem = computed(() => ({
+  ...pill.value,
+  isWorktree: !!paneWorkspace.value?.worktree,
+  agent: agentStateDescriptor(resolveAgentBadgeState(
+    agentStateStore.agentStates[props.tab.sessionId as string],
+    !!agentStateStore.doneSessions[props.tab.sessionId as string],
+  )),
+}));
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {

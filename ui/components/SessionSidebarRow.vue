@@ -9,67 +9,28 @@
         <SessionRowContent :item="item" />
       </button>
     </span>
-    <span ref="row2El" class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
-      <SessionRowMeta :item="item" :compact="item.compact" />
-      <span class="session-sidebar-pills-row">
-        <Transition name="pill-fade" mode="out-in">
-          <PillPeek
-            v-if="peekingKey"
-            :key="peekingKey"
-            :peeking-key="peekingKey"
-            :color-class="peekColorClass"
-            :icon-class="peekIconClass"
-            :text="peekText"
-            :signature="peekSignature"
-            :tab="item.tab"
-            :max-width="pillsMaxWidth"
-            :insertions="item.insertions"
-            :deletions="item.deletions"
-            :status-counts="item.statusCounts"
-            :branch-name="item.branch || ''"
-            :ahead="item.ahead"
-            :behind="item.behind"
-            :push-count="branchPushCount"
-            :pull-count="branchPullCount"
-            :remote-result="branchRemoteResult"
-            :action-name="peekActionName"
-            :action-status-text="peekActionStatusText"
-            :peek-duration-ms="peekDurationMs"
-            @peek-click="onPeekClick"
-          />
-          <InfoPillRow
-            v-else
-            key="normal"
-            class="session-sidebar-pills"
-            :tab="item.tab"
-            :max-width="pillsMaxWidth"
-            v-bind="buildInfoPillRowProps(item as PillFields, item.isWorktree)"
-            @open="emits('pillOpen', $event)"
-          />
-        </Transition>
-        <button
-          v-if="!peekingKey"
-          type="button"
-          class="pill-close-btn pill-tab-close-btn"
-          aria-label="Close tab"
-          data-tooltip="Close tab"
-          @click.stop="emits('closeTab')"
-        ><span class="mdi mdi-close"></span></button>
-      </span>
+    <span class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
+      <SessionPillBar :item="item" :tab="item.tab" :peek="peek" :compact="item.compact" @open="emits('pillOpen', $event)">
+        <template #actions>
+          <button
+            type="button"
+            class="pill-close-btn pill-tab-close-btn"
+            aria-label="Close tab"
+            data-tooltip="Close tab"
+            @click.stop="emits('closeTab')"
+          ><span class="mdi mdi-close"></span></button>
+        </template>
+      </SessionPillBar>
     </span>
   </li>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import SessionRowContent from "./SessionRowContent.vue";
-import SessionRowMeta from "./SessionRowMeta.vue";
-import InfoPillRow from "./InfoPillRow.vue";
-import PillPeek from "./PillPeek.vue";
+import SessionPillBar from "./SessionPillBar.vue";
 import { usePeekPills } from "../composables/usePeekPills.ts";
-import { buildInfoPillRowProps, buildPeekFields, type PillFields } from "../utils/pill-fields.ts";
-import { useElementMaxWidth } from "../composables/useElementMaxWidth.ts";
-import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
+import { buildPeekFields, type PillFields } from "../utils/pill-fields.ts";
 
 // SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態
 // （usePillPeek）を持たせるため、TerminalPaneの浮遊ピルと同じ「値が変化したら
@@ -93,31 +54,11 @@ const rowStateClasses = computed(() => ({
   "session-phrase-notify": !!props.item.phraseNotify,
 }));
 
-// TerminalPane.vue（trailingMaxWidth）と同じ考え方: 行2（.session-sidebar-row2、
-// 常に行全体の実幅を持つ安定した基準）から閉じるボタン＋余白ぶんを
-// 差し引いた残りをpeekピル/InfoPillRowの上限幅にする。
-// pills-row自身（中身に応じて伸縮する）を基準にすると、maxWidthで中身が
-// 決まり中身でmaxWidthが決まる循環参照になり0に収束してしまうため使わない。
-const row2El = ref<HTMLElement | null>(null);
-const { maxWidth: pillsMaxWidth } = useElementMaxWidth(row2El, SIDEBAR_PILL_ROW_RESERVED_PX, true);
-
 const peekFields = computed(() => buildPeekFields(props.item.tab, props.item as PillFields));
 
 // trailingPeekItems の組み立てと peek 派生値の算出は usePeekPills に集約
 //（TerminalPane と共用）。
-const {
-  peekingKey,
-  peekDurationMs,
-  branchPushCount,
-  branchPullCount,
-  branchRemoteResult,
-  peekIconClass,
-  peekColorClass,
-  peekText,
-  peekSignature,
-  peekActionName,
-  peekActionStatusText,
-} = usePeekPills({
+const peek = usePeekPills({
   peekFields,
   // TerminalPane.vueのpaneWorkspace（tab.workspaceがあっても
   // workspaceStore側で未解決ならundefined）と同じ形にする。usePillPeekは
@@ -136,7 +77,4 @@ const {
   behind: computed(() => props.item.behind),
 });
 
-function onPeekClick() {
-  emits("pillOpen", peekingKey.value);
-}
 </script>
