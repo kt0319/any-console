@@ -126,12 +126,13 @@ import { computed, onMounted, ref, watch, type PropType } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useDispatchImagePaste } from "../composables/useDispatchImagePaste.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
+import { useDispatchRunBranchGuard } from "../composables/useDispatchRunBranchGuard.ts";
 import { useDispatchRunOptions } from "../composables/useDispatchRunOptions.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { dispatchWorkspaceLabel } from "../utils/dispatch-request.ts";
-import { excludeCurrentBranch } from "../utils/git.ts";
+import { buildDispatchOverrides } from "../utils/dispatch-run.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
@@ -187,19 +188,6 @@ const selectedCreateBranch = computed(() => createMode.value === "branch");
 const selectedCreateWorktree = computed(() => createMode.value === "worktree");
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
 
-// Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
-// 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
-const branchSelectValue = computed({
-  get: () => {
-    const value = selectedCreateBranch.value || selectedCreateWorktree.value ? baseBranch.value : branch.value;
-    return value === currentBranchName.value ? "" : value;
-  },
-  set: (val) => {
-    if (selectedCreateBranch.value || selectedCreateWorktree.value) baseBranch.value = val;
-    else branch.value = val;
-  },
-});
-
 // dispatchへ実際に送るbranch値。Create branch/worktreeではnewBranchName、
 // Change branchではbranch（select由来の切替先）を使う。
 const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
@@ -210,7 +198,7 @@ const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
 // TTL経過でサーバ側が添付画像を削除した後のRecent item（`images_expired`
-// フラグ、server/src/dispatch.rs の sweep_expired_dispatch_images 参照）。
+// フラグ、server/src/dispatch/images.rs の sweep_expired_dispatch_images 参照）。
 const imagesExpired = ref(false);
 
 function initFromRequest(req: Record<string, any> | null) {
@@ -250,18 +238,6 @@ const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWor
 // Branch select の意味（対象 / 分岐元）と Branch name の表示を切り替える。
 const hasBranchField = computed(() => !request.value?.worktree);
 
-// Change branch のselectはlocalBranchesと「(current branch)」しか選択肢が無いため
-// ユーザー操作では不正値にならない。ズレるのは外部（CI等）から渡された元リクエストの
-// branchが実在しない初期値の時だけ。気付かずRunすると失敗するので事前に検知しdisableする。
-const missingBranchBlockReason = computed(() => {
-  if (createMode.value !== "") return "";
-  // ready（取得成功）時のみ検証する。error時はfail openにする（Run可否はinfoLoading側で扱う）。
-  if (branchesState.value.status !== "ready") return "";
-  const target = branch.value.trim();
-  if (!target || localBranches.value.includes(target) || remoteOnlyBranches.value.includes(target)) return "";
-  return `Branch "${target}" does not exist in this workspace.`;
-});
-
 // Session / Job / Branch のいずれかが未取得(idle)・取得中(loading)の間はRunを
 // 押させない（取得前の古い/空の選択肢のままdispatchする事故を防ぐ）。取得失敗(error)は
 // ブロックし続けない（fail open。Runが永久disabledのまま残る事故を防ぐため）。
@@ -269,34 +245,6 @@ const infoLoading = computed(() => {
   if (isAsyncPending(sessionsState.value) || isAsyncPending(jobsState.value)) return true;
   if (hasBranchField.value && isAsyncPending(branchesState.value)) return true;
   return false;
-});
-
-// サーバ側のガード（api/routers/dispatch.py の _ensure_branch）と対になるUI側の事前
-// ブロック。新規ブランチを作成するdispatch（Create branchオン）は対象ワークスペースが
-// dirtyだと400で失敗するため、送信前に理由を示してRunをdisableする（既存ブランチへの
-// checkoutは対象外）。dirty判定はapi/git_info.pyのchanged_files（untracked込み）に揃える。
-const targetWorkspaceEntry = computed(() =>
-  workspaceStore.allWorkspaces.find((w) => w.name === selectedWorkspace.value),
-);
-const isSwitchingBranch = computed(() => {
-  if (!hasBranchField.value || !selectedCreateBranch.value) return false;
-  const target = newBranchName.value.trim();
-  if (!target) return false;
-  const current = targetWorkspaceEntry.value?.branch || "";
-  return target !== current;
-});
-const currentBranchName = computed(() => targetWorkspaceEntry.value?.branch || "");
-const selectableBranches = computed(() => excludeCurrentBranch(localBranches.value, currentBranchName.value));
-const selectableRemoteBranches = computed(() => (createMode.value === "" ? remoteOnlyBranches.value : []));
-const currentBranchLabel = computed(() => {
-  const current = currentBranchName.value;
-  return current ? `${current} (current)` : "(current branch)";
-});
-const workspaceChangedFiles = computed(() => targetWorkspaceEntry.value?.changed_files || 0);
-const dirtyBlockReason = computed(() => {
-  if (!isSwitchingBranch.value || workspaceChangedFiles.value <= 0) return "";
-  const n = workspaceChangedFiles.value;
-  return `Workspace has uncommitted changes (${n} file${n === 1 ? "" : "s"}). Commit or stash them, or clear the branch to run on the current branch.`;
 });
 
 // dedup_keyによる置き換えはdispatch_idを維持するため（useDispatchQueue.ts参照）
@@ -382,35 +330,34 @@ const { jobsState, jobs, branchesState, localBranches, remoteOnlyBranches } = us
   baseBranch,
 });
 
-function buildOverrides() {
-  const orig = request.value || {};
-  // 元リクエストの新規セッション判定は existing_session_id の有無ではなく match
-  // （サーバー既定"any"）で見る。existing_session_idが無いことは「新規確定」を意味しない
-  // （match:"any"で既存セッションに解決された場合も記録されない）ため、existing_session_id
-  // 基準にすると「+ New session」を選んでも変化なしと誤判定されoverrideが送られない。
-  const origIsNew = (orig.match || "any") === "none";
-  const origCreateBranch = !!orig.create_branch;
-  const origImagePaths = Array.isArray(orig.image_paths) ? orig.image_paths : [];
-  const imagePathsChanged = JSON.stringify(imagePaths.value) !== JSON.stringify(origImagePaths);
-  return {
-    workspace: selectedWorkspace.value !== (orig.workspace || "") ? selectedWorkspace.value : null,
-    branch: effectiveBranch.value !== (orig.branch || "") ? effectiveBranch.value : null,
-    base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
-    text: text.value !== (orig.text || "") ? text.value : null,
-    job: selectedJob.value !== (orig.job || "terminal") ? selectedJob.value : null,
-    match: isNewSession.value !== origIsNew ? (isNewSession.value ? "none" : "any") : null,
-    session_id: !isNewSession.value && selectedSessionId.value !== (orig.existing_session_id || null) ? selectedSessionId.value : null,
-    create_branch: selectedCreateBranch.value !== origCreateBranch ? selectedCreateBranch.value : null,
-    image_paths: imagePathsChanged ? imagePaths.value : null,
-  };
-}
+const { branchSelectValue, currentBranchLabel, selectableBranches, selectableRemoteBranches, missingBranchBlockReason, dirtyBlockReason } = useDispatchRunBranchGuard({
+  selectedWorkspace,
+  createMode,
+  newBranchName,
+  branch,
+  baseBranch,
+  hasBranchField,
+  branchesState,
+  localBranches,
+  remoteOnlyBranches,
+});
 
 async function run() {
   if (running.value || !itemId) return;
   running.value = true;
   runError.value = "";
   try {
-    const overrides = buildOverrides();
+    const overrides = buildDispatchOverrides(request.value || {}, {
+      workspace: selectedWorkspace.value,
+      branch: effectiveBranch.value,
+      baseBranch: baseBranch.value,
+      text: text.value,
+      job: selectedJob.value,
+      isNewSession: isNewSession.value,
+      sessionId: selectedSessionId.value,
+      createBranch: selectedCreateBranch.value,
+      imagePaths: imagePaths.value,
+    });
     if (selectedCreateWorktree.value) {
       // worktreeはGitChangeBranch.vueのAdd > Worktreeと同じAPIで先に作成し、compound
       // なworkspace名（"{base}:{branch}"）をdispatchのworkspaceとして使う
