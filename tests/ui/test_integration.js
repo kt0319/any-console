@@ -1338,21 +1338,23 @@ describe("TabItem: markRawなtabの変更がtabWorkspaceVersion経由で再描�
     expect(wrapper.find(".mdi-rocket").exists()).toBe(true);
   });
 
-  it("worktreeのタブは、ベースのタブの右に続く時だけブランチ名を出す", async () => {
+  it("worktreeのタブは、ベースのタブの右に続く時だけブランチ名を出し、ジョブアイコンは出さない", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.allWorkspaces = [
       { name: "proj:feat", worktree: true, worktree_base: "proj", branch: "feat/x", clean: true },
     ];
-    const tab = markRaw({ id: 3, sessionId: "s3", workspace: "proj:feat", label: "proj", wsIcon: null, icon: null, jobName: null, jobLabel: null });
+    const tab = markRaw({ id: 3, sessionId: "s3", workspace: "proj:feat", label: "proj", wsIcon: null, icon: { name: "mdi-rocket-launch", color: null }, jobName: null, jobLabel: null });
     useTerminalStore().openTabs = [tab];
 
     const head = mount(TabItem, { props: { tab, activeTabId: 3, inGroup: true, followsBase: false } });
     expect(head.get(".tab-extra").text()).toContain("proj");
     expect(head.get(".tab-extra").text()).not.toContain("feat/x");
+    expect(head.find(".mdi-rocket-launch").exists()).toBe(true);
 
     const next = mount(TabItem, { props: { tab, activeTabId: 3, inGroup: true, followsBase: true } });
     expect(next.get(".tab-extra").text()).toContain("feat/x");
     expect(next.find(".worktree-icon").exists()).toBe(true);
+    expect(next.find(".mdi-rocket-launch").exists()).toBe(false);
   });
 
   it("setTabJobでjobアイコンが即座に更新される", async () => {

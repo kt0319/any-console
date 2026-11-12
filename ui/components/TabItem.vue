@@ -23,7 +23,7 @@
       <span v-html="wsIconHtml"></span>
       <span v-if="isDirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
-    <span v-if="iconHtml" class="tab-icon-slot tab-icon-badge-wrap">
+    <span v-if="iconHtml && !followsBaseAsWorktree" class="tab-icon-slot tab-icon-badge-wrap">
       <span v-html="iconHtml"></span>
       <span v-if="!showWsIcon && isDirty" class="dirty-badge" aria-label="uncommitted changes"></span>
     </span>
@@ -101,6 +101,9 @@ const tabWorkspace = computed(() => {
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
 
+// ベースのタブの右に続くworktree。ブランチ名だけの簡素な表示にする（ジョブアイコンも出さない）。
+const followsBaseAsWorktree = computed(() => !!tabWorkspace.value?.worktree && props.inGroup && props.followsBase);
+
 const label = computed(() => {
   // props.tab.workspaceがfalsyな実行では下のtabWorkspace.value（読めば
   // tabWorkspaceVersionへ依存する）を一度も読まないまま返ってしまい、
@@ -114,7 +117,7 @@ const label = computed(() => {
     // worktree名（"ベース名 | ブランチ"）を出さずベース名だけにする。
     // ベースのタブの右に続く時は、ベース名が左のタブで分かるのでブランチ名を出す。
     if (ws?.worktree) {
-      if (props.inGroup && props.followsBase && ws.branch) return ws.branch;
+      if (followsBaseAsWorktree.value && ws.branch) return ws.branch;
       return ws.worktree_base || props.tab.workspace;
     }
     return props.tab.workspace;
