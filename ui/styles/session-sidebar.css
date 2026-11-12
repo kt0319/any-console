@@ -46,6 +46,11 @@
   padding: 0 12px;
 }
 
+/* 行2はピル・閉じるボタンが並ぶため、上下に余白を持たせて隣の行のピルを誤タップしにくくする。 */
+.session-sidebar-row2 {
+  min-height: 56px;
+}
+
 /* ベースの項目に連結した1行表示のworktreeは、字下げして子の項目だと分かるようにし、
    ベースの2行目との境目を見分けやすくする。 */
 .session-sidebar-li.session-compact .session-sidebar-row2 {
