@@ -90,7 +90,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 - テスト対象の純粋関数は `ui/utils/` に切り出して実装する
 - テストは実ファイルを `import` して検証する（**MUST NOT** インラインコピー — 実コードと乖離するため）
 - コンポーネント単体テストは最小限にする（書く場合は `tests/ui/components/test_<Component>.js` に置く）。挙動は原則統合テストで担保する
-  - DOM 操作を含む統合テストは `tests/ui/test_integration.js` に追記する
+  - DOM 操作を含む統合テストは `tests/ui/integration/test_<対象>.js`（対象のコンポーネント・機能ごとに1ファイル）に置く
   - ファイル先頭に `// @vitest-environment happy-dom` を記載すること
   - 環境: Vitest + happy-dom + @vue/test-utils（すべて導入済み）
 - 新たに追加する純粋関数は最初から `ui/utils/` に置く
