@@ -876,7 +876,7 @@ async fn flush_pending_text(state: &Arc<AppState>, full_tmux_name: &str, session
             }
             .unwrap_or_else(|| session_id.to_string());
             crate::dispatch::report_direct_input_not_delivered(
-                state, &workspace, session_id, None, &detail,
+                state, &workspace, session_id, &detail,
             );
         }
         return true;

@@ -1220,20 +1220,16 @@ fn first_program_of_command(command: &str) -> Option<&str> {
 
 /// direct の入力がエージェントへ届かなかったことを、activity と push 通知に残す。
 /// 背景の送信と、WS が flush 権を持った場合の送信（`terminal::flush_pending_text`）の
-/// 両方から呼ぶ。`auth_label` は WS 側では分からないため任意。
+/// 両方から呼ぶ。
 pub(crate) fn report_direct_input_not_delivered(
     state: &Arc<AppState>,
     workspace: &str,
     session_id: &str,
-    auth_label: Option<&str>,
     detail: &str,
 ) {
     tracing::warn!("direct dispatch input not delivered session={session_id}: {detail}");
     log_dispatch_failed(state, workspace, detail);
-    let body = match auth_label {
-        Some(label) => format!("{label}\n{workspace}\n{detail}"),
-        None => format!("{workspace}\n{detail}"),
-    };
+    let body = format!("{workspace}\n{detail}");
     crate::push::spawn_push_notification(
         state,
         "Dispatch (direct) input not delivered",
@@ -1246,7 +1242,7 @@ pub(crate) fn report_direct_input_not_delivered(
 
 /// 起動したセッションへ、ブラウザの接続なしでテキストを送る（無人の呼び出しでは
 /// 誰もターミナルを開かないため）。送れなかった場合は push 通知と activity に残す。
-fn spawn_agent_input_delivery(state: &Arc<AppState>, launched: &Value, auth_label: &str) {
+fn spawn_agent_input_delivery(state: &Arc<AppState>, launched: &Value) {
     let (Some(session_id), Some(workspace)) = (
         launched["session_id"].as_str().map(str::to_string),
         launched["workspace"].as_str().map(str::to_string),
@@ -1254,19 +1250,12 @@ fn spawn_agent_input_delivery(state: &Arc<AppState>, launched: &Value, auth_labe
         return;
     };
     let state = state.clone();
-    let auth_label = auth_label.to_string();
     tokio::spawn(async move {
         let Err(detail) = crate::terminal::deliver_pending_text_to_agent(&state, &session_id).await
         else {
             return;
         };
-        report_direct_input_not_delivered(
-            &state,
-            &workspace,
-            &session_id,
-            Some(&auth_label),
-            &detail,
-        );
+        report_direct_input_not_delivered(&state, &workspace, &session_id, &detail);
     });
 }
 
@@ -1355,10 +1344,7 @@ async fn dispatch_direct(
     body.match_mode = "none".to_string();
     let dispatch_id = crate::util::token_urlsafe(8);
     let effective_ws = body.effective_workspace();
-    let started = format!(
-        "{auth_label}\n{}",
-        dispatch_notification_body(&effective_ws, &body, &JobDef::label_only(&body.job))
-    );
+    let started = dispatch_notification_body(&effective_ws, &body, &JobDef::label_only(&body.job));
     let mut source = Map::new();
     source.insert("auth".to_string(), json!(auth_label));
     source.insert("token_id".to_string(), json!(token_id));
@@ -1388,7 +1374,7 @@ async fn dispatch_direct(
         None,
     );
     let mut response = result?;
-    spawn_agent_input_delivery(state, &response, auth_label);
+    spawn_agent_input_delivery(state, &response);
     if let Value::Object(map) = &mut response {
         map.insert("dispatch_id".to_string(), json!(dispatch_id));
         map.insert("status".to_string(), json!("executed"));

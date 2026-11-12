@@ -185,7 +185,7 @@ A direct token starts an agent job immediately, without approval, so a leaked to
 - The token has runs left today: at most `max_per_day` (default 10, minimum 1) accepted requests per rolling 24 hours (429 otherwise). Failed launches count. The count is kept in the activity log, so it survives restarts. If that log cannot be read or written, the request fails with 500 instead of running without being counted.
 - The token has not passed `expires_at` (401 otherwise).
 
-Every run (and every failed launch) sends a push notification with the token name, workspace/worktree and the start of the text, is recorded in the Dispatch history as `executed` / `failed` with `auth: "direct:<token name>"`, and can be re-run from the history with the main token.
+Every run (and every failed launch) sends a push notification (titled `Dispatch (direct)`) with the workspace/worktree and the start of the text, is recorded in the Dispatch history as `executed` / `failed` with `auth: "direct:<token name>"`, and can be re-run from the history with the main token.
 
 ```bash
 # create a direct token (main token required)
