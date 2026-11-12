@@ -8,15 +8,6 @@
       >
         <SessionRowContent :item="item" />
       </button>
-      <span class="session-sidebar-pills-row">
-        <button
-          type="button"
-          class="pill-close-btn pill-tab-close-btn"
-          aria-label="Close tab"
-          data-tooltip="Close tab"
-          @click.stop="emits('closeTab')"
-        ><span class="mdi mdi-close"></span></button>
-      </span>
     </span>
     <span ref="row2El" class="session-sidebar-row2" :class="rowStateClasses" @click="emits('select')">
       <SessionRowMeta :item="item" />
@@ -67,6 +58,14 @@
             @open="emits('pillOpen', $event)"
           />
         </Transition>
+        <button
+          v-if="!peekingKey"
+          type="button"
+          class="pill-close-btn pill-tab-close-btn"
+          aria-label="Close tab"
+          data-tooltip="Close tab"
+          @click.stop="emits('closeTab')"
+        ><span class="mdi mdi-close"></span></button>
       </span>
     </span>
   </li>
@@ -106,7 +105,7 @@ const rowStateClasses = computed(() => ({
 }));
 
 // TerminalPane.vue（trailingMaxWidth）と同じ考え方: 行2（.session-sidebar-row2、
-// 常に行全体の実幅を持つ安定した基準）からブランチ名との余白ぶんを
+// 常に行全体の実幅を持つ安定した基準）から閉じるボタン＋余白ぶんを
 // 差し引いた残りをpeekピル/InfoPillRowの上限幅にする。
 // pills-row自身（中身に応じて伸縮する）を基準にすると、maxWidthで中身が
 // 決まり中身でmaxWidthが決まる循環参照になり0に収束してしまうため使わない。
