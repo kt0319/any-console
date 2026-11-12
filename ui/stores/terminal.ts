@@ -3,6 +3,7 @@ import { ref, reactive, computed, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { LS_KEY_ACTIVE_SESSION } from "../utils/constants.ts";
+import { safeStringSave } from "../utils/storage.ts";
 import { tabInsertIndex } from "../utils/worktree.ts";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.ts";
 import { useAuthStore } from "./auth.ts";
@@ -172,7 +173,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (!focus) suppressNextFocus.value = true;
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (tab) {
-      localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
+      safeStringSave(LS_KEY_ACTIVE_SESSION, tab.sessionId);
       useAgentStateStore().clearSessionNotifyBadges(tab.sessionId);
     }
   }

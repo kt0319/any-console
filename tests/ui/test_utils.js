@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.ts";
-import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave } from "../../ui/utils/storage.ts";
+import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave, safeStringLoad, safeStringSave } from "../../ui/utils/storage.ts";
 
 // ── Tests ──
 
@@ -80,6 +80,26 @@ describe("safeJsonSave", () => {
   it("swallows quota errors", () => {
     globalThis.localStorage = { setItem: () => { throw new Error("QuotaExceededError"); } };
     expect(() => safeJsonSave("key", [1, 2])).not.toThrow();
+  });
+});
+
+describe("safeStringLoad / safeStringSave", () => {
+  it("文字列をそのまま保存して読み出す", () => {
+    const stored = {};
+    globalThis.localStorage = { getItem: (k) => stored[k] ?? null, setItem: (k, v) => { stored[k] = v; } };
+    safeStringSave("key", "abc");
+    expect(stored.key).toBe("abc");
+    expect(safeStringLoad("key")).toBe("abc");
+    expect(safeStringLoad("none")).toBeNull();
+  });
+
+  it("localStorage が例外を投げても読み出しは null、保存は例外にしない", () => {
+    globalThis.localStorage = {
+      getItem: () => { throw new Error("SecurityError"); },
+      setItem: () => { throw new Error("QuotaExceededError"); },
+    };
+    expect(safeStringLoad("key")).toBeNull();
+    expect(() => safeStringSave("key", "abc")).not.toThrow();
   });
 });
 
