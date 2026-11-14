@@ -72,12 +72,12 @@
               <span class="mdi mdi-drag-vertical"></span>
             </span>
             <button type="button" class="picker-group-toggle" @click="toggleGroup(item.group.id)">
-              <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
               {{ item.group.name }}
             </button>
             <button v-if="isEditMode" type="button" class="picker-ws-edit-btn hover-bg-text" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
+            <span class="mdi picker-group-chevron" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup(item.group.id)"></span>
           </div>
           <WorkspaceListRow
             v-else
@@ -371,6 +371,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.picker-group-chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 16px;
 }
 
 @media (hover: hover) and (pointer: fine) {

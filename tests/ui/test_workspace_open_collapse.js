@@ -34,7 +34,7 @@ describe("WorkspaceOpen: グループの折りたたみ状態の永続化", () =
     first.unmount();
 
     const second = await mountWorkspaceOpen();
-    expect(second.find(".picker-group-toggle .mdi").classes()).toContain("mdi-chevron-right");
+    expect(second.find(".picker-group-chevron").classes()).toContain("mdi-chevron-right");
     await second.find(".picker-group-toggle").trigger("click");
     expect(JSON.parse(localStorage.getItem(LS_KEY_COLLAPSED_WORKSPACE_GROUPS))).toEqual([]);
     second.unmount();
