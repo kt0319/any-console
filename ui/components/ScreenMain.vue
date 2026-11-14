@@ -22,7 +22,7 @@
         v-if="hasAnyTab && !booting"
         v-show="!isEmptyScreenVisible"
         ref="terminalBaseView"
-        :is-panel-bottom="isTabBarAtBottom"
+        :is-tab-bar-at-bottom="isTabBarAtBottom"
       >
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>

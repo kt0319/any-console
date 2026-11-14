@@ -37,7 +37,7 @@
             :key="item.tab.id || item.tab.wsUrl"
             :tab="item.tab"
             :active-tab-id="activeTabId"
-            :is-panel-bottom="isTabBarAtBottom"
+            :is-tab-bar-at-bottom="isTabBarAtBottom"
             :is-narrow="isNarrowViewport"
             :in-group="group.items.length > 1"
             :follows-base="index > 0"
