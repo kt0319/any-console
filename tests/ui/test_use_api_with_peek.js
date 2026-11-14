@@ -15,10 +15,10 @@ describe("apiWithPeek", () => {
     setActivePinia(createPinia());
   });
 
-  it("成功時にgit:remoteDoneへkind noneの結果を流しonSuccessを呼ぶ", async () => {
+  it("成功時にgit:actionResultへkind noneの結果を流しonSuccessを呼ぶ", async () => {
     useAuthStore().apiFetch = vi.fn(async () => jsonResponse({ status: "ok" }));
     const events = [];
-    const off = on("git:remoteDone", (d) => events.push(d));
+    const off = on("git:actionResult", (d) => events.push(d));
     const onSuccess = vi.fn();
 
     const ok = await useApi().apiWithPeek("/workspaces/ws1/merge", { branch: "dev" }, {
@@ -34,7 +34,7 @@ describe("apiWithPeek", () => {
   it("失敗時はイベントを流さずfalseを返す", async () => {
     useAuthStore().apiFetch = vi.fn(async () => jsonResponse({ detail: "boom" }, false));
     const events = [];
-    const off = on("git:remoteDone", (d) => events.push(d));
+    const off = on("git:actionResult", (d) => events.push(d));
 
     const ok = await useApi().apiWithPeek("/workspaces/ws1/merge", {}, {
       wsName: "ws1", headline: "Merged", errorMessage: "Merge failed",

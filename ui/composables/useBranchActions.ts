@@ -38,10 +38,10 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
       await loadBranchList();
       // create-branchは内部でcheckoutも行うため、折り畳みヘッダー（現在
       // ブランチ名・ahead/behind）の表示元であるworkspaceStoreも更新する。
-      // git:commitDone購読側（GitHistory.vueのunpushed表示）がaheadの
+      // git:historyInvalidated購読側（GitHistory.vueのunpushed表示）がaheadの
       // 更新前に再読み込みしてしまわないよう、emit前にawaitする。
       await workspaceStore.fetchStatuses();
-      emit("git:commitDone");
+      emit("git:historyInvalidated");
     });
   }
 
@@ -57,7 +57,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
       await workspaceStore.fetchWorkspaces();
       await loadBranchList();
       if (created?.name) {
-        emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Worktree created", worktreeBranchLabel(created.branch)) });
+        emit("git:actionResult", { wsName: workspace, result: buildActionResult("Worktree created", worktreeBranchLabel(created.branch)) });
         emit("worktree:open", { name: created.name, pane: "jobs" });
       }
     });
@@ -76,7 +76,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     await withWorkspace(async (workspace) => {
       await gitAction(workspace, "push-branch", { branch: branch.name });
       await loadBranchList();
-      emit("git:commitDone");
+      emit("git:historyInvalidated");
     });
   }
 
@@ -92,7 +92,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     await withWorkspace(async (workspace) => {
       await gitAction(workspace, "pull");
       await loadBranchList();
-      emit("git:commitDone");
+      emit("git:historyInvalidated");
     });
   }
 
@@ -111,7 +111,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
       if (!await confirmIrreversible(confirm, `Delete ${label} "${branch.name}"?`)) return;
       if (!await performDeleteBranch(workspace, branch, !!branch.remote)) return;
       await loadBranchList();
-      emit("git:commitDone");
+      emit("git:historyInvalidated");
       await fetchRemote();
     });
   }
@@ -153,7 +153,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
         await performDeleteBranch(workspace, branch, true);
       }
       await loadBranchList();
-      emit("git:commitDone");
+      emit("git:historyInvalidated");
       await fetchRemote();
     });
   }
@@ -180,7 +180,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
         remoteLoaded.value = false;
         await loadBranchList();
         await loadRemoteBranches();
-        emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Fetched remote") });
+        emit("git:actionResult", { wsName: workspace, result: buildActionResult("Fetched remote") });
       });
     } finally {
       isFetchingRemote.value = false;

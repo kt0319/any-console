@@ -21,7 +21,7 @@ export function useWorktreeRemove() {
       checkStatus: true,
       errorMessage: "Failed to remove worktree",
     });
-    if (ok) emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Worktree removed", worktreeConfirmLabel(wt)) });
+    if (ok) emit("git:actionResult", { wsName: workspace, result: buildActionResult("Worktree removed", worktreeConfirmLabel(wt)) });
     return ok;
   }
 

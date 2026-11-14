@@ -91,7 +91,7 @@ describe("useGitRemoteAction: 実行中ロックの範囲", () => {
 describe("useGitRemoteAction: push/pull完了後のfetchStatuses待ち合わせ", () => {
   // GitHistory.vueのunpushed表示はworkspaceStore.currentWorkspace.aheadを見て
   // 再計算される。gitAction()（push/pull）がfetchStatuses()の完了を待たずに
-  // resolveすると、呼び出し元（useBranchActions.ts）のemit("git:commitDone")が
+  // resolveすると、呼び出し元（useBranchActions.ts）のemit("git:historyInvalidated")が
   // 古いahead値のまま発火し、Historyの未push表示が更新されない不具合になる
   // （修正: useGitRemoteAction.tsのrunPushPullでfetchStatuses()をawaitする）。
   it("gitAction(push)はfetchStatuses完了まで解決しない", async () => {
@@ -122,7 +122,7 @@ describe("useGitRemoteAction: push/pull完了後のfetchStatuses待ち合わせ"
 });
 
 describe("useGitRemoteAction: 結果通知", () => {
-  it("push成功時はトーストではなくgit:remoteDoneで結果を通知し、fetchStatusesより先に届く", async () => {
+  it("push成功時はトーストではなくgit:actionResultで結果を通知し、fetchStatusesより先に届く", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.allWorkspaces = [{ name: "repo", worktree: false }];
     apiCommandMock.mockResolvedValue({ ok: true, data: { commits: { count: 2, messages: ["feat: a", "fix: b"] } } });
@@ -131,7 +131,7 @@ describe("useGitRemoteAction: 結果通知", () => {
     const received = [];
     const { useGitRemoteAction } = await freshModule();
     const { on } = await import("../../ui/app-bridge.ts");
-    const off = on("git:remoteDone", (detail) => { order.push("remoteDone"); received.push(detail); });
+    const off = on("git:actionResult", (detail) => { order.push("remoteDone"); received.push(detail); });
     await useGitRemoteAction().gitAction("repo", "push");
     off();
 
@@ -142,14 +142,14 @@ describe("useGitRemoteAction: 結果通知", () => {
     expect(order).toEqual(["remoteDone", "fetchStatuses"]);
   });
 
-  it("失敗時はgit:remoteDoneを通知しない", async () => {
+  it("失敗時はgit:actionResultを通知しない", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.allWorkspaces = [{ name: "repo", worktree: false }];
     apiCommandMock.mockResolvedValue({ ok: false, data: null });
     const received = [];
     const { useGitRemoteAction } = await freshModule();
     const { on } = await import("../../ui/app-bridge.ts");
-    const off = on("git:remoteDone", (detail) => received.push(detail));
+    const off = on("git:actionResult", (detail) => received.push(detail));
     await useGitRemoteAction().gitAction("repo", "pull");
     off();
 

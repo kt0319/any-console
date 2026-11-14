@@ -55,7 +55,7 @@ describe("GitCommitDialog", () => {
     const fetchMock = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: async () => ({ status: "ok" }) }));
     vi.stubGlobal("fetch", fetchMock);
     const done = [];
-    const off = on("git:commitDone", () => done.push(true));
+    const off = on("git:historyInvalidated", () => done.push(true));
     const wrapper = mountDialog();
     wrapper.vm.open();
     await flushPromises();

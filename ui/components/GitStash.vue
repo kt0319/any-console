@@ -67,7 +67,7 @@ async function stashPop(entry: StashEntry) {
       if (!ok) return;
       invalidateStashCache(workspace);
       await loadStashList();
-      bridgeEmit("git:commitDone");
+      bridgeEmit("git:historyInvalidated");
     });
   } finally {
     popping.value = false;

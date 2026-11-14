@@ -586,7 +586,7 @@ describe("usePillPeek", () => {
     try {
       const { peek } = mountPillPeek();
       const result = { kind: "push", headline: "2 Pushed", detail: "feat: a" };
-      emit("git:remoteDone", { wsName: "ws1", result });
+      emit("git:actionResult", { wsName: "ws1", result });
       await nextTick();
       expect(peek.branchRemoteResult.value).toEqual(result);
       await vi.advanceTimersByTimeAsync(6001);
@@ -606,28 +606,28 @@ describe("usePillPeek", () => {
     expect(peek.peekingKey.value).toBeNull();
   });
 
-  it("git:remoteDoneで自ワークスペースの結果をbranch peekに出す", async () => {
+  it("git:actionResultで自ワークスペースの結果をbranch peekに出す", async () => {
     const { peek } = mountPillPeek();
     const result = { kind: "push", headline: "2 Pushed", detail: "feat: a \u2022 fix: b" };
-    emit("git:remoteDone", { wsName: "ws1", result });
+    emit("git:actionResult", { wsName: "ws1", result });
     await nextTick();
     expect(peek.peekingKey.value).toBe("branch");
     expect(peek.branchRemoteResult.value).toEqual(result);
     expect(peek.peekSignature.value).toContain("2 Pushed");
   });
 
-  it("別ワークスペース宛てのgit:remoteDoneは無視する", async () => {
+  it("別ワークスペース宛てのgit:actionResultは無視する", async () => {
     const { peek } = mountPillPeek();
-    emit("git:remoteDone", { wsName: "other", result: { kind: "pull", headline: "1 Pulled", detail: "x" } });
+    emit("git:actionResult", { wsName: "other", result: { kind: "pull", headline: "1 Pulled", detail: "x" } });
     await nextTick();
     expect(peek.peekingKey.value).toBeNull();
   });
 
-  it("branchピルが無い時はgit:remoteDoneで何も出さない", async () => {
+  it("branchピルが無い時はgit:actionResultで何も出さない", async () => {
     const { peek, branchPillOn } = mountPillPeek();
     branchPillOn.value = false;
     await nextTick();
-    emit("git:remoteDone", { wsName: "ws1", result: { kind: "push", headline: "1 Pushed", detail: "x" } });
+    emit("git:actionResult", { wsName: "ws1", result: { kind: "push", headline: "1 Pushed", detail: "x" } });
     await nextTick();
     expect(peek.peekingKey.value).toBeNull();
   });
@@ -635,7 +635,7 @@ describe("usePillPeek", () => {
   it("結果peekを出した直後のahead 0化では「N Pushed」peekを重ねない", async () => {
     const { peek, ahead, upstreamHead } = mountPillPeek({ upstreamHead: "aaa" });
     const result = { kind: "push", headline: "3 Pushed", detail: "feat: a" };
-    emit("git:remoteDone", { wsName: "ws1", result });
+    emit("git:actionResult", { wsName: "ws1", result });
     await nextTick();
     upstreamHead.value = "bbb";
     ahead.value = 0;
@@ -643,7 +643,7 @@ describe("usePillPeek", () => {
     expect(peek.branchRemoteResult.value).toEqual(result);
     expect(peek.branchPushCount.value).toBe(0);
   });
-  describe("先行peekの表示中に届いたgit:remoteDone", () => {
+  describe("先行peekの表示中に届いたgit:actionResult", () => {
     afterEach(() => { vi.useRealTimers(); });
 
     it("共有枠を使い切られていても結果peekは一定時間表示され続ける", async () => {
@@ -654,7 +654,7 @@ describe("usePillPeek", () => {
       await nextTick();
       expect(peek.peekingKey.value).toBe("branch");
       const result = { kind: "pull", headline: "1 Pulled", detail: "feat: a" };
-      emit("git:remoteDone", { wsName: "ws1", result });
+      emit("git:actionResult", { wsName: "ws1", result });
       await nextTick();
       // 先行peekの枠（PILL_PEEK_DURATION_MS）を過ぎて結果peekに切り替わる
       await vi.advanceTimersByTimeAsync(4001);

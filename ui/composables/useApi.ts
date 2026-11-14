@@ -61,7 +61,7 @@ export function useApi() {
     try {
       const { ok } = await apiCommand(endpoint, body, { errorMessage });
       if (!ok) return false;
-      emit("git:remoteDone", { wsName, result: buildActionResult(headline, detail) });
+      emit("git:actionResult", { wsName, result: buildActionResult(headline, detail) });
       onSuccess?.();
       return true;
     } catch (e) {

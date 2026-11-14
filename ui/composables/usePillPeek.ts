@@ -54,7 +54,7 @@ export function usePillPeek({
   // 出す（0は非表示、直前のahead/behind値が実際に押し出された/取り込まれた件数）。
   const branchPushCount = ref(0);
   const branchPullCount = ref(0);
-  // pull/push を実行した結果（git:remoteDone）。コミット件名を含むためahead/behindの
+  // pull/push を実行した結果（git:actionResult）。コミット件名を含むためahead/behindの
   // 変化検出（件数だけ）では出せない。branch peekの間だけ値を持つ。
   const branchRemoteResult = ref<RemoteResult | null>(null);
   let lastRemoteResultAt = 0;
@@ -117,7 +117,7 @@ export function usePillPeek({
   }
 
   // branchピルが出ていない（Off・非gitリポジトリ）ペイン/行では何も出さない。
-  useBusListener("git:remoteDone", ({ wsName, result }: { wsName?: string, result?: RemoteResult }) => {
+  useBusListener("git:actionResult", ({ wsName, result }: { wsName?: string, result?: RemoteResult }) => {
     if (!result || wsName !== workspaceKey()) return;
     if (!trailingPeekItems.value.some((item) => item.key === "branch")) return;
     lastRemoteResultAt = Date.now();

@@ -18,7 +18,7 @@ describe("useWorktreeRemove", () => {
   it("成功時にベースワークスペース宛てのpeekイベントを流す", async () => {
     apiDeleteMock.mockResolvedValueOnce({ ok: true });
     const events = [];
-    const off = on("git:remoteDone", (d) => events.push(d));
+    const off = on("git:actionResult", (d) => events.push(d));
 
     const ok = await useWorktreeRemove().removeWorktreeRequest("repo", { path: "/p", worktree_branch: "feature/x" });
 
@@ -33,7 +33,7 @@ describe("useWorktreeRemove", () => {
   it("失敗時はイベントを流さない", async () => {
     apiDeleteMock.mockResolvedValueOnce({ ok: false });
     const events = [];
-    const off = on("git:remoteDone", (d) => events.push(d));
+    const off = on("git:actionResult", (d) => events.push(d));
 
     expect(await useWorktreeRemove().removeWorktreeRequest("repo", { path: "/p" })).toBe(false);
     expect(events).toEqual([]);

@@ -63,10 +63,10 @@ async function submit() {
   try {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "commit"), { message: msg });
     if (ok) {
-      emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Committed", msg.split("\n")[0]) });
+      emit("git:actionResult", { wsName: workspace, result: buildActionResult("Committed", msg.split("\n")[0]) });
       commitMessage.value = "";
       visible.value = false;
-      emit("git:commitDone");
+      emit("git:historyInvalidated");
     } else {
       error.value = extractApiError(data, "Commit failed");
     }

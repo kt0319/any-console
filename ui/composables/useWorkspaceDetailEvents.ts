@@ -49,7 +49,7 @@ export function useWorkspaceDetailEvents(deps: {
     nextTick(() => deps.fileBrowser.value?.navigateToPath(path));
   });
 
-  useBusListener("git:commitDone", () => {
+  useBusListener("git:historyInvalidated", () => {
     if (deps.activePane.value === "history") {
       deps.gitHistory.value?.reload();
     } else {

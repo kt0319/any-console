@@ -64,8 +64,8 @@ export function useGitRemoteAction() {
     if (!ok) return;
     // 結果はトーストではなくbranch peekピル（usePillPeek.ts）が表示する。
     // ahead/behind更新による「N Pushed/Pulled」検出より先に届くよう、fetchStatusesの前に通知する。
-    emit("git:remoteDone", { wsName, result: buildRemoteResult(label, data) });
-    // 呼び出し元（useBranchActions.ts）がこの後 emit("git:commitDone") する
+    emit("git:actionResult", { wsName, result: buildRemoteResult(label, data) });
+    // 呼び出し元（useBranchActions.ts）がこの後 emit("git:historyInvalidated") する
     // ため、aheadの更新（GitHistory.vueのunpushed表示が参照する）が
     // 確実に反映されてからemitされるようawaitする。
     await workspaceStore.fetchStatuses();

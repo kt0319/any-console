@@ -119,7 +119,7 @@ export function reduceTrailingPeek(
       if (changed.key === "branch") {
         ({ pushCount, pullCount } = detectRemoteCounts(signature.get("branch") || "", input, upstreamMoved));
       }
-      // 直前にgit:remoteDoneで同じ結果を出している時は、ahead/behindが0に落ちたことの
+      // 直前にgit:actionResultで同じ結果を出している時は、ahead/behindが0に落ちたことの
       // 検出による「N Pushed/Pulled」を重ねて出さない。
       const coveredByRemoteResult = (pushCount > 0 || pullCount > 0)
         && input.now - input.lastRemoteResultAt < PILL_PEEK_REMOTE_DEDUP_MS;

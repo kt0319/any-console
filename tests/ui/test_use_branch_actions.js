@@ -80,7 +80,7 @@ beforeEach(() => {
 });
 
 describe("useBranchActions: push/pull後にHistoryが更新されること", () => {
-  it("pushBranchはgit:commitDoneを発火する", async () => {
+  it("pushBranchはgit:historyInvalidatedを発火する", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.selectedWorkspace = "repo";
 
@@ -88,7 +88,7 @@ describe("useBranchActions: push/pull後にHistoryが更新されること", () 
     const { pushBranch } = useBranchActions(fakeBranchList());
 
     const handler = vi.fn();
-    const off = on("git:commitDone", handler);
+    const off = on("git:historyInvalidated", handler);
     await pushBranch({ name: "feature/x" });
     off();
 
@@ -96,7 +96,7 @@ describe("useBranchActions: push/pull後にHistoryが更新されること", () 
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it("pullBranchはgit:commitDoneを発火する（currentブランチのみ）", async () => {
+  it("pullBranchはgit:historyInvalidatedを発火する（currentブランチのみ）", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.selectedWorkspace = "repo";
 
@@ -104,7 +104,7 @@ describe("useBranchActions: push/pull後にHistoryが更新されること", () 
     const { pullBranch } = useBranchActions(fakeBranchList());
 
     const handler = vi.fn();
-    const off = on("git:commitDone", handler);
+    const off = on("git:historyInvalidated", handler);
     await pullBranch({ name: "main", current: true });
     off();
 
@@ -112,7 +112,7 @@ describe("useBranchActions: push/pull後にHistoryが更新されること", () 
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it("pullBranchはcurrentでないブランチではgitActionを呼ばずgit:commitDoneも発火しない", async () => {
+  it("pullBranchはcurrentでないブランチではgitActionを呼ばずgit:historyInvalidatedも発火しない", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.selectedWorkspace = "repo";
 
@@ -120,7 +120,7 @@ describe("useBranchActions: push/pull後にHistoryが更新されること", () 
     const { pullBranch } = useBranchActions(fakeBranchList());
 
     const handler = vi.fn();
-    const off = on("git:commitDone", handler);
+    const off = on("git:historyInvalidated", handler);
     await pullBranch({ name: "other-branch", current: false });
     off();
 
@@ -138,7 +138,7 @@ describe("useBranchActions: deleteLocalBranch（削除確認ダイアログの�
     const { useBranchActions, on } = await freshModule();
     const { deleteLocalBranch } = useBranchActions(fakeBranchList());
     const handler = vi.fn();
-    const off = on("git:commitDone", handler);
+    const off = on("git:historyInvalidated", handler);
     await deleteLocalBranch({ name: "feature/x" });
     off();
 

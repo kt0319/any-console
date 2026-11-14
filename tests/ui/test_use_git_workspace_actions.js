@@ -66,12 +66,12 @@ describe("useGitWorkspaceActions", () => {
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 
-  it("stashSave は成功時に stash キャッシュを無効化し git:commitDone を発火する", async () => {
+  it("stashSave は成功時に stash キャッシュを無効化し git:historyInvalidated を発火する", async () => {
     apiResult = { ok: true, data: { stdout: "Saved working directory\n" } };
     const { useGitWorkspaceActions, on, setStashCache, getStashCachedCount } = await freshModule();
     const events = [];
-    const off = on("git:commitDone", () => events.push("commitDone"));
-    const offRemote = on("git:remoteDone", (d) => events.push(d));
+    const off = on("git:historyInvalidated", () => events.push("commitDone"));
+    const offRemote = on("git:actionResult", (d) => events.push(d));
     setStashCache("ws1", [{ ref: "stash@{0}", message: "x" }]);
     const { stashSave } = useGitWorkspaceActions();
 

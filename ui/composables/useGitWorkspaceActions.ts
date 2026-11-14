@@ -23,8 +23,8 @@ export function useGitWorkspaceActions() {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
     if (!ok) return false;
     invalidateStashCache(workspace);
-    emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Stash saved", data?.stdout?.trim() || "") });
-    emit("git:commitDone");
+    emit("git:actionResult", { wsName: workspace, result: buildActionResult("Stash saved", data?.stdout?.trim() || "") });
+    emit("git:historyInvalidated");
     return true;
   }
 
@@ -33,8 +33,8 @@ export function useGitWorkspaceActions() {
     const { ok } = await apiCommand(wsEndpoint(workspace, "abort-operation"), {}, { errorMessage: `Abort ${operation} failed` });
     if (!ok) return false;
     workspaceStore.fetchStatuses();
-    emit("git:remoteDone", { wsName: workspace, result: buildActionResult(`Aborted ${operation}`, "") });
-    emit("git:commitDone");
+    emit("git:actionResult", { wsName: workspace, result: buildActionResult(`Aborted ${operation}`, "") });
+    emit("git:historyInvalidated");
     return true;
   }
 
@@ -42,8 +42,8 @@ export function useGitWorkspaceActions() {
     const { ok } = await apiCommand(wsEndpoint(workspace, "mark-resolved"), { path }, { errorMessage: "Mark resolved failed" });
     if (!ok) return false;
     workspaceStore.fetchStatuses();
-    emit("git:remoteDone", { wsName: workspace, result: buildActionResult("Marked resolved", path) });
-    emit("git:commitDone");
+    emit("git:actionResult", { wsName: workspace, result: buildActionResult("Marked resolved", path) });
+    emit("git:historyInvalidated");
     return true;
   }
 
