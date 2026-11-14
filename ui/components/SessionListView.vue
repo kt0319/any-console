@@ -195,8 +195,8 @@ async function onCloseTab(item: SessionItem) {
   await confirmAndCloseTab(item.tab);
 }
 
-// このビューはSessionListPanel.vueにより「currentView==='SessionList'」の間だけマウントされる
-// ため、ポーリングはこのコンポーネント自身のマウント/アンマウントに紐付く。
+// このビューはSessionListPanel.vueの中でマウントされるため、ポーリングは
+// このコンポーネント自身のマウント/アンマウントに紐付く。
 startPreviewPolling();
 startDockerPolling();
 

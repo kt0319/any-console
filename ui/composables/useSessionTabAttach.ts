@@ -9,7 +9,7 @@ import { emit } from "../app-bridge.ts";
 /**
  * 既存のサーバセッションをタブとして選択する（開いていなければ一覧を取得してタブを作る）。
  * ディープリンクの ?session= と Dispatch 実行後のフォーカスで共用する。
- * 既存タブでも tab:select を発火する（設定モーダル等の自動クローズが購読しているため）。
+ * 既存タブでも tab:select を発火する（ScreenMain がタブの有効化とワークスペース選択を行うため）。
  */
 export function useSessionTabAttach() {
   const { apiGet } = useApi();
