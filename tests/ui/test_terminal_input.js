@@ -46,7 +46,7 @@ describe("bindTerminalInput", () => {
     useTerminalStore().activeTabId = 1;
     const layoutStore = useLayoutStore();
     layoutStore.isSessionSidebarOpen = false;
-    layoutStore.isSettingsOpen = false;
+    layoutStore.isAnyOverlayOpen = false;
   });
 
   it("captures PageUp/PageDown globally when the active xterm textarea does not receive the event", () => {

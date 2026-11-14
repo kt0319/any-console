@@ -3,7 +3,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useTerminal } from "./useTerminal.ts";
-import { useLayoutPersist } from "./useLayoutPersist.ts";
+import { useSplitLayoutPersist } from "./useSplitLayoutPersist.ts";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.ts";
 import { safeStringLoad } from "../utils/storage.ts";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
@@ -42,7 +42,7 @@ export function useSessionSync() {
   const workspaceStore = useWorkspaceStore();
   const layoutStore = useLayoutStore();
   const { disconnectTerminal } = useTerminal();
-  const { restoreLayout } = useLayoutPersist();
+  const { restoreLayout } = useSplitLayoutPersist();
 
   function _buildTabParams(s: Parameters<typeof buildSessionTabParamsWithCache>[0], allJobs: Record<string, any>) {
     return { ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs }), restored: true };

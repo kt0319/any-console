@@ -65,7 +65,7 @@ import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useActiveTabLabel } from "../composables/useActiveTabLabel.ts";
 import { useAnyOverlayOpen } from "../composables/useAnyOverlayOpen.ts";
 import { useDebugInfoLine } from "../composables/useDebugInfoLine.ts";
-import { useLayoutPersist } from "../composables/useLayoutPersist.ts";
+import { useSplitLayoutPersist } from "../composables/useSplitLayoutPersist.ts";
 import { emit } from "../app-bridge.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 
@@ -86,7 +86,7 @@ const terminalBaseView = ref<{ fitAllTerminals: (opts?: { force?: boolean, scrol
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink, attachSessionTab } = useDeepLink();
-const { startWatching: startLayoutPersist } = useLayoutPersist();
+const { startWatching: startLayoutPersist } = useSplitLayoutPersist();
 const {
   activateTerminalTab,
   launchTerminal,

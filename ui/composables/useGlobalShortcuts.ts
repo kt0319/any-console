@@ -18,7 +18,7 @@ export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) 
     // 入力フォーム等にあるとき、設定画面が開いているときは標準のコピー動作を優先するため対象外）。
     if (isCopyShortcut(e)) {
       const isFormField = isEditableTarget(e.target as HTMLElement);
-      if (!isFormField && !layoutStore.isSettingsOpen) {
+      if (!isFormField && !layoutStore.isAnyOverlayOpen) {
         const tab = terminalStore.activeTab;
         if (copyTerminalSelection(tab?.term)) {
           e.preventDefault();

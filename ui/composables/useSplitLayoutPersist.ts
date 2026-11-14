@@ -22,7 +22,7 @@ function cancelSaveTimer() {
  * - 分割解除時はサーバーの保存状態を DELETE で消す。
  * - 復元は restoreLayout() を呼び出す側（useSessionSync）が行う。
  */
-export function useLayoutPersist() {
+export function useSplitLayoutPersist() {
   const layoutStore = useLayoutStore();
   const terminalStore = useTerminalStore();
   const auth = useAuthStore();

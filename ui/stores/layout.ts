@@ -38,7 +38,7 @@ export const useLayoutStore = defineStore("layout", () => {
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
     || (navigator as any).standalone === true;
 
-  const isSettingsOpen = ref(false);
+  const isAnyOverlayOpen = ref(false);
 
   // モバイルの入力バー（KeyboardInput）フォーカス中＝OSキーボード表示中。
   // ScreenMain が .keyboard-open クラスの切替えに使う。
@@ -239,7 +239,7 @@ export const useLayoutStore = defineStore("layout", () => {
     titleBarAtBottom,
     isTouchDevice,
     isPwa,
-    isSettingsOpen,
+    isAnyOverlayOpen,
     isOsKeyboardOpen,
     sessionSidebarWidth,
     isSessionSidebarOpen,

@@ -58,7 +58,7 @@ export function bindTerminalInput(tab: TerminalTab) {
 
   function onGlobalKeydown(e: KeyboardEvent) {
     if (terminalStore.activeTabId !== tab.id) return;
-    if (layoutStore.isSessionSidebarOpen || layoutStore.isSettingsOpen) return;
+    if (layoutStore.isSessionSidebarOpen || layoutStore.isAnyOverlayOpen) return;
     const target = e.target as HTMLElement | null;
     if (isEditableOrDialogTarget(target)) return;
     if (sendAppPageKey(e)) e.stopPropagation();
@@ -80,7 +80,7 @@ export function bindTerminalInput(tab: TerminalTab) {
     }
     // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）。
     // 設定画面が開いているときはそちらの標準コピー動作を優先するため対象外。
-    if (isCopyShortcut(e) && !layoutStore.isSettingsOpen) {
+    if (isCopyShortcut(e) && !layoutStore.isAnyOverlayOpen) {
       if (copyTerminalSelection(tab.term)) {
         e.preventDefault();
         return false;
