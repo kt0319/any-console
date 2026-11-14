@@ -52,7 +52,7 @@ export function removeWorktreeConfirmMessage(
 /**
  * 削除対象のworktreeを開いているタブを探す。
  * GitChangeBranch.vue経由のwt（gitのworktree一覧、any-console登録名は
- * wt.workspace）とWorkspaceOpen.vue経由のwt（登録済みワークスペースそのもの、
+ * wt.workspace）とSessionOpenHome.vue経由のwt（登録済みワークスペースそのもの、
  * 名前はwt.name）の両方の形を受け付ける。
  */
 export function findOpenTabsForWorktree<T extends { workspace?: string | null }>(

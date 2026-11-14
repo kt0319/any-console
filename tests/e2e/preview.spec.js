@@ -80,7 +80,7 @@ test.describe("port preview", () => {
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
     // Open Sessionオーバーレイ（SessionOpenModal.vue）は、ルート表示中に新規
-    // タブが作られると自動で閉じてターミナルへ戻る（WorkspaceOpen.vue参照）
+    // タブが作られると自動で閉じてターミナルへ戻る（SessionOpenHome.vue参照）
     // ため、ここで明示的に閉じる必要はない。
     await expect(page.locator(".session-open-modal")).toBeHidden({ timeout: 5000 });
 

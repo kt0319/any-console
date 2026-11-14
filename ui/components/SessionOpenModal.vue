@@ -19,13 +19,13 @@
 import { useSessionOpenNav } from "../composables/useSessionOpenNav.ts";
 import { provideModalView } from "../composables/useModalView.ts";
 import ModalShell from "./ModalShell.vue";
-import WorkspaceOpen from "./WorkspaceOpen.vue";
+import SessionOpenHome from "./SessionOpenHome.vue";
 import WorkspaceAddView from "./WorkspaceAddView.vue";
 import WorkspaceEditPane from "./WorkspaceEditPane.vue";
 import JobConfig from "./JobConfig.vue";
 import IconPicker from "./IconPicker.vue";
 
-// タブバーの「+」ボタンから開くOpen Session系列（WorkspaceOpen/WorkspaceAdd/
+// タブバーの「+」ボタンから開くOpen Session系列（SessionOpenHome/WorkspaceAdd/
 // WorkspaceEdit/JobConfig/IconPicker）専用の全面オーバーレイ。
 // シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに
 // 共通化されており、ここは表示するビューの列挙とuseSessionOpenNav.ts
@@ -44,7 +44,7 @@ provideModalView({
 
 // ビュー名 → コンポーネントの対応（ビュー追加はここに1行足すだけ）。
 const VIEWS: Record<string, unknown> = {
-  WorkspaceOpen,
+  SessionOpenHome,
   WorkspaceAdd: WorkspaceAddView,
   WorkspaceEdit: WorkspaceEditPane,
   JobConfig,

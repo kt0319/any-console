@@ -91,7 +91,7 @@ describe("findOpenTabsForWorktree", () => {
     expect(found).toEqual([tabs[1]]);
   });
 
-  it("WorkspaceOpen.vue経由（wt自体が登録ワークスペース、wt.nameが登録名）のタブを見つける", () => {
+  it("SessionOpenHome.vue経由（wt自体が登録ワークスペース、wt.nameが登録名）のタブを見つける", () => {
     const found = findOpenTabsForWorktree(tabs, { name: "app-feature-x", worktree: true });
     expect(found).toEqual([tabs[1]]);
   });

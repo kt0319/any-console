@@ -220,8 +220,8 @@ export async function openSettingsView(page, label) {
 }
 
 /**
- * Workspaces（WorkspaceOpen、SessionOpenModal.vue）を開く。タブバーの「+」
- * ボタン（Open session）から独立して開き、押すたびに必ずWorkspaceOpen
+ * Workspaces（SessionOpenHome、SessionOpenModal.vue）を開く。タブバーの「+」
+ * ボタン（Open session）から独立して開き、押すたびに必ずSessionOpenHome
  * ルートへリセットされる。
  * @param {import("@playwright/test").Page} page
  */

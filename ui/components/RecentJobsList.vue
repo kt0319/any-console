@@ -60,7 +60,7 @@ import { RECENT_JOBS_MAX, RECENT_JOBS_PAGE_SIZE } from "../utils/constants.ts";
 
 const props = defineProps({
   // "pinned": ピン留めのみ。"recent": 非ピン留めのみ（上限RECENT_JOBS_MAX件）。
-  // 表示の見出し（Pinned Jobs / Recent Jobs）は呼び出し元（WorkspaceOpen.vue /
+  // 表示の見出し（Pinned Jobs / Recent Jobs）は呼び出し元（SessionOpenHome.vue /
   // ScreenEmpty.vue）が「Recent Jobs」既存見出しと同じスタイルで別々に出す。
   variant: { type: String, default: "recent" },
   editMode: { type: Boolean, default: false },

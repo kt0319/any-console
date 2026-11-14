@@ -2,7 +2,7 @@ import { ref, computed } from "vue";
 import { useExclusiveOverlay, type OverlayKey } from "./useExclusiveOverlay.ts";
 
 // モーダルのビュースタック（push/pop/ルートへリセット）の共通実装。
-// useSettingsNav（ルート SettingsMenu）と useSessionOpenNav（ルート WorkspaceOpen）が
+// useSettingsNav（ルート SettingsMenu）と useSessionOpenNav（ルート SessionOpenHome）が
 // 同じ構造を複製していたのをファクトリに抽出したもの。呼び出し側は
 // モジュールスコープで1回だけ生成し（系列ごとの単一状態）、イベントリスナーの
 // 登録（on(...)）と useExclusiveOverlay への registerOverlay だけを

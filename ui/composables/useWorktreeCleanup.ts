@@ -12,7 +12,7 @@ import { emit } from "../app-bridge.ts";
  *   済みのpid、ディレクトリを消してもプロセス自体は生き残るため）
  * どちらも「タブを閉じる」だけでは対処できず、削除操作を跨いだこのタイミング
  * でしか一括で見つけられないため、findOpenTabsForWorktreeと合わせてここに
- * 集約する（useBranchActions.ts / WorkspaceOpen.vue の両方から使う）。
+ * 集約する（useBranchActions.ts / SessionOpenHome.vue の両方から使う）。
  */
 export function useWorktreeCleanup() {
   const terminalStore = useTerminalStore();

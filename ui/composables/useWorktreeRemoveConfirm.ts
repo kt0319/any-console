@@ -5,7 +5,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { removeWorktreeConfirmMessage } from "../utils/worktree.ts";
 
 /**
- * worktree削除の確認ダイアログ付きフロー。ワークスペース一覧（WorkspaceOpen.vue）と
+ * worktree削除の確認ダイアログ付きフロー。ワークスペース一覧（SessionOpenHome.vue）と
  * タブを閉じる確認（useTabClose.ts）の両方から使う。残骸（開いているタブ・
  * detachedセッション・dev server）の件数を確認文言に載せ、削除後に片付ける。
  */

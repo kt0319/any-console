@@ -9,7 +9,7 @@ import { EP_GROUP_ORDER, EP_WORKSPACE_ORDER } from "../utils/endpoints.ts";
 type FlatRow = { type: string } & Record<string, any>;
 
 /**
- * Open Session 一覧の並べ替え永続化（WorkspaceOpen.vue から抽出）。
+ * Open Session 一覧の並べ替え永続化（SessionOpenHome.vue から抽出）。
  * - グループヘッダーのドラッグ → /group-order 保存
  * - ワークスペース行のドラッグ → グループ所属の変更 + /workspace-order 保存
  * 呼び出し側はアンマウント時に cleanupWsDrag を呼ぶこと。

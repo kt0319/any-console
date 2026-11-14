@@ -295,7 +295,7 @@ apiGet(..., {
 
 ## リストの並べ替え
 
-並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。workspace Groups（`WorkspaceOpen.vue` / `useWorkspaceOrdering.ts`）が既存例。Tabs はネイティブ HTML5 DnD の別実装)
+並べ替え可能な縦リストを新設する時は `ui/composables/useListDragSort.ts` と `ui/styles/drag-utils.css` の共通クラス（`.drag-handle` / `.drag-source` / `.drag-over-above` / `.drag-over-below`）を使う (**SHOULD** — 独自のドラッグ実装を作らない。workspace Groups（`SessionOpenHome.vue` / `useWorkspaceOrdering.ts`）が既存例。Tabs はネイティブ HTML5 DnD の別実装)
 
 ---
 

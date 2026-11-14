@@ -274,7 +274,7 @@ watch(() => terminalStore.openTabs.length, (newLen, oldLen) => {
   loadDetachedSessions();
   // Openページから新規タブを作成した（Workspace/Job/New terminal起動、
   // WorkspaceJobsPane経由も含む）場合は、作られたタブを見に行きやすいよう
-  // 自動で戻る。奥のビュー（WorkspaceAdd等）からならWorkspaceOpenルートへ
+  // 自動で戻る。奥のビュー（WorkspaceAdd等）からならSessionOpenHomeルートへ
   // popViewし、既にルートならこのオーバーレイごと閉じてターミナルへ戻す
   // （タブ数が減った時＝Detach等は対象外）。
   if (newLen > oldLen) {

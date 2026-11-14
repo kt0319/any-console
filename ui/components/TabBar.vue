@@ -188,7 +188,7 @@ function onMenuClick() {
 
 function onOpenSessionClick() {
   if (isSessionOpenOpen.value) closeSessionOpenNav();
-  else openSessionOpenView("WorkspaceOpen");
+  else openSessionOpenView("SessionOpenHome");
 }
 
 function onSettingsClick() {

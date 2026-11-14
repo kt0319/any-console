@@ -21,10 +21,10 @@ beforeEach(() => {
 });
 
 describe("useSessionOpenNav", () => {
-  it("初期状態はルートビュー WorkspaceOpen で isOpen=false", async () => {
+  it("初期状態はルートビュー SessionOpenHome で isOpen=false", async () => {
     const { useSessionOpenNav } = await freshModules();
     const { currentView, isOpen, canNavigateBack } = useSessionOpenNav();
-    expect(currentView.value).toBe("WorkspaceOpen");
+    expect(currentView.value).toBe("SessionOpenHome");
     expect(isOpen.value).toBe(false);
     expect(canNavigateBack.value).toBe(false);
   });
@@ -33,16 +33,16 @@ describe("useSessionOpenNav", () => {
     const { useSessionOpenNav } = await freshModules();
     const { openView, pushView, popView, currentView, canNavigateBack, isOpen } = useSessionOpenNav();
 
-    openView("WorkspaceOpen");
+    openView("SessionOpenHome");
     expect(isOpen.value).toBe(true);
-    expect(currentView.value).toBe("WorkspaceOpen");
+    expect(currentView.value).toBe("SessionOpenHome");
 
     pushView("WorkspaceAdd", { path: "/x" });
     expect(currentView.value).toBe("WorkspaceAdd");
     expect(canNavigateBack.value).toBe(true);
 
     popView();
-    expect(currentView.value).toBe("WorkspaceOpen");
+    expect(currentView.value).toBe("SessionOpenHome");
     expect(canNavigateBack.value).toBe(false);
   });
 
@@ -50,32 +50,32 @@ describe("useSessionOpenNav", () => {
     const { useSessionOpenNav } = await freshModules();
     const { openView, onBack, isOpen, currentView } = useSessionOpenNav();
 
-    openView("WorkspaceOpen");
+    openView("SessionOpenHome");
     expect(isOpen.value).toBe(true);
 
     onBack();
 
     expect(isOpen.value).toBe(false);
-    expect(currentView.value).toBe("WorkspaceOpen");
+    expect(currentView.value).toBe("SessionOpenHome");
   });
 
-  it("workspace:openModalイベントでWorkspaceOpenが開く", async () => {
+  it("workspace:openModalイベントでSessionOpenHomeが開く", async () => {
     const { useSessionOpenNav, emit } = await freshModules();
     const { isOpen, currentView } = useSessionOpenNav();
 
     emit("workspace:openModal");
 
     expect(isOpen.value).toBe(true);
-    expect(currentView.value).toBe("WorkspaceOpen");
+    expect(currentView.value).toBe("SessionOpenHome");
   });
 
-  it("openWorkspaceAddでWorkspaceOpen→WorkspaceAddの順に積まれる", async () => {
+  it("openWorkspaceAddでSessionOpenHome→WorkspaceAddの順に積まれる", async () => {
     const { useSessionOpenNav, openWorkspaceAdd } = await freshModules();
     const { viewStack, currentView } = useSessionOpenNav();
 
     openWorkspaceAdd({ path: "/x" });
 
-    expect(viewStack.value.map((e) => e.view)).toEqual(["WorkspaceOpen", "WorkspaceAdd"]);
+    expect(viewStack.value.map((e) => e.view)).toEqual(["SessionOpenHome", "WorkspaceAdd"]);
     expect(currentView.value).toBe("WorkspaceAdd");
   });
 
@@ -86,7 +86,7 @@ describe("useSessionOpenNav", () => {
     useExclusiveOverlay().registerOverlay("settings", () => closed.push("settings"));
     const { openView } = useSessionOpenNav();
 
-    openView("WorkspaceOpen");
+    openView("SessionOpenHome");
 
     expect(closed).toEqual(["settings"]);
   });

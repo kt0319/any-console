@@ -69,7 +69,7 @@ import { renderIconStr } from "../utils/render-icon.ts";
 import { dirtyBadgeHtml } from "../utils/git.ts";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.ts";
 
-// Open Session 一覧のワークスペース1行（WorkspaceOpen.vue から抽出）。
+// Open Session 一覧のワークスペース1行（SessionOpenHome.vue から抽出）。
 // 行のインライン Jobs 展開・worktree のネスト表示・Pull/Push/Changes バッジを持つ。
 // 操作はすべて emit で親へ委譲する（並べ替え・API 呼び出しは親側の責務）。
 const props = defineProps({
@@ -294,7 +294,7 @@ function pushActionFor(ws: Record<string, any>) {
   line-height: 1;
 }
 
-/* WorkspaceOpen.vue のグループヘッダー編集ボタンと同一スタイル（scoped のため両方で定義）。 */
+/* SessionOpenHome.vue のグループヘッダー編集ボタンと同一スタイル（scoped のため両方で定義）。 */
 .ws-list-edit-btn {
   display: flex;
   align-items: center;

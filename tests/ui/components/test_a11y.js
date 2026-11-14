@@ -540,12 +540,12 @@ describe("a11y: DisplayConfig", () => {
 });
 
 describe("a11y: SessionOpenModal", () => {
-  it("Open Sessionオーバーレイ（WorkspaceOpen）に a11y 違反が無い", async () => {
+  it("Open Sessionオーバーレイ（SessionOpenHome）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const { default: SessionOpenModal } = await import("../../../ui/components/SessionOpenModal.vue");
     const { useSessionOpenNav } = await import("../../../ui/composables/useSessionOpenNav.ts");
     const wrapper = mount(SessionOpenModal, { attachTo: document.body });
-    useSessionOpenNav().openView("WorkspaceOpen");
+    useSessionOpenNav().openView("SessionOpenHome");
     await flushPromises();
     await expectNoA11yViolations(wrapper.element);
     useSessionOpenNav().closeNav();

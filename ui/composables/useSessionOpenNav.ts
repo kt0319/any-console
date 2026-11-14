@@ -2,16 +2,16 @@ import { on } from "../app-bridge.ts";
 import { createViewStackNav } from "./createViewStackNav.ts";
 import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
-// Open Session系列（WorkspaceOpen/WorkspaceAdd/WorkspaceEdit/JobConfig/
+// Open Session系列（SessionOpenHome/WorkspaceAdd/WorkspaceEdit/JobConfig/
 // IconPicker）専用のビュースタック（SessionOpenModal.vueがホストする）。
 // タブバーの「+」ボタンから開き、SettingsやSessionListとは完全に独立して
 // 開閉する。実装本体は createViewStackNav.ts（useSettingsNav と共通）。
 //
 // isOpenはスタック深さ（canNavigateBack相当）では判定できない —
-// WorkspaceOpenルート自体が「開いている」状態を表すため、明示的なrefで持つ
+// SessionOpenHomeルート自体が「開いている」状態を表すため、明示的なrefで持つ
 // （useWorkspaceDetailNav.tsと同様の考え方）。
 
-const nav = createViewStackNav({ rootView: "WorkspaceOpen", overlayKey: "sessionOpen" });
+const nav = createViewStackNav({ rootView: "SessionOpenHome", overlayKey: "sessionOpen" });
 const { openView, closeNav } = nav;
 
 let listenersRegistered = false;
@@ -23,17 +23,17 @@ function registerListeners() {
   const { registerOverlay } = useExclusiveOverlay();
   registerOverlay("sessionOpen", closeNav);
 
-  on("workspace:openModal", () => openView([{ view: "WorkspaceOpen", state: {} }]));
+  on("workspace:openModal", () => openView([{ view: "SessionOpenHome", state: {} }]));
 }
 
 /**
- * WorkspaceAdd を（WorkspaceOpen をルートに積んだ状態で）直接開く。
+ * WorkspaceAdd を（SessionOpenHome をルートに積んだ状態で）直接開く。
  * 呼び出し元が1箇所（InfoPill の Add ピル）だけの経路のため、
  * バスイベントではなく直接呼び出しにしている。
  */
 export function openWorkspaceAdd(detail: Record<string, unknown> = {}) {
   openView([
-    { view: "WorkspaceOpen", state: {} },
+    { view: "SessionOpenHome", state: {} },
     { view: "WorkspaceAdd", state: { ...detail } },
   ]);
 }

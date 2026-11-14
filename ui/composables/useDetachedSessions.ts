@@ -19,14 +19,14 @@ import {
 import { emit } from "../app-bridge.ts";
 
 // モジュールスコープの単一状態（useRecentJobs.tsと同じパターン）。
-// WorkspaceOpen.vue（カテゴリ見出しのv-if判定用）とDetachedSessionsList.vue
+// SessionOpenHome.vue（カテゴリ見出しのv-if判定用）とDetachedSessionsList.vue
 // （一覧描画）の両方から呼ばれるため、呼び出しごとに別状態にならないよう
 // 共有する。
 const detachedSessions = ref<ReturnType<typeof buildDetachedSessionList>>([]);
 const allJobsData = ref<Record<string, any>>({});
 
 // Detached sessions（タブに紐付いていないtmuxセッション）の一覧取得・
-// Open/Adopt操作。WorkspaceOpen.vueの「Detached Sessions」カテゴリから使う
+// Open/Adopt操作。SessionOpenHome.vueの「Detached Sessions」カテゴリから使う
 // （以前はSessionListView.vueの一覧に続く折りたたみセクションだったが、
 // 「セッションを開く」導線としてOpenタブに統合した）。
 export function useDetachedSessions() {
