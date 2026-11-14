@@ -20,6 +20,7 @@ import { useDispatchQueue } from "./composables/useDispatchQueue.ts";
 import { dispatchWorkspaceLabel } from "./utils/dispatch-request.ts";
 import { installErrorReporter } from "./utils/error-reporter.ts";
 import { installTooltip } from "./utils/tooltip.ts";
+import { installTapHaptics } from "./utils/tap-haptics.ts";
 import { emit } from "./app-bridge.ts";
 import { safeJsonLoad } from "./utils/storage.ts";
 import { reloadIfNewBuild } from "./utils/build-update.ts";
@@ -60,6 +61,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) reloadIfNewBuild().catch((e) => console.error("reloadIfNewBuild failed:", e));
 });
 installTooltip();
+installTapHaptics();
 
 async function bootstrap() {
   // xterm.js が文字幅を測る前に Hack Nerd Font をロードしておく。
