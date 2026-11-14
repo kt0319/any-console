@@ -177,7 +177,7 @@ const {
   openPane,
   onPeekClick,
   syncWorkspacePolling,
-  refreshWorkspacePolling,
+  fetchWorkspaceResources,
   stopWorkspacePolling,
 } = useTerminalPanePills(tabRef, paneWorkspace);
 
@@ -365,7 +365,7 @@ onMounted(() => {
 watch(() => terminalStore.tabWorkspaceVersion, () => {
   syncWorkspacePolling();
   if (!props.tab.workspace) return;
-  refreshWorkspacePolling();
+  fetchWorkspaceResources();
 });
 
 watch(isActive, async (active) => {

@@ -36,7 +36,7 @@ export function useTerminalPanePills(tab: Ref<TerminalTab>, paneWorkspace: Compu
     }
   }
 
-  function refreshWorkspacePolling() {
+  function fetchWorkspaceResources() {
     fetchPreviewPorts();
     fetchDockerContainers();
   }
@@ -121,7 +121,7 @@ export function useTerminalPanePills(tab: Ref<TerminalTab>, paneWorkspace: Compu
     openPane,
     onPeekClick,
     syncWorkspacePolling,
-    refreshWorkspacePolling,
+    fetchWorkspaceResources,
     stopWorkspacePolling,
   };
 }

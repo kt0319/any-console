@@ -48,7 +48,7 @@ export function useModal() {
   let releaseKeydown: (() => void) | null = null;
   let releaseEscape: (() => void) | null = null;
 
-  function trapFocus(modalEl: HTMLElement, closeFn?: () => void) {
+  function trapFocus(modalEl: HTMLElement) {
     const release = trapFocusWithin(modalEl);
     // タッチデバイスでは自動フォーカスを行わない。
     // モバイルだと最初の要素（モーダルタイトル等）にフォーカスリングが
@@ -69,7 +69,7 @@ export function useModal() {
     nextTick(() => {
       const el = typeof modalElOrGetter === "function" ? modalElOrGetter() : modalElOrGetter;
       if (el) {
-        releaseKeydown = trapFocus(el, closeFn);
+        releaseKeydown = trapFocus(el);
       }
     });
   }
