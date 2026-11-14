@@ -73,9 +73,9 @@ test.describe("port preview", () => {
     // Server ピルはワークスペース紐付きタブにのみ出るため、登録した
     // ワークスペースの Terminal ジョブからセッションを開く。
     await openWorkspaces(page);
-    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
+    const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
-    await row.locator(".picker-ws-header-label").click();
+    await row.locator(".ws-list-header-label").click();
     await row.locator(".job-item-label", { hasText: "Terminal" }).click();
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 

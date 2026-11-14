@@ -23,7 +23,7 @@ export function useWorkspaceOrdering(options: {
 
   // ---- グループドラッグ ----
   const { dragFromIdx, dragOverIdx: groupDragOver, onDragStart: onGroupDragStart } = useListDragSort({
-    rowSelector: ".picker-group-header",
+    rowSelector: ".ws-group-header",
     onReorder: async (from, to) => {
       const groups = [...workspaceStore.groups];
       const [moved] = groups.splice(from, 1);

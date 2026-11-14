@@ -111,7 +111,7 @@ describe("a11y: WorkspaceGroupDialog", () => {
     const wrapper = mount(WorkspaceGroupDialog, { attachTo: document.body });
     wrapper.vm.openAdd();
     await nextTick();
-    await expectNoA11yViolations(wrapper.find(".picker-group-dialog").element);
+    await expectNoA11yViolations(wrapper.find(".ws-group-dialog").element);
     wrapper.unmount();
   });
 
@@ -120,7 +120,7 @@ describe("a11y: WorkspaceGroupDialog", () => {
     const wrapper = mount(WorkspaceGroupDialog, { attachTo: document.body });
     wrapper.vm.openRename({ id: "g1", name: "Tools" });
     await nextTick();
-    await expectNoA11yViolations(wrapper.find(".picker-group-dialog").element);
+    await expectNoA11yViolations(wrapper.find(".ws-group-dialog").element);
     wrapper.unmount();
   });
 });

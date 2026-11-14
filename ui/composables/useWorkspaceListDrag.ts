@@ -15,7 +15,7 @@ type FlatRow = { type: string } & Record<string, any>;
  * @param opts.onReorder 並べ替え確定時のコールバック（保存処理）
  * @param opts.rowSelector ワークスペース行のCSSセレクタ
  */
-export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector = ".picker-ws-group" }: {
+export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector = ".ws-list-item" }: {
   flatList: ComputedRef<FlatRow[]>,
   listEl: Ref<HTMLElement | null>,
   onReorder: (finalList: FlatRow[]) => Promise<void> | void,

@@ -1,59 +1,59 @@
 <template>
   <div
-    class="picker-ws-group"
-    :class="{ dragging, 'picker-ws-group-inset': inset }"
+    class="ws-list-item"
+    :class="{ dragging, 'ws-list-item-inset': inset }"
     :style="dragging ? { transform: `translateY(${dragOffsetY}px)` } : {}"
   >
-    <div class="picker-ws-row picker-ws-row-top hover-bg">
+    <div class="ws-list-row ws-list-row-top hover-bg">
       <span
         v-if="editMode"
-        class="drag-handle picker-ws-drag-handle"
+        class="drag-handle ws-list-drag-handle"
         aria-hidden="true"
         @pointerdown.prevent="$emit('dragStart', $event)"
       >
         <span class="mdi mdi-drag-vertical"></span>
       </span>
-      <button type="button" class="picker-ws-header-label" @click="$emit('toggleJobs', ws)">
+      <button type="button" class="ws-list-header-label" @click="$emit('toggleJobs', ws)">
         <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
-        <span class="picker-ws-header-text">
-          <span class="picker-ws-name">
-            <span v-if="ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
+        <span class="ws-list-header-text">
+          <span class="ws-list-name">
+            <span v-if="ws.worktree" class="mdi mdi-file-tree ws-list-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
             {{ ws.worktree ? workspaceDisplayName(ws) : ws.name }}
           </span>
-          <span class="picker-ws-branch">{{ ws.branch || '-' }}</span>
+          <span class="ws-list-branch">{{ ws.branch || '-' }}</span>
         </span>
       </button>
-      <div class="picker-ws-top-meta" @click.stop>
+      <div class="ws-list-top-meta" @click.stop>
         <button v-if="ws.is_git_repo && ws.clean === false && !editMode" type="button" class="git-badge dirty" aria-label="Open changes" data-tooltip="Open changes" v-html="dirtyBadgeHtml(ws)" @click.stop="$emit('openChanges', ws)"></button>
         <template v-if="ws.is_git_repo && !editMode">
-          <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="$emit('gitAction', ws, 'pull')" />
-          <GitActionBtn v-if="ws.ahead > 0" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, pushActionFor(ws))" btn-class="picker-ws-mini-btn push-btn has-count" @action="$emit('gitAction', ws, pushActionFor(ws))" />
+          <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="ws-list-mini-btn pull-btn has-count" @action="$emit('gitAction', ws, 'pull')" />
+          <GitActionBtn v-if="ws.ahead > 0" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, pushActionFor(ws))" btn-class="ws-list-mini-btn push-btn has-count" @action="$emit('gitAction', ws, pushActionFor(ws))" />
         </template>
         <template v-if="editMode">
-          <button type="button" class="picker-ws-edit-btn hover-bg-text" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="$emit('edit', ws)">
+          <button type="button" class="ws-list-edit-btn hover-bg-text" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="$emit('edit', ws)">
             <span class="mdi mdi-pencil-outline"></span>
           </button>
         </template>
       </div>
-      <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+      <span class="mdi ws-list-jobs-chevron" :class="expandedWorkspace === ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
     </div>
-    <div v-if="expandedWorkspace === ws.name" class="picker-ws-jobs-inline">
+    <div v-if="expandedWorkspace === ws.name" class="ws-list-jobs-inline">
       <WorkspaceJobsPane :workspace="ws.name" :edit-mode="editMode" />
     </div>
-    <div v-if="worktrees.length" class="picker-ws-worktrees">
+    <div v-if="worktrees.length" class="ws-list-worktrees">
       <template v-for="wt in worktrees" :key="wt.name">
-        <div class="picker-ws-worktree-item">
-          <button type="button" class="picker-ws-worktree-open hover-bg" @click="$emit('toggleJobs', wt)">
-            <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-            <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-            <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
+        <div class="ws-list-worktree-item">
+          <button type="button" class="ws-list-worktree-open hover-bg" @click="$emit('toggleJobs', wt)">
+            <span class="mdi mdi-file-tree ws-list-wt-child-icon"></span>
+            <span class="ws-list-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+            <span v-if="wt.clean === false" class="ws-list-wt-dirty" aria-label="uncommitted changes"></span>
           </button>
-          <button v-if="editMode" type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="$emit('removeWorktree', ws, wt)">
+          <button v-if="editMode" type="button" class="ws-list-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="$emit('removeWorktree', ws, wt)">
             <span class="mdi mdi-delete-outline"></span>
           </button>
-          <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+          <span class="mdi ws-list-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
         </div>
-        <div v-if="expandedWorkspace === wt.name" class="picker-ws-jobs-inline">
+        <div v-if="expandedWorkspace === wt.name" class="ws-list-jobs-inline">
           <WorkspaceJobsPane :workspace="wt.name" :edit-mode="editMode" />
         </div>
       </template>
@@ -91,24 +91,24 @@ function pushActionFor(ws: Record<string, any>) {
 </script>
 
 <style scoped>
-.picker-ws-group {
+.ws-list-item {
   overflow: hidden;
   border-bottom: 1px solid var(--border);
   position: relative;
 }
 
-.picker-ws-group.dragging {
+.ws-list-item.dragging {
   opacity: 0.72;
   background: var(--bg-tertiary);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   z-index: 10;
 }
 
-.picker-ws-group-inset {
+.ws-list-item-inset {
   border-bottom: none;
 }
 
-.picker-ws-row {
+.ws-list-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -117,17 +117,17 @@ function pushActionFor(ws: Record<string, any>) {
   -webkit-user-select: none;
 }
 
-.picker-ws-drag-handle {
+.ws-list-drag-handle {
   height: 100%;
 }
 
-.picker-ws-row-top {
+.ws-list-row-top {
   min-height: 44px;
   padding-bottom: 4px;
   box-sizing: border-box;
 }
 
-.picker-ws-header-label {
+.ws-list-header-label {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -145,7 +145,7 @@ function pushActionFor(ws: Record<string, any>) {
   white-space: normal;
 }
 
-.picker-ws-header-text {
+.ws-list-header-text {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -154,7 +154,7 @@ function pushActionFor(ws: Record<string, any>) {
   flex: 1;
 }
 
-.picker-ws-name {
+.ws-list-name {
   min-width: 0;
   width: 100%;
   overflow: hidden;
@@ -163,39 +163,39 @@ function pushActionFor(ws: Record<string, any>) {
   font-size: 13px;
 }
 
-.picker-ws-wt-icon {
+.ws-list-wt-icon {
   font-size: 13px;
   color: var(--accent);
   margin-right: 2px;
 }
 
-.picker-ws-worktrees {
+.ws-list-worktrees {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 0 12px 8px 28px;
 }
 
-.picker-ws-jobs-chevron {
+.ws-list-jobs-chevron {
   flex-shrink: 0;
   margin-left: auto;
   font-size: 16px;
   color: var(--text-muted);
 }
 
-.picker-ws-jobs-inline {
+.ws-list-jobs-inline {
   margin: 0 12px 8px 28px;
   border-left: 2px solid var(--border);
   overflow: hidden;
 }
 
-.picker-ws-worktree-item {
+.ws-list-worktree-item {
   display: flex;
   align-items: center;
   border-left: 2px solid var(--border);
 }
 
-.picker-ws-worktree-open {
+.ws-list-worktree-open {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -210,7 +210,7 @@ function pushActionFor(ws: Record<string, any>) {
   text-align: left;
 }
 
-.picker-ws-worktree-del {
+.ws-list-worktree-del {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,20 +226,20 @@ function pushActionFor(ws: Record<string, any>) {
   cursor: pointer;
 }
 
-.picker-ws-wt-child-icon {
+.ws-list-wt-child-icon {
   font-size: 13px;
   color: var(--accent);
   flex-shrink: 0;
 }
 
-.picker-ws-worktree-branch {
+.ws-list-worktree-branch {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.picker-ws-wt-dirty {
+.ws-list-wt-dirty {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -250,12 +250,12 @@ function pushActionFor(ws: Record<string, any>) {
 /* 行・ボタンの通常ホバー（背景/文字色）は base.css の .hover-bg /
    .hover-bg-text ユーティリティをテンプレート側で付ける。 */
 @media (hover: hover) and (pointer: fine) {
-  .picker-ws-worktree-del:hover {
+  .ws-list-worktree-del:hover {
     background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
   }
 }
 
-.picker-ws-branch {
+.ws-list-branch {
   max-width: 100%;
   color: var(--text-muted);
   font-size: 10px;
@@ -264,7 +264,7 @@ function pushActionFor(ws: Record<string, any>) {
   text-overflow: ellipsis;
 }
 
-.picker-ws-top-meta {
+.ws-list-top-meta {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -273,7 +273,7 @@ function pushActionFor(ws: Record<string, any>) {
   flex-shrink: 0;
 }
 
-.picker-ws-top-meta :deep(.git-badge) {
+.ws-list-top-meta :deep(.git-badge) {
   height: 22px;
   min-height: 22px;
   max-height: 22px;
@@ -283,8 +283,8 @@ function pushActionFor(ws: Record<string, any>) {
   line-height: 1;
 }
 
-.picker-ws-top-meta :deep(.picker-ws-mini-btn),
-.picker-ws-top-meta :deep(.git-action-btn) {
+.ws-list-top-meta :deep(.ws-list-mini-btn),
+.ws-list-top-meta :deep(.git-action-btn) {
   height: 26px;
   min-height: 26px;
   max-height: 26px;
@@ -295,7 +295,7 @@ function pushActionFor(ws: Record<string, any>) {
 }
 
 /* WorkspaceOpen.vue のグループヘッダー編集ボタンと同一スタイル（scoped のため両方で定義）。 */
-.picker-ws-edit-btn {
+.ws-list-edit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,7 +312,7 @@ function pushActionFor(ws: Record<string, any>) {
   cursor: pointer;
 }
 
-.picker-ws-mini-btn {
+.ws-list-mini-btn {
   position: relative;
   display: inline-flex;
   align-items: center;

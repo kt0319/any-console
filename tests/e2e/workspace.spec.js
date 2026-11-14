@@ -52,23 +52,23 @@ test.describe("workspace lifecycle", () => {
     // 登録成功後は Workspaces 一覧へ戻る（Settings → Workspaces → Add Workspace の1つ上）。
     // 一覧に追加した名前が表示される
     await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
-    await expect(page.locator(".picker-ws-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".ws-list-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
 
   test("ワークスペース名クリックでJobsがインライン展開・再クリックで閉じる", async ({ page }) => {
     await openWorkspaces(page);
-    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
-    const jobsInline = row.locator(".picker-ws-jobs-inline");
+    const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
+    const jobsInline = row.locator(".ws-list-jobs-inline");
 
     await expect(jobsInline).toHaveCount(0);
-    await row.locator(".picker-ws-header-label").click();
+    await row.locator(".ws-list-header-label").click();
     await expect(jobsInline).toBeVisible({ timeout: 5000 });
     await expect(jobsInline.locator(".job-item-label", { hasText: "Terminal" })).toBeVisible();
 
     // モーダルは開かない（Jobsのインライン展開のみ）
     await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
-    await row.locator(".picker-ws-header-label").click();
+    await row.locator(".ws-list-header-label").click();
     await expect(jobsInline).toHaveCount(0);
   });
 
@@ -94,12 +94,12 @@ test.describe("workspace lifecycle", () => {
     await openWorkspaces(page);
     await expect(page.locator(".modal-title")).toHaveText("Open Session");
 
-    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-name", { hasText: wsName }) });
+    const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
 
     // Edit → Delete Workspace（Editボタンはワークスペース一覧のEditモード中のみ表示）
     await page.locator('[aria-label="Edit"]').click();
-    await row.locator('.picker-ws-edit-btn[aria-label="Edit workspace"]').click();
+    await row.locator('.ws-list-edit-btn[aria-label="Edit workspace"]').click();
     await expect(page.locator(".modal-title")).toHaveText(wsName);
     await page.locator(".ws-delete-btn").click();
 
@@ -115,6 +115,6 @@ test.describe("workspace lifecycle", () => {
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator(".dialog-btn-ok").click();
     await expect(page.locator(".toast", { hasText: `Deleted "${wsName}"` })).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".picker-ws-name", { hasText: wsName })).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.locator(".ws-list-name", { hasText: wsName })).toHaveCount(0, { timeout: 10_000 });
   });
 });

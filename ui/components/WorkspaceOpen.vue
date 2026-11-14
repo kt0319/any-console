@@ -56,7 +56,7 @@
         <template v-for="(item, flatIdx) in (dragFlatList || flatList)" :key="item.type === 'header' ? 'h-' + item.group.id : item.ws.name">
           <div
             v-if="item.type === 'header'"
-            class="picker-group-header"
+            class="ws-group-header"
             :class="{
               'drag-source': groupDragFrom === item.groupIdx,
               'drag-over-above': groupDragOver === item.groupIdx && groupDragFrom > item.groupIdx,
@@ -65,19 +65,19 @@
           >
             <span
               v-if="isEditMode && workspaceStore.groups.length > 1"
-              class="drag-handle picker-group-drag-handle"
+              class="drag-handle ws-group-drag-handle"
               aria-hidden="true"
               @pointerdown.prevent="onGroupDragStart($event, item.groupIdx)"
             >
               <span class="mdi mdi-drag-vertical"></span>
             </span>
-            <button type="button" class="picker-group-toggle" @click="toggleGroup(item.group.id)">
+            <button type="button" class="ws-group-toggle" @click="toggleGroup(item.group.id)">
               {{ item.group.name }}
             </button>
-            <button v-if="isEditMode" type="button" class="picker-ws-edit-btn hover-bg-text" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
+            <button v-if="isEditMode" type="button" class="ws-list-edit-btn hover-bg-text" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
-            <span class="mdi picker-group-chevron" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup(item.group.id)"></span>
+            <span class="mdi ws-group-chevron" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup(item.group.id)"></span>
           </div>
           <WorkspaceListRow
             v-else
@@ -311,14 +311,14 @@ onBeforeUnmount(() => {
   padding: 4px 0;
 }
 
-.picker-group-drag-handle {
+.ws-group-drag-handle {
   width: 20px;
   height: 28px;
   font-size: 14px;
 }
 
 /* グループヘッダーの編集ボタン（WorkspaceListRow.vue と同一スタイル — scoped のため両方で定義）。 */
-.picker-ws-edit-btn {
+.ws-list-edit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -335,11 +335,11 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.picker-group-header:not(:first-child) {
+.ws-group-header:not(:first-child) {
   margin-top: 4px;
 }
 
-.picker-group-header {
+.ws-group-header {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--border);
 }
 
-.picker-group-toggle {
+.ws-group-toggle {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -373,14 +373,14 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.picker-group-chevron {
+.ws-group-chevron {
   flex-shrink: 0;
   margin-left: auto;
   font-size: 16px;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .picker-group-toggle:hover {
+  .ws-group-toggle:hover {
     color: var(--text-primary);
   }
 }

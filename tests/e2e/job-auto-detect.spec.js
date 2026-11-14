@@ -115,8 +115,8 @@ test.describe("job auto-detect from bare terminal", () => {
 
     // 6. 通常どおりワークスペースからジョブを起動した場合と同じアイコンになることを確認する
     await openWorkspaces(page);
-    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
-    await row.locator(".picker-ws-header-label").click();
+    const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
+    await row.locator(".ws-list-header-label").click();
     const jobItem = row.locator(".job-item-row", { has: page.locator(".job-item-label", { hasText: jobLabel }) });
     await expect(jobItem).toBeVisible({ timeout: 10_000 });
 

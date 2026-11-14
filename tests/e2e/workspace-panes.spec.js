@@ -236,8 +236,8 @@ test.describe("workspace detail panes", () => {
 
     // 一覧へ戻り、ワークスペース名クリックでJobsをインライン展開して確認する
     await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
-    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
-    await row.locator(".picker-ws-header-label").click();
+    const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
+    await row.locator(".ws-list-header-label").click();
     const jobItem = row.locator(".job-item-row", { has: page.locator(".job-item-label", { hasText: jobLabel }) });
     await expect(jobItem).toBeVisible({ timeout: 10_000 });
 

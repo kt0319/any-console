@@ -29,13 +29,13 @@ describe("WorkspaceOpen: グループの折りたたみ状態の永続化", () =
 
   it("トグルした状態が localStorage に保存され、再読み込み後も維持される", async () => {
     const first = await mountWorkspaceOpen();
-    await first.find(".picker-group-toggle").trigger("click");
+    await first.find(".ws-group-toggle").trigger("click");
     expect(JSON.parse(localStorage.getItem(LS_KEY_COLLAPSED_WORKSPACE_GROUPS))).toEqual(["g1"]);
     first.unmount();
 
     const second = await mountWorkspaceOpen();
-    expect(second.find(".picker-group-chevron").classes()).toContain("mdi-chevron-right");
-    await second.find(".picker-group-toggle").trigger("click");
+    expect(second.find(".ws-group-chevron").classes()).toContain("mdi-chevron-right");
+    await second.find(".ws-group-toggle").trigger("click");
     expect(JSON.parse(localStorage.getItem(LS_KEY_COLLAPSED_WORKSPACE_GROUPS))).toEqual([]);
     second.unmount();
   });

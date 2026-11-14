@@ -1,7 +1,7 @@
 <template>
   <!-- グループ名入力モーダル -->
   <BaseDialog :visible="groupDialogOpen" :z-index="DIALOG_Z_INDEX_RAISED" initial-focus="none" @dismiss="groupDialogOpen = false">
-    <div class="picker-group-dialog dialog-box" style="--dialog-width: 320px" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
+    <div class="ws-group-dialog dialog-box" style="--dialog-width: 320px" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
       <div class="dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
       <input
         ref="groupInputEl"
@@ -14,9 +14,9 @@
         @keydown.enter="(e) => runUnlessComposing(e, submitGroupDialog)"
         @keydown.esc="(e) => runUnlessComposing(e, () => { groupDialogOpen = false })"
       />
-      <div class="picker-group-dialog-buttons">
+      <div class="ws-group-dialog-buttons">
         <button v-if="editingGroup" class="dialog-btn group-btn-danger" @click="deleteGroup(editingGroup)">Delete</button>
-        <span class="picker-group-dialog-spacer"></span>
+        <span class="ws-group-dialog-spacer"></span>
         <button class="dialog-btn dialog-btn-cancel" @click="groupDialogOpen = false">Cancel</button>
         <button class="dialog-btn dialog-btn-ok" :disabled="!groupInputName.trim()" @click="submitGroupDialog">
           {{ editingGroup ? 'Rename' : 'Create' }}
@@ -86,13 +86,13 @@ defineExpose({ openAdd: startAddGroup, openRename: startRenameGroup });
 </script>
 
 <style scoped>
-.picker-group-dialog-buttons {
+.ws-group-dialog-buttons {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.picker-group-dialog-spacer {
+.ws-group-dialog-spacer {
   flex: 1;
 }
 

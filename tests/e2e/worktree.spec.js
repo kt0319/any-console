@@ -86,12 +86,12 @@ test.describe("worktree削除とセッションタブの連動", () => {
     const worktreeTab = page.locator(".tab-btn", { hasText: wsName });
 
     await openWorkspaces(page);
-    const wtRow = page.locator(".picker-ws-worktree-item", { has: page.locator(".picker-ws-worktree-branch", { hasText: WORKTREE_BRANCH }) });
+    const wtRow = page.locator(".ws-list-worktree-item", { has: page.locator(".ws-list-worktree-branch", { hasText: WORKTREE_BRANCH }) });
     await expect(wtRow).toBeVisible({ timeout: 10_000 });
-    await wtRow.locator(".picker-ws-worktree-open").click();
-    // WorkspaceJobsPane（Terminal項目）は.picker-ws-worktree-itemの兄弟要素
-    // として展開されるため、wtRowの外（直後の.picker-ws-jobs-inline）を見る。
-    await wtRow.locator("xpath=following-sibling::div[contains(@class,'picker-ws-jobs-inline')][1]").locator(".job-item", { hasText: "Terminal" }).click();
+    await wtRow.locator(".ws-list-worktree-open").click();
+    // WorkspaceJobsPane（Terminal項目）は.ws-list-worktree-itemの兄弟要素
+    // として展開されるため、wtRowの外（直後の.ws-list-jobs-inline）を見る。
+    await wtRow.locator("xpath=following-sibling::div[contains(@class,'ws-list-jobs-inline')][1]").locator(".job-item", { hasText: "Terminal" }).click();
 
     await expect(tabs).toHaveCount(tabCountBefore + 1, { timeout: 10_000 });
     await expect(worktreeTab).toBeVisible({ timeout: 10_000 });

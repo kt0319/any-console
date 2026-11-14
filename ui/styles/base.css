@@ -54,7 +54,7 @@ body {
   overflow: hidden;
 }
 
-.picker-ws-mini-btn.running::after,
+.ws-list-mini-btn.running::after,
 .commit-action-danger.running::after {
   content: "";
   position: absolute;
