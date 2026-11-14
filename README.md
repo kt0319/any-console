@@ -7,6 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-000000.svg?logo=rust)](https://www.rust-lang.org/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-4fc08d.svg)](https://vuejs.org/)
+[![any-console on StartupScores](https://startupscores.com/badge/any-console.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/any-console)
 
 <p align="center">
   <img src="docs/hero.webp" alt="Same tmux session, seamless across phone and PC" width="100%">
