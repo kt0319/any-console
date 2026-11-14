@@ -4,7 +4,7 @@
     :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isNarrowViewport }"
   >
     <!-- PC（インラインサイドバー）はSessionListPanel.vue側に専用の閉じるボタンがあるため
-         サイドバー表示中はこのボタンを隠す。モバイル（Modal.vueの全面オーバーレイ）は
+         サイドバー表示中はこのボタンを隠す。モバイル（SessionListOverlay.vueの全面オーバーレイ）は
          これだけが開閉手段のため常に出す。 -->
     <button
       v-if="isNarrowViewport || !isSidebarOpen"
@@ -193,7 +193,7 @@ function onOpenSessionClick() {
 
 function onSettingsClick() {
   if (isSettingsOpen.value) closeSettingsNav();
-  else openSettingsView("ModalMenu");
+  else openSettingsView("SettingsMenu");
 }
 </script>
 

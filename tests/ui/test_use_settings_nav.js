@@ -30,22 +30,22 @@ afterEach(() => {
 });
 
 describe("useSettingsNav", () => {
-  it("初期状態はルートビュー ModalMenu で isOpen=false", async () => {
+  it("初期状態はルートビュー SettingsMenu で isOpen=false", async () => {
     const { useSettingsNav } = await freshModules();
     const { currentView, isOpen, canNavigateBack } = useSettingsNav();
-    expect(currentView.value).toBe("ModalMenu");
+    expect(currentView.value).toBe("SettingsMenu");
     expect(isOpen.value).toBe(false);
     expect(canNavigateBack.value).toBe(false);
   });
 
-  it("引数無しのsettings:openはModalMenuを開く", async () => {
+  it("引数無しのsettings:openはSettingsMenuを開く", async () => {
     const { useSettingsNav, emit } = await freshModules();
     const { isOpen, currentView } = useSettingsNav();
 
     emit("settings:open");
 
     expect(isOpen.value).toBe(true);
-    expect(currentView.value).toBe("ModalMenu");
+    expect(currentView.value).toBe("SettingsMenu");
   });
 
   it("settings:open({view:'SessionList'})はセッション一覧オーバーレイへリダイレクトし、Settingsのスタックは開かない", async () => {
@@ -59,13 +59,13 @@ describe("useSettingsNav", () => {
     expect(settingsOpen.value).toBe(false);
   });
 
-  it("キーパッドプリセット由来のPreviewPortsはSessionPreviewとしてModalMenu配下に積まれる", async () => {
+  it("キーパッドプリセット由来のPreviewPortsはSessionPreviewとしてSettingsMenu配下に積まれる", async () => {
     const { useSettingsNav, emit } = await freshModules();
     const { viewStack } = useSettingsNav();
 
     emit("settings:open", { view: "PreviewPorts" });
 
-    expect(viewStack.value.map((e) => e.view)).toEqual(["ModalMenu", "SessionPreview"]);
+    expect(viewStack.value.map((e) => e.view)).toEqual(["SettingsMenu", "SessionPreview"]);
   });
 
   it("PairDeviceConfigはAuthConfigを経由して積まれる（戻るとAuthConfigに戻れる）", async () => {
@@ -74,19 +74,19 @@ describe("useSettingsNav", () => {
 
     emit("settings:open", { view: "PairDeviceConfig" });
 
-    expect(viewStack.value.map((e) => e.view)).toEqual(["ModalMenu", "AuthConfig", "PairDeviceConfig"]);
+    expect(viewStack.value.map((e) => e.view)).toEqual(["SettingsMenu", "AuthConfig", "PairDeviceConfig"]);
   });
 
   it("modal:closeでルートへ戻りisOpenがfalseになる", async () => {
     const { useSettingsNav, emit } = await freshModules();
     const { openView, isOpen, currentView } = useSettingsNav();
-    openView("ModalMenu");
+    openView("SettingsMenu");
     expect(isOpen.value).toBe(true);
 
     emit("modal:close");
 
     expect(isOpen.value).toBe(false);
-    expect(currentView.value).toBe("ModalMenu");
+    expect(currentView.value).toBe("SettingsMenu");
   });
 
   it("モバイルでopenViewすると他の登録済みオーバーレイが閉じる", async () => {
@@ -96,7 +96,7 @@ describe("useSettingsNav", () => {
     useExclusiveMobileOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
     const { openView } = useSettingsNav();
 
-    openView("ModalMenu");
+    openView("SettingsMenu");
 
     expect(closed).toEqual(["sessionOpen"]);
   });

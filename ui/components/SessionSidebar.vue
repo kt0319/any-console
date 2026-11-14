@@ -93,12 +93,12 @@ function updateViewportWidth() {
 
 // サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
 // 判定する——タブバー位置の設定（isPanelBottom）とは独立（Wide画面でタブを
-// Bottomに設定していても、幅があるならこちらを使う。Modal.vue参照）。
+// Bottomに設定していても、幅があるならこちらを使う。SessionListOverlay.vue参照）。
 const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isNarrowViewport);
 
 watch(isOpen, () => stopResize());
 
-// Esc で閉じる（モバイルはModal.vue側のuseModalが同様のEscハンドリングを持つ）。
+// Esc で閉じる（モバイルはSessionListOverlay.vue側のuseModalが同様のEscハンドリングを持つ）。
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.defaultPrevented || isComposingEvent(e)) return;
   if (!layoutStore.isSessionSidebarOpen) return;
@@ -123,7 +123,7 @@ onBeforeUnmount(() => {
   top: 0;
   left: 0;
   bottom: 0;
-  z-index: 15; /* Modal.vue の .modal-overlay(z-index:20) より下、info-pills(10) より上 */
+  z-index: 15; /* SessionListOverlay.vue の .modal-overlay(z-index:20) より下、info-pills(10) より上 */
   width: var(--session-sidebar-width);
   max-width: 85vw;
   display: flex;

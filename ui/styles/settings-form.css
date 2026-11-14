@@ -83,7 +83,7 @@
   letter-spacing: 0.02em;
 }
 
-/* 設定メニュー（ModalMenu.vue）とセッション一覧下部メニュー
+/* 設定メニュー（SettingsMenu.vue）とセッション一覧下部メニュー
    （SessionListView.vue）で共用する行ボタン。 */
 .settings-menu-item {
   display: flex;

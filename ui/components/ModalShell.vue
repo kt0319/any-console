@@ -95,7 +95,7 @@ watch(
   overflow: hidden;
 }
 
-/* Modal.vue（モバイルの設定オーバーレイ）と同じボトムシート風にする。既定
+/* SessionListOverlay.vue（モバイルのセッション一覧オーバーレイ）と同じボトムシート風にする。既定
    （タブバー: Top相当）はヘッダーを上部固定にし、セッションタブがボトム
    配置（Settings > Display）の時だけヘッダーも下部（ボトムシート風）に
    揃える。ヘッダー自体の見た目（panel-bottom時の境界線・safe-area余白）は

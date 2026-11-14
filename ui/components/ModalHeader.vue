@@ -26,7 +26,7 @@
 <script setup lang="ts">
 // モーダル/サイドバー系オーバーレイ共通のヘッダー（タイトル+戻る、閉じる
 // ボタン）。ModalShell.vue（全面オーバーレイ）とSessionListPanel.vue
-// （セッション一覧、Modal.vue全面オーバーレイ/SessionSidebar.vueインライン
+// （セッション一覧、SessionListOverlay.vue全面オーバーレイ/SessionSidebar.vueインライン
 // の両方から使われる）で共用する。panelBottomはヘッダーを画面上部/下部の
 // どちらに寄せるか（ボトムシート風にするか）を切り替える——呼び出し元が
 // 「実際にタブバーと同じ側に来るべきか」を判断して渡す（ModalShell.vueは

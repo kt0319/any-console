@@ -4,19 +4,19 @@ import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";
 import { useSessionListOverlay } from "./useSessionListOverlay.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 
-// Settings専用のビュースタック（旧Modal.vueが単独で持っていた状態）を
+// Settings専用のビュースタック（旧SessionListOverlay.vueが単独で持っていた状態）を
 // モジュールスコープの単一状態に抽出したもの。タブバーの歯車ボタンから
 // TerminalSettingsModal.vue（PC/モバイル共通、WorkspaceDetailModal.vueと
 // 同じ全面オーバーレイ）が開く。セッション一覧・Open Sessionとは完全に
-// 独立した系列で、ルートはModalMenu固定（ここから外れない）。
+// 独立した系列で、ルートはSettingsMenu固定（ここから外れない）。
 //
 // ビュースタックの実装本体は createViewStackNav.ts（useSessionOpenNav と共通）。
-// 個々の設定画面（ModalMenu/TerminalConfig/...）は useModalView() 経由で
+// 個々の設定画面（SettingsMenu/TerminalConfig/...）は useModalView() 経由で
 // modalTitle/modalBranch/viewState/pushView/popView/updateViewState を
 // injectするインターフェースのまま変わらない（provideする側がTerminalSettingsModal.vue
 // になるだけ）。
 
-const ROOT_VIEW = "ModalMenu";
+const ROOT_VIEW = "SettingsMenu";
 
 const nav = createViewStackNav({ rootView: ROOT_VIEW, overlayKey: "settings" });
 const { openView, closeNav } = nav;

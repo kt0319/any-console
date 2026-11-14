@@ -26,7 +26,7 @@
       >
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
-      <Modal />
+      <SessionListOverlay />
       <SessionOpenModal />
       <TerminalSettingsModal />
       <WorkspaceDetailModal />
@@ -43,7 +43,7 @@ import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
-import Modal from "./Modal.vue";
+import SessionListOverlay from "./SessionListOverlay.vue";
 import SessionOpenModal from "./SessionOpenModal.vue";
 import TerminalSettingsModal from "./TerminalSettingsModal.vue";
 import WorkspaceDetailModal from "./WorkspaceDetailModal.vue";
@@ -116,7 +116,7 @@ const activeTabLabel = useActiveTabLabel(isEmptyScreenVisible);
 const { debugMode, latestLog, debugInfo } = useDebugInfoLine();
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
-// インラインサイドバー vs Modal.vueの全面オーバーレイの出し分けは、タブ位置設定ではなく
+// インラインサイドバー vs SessionListOverlay.vueの全面オーバーレイの出し分けは、タブ位置設定ではなく
 // 実際の画面幅で判定する。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 // 送信先のターミナルが無い間（空画面）はキーボードバーを出さない。

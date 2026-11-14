@@ -554,12 +554,12 @@ describe("a11y: SessionOpenModal", () => {
 });
 
 describe("a11y: TerminalSettingsModal", () => {
-  it("Settingsオーバーレイ（ModalMenu）に a11y 違反が無い", async () => {
+  it("Settingsオーバーレイ（SettingsMenu）に a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const { default: TerminalSettingsModal } = await import("../../../ui/components/TerminalSettingsModal.vue");
     const { useSettingsNav } = await import("../../../ui/composables/useSettingsNav.ts");
     const wrapper = mount(TerminalSettingsModal, { attachTo: document.body });
-    useSettingsNav().openView("ModalMenu");
+    useSettingsNav().openView("SettingsMenu");
     await flushPromises();
     await expectNoA11yViolations(wrapper.element);
     useSettingsNav().closeNav();

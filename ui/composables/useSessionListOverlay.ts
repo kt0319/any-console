@@ -2,7 +2,7 @@ import { computed } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
 
-// セッション一覧オーバーレイ（PC: SessionSidebar.vue / モバイル: Modal.vue が
+// セッション一覧オーバーレイ（PC: SessionSidebar.vue / モバイル: SessionListOverlay.vue が
 // SessionListPanel.vueをホストする）の開閉を一箇所に集約する薄いcomposable。
 // 実体はlayoutStore.isSessionSidebarOpenのラップで、TabBar.vueのハンバーガー・
 // useSettingsNav.tsの旧SessionListへのリダイレクト・SessionListPanel.vueの
