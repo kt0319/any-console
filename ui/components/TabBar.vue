@@ -9,7 +9,7 @@
     <button
       v-if="isNarrowViewport || !isSidebarOpen"
       class="tab-menu-btn hover-bg"
-      :class="{ active: isSidebarOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isPanelBottom }"
+      :class="{ active: isSidebarOpen, 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isTabBarAtBottom }"
       @click="onMenuClick"
       :aria-label="sidebarToggleLabel"
       :aria-expanded="isSidebarOpen ? 'true' : 'false'"
@@ -37,7 +37,7 @@
             :key="item.tab.id || item.tab.wsUrl"
             :tab="item.tab"
             :active-tab-id="activeTabId"
-            :is-panel-bottom="isPanelBottom"
+            :is-panel-bottom="isTabBarAtBottom"
             :is-narrow="isNarrowViewport"
             :in-group="group.items.length > 1"
             :follows-base="index > 0"
@@ -48,7 +48,7 @@
       <button
         type="button"
         class="tab-menu-btn hover-bg"
-        :class="{ active: isSessionOpenOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSessionOpenOpen, 'tab-underline-top': isPanelBottom }"
+        :class="{ active: isSessionOpenOpen, 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-active': isSessionOpenOpen, 'tab-underline-top': isTabBarAtBottom }"
         @click="onOpenSessionClick"
         :aria-label="openSessionLabel"
         :aria-expanded="isSessionOpenOpen ? 'true' : 'false'"
@@ -60,7 +60,7 @@
     <button
       type="button"
       class="tab-menu-btn hover-bg"
-      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isPanelBottom }"
+      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isTabBarAtBottom }"
       @click="onSettingsClick"
       :aria-label="settingsLabel"
       :aria-expanded="isSettingsOpen ? 'true' : 'false'"
@@ -94,7 +94,7 @@ const props = defineProps({
 
 const tabListEl = ref<HTMLElement | null>(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
-const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+const isTabBarAtBottom = computed(() => layoutStore.isTabBarAtBottom);
 // サイドバーのインライン/全面オーバーレイ切替と同じ基準。タブ自体の幅広/幅狭
 // （TabItem.vueのラベル表示可否）にもこれを使う（タブ位置設定ではなく実際の画面幅で決まる）。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
@@ -180,7 +180,7 @@ const settingsLabel = computed(() => (isSettingsOpen.value ? "Close settings" : 
 
 function onMenuClick() {
   // 開閉のexclusive制御（他オーバーレイを閉じる/閉じないの判定）は
-  // useSessionListOverlay.ts（useExclusiveMobileOverlay.ts経由）に集約されて
+  // useSessionListOverlay.ts（useExclusiveOverlay.ts経由）に集約されて
   // いるため、ここでは単純に開閉を切り替えるだけでよい。
   if (isSessionListOpen.value) closeSessionList();
   else openSessionList();

@@ -49,7 +49,7 @@ const ZONES = [
 ] as const;
 
 const visibleZones = computed(() => ZONES.filter((zone) => {
-  if ("hideWhenPanelBottom" in zone && zone.hideWhenPanelBottom && layoutStore.isPanelBottom) return false;
+  if ("hideWhenPanelBottom" in zone && zone.hideWhenPanelBottom && layoutStore.isTabBarAtBottom) return false;
   if ("splitModeOnly" in zone && zone.splitModeOnly && !layoutStore.isSplitMode) return false;
   return true;
 }));

@@ -4,16 +4,16 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useLayoutStore } from "../../ui/stores/layout.ts";
 
-// useSessionOpenNav/useExclusiveMobileOverlay/app-bridgeを同じタイミングで動的
+// useSessionOpenNav/useExclusiveOverlay/app-bridgeを同じタイミングで動的
 // importし、resetModules後も同一インスタンスを共有させる（理由はtest_use_branch_actions.jsのfreshModuleを参照）。
 async function freshModules() {
   vi.resetModules();
-  const [{ useSessionOpenNav, openWorkspaceAdd }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([
+  const [{ useSessionOpenNav, openWorkspaceAdd }, { useExclusiveOverlay }, bridge] = await Promise.all([
     import("../../ui/composables/useSessionOpenNav.ts"),
-    import("../../ui/composables/useExclusiveMobileOverlay.ts"),
+    import("../../ui/composables/useExclusiveOverlay.ts"),
     import("../../ui/app-bridge.ts"),
   ]);
-  return { useSessionOpenNav, openWorkspaceAdd, useExclusiveMobileOverlay, emit: bridge.emit };
+  return { useSessionOpenNav, openWorkspaceAdd, useExclusiveOverlay, emit: bridge.emit };
 }
 
 beforeEach(() => {
@@ -80,10 +80,10 @@ describe("useSessionOpenNav", () => {
   });
 
   it("モバイルでopenViewすると他の登録済みオーバーレイが閉じる", async () => {
-    const { useSessionOpenNav, useExclusiveMobileOverlay } = await freshModules();
-    useLayoutStore().isPanelBottom = true;
+    const { useSessionOpenNav, useExclusiveOverlay } = await freshModules();
+    useLayoutStore().isTabBarAtBottom = true;
     const closed = [];
-    useExclusiveMobileOverlay().registerOverlay("settings", () => closed.push("settings"));
+    useExclusiveOverlay().registerOverlay("settings", () => closed.push("settings"));
     const { openView } = useSessionOpenNav();
 
     openView("WorkspaceOpen");

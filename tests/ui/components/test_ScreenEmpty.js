@@ -43,7 +43,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("shows the shortcut on a PC-sized viewport with auth on and no mobile device yet", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = false;
+    layoutStore.isTabBarAtBottom = false;
     mockApi({ authRequired: true, devices: [] });
 
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
@@ -54,7 +54,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("shows the shortcut on a mobile-sized viewport too", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = true;
+    layoutStore.isTabBarAtBottom = true;
     mockApi({ authRequired: true, devices: [] });
 
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
@@ -65,7 +65,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("collapses the Setup section once all eligible items are done, and keeps the checkmark once expanded", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = false;
+    layoutStore.isTabBarAtBottom = false;
     mockApi({
       authRequired: true,
       devices: [{ id: "dev_1", name: "Safari on iOS", user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1" }],
@@ -83,7 +83,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("shows the GitHub CLI login item as not-done when gh is unauthenticated", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = false;
+    layoutStore.isTabBarAtBottom = false;
     apiGetMock.mockImplementation(async (url) => {
       if (url === "/settings/auth") return { ok: true, data: { auth_required: false } };
       if (url === "/system/info") return { ok: true, data: { gh_authenticated: false } };
@@ -100,7 +100,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("hides the shortcut when authentication is disabled", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = false;
+    layoutStore.isTabBarAtBottom = false;
     mockApi({ authRequired: false, devices: [] });
 
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
@@ -111,7 +111,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("emits settings:open for PairDeviceConfig when clicked", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = false;
+    layoutStore.isTabBarAtBottom = false;
     mockApi({ authRequired: true, devices: [] });
 
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
@@ -128,7 +128,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
   it("has no a11y violations with the phone pairing shortcut visible", async () => {
     const layoutStore = useLayoutStore();
-    layoutStore.isPanelBottom = false;
+    layoutStore.isTabBarAtBottom = false;
     mockApi({ authRequired: true, devices: [] });
 
     wrapper = mount(ScreenEmpty, { attachTo: document.body });

@@ -36,7 +36,7 @@ export function useTerminalSplitPanes() {
     return {
       "split-active": true,
       [`split-${splitLayout.value}`]: true,
-      "split-mobile": layoutStore.isPanelBottom,
+      "split-mobile": layoutStore.isTabBarAtBottom,
     };
   });
 

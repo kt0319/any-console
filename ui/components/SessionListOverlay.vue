@@ -6,8 +6,8 @@
     aria-modal="true"
     @mousedown.self="close"
   >
-    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': layoutStore.isPanelBottom }">
-      <SessionListPanel ref="panelRef" :panel-bottom="layoutStore.isPanelBottom" />
+    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': layoutStore.isTabBarAtBottom }">
+      <SessionListPanel ref="panelRef" :panel-bottom="layoutStore.isTabBarAtBottom" />
     </div>
   </div>
 </template>
@@ -33,7 +33,7 @@ const panelRef = ref<InstanceType<typeof SessionListPanel> | null>(null);
 // isSessionSidebarOpen（ハンバーガーで開閉）かつ画面が狭い時だけ、
 // フォーカストラップ・Escハンドリング付きのオーバーレイとして開閉する。
 // サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
-// 判定する——タブバー位置の設定（isPanelBottom）とは独立（Wide画面でタブを
+// 判定する——タブバー位置の設定（isTabBarAtBottom）とは独立（Wide画面でタブを
 // Bottomに設定していても、幅があるならインラインサイドバーを使う）。
 // PCはSessionSidebar.vue側が同じisSessionSidebarOpenを見て自身のサイドバー
 // を開くだけで、このオーバーレイ自体は使わない。

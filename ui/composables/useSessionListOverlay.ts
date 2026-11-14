@@ -1,6 +1,6 @@
 import { computed } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
-import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
+import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
 // セッション一覧オーバーレイ（PC: SessionSidebar.vue / モバイル: SessionListOverlay.vue が
 // SessionListPanel.vueをホストする）の開閉を一箇所に集約する薄いcomposable。
@@ -13,13 +13,13 @@ let registered = false;
 function registerOnce() {
   if (registered) return;
   registered = true;
-  const { registerOverlay } = useExclusiveMobileOverlay();
+  const { registerOverlay } = useExclusiveOverlay();
   registerOverlay("sessionList", close);
 }
 
 function open() {
   registerOnce();
-  const { closeOthersOn } = useExclusiveMobileOverlay();
+  const { closeOthersOn } = useExclusiveOverlay();
   closeOthersOn("sessionList");
   useLayoutStore().isSessionSidebarOpen = true;
 }

@@ -1,6 +1,6 @@
 import { reactive, computed, watch } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
-import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
+import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
 // WorkspaceDetail専用のナビゲーション状態。useSettingsNav.tsのビュースタックとは
 // 完全に独立させている（以前はSettingsのスタックに積んでいたため、開くたびに
@@ -70,7 +70,7 @@ const modalBranch = makeField("modalBranch");
 const viewState = computed(() => ({ detail: detail.value }));
 
 function open(newDetail: Record<string, any> = {}) {
-  const { closeOthersOn } = useExclusiveMobileOverlay();
+  const { closeOthersOn } = useExclusiveOverlay();
   closeOthersOn("workspaceDetail");
   const e = entry();
   e.detail = newDetail;
@@ -113,7 +113,7 @@ function registerCleanupWatcher() {
   if (cleanupWatcherRegistered) return;
   cleanupWatcherRegistered = true;
 
-  const { registerOverlay } = useExclusiveMobileOverlay();
+  const { registerOverlay } = useExclusiveOverlay();
   registerOverlay("workspaceDetail", close);
   // getter内でuseTerminalStore()を都度呼ぶ（テストでsetActivePinia(createPinia())
   // されるたびに新しいストアへ切り替わるようにするため。クロージャで一度だけ

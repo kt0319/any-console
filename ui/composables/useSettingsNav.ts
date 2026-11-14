@@ -2,7 +2,7 @@ import { on } from "../app-bridge.ts";
 import { createViewStackNav } from "./createViewStackNav.ts";
 import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";
 import { useSessionListOverlay } from "./useSessionListOverlay.ts";
-import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
+import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
 // Settings専用のビュースタック（旧SessionListOverlay.vueが単独で持っていた状態）を
 // モジュールスコープの単一状態に抽出したもの。タブバーの歯車ボタンから
@@ -27,7 +27,7 @@ function registerListeners() {
   if (listenersRegistered) return;
   listenersRegistered = true;
 
-  const { registerOverlay } = useExclusiveMobileOverlay();
+  const { registerOverlay } = useExclusiveOverlay();
   registerOverlay("settings", closeNav);
 
   on("settings:open", (detail) => {

@@ -1,6 +1,6 @@
 import { on } from "../app-bridge.ts";
 import { createViewStackNav } from "./createViewStackNav.ts";
-import { useExclusiveMobileOverlay } from "./useExclusiveMobileOverlay.ts";
+import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
 // Open Session系列（WorkspaceOpen/WorkspaceAdd/WorkspaceEdit/JobConfig/
 // IconPicker）専用のビュースタック（SessionOpenModal.vueがホストする）。
@@ -20,7 +20,7 @@ function registerListeners() {
   if (listenersRegistered) return;
   listenersRegistered = true;
 
-  const { registerOverlay } = useExclusiveMobileOverlay();
+  const { registerOverlay } = useExclusiveOverlay();
   registerOverlay("sessionOpen", closeNav);
 
   on("workspace:openModal", () => openView([{ view: "WorkspaceOpen", state: {} }]));

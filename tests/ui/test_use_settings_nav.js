@@ -8,13 +8,13 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 // 同一インスタンスを共有させる（理由はtest_use_branch_actions.jsのfreshModuleを参照）。
 async function freshModules() {
   vi.resetModules();
-  const [{ useSettingsNav }, { useSessionListOverlay }, { useExclusiveMobileOverlay }, bridge] = await Promise.all([
+  const [{ useSettingsNav }, { useSessionListOverlay }, { useExclusiveOverlay }, bridge] = await Promise.all([
     import("../../ui/composables/useSettingsNav.ts"),
     import("../../ui/composables/useSessionListOverlay.ts"),
-    import("../../ui/composables/useExclusiveMobileOverlay.ts"),
+    import("../../ui/composables/useExclusiveOverlay.ts"),
     import("../../ui/app-bridge.ts"),
   ]);
-  return { useSettingsNav, useSessionListOverlay, useExclusiveMobileOverlay, emit: bridge.emit };
+  return { useSettingsNav, useSessionListOverlay, useExclusiveOverlay, emit: bridge.emit };
 }
 
 beforeEach(() => {
@@ -90,10 +90,10 @@ describe("useSettingsNav", () => {
   });
 
   it("モバイルでopenViewすると他の登録済みオーバーレイが閉じる", async () => {
-    const { useSettingsNav, useExclusiveMobileOverlay } = await freshModules();
-    useLayoutStore().isPanelBottom = true;
+    const { useSettingsNav, useExclusiveOverlay } = await freshModules();
+    useLayoutStore().isTabBarAtBottom = true;
     const closed = [];
-    useExclusiveMobileOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
+    useExclusiveOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
     const { openView } = useSettingsNav();
 
     openView("SettingsMenu");

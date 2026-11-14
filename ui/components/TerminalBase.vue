@@ -70,7 +70,7 @@ import { useLayoutStore } from "../stores/layout.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
 
 defineProps({
-  isPanelBottom: { type: Boolean, default: false },
+  isTabBarAtBottom: { type: Boolean, default: false },
 });
 
 const {

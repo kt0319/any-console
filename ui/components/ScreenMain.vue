@@ -1,5 +1,5 @@
 <template>
-  <div class="main-panel" :style="{ '--session-sidebar-width': `min(${layoutStore.sessionSidebarWidth}px, 50vw)` }" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
+  <div class="main-panel" :style="{ '--session-sidebar-width': `min(${layoutStore.sessionSidebarWidth}px, 50vw)` }" :class="{ 'panel-bottom': isTabBarAtBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
     <!-- PCのサイドバーはTabBarの行とヘッダー高さを揃えるため.content-area配下ではなく
          .main-panel直下に置く（.content-area内だとactive-tab-title分だけ下にずれる）。 -->
@@ -22,7 +22,7 @@
         v-if="hasAnyTab && !booting"
         v-show="!isEmptyScreenVisible"
         ref="terminalBaseView"
-        :is-panel-bottom="isPanelBottom"
+        :is-panel-bottom="isTabBarAtBottom"
       >
         <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
       </TerminalBase>
@@ -115,7 +115,7 @@ watch(isEmptyScreenVisible, async (isEmpty) => {
 const activeTabLabel = useActiveTabLabel(isEmptyScreenVisible);
 const { debugMode, latestLog, debugInfo } = useDebugInfoLine();
 
-const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+const isTabBarAtBottom = computed(() => layoutStore.isTabBarAtBottom);
 // インラインサイドバー vs SessionListOverlay.vueの全面オーバーレイの出し分けは、タブ位置設定ではなく
 // 実際の画面幅で判定する。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);

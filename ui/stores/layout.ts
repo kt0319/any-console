@@ -16,13 +16,13 @@ export const useLayoutStore = defineStore("layout", () => {
   // 画面幅の生の判定（折りたたみスマホの開閉等でmatchMediaのchangeに追従する）。
   // 実際にタブバーを下に置くか・Keyboard barを表示するかはこれとlayoutPrefs
   // （Settings > Display で狭い/広いそれぞれに設定可能）から導出する。
-  const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
-  const isNarrowViewport = ref(panelBottomMediaQuery.matches);
-  panelBottomMediaQuery.addEventListener("change", (e) => {
+  const narrowViewportMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
+  const isNarrowViewport = ref(narrowViewportMediaQuery.matches);
+  narrowViewportMediaQuery.addEventListener("change", (e) => {
     isNarrowViewport.value = e.matches;
   });
   const layoutPrefs = useLayoutPrefs();
-  const isPanelBottom = computed({
+  const isTabBarAtBottom = computed({
     get: () => resolveTabPosition(layoutPrefs.value, isNarrowViewport.value) === "bottom",
     // モバイル/PCレイアウトを直接切り替えるための書き込みショートハンド。実体は
     // isNarrowViewportへの代入で、layoutPrefsの内容は変更しない。
@@ -229,7 +229,7 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   return {
-    isPanelBottom,
+    isTabBarAtBottom,
     isNarrowViewport,
     keyboardBarVisible,
     keyboardBarFullWidth,

@@ -39,7 +39,7 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     const terminalStore = useTerminalStore();
     const workspaceStore = useWorkspaceStore();
     layoutStore.isSessionSidebarOpen = true;
-    layoutStore.isPanelBottom = panelBottom;
+    layoutStore.isTabBarAtBottom = panelBottom;
     terminalStore.openTabs = [
       { id: 1, sessionId: "s1", workspace: "app", label: "app", wsIcon: null, icon: null },
       { id: 2, sessionId: "s2", workspace: null, label: "bare", wsIcon: null, icon: null },

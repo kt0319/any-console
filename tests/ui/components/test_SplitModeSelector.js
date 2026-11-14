@@ -6,7 +6,7 @@ import { createPinia, setActivePinia } from "pinia";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 
 describe("SplitModeSelector", () => {
-  // isPanelBottom（モバイル判定）を layout store から読むため
+  // isTabBarAtBottom（モバイル判定）を layout store から読むため
   beforeEach(() => {
     setActivePinia(createPinia());
   });

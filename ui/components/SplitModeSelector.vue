@@ -29,7 +29,7 @@ defineProps({
 
 defineEmits(["select"]);
 
-const { isPanelBottom: isMobile } = storeToRefs(useLayoutStore());
+const { isTabBarAtBottom: isMobile } = storeToRefs(useLayoutStore());
 
 const modes = [
   { value: "normal", icon: "split-icon-normal", minTabs: 0, label: "Single pane" },

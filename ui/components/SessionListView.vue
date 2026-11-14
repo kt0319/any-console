@@ -172,7 +172,7 @@ const items = computed(() => {
 function onSelect(item: SessionItem) {
   if (item.id !== terminalStore.activeTabId) {
     // モバイルはタッチ操作前提のため、ソフトキーボードの誤起動を避けて skipFocus。
-    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
+    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isTabBarAtBottom });
   } else {
     // 既にアクティブなタブ（タブが1つしかない場合等）は switchTab() を経由しないため、
     // ここで明示的にバッジをクリアする。
@@ -184,7 +184,7 @@ function onSelect(item: SessionItem) {
 
 function onPillOpen(item: SessionItem, key: string) {
   if (item.id !== terminalStore.activeTabId) {
-    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isPanelBottom });
+    emit("tab:select", { tab: item.tab, skipFocus: layoutStore.isTabBarAtBottom });
   }
   // openPaneが積むビュー（WorkspaceDetail等）は同じ共有スタックの続きとして表示されるため、
   // ここでサイドバー自体を閉じない（閉じると開いた直後のビューごと隠れてしまう）。

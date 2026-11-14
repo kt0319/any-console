@@ -148,7 +148,7 @@ const {
 // エディタ連携（vscode://等のカスタムURLスキーム）はローカルのデスクトップ
 // エディタを起動する前提のため、モバイルでは対応するアプリが無く実質使えない
 // （useEditorIntegration.openInEditor参照）。ボタン自体を出さない。
-const { isPanelBottom: isMobile } = storeToRefs(useLayoutStore());
+const { isTabBarAtBottom: isMobile } = storeToRefs(useLayoutStore());
 const showEditorButton = computed(() => !!editorUrlTemplate.value && !isMobile.value);
 
 const {

@@ -92,7 +92,7 @@ function updateViewportWidth() {
 }
 
 // サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
-// 判定する——タブバー位置の設定（isPanelBottom）とは独立（Wide画面でタブを
+// 判定する——タブバー位置の設定（isTabBarAtBottom）とは独立（Wide画面でタブを
 // Bottomに設定していても、幅があるならこちらを使う。SessionListOverlay.vue参照）。
 const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isNarrowViewport);
 

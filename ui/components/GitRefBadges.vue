@@ -22,8 +22,8 @@ defineProps({
   refs: { type: Array as PropType<RefLike[]>, default: () => [] },
 });
 
-// モバイル判定は layout store の isPanelBottom に一本化する（境界幅の食い違い防止）。
-const { isPanelBottom: isMobile } = storeToRefs(useLayoutStore());
+// モバイル判定は layout store の isTabBarAtBottom に一本化する（境界幅の食い違い防止）。
+const { isTabBarAtBottom: isMobile } = storeToRefs(useLayoutStore());
 
 function abbreviateRef(r: RefLike) {
   if (r.type === "tag" || !isMobile.value || r.label.length < 24) return { abbr: "", rest: r.label };

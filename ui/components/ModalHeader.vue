@@ -30,7 +30,7 @@
 // の両方から使われる）で共用する。panelBottomはヘッダーを画面上部/下部の
 // どちらに寄せるか（ボトムシート風にするか）を切り替える——呼び出し元が
 // 「実際にタブバーと同じ側に来るべきか」を判断して渡す（ModalShell.vueは
-// layoutStore.isPanelBottom、SessionSidebar.vue経由のPCインライン表示は
+// layoutStore.isTabBarAtBottom、SessionSidebar.vue経由のPCインライン表示は
 // 常にfalse固定など）。
 
 defineProps<{

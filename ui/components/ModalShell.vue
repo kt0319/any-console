@@ -13,11 +13,11 @@
         :branch="branch"
         :can-back="canBack"
         :close-label="closeLabel"
-        :panel-bottom="isPanelBottom"
+        :panel-bottom="isTabBarAtBottom"
         @back="emit('back')"
         @close="emit('close')"
       />
-      <div class="settings-panel-body" :class="{ 'panel-bottom': isPanelBottom }">
+      <div class="settings-panel-body" :class="{ 'panel-bottom': isTabBarAtBottom }">
         <slot />
       </div>
     </div>
@@ -63,7 +63,7 @@ const emit = defineEmits<{
 const modal = useModal();
 const modalEl = ref<HTMLElement | null>(null);
 const layoutStore = useLayoutStore();
-const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+const isTabBarAtBottom = computed(() => layoutStore.isTabBarAtBottom);
 
 watch(
   () => props.isOpen,

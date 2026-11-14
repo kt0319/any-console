@@ -6,7 +6,7 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 
 async function freshModule() {
   vi.resetModules();
-  return import("../../ui/composables/useExclusiveMobileOverlay.ts");
+  return import("../../ui/composables/useExclusiveOverlay.ts");
 }
 
 function registerAll(registerOverlay, closed) {
@@ -20,11 +20,11 @@ beforeEach(() => {
   setActivePinia(createPinia());
 });
 
-describe("useExclusiveMobileOverlay", () => {
+describe("useExclusiveOverlay", () => {
   it("モバイルでは4つ全てが互いに排他", async () => {
-    useLayoutStore().isPanelBottom = true;
-    const { useExclusiveMobileOverlay } = await freshModule();
-    const { registerOverlay, closeOthersOn } = useExclusiveMobileOverlay();
+    useLayoutStore().isTabBarAtBottom = true;
+    const { useExclusiveOverlay } = await freshModule();
+    const { registerOverlay, closeOthersOn } = useExclusiveOverlay();
     const closed = [];
     registerAll(registerOverlay, closed);
 
@@ -34,9 +34,9 @@ describe("useExclusiveMobileOverlay", () => {
   });
 
   it("PCではsessionOpenを開いてもsessionListは対象外で閉じない", async () => {
-    useLayoutStore().isPanelBottom = false;
-    const { useExclusiveMobileOverlay } = await freshModule();
-    const { registerOverlay, closeOthersOn } = useExclusiveMobileOverlay();
+    useLayoutStore().isTabBarAtBottom = false;
+    const { useExclusiveOverlay } = await freshModule();
+    const { registerOverlay, closeOthersOn } = useExclusiveOverlay();
     const closed = [];
     registerAll(registerOverlay, closed);
 
@@ -46,9 +46,9 @@ describe("useExclusiveMobileOverlay", () => {
   });
 
   it("PCでsessionListを開いても他の3つは閉じない", async () => {
-    useLayoutStore().isPanelBottom = false;
-    const { useExclusiveMobileOverlay } = await freshModule();
-    const { registerOverlay, closeOthersOn } = useExclusiveMobileOverlay();
+    useLayoutStore().isTabBarAtBottom = false;
+    const { useExclusiveOverlay } = await freshModule();
+    const { registerOverlay, closeOthersOn } = useExclusiveOverlay();
     const closed = [];
     registerAll(registerOverlay, closed);
 
@@ -58,9 +58,9 @@ describe("useExclusiveMobileOverlay", () => {
   });
 
   it("PCでもsessionOpen/settings/workspaceDetailの3つは互いに排他", async () => {
-    useLayoutStore().isPanelBottom = false;
-    const { useExclusiveMobileOverlay } = await freshModule();
-    const { registerOverlay, closeOthersOn } = useExclusiveMobileOverlay();
+    useLayoutStore().isTabBarAtBottom = false;
+    const { useExclusiveOverlay } = await freshModule();
+    const { registerOverlay, closeOthersOn } = useExclusiveOverlay();
     const closed = [];
     registerOverlay("settings", () => closed.push("settings"));
     registerOverlay("workspaceDetail", () => closed.push("workspaceDetail"));
@@ -71,9 +71,9 @@ describe("useExclusiveMobileOverlay", () => {
   });
 
   it("未登録キーへのcloseOthersOnは何も起きない", async () => {
-    useLayoutStore().isPanelBottom = true;
-    const { useExclusiveMobileOverlay } = await freshModule();
-    const { closeOthersOn } = useExclusiveMobileOverlay();
+    useLayoutStore().isTabBarAtBottom = true;
+    const { useExclusiveOverlay } = await freshModule();
+    const { closeOthersOn } = useExclusiveOverlay();
     expect(() => closeOthersOn("sessionList")).not.toThrow();
   });
 });

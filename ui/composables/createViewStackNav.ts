@@ -1,11 +1,11 @@
 import { ref, computed } from "vue";
-import { useExclusiveMobileOverlay, type OverlayKey } from "./useExclusiveMobileOverlay.ts";
+import { useExclusiveOverlay, type OverlayKey } from "./useExclusiveOverlay.ts";
 
 // モーダルのビュースタック（push/pop/ルートへリセット）の共通実装。
 // useSettingsNav（ルート SettingsMenu）と useSessionOpenNav（ルート WorkspaceOpen）が
 // 同じ構造を複製していたのをファクトリに抽出したもの。呼び出し側は
 // モジュールスコープで1回だけ生成し（系列ごとの単一状態）、イベントリスナーの
-// 登録（on(...)）と useExclusiveMobileOverlay への registerOverlay だけを
+// 登録（on(...)）と useExclusiveOverlay への registerOverlay だけを
 // 系列固有のコードとして持つ。
 
 export type NavEntry = { view: string, state: Record<string, any> };
@@ -54,7 +54,7 @@ export function createViewStackNav({ rootView, overlayKey }: {
   }
 
   function openView(views: string | NavEntry[]) {
-    const { closeOthersOn } = useExclusiveMobileOverlay();
+    const { closeOthersOn } = useExclusiveOverlay();
     closeOthersOn(overlayKey);
     const list = Array.isArray(views) ? views : [{ view: views, state: {} }];
     viewStack.value = list[0]?.view === rootView ? list : [rootEntry(), ...list];

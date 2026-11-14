@@ -6,11 +6,11 @@ import { useLayoutStore } from "../../ui/stores/layout.ts";
 
 async function freshModules() {
   vi.resetModules();
-  const [{ useSessionListOverlay }, { useExclusiveMobileOverlay }] = await Promise.all([
+  const [{ useSessionListOverlay }, { useExclusiveOverlay }] = await Promise.all([
     import("../../ui/composables/useSessionListOverlay.ts"),
-    import("../../ui/composables/useExclusiveMobileOverlay.ts"),
+    import("../../ui/composables/useExclusiveOverlay.ts"),
   ]);
-  return { useSessionListOverlay, useExclusiveMobileOverlay };
+  return { useSessionListOverlay, useExclusiveOverlay };
 }
 
 beforeEach(() => {
@@ -39,10 +39,10 @@ describe("useSessionListOverlay", () => {
   });
 
   it("モバイルでopen()すると他の登録済みオーバーレイが閉じる", async () => {
-    const { useSessionListOverlay, useExclusiveMobileOverlay } = await freshModules();
-    useLayoutStore().isPanelBottom = true;
+    const { useSessionListOverlay, useExclusiveOverlay } = await freshModules();
+    useLayoutStore().isTabBarAtBottom = true;
     const closed = [];
-    useExclusiveMobileOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
+    useExclusiveOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
     const { open } = useSessionListOverlay();
 
     open();
@@ -51,10 +51,10 @@ describe("useSessionListOverlay", () => {
   });
 
   it("PCでopen()しても他の登録済みオーバーレイは閉じない", async () => {
-    const { useSessionListOverlay, useExclusiveMobileOverlay } = await freshModules();
-    useLayoutStore().isPanelBottom = false;
+    const { useSessionListOverlay, useExclusiveOverlay } = await freshModules();
+    useLayoutStore().isTabBarAtBottom = false;
     const closed = [];
-    useExclusiveMobileOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
+    useExclusiveOverlay().registerOverlay("sessionOpen", () => closed.push("sessionOpen"));
     const { open } = useSessionListOverlay();
 
     open();
@@ -63,13 +63,13 @@ describe("useSessionListOverlay", () => {
   });
 
   it("sessionListとして登録され、他キーからのcloseOthersOnで閉じる", async () => {
-    const { useSessionListOverlay, useExclusiveMobileOverlay } = await freshModules();
-    useLayoutStore().isPanelBottom = true;
+    const { useSessionListOverlay, useExclusiveOverlay } = await freshModules();
+    useLayoutStore().isTabBarAtBottom = true;
     const { open, isOpen } = useSessionListOverlay();
     open();
     expect(isOpen.value).toBe(true);
 
-    useExclusiveMobileOverlay().closeOthersOn("sessionOpen");
+    useExclusiveOverlay().closeOthersOn("sessionOpen");
 
     expect(isOpen.value).toBe(false);
   });

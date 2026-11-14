@@ -6,7 +6,7 @@ import { useLayoutStore } from "../stores/layout.ts";
 // 自分の閉じ方を登録し、開く直前にcloseOthersOn(key)を呼ぶことで、他の
 // オーバーレイを閉じてから自分を開ける。
 //
-// モバイル(layoutStore.isPanelBottom)は4つ全てが互いに排他（最新に開いた
+// モバイル(layoutStore.isTabBarAtBottom)は4つ全てが互いに排他（最新に開いた
 // ものだけ表示）。PCはsessionList（サイドバー）だけ排他対象外とし、常に
 // 他の3つと同時表示できるようにする（現行のSidebar+WorkspaceDetail同時
 // 表示と同じ感覚を維持するため）。sessionOpen/settings/workspaceDetailの
@@ -22,7 +22,7 @@ function registerOverlay(key: OverlayKey, closeFn: () => void) {
 
 function closeOthersOn(key: OverlayKey) {
   const layoutStore = useLayoutStore();
-  const mobile = layoutStore.isPanelBottom;
+  const mobile = layoutStore.isTabBarAtBottom;
   for (const [k, close] of closers) {
     if (k === key) continue;
     if (!mobile && (k === "sessionList" || key === "sessionList")) continue;
@@ -30,6 +30,6 @@ function closeOthersOn(key: OverlayKey) {
   }
 }
 
-export function useExclusiveMobileOverlay() {
+export function useExclusiveOverlay() {
   return { registerOverlay, closeOthersOn };
 }

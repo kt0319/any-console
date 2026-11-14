@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn hover-bg"
-    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-blocked': agentState === 'blocked', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-narrow': isNarrow, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-blocked': agentState === 'blocked', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-narrow': isNarrow, 'tab-underline-active': isActive, 'tab-underline-top': isTabBarAtBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
     :aria-label="tabAriaLabel"
@@ -55,8 +55,8 @@ const props = defineProps({
   tab: { type: Object as PropType<TerminalTab>, required: true },
   activeTabId: { type: Number as PropType<number | null>, default: null },
   // アンダーラインの向き等、タブバーの位置（上/下）に応じた見た目に使う。
-  isPanelBottom: { type: Boolean, default: false },
-  // ラベル表示可否等、タブ自体の幅広/幅狭に使う。isPanelBottomとは独立
+  isTabBarAtBottom: { type: Boolean, default: false },
+  // ラベル表示可否等、タブ自体の幅広/幅狭に使う。isTabBarAtBottomとは独立
   // （実際の画面幅で決まる。TabBar.vue参照）。
   isNarrow: { type: Boolean, default: false },
   // 同じワークスペースのタブとグループ表示されているか（TabBar.vue参照）。
