@@ -20,7 +20,7 @@ import { useSettingsNav } from "../composables/useSettingsNav.ts";
 import { provideModalView } from "../composables/useModalView.ts";
 import ModalShell from "./ModalShell.vue";
 import SettingsMenu from "./SettingsMenu.vue";
-import SessionPreviewTab from "./SessionPreviewTab.vue";
+import ServerProcessesView from "./ServerProcessesView.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import AuthConfig from "./AuthConfig.vue";
@@ -52,7 +52,7 @@ provideModalView({
 // ビュー名 → コンポーネントの対応（ビュー追加はここに1行足すだけ）。
 const VIEWS: Record<string, unknown> = {
   SettingsMenu,
-  SessionPreview: SessionPreviewTab,
+  ServerProcesses: ServerProcessesView,
   TerminalConfig,
   EditorConfig,
   AuthConfig,

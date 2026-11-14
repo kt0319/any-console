@@ -1,5 +1,5 @@
 <template>
-  <div class="preview-tab">
+  <div class="server-processes-view">
     <div class="settings-card-head">
       <span class="settings-card-title">Processes on <code>{{ hostname }}</code></span>
       <span class="proc-col-heads">
@@ -74,7 +74,7 @@ import { buildProcessRows, type CombinedRow, type JobEntry, type PortEntry, type
 import { renderIconStr } from "../utils/render-icon.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
-// Settings（SettingsMenu）の「Server Processes」項目から開くcurrentView（'SessionPreview'）。
+// Settings（SettingsMenu）の「Server Processes」項目から開くcurrentView（'ServerProcesses'）。
 // dev server（ワークスペース紐付きのポート検出）とOSプロセス一覧（Kill含む）を
 // 1つの一覧に統合する。dev serverはOS上でも1つのプロセスであり、分けて出すと
 // 同じプロセスが両方に重複して載ってしまうため、dev serverに該当するpidは
@@ -168,7 +168,7 @@ onBeforeUnmount(stopPolling);
 </script>
 
 <style scoped>
-.preview-tab {
+.server-processes-view {
   display: flex;
   flex-direction: column;
   flex: 1;

@@ -34,7 +34,7 @@
             <span class="settings-menu-warn-text">No token</span>
           </span>
         </button>
-        <button type="button" class="settings-menu-item" @click="pushView('SessionPreview')">
+        <button type="button" class="settings-menu-item" @click="pushView('ServerProcesses')">
           <span class="mdi mdi-server"></span> Server Processes
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">

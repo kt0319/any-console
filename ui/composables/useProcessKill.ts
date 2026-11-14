@@ -4,7 +4,7 @@ import { useConfirm } from "./useConfirm.ts";
 import { EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.ts";
 import { DEV_SERVER_KILL_POLL_INTERVAL_MS, DEV_SERVER_KILL_POLL_TIMEOUT_MS } from "../utils/constants.ts";
 
-// プロセスkill（SIGTERM）ボタンの共通ロジック。SessionPreviewTab.vue
+// プロセスkill（SIGTERM）ボタンの共通ロジック。ServerProcessesView.vue
 // （Dev Server一覧）とServerInfo.vue（System Info > Processes）の両方で使う。
 // killingPidsはコンポーネントごとに独立させる（別画面のボタンまで巻き込んで
 // disabledにしないため、呼び出し側でuseProcessKill()を毎回呼ぶ）。

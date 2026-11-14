@@ -51,7 +51,7 @@ describe("WorkspaceDetail: terminal cwd files", () => {
           GitHubIssuesPane: true,
           GitHubActionsPane: true,
           GitHubPRsPane: true,
-          TerminalSelectPane: true,
+          TerminalSelectCopyPane: true,
         },
       },
     });

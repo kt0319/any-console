@@ -1,5 +1,5 @@
 <template>
-  <div class="select-pane">
+  <div class="select-copy-pane">
     <div class="textarea-scroll-wrapper">
       <textarea
         ref="textareaEl"
@@ -87,7 +87,7 @@ async function copyTrimmed(transform: (text: string) => string) {
 </script>
 
 <style scoped>
-.select-pane {
+.select-copy-pane {
   display: flex;
   flex-direction: column;
   flex: 1;

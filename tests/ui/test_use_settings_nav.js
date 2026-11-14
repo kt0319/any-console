@@ -59,13 +59,13 @@ describe("useSettingsNav", () => {
     expect(settingsOpen.value).toBe(false);
   });
 
-  it("キーパッドプリセット由来のPreviewPortsはSessionPreviewとしてSettingsMenu配下に積まれる", async () => {
+  it("キーパッドプリセット由来のPreviewPortsはServerProcessesとしてSettingsMenu配下に積まれる", async () => {
     const { useSettingsNav, emit } = await freshModules();
     const { viewStack } = useSettingsNav();
 
     emit("settings:open", { view: "PreviewPorts" });
 
-    expect(viewStack.value.map((e) => e.view)).toEqual(["SettingsMenu", "SessionPreview"]);
+    expect(viewStack.value.map((e) => e.view)).toEqual(["SettingsMenu", "ServerProcesses"]);
   });
 
   it("PairDeviceConfigはAuthConfigを経由して積まれる（戻るとAuthConfigに戻れる）", async () => {

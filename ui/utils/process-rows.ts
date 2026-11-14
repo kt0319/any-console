@@ -1,4 +1,4 @@
-// Server Processes ページの行構築（SessionPreviewTab.vue から使用）。
+// Server Processes ページの行構築（ServerProcessesView.vue から使用）。
 // dev server / job / 通常プロセスを ps の並び順のまま1本のリストへ合成する
 // 純粋関数。テストは tests/ui/test_process_rows.js。
 

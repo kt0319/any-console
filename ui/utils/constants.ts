@@ -26,7 +26,7 @@ export const RECONNECT_BACKOFF_BASE_MS = 1000;
 export const RECONNECT_BACKOFF_MAX = 5000;
 export const RECONNECTING_OVERLAY_MIN_ATTEMPTS = 2;
 export const DEV_SERVER_POLL_INTERVAL_MS = 10000;
-// SessionPreviewTab.vue: killのSIGTERM反映確認は既定のDEV_SERVER_POLL_INTERVAL_MS
+// ServerProcessesView.vue: killのSIGTERM反映確認は既定のDEV_SERVER_POLL_INTERVAL_MS
 // より短い間隔にして、スピナー表示を早めに終わらせる。
 export const DEV_SERVER_KILL_POLL_INTERVAL_MS = 500;
 export const DEV_SERVER_KILL_POLL_TIMEOUT_MS = 5000;

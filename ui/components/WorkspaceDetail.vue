@@ -88,7 +88,7 @@
         <DispatchWorkspacePane v-else @select="selectedDispatchId = $event" />
       </div>
       <div v-show="activePane === 'select'" class="pane-fill">
-        <TerminalSelectPane ref="terminalSelectPane" />
+        <TerminalSelectCopyPane ref="terminalSelectCopyPane" />
       </div>
     </div>
   </div>
@@ -108,7 +108,7 @@ import DockerPane from "./DockerPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
 import DispatchWorkspacePane from "./DispatchWorkspacePane.vue";
 import DispatchRunView from "./DispatchRunView.vue";
-import TerminalSelectPane from "./TerminalSelectPane.vue";
+import TerminalSelectCopyPane from "./TerminalSelectCopyPane.vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.ts";
@@ -145,7 +145,7 @@ const githubActions = ref<InstanceType<typeof GitHubActionsPane> | null>(null);
 const dockerPane = ref<InstanceType<typeof DockerPane> | null>(null);
 const githubPrs = ref<InstanceType<typeof GitHubPRsPane> | null>(null);
 const jobsPane = ref<InstanceType<typeof WorkspaceJobsPane> | null>(null);
-const terminalSelectPane = ref<InstanceType<typeof TerminalSelectPane> | null>(null);
+const terminalSelectCopyPane = ref<InstanceType<typeof TerminalSelectCopyPane> | null>(null);
 
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
 // （WorkspaceDetailModal.vueがuseWorkspaceDetailNav.tsのcloseをprovideする）。
@@ -337,7 +337,7 @@ const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
     });
   },
   select: () => {
-    nextTick(() => terminalSelectPane.value?.refresh());
+    nextTick(() => terminalSelectCopyPane.value?.refresh());
   },
 };
 

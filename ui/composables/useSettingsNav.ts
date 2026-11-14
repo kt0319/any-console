@@ -34,9 +34,9 @@ function registerListeners() {
     if (detail?.view) {
       // circle keypad の Preview プリセット（circle-keypad-presets.ts）は
       // PreviewPorts の view 名で発火するため、Settings 配下に統合された
-      // SessionPreview（Dev Server）へ読み替える。
+      // ServerProcesses（Dev Server）へ読み替える。
       let view = detail.view;
-      if (view === "PreviewPorts") view = "SessionPreview";
+      if (view === "PreviewPorts") view = "ServerProcesses";
       // SessionListはSettings/Open Session分離でセッション一覧
       // オーバーレイ側の管轄になったため、このスタックには積まずリダイレクトする
       //（circle keypad の Tabs プリセットがこの view 名で発火する）。
