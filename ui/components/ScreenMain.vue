@@ -379,6 +379,8 @@ defineExpose({
 }
 
 :global(.pwa .active-tab-title.title-bar-at-bottom) {
+  align-items: center;
+  padding-top: max(0px, calc(14px - env(safe-area-inset-bottom)));
   padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
 }
 </style>
