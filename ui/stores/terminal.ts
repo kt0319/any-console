@@ -65,7 +65,7 @@ export const useTerminalStore = defineStore("terminal", () => {
   // ため実行時状態が分裂して壊れる。identityは変えず、この版数を依存に含めて再計算を
   // トリガーする。
   const tabWorkspaceVersion = ref(0);
-  // closeTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
+  // terminateTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
   // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
   const pendingCloseSessionIds = ref(new Set<string>());
   // switchTab(tabId, { focus: false }) の直後、TerminalPane の isActive watcher が

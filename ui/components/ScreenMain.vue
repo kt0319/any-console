@@ -90,13 +90,13 @@ const { startWatching: startLayoutPersist } = useSplitLayoutPersist();
 const {
   activateTerminalTab,
   launchTerminal,
-  refreshTab,
-  closeTab,
+  reconnectTab,
+  terminateTab,
   isLaunching,
 } = useTerminalLifecycle({ terminalBaseView });
 
 useSessionResume({ terminalBaseView });
-useGlobalShortcuts({ closeTab });
+useGlobalShortcuts({ terminateTab });
 
 const openTabs = computed(() => terminalStore.openTabs);
 const hasAnyTab = computed(() => openTabs.value.length > 0);
@@ -145,13 +145,13 @@ useBusListener("tab:select", ({ tab, skipFocus }) => {
 });
 
 useBusListener("tab:close", ({ tab }) => {
-  closeTab(tab);
+  terminateTab(tab);
   const activeTab = terminalStore.activeTab;
   workspaceStore.selectedWorkspace = activeTab?.workspace || null;
 });
 
-useBusListener("tab:refresh", ({ tab }) => {
-  refreshTab(tab);
+useBusListener("tab:reconnect", ({ tab }) => {
+  reconnectTab(tab);
 });
 
 useBusListener("terminal:launch", (detail) => {
@@ -165,7 +165,7 @@ useBusListener("connectivity:back", () => {
     if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
     tab._reconnectTimer = null;
     tab._reconnectAttempts = 0;
-    refreshTab(tab);
+    reconnectTab(tab);
   }
 });
 

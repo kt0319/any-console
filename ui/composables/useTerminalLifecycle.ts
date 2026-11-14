@@ -189,7 +189,7 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
     }
   }
 
-  function refreshTab(tab: TerminalTab) {
+  function reconnectTab(tab: TerminalTab) {
     const tabObj = terminalStore.openTabs.find((t) => t.id === tab.id);
     if (!tabObj) return;
     // 現在の WebSocket を切ってから再接続。tmux session は維持する。
@@ -212,7 +212,7 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
     });
   }
 
-  async function closeTab(tab: TerminalTab) {
+  async function terminateTab(tab: TerminalTab) {
     const tabId = tab.id;
     const sessionId = tab.sessionId;
     const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
@@ -236,8 +236,8 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
   return {
     activateTerminalTab,
     launchTerminal,
-    refreshTab,
-    closeTab,
+    reconnectTab,
+    terminateTab,
     isLaunching,
   };
 }

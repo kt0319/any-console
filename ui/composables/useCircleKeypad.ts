@@ -106,7 +106,7 @@ export function useCircleKeypad() {
       return;
     }
     if (s.action === "tab:refresh") {
-      bridgeEmit("tab:refresh", { tab });
+      bridgeEmit("tab:reconnect", { tab });
       return;
     }
     if (s.action === "tab:close") {

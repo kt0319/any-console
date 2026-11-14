@@ -55,7 +55,7 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
         { path: filePath.value },
         { errorMessage: `Failed to discard ${filePath.value}` },
       );
-      if (ok) emit("git:selectDirty");
+      if (ok) emit("git:clearDiffSelection");
     });
   }
 
@@ -63,7 +63,7 @@ export function useDiffFileHeaderActions({ filePath, isWorkingTree, commitHash, 
     if (!filePath.value) return;
     if (!await confirmIrreversible(confirm, `Delete "${basename(filePath.value)}"?`)) return;
     const ok = await deleteWorkspaceFile(filePath.value);
-    if (ok) emit("git:selectDirty");
+    if (ok) emit("git:clearDiffSelection");
   }
 
   return {

@@ -31,7 +31,7 @@ export function useWorkspaceDetailEvents(deps: {
     deps.open({ pane: pane || "jobs" });
   });
 
-  useBusListener("git:selectDirty", () => {
+  useBusListener("git:clearDiffSelection", () => {
     deps.clearDiffSelection();
   });
 

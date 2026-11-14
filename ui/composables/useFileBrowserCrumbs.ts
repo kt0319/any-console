@@ -17,7 +17,7 @@ export function useFileBrowserCrumbs({ getDiffFile, currentPath, fileContent, na
   function onCrumbClick(path: string) {
     const diffFile = getDiffFile();
     if (diffFile) {
-      emit("git:selectDirty");
+      emit("git:clearDiffSelection");
       fileContent.value = null;
       currentPath.value = path || "";
       if (path && path === diffFile) {

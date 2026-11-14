@@ -57,7 +57,7 @@ export function useQwertyKeyViews({
 
   function doRefresh() {
     const tab = getActiveTerminalTab();
-    if (tab) emit("tab:refresh", { tab });
+    if (tab) emit("tab:reconnect", { tab });
   }
 
   const shiftFlick = createFlickHandlers({

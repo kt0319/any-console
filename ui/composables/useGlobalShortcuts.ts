@@ -7,7 +7,7 @@ import { emit } from "../app-bridge.ts";
 import { copyTerminalSelection, isCopyShortcut } from "../utils/clipboard.ts";
 import { isEditableTarget } from "../utils/dom.ts";
 
-export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) => Promise<void> }) {
+export function useGlobalShortcuts({ terminateTab }: { terminateTab: (tab: TerminalTab) => Promise<void> }) {
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
   const layoutStore = useLayoutStore();
@@ -34,7 +34,7 @@ export function useGlobalShortcuts({ closeTab }: { closeTab: (tab: TerminalTab) 
       // close だけはショートカット固有のフォロー（選択ワークスペースの同期）が
       // あるため onClose で差し替える。refresh / detach は共通ディスパッチ。
       await confirmAndCloseTab(tab, async (t) => {
-        await closeTab(t);
+        await terminateTab(t);
         const activeTab = terminalStore.activeTab;
         workspaceStore.selectedWorkspace = activeTab?.workspace || null;
       });
