@@ -629,8 +629,8 @@ li.diff-file-row.file-browser-item {
   justify-content: center;
 }
 
-.clone-repo-empty,
-.clone-repo-error,
+.workspace-list-empty,
+.workspace-form-error,
 .job-config-error {
   padding: 16px;
   text-align: center;
@@ -638,7 +638,7 @@ li.diff-file-row.file-browser-item {
   color: var(--text-muted);
 }
 
-.clone-repo-error,
+.workspace-form-error,
 .job-config-error {
   color: var(--error);
 }

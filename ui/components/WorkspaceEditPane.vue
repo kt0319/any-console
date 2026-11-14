@@ -42,7 +42,7 @@
       </button>
     </div>
 
-    <div v-if="saveError" class="clone-repo-error">{{ saveError }}</div>
+    <div v-if="saveError" class="workspace-form-error">{{ saveError }}</div>
   </div>
 </template>
 

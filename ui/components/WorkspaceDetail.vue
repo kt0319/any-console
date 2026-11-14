@@ -18,7 +18,7 @@
 
     <!-- タブコンテンツ -->
     <div class="workspace-tab-content pane-fill">
-      <div v-show="activePane === 'history'" class="file-modal-pane git-history-branch-pane pane-fill">
+      <div v-show="activePane === 'history'" class="git-history-branch-pane pane-fill">
         <div v-show="!isViewingCommitFiles" class="git-history-branch-branches">
           <div class="branch-summary-body" :class="{ 'branch-summary-body-expanded': branchSectionExpanded }">
             <GitChangeBranch ref="gitBranch" :expanded="branchSectionExpanded" @toggle="toggleBranchSection" />
@@ -30,7 +30,7 @@
           @commit:collapsed="onCommitCollapsed"
         />
       </div>
-      <div v-show="activePane === 'files'" class="file-modal-pane pane-fill">
+      <div v-show="activePane === 'files'" class="pane-fill">
         <FileBrowser
           ref="fileBrowser"
           :diffFile="selectedDiffFile"
@@ -42,7 +42,7 @@
           @state="onFileBrowserState"
         />
       </div>
-      <div v-if="activePane === 'changes'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'changes'" class="pane-fill">
         <button
           v-if="stashCount"
           type="button"
@@ -62,22 +62,22 @@
         </div>
         <GitChanges ref="gitChanges" />
       </div>
-      <div v-if="activePane === 'jobs'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'jobs'" class="pane-fill">
         <WorkspaceJobsPane ref="jobsPane" />
       </div>
-      <div v-if="activePane === 'issues'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'issues'" class="pane-fill">
         <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
       </div>
-      <div v-if="activePane === 'actions'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'actions'" class="pane-fill">
         <GitHubActionsPane ref="githubActions" />
       </div>
-      <div v-if="activePane === 'docker'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'docker'" class="pane-fill">
         <DockerPane ref="dockerPane" />
       </div>
-      <div v-if="activePane === 'prs'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'prs'" class="pane-fill">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
-      <div v-if="activePane === 'dispatch'" class="file-modal-pane pane-fill">
+      <div v-if="activePane === 'dispatch'" class="pane-fill">
         <DispatchRunView
           v-if="selectedDispatchId"
           :item-id="selectedDispatchId"
@@ -87,7 +87,7 @@
         />
         <DispatchWorkspacePane v-else @select="selectedDispatchId = $event" />
       </div>
-      <div v-show="activePane === 'select'" class="file-modal-pane pane-fill">
+      <div v-show="activePane === 'select'" class="pane-fill">
         <TerminalSelectPane ref="terminalSelectPane" />
       </div>
     </div>

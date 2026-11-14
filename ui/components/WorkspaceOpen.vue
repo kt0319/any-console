@@ -1,6 +1,6 @@
 <template>
-  <div class="modal-scroll-body split-tab-scroll">
-    <div class="split-tab-content">
+  <div class="modal-scroll-body open-session-scroll">
+    <div class="open-session-content">
       <div class="ws-toolbar-actions">
         <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
@@ -51,7 +51,7 @@
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
-        <div v-if="isLoading" class="clone-repo-empty loading-dots">Loading</div>
+        <div v-if="isLoading" class="workspace-list-empty loading-dots">Loading</div>
         <template v-else>
         <template v-for="(item, flatIdx) in (dragFlatList || flatList)" :key="item.type === 'header' ? 'h-' + item.group.id : item.ws.name">
           <div
@@ -98,7 +98,7 @@
           />
         </template>
 
-        <div v-if="workspaceStore.allWorkspaces.length === 0" class="clone-repo-empty">
+        <div v-if="workspaceStore.allWorkspaces.length === 0" class="workspace-list-empty">
           No workspaces to display
         </div>
         </template>
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.split-tab-content {
+.open-session-content {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
   overflow: visible;
 }
 
-.split-tab-scroll {
+.open-session-scroll {
   padding-top: 4px;
 }
 
@@ -431,7 +431,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.clone-repo-empty {
+.workspace-list-empty {
   padding: 16px;
   text-align: center;
   font-size: 13px;
