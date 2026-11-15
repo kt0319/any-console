@@ -120,7 +120,7 @@ const isTabBarAtBottom = computed(() => layoutStore.isTabBarAtBottom);
 // 実際の画面幅で判定する。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 // 送信先のターミナルが無い間（空画面）はキーボードバーを出さない。
-const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible && hasAnyTab.value);
+const keyboardBarVisible = computed(() => layoutStore.keyboardBarVisible && (hasAnyTab.value || booting.value));
 const titleBarVisible = computed(() => layoutStore.titleBarVisible);
 const titleBarAtBottom = computed(() => layoutStore.titleBarAtBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
