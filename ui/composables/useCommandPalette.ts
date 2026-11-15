@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useBusListener } from "./useBusListener.ts";
 import { useRecentJobs } from "./useRecentJobs.ts";
 import { filterPaletteItems, movePaletteIndex, type PaletteItem } from "../utils/command-palette.ts";
+import { SETTINGS_VIEW_ENTRIES } from "../utils/settings-views.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const TAB_FALLBACK_LABEL = "Terminal";
@@ -23,6 +24,14 @@ export function useCommandPalette() {
     { id: "action:open-session", group: "Actions", label: "Open Session", icon: "mdi-plus", run: () => emit("workspace:openModal") },
     { id: "action:settings", group: "Actions", label: "Settings", icon: "mdi-cog", run: () => emit("settings:open") },
   ];
+
+  const settingsItems = SETTINGS_VIEW_ENTRIES.map(({ view, label, icon }): PaletteItem => ({
+    id: `settings:${view}`,
+    group: "Settings",
+    label: `Settings | ${label}`,
+    icon,
+    run: () => emit("settings:open", { view }),
+  }));
 
   const items = computed<PaletteItem[]>(() => {
     // tab は markRaw のため、ワークスペース紐付けの変化は tabWorkspaceVersion 経由で追う。
@@ -54,7 +63,7 @@ export function useCommandPalette() {
       icon: job.pinned ? "mdi-pin" : "mdi-play",
       run: () => { void runRecentJob(job); },
     }));
-    return [...actionItems, ...detailItems, ...tabItems, ...jobItems];
+    return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...settingsItems];
   });
 
   const results = computed(() => filterPaletteItems(items.value, query.value));

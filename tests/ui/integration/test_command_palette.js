@@ -27,10 +27,10 @@ describe("CommandPalette", () => {
     vi.unstubAllGlobals();
   });
 
-  it("opens with the built-in actions listed", async () => {
+  it("opens with the built-in actions listed first", async () => {
     const wrapper = await openPalette();
     const labels = wrapper.findAll("[role=option]").map((o) => o.find(".command-palette-item-label").text());
-    expect(labels).toEqual(["New Terminal", "Open Session", "Settings"]);
+    expect(labels.slice(0, 3)).toEqual(["New Terminal", "Open Session", "Settings"]);
     wrapper.unmount();
   });
 
@@ -60,7 +60,7 @@ describe("CommandPalette", () => {
     expect(activeLabel()).toBe("Open Session");
     await input.trigger("keydown", { key: "ArrowUp" });
     await input.trigger("keydown", { key: "ArrowUp" });
-    expect(activeLabel()).toBe("Settings");
+    expect(activeLabel()).toBe("Settings | System Info");
     wrapper.unmount();
   });
 
@@ -90,6 +90,22 @@ describe("CommandPalette", () => {
     const wrapper = await openPalette();
     await wrapper.find("input").setValue("detail");
     expect(wrapper.findAll("[role=option]")).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("lists the Settings views and opens the selected one directly", async () => {
+    const opened = vi.fn();
+    const off = on("settings:open", opened);
+    const wrapper = await openPalette();
+    const input = wrapper.find("input");
+
+    await input.setValue("settings circle");
+    expect(wrapper.findAll("[role=option]")).toHaveLength(1);
+    expect(wrapper.find(".command-palette-item-label").text()).toBe("Settings | Circle Keypad");
+
+    await input.trigger("keydown", { key: "Enter" });
+    expect(opened).toHaveBeenCalledWith({ view: "CircleKeypadConfig" });
+    off();
     wrapper.unmount();
   });
 
