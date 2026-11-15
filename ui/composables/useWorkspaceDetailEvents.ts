@@ -28,7 +28,7 @@ export function useWorkspaceDetailEvents(deps: {
 
   useBusListener("worktree:open", ({ name, pane } = {}) => {
     if (name) workspaceStore.selectedWorkspace = name;
-    deps.open({ pane: pane || "jobs" });
+    deps.open({ pane });
   });
 
   useBusListener("git:clearDiffSelection", () => {

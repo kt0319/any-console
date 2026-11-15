@@ -58,7 +58,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
       await loadBranchList();
       if (created?.name) {
         emit("git:actionResult", { wsName: workspace, result: buildActionResult("Worktree created", worktreeBranchLabel(created.branch)) });
-        emit("worktree:open", { name: created.name, pane: "jobs" });
+        emit("worktree:open", { name: created.name });
       }
     });
   }

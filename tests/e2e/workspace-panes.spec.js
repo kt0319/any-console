@@ -79,8 +79,7 @@ test.describe("workspace detail panes", () => {
   }
 
   test("git ワークスペースの詳細に各ペインのタブが表示される", async ({ page }) => {
-    // Jobsはワークスペース一覧から開いた時の既定ペインとして残るが、
-    // タブとしては表示しない（詳細内から戻れないようにする）。
+    // Jobsはワークスペース一覧のインライン展開で扱い、詳細にはペインを持たない。
     await openDetail(page);
     for (const label of ["Files", "History", "Changes", "Select & Copy"]) {
       await expect(page.locator(".workspace-tabs").getByRole("button", { name: label })).toBeVisible({ timeout: 10_000 });

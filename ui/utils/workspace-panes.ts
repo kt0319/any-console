@@ -3,7 +3,6 @@
 // - requiresGit: 非 git ワークスペースで開こうとしたら files にフォールバックする
 // - deepLinkable: ?pane= で直接開いてよい（dispatch/docker/select は push 通知等の経路で意図的に除外）
 const WORKSPACE_PANES: Record<string, { requiresGit: boolean, deepLinkable: boolean }> = {
-  jobs: { requiresGit: true, deepLinkable: true },
   files: { requiresGit: false, deepLinkable: true },
   history: { requiresGit: true, deepLinkable: true },
   changes: { requiresGit: true, deepLinkable: true },
@@ -21,7 +20,7 @@ const PANE_ALIASES: Record<string, string> = {
   stash: "changes",
 };
 
-export const DEFAULT_PANE = "jobs";
+export const DEFAULT_PANE = "files";
 
 /** 別名を解決した正当なペイン名。未知のキーは DEFAULT_PANE（どのペインにも一致せず本文が空になるのを防ぐ）。 */
 export function resolvePaneKey(rawKey: string): string {

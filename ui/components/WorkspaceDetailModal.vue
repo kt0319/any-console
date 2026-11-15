@@ -21,12 +21,12 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import ModalShell from "./ModalShell.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 
-// WorkspaceDetail（Files/Changes/History/Branches/Jobs/Stash）専用の全面オーバーレイ。
+// WorkspaceDetail（Files/Changes/History/Branches/Stash）専用の全面オーバーレイ。
 // セッション一覧/Open Session/Settingsのナビゲーション（useWorkspaceDetailNav.ts）とは独立。
 // シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに共通化。
 
-// pushView/popViewだけは例外的にuseSessionOpenNav.tsの実体をprovideする
-// （WorkspaceJobsPane.vueの「Add Job」からJobConfig（Open Session側の画面）を開く導線があるため）。
+// provideModalViewがpushView/popViewを必須とするため、useSessionOpenNav.tsの実体を渡す
+// （詳細内のペインは現状どちらも呼ばない）。
 const { pushView, popView } = useSessionOpenNav();
 const {
   isOpen, viewState, modalTitle, modalBranch,

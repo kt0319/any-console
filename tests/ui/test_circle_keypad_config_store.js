@@ -76,7 +76,7 @@ describe("circle-keypad-config store: load 堅牢化", () => {
       { label: "", action: "", payload: null },
       { label: "", action: "", payload: null },
       { label: "Wheel Up", action: "terminal:wheelUp", payload: null },
-      { label: "Jobs", action: "git:openFileModal", payload: { pane: "jobs" } },
+      { label: "Files", action: "git:openFileModal", payload: { pane: "files" } },
     ]);
   });
 });

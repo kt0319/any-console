@@ -62,9 +62,6 @@
         </div>
         <GitChanges ref="gitChanges" />
       </div>
-      <div v-if="activePane === 'jobs'" class="pane-fill">
-        <WorkspaceJobsPane ref="jobsPane" />
-      </div>
       <div v-if="activePane === 'issues'" class="pane-fill">
         <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
       </div>
@@ -101,7 +98,6 @@ import GitHistory from "./GitHistory.vue";
 import GitChanges from "./GitChanges.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
-import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import DockerPane from "./DockerPane.vue";
@@ -144,7 +140,6 @@ const githubIssues = ref<InstanceType<typeof GitHubIssuesPane> | null>(null);
 const githubActions = ref<InstanceType<typeof GitHubActionsPane> | null>(null);
 const dockerPane = ref<InstanceType<typeof DockerPane> | null>(null);
 const githubPrs = ref<InstanceType<typeof GitHubPRsPane> | null>(null);
-const jobsPane = ref<InstanceType<typeof WorkspaceJobsPane> | null>(null);
 const terminalSelectCopyPane = ref<InstanceType<typeof TerminalSelectCopyPane> | null>(null);
 
 // Run成功時、そのままセッションを見せたいのでワークスペース詳細ごと閉じる
@@ -172,7 +167,7 @@ const {
   selectDiffFile,
 } = useWorkspaceDetailDiff();
 
-const activePane = ref("jobs");
+const activePane = ref(DEFAULT_PANE);
 // HistoryタブのBranch一覧は畳んだ状態を既定にし、シェブロンボタンで開閉する
 // （常時ブランチ一覧を出すとコミット履歴の表示領域を圧迫するため）。
 const {
@@ -321,9 +316,6 @@ const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
   changes: (opts) => {
     nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
     if (opts.expandStash) expandStashSection();
-  },
-  jobs: () => {
-    nextTick(() => jobsPane.value?.load());
   },
   files: (opts) => {
     nextTick(() => {

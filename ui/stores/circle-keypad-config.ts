@@ -33,7 +33,10 @@ function sanitizeSpecials(specials: any): CircleKeypadSpecialDef[] {
   if (!Array.isArray(specials) || specials.length !== 4) return defaultSpecialDefs();
   return specials.map((s: any) => {
     const action = typeof s?.action === "string" ? s.action : "";
-    const payload = s?.payload && typeof s.payload === "object" ? s.payload : null;
+    const storedPayload = s?.payload && typeof s.payload === "object" ? s.payload : null;
+    // 廃止した Workspace Detail の jobs ペインを指す旧 Jobs プリセットは Files へ移行する。
+    const isLegacyJobsPreset = action === "git:openFileModal" && storedPayload?.pane === "jobs";
+    const payload = isLegacyJobsPreset ? { pane: "files" } : storedPayload;
     const preset = CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) =>
       p.action === action
       && JSON.stringify(p.payload || null) === JSON.stringify(payload)

@@ -50,7 +50,7 @@ export const CIRCLE_KEYPAD_SPECIAL_PRESETS = [
   { id: "none",      label: "(None)",     action: "" },
   { id: "selcopy",   label: "Sel & Copy", action: "selection:open" },
   { id: "workspace", label: "Workspace",  action: "workspace:openModal" },
-  { id: "jobs",      label: "Jobs",       action: "git:openFileModal", payload: { pane: "jobs" } },
+  { id: "files",     label: "Files",      action: "git:openFileModal", payload: { pane: "files" } },
   { id: "settings",  label: "Settings",   action: "settings:open" },
   { id: "snippets",  label: "Snippets",   action: "settings:open", payload: { view: "SendSnippet" } },
   { id: "tabs",      label: "Tabs",       action: "settings:open", payload: { view: "SessionList" } },
@@ -94,7 +94,7 @@ export const DEFAULT_CIRCLE_KEYPAD_KEY_DEFS = [
 
 // 四隅の位置（左上 / 右上 / 左下 / 右下）と既定の割り当て。
 export const CIRCLE_KEYPAD_CORNER_LABELS = ["Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"];
-export const DEFAULT_CIRCLE_KEYPAD_SPECIALS = ["workspace", "jobs", "selcopy", "settings"];
+export const DEFAULT_CIRCLE_KEYPAD_SPECIALS = ["workspace", "files", "selcopy", "settings"];
 
 type CircleKeypadKeyDef = {
   key?: string;
