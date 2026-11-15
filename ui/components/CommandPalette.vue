@@ -72,6 +72,7 @@ watch(activeIndex, async (index) => {
 .command-palette {
   gap: 10px;
   padding: 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 80%, transparent);
 }
 
 .command-palette-input {
