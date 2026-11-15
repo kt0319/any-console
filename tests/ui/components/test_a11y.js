@@ -14,6 +14,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { nextTick, ref } from "vue";
 import ConfirmDialog from "../../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../../ui/components/PromptDialog.vue";
+import CommandPalette from "../../../ui/components/CommandPalette.vue";
 import GitActionBtn from "../../../ui/components/GitActionBtn.vue";
 import AppToast from "../../../ui/components/AppToast.vue";
 import FileItem from "../../../ui/components/FileItem.vue";
@@ -62,6 +63,18 @@ describe("a11y: PromptDialog", () => {
     await Promise.resolve();
     await expectNoA11yViolations(wrapper.find(".prompt-dialog").element);
     wrapper.unmount();
+  });
+});
+
+describe("a11y: CommandPalette", () => {
+  it("コマンドパレットに a11y 違反が無い", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ recent_jobs: [] }) })));
+    const wrapper = mount(CommandPalette, { attachTo: document.body, global: { plugins: [createPinia()] } });
+    emit("command-palette:open");
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.find(".command-palette").element);
+    wrapper.unmount();
+    vi.unstubAllGlobals();
   });
 });
 

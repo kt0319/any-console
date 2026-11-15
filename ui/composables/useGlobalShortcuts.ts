@@ -44,6 +44,9 @@ export function useGlobalShortcuts({ terminateTab }: { terminateTab: (tab: Termi
     } else if (e.code === "KeyT") {
       e.preventDefault();
       emit("terminal:launch", {});
+    } else if (e.code === "KeyP") {
+      e.preventDefault();
+      emit("command-palette:open");
     } else if (e.code === "Period") {
       e.preventDefault();
       emit("settings:open");

@@ -43,6 +43,11 @@
             <span class="screen-empty-menu-label">Open Session</span>
             <span class="screen-empty-menu-shortcut">{{ globalShortcutLabel("N") }}</span>
           </button>
+          <button type="button" class="screen-empty-menu-item hover-bg" @click="openCommandPalette">
+            <span class="mdi mdi-magnify screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Command Palette</span>
+            <span class="screen-empty-menu-shortcut">{{ globalShortcutLabel("P") }}</span>
+          </button>
           <button type="button" class="screen-empty-menu-item hover-bg" @click="openSettings">
             <span class="mdi mdi-cog screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">Settings</span>
@@ -186,6 +191,10 @@ async function loadPhonePairingEligibility() {
   const devicesRes = await getWithRetry(apiGet, EP_DEVICES);
   const devices = devicesRes.ok && Array.isArray(devicesRes.data) ? devicesRes.data : [];
   hasMobileDevice.value = devices.some((d) => isMobileUserAgent(d.user_agent));
+}
+
+function openCommandPalette() {
+  emit("command-palette:open");
 }
 
 function openSettings() {

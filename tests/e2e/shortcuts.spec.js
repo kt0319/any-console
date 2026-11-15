@@ -1,7 +1,8 @@
 /**
  * グローバルキーボードショートカットの E2E スモーク（useGlobalShortcuts.js）。
  * ⌘⇧T（New Terminal）と ⌘⇧.（Settings）は terminal / settings スペックで
- * 使用済みのため、ここでは ⌘⇧N（Open Session）と ⌘⇧W（Close Tab）を確認する。
+ * 使用済みのため、ここでは ⌘⇧N（Open Session）・⌘⇧P（Command Palette）・
+ * ⌘⇧W（Close Tab）を確認する。
  */
 import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
@@ -15,6 +16,18 @@ test.describe("global shortcuts", () => {
 
     await page.keyboard.press("Escape");
     await expect(page.locator(".session-open-modal")).toBeHidden({ timeout: 5000 });
+  });
+
+  test("⌘⇧P でコマンドパレットが開き、絞り込んで実行できる", async ({ page }) => {
+    await page.keyboard.press("Meta+Shift+KeyP");
+    const palette = page.locator(".command-palette");
+    await expect(palette).toBeVisible({ timeout: 5000 });
+
+    await page.keyboard.type("open session");
+    await expect(palette.locator("[role=option]")).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect(palette).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
   });
 
   test("⌘⇧W でアクティブタブを確認ダイアログ付きで閉じられる", async ({ page }) => {

@@ -13,6 +13,7 @@
   </template>
   <AppToast ref="appToast" />
   <ConfirmDialog />
+  <CommandPalette />
   <PromptDialog />
   <UrlActionDialog />
   <PathPreviewDialog />
@@ -24,6 +25,7 @@ import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import ScreenPair from "./ScreenPair.vue";
 import AppToast from "./AppToast.vue";
+import CommandPalette from "./CommandPalette.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
 import PathPreviewDialog from "./PathPreviewDialog.vue";
