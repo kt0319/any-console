@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { isMobileUserAgent } from "../../ui/utils/device.ts";
+import { globalShortcutLabel, isMobileUserAgent } from "../../ui/utils/device.ts";
 
 describe("isMobileUserAgent", () => {
   it("detects iPhone", () => {
@@ -31,5 +31,19 @@ describe("isMobileUserAgent", () => {
     expect(isMobileUserAgent("")).toBe(false);
     // @ts-expect-error intentional: exercising the undefined-input fallback
     expect(isMobileUserAgent(undefined)).toBe(false);
+  });
+});
+
+describe("globalShortcutLabel", () => {
+  it("uses ⌘⇧ on macOS", () => {
+    expect(globalShortcutLabel("T", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0")).toBe("⌘⇧T");
+  });
+
+  it("uses Win+Shift+ on Windows", () => {
+    expect(globalShortcutLabel("N", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0")).toBe("Win+Shift+N");
+  });
+
+  it("uses Super+Shift+ on Linux", () => {
+    expect(globalShortcutLabel(".", "Mozilla/5.0 (X11; Linux x86_64) Firefox/121.0")).toBe("Super+Shift+.");
   });
 });

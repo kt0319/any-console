@@ -19,3 +19,12 @@ export function isMobileUserAgent(userAgent: string): boolean {
   const ua = userAgent || "";
   return MOBILE_UA_MARKERS.some((marker) => ua.includes(marker));
 }
+
+// useGlobalShortcuts.ts は metaKey+Shift で判定する。metaKey の物理キーは OS ごとに
+// 呼び名が違う（Mac=⌘ / Windows=Win / Linux=Super）ため、表記だけを切り替える。
+export function globalShortcutLabel(key: string, userAgent: string): string {
+  const ua = userAgent || "";
+  if (/Mac|iPhone|iPad/.test(ua)) return `⌘⇧${key}`;
+  if (ua.includes("Windows")) return `Win+Shift+${key}`;
+  return `Super+Shift+${key}`;
+}

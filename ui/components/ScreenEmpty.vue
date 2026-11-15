@@ -36,17 +36,17 @@
           <button type="button" class="screen-empty-menu-item hover-bg" @click="openTerminal">
             <span class="mdi mdi-console screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">New Terminal</span>
-            <span class="screen-empty-menu-shortcut">⌘⇧T</span>
+            <span class="screen-empty-menu-shortcut">{{ globalShortcutLabel("T") }}</span>
           </button>
           <button type="button" class="screen-empty-menu-item hover-bg" @click="$emit('openWorkspace')">
             <span class="mdi mdi-plus screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">Open Session</span>
-            <span class="screen-empty-menu-shortcut">⌘⇧N</span>
+            <span class="screen-empty-menu-shortcut">{{ globalShortcutLabel("N") }}</span>
           </button>
           <button type="button" class="screen-empty-menu-item hover-bg" @click="openSettings">
             <span class="mdi mdi-cog screen-empty-menu-icon"></span>
             <span class="screen-empty-menu-label">Settings</span>
-            <span class="screen-empty-menu-shortcut">⌘⇧.</span>
+            <span class="screen-empty-menu-shortcut">{{ globalShortcutLabel(".") }}</span>
           </button>
         </div>
       </div>
@@ -78,7 +78,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { certExpiryStatus } from "../utils/cert-expiry.ts";
-import { isMobileUserAgent } from "../utils/device.ts";
+import { globalShortcutLabel as formatGlobalShortcutLabel, isMobileUserAgent } from "../utils/device.ts";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { usePushNotification } from "../composables/usePushNotification.ts";
@@ -219,6 +219,10 @@ async function showGhAuthInstructions() {
     "Run \"gh auth login\" on the server (via SSH) so GitHub PR/Actions info can be fetched for your workspaces.",
     { ok: { label: "Got it" } },
   );
+}
+
+function globalShortcutLabel(key: string) {
+  return formatGlobalShortcutLabel(key, navigator.userAgent);
 }
 
 async function installPwa() {
