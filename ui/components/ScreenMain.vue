@@ -12,7 +12,7 @@
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
-      <span v-else>{{ activeTabLabel || ' ' }}</span>
+      <span v-else>{{ activeTabLabel || '\u00a0' }}</span>
     </div>
     <div class="content-area" :class="{ 'content-area-sidebar-open': isSessionSidebarOpen && !isNarrowViewport }">
       <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
