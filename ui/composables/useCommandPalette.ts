@@ -34,6 +34,19 @@ export function useCommandPalette() {
       icon: "mdi-tab",
       run: () => emit("tab:select", { tab }),
     }));
+    const workspaceName = terminalStore.activeTab?.workspace;
+    const detailItems: PaletteItem[] = workspaceName
+      ? [{
+          id: "action:workspace-detail",
+          group: "Actions",
+          label: `Workspace Detail | ${workspaceName}`,
+          icon: "mdi-folder-open",
+          run: () => {
+            workspaceStore.selectedWorkspace = workspaceName;
+            emit("git:openFileModal", {});
+          },
+        }]
+      : [];
     const jobItems = recentJobs.value.map((job): PaletteItem => ({
       id: `job:${job.key}`,
       group: "Jobs",
@@ -41,7 +54,7 @@ export function useCommandPalette() {
       icon: job.pinned ? "mdi-pin" : "mdi-play",
       run: () => { void runRecentJob(job); },
     }));
-    return [...actionItems, ...tabItems, ...jobItems];
+    return [...actionItems, ...detailItems, ...tabItems, ...jobItems];
   });
 
   const results = computed(() => filterPaletteItems(items.value, query.value));
