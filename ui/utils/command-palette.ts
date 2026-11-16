@@ -35,3 +35,8 @@ export function resolvePaletteIcons(candidates: (PaletteIcon | null | undefined)
   const present = candidates.filter((c): c is PaletteIcon => !!c?.name);
   return present.length ? present : [{ name: fallbackName }];
 }
+
+/** 結果リスト内の選択肢の DOM id（検索入力の aria-activedescendant と対応させる）。 */
+export function commandPaletteOptionId(index: number): string {
+  return `command-palette-option-${index}`;
+}

@@ -18,18 +18,25 @@ test.describe("global shortcuts", () => {
     await expect(page.locator(".session-open-modal")).toBeHidden({ timeout: 5000 });
   });
 
-  test("⌘⇧P でコマンドパレットが開き、絞り込んで実行できる", async ({ page }) => {
+  test("⌘⇧P でサイドバーの検索入力にフォーカスし、絞り込んで実行できる", async ({ page }) => {
     await page.keyboard.press("Meta+Shift+KeyP");
-    const palette = page.locator(".command-palette");
-    await expect(palette).toBeVisible({ timeout: 5000 });
+    const search = page.getByRole("combobox", { name: "Search commands, tabs and jobs" });
+    await expect(search).toBeFocused({ timeout: 5000 });
 
-    const topBefore = (await palette.boundingBox())?.y;
     await page.keyboard.type("open session");
-    await expect(palette.locator("[role=option]")).toHaveCount(1);
-    expect((await palette.boundingBox())?.y).toBe(topBefore);
+    await expect(page.locator(".command-palette-item")).toHaveCount(1);
     await page.keyboard.press("Enter");
-    await expect(palette).toBeHidden({ timeout: 5000 });
     await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
+    await expect(search).toHaveValue("");
+  });
+
+  test("検索入力にフォーカスがある状態で ⌘⇧P を押すとサイドバーが閉じる", async ({ page }) => {
+    await page.keyboard.press("Meta+Shift+KeyP");
+    const search = page.getByRole("combobox", { name: "Search commands, tabs and jobs" });
+    await expect(search).toBeFocused({ timeout: 5000 });
+
+    await page.keyboard.press("Meta+Shift+KeyP");
+    await expect(search).toBeHidden({ timeout: 5000 });
   });
 
   test("⌘⇧W でアクティブタブを確認ダイアログ付きで閉じられる", async ({ page }) => {

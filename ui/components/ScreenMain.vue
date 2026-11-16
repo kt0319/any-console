@@ -64,6 +64,7 @@ import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.ts";
 import { useDeepLink } from "../composables/useDeepLink.ts";
 import { useActiveTabLabel } from "../composables/useActiveTabLabel.ts";
 import { useAnyOverlayOpen } from "../composables/useAnyOverlayOpen.ts";
+import { useCommandPaletteOpener } from "../composables/useCommandPalette.ts";
 import { useDebugInfoLine } from "../composables/useDebugInfoLine.ts";
 import { useSplitLayoutPersist } from "../composables/useSplitLayoutPersist.ts";
 import { emit } from "../app-bridge.ts";
@@ -127,6 +128,7 @@ const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSessionSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
 
 useAnyOverlayOpen();
+useCommandPaletteOpener();
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");

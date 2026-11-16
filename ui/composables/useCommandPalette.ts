@@ -1,8 +1,10 @@
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { emit } from "../app-bridge.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useLayoutStore } from "../stores/layout.ts";
 import { useBusListener } from "./useBusListener.ts";
+import { useSessionListOverlay } from "./useSessionListOverlay.ts";
 import { useRecentJobs } from "./useRecentJobs.ts";
 import { filterPaletteItems, movePaletteIndex, resolvePaletteIcons, type PaletteItem } from "../utils/command-palette.ts";
 import { SETTINGS_VIEW_ENTRIES } from "../utils/settings-views.ts";
@@ -11,14 +13,37 @@ import { paletteWorkspacePanes } from "../utils/workspace-panes.ts";
 
 const TAB_FALLBACK_LABEL = "Terminal";
 
+// コマンドパレットはセッションサイドバー（SessionListPanel.vue）の検索入力として統合している。
+// 入力・選択位置はサイドバーを開き直しても保たれるようモジュール単位で持つ。
+const query = ref("");
+const activeIndex = ref(0);
+
+/**
+ * command-palette:open でサイドバーを開き、検索入力へフォーカスする。検索入力にフォーカスが
+ * ある状態でもう一度受けたら、検索をクリアしてサイドバーを閉じる（トグル）。
+ * 常時マウントされる場所から1回だけ呼ぶ。
+ */
+export function useCommandPaletteOpener() {
+  const { open, close, isSearchFocused } = useSessionListOverlay();
+  const { loadRecentJobs } = useRecentJobs();
+  useBusListener("command-palette:open", () => {
+    if (isSearchFocused.value) {
+      query.value = "";
+      activeIndex.value = 0;
+      close();
+      return;
+    }
+    open({ focusSearch: true });
+    void loadRecentJobs();
+  });
+}
+
 export function useCommandPalette() {
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
+  const layoutStore = useLayoutStore();
+  const { close: closeSessionList } = useSessionListOverlay();
   const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
-
-  const visible = ref(false);
-  const query = ref("");
-  const activeIndex = ref(0);
 
   const actionItems: PaletteItem[] = [
     { id: "action:new-terminal", group: "Actions", label: "New Terminal", icons: [{ name: "mdi-console" }], run: () => emit("terminal:launch", {}) },
@@ -42,7 +67,7 @@ export function useCommandPalette() {
       group: "Tabs",
       label: tabTitleLabel(tab, workspaceStore.allWorkspaces) || tab.label || TAB_FALLBACK_LABEL,
       icons: resolvePaletteIcons([tab.wsIcon, tab.icon], "mdi-tab"),
-      run: () => emit("tab:select", { tab }),
+      run: () => emit("tab:select", { tab, skipFocus: layoutStore.isTabBarAtBottom }),
     }));
     const workspaces = workspaceStore.allWorkspaces;
     const activeWorkspace = workspaces.find((w) => w.name === terminalStore.activeTab?.workspace);
@@ -78,32 +103,26 @@ export function useCommandPalette() {
     return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...launchItems, ...settingsItems];
   });
 
+  const isSearching = computed(() => query.value.trim() !== "");
   const results = computed(() => filterPaletteItems(items.value, query.value));
 
-  watch(query, () => { activeIndex.value = 0; });
-
-  function open() {
-    query.value = "";
+  function setQuery(value: string) {
+    query.value = value;
     activeIndex.value = 0;
-    visible.value = true;
-    void loadRecentJobs();
-  }
-
-  function close() {
-    visible.value = false;
+    if (value.trim() !== "") void loadRecentJobs();
   }
 
   function moveActive(delta: number) {
     activeIndex.value = movePaletteIndex(activeIndex.value, delta, results.value.length);
   }
 
+  // 実行後は検索をクリアしてセッション一覧へ戻す。モバイルは一覧が全面オーバーレイで画面を塞ぐため閉じる。
   function runItem(item: PaletteItem | undefined) {
     if (!item) return;
-    close();
+    setQuery("");
+    if (layoutStore.isNarrowViewport) closeSessionList();
     item.run();
   }
 
-  useBusListener("command-palette:open", open);
-
-  return { visible, query, activeIndex, results, close, moveActive, runItem };
+  return { query, activeIndex, isSearching, results, setQuery, moveActive, runItem };
 }
