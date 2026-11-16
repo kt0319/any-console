@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { DEFAULT_PANE, isDeepLinkablePane, paneRequiresGit, resolvePaneKey } from "../../ui/utils/workspace-panes.ts";
+import { DEFAULT_PANE, isDeepLinkablePane, paletteWorkspacePanes, paneRequiresGit, resolvePaneKey } from "../../ui/utils/workspace-panes.ts";
 
 // 集約前に WorkspaceDetail.vue / useDeepLink.ts へ分散していた定義と同じ判定になることを固定する。
 const LEGACY_VALID_PANE_KEYS = ["files", "history", "changes", "issues", "actions", "docker", "prs", "dispatch", "select"];
@@ -25,5 +25,26 @@ describe("workspace-panes", () => {
 
   it("ディープリンク可否は集約前のVALID_PANESと一致する", () => {
     for (const key of ALL_KEYS) expect(isDeepLinkablePane(key)).toBe(LEGACY_DEEP_LINKABLE.includes(key));
+  });
+});
+
+describe("paletteWorkspacePanes", () => {
+  const keys = (ws) => paletteWorkspacePanes(ws).map((p) => p.pane);
+
+  it("非gitワークスペースは Files / Select & Copy のみ", () => {
+    expect(keys({})).toEqual(["files", "select"]);
+  });
+
+  it("gitワークスペースは History / Changes が加わる", () => {
+    expect(keys({ is_git_repo: true })).toEqual(["files", "history", "changes", "select"]);
+  });
+
+  it("GitHub連携があれば Issues / PRs / Actions が加わる", () => {
+    expect(keys({ is_git_repo: true, github_url: "https://github.com/o/r" }))
+      .toEqual(["files", "history", "changes", "issues", "prs", "actions", "select"]);
+  });
+
+  it("compose ファイルがあれば Docker が加わる", () => {
+    expect(keys({ has_compose_file: true })).toEqual(["files", "docker", "select"]);
   });
 });

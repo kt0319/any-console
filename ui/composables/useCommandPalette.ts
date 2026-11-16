@@ -6,7 +6,8 @@ import { useBusListener } from "./useBusListener.ts";
 import { useRecentJobs } from "./useRecentJobs.ts";
 import { filterPaletteItems, movePaletteIndex, type PaletteItem } from "../utils/command-palette.ts";
 import { SETTINGS_VIEW_ENTRIES } from "../utils/settings-views.ts";
-import { tabTitleLabel } from "../utils/tab-label.ts";
+import { tabTitleLabel, workspaceBranchLabel } from "../utils/tab-label.ts";
+import { paletteWorkspacePanes } from "../utils/workspace-panes.ts";
 
 const TAB_FALLBACK_LABEL = "Terminal";
 
@@ -43,19 +44,27 @@ export function useCommandPalette() {
       icon: "mdi-tab",
       run: () => emit("tab:select", { tab }),
     }));
-    const workspaceName = terminalStore.activeTab?.workspace;
-    const detailItems: PaletteItem[] = workspaceName
-      ? [{
-          id: "action:workspace-detail",
-          group: "Actions",
-          label: `Workspace Detail | ${workspaceName}`,
-          icon: "mdi-folder-open",
+    const workspaces = workspaceStore.allWorkspaces;
+    const activeWorkspace = workspaces.find((w) => w.name === terminalStore.activeTab?.workspace);
+    const detailItems = activeWorkspace
+      ? paletteWorkspacePanes(activeWorkspace).map(({ pane, label, icon }): PaletteItem => ({
+          id: `detail:${pane}`,
+          group: "Detail",
+          label: `${workspaceBranchLabel(activeWorkspace.name, workspaces)} | ${label}`,
+          icon,
           run: () => {
-            workspaceStore.selectedWorkspace = workspaceName;
-            emit("git:openFileModal", {});
+            workspaceStore.selectedWorkspace = activeWorkspace.name;
+            emit("git:openFileModal", { pane });
           },
-        }]
+        }))
       : [];
+    const launchItems = workspaces.map((ws): PaletteItem => ({
+      id: `launch:${ws.name}`,
+      group: "Launch",
+      label: workspaceBranchLabel(ws.name, workspaces),
+      icon: "mdi-console-line",
+      run: () => emit("terminal:launch", { workspace: ws.name, icon: ws.icon, iconColor: ws.icon_color }),
+    }));
     const jobItems = recentJobs.value.map((job): PaletteItem => ({
       id: `job:${job.key}`,
       group: "Jobs",
@@ -63,7 +72,7 @@ export function useCommandPalette() {
       icon: job.pinned ? "mdi-pin" : "mdi-play",
       run: () => { void runRecentJob(job); },
     }));
-    return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...settingsItems];
+    return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...launchItems, ...settingsItems];
   });
 
   const results = computed(() => filterPaletteItems(items.value, query.value));

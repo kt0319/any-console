@@ -64,32 +64,62 @@ describe("CommandPalette", () => {
     wrapper.unmount();
   });
 
-  it("offers Workspace Detail for the active tab's workspace and opens it", async () => {
-    const pinia = createPinia();
+  function seedWorkspace(pinia, workspace) {
+    setActivePinia(pinia);
+    useWorkspaceStore().allWorkspaces = [workspace];
+  }
+
+  function seedActiveTab(pinia, workspace) {
     setActivePinia(pinia);
     const terminalStore = useTerminalStore();
-    const tab = /** @type {any} */ ({ id: 1, workspace: "proj", label: "", jobName: null, jobLabel: null });
-    terminalStore.openTabs.push(tab);
+    terminalStore.openTabs.push(/** @type {any} */ ({ id: 1, workspace, label: "", jobName: null, jobLabel: null }));
     terminalStore.activeTabId = 1;
+  }
+
+  it("offers the active tab's workspace panes and opens the selected one", async () => {
+    const pinia = createPinia();
+    seedWorkspace(pinia, { name: "proj", is_git_repo: true });
+    seedActiveTab(pinia, "proj");
     const opened = vi.fn();
     const off = on("git:openFileModal", opened);
 
     const wrapper = await openPalette(pinia);
-    await wrapper.find("input").setValue("detail");
-    expect(wrapper.findAll("[role=option]")).toHaveLength(1);
-    expect(wrapper.find(".command-palette-item-label").text()).toBe("Workspace Detail | proj");
+    const input = wrapper.find("input");
+    await input.setValue("detail");
+    const labels = wrapper.findAll(".command-palette-item-label").map((l) => l.text());
+    expect(labels).toEqual(["proj | Files", "proj | History", "proj | Changes", "proj | Select & Copy"]);
 
-    await wrapper.find("input").trigger("keydown", { key: "Enter" });
-    expect(opened).toHaveBeenCalledTimes(1);
+    await input.setValue("changes");
+    await input.trigger("keydown", { key: "Enter" });
+    expect(opened).toHaveBeenCalledWith({ pane: "changes" });
     expect(useWorkspaceStore().selectedWorkspace).toBe("proj");
     off();
     wrapper.unmount();
   });
 
-  it("hides Workspace Detail when no tab is active", async () => {
-    const wrapper = await openPalette();
+  it("hides workspace panes when no tab is active", async () => {
+    const pinia = createPinia();
+    seedWorkspace(pinia, { name: "proj", is_git_repo: true });
+    const wrapper = await openPalette(pinia);
     await wrapper.find("input").setValue("detail");
     expect(wrapper.findAll("[role=option]")).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("launches a terminal in the selected workspace", async () => {
+    const pinia = createPinia();
+    seedWorkspace(pinia, { name: "proj", icon: "mdi-rocket", icon_color: "#fff" });
+    const launched = vi.fn();
+    const off = on("terminal:launch", launched);
+
+    const wrapper = await openPalette(pinia);
+    const input = wrapper.find("input");
+    await input.setValue("launch proj");
+    expect(wrapper.findAll("[role=option]")).toHaveLength(1);
+
+    await input.trigger("keydown", { key: "Enter" });
+    expect(launched).toHaveBeenCalledWith({ workspace: "proj", icon: "mdi-rocket", iconColor: "#fff" });
+    off();
     wrapper.unmount();
   });
 

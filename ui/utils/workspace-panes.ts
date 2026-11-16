@@ -37,3 +37,22 @@ export function isDeepLinkablePane(rawKey: string): boolean {
   const key = PANE_ALIASES[rawKey] ?? rawKey;
   return WORKSPACE_PANES[key]?.deepLinkable ?? false;
 }
+
+type PaneAvailabilityWorkspace = { is_git_repo?: boolean, github_url?: string | null, has_compose_file?: boolean };
+
+// コマンドパレットから直接開けるペイン。表示条件は WorkspaceDetail.vue の tabs（hidden）と揃える
+// （件数による出し分けだけは詳細を開かないと分からないため含めない）。
+const PALETTE_PANES: { pane: string, label: string, icon: string, available: (ws: PaneAvailabilityWorkspace) => boolean }[] = [
+  { pane: "files", label: "Files", icon: "mdi-folder-outline", available: () => true },
+  { pane: "history", label: "History", icon: "mdi-source-branch", available: (ws) => !!ws.is_git_repo },
+  { pane: "changes", label: "Changes", icon: "mdi-file-document-multiple-outline", available: (ws) => !!ws.is_git_repo },
+  { pane: "issues", label: "Issues", icon: "mdi-ticket-confirmation-outline", available: (ws) => !!ws.is_git_repo && !!ws.github_url },
+  { pane: "prs", label: "PRs", icon: "mdi-source-pull", available: (ws) => !!ws.is_git_repo && !!ws.github_url },
+  { pane: "actions", label: "Actions", icon: "mdi-cog-play-outline", available: (ws) => !!ws.is_git_repo && !!ws.github_url },
+  { pane: "docker", label: "Docker", icon: "mdi-docker", available: (ws) => !!ws.has_compose_file },
+  { pane: "select", label: "Select & Copy", icon: "mdi-content-copy", available: () => true },
+];
+
+export function paletteWorkspacePanes(ws: PaneAvailabilityWorkspace) {
+  return PALETTE_PANES.filter((p) => p.available(ws)).map(({ pane, label, icon }) => ({ pane, label, icon }));
+}

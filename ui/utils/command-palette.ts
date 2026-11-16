@@ -1,4 +1,4 @@
-export type PaletteGroup = "Actions" | "Tabs" | "Jobs" | "Settings";
+export type PaletteGroup = "Actions" | "Detail" | "Tabs" | "Jobs" | "Launch" | "Settings";
 
 export interface PaletteItem {
   id: string;
