@@ -11,20 +11,21 @@
 
       <div v-if="circleKeypad.enabled" class="ckpad-cfg-section">
         <div class="ckpad-cfg-section-title">Preview</div>
-        <div class="ckpad-cfg-preview" :style="previewStyle" aria-hidden="true">
-          <CircleKeypad :state="previewState" :keys="keypad.keys.value" :specials="keypad.specials.value" inline />
+        <p class="ckpad-cfg-desc">Tap a button to find its setting.</p>
+        <div class="ckpad-cfg-preview" :style="previewStyle">
+          <CircleKeypad :state="previewState" :keys="keypad.keys.value" :specials="keypad.specials.value" inline @select="toggleSelected" />
         </div>
       </div>
 
       <div class="ckpad-cfg-section">
         <div class="ckpad-cfg-section-title">Directional keys</div>
         <p class="ckpad-cfg-desc">8 keys around the ring, clockwise from north.</p>
-        <div v-for="(k, i) in circleKeypad.keys" :key="i" class="ckpad-cfg-row">
+        <div v-for="(k, i) in circleKeypad.keys" :id="rowId(`key:${i}`)" :key="i" class="ckpad-cfg-row" :class="{ selected: selectedId === `key:${i}` }">
           <span class="ckpad-cfg-dir">{{ directions[i] }}</span>
-          <select class="form-input ckpad-cfg-select ckpad-cfg-select-modifier" :value="modifierIdOf(k)" @change="setModifier(i, ($event.target as HTMLSelectElement).value)">
+          <select class="form-input ckpad-cfg-select ckpad-cfg-select-modifier" :aria-label="`${directions[i]} modifier`" :value="modifierIdOf(k)" @change="setModifier(i, ($event.target as HTMLSelectElement).value)">
             <option v-for="m in modifierOptions" :key="m.id" :value="m.id">{{ m.label }}</option>
           </select>
-          <select class="form-input ckpad-cfg-select" :value="baseKeyIdOf(k)" @change="setBaseKey(i, ($event.target as HTMLSelectElement).value)">
+          <select class="form-input ckpad-cfg-select" :aria-label="`${directions[i]} key`" :value="baseKeyIdOf(k)" @change="setBaseKey(i, ($event.target as HTMLSelectElement).value)">
             <option v-for="bk in baseKeys" :key="bk.id" :value="bk.id">{{ bk.label }}</option>
           </select>
         </div>
@@ -33,9 +34,9 @@
       <div class="ckpad-cfg-section">
         <div class="ckpad-cfg-section-title">Corner actions</div>
         <p class="ckpad-cfg-desc">Special buttons outside the ring.</p>
-        <div v-for="(s, i) in circleKeypad.specials" :key="i" class="ckpad-cfg-row">
+        <div v-for="(s, i) in circleKeypad.specials" :id="rowId(`special:${i}`)" :key="i" class="ckpad-cfg-row" :class="{ selected: selectedId === `special:${i}` }">
           <span class="ckpad-cfg-dir">{{ corners[i] }}</span>
-          <select class="form-input ckpad-cfg-select" :value="specialId(s)" @change="setSpecial(i, ($event.target as HTMLSelectElement).value)">
+          <select class="form-input ckpad-cfg-select" :aria-label="`${corners[i]} action`" :value="specialId(s)" @change="setSpecial(i, ($event.target as HTMLSelectElement).value)">
             <option v-for="p in specialPresets" :key="p.id" :value="p.id">{{ p.label }}</option>
           </select>
         </div>
@@ -49,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed, nextTick, reactive, ref } from "vue";
 import { useCircleKeypadConfigStore, type CircleKeypadSpecialDef } from "../stores/circle-keypad-config.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
@@ -74,7 +76,13 @@ modalTitle!.value = "Circle Keypad";
 
 const circleKeypad = useCircleKeypadConfigStore();
 const keypad = useCircleKeypad();
-const previewState = { visible: true, originX: 0, originY: 0, activeId: null };
+const selectedId = ref<string | null>(null);
+const previewState = reactive({
+  visible: true,
+  originX: 0,
+  originY: 0,
+  activeId: computed(() => selectedId.value),
+});
 const previewStyle = {
   width: `${CIRCLE_KEYPAD_PREVIEW_SIZE.width}px`,
   height: `${CIRCLE_KEYPAD_PREVIEW_SIZE.height}px`,
@@ -86,6 +94,17 @@ const directions = CIRCLE_KEYPAD_DIRECTION_LABELS;
 const corners = CIRCLE_KEYPAD_CORNER_LABELS;
 
 if (!circleKeypad.loaded) circleKeypad.load();
+
+function rowId(id: string) {
+  return `ckpad-cfg-row-${id.replace(":", "-")}`;
+}
+
+async function toggleSelected(id: string) {
+  selectedId.value = selectedId.value === id ? null : id;
+  if (!selectedId.value) return;
+  await nextTick();
+  document.getElementById(rowId(id))?.scrollIntoView?.({ block: "nearest" });
+}
 
 function specialId(s: CircleKeypadSpecialDef) {
   return CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) =>
@@ -159,6 +178,11 @@ function reset() {
   align-items: center;
   gap: 12px;
   padding: 6px 4px;
+}
+
+.ckpad-cfg-row.selected {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
 }
 
 .ckpad-cfg-dir {

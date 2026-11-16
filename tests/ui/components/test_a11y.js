@@ -31,6 +31,8 @@ import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import SessionSidebar from "../../../ui/components/SessionSidebar.vue";
 import TabBar from "../../../ui/components/TabBar.vue";
 import DisplayConfig from "../../../ui/components/DisplayConfig.vue";
+import CircleKeypadConfig from "../../../ui/components/CircleKeypadConfig.vue";
+import { useCircleKeypadConfigStore } from "../../../ui/stores/circle-keypad-config.ts";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.ts";
 import { usePrompt } from "../../../ui/composables/usePrompt.ts";
@@ -75,6 +77,29 @@ describe("a11y: CommandPalette", () => {
     await expectNoA11yViolations(wrapper.find(".command-palette").element);
     wrapper.unmount();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("a11y: CircleKeypadConfig", () => {
+  it("プレビューを含む設定画面に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    useCircleKeypadConfigStore().loaded = true;
+    const wrapper = mount(CircleKeypadConfig, {
+      attachTo: document.body,
+      global: {
+        provide: {
+          modalTitle: ref(""),
+          modalBranch: ref(""),
+          viewState: ref({}),
+          pushView: () => {},
+          popView: () => {},
+          updateViewState: () => {},
+        },
+      },
+    });
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
   });
 });
 

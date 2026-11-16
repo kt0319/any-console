@@ -6,20 +6,28 @@
     :style="inline ? undefined : { left: `${state.originX}px`, top: `${state.originY}px` }"
   >
     <div class="circle-keypad-ring"></div>
-    <div
+    <component
+      :is="inline ? 'button' : 'div'"
       v-for="k in keys"
       :key="k.id"
       class="circle-keypad-item"
       :class="{ active: state.activeId === k.id }"
       :style="itemStyle(k)"
-    >{{ k.label }}</div>
+      :type="inline ? 'button' : undefined"
+      :aria-pressed="inline ? state.activeId === k.id : undefined"
+      @click="inline && $emit('select', k.id)"
+    >{{ k.label }}</component>
     <template v-for="b in specials" :key="b.id">
-      <div
+      <component
+        :is="inline ? 'button' : 'div'"
         v-if="b.action"
         class="circle-keypad-item special"
         :class="{ active: state.activeId === b.id }"
         :style="specialStyle(b)"
-      >{{ b.label }}</div>
+        :type="inline ? 'button' : undefined"
+        :aria-pressed="inline ? state.activeId === b.id : undefined"
+        @click="inline && $emit('select', b.id)"
+      >{{ b.label }}</component>
     </template>
   </div>
 </template>
@@ -40,6 +48,7 @@ defineProps({
   // 設定画面のプレビュー用。起点を画面座標ではなく親要素の中心に置く。
   inline: { type: Boolean, default: false },
 });
+defineEmits<{ select: [id: string] }>();
 
 const RING_RADIUS = 44;
 const RADIUS = RING_RADIUS + 44;
@@ -74,6 +83,12 @@ function specialStyle(b: KeyPadSpecial) {
   left: 50%;
   top: 50%;
   z-index: auto;
+}
+
+.circle-keypad.inline .circle-keypad-item {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .circle-keypad::before {

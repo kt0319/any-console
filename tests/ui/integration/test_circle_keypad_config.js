@@ -61,6 +61,37 @@ describe("CircleKeypadConfig: プレビュー", () => {
     wrapper.unmount();
   });
 
+  it("プレビューのボタンをタップすると対応する設定行が強調され、再タップで解除される", async () => {
+    const wrapper = mountConfig();
+    await flushPromises();
+    const specialButtons = () => wrapper.findAll(".ckpad-cfg-preview .circle-keypad-item.special");
+    const target = specialButtons()[1];
+
+    await target.trigger("click");
+    expect(specialButtons()[1].attributes("aria-pressed")).toBe("true");
+    expect(specialButtons()[1].classes()).toContain("active");
+    expect(wrapper.find("#ckpad-cfg-row-special-1").classes()).toContain("selected");
+    expect(wrapper.findAll(".ckpad-cfg-row.selected")).toHaveLength(1);
+
+    await specialButtons()[1].trigger("click");
+    expect(specialButtons()[1].attributes("aria-pressed")).toBe("false");
+    expect(wrapper.findAll(".ckpad-cfg-row.selected")).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("別のボタンをタップすると強調が移る", async () => {
+    const wrapper = mountConfig();
+    await flushPromises();
+    const keyButtons = wrapper.findAll(".ckpad-cfg-preview .circle-keypad-item:not(.special)");
+
+    await keyButtons[0].trigger("click");
+    expect(wrapper.find("#ckpad-cfg-row-key-0").classes()).toContain("selected");
+    await keyButtons[3].trigger("click");
+    expect(wrapper.find("#ckpad-cfg-row-key-0").classes()).not.toContain("selected");
+    expect(wrapper.find("#ckpad-cfg-row-key-3").classes()).toContain("selected");
+    wrapper.unmount();
+  });
+
   it("無効化中はプレビューを出さない", async () => {
     useCircleKeypadConfigStore().enabled = false;
     const wrapper = mountConfig();
