@@ -1,6 +1,13 @@
 <template>
-  <BaseDialog :visible="visible" :z-index="DIALOG_Z_INDEX_RAISED" initial-focus="none" @dismiss="close">
-    <div class="command-palette dialog-box" style="--dialog-width: 520px" role="dialog" aria-modal="true" aria-label="Command palette">
+  <BaseDialog
+    :visible="visible"
+    :z-index="DIALOG_Z_INDEX_RAISED"
+    initial-focus="none"
+    :class="{ anchored: anchoredTop !== null }"
+    :style="anchoredTop !== null ? { paddingTop: `${anchoredTop}px` } : undefined"
+    @dismiss="close"
+  >
+    <div ref="boxEl" class="command-palette dialog-box" style="--dialog-width: 520px" role="dialog" aria-modal="true" aria-label="Command palette">
       <input
         ref="inputEl"
         v-model="query"
@@ -51,14 +58,22 @@ import { DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 const { visible, query, activeIndex, results, close, moveActive, runItem } = useCommandPalette();
 
 const inputEl = ref<HTMLInputElement | null>(null);
+const boxEl = ref<HTMLElement | null>(null);
+// 開いた直後（全項目表示時＝最大の高さ）の中央配置での上端位置を固定し、絞り込みで
+// 高さが変わっても上端が動かず下側だけ伸縮するようにする。
+const anchoredTop = ref<number | null>(null);
 
 function optionId(index: number) {
   return `command-palette-option-${index}`;
 }
 
 watch(visible, async (nextVisible) => {
-  if (!nextVisible) return;
+  if (!nextVisible) {
+    anchoredTop.value = null;
+    return;
+  }
   await nextTick();
+  if (boxEl.value) anchoredTop.value = Math.max(0, (window.innerHeight - boxEl.value.offsetHeight) / 2);
   inputEl.value?.focus();
 });
 
@@ -69,6 +84,10 @@ watch(activeIndex, async (index) => {
 </script>
 
 <style scoped>
+.anchored {
+  align-items: flex-start;
+}
+
 .command-palette {
   gap: 10px;
   padding: 12px;

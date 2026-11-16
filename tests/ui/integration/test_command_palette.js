@@ -139,6 +139,21 @@ describe("CommandPalette", () => {
     wrapper.unmount();
   });
 
+  it("keeps the top position fixed while the results shrink", async () => {
+    const wrapper = await openPalette();
+    const overlay = () => wrapper.find(".dialog-overlay");
+    const initialPadding = overlay().element.style.paddingTop;
+    expect(overlay().classes()).toContain("anchored");
+    expect(initialPadding).not.toBe("");
+
+    await wrapper.find("input").setValue("open session");
+    expect(overlay().element.style.paddingTop).toBe(initialPadding);
+
+    await wrapper.find("input").setValue("zzzz-no-match");
+    expect(overlay().element.style.paddingTop).toBe(initialPadding);
+    wrapper.unmount();
+  });
+
   it("shows an empty state when nothing matches", async () => {
     const wrapper = await openPalette();
     await wrapper.find("input").setValue("zzzz-no-match");

@@ -23,8 +23,10 @@ test.describe("global shortcuts", () => {
     const palette = page.locator(".command-palette");
     await expect(palette).toBeVisible({ timeout: 5000 });
 
+    const topBefore = (await palette.boundingBox())?.y;
     await page.keyboard.type("open session");
     await expect(palette.locator("[role=option]")).toHaveCount(1);
+    expect((await palette.boundingBox())?.y).toBe(topBefore);
     await page.keyboard.press("Enter");
     await expect(palette).toBeHidden({ timeout: 5000 });
     await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
