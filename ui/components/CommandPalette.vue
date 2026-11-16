@@ -38,7 +38,7 @@
           :aria-selected="index === activeIndex"
           @click="runItem(item)"
         >
-          <span :class="`mdi ${item.icon} command-palette-item-icon`" aria-hidden="true"></span>
+          <span class="command-palette-item-icons" aria-hidden="true" v-html="iconsHtml(item)"></span>
           <span class="command-palette-item-label">{{ item.label }}</span>
           <span class="command-palette-item-group">{{ item.group }}</span>
         </div>
@@ -53,6 +53,8 @@ import { nextTick, ref, watch } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { useCommandPalette } from "../composables/useCommandPalette.ts";
 import { runUnlessComposing } from "../utils/keyboard-event.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import type { PaletteItem } from "../utils/command-palette.ts";
 import { DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 
 const { visible, query, activeIndex, results, close, moveActive, runItem } = useCommandPalette();
@@ -62,6 +64,10 @@ const boxEl = ref<HTMLElement | null>(null);
 // 開いた直後（全項目表示時＝最大の高さ）の中央配置での上端位置を固定し、絞り込みで
 // 高さが変わっても上端が動かず下側だけ伸縮するようにする。
 const anchoredTop = ref<number | null>(null);
+
+function iconsHtml(item: PaletteItem) {
+  return item.icons.map((icon) => renderIconStr(icon.name, icon.color, 16)).join("");
+}
 
 function optionId(index: number) {
   return `command-palette-option-${index}`;
@@ -124,11 +130,13 @@ watch(activeIndex, async (index) => {
   color: var(--text-primary);
 }
 
-.command-palette-item-icon {
+.command-palette-item-icons {
   flex-shrink: 0;
-  width: 20px;
-  font-size: 16px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 20px;
   color: var(--text-muted);
 }
 

@@ -4,7 +4,7 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useBusListener } from "./useBusListener.ts";
 import { useRecentJobs } from "./useRecentJobs.ts";
-import { filterPaletteItems, movePaletteIndex, type PaletteItem } from "../utils/command-palette.ts";
+import { filterPaletteItems, movePaletteIndex, resolvePaletteIcons, type PaletteItem } from "../utils/command-palette.ts";
 import { SETTINGS_VIEW_ENTRIES } from "../utils/settings-views.ts";
 import { tabTitleLabel, workspaceBranchLabel } from "../utils/tab-label.ts";
 import { paletteWorkspacePanes } from "../utils/workspace-panes.ts";
@@ -21,16 +21,16 @@ export function useCommandPalette() {
   const activeIndex = ref(0);
 
   const actionItems: PaletteItem[] = [
-    { id: "action:new-terminal", group: "Actions", label: "New Terminal", icon: "mdi-console", run: () => emit("terminal:launch", {}) },
-    { id: "action:open-session", group: "Actions", label: "Open Session", icon: "mdi-plus", run: () => emit("workspace:openModal") },
-    { id: "action:settings", group: "Actions", label: "Settings", icon: "mdi-cog", run: () => emit("settings:open") },
+    { id: "action:new-terminal", group: "Actions", label: "New Terminal", icons: [{ name: "mdi-console" }], run: () => emit("terminal:launch", {}) },
+    { id: "action:open-session", group: "Actions", label: "Open Session", icons: [{ name: "mdi-plus" }], run: () => emit("workspace:openModal") },
+    { id: "action:settings", group: "Actions", label: "Settings", icons: [{ name: "mdi-cog" }], run: () => emit("settings:open") },
   ];
 
   const settingsItems = SETTINGS_VIEW_ENTRIES.map(({ view, label, icon }): PaletteItem => ({
     id: `settings:${view}`,
     group: "Settings",
     label: `Settings | ${label}`,
-    icon,
+    icons: [{ name: icon }],
     run: () => emit("settings:open", { view }),
   }));
 
@@ -41,7 +41,7 @@ export function useCommandPalette() {
       id: `tab:${tab.id}`,
       group: "Tabs",
       label: tabTitleLabel(tab, workspaceStore.allWorkspaces) || tab.label || TAB_FALLBACK_LABEL,
-      icon: "mdi-tab",
+      icons: resolvePaletteIcons([tab.wsIcon, tab.icon], "mdi-tab"),
       run: () => emit("tab:select", { tab }),
     }));
     const workspaces = workspaceStore.allWorkspaces;
@@ -51,7 +51,7 @@ export function useCommandPalette() {
           id: `detail:${pane}`,
           group: "Detail",
           label: `${workspaceBranchLabel(activeWorkspace.name, workspaces)} | ${label}`,
-          icon,
+          icons: [{ name: icon }],
           run: () => {
             workspaceStore.selectedWorkspace = activeWorkspace.name;
             emit("git:openFileModal", { pane });
@@ -62,14 +62,17 @@ export function useCommandPalette() {
       id: `launch:${ws.name}`,
       group: "Launch",
       label: workspaceBranchLabel(ws.name, workspaces),
-      icon: "mdi-console-line",
+      icons: resolvePaletteIcons([{ name: ws.icon, color: ws.icon_color }], "mdi-console-line"),
       run: () => emit("terminal:launch", { workspace: ws.name, icon: ws.icon, iconColor: ws.icon_color }),
     }));
     const jobItems = recentJobs.value.map((job): PaletteItem => ({
       id: `job:${job.key}`,
       group: "Jobs",
       label: `${job.workspace} | ${job.jobLabel || job.jobName}`,
-      icon: job.pinned ? "mdi-pin" : "mdi-play",
+      icons: resolvePaletteIcons(
+        [{ name: job.wsIcon, color: job.wsIconColor }, { name: job.jobIcon, color: job.jobIconColor }],
+        job.pinned ? "mdi-pin" : "mdi-play",
+      ),
       run: () => { void runRecentJob(job); },
     }));
     return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...launchItems, ...settingsItems];

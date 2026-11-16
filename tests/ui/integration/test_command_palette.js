@@ -123,6 +123,42 @@ describe("CommandPalette", () => {
     wrapper.unmount();
   });
 
+  it("renders the workspace icon for Launch items and falls back to the default icon", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useWorkspaceStore().allWorkspaces = [
+      { name: "with-icon", icon: "mdi-rocket", icon_color: "#ff0000" },
+      { name: "no-icon" },
+    ];
+    const wrapper = await openPalette(pinia);
+    await wrapper.find("input").setValue("launch");
+    const icons = wrapper.findAll(".command-palette-item-icons");
+    expect(icons[0].find(".mdi-rocket").attributes("style")).toContain("color:#ff0000");
+    expect(icons[1].find(".mdi-console-line").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("renders both the workspace and job icons for Tab items", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const terminalStore = useTerminalStore();
+    terminalStore.openTabs.push(/** @type {any} */ ({
+      id: 7,
+      workspace: "proj",
+      label: "",
+      jobName: "build",
+      jobLabel: "Build",
+      wsIcon: { name: "mdi-rocket", color: null },
+      icon: { name: "mdi-hammer", color: "#00ff00" },
+    }));
+    const wrapper = await openPalette(pinia);
+    await wrapper.find("input").setValue("tabs");
+    const icons = wrapper.find(".command-palette-item-icons");
+    expect(icons.find(".mdi-rocket").exists()).toBe(true);
+    expect(icons.find(".mdi-hammer").attributes("style")).toContain("color:#00ff00");
+    wrapper.unmount();
+  });
+
   it("lists the Settings views and opens the selected one directly", async () => {
     const opened = vi.fn();
     const off = on("settings:open", opened);

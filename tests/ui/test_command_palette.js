@@ -1,12 +1,12 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { filterPaletteItems, movePaletteIndex } from "../../ui/utils/command-palette.ts";
+import { filterPaletteItems, movePaletteIndex, resolvePaletteIcons } from "../../ui/utils/command-palette.ts";
 
 const noop = () => {};
 const items = [
-  { id: "a", group: "Actions", label: "New Terminal", icon: "mdi-console", run: noop },
-  { id: "b", group: "Tabs", label: "any-console | main", icon: "mdi-tab", run: noop },
-  { id: "c", group: "Jobs", label: "any-console | Build", icon: "mdi-play", run: noop },
+  { id: "a", group: "Actions", label: "New Terminal", icons: [{ name: "mdi-console" }], run: noop },
+  { id: "b", group: "Tabs", label: "any-console | main", icons: [{ name: "mdi-tab" }], run: noop },
+  { id: "c", group: "Jobs", label: "any-console | Build", icons: [{ name: "mdi-play" }], run: noop },
 ];
 
 describe("filterPaletteItems", () => {
@@ -42,5 +42,20 @@ describe("movePaletteIndex", () => {
 
   it("returns 0 when there are no items", () => {
     expect(movePaletteIndex(0, 1, 0)).toBe(0);
+  });
+});
+
+describe("resolvePaletteIcons", () => {
+  it("keeps the named candidates in order", () => {
+    expect(resolvePaletteIcons([{ name: "mdi-a", color: "#fff" }, { name: "mdi-b" }], "mdi-x"))
+      .toEqual([{ name: "mdi-a", color: "#fff" }, { name: "mdi-b" }]);
+  });
+
+  it("skips empty / missing candidates", () => {
+    expect(resolvePaletteIcons([null, undefined, { name: "" }, { name: "mdi-b" }], "mdi-x")).toEqual([{ name: "mdi-b" }]);
+  });
+
+  it("falls back when no candidate has a name", () => {
+    expect(resolvePaletteIcons([{ name: "" }, null], "mdi-x")).toEqual([{ name: "mdi-x" }]);
   });
 });

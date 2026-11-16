@@ -1,10 +1,16 @@
 export type PaletteGroup = "Actions" | "Detail" | "Tabs" | "Jobs" | "Launch" | "Settings";
 
+/** renderIconStr（utils/render-icon.ts）へ渡すアイコン指定。 */
+export interface PaletteIcon {
+  name: string;
+  color?: string | null;
+}
+
 export interface PaletteItem {
   id: string;
   group: PaletteGroup;
   label: string;
-  icon: string;
+  icons: PaletteIcon[];
   run: () => void;
 }
 
@@ -22,4 +28,10 @@ export function filterPaletteItems(items: PaletteItem[], query: string): Palette
 export function movePaletteIndex(index: number, delta: number, length: number): number {
   if (length === 0) return 0;
   return (index + delta + length) % length;
+}
+
+/** 名前のある候補アイコンだけを順に返す。1つも無ければ fallbackName の1つだけを返す。 */
+export function resolvePaletteIcons(candidates: (PaletteIcon | null | undefined)[], fallbackName: string): PaletteIcon[] {
+  const present = candidates.filter((c): c is PaletteIcon => !!c?.name);
+  return present.length ? present : [{ name: fallbackName }];
 }
