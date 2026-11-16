@@ -50,6 +50,7 @@ export const CIRCLE_KEYPAD_SPECIAL_PRESETS = [
   { id: "none",      label: "(None)",     action: "" },
   { id: "selcopy",   label: "Sel & Copy", action: "selection:open" },
   { id: "workspace", label: "Workspace",  action: "workspace:openModal" },
+  { id: "palette",   label: "Command Palette", action: "command-palette:open" },
   { id: "files",     label: "Files",      action: "git:openFileModal", payload: { pane: "files" } },
   { id: "settings",  label: "Settings",   action: "settings:open" },
   { id: "snippets",  label: "Snippets",   action: "settings:open", payload: { view: "SendSnippet" } },

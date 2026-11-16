@@ -165,6 +165,10 @@ describe("CIRCLE_KEYPAD_SPECIAL_PRESETS entries", () => {
     expect(CIRCLE_KEYPAD_SPECIAL_PRESETS.some((p) => p.action === "terminal:scrollToBottom")).toBe(false);
   });
 
+  it("exposes the command palette as a corner action", () => {
+    expect(findSpecialPreset("palette")?.action).toBe("command-palette:open");
+  });
+
   it("exposes wheel and scroll actions for terminal scrollback", () => {
     expect(findSpecialPreset("wheelup")?.action).toBe("terminal:wheelUp");
     expect(findSpecialPreset("wheeldown")?.action).toBe("terminal:wheelDown");
