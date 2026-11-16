@@ -2,7 +2,8 @@
   <div
     v-if="state.visible"
     class="circle-keypad"
-    :style="{ left: `${state.originX}px`, top: `${state.originY}px` }"
+    :class="{ inline }"
+    :style="inline ? undefined : { left: `${state.originX}px`, top: `${state.originY}px` }"
   >
     <div class="circle-keypad-ring"></div>
     <div
@@ -36,6 +37,8 @@ defineProps({
   state: { type: Object as PropType<KeyPadState>, required: true },
   keys: { type: Array as PropType<KeyPadKey[]>, required: true },
   specials: { type: Array as PropType<KeyPadSpecial[]>, required: true },
+  // 設定画面のプレビュー用。起点を画面座標ではなく親要素の中心に置く。
+  inline: { type: Boolean, default: false },
 });
 
 const RING_RADIUS = 44;
@@ -64,6 +67,13 @@ function specialStyle(b: KeyPadSpecial) {
   width: 0;
   height: 0;
   pointer-events: none;
+}
+
+.circle-keypad.inline {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: auto;
 }
 
 .circle-keypad::before {

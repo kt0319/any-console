@@ -9,6 +9,13 @@
         </label>
       </div>
 
+      <div v-if="circleKeypad.enabled" class="ckpad-cfg-section">
+        <div class="ckpad-cfg-section-title">Preview</div>
+        <div class="ckpad-cfg-preview" :style="previewStyle" aria-hidden="true">
+          <CircleKeypad :state="previewState" :keys="keypad.keys.value" :specials="keypad.specials.value" inline />
+        </div>
+      </div>
+
       <div class="ckpad-cfg-section">
         <div class="ckpad-cfg-section-title">Directional keys</div>
         <p class="ckpad-cfg-desc">8 keys around the ring, clockwise from north.</p>
@@ -44,6 +51,9 @@
 <script setup lang="ts">
 import { useCircleKeypadConfigStore, type CircleKeypadSpecialDef } from "../stores/circle-keypad-config.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import { useCircleKeypad } from "../composables/useCircleKeypad.ts";
+import CircleKeypad from "./CircleKeypad.vue";
+import { CIRCLE_KEYPAD_PREVIEW_SIZE } from "../utils/circle-keypad-geometry.ts";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,
   CIRCLE_KEYPAD_BASE_KEYS,
@@ -63,6 +73,12 @@ const { modalTitle } = useModalView();
 modalTitle!.value = "Circle Keypad";
 
 const circleKeypad = useCircleKeypadConfigStore();
+const keypad = useCircleKeypad();
+const previewState = { visible: true, originX: 0, originY: 0, activeId: null };
+const previewStyle = {
+  width: `${CIRCLE_KEYPAD_PREVIEW_SIZE.width}px`,
+  height: `${CIRCLE_KEYPAD_PREVIEW_SIZE.height}px`,
+};
 const modifierOptions = CIRCLE_KEYPAD_MODIFIER_OPTIONS;
 const baseKeys = CIRCLE_KEYPAD_BASE_KEYS;
 const specialPresets = CIRCLE_KEYPAD_SPECIAL_PRESETS;
@@ -114,6 +130,15 @@ function reset() {
 <style scoped>
 .ckpad-cfg-section + .ckpad-cfg-section {
   margin-top: 16px;
+}
+
+.ckpad-cfg-preview {
+  position: relative;
+  max-width: 100%;
+  margin: 4px auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .ckpad-cfg-section-title {

@@ -20,6 +20,9 @@ export const SPECIAL_POSITIONS = [
 
 export const SPECIAL_BUTTON_SIZE = { width: SPECIAL_WIDTH, height: SPECIAL_HEIGHT };
 
+// 設定画面のプレビュー枠。四隅ボタンの外縁（±(SPECIAL_OFFSET + ボタン半幅/半高)）に余白を足した大きさ。
+export const CIRCLE_KEYPAD_PREVIEW_SIZE = { width: 2 * (SPECIAL_OFFSET + SPECIAL_WIDTH / 2) + 10, height: 2 * (SPECIAL_OFFSET + SPECIAL_HEIGHT / 2) + 10 };
+
 /**
  * 起点からの相対座標 (dx, dy) が四隅スペシャルボタンの矩形内なら "special:i" を返す。
  */
