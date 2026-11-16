@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body command-palette-results">
-    <div id="command-palette-list" class="command-palette-list" role="listbox" aria-label="Results">
+    <div id="command-palette-list" class="command-palette-list" :class="{ 'from-bottom': fromBottom }" role="listbox" aria-label="Results">
       <div
         v-for="(item, index) in results"
         :id="optionId(index)"
@@ -31,6 +31,8 @@ import type { PaletteItem } from "../utils/command-palette.ts";
 const props = defineProps<{
   results: PaletteItem[],
   activeIndex: number,
+  // 下端（検索入力の側）から積む。先頭の候補が一番下に来る。
+  fromBottom?: boolean,
 }>();
 defineEmits<{ select: [item: PaletteItem] }>();
 
@@ -51,6 +53,11 @@ watch(() => props.activeIndex, async (index) => {
   gap: 2px;
 }
 
+.command-palette-list.from-bottom {
+  flex-direction: column-reverse;
+  margin-top: auto;
+}
+
 .command-palette-item {
   display: flex;
   align-items: center;
@@ -64,7 +71,7 @@ watch(() => props.activeIndex, async (index) => {
 }
 
 .command-palette-item.active {
-  background: var(--bg-tertiary);
+  background: var(--accent-bg-12);
   color: var(--text-primary);
 }
 

@@ -11,10 +11,11 @@
  */
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
-import { nextTick, ref } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import ConfirmDialog from "../../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../../ui/components/PromptDialog.vue";
 import SessionListPanel from "../../../ui/components/SessionListPanel.vue";
+import CommandPaletteInput from "../../../ui/components/CommandPaletteInput.vue";
 import { useCommandPalette } from "../../../ui/composables/useCommandPalette.ts";
 import GitActionBtn from "../../../ui/components/GitActionBtn.vue";
 import AppToast from "../../../ui/components/AppToast.vue";
@@ -73,10 +74,13 @@ describe("a11y: セッションサイドバーのコマンド検索", () => {
   it("検索入力と結果リストに a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ recent_jobs: [] }) })));
-    const wrapper = mount(SessionListPanel, {
-      attachTo: document.body,
-      global: { stubs: { SessionListView: { template: "<div></div>" } } },
-    });
+    const wrapper = mount(
+      defineComponent({ render: () => h("div", [h(CommandPaletteInput), h(SessionListPanel)]) }),
+      {
+        attachTo: document.body,
+        global: { stubs: { SessionListView: { template: "<div></div>" } } },
+      },
+    );
     useCommandPalette().setQuery("settings");
     await flushPromises();
     await expectNoA11yViolations(wrapper.element);

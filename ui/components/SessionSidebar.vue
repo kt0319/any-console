@@ -3,9 +3,10 @@
     v-if="isOpen"
     id="session-sidebar"
     class="session-sidebar"
+    :class="{ 'tab-bar-at-bottom': layoutStore.isTabBarAtBottom }"
     aria-label="Sessions"
   >
-    <SessionListPanel :panel-bottom="false" />
+    <SessionListPanel />
     <div
       class="sidebar-resize-handle"
       :class="{ resizing }"
@@ -131,8 +132,15 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
+  /* タブバーの行（TabBar.vueの.tab-bar-row、min-height:44px）がこの上に重なるため、その
+     高さぶんを避ける（タブバーが下にある設定の時は下側）。 */
+  padding-top: 44px;
   /* KeyboardBar.vue（ui/styles/keyboard-bar.css の .keyboard-bar）と同じ背景色に揃える。 */
   background: var(--bg-tertiary);
+}
+.session-sidebar.tab-bar-at-bottom {
+  padding-top: 0;
+  padding-bottom: 44px;
 }
 .sidebar-resize-handle {
   position: absolute;

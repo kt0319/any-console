@@ -368,7 +368,7 @@ defineExpose({
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.main-panel.keyboard-open :deep(.tab-bar-row) {
+.main-panel.keyboard-open :deep(.tab-bar-row:not(.tab-bar-row-palette)) {
   display: none !important;
 }
 

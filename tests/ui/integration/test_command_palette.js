@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 /** 統合テスト: コマンドパレット（セッションサイドバーの検索入力 → 絞り込み → 実行） */
-import { defineComponent, nextTick } from "vue";
+import { defineComponent, h, nextTick } from "vue";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
@@ -12,11 +12,17 @@ import { useLayoutStore } from "../../../ui/stores/layout.ts";
 import { useCommandPalette, useCommandPaletteOpener } from "../../../ui/composables/useCommandPalette.ts";
 import { useSessionListOverlay } from "../../../ui/composables/useSessionListOverlay.ts";
 import SessionListPanel from "../../../ui/components/SessionListPanel.vue";
+import CommandPaletteInput from "../../../ui/components/CommandPaletteInput.vue";
 
 const SessionListViewStub = { template: '<div class="session-list-stub"></div>' };
 
+// タブバー側の検索入力（CommandPaletteInput）とサイドバー本体（SessionListPanel）を並べた状態。
+const Harness = defineComponent({
+  render: () => h("div", [h(CommandPaletteInput), h(SessionListPanel)]),
+});
+
 function mountPanel(pinia = createPinia()) {
-  return mount(SessionListPanel, {
+  return mount(Harness, {
     attachTo: document.body,
     global: { plugins: [pinia], stubs: { SessionListView: SessionListViewStub } },
   });
@@ -97,6 +103,50 @@ describe("コマンドパレット（サイドバー統合）", () => {
     await input.trigger("keydown", { key: "ArrowDown" });
     expect(activeLabel()).toBe("Settings");
     wrapper.unmount();
+  });
+
+  describe("検索入力が下端のとき（タブバー下配置・スマホ）", () => {
+    function mountBottom() {
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      useLayoutStore().isTabBarAtBottom = true;
+      return mountPanel(pinia);
+    }
+
+    afterEach(() => {
+      useLayoutStore().isTabBarAtBottom = false;
+    });
+
+    it("候補を下から積み、先頭の候補が入力に一番近い位置に来る", async () => {
+      const wrapper = mountBottom();
+      await wrapper.find("input").setValue("settings");
+      expect(wrapper.find(".command-palette-list").classes()).toContain("from-bottom");
+      wrapper.unmount();
+    });
+
+    it("上端のときは従来どおり上から積む", async () => {
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      useLayoutStore().isTabBarAtBottom = false;
+      const wrapper = mountPanel(pinia);
+      await wrapper.find("input").setValue("settings");
+      expect(wrapper.find(".command-palette-list").classes()).not.toContain("from-bottom");
+      wrapper.unmount();
+    });
+
+    it("↑が次の候補、↓が前の候補（見た目の上下と一致させる）", async () => {
+      const wrapper = mountBottom();
+      const input = wrapper.find("input");
+      await input.setValue("settings");
+      const activeLabel = () => wrapper.find("[role=option].active .command-palette-item-label").text();
+
+      expect(activeLabel()).toBe("Settings");
+      await input.trigger("keydown", { key: "ArrowUp" });
+      expect(activeLabel()).toBe("Settings | Terminal");
+      await input.trigger("keydown", { key: "ArrowDown" });
+      expect(activeLabel()).toBe("Settings");
+      wrapper.unmount();
+    });
   });
 
   it("Esc で入力をクリアし、そのイベントはサイドバーの Esc クローズへ伝えない", async () => {

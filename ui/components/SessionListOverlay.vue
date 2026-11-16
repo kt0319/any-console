@@ -6,8 +6,8 @@
     aria-modal="true"
     @mousedown.self="close"
   >
-    <div ref="modalEl" class="modal" :class="{ 'panel-bottom': layoutStore.isTabBarAtBottom }">
-      <SessionListPanel ref="panelRef" :panel-bottom="layoutStore.isTabBarAtBottom" />
+    <div ref="modalEl" class="modal">
+      <SessionListPanel ref="panelRef" />
     </div>
   </div>
 </template>
@@ -56,7 +56,7 @@ watch(
 .modal {
   position: relative;
   background: color-mix(in srgb, var(--bg-secondary) 85%, transparent);
-  padding: 12px 0 0;
+  padding: 0;
   width: 100%;
   max-width: 100%;
   height: 100%;
@@ -67,14 +67,5 @@ watch(
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-}
-
-/* ヘッダー位置（上部固定 / ボトムシート風）の切り替えはSessionListPanel.vue
-   （ModalHeader.vue経由）が:panel-bottom propで自己完結して持つ。ただし
-   上部の12px paddingは「上部固定ヘッダーと画面上端の間の余白」のためのもので、
-   panel-bottom（ヘッダーが下部・セッション一覧が最上部に来る）の時は
-   一覧の先頭項目がそのまま画面上端に接するようにpaddingを持たない。 */
-.modal.panel-bottom {
-  padding-top: 0;
 }
 </style>

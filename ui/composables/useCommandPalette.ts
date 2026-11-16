@@ -103,6 +103,8 @@ export function useCommandPalette() {
     return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...launchItems, ...settingsItems];
   });
 
+  // 検索入力がタブバーと同じ下端に来る設定では、入力に近い下側から候補を積む（最良の候補が入力の真上）。
+  const resultsFromBottom = computed(() => layoutStore.isTabBarAtBottom);
   const isSearching = computed(() => query.value.trim() !== "");
   const results = computed(() => filterPaletteItems(items.value, query.value));
 
@@ -124,5 +126,5 @@ export function useCommandPalette() {
     item.run();
   }
 
-  return { query, activeIndex, isSearching, results, setQuery, moveActive, runItem };
+  return { query, activeIndex, isSearching, resultsFromBottom, results, setQuery, moveActive, runItem };
 }

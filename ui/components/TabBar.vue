@@ -1,23 +1,28 @@
 <template>
   <div
     class="tab-bar-row"
-    :class="{ 'tab-bar-row-sidebar-open': isSidebarOpen && !isNarrowViewport }"
+    :class="{ 'tab-bar-row-palette': isSidebarOpen, 'tab-bar-row-sidebar-open': isSidebarOpen && !isNarrowViewport }"
   >
-    <!-- PC（インラインサイドバー）はSessionListPanel.vue側に専用の閉じるボタンがあるため
-         サイドバー表示中はこのボタンを隠す。モバイル（SessionListOverlay.vueの全面オーバーレイ）は
-         これだけが開閉手段のため常に出す。 -->
+    <!-- サイドバーボタン。開いている間は✕になり、その右にコマンドパレット（検索入力）を出す
+         （PC・モバイル共通）。モバイル（SessionListOverlay.vueの全面オーバーレイ）は
+         タブ類を隠して入力だけにし、PCはタブを入力の右へ続ける。 -->
     <button
-      v-if="isNarrowViewport || !isSidebarOpen"
       class="tab-menu-btn hover-bg"
-      :class="{ active: isSidebarOpen, 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-active': isSidebarOpen, 'tab-underline-top': isTabBarAtBottom }"
+      :class="{ 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-top': isTabBarAtBottom }"
       @click="onMenuClick"
       :aria-label="sidebarToggleLabel"
       :aria-expanded="isSidebarOpen ? 'true' : 'false'"
       :data-tooltip="sidebarToggleLabel"
     >
-      <span :class="['mdi', isSidebarOpen && isNarrowViewport ? 'mdi-close' : 'mdi-menu']"></span>
+      <span :class="['mdi', isSidebarOpen ? 'mdi-close' : 'mdi-menu']"></span>
     </button>
+    <CommandPaletteInput
+      v-if="isSidebarOpen"
+      class="tab-bar-palette"
+      :class="{ 'tab-bar-palette-inline': !isNarrowViewport }"
+    />
     <div
+      v-show="showTabs"
       ref="tabListEl"
       class="tab-bar"
       :style="tabBarFadeStyle"
@@ -58,6 +63,7 @@
       </button>
     </div>
     <button
+      v-show="showTabs"
       type="button"
       class="tab-menu-btn hover-bg"
       :class="{ active: isSettingsOpen, 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isTabBarAtBottom }"
@@ -74,6 +80,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch, type PropType } from "vue";
 import TabItem from "./TabItem.vue";
+import CommandPaletteInput from "./CommandPaletteInput.vue";
 import { useTerminalStore, type TerminalTab } from "../stores/terminal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
@@ -99,6 +106,8 @@ const isTabBarAtBottom = computed(() => layoutStore.isTabBarAtBottom);
 // （TabItem.vueのラベル表示可否）にもこれを使う（タブ位置設定ではなく実際の画面幅で決まる）。
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
+// モバイルでサイドバー（全面オーバーレイ）を開いている間は、タブ類の代わりに検索入力を出す。
+const showTabs = computed(() => !(isSidebarOpen.value && isNarrowViewport.value));
 const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Hide session list" : "Show session list"));
 const sortedItems = computed(() => {
   return props.tabs
@@ -208,12 +217,26 @@ function onSettingsClick() {
   min-height: 44px;
 }
 
-/* PCでセッションサイドバーを開いている間は、サイドバー幅（SessionSidebar.vue
-   の.session-sidebar、--session-sidebar-width）ぶんタブバーを右へ縮める。サイドバーは
-   position:absoluteでcontent-area側に重なるオーバーレイのため、タブバー側
-   （TabBarは別要素）は自分では避けてくれず、ここで明示的にずらす。 */
+/* PCでセッションサイドバーを開いている間は、サイドバーボタン+検索入力でサイドバー幅
+   （SessionSidebar.vueの.session-sidebar、--session-sidebar-width）を占め、タブはその右へ
+   続ける。サイドバーはposition:absoluteでmain-panel全高に重なるため、この行を
+   サイドバー（z-index:15）より前面に出して、左端のボタンと入力が隠れないようにする。 */
 .tab-bar-row-sidebar-open {
-  margin-left: var(--session-sidebar-width);
+  position: relative;
+  z-index: 16;
+}
+
+.tab-bar-palette {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  margin-right: 8px;
+}
+
+/* サイドバーボタン（幅44px+左右margin4px）と右margin8pxを引いて、行頭からちょうど
+   サイドバー幅になるようにする。 */
+.tab-bar-palette-inline {
+  flex: 0 0 calc(var(--session-sidebar-width) - 52px - 8px);
 }
 
 .tab-bar {
