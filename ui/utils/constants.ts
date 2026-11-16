@@ -44,6 +44,7 @@ export const CIRCLE_KEYPAD_WHEEL_LINES = 80;
 export const CIRCLE_KEYPAD_SCROLL_LINES = 20;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
+export const BLOB_URL_REVOKE_DELAY_MS = 60000;
 export const PILL_PEEK_DURATION_MS = 4000;
 // pull/push の結果（コミット件名の一覧）を含むpeekは読む時間を長めに取る
 export const PILL_PEEK_REMOTE_DURATION_MS = 6000;
