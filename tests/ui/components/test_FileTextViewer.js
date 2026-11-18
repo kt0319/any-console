@@ -50,10 +50,10 @@ describe("FileTextViewer 画像の拡大", () => {
     expect(img.attributes("style") ?? "").not.toContain("width");
   });
 
-  it("拡大率が変わるたびに zoom イベントで通知する", async () => {
+  it("拡大率が変わるたびに update:zoom イベントで通知する", async () => {
     const wrapper = mountImage();
     await wrapper.find(".file-content-image").trigger("click");
-    expect(wrapper.emitted("zoom")?.map((args) => args[0])).toEqual([1, 1.25]);
+    expect(wrapper.emitted("update:zoom")?.map((args) => args[0])).toEqual([1.25]);
   });
 
   it("別の画像に切り替わると拡大率をフィットへ戻す", async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pinchDistance, pinchZoom, clampImageZoom, wheelZoom, nextTapZoom } from "../../ui/utils/pinch-zoom.ts";
+import { pinchDistance, pinchZoom, clampImageZoom, wheelZoom, nextTapZoom, stepZoom } from "../../ui/utils/pinch-zoom.ts";
 import { IMAGE_ZOOM_MAX, IMAGE_ZOOM_MIN } from "../../ui/utils/constants.ts";
 
 describe("pinch-zoom", () => {
@@ -29,5 +29,13 @@ describe("pinch-zoom", () => {
     for (let i = 0; i < cycle.length - 1; i++) expect(nextTapZoom(cycle[i])).toBe(cycle[i + 1]);
     expect(nextTapZoom(1.7)).toBe(1.75);
     expect(nextTapZoom(6)).toBe(1);
+  });
+
+  it("stepZoom は 0.25 刻みで増減し、範囲外には出ない", () => {
+    expect(stepZoom(1, 1)).toBe(1.25);
+    expect(stepZoom(1, -1)).toBe(0.75);
+    expect(stepZoom(IMAGE_ZOOM_MAX, 1)).toBe(IMAGE_ZOOM_MAX);
+    expect(stepZoom(IMAGE_ZOOM_MIN, -1)).toBe(IMAGE_ZOOM_MIN);
+    expect(stepZoom(1.05, 1)).toBe(1.3);
   });
 });

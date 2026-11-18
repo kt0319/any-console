@@ -2,13 +2,39 @@
   <BaseDialog :visible="!!path" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="close">
     <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Preview file">
       <DialogCloseButton @close="close" />
-      <div class="dialog-title dialog-title-closable">Preview file<span v-if="isImage" class="path-preview-zoom">{{ zoomLabel }}</span></div>
+      <div class="dialog-title dialog-title-closable">Preview file</div>
       <DialogCopyField :value="path" label="path" />
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
-        <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" @zoom="imageZoom = $event" />
+        <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" v-model:zoom="imageZoom" />
         <div v-else class="path-preview-loading">Loading...</div>
       </div>
       <div class="dialog-buttons">
+        <div v-if="isImage" class="path-preview-zoom">
+          <button
+            type="button"
+            class="icon-btn-square path-preview-zoom-btn"
+            aria-label="Zoom out"
+            data-tooltip="Zoom out"
+            :disabled="imageZoom <= IMAGE_ZOOM_MIN"
+            @click="imageZoom = stepZoom(imageZoom, -1)"
+          ><span class="mdi mdi-minus"></span></button>
+          <button
+            type="button"
+            class="path-preview-zoom-label"
+            aria-label="Reset zoom to 100%"
+            data-tooltip="Reset zoom to 100%"
+            :disabled="imageZoom === 1"
+            @click="imageZoom = 1"
+          >{{ zoomLabel }}</button>
+          <button
+            type="button"
+            class="icon-btn-square path-preview-zoom-btn"
+            aria-label="Zoom in"
+            data-tooltip="Zoom in"
+            :disabled="imageZoom >= IMAGE_ZOOM_MAX"
+            @click="imageZoom = stepZoom(imageZoom, 1)"
+          ><span class="mdi mdi-plus"></span></button>
+        </div>
         <button class="dialog-btn dialog-btn-ok path-preview-download" :disabled="!fileContent" @click="download">
           <span class="mdi mdi-download"></span>Download
         </button>
@@ -18,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { DIALOG_Z_INDEX_TOP } from "../utils/constants.ts";
+import { DIALOG_Z_INDEX_TOP, IMAGE_ZOOM_MAX, IMAGE_ZOOM_MIN } from "../utils/constants.ts";
 import { computed, ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import DialogCloseButton from "./DialogCloseButton.vue";
@@ -27,6 +53,7 @@ import FileTextViewer from "./FileTextViewer.vue";
 import { useApi } from "../composables/useApi.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { useWorkspaceFile } from "../composables/useWorkspaceFile.ts";
+import { stepZoom } from "../utils/pinch-zoom.ts";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { emit } from "../app-bridge.ts";
@@ -50,12 +77,14 @@ function download() {
 function close() {
   path.value = "";
   fileContent.value = null;
+  imageZoom.value = 1;
 }
 
 useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSessionId }) => {
   path.value = requested;
   sessionId.value = requestedSessionId;
   fileContent.value = null;
+  imageZoom.value = 1;
   const { ok, data } = await apiGet(terminalSessionOpenPath(requestedSessionId, requested), { errorMessage: `Cannot open "${requested}"` });
   if (path.value !== requested) return;
   if (!ok) {
@@ -75,7 +104,7 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 
 <style scoped>
 .path-preview-download {
-  margin-right: auto;
+  margin-left: auto;
 }
 
 .path-preview-dialog {
@@ -88,10 +117,35 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 }
 
 .path-preview-zoom {
-  margin-left: 10px;
-  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.path-preview-zoom-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.path-preview-zoom-btn:disabled {
+  opacity: 0.4;
+}
+
+.path-preview-zoom-label {
+  flex-shrink: 0;
+  min-width: 56px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   font-size: 13px;
-  font-weight: 400;
+  cursor: pointer;
+}
+
+.path-preview-zoom-label:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .path-preview-body {

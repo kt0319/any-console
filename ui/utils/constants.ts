@@ -155,6 +155,7 @@ export const DIFF_STATUS_SUMMARY_LABELS = Object.freeze(["M", "A", "D", "U"]);
 // 画像ビューアの拡大率の範囲（1 = 横幅フィット）とタップで拡大した時の倍率
 export const IMAGE_ZOOM_MIN = 0.5;
 export const IMAGE_ZOOM_MAX = 6;
+export const IMAGE_ZOOM_BUTTON_STEP = 0.25;
 export const IMAGE_TAP_ZOOM_LEVELS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
 
 // HTTPS 証明書の期限がこの日数を切ったら警告を出す（System info / スタートページ）

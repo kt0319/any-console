@@ -1,4 +1,4 @@
-import { IMAGE_TAP_ZOOM_LEVELS, IMAGE_ZOOM_MAX, IMAGE_ZOOM_MIN } from "./constants.ts";
+import { IMAGE_TAP_ZOOM_LEVELS, IMAGE_ZOOM_BUTTON_STEP, IMAGE_ZOOM_MAX, IMAGE_ZOOM_MIN } from "./constants.ts";
 
 type TouchPoint = { clientX: number, clientY: number };
 
@@ -24,4 +24,10 @@ export function wheelZoom(zoom: number, deltaY: number): number {
 /** タップで切り替える段階のうち、現在より大きい次の倍率を返す。最大段階を超えていれば最小段階に戻る。 */
 export function nextTapZoom(zoom: number): number {
   return IMAGE_TAP_ZOOM_LEVELS.find((level) => level > zoom) ?? IMAGE_TAP_ZOOM_LEVELS[0];
+}
+
+/** ＋/－ボタン用。現在の倍率から一定幅ずらし、浮動小数の誤差を丸めて範囲内に収める。 */
+export function stepZoom(zoom: number, direction: 1 | -1): number {
+  const next = Math.round((zoom + direction * IMAGE_ZOOM_BUTTON_STEP) * 100) / 100;
+  return clampImageZoom(next);
 }

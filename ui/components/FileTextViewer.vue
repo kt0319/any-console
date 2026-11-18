@@ -60,10 +60,7 @@ const props = defineProps({
   fileName: { type: String, default: "" },
 });
 
-const emit = defineEmits<{ zoom: [value: number] }>();
-
-const zoom = ref(1);
-watch(zoom, (value) => emit("zoom", value), { immediate: true });
+const zoom = defineModel<number>("zoom", { default: 1 });
 
 const imageWrapEl = ref<HTMLElement | null>(null);
 let pinchStartZoom = 1;
