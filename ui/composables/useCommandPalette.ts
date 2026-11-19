@@ -6,7 +6,10 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { useBusListener } from "./useBusListener.ts";
 import { useSessionListOverlay } from "./useSessionListOverlay.ts";
 import { useRecentJobs } from "./useRecentJobs.ts";
-import { filterPaletteItems, movePaletteIndex, resolvePaletteIcons, type PaletteItem } from "../utils/command-palette.ts";
+import { useToast } from "./useToast.ts";
+import { useWorkspaceBranchCreate } from "./useWorkspaceBranchCreate.ts";
+import { dispatchTextToTab } from "../utils/terminal-dispatch.ts";
+import { filterPaletteItems, movePaletteIndex, queryActionKinds, resolvePaletteIcons, type PaletteItem, type QueryActionKind } from "../utils/command-palette.ts";
 import { SETTINGS_VIEW_ENTRIES } from "../utils/settings-views.ts";
 import { tabTitleLabel, workspaceBranchLabel } from "../utils/tab-label.ts";
 import { paletteWorkspacePanes } from "../utils/workspace-panes.ts";
@@ -44,6 +47,8 @@ export function useCommandPalette() {
   const layoutStore = useLayoutStore();
   const { close: closeSessionList } = useSessionListOverlay();
   const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+  const { createBranchIn, createWorktreeIn } = useWorkspaceBranchCreate();
+  const toast = useToast();
 
   const actionItems: PaletteItem[] = [
     { id: "action:new-terminal", group: "Actions", label: "New Terminal", icons: [{ name: "mdi-console" }], run: () => emit("terminal:launch", {}) },
@@ -106,7 +111,53 @@ export function useCommandPalette() {
   // 検索入力がタブバーと同じ下端に来る設定では、入力に近い下側から候補を積む（最良の候補が入力の真上）。
   const resultsFromBottom = computed(() => layoutStore.isTabBarAtBottom);
   const isSearching = computed(() => query.value.trim() !== "");
-  const results = computed(() => filterPaletteItems(items.value, query.value));
+  // 一致するコマンドが無いときだけ、入力そのものを引数にした操作を提案する（先頭の候補を Enter で
+  // 実行するため、通常のコマンドと競合しないようにする）。
+  const queryItems = computed<PaletteItem[]>(() => {
+    const text = query.value.trim();
+    const tab = terminalStore.activeTab;
+    const workspace = workspaceStore.allWorkspaces.find((w) => w.name === tab?.workspace);
+    const kinds = queryActionKinds(text, { canCreateBranch: !!workspace?.is_git_repo, hasSession: !!tab?.sessionId });
+    const workspaceLabel = workspace ? workspaceBranchLabel(workspace.name, workspaceStore.allWorkspaces) : "";
+    return kinds.map((kind) => queryItem(kind, text, workspace?.name, workspaceLabel));
+  });
+
+  function queryItem(kind: QueryActionKind, text: string, workspaceName: string | undefined, workspaceLabel: string): PaletteItem {
+    const tab = terminalStore.activeTab;
+    switch (kind) {
+      case "create-branch":
+        return {
+          id: "query:create-branch", group: "Git", label: `Create branch "${text}" in ${workspaceLabel}`, icons: [{ name: "mdi-source-branch-plus" }],
+          run: () => {
+            if (!workspaceName) return;
+            void createBranchIn(workspaceName, text).then((ok) => { if (ok) toast.success(`Created branch "${text}"`); });
+          },
+        };
+      case "create-worktree":
+        return {
+          id: "query:create-worktree", group: "Git", label: `Create worktree "${text}" in ${workspaceLabel}`, icons: [{ name: "mdi-file-tree" }],
+          run: () => { if (workspaceName) void createWorktreeIn(workspaceName, text); },
+        };
+      case "send-text":
+        return {
+          id: "query:send-text", group: "Terminal", label: `Send to terminal "${text}"`, icons: [{ name: "mdi-keyboard-outline" }],
+          run: () => {
+            if (!dispatchTextToTab(tab, text)) toast.error("Terminal is not connected");
+            else tab?.term?.focus?.();
+          },
+        };
+      case "open-path":
+        return {
+          id: "query:open-path", group: "Files", label: `Open path "${text}"`, icons: [{ name: "mdi-file-search-outline" }],
+          run: () => { if (tab?.sessionId) emit("terminal:path", { path: text, sessionId: tab.sessionId }); },
+        };
+    }
+  }
+
+  const results = computed(() => {
+    const matched = filterPaletteItems(items.value, query.value);
+    return matched.length || !isSearching.value ? matched : queryItems.value;
+  });
 
   function setQuery(value: string) {
     query.value = value;
