@@ -55,8 +55,8 @@ export function isBranchNameCandidate(name: string): boolean {
 
 /** 絶対・~・相対（./ ../）で始まる、または拡張子付きのファイル名に見える入力か。 */
 export function looksLikePath(text: string): boolean {
-  if (/\s/.test(text)) return false;
   if (/^(~|\.{1,2})?\//.test(text) || text === "~") return true;
+  if (/\s/.test(text)) return false;
   return /\.[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*$/.test(text);
 }
 

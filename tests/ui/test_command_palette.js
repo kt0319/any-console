@@ -76,13 +76,13 @@ describe("isBranchNameCandidate", () => {
 
 describe("looksLikePath", () => {
   it("detects absolute, home, relative and extension-bearing names", () => {
-    for (const text of ["/etc/hosts", "~/a", "~", "./a", "../a", "src/main.ts", "README.md"]) {
+    for (const text of ["/etc/hosts", "/tmp/a b.txt", "~/my docs/a", "~", "./a", "../a", "src/main.ts", "README.md"]) {
       expect(looksLikePath(text)).toBe(true);
     }
   });
 
   it("does not treat branch-like names or text with spaces as paths", () => {
-    for (const text of ["feature/login", "main", "v1.2", "a b.txt"]) {
+    for (const text of ["feature/login", "main", "v1.2", "a b.txt", "git log"]) {
       expect(looksLikePath(text)).toBe(false);
     }
   });
