@@ -28,8 +28,15 @@ function mountPanel(pinia = createPinia()) {
   });
 }
 
+// 入力を引数にした提案（Git / Terminal / Files グループ）は一致したコマンドの後ろに常に付くため、
+// コマンド自体の検証では除く（提案は test_command_palette_query_actions.js で検証する）。
+const QUERY_ACTION_GROUPS = ["Git", "Terminal", "Files"];
+
 function labelsOf(wrapper) {
-  return wrapper.findAll(".command-palette-item-label").map((l) => l.text());
+  return wrapper
+    .findAll(".command-palette-item")
+    .filter((row) => !QUERY_ACTION_GROUPS.includes(row.find(".command-palette-item-group").text()))
+    .map((row) => row.find(".command-palette-item-label").text());
 }
 
 describe("コマンドパレット（サイドバー統合）", () => {

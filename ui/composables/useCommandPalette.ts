@@ -111,8 +111,8 @@ export function useCommandPalette() {
   // 検索入力がタブバーと同じ下端に来る設定では、入力に近い下側から候補を積む（最良の候補が入力の真上）。
   const resultsFromBottom = computed(() => layoutStore.isTabBarAtBottom);
   const isSearching = computed(() => query.value.trim() !== "");
-  // 一致するコマンドが無いときだけ、入力そのものを引数にした操作を提案する（先頭の候補を Enter で
-  // 実行するため、通常のコマンドと競合しないようにする）。
+  // 入力そのものを引数にした操作。一致するコマンドの後ろに続けて出す（Enter で実行される先頭の
+  // 候補は、一致したコマンドを優先する）。
   const queryItems = computed<PaletteItem[]>(() => {
     const text = query.value.trim();
     const tab = terminalStore.activeTab;
@@ -156,7 +156,7 @@ export function useCommandPalette() {
 
   const results = computed(() => {
     const matched = filterPaletteItems(items.value, query.value);
-    return matched.length || !isSearching.value ? matched : queryItems.value;
+    return isSearching.value ? [...matched, ...queryItems.value] : matched;
   });
 
   function setQuery(value: string) {

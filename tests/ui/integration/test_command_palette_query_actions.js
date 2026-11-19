@@ -148,11 +148,25 @@ describe("コマンドパレットの入力引数つき操作", () => {
     wrapper.unmount();
   });
 
-  it("一致するコマンドがあるときは提案を出さない", async () => {
+  it("一致するコマンドがあるときも、その後ろに提案を出す（先頭は一致したコマンド）", async () => {
     const wrapper = mountPanel(seed());
-    await wrapper.find("input").setValue("settings");
-    expect(labelsOf(wrapper).some((l) => l.startsWith("Create branch"))).toBe(false);
-    expect(labelsOf(wrapper)[0]).toBe("Settings");
+    const input = wrapper.find("input");
+    await input.setValue("settings");
+    const labels = labelsOf(wrapper);
+    expect(labels[0]).toBe("Settings");
+    expect(labels.slice(-4)).toEqual([
+      'Create branch "settings" in proj',
+      'Create worktree "settings" in proj',
+      'Send to terminal "settings"',
+      'Open path "settings"',
+    ]);
+
+    const opened = vi.fn();
+    const off = on("settings:open", opened);
+    await input.trigger("keydown", { key: "Enter" });
+    expect(opened).toHaveBeenCalled();
+    expect(createBranchIn).not.toHaveBeenCalled();
+    off();
     wrapper.unmount();
   });
 
