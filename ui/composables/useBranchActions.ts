@@ -9,7 +9,8 @@ import { useGitRemoteAction } from "./useGitRemoteAction.ts";
 import { useWorktreeRemove } from "./useWorktreeRemove.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useWorktreeCleanup } from "./useWorktreeCleanup.ts";
-import { worktreeBranchLabel, worktreeResidueNote, worktreeWorkspaceName } from "../utils/worktree.ts";
+import { useWorkspaceBranchCreate } from "./useWorkspaceBranchCreate.ts";
+import { worktreeResidueNote, worktreeWorkspaceName } from "../utils/worktree.ts";
 import { emit } from "../app-bridge.ts";
 import { buildActionResult } from "../utils/git-remote.ts";
 import type { useBranchList } from "./useBranchList.ts";
@@ -26,6 +27,7 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
   const { gitAction, isRunning } = useGitRemoteAction();
   const workspaceStore = useWorkspaceStore();
   const { findResidue, cleanupResidue } = useWorktreeCleanup();
+  const { createBranchIn, createWorktreeIn } = useWorkspaceBranchCreate();
 
   const { loadBranchList, loadWorktrees, loadRemoteBranches, remoteLoaded, invalidateRemoteCache, linkedWorktree } = branchList;
 
@@ -33,33 +35,15 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
 
   async function createBranch(name: string) {
     await withWorkspace(async (workspace) => {
-      const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: name });
-      if (!ok) return;
+      if (!await createBranchIn(workspace, name)) return;
       await loadBranchList();
-      // create-branchは内部でcheckoutも行うため、折り畳みヘッダー（現在
-      // ブランチ名・ahead/behind）の表示元であるworkspaceStoreも更新する。
-      // git:historyInvalidated購読側（GitHistory.vueのunpushed表示）がaheadの
-      // 更新前に再読み込みしてしまわないよう、emit前にawaitする。
-      await workspaceStore.fetchStatuses();
-      emit("git:historyInvalidated");
     });
   }
 
   async function createWorktree(branchName: string) {
     await withWorkspace(async (workspace) => {
-      const { ok, data } = await apiCommand(
-        wsEndpoint(workspace, "worktrees"),
-        { branch: branchName },
-        { errorMessage: "Failed to create worktree" },
-      );
-      if (!ok) return;
-      const created = data?.workspace;
-      await workspaceStore.fetchWorkspaces();
+      if (!await createWorktreeIn(workspace, branchName)) return;
       await loadBranchList();
-      if (created?.name) {
-        emit("git:actionResult", { wsName: workspace, result: buildActionResult("Worktree created", worktreeBranchLabel(created.branch)) });
-        emit("worktree:open", { name: created.name });
-      }
     });
   }
 
