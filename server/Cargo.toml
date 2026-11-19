@@ -30,7 +30,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bytes = "1"
 http = "1"
-nix = { version = "0.31.3", features = ["term", "process", "fs", "signal"] }
+nix = { version = "0.32.0", features = ["term", "process", "fs", "signal"] }
 regex = "1.13.1"
 toml = "1.1.4"
 # git_watch の FS 監視（Python 側 watchfiles の実体もこの crate）。
