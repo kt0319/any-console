@@ -217,6 +217,16 @@ Delete file "foo.txt"? This cannot be undone.
 
 ---
 
+# Dialog Rules
+
+ダイアログ（`BaseDialog` を使うモーダル）は次の形式に統一する (**MUST**)。
+
+- 右上に `DialogCloseButton` を置き、タイトルには `dialog-title-closable` を付けて×と重ならないようにする
+- 閉じる操作は×・Esc・外側タップの 3 つ。**Cancel ボタンは置かない**（フッターは決定系のボタンのみ）
+- 処理中に閉じさせたくない場合は `DialogCloseButton` の `disabled` を使う
+- タイトルが無い場合は本文側にも `dialog-title-closable` を付けて×と重ならないようにする
+- 新設したダイアログは `tests/ui/components/test_a11y.js` で `expectNoA11yViolations()` を通す
+
 # CSSルール
 
 ## hover
