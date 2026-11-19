@@ -1,7 +1,8 @@
 <template>
   <BaseDialog :visible="visible" :z-index="DIALOG_Z_INDEX_RAISED" @dismiss="close">
     <div class="commit-dialog dialog-box" role="dialog" aria-modal="true" aria-label="Commit">
-      <div class="dialog-title">Commit</div>
+      <DialogCloseButton :disabled="submitting" @close="close" />
+      <div class="dialog-title dialog-title-closable">Commit</div>
       <textarea
         v-model="commitMessage"
         class="form-input commit-dialog-textarea"
@@ -13,7 +14,6 @@
       ></textarea>
       <div v-if="error" class="form-error">{{ error }}</div>
       <div class="dialog-buttons">
-        <button type="button" class="dialog-btn dialog-btn-cancel" :disabled="submitting" @click="close">Cancel</button>
         <button type="button" class="dialog-btn dialog-btn-ok" :disabled="!commitMessage.trim() || submitting" @click="submit">Commit</button>
       </div>
     </div>
@@ -23,6 +23,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import BaseDialog from "./BaseDialog.vue";
+import DialogCloseButton from "./DialogCloseButton.vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useApi } from "../composables/useApi.ts";
 import { buildActionResult } from "../utils/git-remote.ts";

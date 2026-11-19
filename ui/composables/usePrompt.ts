@@ -7,7 +7,6 @@ const message = ref("");
 const value = ref("");
 const placeholder = ref("");
 const confirmLabel = ref("OK");
-const cancelLabel = ref("Cancel");
 const inputType = ref("text");
 const selectOnOpen = ref(true);
 const pending = createPendingPromise();
@@ -18,7 +17,6 @@ function resetState() {
   value.value = "";
   placeholder.value = "";
   confirmLabel.value = "OK";
-  cancelLabel.value = "Cancel";
   inputType.value = "text";
   selectOnOpen.value = true;
 }
@@ -29,7 +27,6 @@ type PromptOptions = {
   initialValue?: string,
   placeholder?: string,
   confirmLabel?: string,
-  cancelLabel?: string,
   inputType?: string,
   selectOnOpen?: boolean,
 };
@@ -43,7 +40,6 @@ export function usePrompt() {
     value.value = next.initialValue ?? "";
     placeholder.value = next.placeholder || "";
     confirmLabel.value = next.confirmLabel || "OK";
-    cancelLabel.value = next.cancelLabel || "Cancel";
     inputType.value = next.inputType || "text";
     selectOnOpen.value = next.selectOnOpen !== false;
     visible.value = true;
@@ -70,7 +66,6 @@ export function usePrompt() {
     value,
     placeholder,
     confirmLabel,
-    cancelLabel,
     inputType,
     selectOnOpen,
     prompt,

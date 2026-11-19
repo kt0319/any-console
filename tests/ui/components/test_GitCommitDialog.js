@@ -88,12 +88,12 @@ describe("GitCommitDialog", () => {
     wrapper.unmount();
   });
 
-  it("Cancel で閉じても、入力途中のメッセージは次に開いたとき残っている", async () => {
+  it("× で閉じても、入力途中のメッセージは次に開いたとき残っている", async () => {
     const wrapper = mountDialog();
     wrapper.vm.open();
     await flushPromises();
     await typeMessage("wip");
-    document.querySelector(".dialog-btn-cancel").click();
+    document.querySelector(".dialog-close-btn").click();
     await flushPromises();
     expect(document.querySelector(".commit-dialog")).toBeNull();
     wrapper.vm.open();

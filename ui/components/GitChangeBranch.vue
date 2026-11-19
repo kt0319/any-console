@@ -2,7 +2,8 @@
   <div class="git-branch-pane-wrapper pane-fill">
     <BaseDialog :visible="addModalOpen" :z-index="DIALOG_Z_INDEX_RAISED" @dismiss="closeAddModal">
       <div class="branch-add-dialog dialog-box" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
-        <div class="dialog-title">Add</div>
+        <DialogCloseButton @close="closeAddModal" />
+        <div class="dialog-title dialog-title-closable">Add</div>
         <div class="branch-add-radio-group">
           <label class="branch-add-radio-label">
             <input type="radio" v-model="addType" value="branch" />
@@ -28,7 +29,6 @@
           @keydown.esc="(e) => runUnlessComposing(e, closeAddModal)"
         />
         <div class="dialog-buttons">
-          <button class="dialog-btn dialog-btn-cancel" @click="closeAddModal">Cancel</button>
           <button class="dialog-btn dialog-btn-ok" :disabled="!addName.trim()" @click="submitAddModal">Create</button>
         </div>
       </div>
@@ -140,6 +140,7 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { useGitWorkspaceActions } from "../composables/useGitWorkspaceActions.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import BaseDialog from "./BaseDialog.vue";
+import DialogCloseButton from "./DialogCloseButton.vue";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush, type LocalBranch, type RemoteBranch } from "../utils/git-branch.ts";
 import { worktreeWorkspaceName } from "../utils/worktree.ts";

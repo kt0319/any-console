@@ -1,8 +1,9 @@
 <template>
   <BaseDialog :visible="visible" :z-index="DIALOG_Z_INDEX_RAISED" initial-focus="none" @dismiss="onCancel">
     <div class="prompt-dialog dialog-box" style="--dialog-width: 420px" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
-      <div v-if="title" class="dialog-title">{{ title }}</div>
-      <p v-if="message" class="prompt-message">{{ message }}</p>
+      <DialogCloseButton @close="onCancel" />
+      <div v-if="title" class="dialog-title dialog-title-closable">{{ title }}</div>
+      <p v-if="message" class="prompt-message" :class="{ 'dialog-title-closable': !title }">{{ message }}</p>
       <input
         ref="inputEl"
         v-model="value"
@@ -18,7 +19,6 @@
         @keydown.esc="(e) => runUnlessComposing(e, onCancel)"
       />
       <div class="dialog-buttons">
-        <button class="dialog-btn dialog-btn-cancel" @click="onCancel">{{ cancelLabel }}</button>
         <button class="dialog-btn dialog-btn-ok" :disabled="value.length === 0" @click="onSubmit">{{ confirmLabel }}</button>
       </div>
     </div>
@@ -29,6 +29,7 @@
 import { DIALOG_Z_INDEX_RAISED } from "../utils/constants.ts";
 import { ref, watch, nextTick } from "vue";
 import BaseDialog from "./BaseDialog.vue";
+import DialogCloseButton from "./DialogCloseButton.vue";
 import { usePrompt } from "../composables/usePrompt.ts";
 import { runUnlessComposing } from "../utils/keyboard-event.ts";
 
@@ -39,7 +40,6 @@ const {
   value,
   placeholder,
   confirmLabel,
-  cancelLabel,
   inputType,
   selectOnOpen,
   onSubmit,
