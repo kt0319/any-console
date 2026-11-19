@@ -173,8 +173,7 @@ watch(allSetupDone, (done) => { setupExpanded.value = !done; });
 
 onMounted(async () => {
   loadRecentJobs();
-  push.init();
-  await Promise.all([loadServerInfo(), loadPhonePairingEligibility()]);
+  await Promise.all([push.init(), loadServerInfo(), loadPhonePairingEligibility()]);
   setupExpanded.value = !allSetupDone.value;
   setupChecked.value = true;
 });

@@ -106,7 +106,11 @@ export function usePushNotification() {
   async function init() {
     if (!_supported) return;
     permission.value = Notification.permission;
-    await _loadExistingSubscription();
+    try {
+      await _loadExistingSubscription();
+    } catch (e) {
+      console.error("Push subscription lookup failed:", e);
+    }
   }
 
   return { isSupported, isGranted, isSubscribed, permission, subscribe, unsubscribe, init };
