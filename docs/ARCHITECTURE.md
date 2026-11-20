@@ -30,6 +30,8 @@ server/                       Backend (Rust, axum)
   src/middleware.rs            Security headers, rate-limit middleware, access log of mutating requests
   src/errors.rs                ApiError — the {"detail": ...} error response used by all handlers
   src/terminal_session.rs / tmux.rs / pty.rs  tmux × PTY fork/exec × WebSocket bridge
+  src/tmux_test_isolation.rs   Test-only: points TMUX_TMPDIR at a private dir so tmux tests never touch the
+                               developer's tmux server; shared via #[path] by unit tests and tests/common
   src/git_utils.rs / git_lock.rs  Git subprocess invocation, workspace lock
   src/git_watch.rs             Filesystem watching (notify) + git status recomputation
   src/status_stream.rs         /workspaces/statuses/ws — WS fan-out of git status, agent state,
@@ -57,6 +59,9 @@ server/                       Backend (Rust, axum)
                                direct-port previews
   src/port_scan.rs             LISTEN-port scanning and owning-process lookup (ss/lsof; split out of preview.rs)
   src/preview_tls.rs           Certificate discovery + loading for the preview proxy's TLS termination
+  src/cert_expiry.rs           Reads the expiry of the published HTTPS certificate (tailscale serve) by
+                               an unverified TLS handshake; feeds the System info warning only, never
+                               a trust decision
   src/push.rs                  VAPID / Web Push (RFC 8291/8292), native
   src/git_helpers.rs           Shared helpers for the git routers — ref validation and
                                execute_git_action wrappers with activity logging
