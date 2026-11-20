@@ -8,6 +8,7 @@
    dispatchリストが隣接して並ぶ（SessionListView.vue）ため、最後の行だけ
    罫線を消すと2つのリストが境界なく繋がって見えてしまう。常に表示する。 */
 .session-sidebar-li {
+  --session-sidebar-bar-width: 4px;
   border-bottom: 1px solid var(--border);
   position: relative;
 }
@@ -28,7 +29,7 @@
   align-items: center;
   gap: 4px;
   width: 100%;
-  border-left: 3px solid transparent;
+  border-left: var(--session-sidebar-bar-width) solid transparent;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -155,7 +156,7 @@
   color: var(--text-primary);
 }
 
-/* working（出力中）・blocked/phrase通知は、行全体ではなく左3pxのアクティブ
+/* working（出力中）・blocked/phrase通知は、行全体ではなく左端のアクティブ
    インジケーター（border-left。アクティブ行が常時 var(--accent) で点灯する
    のと同じ場所）の中だけで動かす。以前はタブと同じ「行全体が流れる/点滅する」
    演出（ui/styles/base.css）を共用していたが、セッション一覧はタブより行数が
@@ -167,7 +168,7 @@
    両方に別々の演出（別々のアニメーションインスタンス）を付けていたため、
    2つの要素の間でアニメーションのタイミングがズレて統一感なく見えていた。
    li側は元々border-bottomのみでレイアウト用のボーダーを持たないため、
-   ::beforeで独立した3px幅のオーバーレイを敷く（blocked/phrase通知の点滅も
+   ::beforeで独立したバー幅のオーバーレイを敷く（blocked/phrase通知の点滅も
    border-left-colorではなくこの::beforeで揃え、演出方式を1本化する）。
 
    working: タブ（ui/styles/base.css working-pulse）と同じ「一方向に流れ
@@ -182,7 +183,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 3px;
+  width: var(--session-sidebar-bar-width);
   height: 100%;
 }
 
