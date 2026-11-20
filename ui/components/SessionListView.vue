@@ -57,6 +57,7 @@ import { useGitHubPollingFor } from "../composables/useGitHubPolling.ts";
 import { usePreviewPorts } from "../composables/usePreviewPorts.ts";
 import { useDockerContainers } from "../composables/useDockerContainers.ts";
 import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
+import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
 import InfoPillRow from "./InfoPillRow.vue";
@@ -81,6 +82,7 @@ const agentStateStore = useAgentStateStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirmAndCloseTab } = useTabClose();
+const { close: closeSessionList } = useSessionListOverlay();
 
 // GitHub連携があるワークスペースごとにPR/Actionsのポーリングを回す（TerminalPaneの同種
 // ロジックを複数ワークスペース分にまとめたもの。差分開始/停止は useGitHubPollingFor に集約）。
@@ -178,8 +180,8 @@ function onSelect(item: SessionItem) {
     // ここで明示的にバッジをクリアする。
     agentStateStore.clearSessionNotifyBadges(item.tab.sessionId);
   }
-  // タブ切替えではサイドバー/オーバーレイを閉じない。閉じるのはハンバーガー/閉じるボタン・
-  // Escでの明示操作のみにする。
+  // モバイルは一覧が全面オーバーレイで切替え先を隠すため閉じる。PCはターミナルと並べて出すので開いたまま。
+  if (layoutStore.isNarrowViewport) closeSessionList();
 }
 
 function onPillOpen(item: SessionItem, key: string) {

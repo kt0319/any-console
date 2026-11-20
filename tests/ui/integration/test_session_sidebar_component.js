@@ -130,26 +130,27 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     expect(layoutStore.isSessionSidebarOpen).toBe(true);
   });
 
-  it("モバイル: 行選択でtab:selectがemitされる（skipFocus付き）がサイドバーは閉じない", async () => {
+  it("モバイル: 行選択でtab:selectがemitされ（skipFocus付き）サイドバーを閉じる", async () => {
     const { layoutStore } = seedSidebar({ panelBottom: true });
+    layoutStore.isNarrowViewport = true;
     const selected = [];
     const off = on("tab:select", (detail) => selected.push(detail));
     await wrapper.findAll(".session-sidebar-item")[1].trigger("click");
     off();
     expect(selected).toHaveLength(1);
     expect(selected[0].skipFocus).toBe(true);
-    // タブ切替えではサイドバー/オーバーレイを閉じない（モバイルでも同様）。
-    expect(layoutStore.isSessionSidebarOpen).toBe(true);
+    expect(layoutStore.isSessionSidebarOpen).toBe(false);
   });
 
-  it("モバイル: アクティブな行の選択は tab:select を出さない（サイドバーも閉じない）", async () => {
+  it("モバイル: アクティブな行の選択は tab:select を出さずサイドバーだけ閉じる", async () => {
     const { layoutStore } = seedSidebar({ panelBottom: true });
+    layoutStore.isNarrowViewport = true;
     const selected = [];
     const off = on("tab:select", (detail) => selected.push(detail));
     await wrapper.findAll(".session-sidebar-item")[0].trigger("click");
     off();
     expect(selected).toHaveLength(0);
-    expect(layoutStore.isSessionSidebarOpen).toBe(true);
+    expect(layoutStore.isSessionSidebarOpen).toBe(false);
   });
 
   it("Esc でサイドバーが閉じる", async () => {
