@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0](https://github.com/kt0319/any-console/compare/v0.22.0...v0.23.0) (2026-11-20)
+
+
+### Features
+
+* コマンドパレットで一致するコマンドが無いとき入力を引数にしたブランチ作成・worktree作成・ターミナル送信・パスを開く操作を提案する ([8bd9ac7](https://github.com/kt0319/any-console/commit/8bd9ac7b06434e0f18944001ef70f5f2b7c5cd87))
+* コマンドパレットの入力を引数にした操作を一致したコマンドがあるときも後ろに表示する ([400fa5e](https://github.com/kt0319/any-console/commit/400fa5e19fded8a74c97a7508c819db950f69bde))
+* スマホ幅でセッション一覧のタブを選択したら一覧を閉じる ([993d372](https://github.com/kt0319/any-console/commit/993d37235f1bcc17b817191dc941c7c326f3c823))
+
+
+### Bug Fixes
+
+* コマンドパレットで空白を含む絶対パスや相対パスもパスとして判定する ([da00f2e](https://github.com/kt0319/any-console/commit/da00f2e394b758ac5121b577d447629589dd7bc7))
+* セッション一覧のアクティブバーをタブの下線より細く見えないよう4pxにする ([e6315a5](https://github.com/kt0319/any-console/commit/e6315a52dd511bfdb2550e96945ee010a6f9037a))
+* 起動直後に通知の購読状態の取得を待たずSetup欄を描画して有効済みでも未完了に見える不具合を修正 ([e42ff92](https://github.com/kt0319/any-console/commit/e42ff92a1c208b0b13f00f7ebd1128f9270bdc02))
+
+
+### Refactor
+
+* ブランチ・worktree作成のAPI呼び出しをワークスペース指定の共通composableに切り出す ([e97a2b1](https://github.com/kt0319/any-console/commit/e97a2b19075888a4d1e1ec420869b0f278d973f9))
+
+
+### Documentation
+
+* ARCHITECTUREにcert_expiryとtmux_test_isolationを追記する ([236e4bc](https://github.com/kt0319/any-console/commit/236e4bc23fe03d0e88eeaffafa08e5d10120444c))
+
+
+### CI
+
+* リリースのApple Siliconビルドで廃止されたmacos-14をmacos-15に変更する ([467904b](https://github.com/kt0319/any-console/commit/467904b4e70f57696dff6586139cf5247318b852))
+* リリースのApple Siliconビルドのランナーをmacos-latestにして廃止による失敗を避ける ([f401281](https://github.com/kt0319/any-console/commit/f40128107ab2c14a70404649e806887f47a2230c))
+
 ## [0.22.0](https://github.com/kt0319/any-console/compare/v0.21.0...v0.22.0) (2026-11-19)
 
 
