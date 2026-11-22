@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { useLayoutStore } from "../stores/layout.ts";
+import { readLargeViewportHeightPx } from "../utils/viewport-units.ts";
 import { KEYBOARD_CLOSE_DELAY_MS, KEYBOARD_OPEN_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS, DOUBLE_TAP_ZOOM_PREVENT_MS } from "../utils/constants.ts";
 
 type FitCallback = (opts?: { scrollToBottom?: boolean }) => void;
@@ -21,7 +22,7 @@ function updateViewportHeight() {
   const isKbOpen = !!(vv && (window.innerHeight - vv.height > 100));
   const useFullHeight = layoutStore.isPwa && !isKbOpen;
   const appliedViewportHeightPx = useFullHeight
-    ? Math.round(window.innerHeight)
+    ? Math.max(Math.round(window.innerHeight), readLargeViewportHeightPx())
     : viewportHeightPx;
 
   if (prevViewportHeightPx !== appliedViewportHeightPx) {
