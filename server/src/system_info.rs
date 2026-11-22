@@ -351,6 +351,14 @@ pub async fn info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Jso
     if let Some(v) = get_tailscale_info().await {
         info.insert("tailscale".into(), v);
     }
+    info.insert(
+        "preview_https".into(),
+        Value::Bool(crate::preview_tls::find_cert_pair(&state.paths.data_dir).is_some()),
+    );
+    info.insert(
+        "preview_https_enabled".into(),
+        Value::Bool(crate::settings::preview_https_enabled(&state.config)),
+    );
     let gh_user = gh_auth_user().await;
     info.insert("gh_authenticated".into(), Value::Bool(gh_user.is_some()));
     if let Some(user) = gh_user {

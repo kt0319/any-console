@@ -202,6 +202,35 @@ pub async fn put_notifications(
     Ok(Json(json!({"status": "ok", "phrase_notify_grace_sec": v})))
 }
 
+// ─── /settings/preview ──────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct PreviewSettings {
+    https: bool,
+}
+
+/// 既定は有効。無効でも証明書が無ければどのみち HTTP になる。
+pub(crate) fn preview_https_enabled(store: &ConfigStore) -> bool {
+    store
+        .load_global_object("preview")
+        .get("https")
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+}
+
+pub async fn get_preview(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
+    Json(json!({"https": preview_https_enabled(&state.config)}))
+}
+
+pub async fn put_preview(
+    State(state): State<Arc<AppState>>,
+    _auth: RequireAuth,
+    JsonBody(body): JsonBody<PreviewSettings>,
+) -> Result<Json<Value>, ApiError> {
+    save_global(&state.config, "preview", json!({"https": body.https}))?;
+    Ok(Json(json!({"status": "ok", "https": body.https})))
+}
+
 // ─── /settings/info-pills ───────────────────────────────────────────────────
 
 const INFO_PILL_FIELDS: &[&str] = &[

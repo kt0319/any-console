@@ -173,6 +173,10 @@ fn settings_routes() -> AppRouter {
             get(settings::get_notifications).put(settings::put_notifications),
         )
         .route(
+            "/settings/preview",
+            get(settings::get_preview).put(settings::put_preview),
+        )
+        .route(
             "/settings/info-pills",
             get(settings::get_info_pills).put(settings::put_info_pills),
         )

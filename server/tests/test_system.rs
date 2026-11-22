@@ -67,6 +67,8 @@ async fn system_info_served_natively() {
     assert!(body["user"].is_string());
     assert!(body["install_dir"].is_string());
     assert!(body["home_dir"].is_string());
+    // SSL_CERTFILE等の環境変数でも変わるため、値ではなく型だけ固定する。
+    assert!(body["preview_https"].is_boolean());
     // Linux では disk / memory も取れるはず
     assert!(body["disk"].as_str().unwrap_or("").contains("GB"));
     assert!(body["memory"].as_str().unwrap_or("").contains("GB"));

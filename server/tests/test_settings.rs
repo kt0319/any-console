@@ -140,6 +140,13 @@ async fn editor_notifications_and_layout_roundtrip() {
         0
     );
 
+    assert_eq!(get_json(&front, "/settings/preview").await["https"], true);
+    let resp = put_json(&front, "/settings/preview", &json!({"https": false})).await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(get_json(&front, "/settings/preview").await["https"], false);
+    let resp = put_json(&front, "/settings/preview", &json!({"https": "no"})).await;
+    assert_eq!(resp.status(), 422);
+
     assert_eq!(
         get_json(&front, "/settings/layout").await["split"],
         Value::Null

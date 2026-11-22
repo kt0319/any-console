@@ -135,7 +135,10 @@ fn should_scan_now(state: &PreviewState) -> bool {
     }
 }
 
-fn preview_tls_config(state: &PreviewState, data_dir: &Path) -> TlsConfig {
+fn preview_tls_config(state: &PreviewState, data_dir: &Path, https_enabled: bool) -> TlsConfig {
+    if !https_enabled {
+        return None;
+    }
     state
         .tls
         .get_or_init(|| {
@@ -145,8 +148,8 @@ fn preview_tls_config(state: &PreviewState, data_dir: &Path) -> TlsConfig {
         .clone()
 }
 
-fn preview_scheme(state: &PreviewState, data_dir: &Path) -> &'static str {
-    if preview_tls_config(state, data_dir).is_some() {
+fn preview_scheme(state: &PreviewState, data_dir: &Path, https_enabled: bool) -> &'static str {
+    if preview_tls_config(state, data_dir, https_enabled).is_some() {
         "https"
     } else {
         "http"
@@ -212,7 +215,8 @@ async fn scan_once(state: &Arc<AppState>) {
         lookups.insert(port, (cwd, workspace, worktree_base, worktree_branch));
     }
 
-    let scheme_now = preview_scheme(preview, &state.paths.data_dir);
+    let https_enabled = crate::settings::preview_https_enabled(&state.config);
+    let scheme_now = preview_scheme(preview, &state.paths.data_dir, https_enabled);
     {
         let mut detected = preview.detected.lock().expect("detected lock poisoned");
         for (port, (proc, pid)) in &live {
@@ -416,7 +420,8 @@ async fn handle_proxy_conn(client: TcpStream, target_port: u16, tls: TlsConfig) 
 /// 次回の reconcile で再試行される）。listen は 0.0.0.0（全インターフェース。
 /// Tailscale IP 経由でも開ける）。
 async fn start_proxy(state: &Arc<AppState>, target_port: u16, proxy_port: u16) {
-    let tls = preview_tls_config(&state.preview, &state.paths.data_dir);
+    let https_enabled = crate::settings::preview_https_enabled(&state.config);
+    let tls = preview_tls_config(&state.preview, &state.paths.data_dir, https_enabled);
     let listener = match TcpListener::bind((PROXY_BIND_HOST, proxy_port)).await {
         Ok(l) => l,
         Err(e) => {
