@@ -106,7 +106,7 @@ const pinnedJobs = computed(() => recentJobs.value.filter((j) => j.pinned));
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
-const serverInfo = ref<{ hostname?: string, version?: string, gh_authenticated?: boolean, tailscale?: { https_cert?: { expires_at: number } } } | null>(null);
+const serverInfo = ref<{ hostname?: string, version?: string, gh_authenticated?: boolean, tailscale?: { https_cert?: { expires_at: number } }, preview_https?: boolean, preview_https_enabled?: boolean } | null>(null);
 
 // 「Open on your phone」導線: 認証必須な環境で出す一回きりのオンボーディング促し。
 // 完了後も項目自体は消さず、チェックマークで完了を示す（何を設定済みか後から
@@ -151,6 +151,14 @@ const certStatus = computed(() => {
 const eligibleCertExpiry = computed(() => certStatus.value !== null);
 const doneCertExpiry = computed(() => certStatus.value?.warn === false);
 
+// dev serverプレビュー(proxy)のHTTPS証明書。メインがHTTPSなのにproxyだけHTTPだと、
+// PWAからのプレビューがmixed contentでブロックされるため、HTTPS環境でのみ促す。
+// Settings > Preview Server で意図的に無効化している場合は促さない。
+const eligiblePreviewHttps = computed(() =>
+  !isLocalDev && location.protocol === "https:" && serverInfo.value?.preview_https_enabled !== false,
+);
+const donePreviewHttps = computed(() => serverInfo.value?.preview_https === true);
+
 // Setup項目が全て完了していたら初期状態でトグルを閉じる。開閉状態はユーザー操作を
 // 尊重し、allSetupDoneが変化した時（=データ読み込み完了時）だけ自動で追従させる。
 // Setup 項目の一覧（テンプレート表示・全完了判定・セクション表示可否の
@@ -158,6 +166,7 @@ const doneCertExpiry = computed(() => certStatus.value?.warn === false);
 const setupItems = computed(() => [
   { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value, icon: "mdi-lock-outline", label: "Set up HTTPS", onClick: showHttpsInstructions },
   { eligible: eligibleCertExpiry.value, done: doneCertExpiry.value, icon: "mdi-certificate-outline", label: "HTTPS certificate", onClick: showCertExpiry },
+  { eligible: eligiblePreviewHttps.value, done: donePreviewHttps.value, icon: "mdi-monitor-share", label: "Preview Server HTTPS", onClick: showPreviewHttpsInstructions },
   { eligible: eligiblePwaInstall.value, done: donePwaInstall.value, icon: "mdi-cellphone-arrow-down", label: "Install as app", onClick: installPwa },
   { eligible: eligiblePhonePairing.value, done: donePhonePairing.value, icon: "mdi-cellphone", label: "Open on your phone", onClick: openPhonePairing },
   { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value, icon: "mdi-bell-outline", label: "Enable notifications", onClick: enableNotifications },
@@ -220,6 +229,14 @@ async function showCertExpiry() {
       + "Tailscale normally renews it automatically; if it does not, run \"tailscale cert\" on the server for this host."
     : "Tailscale renews it automatically before it expires.";
   await confirm(`HTTPS certificate: ${summary}. ${advice}`, { ok: { label: "Got it" } });
+}
+
+async function showPreviewHttpsInstructions() {
+  await confirm(
+    "Run \"./any-console https-setup\" on the server to issue a certificate for dev server previews, then restart any-console. "
+    + "Without it, previews are served over HTTP and may be blocked when this app is opened over HTTPS.",
+    { ok: { label: "Got it" } },
+  );
 }
 
 async function showGhAuthInstructions() {

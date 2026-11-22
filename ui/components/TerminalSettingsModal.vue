@@ -31,6 +31,7 @@ import SendSnippet from "./SendSnippet.vue";
 import SendHistory from "./SendHistory.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeypadConfig from "./CircleKeypadConfig.vue";
+import PreviewConfig from "./PreviewConfig.vue";
 
 // タブバーの歯車ボタンから開くSettings系列専用の全面オーバーレイ。
 // シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに
@@ -63,6 +64,7 @@ const VIEWS: Record<string, unknown> = {
   SendHistory,
   NotificationConfig,
   CircleKeypadConfig,
+  PreviewConfig,
 };
 
 function close() {

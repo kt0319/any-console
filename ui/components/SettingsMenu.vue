@@ -17,6 +17,10 @@
         <button type="button" class="settings-menu-item" @click="pushView('CircleKeypadConfig')">
           <span class="mdi mdi-gesture-tap"></span> Circle Keypad
         </button>
+        <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
+          <span class="mdi mdi-monitor-share"></span> Preview Server
+          <span class="settings-menu-version" :class="{ 'settings-menu-version-on': previewHttpsEnabled }">{{ previewHttpsEnabled ? "On" : "Off" }}</span>
+        </button>
         <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">
           <span class="mdi mdi-bell-outline"></span> Notifications
           <span class="settings-menu-version" :class="{ 'settings-menu-version-on': isPushSubscribed }">{{ isPushSubscribed ? "On" : "Off" }}</span>
@@ -50,7 +54,7 @@
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
-import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
+import { EP_SETTINGS_AUTH, EP_SETTINGS_PREVIEW, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
 import { usePushNotification } from "../composables/usePushNotification.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
@@ -64,6 +68,7 @@ modalTitle.value = "Settings";
 const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
+const previewHttpsEnabled = ref(true);
 const { isSubscribed: isPushSubscribed, init: initPush } = usePushNotification();
 
 onMounted(async () => {
@@ -71,6 +76,8 @@ onMounted(async () => {
   if (auth.ok) authWarn.value = !auth.data?.auth_required;
   const info = await getWithRetry(apiGet, EP_SYSTEM_INFO);
   if (info.ok && info.data?.version) appVersion.value = info.data.version;
+  const preview = await apiGet(EP_SETTINGS_PREVIEW);
+  if (preview.ok && typeof preview.data?.https === "boolean") previewHttpsEnabled.value = preview.data.https;
   // Notifications項目の右にOn/Offを出すため、subscription状態（module-level
   // ref）をここでも初期化する。NotificationConfig.vueを一度も開いていないと
   // subscription.valueが未確定のまま（常にOffに見える）ため。

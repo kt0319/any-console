@@ -179,6 +179,11 @@ function tailscaleRows(ts: Record<string, any> | null | undefined) {
   ];
 }
 
+function formatPreviewHttps(srv: Record<string, any>) {
+  if (srv.preview_https_enabled === false) return "Disabled in Settings";
+  return srv.preview_https ? "Enabled" : "Not set up (run ./any-console https-setup)";
+}
+
 async function load() {
   isLoading.value = true;
   const get = (ep: string) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
@@ -197,6 +202,7 @@ async function load() {
         row("Auth", formatAuth(auth)),
         row("Install dir", srv.install_dir),
         row("User", srv.user),
+        row("Preview Server HTTPS", formatPreviewHttps(srv)),
         row("GitHub CLI", srv.gh_authenticated ? `Logged in (${srv.gh_user})` : "Not logged in"),
       ].filter((r) => r.values[0]) : [],
     },
