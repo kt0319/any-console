@@ -166,7 +166,7 @@ const donePreviewHttps = computed(() => serverInfo.value?.preview_https === true
 const setupItems = computed(() => [
   { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value, icon: "mdi-lock-outline", label: "Set up HTTPS", onClick: showHttpsInstructions },
   { eligible: eligibleCertExpiry.value, done: doneCertExpiry.value, icon: "mdi-certificate-outline", label: "HTTPS certificate", onClick: showCertExpiry },
-  { eligible: eligiblePreviewHttps.value, done: donePreviewHttps.value, icon: "mdi-monitor-share", label: "Preview Server HTTPS", onClick: showPreviewHttpsInstructions },
+  { eligible: eligiblePreviewHttps.value, done: donePreviewHttps.value, icon: "mdi-server", label: "Preview Server HTTPS", onClick: showPreviewHttpsInstructions },
   { eligible: eligiblePwaInstall.value, done: donePwaInstall.value, icon: "mdi-cellphone-arrow-down", label: "Install as app", onClick: installPwa },
   { eligible: eligiblePhonePairing.value, done: donePhonePairing.value, icon: "mdi-cellphone", label: "Open on your phone", onClick: openPhonePairing },
   { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value, icon: "mdi-bell-outline", label: "Enable notifications", onClick: enableNotifications },

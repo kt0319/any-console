@@ -19,7 +19,7 @@
           <span class="settings-menu-version" :class="{ 'settings-menu-version-on': circleKeypad.enabled }">{{ circleKeypad.enabled ? "On" : "Off" }}</span>
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
-          <span class="mdi mdi-monitor-share"></span> Preview Server
+          <span class="mdi mdi-server"></span> Preview Server
           <span class="settings-menu-version" :class="{ 'settings-menu-version-on': previewHttpsEnabled }">{{ previewHttpsEnabled ? "On" : "Off" }}</span>
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">
