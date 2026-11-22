@@ -82,6 +82,7 @@ import { EP_AUTH_CHECK, EP_SYSTEM_INFO, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE
 import { useModalView } from "../composables/useModalView.ts";
 import { useToast } from "../composables/useToast.ts";
 import { triggerBlobDownload } from "../utils/download.ts";
+import { readSafeAreaInsets, formatSafeAreaInsets } from "../utils/safe-area.ts";
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "System Info";
@@ -219,6 +220,8 @@ async function load() {
         row("Platform", (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || "-"),
         row("Screen", `${screen.width} x ${screen.height}`),
         row("Viewport", `${window.innerWidth} x ${window.innerHeight}`),
+        row("Visual viewport", window.visualViewport ? `${Math.round(window.visualViewport.width)} x ${Math.round(window.visualViewport.height)}` : "-"),
+        row("Safe area", formatSafeAreaInsets(readSafeAreaInsets())),
         row("Touch", layoutStore.isTouchDevice ? "Yes" : "No"),
         row("PWA", layoutStore.isPwa ? "Yes" : "No"),
         row("Online", navigator.onLine ? "Yes" : "No"),
