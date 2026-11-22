@@ -16,6 +16,7 @@
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('CircleKeypadConfig')">
           <span class="mdi mdi-gesture-tap"></span> Circle Keypad
+          <span class="settings-menu-version" :class="{ 'settings-menu-version-on': circleKeypad.enabled }">{{ circleKeypad.enabled ? "On" : "Off" }}</span>
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
           <span class="mdi mdi-monitor-share"></span> Preview Server
@@ -57,6 +58,7 @@ import { getWithRetry } from "../utils/api-retry.ts";
 import { EP_SETTINGS_AUTH, EP_SETTINGS_PREVIEW, EP_SYSTEM_INFO } from "../utils/endpoints.ts";
 import { usePushNotification } from "../composables/usePushNotification.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import { useCircleKeypadConfigStore } from "../stores/circle-keypad-config.ts";
 
 // useModalView の各値は inject（default null はテスト用）。実行時は常に
 // provide されるため non-null で扱う。
@@ -69,6 +71,7 @@ const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
 const previewHttpsEnabled = ref(true);
+const circleKeypad = useCircleKeypadConfigStore();
 const { isSubscribed: isPushSubscribed, init: initPush } = usePushNotification();
 
 onMounted(async () => {
