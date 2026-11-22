@@ -173,6 +173,7 @@ body {
 #app {
   position: fixed;
   inset: 0;
+  padding-top: env(safe-area-inset-top);
 }
 
 .numstat-added {
