@@ -17,45 +17,43 @@
       </div>
     </label>
 
-    <template v-if="isSubscribed">
-      <div class="notif-section-title">Notify on</div>
-      <label class="settings-item settings-toggle">
-        <input type="checkbox" v-model="prefs.dispatch" @change="savePrefs" />
-        <div class="settings-toggle-copy">
-          <span class="settings-item-label">Dispatch</span>
-          <span class="settings-note">When a dispatch needs your approval, or a direct run starts, fails or cannot deliver its input.</span>
-        </div>
-      </label>
-      <label class="settings-item settings-toggle">
-        <input type="checkbox" v-model="prefs.phrase" @change="savePrefs" />
-        <div class="settings-toggle-copy">
-          <span class="settings-item-label">Phrase detected</span>
-          <span class="settings-note">When a "Notify phrase" appears in job output.</span>
-        </div>
-      </label>
-      <label class="settings-item" :class="{ 'notif-disabled': !prefs.phrase }">
-        <span class="settings-item-label">Phrase notify delay</span>
-        <input
-          type="number"
-          min="0"
-          :max="PHRASE_NOTIFY_GRACE_SEC_MAX"
-          class="form-input notif-grace-input"
-          :disabled="!prefs.phrase"
-          v-model.number="graceSec"
-        />
-        <span class="settings-note">
-          Seconds to wait after the phrase appears before sending a push
-          (avoids notifying while you're already watching).
-        </span>
-      </label>
-      <label class="settings-item settings-toggle">
-        <input type="checkbox" v-model="prefs.blocked" @change="savePrefs" />
-        <div class="settings-toggle-copy">
-          <span class="settings-item-label">Agent blocked</span>
-          <span class="settings-note">When an agent needs your input to continue.</span>
-        </div>
-      </label>
-    </template>
+    <div class="notif-section-title">Notify on</div>
+    <label class="settings-item settings-toggle" :class="{ 'notif-disabled': !isSubscribed }">
+      <input type="checkbox" v-model="prefs.dispatch" :disabled="!isSubscribed" @change="savePrefs" />
+      <div class="settings-toggle-copy">
+        <span class="settings-item-label">Dispatch</span>
+        <span class="settings-note">When a dispatch needs your approval, or a direct run starts, fails or cannot deliver its input.</span>
+      </div>
+    </label>
+    <label class="settings-item settings-toggle" :class="{ 'notif-disabled': !isSubscribed }">
+      <input type="checkbox" v-model="prefs.phrase" :disabled="!isSubscribed" @change="savePrefs" />
+      <div class="settings-toggle-copy">
+        <span class="settings-item-label">Phrase detected</span>
+        <span class="settings-note">When a "Notify phrase" appears in job output.</span>
+      </div>
+    </label>
+    <label class="settings-item" :class="{ 'notif-disabled': !isSubscribed || !prefs.phrase }">
+      <span class="settings-item-label">Phrase notify delay</span>
+      <input
+        type="number"
+        min="0"
+        :max="PHRASE_NOTIFY_GRACE_SEC_MAX"
+        class="form-input notif-grace-input"
+        :disabled="!isSubscribed || !prefs.phrase"
+        v-model.number="graceSec"
+      />
+      <span class="settings-note">
+        Seconds to wait after the phrase appears before sending a push
+        (avoids notifying while you're already watching).
+      </span>
+    </label>
+    <label class="settings-item settings-toggle" :class="{ 'notif-disabled': !isSubscribed }">
+      <input type="checkbox" v-model="prefs.blocked" :disabled="!isSubscribed" @change="savePrefs" />
+      <div class="settings-toggle-copy">
+        <span class="settings-item-label">Agent blocked</span>
+        <span class="settings-note">When an agent needs your input to continue.</span>
+      </div>
+    </label>
   </div>
 </template>
 
