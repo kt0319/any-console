@@ -4,8 +4,8 @@
   "short_name": "any-console",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1b26",
-  "theme_color": "#1a1b26",
+  "background_color": "#24283b",
+  "theme_color": "#24283b",
   "icons": [
     {
       "src": "apple-touch-icon.png",
