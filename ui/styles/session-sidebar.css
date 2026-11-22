@@ -51,8 +51,8 @@
   min-height: 56px;
 }
 
-.session-sidebar-row1:active,
-.session-sidebar-row2:active {
+.session-sidebar-li:active .session-sidebar-row1:not(.active),
+.session-sidebar-li:active .session-sidebar-row2:not(.active) {
   background: var(--bg-tertiary);
 }
 
