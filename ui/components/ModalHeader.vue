@@ -67,7 +67,6 @@ const emit = defineEmits<{
 .settings-panel-header.panel-bottom {
   border-bottom: none;
   border-top: 1px solid var(--border);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
 }
 
 .modal-title-wrap.is-clickable {
