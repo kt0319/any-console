@@ -17,6 +17,9 @@
         />
       </div>
     </div>
+    <div v-else-if="fileContent.audio && fileContent.data_url" class="file-content-audio-box">
+      <audio :src="fileContent.data_url" class="file-content-audio" controls preload="metadata" :aria-label="fileName || 'Audio preview'"></audio>
+    </div>
     <div v-else-if="fileContent.binary" class="file-content-message">Binary file ({{ formatSize(fileContent.size) }})</div>
     <div v-else-if="fileContent.too_large" class="file-content-message">File too large ({{ formatSize(fileContent.size) }})</div>
     <pre v-else ref="codeEl" class="file-content-viewer"><table class="line-table"><tr v-for="(line, i) in highlightedLines" :key="i"><td class="line-num">{{ i + 1 }}</td><td class="line-content" v-html="line"></td></tr></table></pre>
@@ -190,6 +193,14 @@ watch(() => props.fileContent, () => { zoom.value = 1; highlight(); }, { immedia
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+
+.file-content-audio-box {
+  padding: 12px 0;
+}
+
+.file-content-audio {
+  width: 100%;
 }
 
 .file-content-image-wrap {

@@ -26,15 +26,28 @@ use crate::util::{base64_standard, JsonBody, QueryParams, MAX_UPLOAD_SIZE, MSG_U
 const MAX_ZIP_DOWNLOAD_SIZE: u64 = 200 * 1024 * 1024;
 const MAX_FILE_SIZE: u64 = 512 * 1024;
 const MAX_IMAGE_PREVIEW_SIZE: u64 = 5 * 1024 * 1024;
+const MAX_AUDIO_PREVIEW_SIZE: u64 = 20 * 1024 * 1024;
 
 const BINARY_EXTENSIONS: &[&str] = &[
     ".zip", ".gz", ".tar", ".bz2", ".7z", ".rar", ".exe", ".dll", ".so", ".dylib", ".bin", ".pdf",
-    ".doc", ".docx", ".xls", ".xlsx", ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv", ".woff",
-    ".woff2", ".ttf", ".otf", ".eot",
+    ".doc", ".docx", ".xls", ".xlsx", ".mp4", ".avi", ".mov", ".mkv", ".woff", ".woff2", ".ttf",
+    ".otf", ".eot",
 ];
 const IMAGE_EXTENSIONS: &[&str] = &[
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg",
 ];
+const AUDIO_EXTENSIONS: &[&str] = &[".wav", ".mp3"];
+
+/// インラインプレビュー（data URL で返す）する種別。`flag` は応答に立てる真偽フィールド名。
+fn media_preview_kind(ext: &str) -> Option<(&'static str, u64)> {
+    if IMAGE_EXTENSIONS.contains(&ext) {
+        Some(("image", MAX_IMAGE_PREVIEW_SIZE))
+    } else if AUDIO_EXTENSIONS.contains(&ext) {
+        Some(("audio", MAX_AUDIO_PREVIEW_SIZE))
+    } else {
+        None
+    }
+}
 
 fn ext_of(path: &str) -> String {
     FsPath::new(path)
@@ -84,16 +97,16 @@ fn build_content_response(path: &str, ext: &str, raw: &[u8], size: u64) -> Value
         .file_name()
         .map(|f| f.to_string_lossy())
         .unwrap_or_default();
-    if IMAGE_EXTENSIONS.contains(&ext) {
-        if size > MAX_IMAGE_PREVIEW_SIZE {
-            return json!({"status": "ok", "path": path, "image": true, "too_large": true, "size": size});
+    if let Some((flag, max_size)) = media_preview_kind(ext) {
+        if size > max_size {
+            return json!({"status": "ok", "path": path, flag: true, "too_large": true, "size": size});
         }
         let mime_type = mime_guess::from_path(filename.as_ref())
             .first_raw()
             .unwrap_or("application/octet-stream");
         let data_url = format!("data:{mime_type};base64,{}", base64_standard(raw));
         return json!({
-            "status": "ok", "path": path, "image": true, "size": size,
+            "status": "ok", "path": path, flag: true, "size": size,
             "mime_type": mime_type, "data_url": data_url,
         });
     }
@@ -113,9 +126,8 @@ pub(crate) fn read_file_content_response(path: &str, target: &FsPath) -> Result<
         .map_err(|e| map_io_error("Stat failed", e))?
         .len();
     let ext = ext_of(path);
-    let needs_read = !(BINARY_EXTENSIONS.contains(&ext.as_str())
-        || (IMAGE_EXTENSIONS.contains(&ext.as_str()) && size > MAX_IMAGE_PREVIEW_SIZE)
-        || (!IMAGE_EXTENSIONS.contains(&ext.as_str()) && size > MAX_FILE_SIZE));
+    let max_size = media_preview_kind(&ext).map_or(MAX_FILE_SIZE, |(_, max)| max);
+    let needs_read = !BINARY_EXTENSIONS.contains(&ext.as_str()) && size <= max_size;
     let raw = if needs_read {
         std::fs::read(target).map_err(|e| map_io_error("Read failed", e))?
     } else {
@@ -857,6 +869,20 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("data:image/png;base64,"));
+
+        let audio = build_content_response("a.mp3", ".mp3", b"ID3", 3);
+        assert_eq!(audio["audio"], true);
+        assert!(audio.get("image").is_none());
+        assert!(audio["data_url"]
+            .as_str()
+            .unwrap()
+            .starts_with("data:audio/mpeg;base64,"));
+        let wav = build_content_response("a.wav", ".wav", b"RIFF", 4);
+        assert!(wav["data_url"].as_str().unwrap().starts_with("data:audio/"));
+        let large_audio =
+            build_content_response("big.mp3", ".mp3", b"", MAX_AUDIO_PREVIEW_SIZE + 1);
+        assert_eq!(large_audio["audio"], true);
+        assert_eq!(large_audio["too_large"], true);
 
         let bin = build_content_response("app.zip", ".zip", b"", 100);
         assert_eq!(bin["binary"], true);

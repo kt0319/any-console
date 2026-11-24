@@ -63,3 +63,21 @@ describe("FileTextViewer 画像の拡大", () => {
     expect(wrapper.find(".file-content-image").attributes("style") ?? "").not.toContain("width");
   });
 });
+
+describe("FileTextViewer 音声の再生", () => {
+  it("audio の data_url を controls 付きの audio 要素で表示する", () => {
+    const fileContent = { audio: true, data_url: "data:audio/mpeg;base64,AAAA", size: 3 };
+    const wrapper = mount(FileTextViewer, { props: { fileContent, fileName: "a.mp3" } });
+    const audio = wrapper.find("audio");
+    expect(audio.attributes("src")).toBe(fileContent.data_url);
+    expect(audio.attributes("controls")).toBeDefined();
+    expect(wrapper.find(".file-content-image-box").exists()).toBe(false);
+  });
+
+  it("サイズ超過の音声は再生せず File too large を表示する", () => {
+    const fileContent = { audio: true, too_large: true, size: 30 * 1024 * 1024 };
+    const wrapper = mount(FileTextViewer, { props: { fileContent, fileName: "big.mp3" } });
+    expect(wrapper.find("audio").exists()).toBe(false);
+    expect(wrapper.text()).toContain("File too large");
+  });
+});
