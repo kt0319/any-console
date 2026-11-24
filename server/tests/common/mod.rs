@@ -150,6 +150,20 @@ pub fn skip_if_no_tmux() -> bool {
         .unwrap_or(true)
 }
 
+/// `tmux new-session -c <dir>` 直後は pane_current_path がまだ tmux サーバの cwd の
+/// ことがある（Linux）。cwd 基準で相対パスを解決するテストは確定を待ってから進める。
+pub async fn wait_pane_cwd(tmux_name: &str, dir: &Path) {
+    let expected = std::fs::canonicalize(dir).unwrap();
+    for _ in 0..100 {
+        let cwd = any_console_server::tmux::get_session_cwd(tmux_name).await;
+        if cwd.as_deref().map(Path::new) == Some(expected.as_path()) {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("pane_current_path did not become {}", expected.display());
+}
+
 /// テスト用リポジトリで git コマンドを実行する（失敗は即 assert）。
 /// コミット日時は固定し、時刻依存の表示（相対時刻等）を決定的にする。
 pub fn sh_git(repo: &Path, args: &[&str]) {

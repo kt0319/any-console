@@ -201,6 +201,7 @@ async fn upload_to_terminal_session_cwd_creates_nested_dirs_and_rejects_escape()
         None,
     )
     .await;
+    common::wait_pane_cwd(&full_name, cwd.path()).await;
     let url = format!(
         "http://{}/terminal/sessions/{session_id}/upload",
         front.addr
@@ -260,6 +261,7 @@ async fn terminal_session_rename_download_delete_stay_inside_cwd() {
         None,
     )
     .await;
+    common::wait_pane_cwd(&full_name, cwd.path()).await;
     let base = format!("http://{}/terminal/sessions/{session_id}", front.addr);
     let post = |endpoint: &str, body: Value| {
         common::client()
@@ -360,6 +362,7 @@ async fn open_path_download_resolves_like_open_path() {
         None,
     )
     .await;
+    common::wait_pane_cwd(&full_name, cwd.path()).await;
     let url = format!(
         "http://{}/terminal/sessions/{session_id}/open-path/download",
         front.addr
