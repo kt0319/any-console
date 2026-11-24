@@ -148,6 +148,36 @@ fn jobs_register_ai_agents_dedups_by_command_and_skips_unknown_tools() {
 }
 
 #[test]
+fn jobs_set_default_marks_only_the_matching_common_job() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = run(
+        dir.path(),
+        &["jobs", "register-ai-agents", "claude", "codex"],
+    );
+    assert!(out.status.success());
+
+    let out = run(dir.path(), &["jobs", "set-default", "claude"]);
+    assert_eq!(stdout(&out), "Default job: Claude Code");
+    let out = run(dir.path(), &["jobs", "set-default", "codex"]);
+    assert_eq!(stdout(&out), "Default job: Codex");
+
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap())
+            .unwrap();
+    let jobs = config["__global__"]["jobs"].as_object().unwrap();
+    let defaults: Vec<&str> = jobs
+        .values()
+        .filter(|j| j["default"] == true)
+        .map(|j| j["command"].as_str().unwrap())
+        .collect();
+    assert_eq!(defaults, vec!["codex"]);
+
+    let out = run(dir.path(), &["jobs", "set-default", "gemini"]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("no common job"));
+}
+
+#[test]
 fn auth_ensure_token_prints_once_then_stays_silent() {
     let dir = tempfile::tempdir().unwrap();
     let out = run(dir.path(), &["auth", "ensure-token"]);

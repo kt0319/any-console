@@ -294,8 +294,47 @@ fn unique_entity_id(entries: &Map<String, Value>) -> String {
 fn cmd_jobs(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
         Some("register-ai-agents") => cmd_jobs_register_ai_agents(&args[1..]),
+        Some("set-default") => cmd_jobs_set_default(&args[1..]),
         _ => usage_error("unknown jobs subcommand"),
     }
+}
+
+/// 登録済みの共通ジョブのうち command が一致するものを、唯一のデフォルトジョブにする
+/// （Open Session でワークスペースをタップした時に起動される）。
+fn cmd_jobs_set_default(args: &[String]) -> i32 {
+    let [command] = args else {
+        return usage_error("usage: jobs set-default <command>");
+    };
+    let store = store_for_cwd();
+    let mut jobs: Map<String, Value> = match store.load_global_section("jobs") {
+        Some(Value::Object(m)) => m,
+        _ => Map::new(),
+    };
+    let Some(key) = jobs
+        .iter()
+        .find(|(_, v)| v.get("command").and_then(Value::as_str) == Some(command.as_str()))
+        .map(|(k, _)| k.clone())
+    else {
+        return usage_error(&format!("no common job with command '{command}'"));
+    };
+    for entry in jobs.values_mut() {
+        if let Some(obj) = entry.as_object_mut() {
+            obj.remove("default");
+        }
+    }
+    if let Some(obj) = jobs.get_mut(&key).and_then(Value::as_object_mut) {
+        obj.insert("default".to_string(), Value::Bool(true));
+    }
+    let label = jobs[&key]
+        .get("label")
+        .and_then(Value::as_str)
+        .unwrap_or(command)
+        .to_string();
+    if let Err(e) = store.save_global_section("jobs", Value::Object(jobs)) {
+        return usage_error(&e);
+    }
+    println!("Default job: {label}");
+    0
 }
 
 struct ToolMeta {

@@ -322,6 +322,32 @@ register_ai_agent_jobs() {
   [ ${#selected[@]} -eq 0 ] && { info "  Skipped (no AI agent jobs registered)"; return 0; }
 
   "$RUST_BIN" jobs register-ai-agents "${selected[@]}" | sed 's/^/  /'
+
+  [ "$non_interactive" -eq 1 ] && return 0
+  prompt_default_ai_agent_job "${selected[@]}"
+}
+
+# 登録したAIエージェントのうち1つを、デフォルトジョブ（UIでワークスペースをタップした時に
+# 直接起動される）にするか尋ねる。Enterで設定しない（UIのジョブ編集でいつでも変更できる）。
+prompt_default_ai_agent_job() {
+  local -a tools=("$@")
+  echo ""
+  echo "  Default job: started when you tap a workspace in the UI (changeable later in the job settings)."
+  local i
+  for i in "${!tools[@]}"; do
+    printf "    %2d) %s\n" "$((i + 1))" "${tools[$i]}"
+  done
+  local sel
+  read -rp "  Default job number (Enter to skip): " sel
+  if [ -z "$sel" ]; then
+    info "  Skipped (no default job)"
+    return 0
+  fi
+  if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le "${#tools[@]}" ]; then
+    "$RUST_BIN" jobs set-default "${tools[$((sel - 1))]}" | sed 's/^/  /'
+  else
+    warn "  Invalid selection; no default job set."
+  fi
 }
 
 prompt_initial_workspace() {
