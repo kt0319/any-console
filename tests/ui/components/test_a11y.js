@@ -22,6 +22,7 @@ import AppToast from "../../../ui/components/AppToast.vue";
 import FileItem from "../../../ui/components/FileItem.vue";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vue";
+import WorkspaceJobDialog from "../../../ui/components/WorkspaceJobDialog.vue";
 import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import PathPreviewDialog from "../../../ui/components/PathPreviewDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
@@ -169,6 +170,17 @@ describe("a11y: WorkspaceGroupDialog", () => {
     wrapper.vm.openRename({ id: "g1", name: "Tools" });
     await nextTick();
     await expectNoA11yViolations(wrapper.find(".ws-group-dialog").element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: WorkspaceJobDialog", () => {
+  it("ジョブ選択ダイアログに a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(WorkspaceJobDialog, { attachTo: document.body, global: { provide: { pushView: () => {} } } });
+    wrapper.vm.open("proj");
+    await nextTick();
+    await expectNoA11yViolations(wrapper.find(".ws-job-dialog").element);
     wrapper.unmount();
   });
 });
