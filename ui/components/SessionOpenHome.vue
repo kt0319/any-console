@@ -77,16 +77,16 @@
       </div>
 
       <div class="settings-category-head">
-        <button type="button" class="open-session-section-toggle" :aria-expanded="!collapsedGroups.has('section:terminals')" @click="toggleGroup('section:terminals')">
-          <span class="settings-category-title">Terminals</span>
+        <button type="button" class="open-session-section-toggle" :aria-expanded="!collapsedGroups.has('section:sessions')" @click="toggleGroup('section:sessions')">
+          <span class="settings-category-title">Sessions</span>
         </button>
         <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">New terminal</span>
         </button>
-        <span class="mdi open-session-section-chevron" :class="collapsedGroups.has('section:terminals') ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup('section:terminals')"></span>
+        <span class="mdi open-session-section-chevron" :class="collapsedGroups.has('section:sessions') ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup('section:sessions')"></span>
       </div>
-      <div v-show="!collapsedGroups.has('section:terminals')">
+      <div v-show="!collapsedGroups.has('section:sessions')">
       <DetachedSessionsList v-if="detachedSessions.length" />
       <div v-else class="workspace-list-empty">No detached sessions</div>
       </div>

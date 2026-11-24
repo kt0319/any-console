@@ -36,10 +36,10 @@ describe("SessionOpenHome: タブ無しのカテゴリセクション", () => {
     localStorage.clear();
   });
 
-  it("タブは無く、Workspace / Terminals / Job のセクションを順に1つのリストへ並べる", async () => {
+  it("タブは無く、Workspace / Sessions / Job のセクションを順に1つのリストへ並べる", async () => {
     const wrapper = await mountSessionOpenHome();
     expect(wrapper.findAll("[role=tab]")).toHaveLength(0);
-    expect(sectionTitles(wrapper)).toEqual(["Workspace", "Terminals", "Job"]);
+    expect(sectionTitles(wrapper)).toEqual(["Workspace", "Sessions", "Job"]);
   });
 
   it("Workspace セクションにワークスペース一覧と Add workspace ボタンを出す", async () => {
@@ -49,7 +49,7 @@ describe("SessionOpenHome: タブ無しのカテゴリセクション", () => {
     expect(wrapper.find('[aria-label="Add group"]').exists()).toBe(false);
   });
 
-  it("Terminals セクションに New terminal ボタンを出す", async () => {
+  it("Sessions セクションに New terminal ボタンを出す", async () => {
     const wrapper = await mountSessionOpenHome();
     expect(wrapper.findAll('[aria-label="New terminal"]')).toHaveLength(1);
     expect(wrapper.text()).toContain("No detached sessions");

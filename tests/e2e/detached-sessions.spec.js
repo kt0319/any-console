@@ -1,7 +1,7 @@
 /**
  * Detached sessions（タブを閉じずにDetachしたセッション）の E2E スモーク。
  * タブの閉じるボタン→確認ダイアログのDetach選択でタブバーから消え、
- * Open Sessionの Terminals セクションに表示され、行タップで再アタッチ
+ * Open Sessionの Sessions セクションに表示され、行タップで再アタッチ
  * できることを確認する。
  *
  * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
@@ -26,7 +26,7 @@ test.describe("detached sessions", () => {
     await dialog.locator(".confirm-btn-extra").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 5000 });
 
-    // Open Sessionの Terminals セクションに現れる。
+    // Open Sessionの Sessions セクションに現れる。
     await openWorkspaces(page);
     const detachedRow = page.locator(`.detached-sessions-li[data-session-id="${newSessionId}"]`);
     await expect(detachedRow).toBeVisible({ timeout: 10_000 });

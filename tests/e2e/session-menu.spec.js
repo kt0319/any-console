@@ -16,13 +16,13 @@ test.describe("tab bar: open session / settings buttons", () => {
     await expect(page.locator(".terminal-ws-list")).toBeVisible({ timeout: 5000 });
   });
 
-  test("Open Sessionはタブ無しで、Workspace / Terminals / Job のセクションを1つのリストに並べる", async ({ page }) => {
+  test("Open Sessionはタブ無しで、Workspace / Sessions / Job のセクションを1つのリストに並べる", async ({ page }) => {
     await page.locator('[aria-label="Open session"]').click();
     await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
     await expect(page.locator('[role="tab"]')).toHaveCount(0);
 
     const titles = page.locator(".open-session-content > .settings-category-head .settings-category-title");
-    await expect(titles).toContainText(["Workspace", "Terminals", "Job"]);
+    await expect(titles).toContainText(["Workspace", "Sessions", "Job"]);
     await expect(page.locator(".terminal-ws-list")).toBeVisible({ timeout: 5000 });
     await expect(page.locator('[aria-label="Add workspace"]')).toBeVisible();
     await expect(page.locator('[aria-label="New terminal"]')).toBeVisible();
