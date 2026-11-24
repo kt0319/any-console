@@ -205,15 +205,20 @@ function showMore() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-height: 36px;
-  padding: 6px 12px;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
   background: transparent;
   border: none;
   border-radius: var(--radius);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 15px;
   cursor: pointer;
+}
+
+.recent-jobs-more .mdi {
+  font-size: 20px;
 }
 
 </style>
