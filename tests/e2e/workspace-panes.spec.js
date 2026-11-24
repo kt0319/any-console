@@ -220,10 +220,8 @@ test.describe("workspace detail panes", () => {
     const jobLabel = "E2E Job";
     const jobCommand = "echo job-e2e-$((40+2))";
 
-    // ツールバーのAdd job（Editモード中のみ表示）からJobConfigを開き、
-    // Scopeのプルダウンで対象ワークスペースを選ぶ（先頭はCommon job）
+    // Jobタブの見出しの＋からJobConfigを開き、Scopeのプルダウンで対象ワークスペースを選ぶ
     await openWorkspaces(page);
-    await page.locator('[aria-label="Edit"]').click();
     await page.locator('[aria-label="Add job"]').click();
     await expect(page.locator(".modal-title")).toHaveText("Add Job", { timeout: 5000 });
     await page.locator(".ws-settings-row", { hasText: "Scope" }).locator("select").selectOption(wsName);
@@ -233,11 +231,11 @@ test.describe("workspace detail panes", () => {
     await page.locator(".form-check-label", { hasText: "Confirm dialog" }).locator("input").check();
     await page.locator("button.primary", { hasText: "Save" }).click();
 
-    // 一覧へ戻り、ワークスペース名クリックでJobsをインライン展開して確認する
+    // 一覧へ戻り、Select jobのダイアログで確認する
     await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
-    await row.locator(".ws-list-header-label").click();
-    const jobItem = row.locator(".job-item-row", { has: page.locator(".job-item-label", { hasText: jobLabel }) });
+    await row.locator('[aria-label="Select job"]').click();
+    const jobItem = page.locator(".ws-job-dialog .job-item-row", { has: page.locator(".job-item-label", { hasText: jobLabel }) });
     await expect(jobItem).toBeVisible({ timeout: 10_000 });
 
     // 実行 → 確認ダイアログ（コマンドプレビュー付き）→ OK でターミナルが開き実行される

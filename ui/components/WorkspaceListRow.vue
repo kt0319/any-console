@@ -6,14 +6,13 @@
   >
     <div class="ws-list-row ws-list-row-top hover-bg">
       <span
-        v-if="editMode"
         class="drag-handle ws-list-drag-handle"
         aria-hidden="true"
         @pointerdown.prevent="$emit('dragStart', $event)"
       >
         <span class="mdi mdi-drag-vertical"></span>
       </span>
-      <button type="button" class="ws-list-header-label" @click="$emit('toggleJobs', ws)">
+      <button type="button" class="ws-list-header-label" @click="$emit('selectJob', ws)">
         <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
         <span class="ws-list-header-text">
           <span class="ws-list-name">
@@ -24,37 +23,30 @@
         </span>
       </button>
       <div class="ws-list-top-meta" @click.stop>
-        <button v-if="ws.is_git_repo && ws.clean === false && !editMode" type="button" class="git-badge dirty" aria-label="Open changes" data-tooltip="Open changes" v-html="dirtyBadgeHtml(ws)" @click.stop="$emit('openChanges', ws)"></button>
-        <template v-if="ws.is_git_repo && !editMode">
+        <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" aria-label="Open changes" data-tooltip="Open changes" v-html="dirtyBadgeHtml(ws)" @click.stop="$emit('openChanges', ws)"></button>
+        <template v-if="ws.is_git_repo">
           <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="ws-list-mini-btn pull-btn has-count" @action="$emit('gitAction', ws, 'pull')" />
           <GitActionBtn v-if="ws.ahead > 0" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, pushActionFor(ws))" btn-class="ws-list-mini-btn push-btn has-count" @action="$emit('gitAction', ws, pushActionFor(ws))" />
         </template>
-        <template v-if="editMode">
-          <button type="button" class="ws-list-edit-btn hover-bg-text" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="$emit('edit', ws)">
-            <span class="mdi mdi-pencil-outline"></span>
-          </button>
-        </template>
+        <button type="button" class="ws-list-job-btn hover-bg-text" aria-label="Select job" data-tooltip="Select job" @click.stop="$emit('selectJob', ws)">
+          <span class="mdi mdi-play-circle-outline" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="ws-list-edit-btn hover-bg-text" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="$emit('edit', ws)">
+          <span class="mdi mdi-pencil-outline"></span>
+        </button>
       </div>
-      <span class="mdi ws-list-jobs-chevron" :class="expandedWorkspace === ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
-    </div>
-    <div v-if="expandedWorkspace === ws.name" class="ws-list-jobs-inline">
-      <WorkspaceJobsPane :workspace="ws.name" :edit-mode="editMode" />
     </div>
     <div v-if="worktrees.length" class="ws-list-worktrees">
       <template v-for="wt in worktrees" :key="wt.name">
         <div class="ws-list-worktree-item">
-          <button type="button" class="ws-list-worktree-open hover-bg" @click="$emit('toggleJobs', wt)">
+          <button type="button" class="ws-list-worktree-open hover-bg" @click="$emit('selectJob', wt)">
             <span class="mdi mdi-file-tree ws-list-wt-child-icon"></span>
             <span class="ws-list-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
             <span v-if="wt.clean === false" class="ws-list-wt-dirty" aria-label="uncommitted changes"></span>
           </button>
-          <button v-if="editMode" type="button" class="ws-list-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="$emit('removeWorktree', ws, wt)">
+          <button type="button" class="ws-list-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="$emit('removeWorktree', ws, wt)">
             <span class="mdi mdi-delete-outline"></span>
           </button>
-          <span class="mdi ws-list-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
-        </div>
-        <div v-if="expandedWorkspace === wt.name" class="ws-list-jobs-inline">
-          <WorkspaceJobsPane :workspace="wt.name" :edit-mode="editMode" />
         </div>
       </template>
     </div>
@@ -64,7 +56,6 @@
 <script setup lang="ts">
 import { type PropType } from "vue";
 import GitActionBtn from "./GitActionBtn.vue";
-import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { dirtyBadgeHtml } from "../utils/git.ts";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.ts";
@@ -75,15 +66,13 @@ import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.ts"
 const props = defineProps({
   ws: { type: Object as PropType<Record<string, any>>, required: true },
   inset: { type: Boolean, default: false },
-  editMode: { type: Boolean, default: false },
-  expandedWorkspace: { type: String as PropType<string | null>, default: null },
   worktrees: { type: Array as PropType<Record<string, any>[]>, default: () => [] },
   dragging: { type: Boolean, default: false },
   dragOffsetY: { type: Number, default: 0 },
   isRunning: { type: Function as PropType<(name: string, action: string) => boolean>, required: true },
 });
 
-defineEmits(["toggleJobs", "openChanges", "gitAction", "edit", "removeWorktree", "dragStart"]);
+defineEmits(["selectJob", "openChanges", "gitAction", "edit", "removeWorktree", "dragStart"]);
 
 function pushActionFor(ws: Record<string, any>) {
   return ws.has_upstream === false ? "push-upstream" : "push";
@@ -176,17 +165,21 @@ function pushActionFor(ws: Record<string, any>) {
   padding: 0 12px 8px 28px;
 }
 
-.ws-list-jobs-chevron {
+.ws-list-job-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
-  margin-left: auto;
-  font-size: 16px;
+  margin-left: 4px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   color: var(--text-muted);
-}
-
-.ws-list-jobs-inline {
-  margin: 0 12px 8px 28px;
-  border-left: 2px solid var(--border);
-  overflow: hidden;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 .ws-list-worktree-item {

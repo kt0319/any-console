@@ -89,9 +89,7 @@ test.describe("worktree削除とセッションタブの連動", () => {
     const wtRow = page.locator(".ws-list-worktree-item", { has: page.locator(".ws-list-worktree-branch", { hasText: WORKTREE_BRANCH }) });
     await expect(wtRow).toBeVisible({ timeout: 10_000 });
     await wtRow.locator(".ws-list-worktree-open").click();
-    // WorkspaceJobsPane（Terminal項目）は.ws-list-worktree-itemの兄弟要素
-    // として展開されるため、wtRowの外（直後の.ws-list-jobs-inline）を見る。
-    await wtRow.locator("xpath=following-sibling::div[contains(@class,'ws-list-jobs-inline')][1]").locator(".job-item", { hasText: "Terminal" }).click();
+    await page.locator(".ws-job-dialog .job-item", { hasText: "Terminal" }).click();
 
     await expect(tabs).toHaveCount(tabCountBefore + 1, { timeout: 10_000 });
     await expect(worktreeTab).toBeVisible({ timeout: 10_000 });

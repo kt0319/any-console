@@ -52,6 +52,8 @@ const props = defineProps({
   editMode: { type: Boolean, default: false },
 });
 
+const emitPane = defineEmits<{ select: [] }>();
+
 const pushView = inject<(view: string, state?: Record<string, any>) => void>("pushView")!;
 
 interface Job {
@@ -125,6 +127,7 @@ async function load() {
 function openTerminal() {
   const wsName = workspace.value;
   if (!wsName) return;
+  emitPane("select");
   // ワークスペースを開いてもサイドバー/設定は閉じない（PCはターミナルに
   // 被せず横に並ぶため隠す必要が無く、続けて他のワークスペースも開けるように）。
   emit("terminal:launch", {
@@ -137,6 +140,7 @@ function openTerminal() {
 async function runJob(job: Job) {
   const wsName = workspace.value;
   if (!wsName) return;
+  emitPane("select");
   if (job.confirm !== false) {
     const preview = jobCommandPreview(job.command, job.name);
     if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
@@ -181,51 +185,6 @@ defineExpose({ load });
 </script>
 
 <style scoped>
-
-.job-item-row {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  height: 44px;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
-}
-
-.job-item {
-  box-sizing: border-box;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  height: 100%;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  color: var(--text-primary);
-}
-
-.job-item-detached {
-  opacity: 0.6;
-}
-
-.job-item-icon {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--text-muted);
-}
-
-.job-item-label {
-  flex-shrink: 0;
-}
-
 .job-section-header {
   display: flex;
   align-items: center;
@@ -250,21 +209,5 @@ defineExpose({ load });
   background: transparent;
 }
 
-.job-item-edit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin-right: 12px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
 
 </style>

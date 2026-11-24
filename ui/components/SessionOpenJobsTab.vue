@@ -1,0 +1,147 @@
+<template>
+  <div class="session-open-jobs">
+    <div v-if="isLoading" class="workspace-list-empty loading-dots">Loading</div>
+    <template v-else>
+      <section v-for="category in categories" :key="category.key">
+        <div class="ws-group-header">
+          <button type="button" class="ws-group-toggle" :aria-expanded="!collapsedGroups.has(category.collapseKey)" @click="toggleGroup(category.collapseKey)">
+            <span v-if="category.icon" v-html="renderIconStr(category.icon, category.iconColor, 16)"></span>
+            <span class="ws-group-title">{{ category.title }}</span>
+          </button>
+          <span class="mdi ws-group-chevron" :class="collapsedGroups.has(category.collapseKey) ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup(category.collapseKey)"></span>
+        </div>
+        <div v-for="job in category.jobs" v-show="!collapsedGroups.has(category.collapseKey)" :key="job.name" class="job-item-row hover-bg" :class="{ 'job-item-detached': job.detached }">
+          <div class="job-item session-open-job-name">
+            <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+            <span class="job-item-label">{{ job.label || job.name }}</span>
+          </div>
+          <button v-if="category.workspace" type="button" class="job-item-edit-btn session-open-job-run" data-tooltip="Run" :aria-label="`Run ${job.label || job.name}`" @click="runJob(category.workspace, job)">
+            <span class="mdi mdi-play" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="job-item-edit-btn session-open-job-edit" data-tooltip="Edit" aria-label="Edit" @click="editJob(category.workspace, job)">
+            <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
+          </button>
+        </div>
+      </section>
+      <div v-if="categories.length === 0" class="workspace-list-empty">No jobs to display</div>
+    </template>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, inject, onMounted, ref } from "vue";
+import { useWorkspaceStore } from "../stores/workspace.ts";
+import { useCollapsedWorkspaceGroups } from "../composables/useCollapsedWorkspaceGroups.ts";
+import { useRecentJobs } from "../composables/useRecentJobs.ts";
+import { useApi } from "../composables/useApi.ts";
+import { useConfirm } from "../composables/useConfirm.ts";
+import { useBusListener } from "../composables/useBusListener.ts";
+import { getWithRetry } from "../utils/api-retry.ts";
+import { renderIconStr } from "../utils/render-icon.ts";
+import { jobCommandPreview } from "../utils/format.ts";
+import { EP_COMMON_JOBS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
+import { emit } from "../app-bridge.ts";
+
+interface Job {
+  name: string;
+  label?: string;
+  icon?: string;
+  icon_color?: string;
+  command?: string;
+  confirm?: boolean;
+  detached?: boolean;
+  common?: boolean;
+}
+
+const pushView = inject<(view: string, state?: Record<string, any>) => void>("pushView")!;
+const GLOBAL_JOB_ICON = "mdi-earth";
+
+const workspaceStore = useWorkspaceStore();
+const { collapsedGroups, toggleGroup } = useCollapsedWorkspaceGroups();
+const { recordJob } = useRecentJobs();
+const { apiGet } = useApi();
+const { confirm } = useConfirm();
+
+const jobsByWorkspace = ref<Record<string, Record<string, Omit<Job, "name">>>>({});
+const globalJobsByName = ref<Record<string, Omit<Job, "name">>>({});
+const isLoading = ref(true);
+
+const globalJobs = computed(() =>
+  Object.entries(globalJobsByName.value)
+    .filter(([name]) => name !== "terminal")
+    .map(([name, job]) => ({ name, ...job }) as Job),
+);
+
+// 共通（Global）ジョブは /jobs/workspaces では全ワークスペースへ重複して含まれるため、
+// ワークスペース単位にはワークスペース固有のジョブだけを出し、共通ジョブは別カテゴリで出す。
+// ジョブがあるカテゴリだけ表示する。
+const categories = computed(() => [
+  { key: "global", collapseKey: "job:global", title: "Global", icon: GLOBAL_JOB_ICON, iconColor: "", workspace: null as Record<string, any> | null, jobs: globalJobs.value },
+  ...workspaceStore.allWorkspaces.map((workspace) => ({
+    key: workspace.name,
+    collapseKey: `job:${workspace.name}`,
+    title: workspace.name as string,
+    icon: (workspace.icon || "") as string,
+    iconColor: (workspace.icon_color || "") as string,
+    workspace: workspace as Record<string, any> | null,
+    jobs: Object.entries(jobsByWorkspace.value[workspace.name] || {})
+      .filter(([name, job]) => name !== "terminal" && !job.common)
+      .map(([name, job]) => ({ name, ...job }) as Job),
+  })),
+].filter((category) => category.jobs.length > 0));
+
+async function loadJobs() {
+  try {
+    const [workspaceJobs, commonJobs] = await Promise.all([
+      getWithRetry(apiGet, EP_JOBS_WORKSPACES),
+      getWithRetry(apiGet, EP_COMMON_JOBS),
+    ]);
+    if (workspaceJobs.ok) jobsByWorkspace.value = workspaceJobs.data;
+    if (commonJobs.ok) globalJobsByName.value = commonJobs.data;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function runJob(workspace: Record<string, any>, job: Job) {
+  if (job.confirm !== false) {
+    const preview = jobCommandPreview(job.command, job.name);
+    if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
+  }
+  recordJob(workspace, job);
+  emit("terminal:launch", {
+    workspace: workspace.name,
+    icon: workspace.icon,
+    iconColor: workspace.icon_color,
+    jobName: job.name,
+    jobLabel: job.label,
+    jobIcon: job.icon,
+    jobIconColor: job.icon_color,
+    initialCommand: job.command,
+    detached: !!job.detached,
+  });
+}
+
+function editJob(workspace: Record<string, any> | null, job: Job) {
+  pushView("JobConfig", {
+    workspaceName: workspace?.name ?? "",
+    isCommon: !workspace,
+    jobEntry: { name: job.name, job: { ...job, common: !workspace } },
+    onReturn: () => emit("jobs:refresh"),
+  });
+}
+
+useBusListener("jobs:refresh", loadJobs);
+
+onMounted(loadJobs);
+</script>
+
+<style scoped>
+.session-open-job-name {
+  cursor: default;
+}
+
+.session-open-job-run {
+  margin-right: 6px;
+}
+</style>

@@ -14,6 +14,7 @@ async function mountSessionOpenHome() {
   const { default: SessionOpenHome } = await import("../../ui/components/SessionOpenHome.vue");
   const wrapper = mount(SessionOpenHome, { global: { provide: { modalTitle: ref("") } } });
   await flushPromises();
+  
   return wrapper;
 }
 

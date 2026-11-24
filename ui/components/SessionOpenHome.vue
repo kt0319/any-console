@@ -1,55 +1,30 @@
 <template>
   <div class="modal-scroll-body open-session-scroll">
     <div class="open-session-content">
-      <div class="ws-toolbar-actions">
-        <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
-          <span class="mdi mdi-plus"></span>
-          <span class="ws-toolbar-btn-label">WS</span>
-        </button>
-        <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
-          <span class="mdi mdi-plus"></span>
-          <span class="ws-toolbar-btn-label">Group</span>
-        </button>
-        <button type="button" class="ws-toolbar-btn hover-bg-text" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
-          <span class="mdi mdi-plus"></span>
-          <span class="ws-toolbar-btn-label">Job</span>
-        </button>
-        <button
-          type="button"
-          class="ws-toolbar-btn hover-bg-text"
-          :class="{ active: isEditMode }"
-          :aria-label="isEditMode ? 'Done editing' : 'Edit'"
-          :data-tooltip="isEditMode ? 'Done editing' : 'Edit'"
-          @click="isEditMode = !isEditMode"
-        >
-          <span class="mdi" :class="isEditMode ? 'mdi-check' : 'mdi-pencil-outline'"></span>
-          <span class="ws-toolbar-btn-label">{{ isEditMode ? 'Done' : 'Edit' }}</span>
-        </button>
-      </div>
-
-      <template v-if="pinnedJobs.length">
+      <template v-if="recentJobs.length">
         <div class="settings-category-head">
-          <span class="settings-category-title">Pinned Jobs</span>
+          <button type="button" class="open-session-section-toggle" :aria-expanded="!collapsedGroups.has('section:recent')" @click="toggleGroup('section:recent')">
+            <span class="settings-category-title">Recent</span>
+          </button>
+          <span class="mdi open-session-section-chevron" :class="collapsedGroups.has('section:recent') ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup('section:recent')"></span>
         </div>
-        <RecentJobsList variant="pinned" :edit-mode="isEditMode" />
-      </template>
-
-      <template v-if="unpinnedRecentJobs.length">
-        <div class="settings-category-head">
-          <span class="settings-category-title">Recent Jobs</span>
+        <div v-show="!collapsedGroups.has('section:recent')">
+          <RecentJobsList v-if="pinnedJobs.length" variant="pinned" />
+          <RecentJobsList v-if="unpinnedRecentJobs.length" variant="recent" />
         </div>
-        <RecentJobsList variant="recent" :edit-mode="isEditMode" />
       </template>
 
       <div class="settings-category-head">
-        <span class="settings-category-title">Workspaces</span>
-        <span class="ws-toolbar-spacer"></span>
-        <button v-if="!isEditMode" type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
-          <span class="mdi mdi-console"></span>
-          <span class="ws-toolbar-btn-label">Terminal</span>
+        <button type="button" class="open-session-section-toggle" :aria-expanded="!collapsedGroups.has('section:workspace')" @click="toggleGroup('section:workspace')">
+          <span class="settings-category-title">Workspace</span>
         </button>
+        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Add workspace</span>
+        </button>
+        <span class="mdi open-session-section-chevron" :class="collapsedGroups.has('section:workspace') ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup('section:workspace')"></span>
       </div>
-
+      <div v-show="!collapsedGroups.has('section:workspace')">
       <div ref="wsListEl" class="terminal-ws-list">
         <div v-if="isLoading" class="workspace-list-empty loading-dots">Loading</div>
         <template v-else>
@@ -64,7 +39,7 @@
             }"
           >
             <span
-              v-if="isEditMode && workspaceStore.groups.length > 1"
+              v-if="workspaceStore.groups.length > 1"
               class="drag-handle ws-group-drag-handle"
               aria-hidden="true"
               @pointerdown.prevent="onGroupDragStart($event, item.groupIdx)"
@@ -74,22 +49,17 @@
             <button type="button" class="ws-group-toggle" @click="toggleGroup(item.group.id)">
               {{ item.group.name }}
             </button>
-            <button v-if="isEditMode" type="button" class="ws-list-edit-btn hover-bg-text" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
-              <span class="mdi mdi-pencil-outline"></span>
-            </button>
             <span class="mdi ws-group-chevron" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup(item.group.id)"></span>
           </div>
           <WorkspaceListRow
             v-else
             :ws="item.ws"
             :inset="item.groupId !== null"
-            :edit-mode="isEditMode"
-            :expanded-workspace="expandedWorkspace"
             :worktrees="worktreesByBase[item.ws.name] || []"
             :dragging="dragIdx === flatIdx"
             :drag-offset-y="dragOffsetY"
             :is-running="isRunning"
-            @toggle-jobs="toggleJobs"
+            @select-job="selectJob"
             @open-changes="openChanges"
             @git-action="doAction"
             @edit="openEditWs"
@@ -103,16 +73,39 @@
         </div>
         </template>
       </div>
+      </div>
 
-      <template v-if="detachedSessions.length">
-        <div class="settings-category-head">
-          <span class="settings-category-title">Detached Sessions</span>
-        </div>
-        <DetachedSessionsList />
-      </template>
+      <div class="settings-category-head">
+        <button type="button" class="open-session-section-toggle" :aria-expanded="!collapsedGroups.has('section:terminals')" @click="toggleGroup('section:terminals')">
+          <span class="settings-category-title">Terminals</span>
+        </button>
+        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
+          <span class="mdi mdi-console"></span>
+          <span class="ws-toolbar-btn-label">New terminal</span>
+        </button>
+        <span class="mdi open-session-section-chevron" :class="collapsedGroups.has('section:terminals') ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup('section:terminals')"></span>
+      </div>
+      <div v-show="!collapsedGroups.has('section:terminals')">
+      <DetachedSessionsList v-if="detachedSessions.length" />
+      <div v-else class="workspace-list-empty">No detached sessions</div>
+      </div>
+
+      <div class="settings-category-head">
+        <button type="button" class="open-session-section-toggle" :aria-expanded="!collapsedGroups.has('section:job')" @click="toggleGroup('section:job')">
+          <span class="settings-category-title">Job</span>
+        </button>
+        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal hover-bg-text" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Add job</span>
+        </button>
+        <span class="mdi open-session-section-chevron" :class="collapsedGroups.has('section:job') ? 'mdi-chevron-right' : 'mdi-chevron-down'" aria-hidden="true" @click="toggleGroup('section:job')"></span>
+      </div>
+      <div v-show="!collapsedGroups.has('section:job')">
+      <SessionOpenJobsTab />
+      </div>
     </div>
 
-    <WorkspaceGroupDialog ref="groupDialog" />
+    <WorkspaceJobDialog ref="jobDialog" />
   </div>
 </template>
 
@@ -125,8 +118,9 @@ import { useRecentJobs } from "../composables/useRecentJobs.ts";
 import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 import { useApi } from "../composables/useApi.ts";
 import { useWorktreeRemoveConfirm } from "../composables/useWorktreeRemoveConfirm.ts";
-import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
+import SessionOpenJobsTab from "./SessionOpenJobsTab.vue";
+import WorkspaceJobDialog from "./WorkspaceJobDialog.vue";
 import DetachedSessionsList from "./DetachedSessionsList.vue";
 import WorkspaceListRow from "./WorkspaceListRow.vue";
 import { emit as bridgeEmit } from "../app-bridge.ts";
@@ -144,6 +138,7 @@ const popView = modalView.popView!;
 const { canNavigateBack, closeNav } = useSessionOpenNav();
 modalTitle.value = "Open Session";
 
+
 const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, wsEndpoint } = useApi();
@@ -157,7 +152,6 @@ const { detachedSessions, loadDetachedSessions } = useDetachedSessions();
 const wsListEl = ref<HTMLElement | null>(null);
 const { collapsedGroups, toggleGroup } = useCollapsedWorkspaceGroups();
 
-const groupDialog = ref<InstanceType<typeof WorkspaceGroupDialog> | null>(null);
 
 // グループなし（トップレベル）。フィルタ規則は workspacesInGroup（共通）参照。
 const ungrouped = computed(() => workspacesInGroup(workspaceStore.allWorkspaces, null));
@@ -221,9 +215,7 @@ function openBareTerminal() {
   bridgeEmit("terminal:launch", {});
 }
 
-// ワークスペースを1つずつ開かなくても、ツールバーからCommon/Workspaceどちらの
-// Jobも作成できるようにする（Workspaceスコープの場合はJobConfig側のプルダウンで
-// 対象ワークスペースを選ぶ）。
+// 追加先（Common / ワークスペース）はJobConfig側のScopeプルダウンで選ぶ。
 function openAddJob() {
   pushView("JobConfig", {
     workspaceName: "",
@@ -233,17 +225,11 @@ function openAddJob() {
   });
 }
 
-// 普段はアイコン・名前・ブランチ・Jobs展開トグルだけの一覧表示にし、
-// 並び替え・configの編集・worktree削除はEditモード中だけ操作できるように
-// する（誤操作しやすい操作を一覧表示から分離する）。
-const isEditMode = ref(false);
+// ワークスペース（worktree含む）のジョブはダイアログで選んで起動する。
+const jobDialog = ref<InstanceType<typeof WorkspaceJobDialog> | null>(null);
 
-// ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
-// （モーダルは開かない）。排他的に1つしか開かない（別の行を開くと前の行は閉じる）。
-const expandedWorkspace = ref<string | null>(null);
-
-function toggleJobs(ws: Record<string, any>) {
-  expandedWorkspace.value = expandedWorkspace.value === ws.name ? null : ws.name;
+function selectJob(ws: Record<string, any>) {
+  jobDialog.value?.open(ws.name);
 }
 
 function openChanges(ws: Record<string, any>) {
@@ -297,6 +283,25 @@ onBeforeUnmount(() => {
   overflow: visible;
 }
 
+.open-session-section-toggle {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.open-session-section-chevron {
+  flex-shrink: 0;
+  font-size: 16px;
+  cursor: pointer;
+}
+
 .open-session-scroll {
   padding-top: 4px;
 }
@@ -315,74 +320,6 @@ onBeforeUnmount(() => {
   width: 20px;
   height: 28px;
   font-size: 14px;
-}
-
-/* グループヘッダーの編集ボタン（WorkspaceListRow.vue と同一スタイル — scoped のため両方で定義）。 */
-.ws-list-edit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  margin-left: 4px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.ws-group-header:not(:first-child) {
-  margin-top: 4px;
-}
-
-.ws-group-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px 6px 12px;
-  box-sizing: border-box;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.ws-group-toggle {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ws-group-chevron {
-  flex-shrink: 0;
-  margin-left: auto;
-  font-size: 16px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .ws-group-toggle:hover {
-    color: var(--text-primary);
-  }
 }
 
 .ws-toolbar-spacer {

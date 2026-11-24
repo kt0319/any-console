@@ -55,21 +55,30 @@ test.describe("workspace lifecycle", () => {
     await expect(page.locator(".ws-list-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
 
-  test("ワークスペース名クリックでJobsがインライン展開・再クリックで閉じる", async ({ page }) => {
+  test("Add Workspace 画面から Add group ダイアログを開ける", async ({ page }) => {
+    await openAddWorkspace(page);
+    await page.locator('[aria-label="Add group"]').click();
+    await expect(page.locator(".ws-group-dialog")).toBeVisible({ timeout: 5000 });
+    await page.locator(".ws-group-dialog .dialog-close-btn").click();
+    await expect(page.locator(".ws-group-dialog")).toBeHidden({ timeout: 5000 });
+  });
+
+  test("Select jobボタンでジョブ選択ダイアログが開き、×で閉じる（一覧は展開しない）", async ({ page }) => {
     await openWorkspaces(page);
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
-    const jobsInline = row.locator(".ws-list-jobs-inline");
+    const jobDialog = page.locator(".ws-job-dialog");
 
-    await expect(jobsInline).toHaveCount(0);
-    await row.locator(".ws-list-header-label").click();
-    await expect(jobsInline).toBeVisible({ timeout: 5000 });
-    await expect(jobsInline.locator(".job-item-label", { hasText: "Terminal" })).toBeVisible();
+    await expect(jobDialog).toHaveCount(0);
+    await row.locator('[aria-label="Select job"]').click();
+    await expect(jobDialog).toBeVisible({ timeout: 5000 });
+    await expect(jobDialog.locator(".job-item-label", { hasText: "Terminal" })).toBeVisible();
 
-    // モーダルは開かない（Jobsのインライン展開のみ）
+    // Open Sessionは開いたまま（一覧のインライン展開はしない）
     await expect(page.locator(".modal-title")).toHaveText("Open Session");
+    await expect(row.locator(".job-item-row")).toHaveCount(0);
 
-    await row.locator(".ws-list-header-label").click();
-    await expect(jobsInline).toHaveCount(0);
+    await jobDialog.locator(".dialog-close-btn").click();
+    await expect(jobDialog).toHaveCount(0);
   });
 
   test("同じ名前の再登録はエラーになる", async ({ page }) => {
@@ -97,10 +106,14 @@ test.describe("workspace lifecycle", () => {
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    // Edit → Delete Workspace（Editボタンはワークスペース一覧のEditモード中のみ表示）
-    await page.locator('[aria-label="Edit"]').click();
+    // Edit → Delete Workspace
     await row.locator('.ws-list-edit-btn[aria-label="Edit workspace"]').click();
     await expect(page.locator(".modal-title")).toHaveText(wsName);
+    // Edit 画面の Group 行からグループを追加できる
+    await page.locator('[aria-label="Add group"]').click();
+    await expect(page.locator(".ws-group-dialog")).toBeVisible({ timeout: 5000 });
+    await page.locator(".ws-group-dialog .dialog-close-btn").click();
+    await expect(page.locator(".ws-group-dialog")).toBeHidden({ timeout: 5000 });
     await page.locator(".ws-delete-btn").click();
 
     // Cancel では消えない

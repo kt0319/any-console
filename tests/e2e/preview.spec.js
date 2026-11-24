@@ -75,8 +75,8 @@ test.describe("port preview", () => {
     await openWorkspaces(page);
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
-    await row.locator(".ws-list-header-label").click();
-    await row.locator(".job-item-label", { hasText: "Terminal" }).click();
+    await row.locator('[aria-label="Select job"]').click();
+    await page.locator(".ws-job-dialog .job-item-label", { hasText: "Terminal" }).click();
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
     // Open Sessionオーバーレイ（SessionOpenModal.vue）は、ルート表示中に新規
