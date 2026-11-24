@@ -35,7 +35,7 @@ pub fn validate_branch_name(branch: &str) -> Result<String, ApiError> {
     }
     let ok = branch
         .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'));
+        .all(|c| c.is_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'));
     if !ok {
         return Err(bad_request(format!("Invalid branch name: {branch}")));
     }
@@ -259,6 +259,9 @@ mod tests {
     fn branch_name_validation() {
         assert!(validate_branch_name("feat/x-1.2_D").is_ok());
         assert!(validate_branch_name("  main  ").is_ok());
+        assert!(validate_branch_name("feat/日本語ブランチ-1").is_ok());
+        assert!(validate_branch_name("全角　空白").is_err());
+        assert!(validate_branch_name("日本語、読点").is_err());
         assert!(validate_branch_name("").is_err());
         assert!(validate_branch_name("bad name").is_err());
         assert!(validate_branch_name("bad;rm -rf").is_err());

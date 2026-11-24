@@ -456,6 +456,59 @@ async fn branches_listing_flags_branches_merged_into_default() {
 }
 
 #[tokio::test]
+async fn branch_lifecycle_with_japanese_name() {
+    let front = spawn_front().await;
+    let name = "feat/日本語ブランチ";
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/create-branch",
+        &json!({"branch": name}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let current = branches
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["current"] == true)
+        .unwrap();
+    assert_eq!(current["name"], name);
+
+    post_json(
+        &front,
+        "/workspaces/repo/checkout",
+        &json!({"branch": "main"}),
+    )
+    .await
+    .error_for_status()
+    .unwrap();
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/checkout",
+        &json!({"branch": name}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    post_json(
+        &front,
+        "/workspaces/repo/checkout",
+        &json!({"branch": "main"}),
+    )
+    .await
+    .error_for_status()
+    .unwrap();
+    let resp = post_json(
+        &front,
+        "/workspaces/repo/delete-branch",
+        &json!({"branch": name}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+}
+
+#[tokio::test]
 async fn branches_listing_includes_current_branch_before_first_commit() {
     let front = spawn_front_with_initial_commit(false).await;
     let branches = get_json(&front, "/workspaces/repo/branches").await;
