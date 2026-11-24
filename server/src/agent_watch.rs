@@ -1260,6 +1260,27 @@ mod collect_agent_states_tests {
         let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
 
+        // Linux の pane_current_path はシェル起動直後だと tmux サーバの cwd を
+        // 返すことがあり、pane_current_command の出現だけでは cwd 確定を保証しない。
+        let expected_cwd = ws_dir_canonical.to_string_lossy().to_string();
+        let mut cwd_settled = false;
+        for _ in 0..100 {
+            if crate::tmux::get_session_cwd(&tmux_name).await.as_deref()
+                == Some(expected_cwd.as_str())
+            {
+                cwd_settled = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs_f64(
+                crate::tmux::TMUX_PANE_POLL_INTERVAL_SEC,
+            ))
+            .await;
+        }
+        assert!(
+            cwd_settled,
+            "pane_current_path did not become {expected_cwd}"
+        );
+
         let mut rx = state.status_stream.tx.subscribe();
         let mut last_capture = HashMap::new();
         let mut last_pane_size = HashMap::new();
