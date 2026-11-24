@@ -59,6 +59,7 @@
             :dragging="dragIdx === flatIdx"
             :drag-offset-y="dragOffsetY"
             :is-running="isRunning"
+            @tap="tapWorkspace"
             @select-job="selectJob"
             @open-changes="openChanges"
             @git-action="doAction"
@@ -121,6 +122,8 @@ import { useWorktreeRemoveConfirm } from "../composables/useWorktreeRemoveConfir
 import RecentJobsList from "./RecentJobsList.vue";
 import SessionOpenJobsTab from "./SessionOpenJobsTab.vue";
 import WorkspaceJobDialog from "./WorkspaceJobDialog.vue";
+import { useDefaultJob } from "../composables/useDefaultJob.ts";
+import { useRunJob } from "../composables/useRunJob.ts";
 import DetachedSessionsList from "./DetachedSessionsList.vue";
 import WorkspaceListRow from "./WorkspaceListRow.vue";
 import { emit as bridgeEmit } from "../app-bridge.ts";
@@ -226,10 +229,21 @@ function openAddJob() {
 }
 
 // ワークスペース（worktree含む）のジョブはダイアログで選んで起動する。
+const { defaultJob, loadDefaultJob } = useDefaultJob();
+const { runJobInWorkspace } = useRunJob();
 const jobDialog = ref<InstanceType<typeof WorkspaceJobDialog> | null>(null);
 
 function selectJob(ws: Record<string, any>) {
   jobDialog.value?.open(ws.name);
+}
+
+// デフォルトジョブ（共通ジョブの default）があればそれを直接起動し、無ければジョブ選択ダイアログを開く。
+async function tapWorkspace(ws: Record<string, any>) {
+  if (!defaultJob.value) {
+    selectJob(ws);
+    return;
+  }
+  await runJobInWorkspace(ws, defaultJob.value);
 }
 
 function openChanges(ws: Record<string, any>) {
@@ -250,6 +264,7 @@ function removeWorktree(base: Record<string, any>, wt: Record<string, any>) {
 onMounted(() => {
   loadWorkspaceOverview();
   loadRecentJobs();
+  loadDefaultJob();
   loadDetachedSessions();
 });
 

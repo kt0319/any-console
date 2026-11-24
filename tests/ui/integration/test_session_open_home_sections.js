@@ -24,7 +24,7 @@ describe("SessionOpenHome: タブ無しのカテゴリセクション", () => {
     const responses = {
       "/groups": [],
       "/workspaces": [{ name: "alpha", path: "/alpha" }, { name: "empty", path: "/empty" }],
-      "/common/jobs": { deploy: { label: "Deploy", command: "echo deploy" } },
+      "/common/jobs": { deploy: { label: "Deploy", command: "echo deploy", default: true } },
       "/jobs/workspaces": {
         alpha: {
           build: { label: "Build", command: "make" },
@@ -62,6 +62,7 @@ describe("SessionOpenHome: タブ無しのカテゴリセクション", () => {
     expect(wrapper.findAll('[aria-label="Add job"]')).toHaveLength(1);
     expect(jobs.findAll(".ws-group-title").map((h) => h.text())).toEqual(["Global", "alpha"]);
     expect(jobs.find(".ws-group-header .mdi-earth").exists()).toBe(true);
+    expect(jobs.findAll(".job-default-badge").map((b) => b.text())).toEqual(["default"]);
     expect(jobs.text()).not.toContain("empty");
     expect(jobs.findAll(".job-item-label").map((l) => l.text())).toEqual(["Deploy", "Build"]);
     expect(jobs.findAll('[aria-label="Edit"]')).toHaveLength(2);

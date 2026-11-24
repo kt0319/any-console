@@ -312,20 +312,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   color: var(--text-muted);
 }
 
-.branch-default-badge,
-.branch-merged-badge {
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  opacity: 0.75;
-  vertical-align: middle;
-}
 
 /* 現在ブランチの行は一覧の先頭項目 兼 開閉トグル（クリックで展開/折りたたみ）。 */
 .branch-item.current {

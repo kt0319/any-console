@@ -34,6 +34,10 @@
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached" /> Run detached</label>
       </div>
+      <div v-if="isCommon" class="ws-settings-row ws-settings-row-stack">
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.default" /> Default job</label>
+        <div class="job-command-hint">Tapping a workspace in Open Session runs this job there. Only one job can be the default.</div>
+      </div>
       <div class="ws-settings-row ws-settings-row-stack">
         <span class="ws-settings-label">Notify phrase <span class="job-label-note">(PWA only)</span></span>
         <input type="text" class="form-input" v-model="form.notify_phrase"
@@ -118,6 +122,7 @@ const form = ref(
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
           detached: !!jobEntry.job.detached,
+          default: !!jobEntry.job.default,
           notify_phrase: jobEntry.job.notify_phrase || "",
         }
       : {
@@ -127,6 +132,7 @@ const form = ref(
           icon_color: "",
           confirm: false,
           detached: false,
+          default: false,
           notify_phrase: "",
         }
 );
@@ -169,6 +175,7 @@ async function saveJob() {
       icon_color: f.icon_color.trim(),
       confirm: f.confirm,
       detached: f.detached,
+      default: isCommon.value && f.default,
       notify_phrase: f.notify_phrase.trim(),
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);

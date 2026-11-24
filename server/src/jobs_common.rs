@@ -209,6 +209,7 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
         "icon_color": s("icon_color", ""),
         "confirm": b("confirm", true),
         "detached": b("detached", false),
+        "default": b("default", false),
         "notify_phrase": s("notify_phrase", ""),
     });
     if let Some(c) = is_common {
@@ -269,6 +270,8 @@ pub struct JobRequest {
     pub confirm: bool,
     #[serde(default)]
     pub detached: bool,
+    #[serde(default, rename = "default")]
+    pub is_default: bool,
     #[serde(default)]
     pub notify_phrase: String,
 }
@@ -357,6 +360,9 @@ async fn build_job_entry(
     if body.detached {
         entry.insert("detached".to_string(), json!(true));
     }
+    if body.is_default {
+        entry.insert("default".to_string(), json!(true));
+    }
     if !notify_phrase.is_empty() {
         entry.insert("notify_phrase".to_string(), json!(notify_phrase));
     }
@@ -379,7 +385,11 @@ pub async fn save_job(
     job_name: Option<String>,
     body: &JobRequest,
     log_context: &str,
+    is_common: bool,
 ) -> Result<Value, ApiError> {
+    if body.is_default && !is_common {
+        return Err(bad_request(DEFAULT_JOB_COMMON_ONLY_MSG));
+    }
     check_job_request_lengths(body)?;
     let validated = validate_job_fields(body)?;
     let notify_phrase = body.notify_phrase.trim().to_string();
@@ -393,12 +403,26 @@ pub async fn save_job(
             if is_update && !fresh.contains_key(&job_name_for_commit) {
                 return Err(not_found(format!("Job '{job_name_for_commit}' not found")));
             }
+            if entry.get("default").and_then(Value::as_bool) == Some(true) {
+                clear_default_flags(fresh);
+            }
             fresh.insert(job_name_for_commit, entry);
             Ok(())
         }),
     )?;
     tracing::info!("{log_context} job={job_name}");
     Ok(json!({"status": "ok", "name": job_name}))
+}
+
+pub const DEFAULT_JOB_COMMON_ONLY_MSG: &str = "Only a common job can be the default job";
+
+/// デフォルトジョブは共通ジョブのうち常に1つだけにするため、新しく設定する前に既存の印を外す。
+fn clear_default_flags(jobs: &mut Map<String, Value>) {
+    for entry in jobs.values_mut() {
+        if let Some(obj) = entry.as_object_mut() {
+            obj.remove("default");
+        }
+    }
 }
 
 pub fn delete_job(

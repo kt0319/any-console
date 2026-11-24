@@ -132,6 +132,7 @@ pub async fn create_workspace_job(
         None,
         &body,
         &log_context,
+        false,
     )
     .await
     .map(Json)
@@ -172,6 +173,7 @@ pub async fn update_workspace_job(
         Some(job_name),
         &body,
         &log_context,
+        false,
     )
     .await
     .map(Json)
@@ -224,6 +226,7 @@ pub async fn create_common_job(
         None,
         &body,
         "common job created",
+        true,
     )
     .await
     .map(Json)
@@ -246,6 +249,7 @@ pub async fn update_common_job(
         Some(job_name),
         &body,
         "common job updated",
+        true,
     )
     .await
     .map(Json)

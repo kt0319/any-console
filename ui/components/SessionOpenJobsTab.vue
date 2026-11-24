@@ -14,6 +14,7 @@
           <div class="job-item session-open-job-name">
             <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
             <span class="job-item-label">{{ job.label || job.name }}</span>
+            <span v-if="job.default" class="job-default-badge" data-tooltip="Runs when a workspace is tapped">default</span>
           </div>
           <button v-if="category.workspace" type="button" class="job-item-edit-btn session-open-job-run" data-tooltip="Run" :aria-label="`Run ${job.label || job.name}`" @click="runJob(category.workspace, job)">
             <span class="mdi mdi-play" aria-hidden="true"></span>
@@ -32,13 +33,11 @@
 import { computed, inject, onMounted, ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { useCollapsedWorkspaceGroups } from "../composables/useCollapsedWorkspaceGroups.ts";
-import { useRecentJobs } from "../composables/useRecentJobs.ts";
+import { useRunJob } from "../composables/useRunJob.ts";
 import { useApi } from "../composables/useApi.ts";
-import { useConfirm } from "../composables/useConfirm.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
-import { jobCommandPreview } from "../utils/format.ts";
 import { EP_COMMON_JOBS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
 
@@ -50,6 +49,7 @@ interface Job {
   command?: string;
   confirm?: boolean;
   detached?: boolean;
+  default?: boolean;
   common?: boolean;
 }
 
@@ -58,9 +58,8 @@ const GLOBAL_JOB_ICON = "mdi-earth";
 
 const workspaceStore = useWorkspaceStore();
 const { collapsedGroups, toggleGroup } = useCollapsedWorkspaceGroups();
-const { recordJob } = useRecentJobs();
+const { runJobInWorkspace } = useRunJob();
 const { apiGet } = useApi();
-const { confirm } = useConfirm();
 
 const jobsByWorkspace = ref<Record<string, Record<string, Omit<Job, "name">>>>({});
 const globalJobsByName = ref<Record<string, Omit<Job, "name">>>({});
@@ -104,22 +103,7 @@ async function loadJobs() {
 }
 
 async function runJob(workspace: Record<string, any>, job: Job) {
-  if (job.confirm !== false) {
-    const preview = jobCommandPreview(job.command, job.name);
-    if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
-  }
-  recordJob(workspace, job);
-  emit("terminal:launch", {
-    workspace: workspace.name,
-    icon: workspace.icon,
-    iconColor: workspace.icon_color,
-    jobName: job.name,
-    jobLabel: job.label,
-    jobIcon: job.icon,
-    jobIconColor: job.icon_color,
-    initialCommand: job.command,
-    detached: !!job.detached,
-  });
+  await runJobInWorkspace(workspace, job);
 }
 
 function editJob(workspace: Record<string, any> | null, job: Job) {

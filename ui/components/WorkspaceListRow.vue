@@ -12,7 +12,7 @@
       >
         <span class="mdi mdi-drag-vertical"></span>
       </span>
-      <button type="button" class="ws-list-header-label" @click="$emit('selectJob', ws)">
+      <button type="button" class="ws-list-header-label" @click="$emit('tap', ws)">
         <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
         <span class="ws-list-header-text">
           <span class="ws-list-name">
@@ -39,7 +39,7 @@
     <div v-if="worktrees.length" class="ws-list-worktrees">
       <template v-for="wt in worktrees" :key="wt.name">
         <div class="ws-list-worktree-item">
-          <button type="button" class="ws-list-worktree-open hover-bg" @click="$emit('selectJob', wt)">
+          <button type="button" class="ws-list-worktree-open hover-bg" @click="$emit('tap', wt)">
             <span class="mdi mdi-file-tree ws-list-wt-child-icon"></span>
             <span class="ws-list-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
             <span v-if="wt.clean === false" class="ws-list-wt-dirty" aria-label="uncommitted changes"></span>
@@ -72,7 +72,7 @@ const props = defineProps({
   isRunning: { type: Function as PropType<(name: string, action: string) => boolean>, required: true },
 });
 
-defineEmits(["selectJob", "openChanges", "gitAction", "edit", "removeWorktree", "dragStart"]);
+defineEmits(["tap", "selectJob", "openChanges", "gitAction", "edit", "removeWorktree", "dragStart"]);
 
 function pushActionFor(ws: Record<string, any>) {
   return ws.has_upstream === false ? "push-upstream" : "push";

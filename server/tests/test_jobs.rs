@@ -369,3 +369,49 @@ async fn recent_jobs_roundtrip_and_prune() {
         .collect();
     assert_eq!(keys, vec!["k1", "k3"], "k2 は job が存在しないため除去");
 }
+
+#[tokio::test]
+async fn default_job_is_exclusive_among_common_jobs_and_rejected_for_workspace_jobs() {
+    let front = spawn_front().await;
+    let mut names = Vec::new();
+    for label in ["Build", "Deploy"] {
+        let resp = send_json(
+            &front,
+            reqwest::Method::POST,
+            "/common/jobs",
+            &json!({"label": label, "command": label.to_lowercase(), "default": label == "Build"}),
+        )
+        .await;
+        assert_eq!(resp.status(), 200);
+        let v: Value = resp.json().await.unwrap();
+        names.push(v["name"].as_str().unwrap().to_string());
+    }
+    let common = get_json(&front, "/common/jobs").await;
+    assert_eq!(common[&names[0]]["default"], true);
+    assert_eq!(common[&names[1]]["default"], false);
+
+    // 別の共通ジョブを default にすると、先の印は外れる（常に1つだけ）
+    let resp = send_json(
+        &front,
+        reqwest::Method::PUT,
+        &format!("/common/jobs/{}", names[1]),
+        &json!({"label": "Deploy", "command": "deploy", "default": true}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let common = get_json(&front, "/common/jobs").await;
+    assert_eq!(common[&names[0]]["default"], false);
+    assert_eq!(common[&names[1]]["default"], true);
+
+    // ワークスペースジョブには設定できない
+    let resp = send_json(
+        &front,
+        reqwest::Method::POST,
+        "/workspaces/proj/jobs",
+        &json!({"label": "Local", "command": "echo", "default": true}),
+    )
+    .await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["detail"], "Only a common job can be the default job");
+}
