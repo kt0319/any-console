@@ -95,4 +95,23 @@ describe("WorkspaceAddInline", () => {
     expect(body.group_id).toBe("grp_1");
     wrapper.unmount();
   });
+
+  it("グループを選ぶとEdit groupボタンが出て、Add groupボタンは常に出る", async () => {
+    setActivePinia(createPinia());
+    const ws = useWorkspaceStore();
+    ws.groups = [{ id: "grp_1", name: "Team A" }];
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({ base: "", entries: [] })));
+
+    const wrapper = mount(WorkspaceAddInline, mountOptions());
+    expect(wrapper.find('[aria-label="Add group"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Edit group"]').exists()).toBe(false);
+
+    await wrapper.find("select").setValue("grp_1");
+    expect(wrapper.find('[aria-label="Edit group"]').exists()).toBe(true);
+
+    ws.groups = [];
+    await flushPromises();
+    expect(wrapper.find('[aria-label="Edit group"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
 });

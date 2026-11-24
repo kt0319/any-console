@@ -38,13 +38,7 @@
         </span>
       </button>
     </div>
-    <div v-if="workspaceStore.groups.length" class="ws-settings-row">
-      <span class="ws-settings-label">Group</span>
-      <select class="form-input" v-model="addGroupId">
-        <option :value="null">— None —</option>
-        <option v-for="g in workspaceStore.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
-      </select>
-    </div>
+    <WorkspaceGroupField v-model="addGroupId" />
     <div v-if="addError" class="form-message error">{{ addError }}</div>
     <div v-if="addSuccess" class="form-message success">{{ addSuccess }}</div>
     <button
@@ -64,6 +58,7 @@ import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.ts";
 import { useDirectorySuggest } from "../composables/useDirectorySuggest.ts";
 import { useModalView } from "../composables/useModalView.ts";
+import WorkspaceGroupField from "./WorkspaceGroupField.vue";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import { renderIconStr } from "../utils/render-icon.ts";
 import { EP_WORKSPACES } from "../utils/endpoints.ts";

@@ -21,13 +21,7 @@
         <span class="ws-settings-label">Path</span>
         <input type="text" class="form-input" v-model="editPath" autocomplete="off" />
       </div>
-      <div class="ws-settings-row">
-        <span class="ws-settings-label">Group</span>
-        <select class="form-input" v-model="editGroupId">
-          <option :value="null">— None —</option>
-          <option v-for="g in workspaceStore.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
-        </select>
-      </div>
+      <WorkspaceGroupField v-model="editGroupId" />
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="savingDetails || !isDetailsDirty" @click="saveDetails">
           {{ savingDetails ? 'Saving...' : 'Save' }}
@@ -48,6 +42,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import WorkspaceGroupField from "./WorkspaceGroupField.vue";
 import { useApi } from "../composables/useApi.ts";
 import { useToast } from "../composables/useToast.ts";
 import { useConfirm } from "../composables/useConfirm.ts";
