@@ -350,6 +350,23 @@ prompt_default_ai_agent_job() {
   fi
 }
 
+# Claude Code の hooks（作業中/待機/承認待ちの正確な状態検出と通知）を登録するか尋ねる。
+# ~/.claude/settings.json に追記する（既存の hooks は保持し、再実行しても重複しない）。
+prompt_claude_hooks() {
+  command -v claude >/dev/null 2>&1 || return 0
+  echo "  Claude Code hooks give accurate working / idle / blocked state and notifications."
+  echo "  This adds entries to ~/.claude/settings.json (existing hooks are kept)."
+  echo ""
+  local answer
+  read -rp "Install Claude Code hooks now? [Y/n] " answer
+  if [[ "$answer" =~ ^[Nn]$ ]]; then
+    info "  Skipped (run './any-console hooks-setup' anytime)"
+    return 0
+  fi
+  "$RUST_BIN" hooks install-claude | sed 's/^/  /' \
+    || warn "  Hooks setup failed — run './any-console hooks-setup' to retry"
+}
+
 prompt_initial_workspace() {
   echo "  A workspace is a directory you manage (typically a git repository)."
   echo "  More can be added later from the UI."
@@ -479,6 +496,44 @@ reinstall_service_and_restart_if_active() {
       sudo systemctl restart "$SERVICE_NAME"
       info "  Service restarted"
     fi
+  fi
+}
+
+# 本体を Tailscale Serve で HTTPS 公開するか尋ねる（PWA インストールとプッシュ通知に
+# HTTPS が必要）。既に同じポートを公開済みなら何もしない。
+prompt_tailscale_serve() {
+  local port target
+  port="$(get_port)"
+  target="http://127.0.0.1:${port}"
+
+  if ! command -v tailscale >/dev/null 2>&1; then
+    echo "  Tailscale not detected — skipped."
+    echo "  HTTPS is required for PWA install and push notifications; install Tailscale to enable it."
+    return 0
+  fi
+  if [ -z "$(tailscale_hostname)" ]; then
+    echo "  Tailscale daemon not reachable — skipped."
+    echo "  Run 'tailscale up' first, then: tailscale serve --bg ${target}"
+    return 0
+  fi
+  if tailscale serve status 2>/dev/null | grep -q "127.0.0.1:${port}"; then
+    info "  Already exposed via Tailscale Serve (https://$(tailscale_hostname))"
+    return 0
+  fi
+
+  echo "  HTTPS is required for PWA install and push notifications."
+  echo "  This runs: tailscale serve --bg ${target}"
+  echo ""
+  local answer
+  read -rp "Expose any-console over HTTPS with Tailscale Serve now? [Y/n] " answer
+  if [[ "$answer" =~ ^[Nn]$ ]]; then
+    info "  Skipped (run 'tailscale serve --bg ${target}' anytime)"
+    return 0
+  fi
+  if tailscale serve --bg "$target"; then
+    info "  OK: https://$(tailscale_hostname)"
+  else
+    warn "  Tailscale Serve failed — enable HTTPS in the Tailscale admin console, then run: tailscale serve --bg ${target}"
   fi
 }
 
@@ -651,6 +706,12 @@ cmd_setup() {
   info "[7/7] AI agent CLI detection"
   register_ai_agent_jobs "$non_interactive"
 
+  if [ "$non_interactive" -ne 1 ] && command -v claude >/dev/null 2>&1; then
+    echo ""
+    info "Optional: Claude Code hooks"
+    prompt_claude_hooks
+  fi
+
   local service_registered=0
   echo ""
   if [ "$non_interactive" -eq 1 ]; then
@@ -674,6 +735,14 @@ cmd_setup() {
       install_service
       service_registered=1
     fi
+  fi
+
+  echo ""
+  info "Optional: HTTPS via Tailscale Serve"
+  if [ "$non_interactive" -eq 1 ]; then
+    info "  Non-interactive: skipped (run 'tailscale serve --bg http://127.0.0.1:$(get_port)' later if needed)"
+  else
+    prompt_tailscale_serve
   fi
 
   echo ""

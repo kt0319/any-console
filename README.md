@@ -61,6 +61,8 @@ Then finish service registration interactively — this registers a systemd (Lin
 cd ~/.any-console && ./any-console setup
 ```
 
+The interactive `setup` asks about, in order: network bind, initial workspaces, AI agent CLIs found on `PATH` (registered as common jobs, plus which one is the **default job** — started when you tap a workspace in the UI), Claude Code hooks (only when `claude` is found), the service, HTTPS through Tailscale Serve (`tailscale serve --bg`, needed for PWA install and push notifications), and preview HTTPS certificates. Every question can be skipped and revisited later; `--non-interactive` (or `CI=true`) skips them all.
+
 After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)). To update later, see [Updating](#updating).
 
 ### Requirements
