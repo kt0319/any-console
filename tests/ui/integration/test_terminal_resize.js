@@ -6,6 +6,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { fitTerminal, sendResize } from "../../../ui/composables/useTerminalResize.ts";
 import { useTerminal } from "../../../ui/composables/useTerminal.ts";
 import { emit, on } from "../../../ui/app-bridge.ts";
+import { fakeOpenSocket } from "../helpers/fake-websocket.js";
 
 describe("fitTerminal: DOM サイズ変化なしの fit 抑制", () => {
   const visibleFrameIds = [];
@@ -100,7 +101,7 @@ describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
     const tab = {
       id: "hidden",
       term: { cols: 40, rows: 10 },
-      ws: { readyState: 1, send },
+      ws: fakeOpenSocket({ send }),
     };
     sendResize(tab);
     expect(send).not.toHaveBeenCalled();
@@ -114,7 +115,7 @@ describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
       id: "not-mounted",
       term: { cols: 40, rows: 10 },
       fitAddon: { proposeDimensions: () => ({ cols: 80, rows: 24 }), fit },
-      ws: { readyState: 1, send },
+      ws: fakeOpenSocket({ send }),
     };
     fitTerminal(tab, { force: true });
     sendResize(tab);

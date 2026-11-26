@@ -5,6 +5,7 @@ import { mount } from "@vue/test-utils";
 import { setActivePinia, createPinia } from "pinia";
 import { useTerminalPaste } from "../../ui/composables/useTerminalPaste.ts";
 import { uploadImageToTerminal } from "../../ui/utils/upload-image-to-terminal.ts";
+import { fakeOpenSocket } from "./helpers/fake-websocket.js";
 
 vi.mock("../../ui/utils/upload-image-to-terminal.ts", () => ({
   uploadImageToTerminal: vi.fn().mockResolvedValue(true),
@@ -22,7 +23,7 @@ describe("useTerminalPaste: 画像貼り付けの二重処理防止", () => {
     uploadImageToTerminal.mockClear();
     const Host = defineComponent({
       setup() {
-        const tab = ref({ ws: { readyState: 1 }, term: { textarea: null, element: null } });
+        const tab = ref({ ws: fakeOpenSocket(), term: { textarea: null, element: null } });
         const isActive = ref(true);
         useTerminalPaste({ tab, isActive });
         return () => h("div");
@@ -50,7 +51,7 @@ describe("useTerminalPaste: 画像貼り付けの二重処理防止", () => {
     wrapper.unmount(); // beforeEachのアクティブなタブのリスナーを外してから検証する
     const Host2 = defineComponent({
       setup() {
-        const tab = ref({ ws: { readyState: 1 }, term: { textarea: null, element: null } });
+        const tab = ref({ ws: fakeOpenSocket(), term: { textarea: null, element: null } });
         const isActive = ref(false);
         useTerminalPaste({ tab, isActive });
         return () => h("div");

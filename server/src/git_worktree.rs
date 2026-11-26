@@ -127,9 +127,6 @@ pub(crate) async fn ensure_worktree_for_existing_branch(
 
     // 作成が必要なときだけ名前を絞る（既に worktree がある有効なブランチ名は上で通している）。
     let branch = validate_branch_name(&branch)?;
-    if branch.starts_with('-') || branch.contains("..") {
-        return Err(bad_request(format!("Invalid branch name: {branch}")));
-    }
 
     let main_path = main_worktree_path(&worktrees).unwrap_or_else(|| ws_path.clone());
     let target = worktree_target_path(&main_path, &branch);

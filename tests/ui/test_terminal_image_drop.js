@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { setActivePinia, createPinia } from "pinia";
 import { useTerminalImageDrop } from "../../ui/composables/useTerminalImageDrop.ts";
 import { uploadImageToTerminal } from "../../ui/utils/upload-image-to-terminal.ts";
+import { fakeOpenSocket } from "./helpers/fake-websocket.js";
 
 vi.mock("../../ui/utils/upload-image-to-terminal.ts", () => ({
   uploadImageToTerminal: vi.fn().mockResolvedValue(true),
@@ -24,7 +25,7 @@ describe("useTerminalImageDrop", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     uploadImageToTerminal.mockClear();
-    tab = ref({ ws: { readyState: 1 } });
+    tab = ref({ ws: fakeOpenSocket() });
   });
 
   it("画像ファイルのドロップでuploadImageToTerminalを呼ぶ", async () => {

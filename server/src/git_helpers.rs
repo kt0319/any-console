@@ -34,10 +34,21 @@ pub fn validate_branch_name(branch: &str) -> Result<String, ApiError> {
     let ok = branch
         .chars()
         .all(|c| c.is_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'));
-    if !ok {
+    if !ok || !follows_ref_format(branch) {
         return Err(bad_request(format!("Invalid branch name: {branch}")));
     }
     Ok(branch.to_string())
+}
+
+/// 先頭が `-` の名前は merge / rebase / checkout の引数で git のオプションとして解釈されるため弾く。
+fn follows_ref_format(branch: &str) -> bool {
+    !branch.starts_with('-')
+        && branch != "HEAD"
+        && !branch.contains("..")
+        && !branch.ends_with('.')
+        && branch
+            .split('/')
+            .all(|part| !part.is_empty() && !part.starts_with('.') && !part.ends_with(".lock"))
 }
 
 /// commit を指す ref（4〜40桁の小文字16進ハッシュ、または stash エントリ）を検証する。
@@ -250,6 +261,56 @@ mod tests {
         assert!(validate_branch_name("").is_err());
         assert!(validate_branch_name("bad name").is_err());
         assert!(validate_branch_name("bad;rm -rf").is_err());
+    }
+
+    #[test]
+    fn branch_name_rejects_git_ref_format_violations() {
+        let bad_names = [
+            "-f",
+            "--orphan",
+            "-日本語",
+            "HEAD",
+            "a..b",
+            "feat/..",
+            "feat/x.",
+            "日本語.",
+            ".hidden",
+            "feat/.hidden",
+            "feat/x.lock",
+            "x.lock",
+            "/feat",
+            "feat/",
+            "feat//x",
+            "feat~1",
+            "feat^",
+            "feat:x",
+            "feat?",
+            "feat*",
+            "feat[x",
+            "feat\\x",
+            "feat@{1}",
+            "@",
+            "feat\tx",
+        ];
+        for bad in bad_names {
+            assert!(validate_branch_name(bad).is_err(), "should reject {bad:?}");
+        }
+    }
+
+    #[test]
+    fn branch_name_accepts_dots_and_dashes_inside() {
+        let good_names = [
+            "release/1.2.3",
+            "feat/x-y",
+            "x.lock.d",
+            "feat/日本語.v2",
+            "a-",
+            "lockfile",
+            "head",
+        ];
+        for good in good_names {
+            assert!(validate_branch_name(good).is_ok(), "should accept {good:?}");
+        }
     }
 
     #[test]

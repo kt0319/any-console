@@ -409,6 +409,66 @@ async fn branch_lifecycle_and_listing() {
 }
 
 #[tokio::test]
+async fn branch_endpoints_reject_option_like_and_malformed_names() {
+    let front = spawn_front().await;
+    for name in ["-f", "--orphan", "a..b", "feat/x.lock", "feat/", "HEAD"] {
+        for endpoint in ["create-branch", "checkout", "delete-branch"] {
+            let resp = post_json(
+                &front,
+                &format!("/workspaces/repo/{endpoint}"),
+                &json!({"branch": name}),
+            )
+            .await;
+            assert_eq!(resp.status(), 400, "{endpoint} should reject {name:?}");
+        }
+    }
+    let branches = get_json(&front, "/workspaces/repo/branches").await;
+    let names: Vec<&str> = branches
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["main"]);
+}
+
+/// 検証が通った名前は git でも有効であることだけを見る（git が受け付けて検証が弾く名前は許容）。
+#[test]
+fn accepted_branch_names_are_valid_for_git() {
+    let candidates = [
+        "main",
+        "feat/日本語ブランチ-1",
+        "release/1.2.3",
+        "x.lock.d",
+        "a-",
+        "-f",
+        "a..b",
+        ".hidden",
+        "feat/.x",
+        "feat/x.lock",
+        "feat/",
+        "/feat",
+        "feat//x",
+        "feat.",
+        "HEAD",
+        "ｆｅａｔ／ｘ",
+        "機能/ＡＢＣ１２３",
+    ];
+    for name in candidates {
+        let Ok(accepted) = any_console_server::git_helpers::validate_branch_name(name) else {
+            continue;
+        };
+        let status = std::process::Command::new("git")
+            .args(["check-ref-format", "--branch", &accepted])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success(), "git rejects accepted name {name:?}");
+    }
+}
+
+#[tokio::test]
 async fn branches_listing_flags_branches_merged_into_default() {
     let front = spawn_front().await;
     let git = |args: &[&str]| common::sh_git(&front.ws_path, args);
