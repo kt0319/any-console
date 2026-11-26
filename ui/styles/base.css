@@ -1,4 +1,3 @@
-/* デザイントークン・CSSリセット・コンポーネント横断の共有スタイル */
 
 :root {
   color-scheme: dark;
@@ -77,7 +76,6 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* ローディングアイコン（mdi-loading 等）を回す */
 .spin {
   animation: spin 0.6s linear infinite;
 }
@@ -650,7 +648,6 @@ li.diff-file-row.file-browser-item {
   text-align: center;
 }
 
-/* ─── 汎用レイアウトユーティリティ ───────────────────────────────────────── */
 
 /* 親フレックス列を埋めるペインラッパ（Git 各ペイン・設定パネル等で共用） */
 .pane-fill {
@@ -661,7 +658,6 @@ li.diff-file-row.file-browser-item {
   overflow: hidden;
 }
 
-/* フレックス行内で余白を占有しつつ1行省略表示するテキスト */
 .text-ellipsis-flex {
   flex: 1;
   min-width: 0;

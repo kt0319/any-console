@@ -5,11 +5,7 @@ import { tabTitleLabel } from "../utils/tab-label.ts";
 
 const APP_NAME = "any-console";
 
-/**
- * App.vue のルートで呼び出し、アクティブタブに応じて document.title を同期する。
- * - 表示中のタブが無ければアプリ名のみ
- * - タブがあれば「APP_NAME - workspace | branch | job」形式
- */
+/** App.vue のルートで呼び、アクティブタブに応じて document.title を同期する（タブが無ければアプリ名のみ）。 */
 export function useAppDocumentTitle() {
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();

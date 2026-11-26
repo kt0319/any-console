@@ -60,8 +60,6 @@ import { renderIconStr } from "../utils/render-icon.ts";
 import { dirtyBadgeHtml } from "../utils/git.ts";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.ts";
 
-// Open Session 一覧のワークスペース1行（SessionOpenHome.vue から抽出）。
-// 行のインライン Jobs 展開・worktree のネスト表示・Pull/Push/Changes バッジを持つ。
 // 操作はすべて emit で親へ委譲する（並べ替え・API 呼び出しは親側の責務）。
 const props = defineProps({
   ws: { type: Object as PropType<Record<string, any>>, required: true },
@@ -240,8 +238,6 @@ function pushActionFor(ws: Record<string, any>) {
   flex-shrink: 0;
 }
 
-/* 行・ボタンの通常ホバー（背景/文字色）は base.css の .hover-bg /
-   .hover-bg-text ユーティリティをテンプレート側で付ける。 */
 @media (hover: hover) and (pointer: fine) {
   .ws-list-worktree-del:hover {
     background: var(--error-bg-20, rgba(255, 85, 114, 0.15));

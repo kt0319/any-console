@@ -5,12 +5,6 @@ import { useLayoutStore } from "../stores/layout.ts";
 import { buildGridRows } from "../utils/terminal-layout.ts";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
 
-/**
- * TerminalBase の分割ペイン表示まわりの状態とロジック。
- * - split レイアウト用の computed（コンテナクラス・グリッド行）
- * - ペイン選択とタブ解決
- * - 表示中ペインの fit 一括実行（split 切替時の再 fit を含む）
- */
 // TerminalPane.vue が defineExpose する形（tabId / fit のみ利用）。
 interface TerminalPaneRef {
   tabId?: number | string;

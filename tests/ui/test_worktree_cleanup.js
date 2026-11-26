@@ -77,9 +77,7 @@ describe("useWorktreeCleanup", () => {
     });
 
     it("wt.branchが分かる時はworktree_base/worktree_branchで比較する（workspace文字列が完全一致しなくても見つかる）", async () => {
-      // dev serverのworkspaceはcwdから都度推測されるため、bracket形式の完全一致に
-      // ならないことがある（server/src/preview.rsのmatch_workspace参照）。
-      // worktree_base/worktree_branchが一致していれば拾えることを確認する。
+      // dev server の workspace は cwd から推測され bracket 形式と完全一致しないことがある（server/src/preview.rs の match_workspace）。
       apiGetMock.mockImplementation(async (ep) => {
         if (ep === "/terminal/sessions") {
           return {

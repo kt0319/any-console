@@ -37,9 +37,7 @@ export function useDiffFileActions({ selectedCommit }: { selectedCommit: Ref<Rec
     }
   }
 
-  // git log は一覧表示用に1行へ切り詰めたメッセージしか持たないため、
-  // 「More」展開時にフルメッセージ（本文含む）をハッシュ単位でキャッシュ
-  // しつつ取得する。未取得の間は一覧の1行メッセージへフォールバックする。
+  // git log は1行に切り詰めたメッセージしか持たないため、「More」展開時にフルメッセージをハッシュ単位でキャッシュ取得する。
   const fullMessageCache = ref<{ hash: string, message: string } | null>(null);
 
   const selectedCommitFullMessage = computed(() => {

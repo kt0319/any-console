@@ -131,7 +131,6 @@ async function updApply() {
   }
   upd.applying = false;
 }
-// 1カードの1行分。
 type SiRow = { label: string, values: (string | number)[], warn?: boolean };
 type SiSection = {
   label: string,
@@ -141,8 +140,7 @@ type SiSection = {
 
 const isLoading = ref(true);
 const sections = ref<SiSection[]>([]);
-// /system/info のレスポンス（updatableフラグをテンプレート側のUpdateカード
-// 表示条件に使うため、load()内のローカル値をrefとして保持する）。
+// updatable フラグをテンプレートの Update カード表示条件に使うため保持する。
 const serverInfo = ref<Record<string, any> | null>(null);
 
 function parseBrowser(ua: string) {

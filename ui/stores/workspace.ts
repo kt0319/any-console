@@ -43,10 +43,8 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value = data.map((newWs) => {
       const existing = existingByName.get(newWs.name);
       const cached = cache[newWs.name] || {};
-      // キャッシュ値・既存値をベースに新値で上書き。
-      // group_id:null のような「明示的なnull」も正規の値なので null ガードは掛けない。
-      // ステータス系フィールド(clean/ahead/behind 等)は /workspaces レスポンスに含まれないため
-      // 既存値が自然に保持される。
+      // キャッシュ値・既存値をベースに新値で上書きする。group_id:null のような明示的な null も正規の値。
+      // ステータス系フィールドは /workspaces レスポンスに無く、既存値が保持される。
       return { ...cached, ...(existing || {}), ...newWs };
     });
   }
@@ -57,10 +55,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     groups.value = data;
   }
 
-  /**
-   * ステータス配列（/workspaces/statuses の statuses、または WS push の statuses）を
-   * ストアへマージする。
-   */
   function applyStatuses(statuses: Record<string, any>[]) {
     if (!Array.isArray(statuses) || statuses.length === 0) return;
     const cache = loadStatusCache();
@@ -68,10 +62,8 @@ export const useWorkspaceStore = defineStore("workspace", () => {
       const ws = allWorkspaces.value.find((w) => w.name === status.name);
       if (!ws) continue;
       for (const [k, v] of Object.entries(status)) {
-        // 良い既存値を transient な null で潰さないため null はスキップするが、
-        // 未設定（undefined）のフィールドには null も反映する。未コミットのリポジトリは
-        // last_commit_message が null で返り、これを反映しないと statusLoading が
-        // 解けず「Loading」表示が残るため。
+        // transient な null で既存値を潰さないため null はスキップするが、未設定(undefined)には null も反映する
+        // （未コミットのリポジトリは last_commit_message が null で、反映しないと statusLoading が解けない）。
         if (v != null) ws[k] = v;
         else if (ws[k] === undefined) ws[k] = v;
       }

@@ -5,10 +5,7 @@ export function truncateTail(str: string | null | undefined, maxLen: number): st
   return s.length > maxLen ? s.slice(0, maxLen) + "..." : s;
 }
 
-/**
- * ジョブ実行確認ダイアログに出すコマンドのプレビュー。コマンドが無い
- * ジョブはジョブ名でフォールバックする（WorkspaceJobsPane / Recent Jobs 共通）。
- */
+/** ジョブ確認ダイアログ用のコマンドプレビュー。コマンドが無いジョブはジョブ名。 */
 export function jobCommandPreview(command: string | null | undefined, fallbackName: string): string {
   return command ? truncateTail(command, JOB_COMMAND_PREVIEW_MAX) : fallbackName;
 }
@@ -33,11 +30,7 @@ export function formatRelativeTime(epochSeconds: number | null | undefined): str
   return `${Math.floor(diffSec / (86400 * 365))}y ago`;
 }
 
-/**
- * ローカル時刻の HH:MM:SS 表示（Dispatch Queue の受付/決定時刻など、
- * 秒単位の精度で「いつ」を確認したい場面向け。formatRelativeTime は
- * 1時間未満を"now"に丸めるため秒単位の用途には使えない）。
- */
+/** ローカル時刻 HH:MM:SS。formatRelativeTime は1時間未満を "now" に丸めるため秒精度にはこちら。 */
 export function formatClockTime(epochSeconds: number | null | undefined): string {
   if (epochSeconds == null) return "";
   return new Date(epochSeconds * 1000).toLocaleTimeString([], {
@@ -47,21 +40,14 @@ export function formatClockTime(epochSeconds: number | null | undefined): string
   });
 }
 
-/**
- * ローカル日時の "M/D HH:MM:SS" 表示（Dispatch Queue の受付/決定時刻など、
- * 日をまたぐ履歴でも「いつ」を一意に確認したい場面向け）。
- */
+/** ローカル日時 "M/D HH:MM:SS"。日をまたぐ履歴向け。 */
 export function formatClockDateTime(epochSeconds: number | null | undefined): string {
   if (epochSeconds == null) return "";
   const date = new Date(epochSeconds * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" });
   return `${date} ${formatClockTime(epochSeconds)}`;
 }
 
-/**
- * 分単位の相対時刻表示（Dispatch Queue向け）。formatRelativeTimeは
- * 1時間未満を"now"に丸めるため、直近の受付/決定時刻を「何分前」で
- * 確認したい場面には粗すぎる。
- */
+/** 分単位の相対時刻。formatRelativeTime は1時間未満を "now" に丸めるため粗すぎる場面向け。 */
 export function formatMinutesAgo(epochSeconds: number | null | undefined): string {
   if (epochSeconds == null) return "";
   const diffMin = Math.max(0, Math.floor((Date.now() - epochSeconds * 1000) / 60000));
@@ -72,10 +58,7 @@ export function formatMinutesAgo(epochSeconds: number | null | undefined): strin
   return `${Math.floor(diffHour / 24)}d ago`;
 }
 
-/**
- * 秒数を "3s" / "2m 5s" / "1h 3m" のような簡潔な経過時間表示にする
- * （Dispatch Queue の受付〜決定までの待ち時間表示向け）。
- */
+/** 秒数を "3s" / "2m 5s" / "1h 3m" 形式にする。 */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null || seconds < 0) return "";
   const s = Math.floor(seconds);

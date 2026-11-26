@@ -1,9 +1,5 @@
 // @vitest-environment happy-dom
-/**
- * GitHub ペイン（PRs / Issues / Actions）の表示状態のテスト。
- * 取得成功で0件の場合に空状態メッセージが出ること（空白ペインにならないこと）と、
- * github_url 未設定時のメッセージを確認する。
- */
+/** GitHub ペイン（PRs / Issues / Actions）: 0件時の空状態メッセージと github_url 未設定時のメッセージ。 */
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
@@ -23,7 +19,6 @@ const PANES = [
   { name: "GitHubActionsPane", component: GitHubActionsPane, emptyMessage: "No workflow runs" },
 ];
 
-/** github_url 付きワークスペースを選択済みの状態にする。 */
 function setupWorkspace() {
   setActivePinia(createPinia());
   const ws = useWorkspaceStore();
@@ -61,9 +56,7 @@ describe("GitHub panes", () => {
       wrapper.unmount();
     });
 
-    // useGitHubPane/useGitHub の内部状態を boolean 2つ（isLoading/error）から
-    // AsyncState<T> に統合した際の再発防止: 取得失敗時に空状態メッセージへ
-    // フォールバックせず、エラーメッセージが表示されること。
+    // 取得失敗時は空状態にフォールバックせずエラーメッセージを表示すること（AsyncState 統合時の回帰防止）。
     it(`${name}: 取得失敗時はエラーメッセージを表示する`, async () => {
       setupWorkspace();
       vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) })));

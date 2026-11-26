@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 // @ts-check
-/** 統合テスト: CircleKeypadConfig のプレビュー（設定内容が円形キーパッドとして描画される） */
 import { ref, computed } from "vue";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";

@@ -28,16 +28,13 @@ export function useTerminal() {
     tab._needsHistoryRestore = false;
     try {
       const { apiGet } = useApi();
-      // history を取り出す前に backend で tmux pane を xterm と同じサイズへリサイズさせる。
-      // 古いサイズで wrap された出力が新サイズの xterm に書かれて崩れるのを防ぐ。
+      // history 取得前に backend の tmux pane を xterm と同サイズへリサイズさせる（旧サイズで wrap された出力で崩れるのを防ぐ）
       const dims = tab.fitAddon?.proposeDimensions?.();
       const cols = dims && Number.isFinite(dims.cols) ? dims.cols : tab.term.cols;
       const rows = dims && Number.isFinite(dims.rows) ? dims.rows : tab.term.rows;
       const { ok, data } = await getWithRetry(apiGet, terminalSessionHistoryPath(tab.sessionId, { cols, rows }));
       if (ok && data?.content) {
-        // capture-pane は全スクロールバックを返すため、書き込み前に必ず一度リセットする。
-        // 新規/空の xterm では no-op だが、半開き接続からの再接続（既に内容が
-        // 描画済み）では reset しないと同じ内容が二重に積み上がる。
+        // capture-pane は全スクロールバックを返すため、半開き接続からの再接続で内容が二重に積まれないよう先にリセットする
         tab.term.reset();
         tab.term.write(data.content);
         tab._lastWriteAt = performance.now();
@@ -47,14 +44,11 @@ export function useTerminal() {
 
   async function connectTerminalWs(tab: TerminalTab | null | undefined, opts: ConnectOpts = {}) {
     if (!tab || tab._wsDisposed) return;
-    // 二重接続ガード。再接続タイマー・セッション復帰・タブ切替が並走すると
-    // 同じ xterm へ 2 本の WS が書き込み、再描画が交錯して表示が崩れる。
-    // history 復元の await 中も `_connecting` で締め出す。
+    // 二重接続ガード（再接続タイマー・復帰・タブ切替が並走すると 2 本の WS が同じ xterm に書いて崩れる）。history 復元の await 中も締め出す
     if (tab.ws || tab._connecting) return;
     tab._connecting = true;
     try {
-      // history を書き込む前に fit して cols を確定させる。
-      // 後から fit が走ると ANSI のカーソル位置が古い cols 基準のままになり画面が崩れる。
+      // history 書き込み前に fit して cols を確定させる（後だと ANSI カーソル位置が旧 cols 基準になる）
       fitTerminal(tab, { force: true });
       await restoreHistoryIfNeeded(tab);
       if (tab._wsDisposed) return;
@@ -69,9 +63,7 @@ export function useTerminal() {
     const frameRect = frame?.getBoundingClientRect();
     const frameVisible = frameRect && frameRect.width >= 2 && frameRect.height >= 2;
     const dims = frameVisible ? tab.fitAddon?.proposeDimensions?.() : null;
-    // 非表示タブ（フレーム寸法 0）は xterm の現在サイズで接続する。サイズ未指定だと
-    // サーバがデフォルト 80x24 でアタッチし、xterm のバッファ幅と食い違う再描画が
-    // 書き込まれて崩れる。
+    // 非表示タブ（フレーム寸法 0）は xterm の現在サイズで接続する（未指定だとサーバが 80x24 でアタッチして崩れる）
     const cols = dims && Number.isFinite(dims.cols) ? dims.cols : tab.term?.cols;
     const rows = dims && Number.isFinite(dims.rows) ? dims.rows : tab.term?.rows;
     const wsUrl = buildWebSocketUrl(tab.sessionId, cols, rows);
@@ -88,7 +80,7 @@ export function useTerminal() {
 
     ws.onopen = () => {
       debugLog("[WS] open", tab.sessionId?.slice(-8), `${Math.round(performance.now() - wsOpenedAt)}ms`);
-      // 生存監視の起点。最初のフレーム受信前に stale 判定されないよう open 時刻を記録する。
+      // 最初のフレーム受信前に stale 判定されないよう open 時刻を記録する
       tab._lastWriteAt = performance.now();
       tab._reconnectAttempts = 0;
       fitTerminal(tab, { force: true });

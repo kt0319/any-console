@@ -33,9 +33,7 @@ export function useKeyboard() {
   }
 
   function sendKeyToTerminal(keyDef: KeyDef) {
-    // sticky な修飾キー（Shift / Ctrl のトグル状態）が立っていれば自動で付与し、
-    // 送信後にクリアする。これでフリックキーバー側の Tab/Space 等にも Shift+
-    // が反映される（呼び出し側で keyDef.shift を明示済みなら上書きしない）。
+    // sticky 修飾キーをフリックキーバーの Tab/Space 等にも反映する（keyDef.shift 明示済みなら上書きしない）。
     const merged = { ...keyDef };
     if (merged.shift == null && modifierState.shift) merged.shift = true;
     if (merged.ctrl == null && modifierState.ctrl) merged.ctrl = true;

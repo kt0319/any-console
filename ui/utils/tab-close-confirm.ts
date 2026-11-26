@@ -1,6 +1,4 @@
 /**
- * タブ閉じ確認ダイアログを表示する。
- *
  * @param confirm `useConfirm()` から取得した confirm 関数。
  * @param canRemoveWorktree true のとき、worktree ごと削除する選択肢を足す（worktree のタブ用）。
  * @returns true: 閉じる確定 / "detach": デタッチを選択 / "worktree": worktree ごと削除を選択 / false: キャンセル

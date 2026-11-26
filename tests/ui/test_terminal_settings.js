@@ -2,7 +2,6 @@
 import { describe, it, expect } from "vitest";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../../ui/utils/terminal-settings.ts";
 
-// ── Tests ──
 
 describe("sanitizeTerminalSetting", () => {
   describe("fontSize (number)", () => {
@@ -125,7 +124,7 @@ describe("sanitizeTerminalSettings", () => {
     const result = sanitizeTerminalSettings({ fontSize: 18, cursorBlink: false });
     expect(result.fontSize).toBe(18);
     expect(result.cursorBlink).toBe(false);
-    expect(result.scrollOnOutput).toBe(true);  // boolean: undefined → default
+    expect(result.scrollOnOutput).toBe(true);
   });
 
   it("ignores unknown keys", () => {

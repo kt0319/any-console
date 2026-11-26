@@ -1,9 +1,5 @@
 import { ref } from "vue";
 
-/**
- * ブランチ / worktree 追加ダイアログの状態と送信処理をまとめる。
- * 送信時は addType に応じて createBranch / createWorktree を呼び分ける。
- */
 export function useBranchAddDialog({ createBranch, createWorktree }: {
   createBranch: (name: string) => unknown,
   createWorktree: (name: string) => unknown,

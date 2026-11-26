@@ -31,9 +31,7 @@ import { useCommandPalette } from "../composables/useCommandPalette.ts";
 import { commandPaletteOptionId } from "../utils/command-palette.ts";
 import { isComposingEvent, runUnlessComposing } from "../utils/keyboard-event.ts";
 
-// コマンドパレットの検索入力。セッションサイドバーを開いている間だけ TabBar.vue が
-// タブの代わりに（モバイル）／タブの左に（PC）表示する。結果リストは
-// サイドバー本体（SessionListPanel.vue）が同じ検索状態（useCommandPalette.ts）から描画する。
+// コマンドパレットの検索入力。結果リストは SessionListPanel.vue が同じ検索状態（useCommandPalette.ts）から描画する。
 
 const { searchFocusRequested, isSearchFocused } = useSessionListOverlay();
 const { query, activeIndex, isSearching, resultsFromBottom, results, setQuery, moveActive, runItem } = useCommandPalette();

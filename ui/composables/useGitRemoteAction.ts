@@ -35,15 +35,8 @@ function buildConfirmMessage(wsName: string, action: string, branch?: string) {
   return lines.join("\n");
 }
 
-// 分割表示で同じワークスペースを複数ペインが開いている場合、pull/push の
-// 実行中状態をペインごとに独立させると、他ペインのボタンが押せてしまい
-// 同じリポジトリへの並行実行（git lock 競合等）が起きる。モジュールスコープの
-// 単一状態にして、どのペインの useGitRemoteAction() からも共有する。ロックの
-// 粒度はワークスペース単位ではなく物理リポジトリ単位（同じリポジトリへは
-// 同時に1操作まで）にし、無関係な他リポジトリの操作まで巻き込んで
-// ブロックしないようにする。linked worktree はベースと同じリポジトリ・
-// 同じリモートrefを共有するため、ワークスペース名ではなく worktree_base
-// （無ければ自分自身の名前）をキーにする。
+// 分割表示で複数ペインが同じリポジトリへ並行実行（git lock 競合）しないよう、実行中状態はモジュールスコープで共有する。
+// ロックは物理リポジトリ単位。linked worktree はベースと同じリモートrefを共有するため worktree_base（無ければ自分の名前）をキーにする。
 /** リポジトリキー -> 実行中のアクションキー */
 const runningActionByWorkspace = reactive(new Map<string, string>());
 

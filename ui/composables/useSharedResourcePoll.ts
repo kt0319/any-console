@@ -1,15 +1,9 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.ts";
 
-// サーバ全体で1つのリスト（ポート一覧・Docker コンテナ一覧等）を取得・ポーリングする
-// composable の共通実装（usePreviewPorts / useDockerContainers から利用）。
-//
-// TerminalPane は開いているタブごとにマウントされ、非アクティブ分も v-show で
-// マウントされたまま残る。各ペインが個別にポーリングすると開いているタブ数だけ
-// 同じエンドポイントへの重複リクエストが同時に飛んでしまうため、参照カウント付きの
-// 単一タイマーに集約し、結果は全ペインで共有する。
-// 同時の fetchItems() 呼び出し（ワークスペース紐付け直後の一斉リフレッシュ等）も、
-// 実行中の fetch を返して1リクエストにまとめる（サーバ側のスキャン重複実行を防ぐ）。
+// サーバ全体で1つのリスト（ポート一覧・Docker コンテナ一覧等）の取得・ポーリング共通実装（usePreviewPorts / useDockerContainers から利用）。
+// TerminalPane は非アクティブ分も v-show でマウントされたままなので、各ペインが個別に取得すると重複リクエストが飛ぶ。
+// 参照カウント付きの単一タイマーに集約し、同時の fetchItems() は実行中の fetch を返して1リクエストにまとめる。
 // ワークスペースごとに取得先が変わるリソースは useWorkspaceResourcePoll.ts を使う。
 
 export function createSharedResourcePoll({ endpoint, intervalMs }: {
@@ -23,8 +17,7 @@ export function createSharedResourcePoll({ endpoint, intervalMs }: {
 
   return function useSharedResourcePoll() {
     const { apiGet } = useApi();
-    // 参照カウントへの参加はインスタンスごとに1回だけにする（start/stop を冪等にし、
-    // 呼び出し側が「開始済みか」のフラグを持たなくてよいようにする）。
+    // 参照カウントへの参加はインスタンスごとに1回だけにする（start/stop を冪等にする）。
     let participating = false;
 
     async function fetchItems() {

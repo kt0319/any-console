@@ -3,9 +3,7 @@
     class="tab-bar-row"
     :class="{ 'tab-bar-row-palette': isSidebarOpen, 'tab-bar-row-sidebar-open': isSidebarOpen && !isNarrowViewport }"
   >
-    <!-- サイドバーボタン。開いている間は✕になり、その右にコマンドパレット（検索入力）を出す
-         （PC・モバイル共通）。モバイル（SessionListOverlay.vueの全面オーバーレイ）は
-         タブ類を隠して入力だけにし、PCはタブを入力の右へ続ける。 -->
+    <!-- 開いている間は✕になり、右に検索入力を出す。モバイルはタブ類を隠して入力だけ、PCはタブを入力の右へ続ける -->
     <button
       class="tab-menu-btn hover-bg"
       :class="{ 'tab-panel-bottom': isTabBarAtBottom, 'tab-underline-top': isTabBarAtBottom }"
@@ -102,11 +100,9 @@ const props = defineProps({
 const tabListEl = ref<HTMLElement | null>(null);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isTabBarAtBottom = computed(() => layoutStore.isTabBarAtBottom);
-// サイドバーのインライン/全面オーバーレイ切替と同じ基準。タブ自体の幅広/幅狭
-// （TabItem.vueのラベル表示可否）にもこれを使う（タブ位置設定ではなく実際の画面幅で決まる）。
+// サイドバーのインライン/全面オーバーレイ切替と同じ基準。TabItem.vue のラベル表示可否にも使う
 const isNarrowViewport = computed(() => layoutStore.isNarrowViewport);
 const isSidebarOpen = computed(() => layoutStore.isSessionSidebarOpen);
-// モバイルでサイドバー（全面オーバーレイ）を開いている間は、タブ類の代わりに検索入力を出す。
 const showTabs = computed(() => !(isSidebarOpen.value && isNarrowViewport.value));
 const sidebarToggleLabel = computed(() => (isSidebarOpen.value ? "Hide session list" : "Show session list"));
 const sortedItems = computed(() => {
@@ -127,10 +123,7 @@ function focusTab(tab: TerminalTab) {
   });
 }
 
-// タブが幅いっぱいで横スクロール可能な時、隠れているタブがあることを
-// 端のフェードで示す。canScrollLeft/Right はスクロール位置から判定し、
-// スクロール操作・タブの増減・コンテナ幅の変化（サイドバー開閉等）の
-// いずれでも再計算する。
+// 横スクロールで隠れているタブがあることを端のフェードで示す
 const canScrollLeft = ref(false);
 const canScrollRight = ref(false);
 const tabBarFadeStyle = computed(() => {
@@ -159,9 +152,7 @@ watch(tabListEl, (el) => {
   updateScrollFade();
 }, { immediate: true });
 
-// コンテナ幅が変わらずタブの増減だけでコンテンツ幅（scrollWidth）が変わる
-// ケースはResizeObserver（コンテナ自体の外形監視）だけでは検知できないため、
-// タブ数の変化でも再計算する。
+// コンテナ幅不変でタブ数だけ変わるケースは ResizeObserver で検知できない
 watch(() => sortedItems.value.length, () => nextTick(updateScrollFade));
 
 onBeforeUnmount(() => {
@@ -188,9 +179,6 @@ const openSessionLabel = computed(() => (isSessionOpenOpen.value ? "Close open s
 const settingsLabel = computed(() => (isSettingsOpen.value ? "Close settings" : "Settings"));
 
 function onMenuClick() {
-  // 開閉のexclusive制御（他オーバーレイを閉じる/閉じないの判定）は
-  // useSessionListOverlay.ts（useExclusiveOverlay.ts経由）に集約されて
-  // いるため、ここでは単純に開閉を切り替えるだけでよい。
   if (isSessionListOpen.value) closeSessionList();
   else openSessionList();
 }
@@ -211,16 +199,11 @@ function onSettingsClick() {
   display: flex;
   background: var(--bg-secondary);
   flex-shrink: 0;
-  /* タップターゲット推奨サイズ(44px)に揃える。ScreenMain.vueのpanel-bottom時の
-     オーバーライドと同じ値にすることで、SessionListPanel.vueの
-     .settings-panel-header（min-height:44px）とPCでも高さがズレないようにする。 */
+  /* ScreenMain.vue の panel-bottom 時と同値にし、SessionListPanel.vue の .settings-panel-header と高さを揃える */
   min-height: 44px;
 }
 
-/* PCでセッションサイドバーを開いている間は、サイドバーボタン+検索入力でサイドバー幅
-   （SessionSidebar.vueの.session-sidebar、--session-sidebar-width）を占め、タブはその右へ
-   続ける。サイドバーはposition:absoluteでmain-panel全高に重なるため、この行を
-   サイドバー（z-index:15）より前面に出して、左端のボタンと入力が隠れないようにする。 */
+/* ボタン+検索入力でサイドバー幅（--session-sidebar-width）を占める。サイドバー（absolute, z-index:15）に隠れないよう前面に出す */
 .tab-bar-row-sidebar-open {
   position: relative;
   z-index: 16;
@@ -233,8 +216,7 @@ function onSettingsClick() {
   margin-right: 8px;
 }
 
-/* サイドバーボタン（幅44px+左右margin4px）と右margin8pxを引いて、行頭からちょうど
-   サイドバー幅になるようにする。 */
+/* ボタン（44px+左右margin4px）と右margin8pxを引き、行頭からちょうどサイドバー幅にする */
 .tab-bar-palette-inline {
   flex: 0 0 calc(var(--session-sidebar-width) - 52px - 8px);
 }
@@ -243,8 +225,7 @@ function onSettingsClick() {
   display: flex;
   flex: 1;
   min-width: 0;
-  /* .tab-bar-tabsのgapと同じ7pxにする（下の「+」隣の縦線を整数pxで中央に
-     置くため）。 */
+  /* .tab-bar-tabs の gap と同じ7px（「+」隣の縦線を整数pxで中央に置くため） */
   gap: 7px;
   padding: 0 8px;
   overflow-x: auto;
@@ -257,15 +238,8 @@ function onSettingsClick() {
   display: none;
 }
 
-/* role="tablist"の直接の子はrole="tab"だけを許容する（aria-required-children）
-   ため、タブ本体だけをこの内側の要素に分離する。「+」ボタンは.tab-barの
-   スクロール領域には残しつつ、tablistの外に置いて最後のタブのすぐ右に
-   並べる。
-   min-width:0にすると、タブ本体の合計幅が.tab-barの表示幅を超えた時に
-   このラッパー自身がflexアイテムとして縮められてしまい、中の各タブ
-   （縮まない固定幅）がラッパーの外へはみ出して「+」ボタンと重なる不具合が
-   あった。flex-shrink:0でラッパー自体は常に中身の実幅を保ち、はみ出し分は
-   親の.tab-bar（overflow-x:auto）側でスクロールさせる。 */
+/* tablist の直接の子は role="tab" のみ許容（aria-required-children）のため、タブ本体だけをこの要素に分離する。
+   flex-shrink:0 でないとラッパーが縮み、固定幅のタブがはみ出して「+」と重なる。はみ出し分は親の .tab-bar でスクロールさせる。 */
 .tab-bar-tabs {
   display: flex;
   flex-shrink: 0;
@@ -276,8 +250,7 @@ function onSettingsClick() {
   display: contents;
 }
 
-/* ベースとそのworktreeのタブを1つの塊として見せる。単独のタブは display: contents
-   のまま、従来どおり.tab-bar-tabsの直接の子として並ぶ。 */
+/* ベースとそのworktreeのタブを1つの塊として見せる */
 .tab-group.grouped {
   display: flex;
   gap: 7px;
@@ -304,10 +277,7 @@ function onSettingsClick() {
   touch-action: manipulation;
 }
 
-/* タブとタブの間の縦線（TabItem.vue参照）と同じく、最後のタブが非アクティブの
-   時だけ「+」ボタンとの間にも縦線を出す（アクティブタブに隣接する側は出さない）。
-   隙間は.tab-barのgap(7px)+.tab-menu-btnのmargin-left(4px)=11pxのため
-   -(11+1)/2 = -6px で中央にする。 */
+/* 最後のタブが非アクティブの時だけ「+」との間に縦線を出す。隙間 gap(7px)+margin-left(4px)=11px のため -(11+1)/2 = -6px で中央 */
 .tab-bar-tabs:has(.tab-btn):not(:has(.tab-btn.active:last-child)) + .tab-menu-btn::before {
   content: "";
   position: absolute;
@@ -318,9 +288,7 @@ function onSettingsClick() {
   background: var(--border);
 }
 
-/* 左端のセッションサイドバー開閉ボタンとタブの間にも、上の「+」ボタンと同じ
-   縦線を出す（先頭タブがアクティブでない時だけ）。隙間はボタンのmargin-right(4px)
-   +.tab-barのpadding-left(8px)=12pxのため -(12+1)/2 = -6px で中央にする。 */
+/* 先頭タブが非アクティブの時だけサイドバーボタンとの間に縦線を出す。隙間 margin-right(4px)+padding-left(8px)=12px のため -(12+1)/2 = -6px で中央 */
 .tab-bar-row:has(.tab-bar-tabs .tab-btn):not(:has(.tab-bar-tabs .tab-btn.active:first-child)) > .tab-menu-btn:first-child::after {
   content: "";
   position: absolute;

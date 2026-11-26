@@ -2,11 +2,6 @@ import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.ts";
 import { useToast } from "./useToast.ts";
 
-/**
- * App.vue の認証ゲート。
- * - 起動時のトークン検証
- * - ログイン画面 / メイン画面の表示切替フラグ管理
- */
 export function useAppAuthGate() {
   const auth = useAuthStore();
   const toast = useToast();

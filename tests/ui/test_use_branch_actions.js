@@ -25,7 +25,6 @@ vi.mock("../../ui/composables/useApi.ts", () => ({
   }),
 }));
 
-// confirm の戻り値（削除確認ダイアログでの選択）をテストごとに切り替える。
 let confirmResult = /** @type {boolean | string} */ (true);
 vi.mock("../../ui/composables/useConfirm.ts", () => ({
   useConfirm: () => ({ confirm: vi.fn(async () => confirmResult) }),
@@ -45,10 +44,7 @@ vi.mock("../../ui/composables/useWorktreeRemove.ts", () => ({
   useWorktreeRemove: () => ({ removeWorktreeRequest: removeWorktreeRequestMock }),
 }));
 
-// vi.resetModules()するとapp-bridge.tsも再読み込みされ、on/emitが別々の
-// モジュールインスタンス（別々のリスナーレジストリ）を参照してイベントが
-// 届かなくなる。on・useBranchActionsの両方をresetModules後に同じタイミングで
-// 動的importし、同一インスタンスを共有させる。
+// resetModules() で app-bridge が再読み込みされ on/emit が別インスタンスになるため、両方を同じタイミングで動的 import する。
 async function freshModule() {
   vi.resetModules();
   const [{ useBranchActions }, { on }] = await Promise.all([

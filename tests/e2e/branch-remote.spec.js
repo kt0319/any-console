@@ -1,11 +1,4 @@
-/**
- * ブランチモーダル（Historyペイン内のBranches）からのpush/pullで、開いたままの
- * Historyペインのコミット一覧が（ページ遷移なしに）更新されることのE2E。
- *
- * bareリモート + 2クローン（wsDir=登録するワークスペース、otherCloneDir=
- * 別クローン。ここから新規コミットをpushして「他者の変更」を模す）を用意する。
- * 登録・作成したものはすべて afterAll で後始末する。
- */
+/** Branches からの push/pull で、開いたままの History ペインのコミット一覧が更新されることの E2E。bare リモート + 2クローン（他者の変更を模す）を使う。 */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -38,7 +31,6 @@ test.describe("branch modal push/pull と History の連動", () => {
     fs.mkdirSync(remoteDir);
     execFileSync("git", ["init", "-q", "--bare", "-b", "main", remoteDir]);
 
-    // wsDir: 登録するワークスペース（UIから開いてpush/pullする側）
     wsDir = path.join(root, "workspace");
     execFileSync("git", ["clone", "-q", remoteDir, wsDir]);
     git(wsDir, "config", "user.email", "e2e@example.com");
@@ -78,7 +70,6 @@ test.describe("branch modal push/pull と History の連動", () => {
     expect(res.ok()).toBeTruthy();
   }
 
-  /** Historyペインを開いたまま（?pane=history直リンク）にする。 */
   async function openHistoryPane(page) {
     await createWorkspaceSession(page);
     await page.goto(`/?ws=${encodeURIComponent(wsName)}&pane=history`);
@@ -90,7 +81,6 @@ test.describe("branch modal push/pull と History の連動", () => {
   }
 
   test("Pull後、開いたままのHistoryペインに新しいコミットが表示される", async ({ page }) => {
-    // 他クローンから新規コミットをpush（wsDir側はまだ知らない = behind になる）
     fs.writeFileSync(path.join(otherCloneDir, "remote-change.txt"), "from other clone\n");
     git(otherCloneDir, "add", ".");
     git(otherCloneDir, "commit", "-m", COMMIT_MSG_REMOTE);
@@ -98,7 +88,6 @@ test.describe("branch modal push/pull と History の連動", () => {
 
     await openHistoryPane(page);
 
-    // 現在ブランチ行にPullボタン（behind > 0で表示）がある
     const pullBtn = page.locator(".branch-item.current .pull-btn");
     await expect(pullBtn).toBeVisible({ timeout: 10_000 });
     await pullBtn.click();
@@ -113,15 +102,12 @@ test.describe("branch modal push/pull と History の連動", () => {
     await expect(peek).toContainText("1 Pulled", { timeout: 10_000 });
     await expect(peek).toContainText(COMMIT_MSG_REMOTE);
 
-    // ページ遷移・タブ再クリックなしに、同じHistoryペインへ新規コミットが反映される
     await expect(page.locator(".git-log-entry-msg", { hasText: COMMIT_MSG_REMOTE })).toBeVisible({ timeout: 10_000 });
 
-    // Pullボタンはbehindが解消されて消える
     await expect(pullBtn).not.toBeVisible({ timeout: 10_000 });
   });
 
   test("Push後、Pushボタン（ahead件数）が解消される", async ({ page }) => {
-    // ローカルにコミットを積む（ahead > 0にする）
     fs.appendFileSync(path.join(wsDir, "README.md"), "\nlocal change\n");
     git(wsDir, "add", ".");
     git(wsDir, "commit", "-m", "test: e2e ローカルコミット (push確認用)");
@@ -165,7 +151,6 @@ test.describe("branch modal push/pull と History の連動", () => {
     await expect(peek).toContainText(pushSubject, { timeout: 10_000 });
     await page.waitForTimeout(6500);
 
-    // 他クローンの新規コミットをCLIでpullする
     const pullSubject = "feat: 他クローンから積んだCLI pull用コミット";
     // 他クローンはこのテストのCLI pushを取り込んでからコミットする（取り込まないとpushが拒否される）
     git(otherCloneDir, "pull", "-q", "--ff-only", "origin", "main");
@@ -174,7 +159,6 @@ test.describe("branch modal push/pull と History の連動", () => {
     git(otherCloneDir, "commit", "-m", pullSubject);
     git(otherCloneDir, "push", "-q", "origin", "main");
     git(wsDir, "fetch", "-q", "origin");
-    // behindがUIに反映された（ブランチピルに↓1が出る）状態でpullする
     await expect(page.locator(".pill-branch-btn .pull-count")).toBeVisible({ timeout: 20_000 });
     git(wsDir, "pull", "-q", "--ff-only", "origin", "main");
 

@@ -75,9 +75,7 @@
 .github-run-progress { color: var(--warning); }
 .github-run-unknown { color: var(--text-muted); }
 
-/* in_progressのみ回転させ、実行中であることを一目で伝える
-   （queued/waitingは同じ色だが静止したままにして区別する）。
-   @keyframes spin は ui/styles/base.css のグローバル定義を使う。 */
+/* in_progress だけ回転させて queued/waiting と区別する（@keyframes spin は base.css） */
 .github-run-spin .mdi {
   animation: spin 1.6s linear infinite;
 }

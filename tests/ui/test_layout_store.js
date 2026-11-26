@@ -34,7 +34,6 @@ describe("layout store: splitWithDrop", () => {
   });
 
   it("vertical split 中に先頭ペインを left へドロップすると horizontal split へ遷移する", () => {
-    // vertical: [A(top), B(bottom)]
     store.splitWithDrop("A", "top", []);
     store.splitPaneTabIds = ["A", "B"];
     expect(store.splitLayout).toBe("vertical");
@@ -46,7 +45,6 @@ describe("layout store: splitWithDrop", () => {
   });
 
   it("vertical split 中に末尾ペインを right へドロップすると horizontal split へ遷移する", () => {
-    // vertical: [A(top), B(bottom)]
     store.splitWithDrop("A", "top", []);
     store.splitPaneTabIds = ["A", "B"];
 
@@ -58,7 +56,6 @@ describe("layout store: splitWithDrop", () => {
 
   it("並び順・軸ともに変化がない場合は何もしない", () => {
     store.splitWithDrop("A", "left", []);
-    // horizontal: [A(left), B(right)]
     store.splitPaneTabIds = ["A", "B"];
 
     store.splitWithDrop("A", "left", []);

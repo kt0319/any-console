@@ -1,11 +1,4 @@
-/**
- * Detached sessions（タブを閉じずにDetachしたセッション）の E2E スモーク。
- * タブの閉じるボタン→確認ダイアログのDetach選択でタブバーから消え、
- * Open Sessionの Sessions セクションに表示され、行タップで再アタッチ
- * できることを確認する。
- *
- * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
- */
+// Detached sessions: タブを Detach → Sessions 一覧に表示 → 再アタッチ / Close の E2E。
 import { test, expect, listSessionIds, openWorkspaces, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 test.describe("detached sessions", () => {
@@ -19,19 +12,16 @@ test.describe("detached sessions", () => {
     const newSessionId = (await listSessionIds(page)).find((id) => !session.idsBefore.includes(id));
     expect(newSessionId).toBeTruthy();
 
-    // 閉じるボタン→確認ダイアログのDetachを選ぶ
     await tabs.last().locator(".tab-close").click();
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator(".confirm-btn-extra").click();
     await expect(tabs).toHaveCount(countBefore, { timeout: 5000 });
 
-    // Open Sessionの Sessions セクションに現れる。
     await openWorkspaces(page);
     const detachedRow = page.locator(`.detached-sessions-li[data-session-id="${newSessionId}"]`);
     await expect(detachedRow).toBeVisible({ timeout: 10_000 });
 
-    // 再アタッチ: 行タップでOpen as tab。タブ行に戻り、Detachedカテゴリから消える
     await detachedRow.click();
     await expect(page.locator(".tab-btn")).toHaveCount(countBefore + 1, { timeout: 10_000 });
     await expect(detachedRow).toHaveCount(0, { timeout: 10_000 });
@@ -54,7 +44,6 @@ test.describe("detached sessions", () => {
     const detachedRow = page.locator(`.detached-sessions-li[data-session-id="${newSessionId}"]`);
     await expect(detachedRow).toBeVisible({ timeout: 10_000 });
 
-    // Cancel では閉じない
     await detachedRow.locator('[aria-label="Close session"]').click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText("Close session");
@@ -63,7 +52,6 @@ test.describe("detached sessions", () => {
     await expect(detachedRow).toBeVisible();
     expect(await listSessionIds(page)).toContain(newSessionId);
 
-    // OK で行が消え、セッション自体も削除される
     await detachedRow.locator('[aria-label="Close session"]').click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator(".confirm-buttons .dialog-btn").last().click();

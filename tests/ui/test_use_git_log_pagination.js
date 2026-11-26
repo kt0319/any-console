@@ -22,7 +22,6 @@ function jsonResponse(data) {
   return { ok: true, data };
 }
 
-// `git log --graph --pretty=format:%H\t%ad\t%an\t%D\t%s` 相当のstdout1行を組み立てる。
 function graphLine(hash, message) {
   return `* ${hash}\t2026-08-12 12:00\ttester\t\t${message}`;
 }

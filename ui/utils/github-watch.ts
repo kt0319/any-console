@@ -1,6 +1,5 @@
-// サーバの github_watch へ「どのワークスペースの GitHub 新着を受けたいか」を宣言するための
-// 参照カウント付き監視対象と、再接続時の取りこぼし再送に使う最終 seq の管理。
-// 同じワークスペースを複数のペイン・行が開いていても、サーバへ伝える対象は1件にまとまる。
+// サーバの github_watch へ監視対象ワークスペースを宣言する参照カウント付き管理と、再接続時の再送用の最終 seq 管理。
+// 同じワークスペースを複数ペインが開いていてもサーバへ伝える対象は1件にまとまる。
 
 const refCounts = new Map<string, number>();
 const lastSeqByWorkspace = new Map<string, number>();

@@ -1,5 +1,4 @@
-// 横スクロール可能なリスト（TabBar.vueのタブ列）の端に、まだ隠れている
-// 項目があることを示すフェード効果用のCSS mask-imageを組み立てる。
+// 横スクロールリスト（TabBar のタブ列）の端に隠れた項目があることを示すフェード用 mask-image
 
 export function scrollFadeMaskImage(
   canScrollLeft: boolean,

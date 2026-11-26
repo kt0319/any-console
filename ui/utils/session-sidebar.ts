@@ -2,49 +2,25 @@ import { dispatchWorkspaceLabel } from "./dispatch-request.ts";
 import { groupTabsByBaseWorkspace } from "./worktree.ts";
 import { buildPillFields, type PillFieldsContext } from "./pill-fields.ts";
 
-// セッションサイドバー（TabBar のハンバーガーから開く一覧）の表示行を
-// 組み立てる純粋関数群。SessionListView.vue から使う。
-
-/**
- * エージェント状態（terminalStore.agentStates の値）ごとの表示メタ。
- * 色のみで状態を示さないため、アイコンとラベルを必ず併記する。
- * idleは「何もしていない」通常状態でありノイズになるためバッジを出さない
- * （resolveAgentBadgeState が idle を常に null に潰す）。
- */
+/** 色のみで状態を示さないためアイコンとラベルを併記する。idle はバッジを出さない。 */
 export const AGENT_STATE_META = Object.freeze({
   working: Object.freeze({ icon: "mdi-autorenew", label: "Working", className: "agent-state-working" }),
   blocked: Object.freeze({ icon: "mdi-alert-circle-outline", label: "Blocked", className: "agent-state-blocked" }),
   done: Object.freeze({ icon: "mdi-check-circle-outline", label: "Done", className: "agent-state-done" }),
 });
 
-/**
- * 生のエージェント状態(working/blocked/idle)と doneSessions（working→idle
- * 遷移をタブを見るまで保持するフラグ）から、バッジ表示に使う実効状態を
- * 決める。idleはdoneでない限り常に非表示。
- */
+/** idle は done でない限り null。 */
 export function resolveAgentBadgeState(rawState?: string, isDone?: boolean): string | null {
   if (isDone) return "done";
   if (!rawState || rawState === "idle") return null;
   return rawState;
 }
 
-/**
- * エージェント状態の表示メタを返す（未知・未設定の状態は null）。
- */
 export function agentStateDescriptor(state?: string | null): { icon: string; label: string; className: string } | null {
   return (state && AGENT_STATE_META[state as keyof typeof AGENT_STATE_META]) || null;
 }
 
-/**
- * サイドバーの表示行を組み立てる。TabBar と同じく autoDiscovered なタブは除外し、
- * 並び順も openTabs のまま（タブバーと一致）にする。
- *
- * InfoPillRow（TerminalPane と同じピル群）をサイドバーの各行にも出すため、判定に必要な
- * 生データ（PR一覧・Actions run一覧・Dev Server検出結果・dispatchキュー）も ctx で受け取り、
- * ここで各タブ分に絞り込む。
- * @param tabs terminalStore.openTabs
- * @param workspaces workspaceStore.allWorkspaces
- */
+/** TabBar と同じく autoDiscovered を除外し、openTabs の順で並べる。 */
 export function sessionSidebarItems(
   tabs: any[],
   workspaces: any[],
@@ -60,10 +36,7 @@ export function sessionSidebarItems(
     .filter((tab) => !tabFlags[tab.id]?.autoDiscovered)
     .map((tab) => {
       const ws = tab.workspace ? (workspaces || []).find((w) => w.name === tab.workspace) : undefined;
-      // worktree行はブランチを下段（session-sidebar-sub）で別表示するため、タイトルは
-      // ベース名のみにする（TabItem.vue等の1行表示と異なりここは2行使えるため）。
-      // ワークスペース・ジョブいずれにも紐付かないベアターミナルは「[terminal] パス名」の
-      // 形式にする（tab.labelはuseTerminalLifecycle.tsが実cwdのディレクトリ名を反映する）。
+      // worktree 行はブランチを下段で別表示するためベース名のみ。ベアターミナルは「[terminal] パス名」。
       const bareTerminalLabel = tab.label ? `[terminal] ${tab.label}` : "[terminal]";
       const label = ws?.worktree ? (ws.worktree_base || ws.name || "") : (tab.workspace || bareTerminalLabel);
       const pill = buildPillFields(tab.workspace, ws, ctx);
@@ -73,8 +46,7 @@ export function sessionSidebarItems(
         sessionId: tab.sessionId,
         label,
         icon: tab.wsIcon || tab.icon || null,
-        // TabItem.vueと同じく、ワークスペースアイコンとジョブアイコンは
-        // 別枠として両方出す（wsIconがある時、iconは隠れず併記される）。
+        // ワークスペースアイコンとジョブアイコンは別枠で併記する（TabItem.vue と同じ）。
         wsIcon: tab.wsIcon || null,
         jobIcon: tab.icon || null,
         isWorktree: !!ws?.worktree,
@@ -86,7 +58,6 @@ export function sessionSidebarItems(
         compact: false,
       };
     });
-  // タブバーと同じく、同じベースワークスペースが連続する行を1グループとして印を付ける。
   for (const group of groupTabsByBaseWorkspace(rows)) {
     if (group.items.length < 2) continue;
     for (const row of group.items) row.inGroup = true;
@@ -97,13 +68,7 @@ export function sessionSidebarItems(
   return rows;
 }
 
-/**
- * タブがまだ無いワークスペースの承認待ちdispatchを、通常のセッション行と同じ情報
- * （Branch/Changes/PR/Actions/DevServer/Dispatchの各ピル）で出すための行データ。
- * openTabWorkspaceNamesに含まれるワークスペースは対象外（既にセッション行のピルで足りるため）。
- * @param workspaces workspaceStore.allWorkspaces
- * @param ctx sessionSidebarItemsと同じctx
- */
+/** タブが無いワークスペースの承認待ち dispatch を、セッション行と同じピル情報で出す行データ。 */
 export function pendingDispatchSidebarItems(
   workspaces: any[],
   openTabWorkspaceNames: Set<string>,
@@ -124,7 +89,6 @@ export function pendingDispatchSidebarItems(
       wsIcon: ws?.icon ? { name: ws.icon, color: ws.icon_color } : null,
       jobIcon: null,
       isWorktree: !!ws?.worktree,
-      // SessionRowContent.vueのagentステータスバッジをそのまま流用し「Pending」を示す。
       agent: { icon: "mdi-inbox-arrow-down-outline", label: "Pending", className: "agent-state-dispatch-pending" },
       phraseNotify: false,
       ...pill,

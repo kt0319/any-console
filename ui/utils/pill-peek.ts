@@ -1,7 +1,5 @@
-// ピル群のいずれかの値が更新された時、ピル行を丸ごと隠して変化したキーの
-// 情報を載せた1本の長いピル（PillPeek.vue）に数秒だけ差し替えるための純粋ロジック。
-// ここでは変化検出に必要な最小限の値（key + 見た目に影響する text）だけを扱う。
-// TerminalPane（浮遊ピル）とセッションサイドバー行の両方から共用する。
+// ピルの値更新時、ピル行を1本の長いピル（PillPeek.vue）に数秒だけ差し替えるための変化検出ロジック。
+// TerminalPane（浮遊ピル）とセッションサイドバー行で共用する。
 
 import { isDockerContainerActive } from "./docker.ts";
 import { formatStatusCounts } from "./git.ts";
@@ -10,11 +8,7 @@ export function trailingItemsSignature(items: { key: string; text: string }[]): 
   return new Map((items || []).map((it) => [it.key, it.text]));
 }
 
-/**
- * 直前のシグネチャと比べて追加された、または内容が変わった項目を全て返す
- * （items の並び順のまま）。複数変化していてもキューで順番に見せるため、
- * 最初の1件だけに絞らず全件返す。変化が無ければ空配列。
- */
+/** 前回シグネチャから追加・変化した項目を全件、items の並び順で返す（キューで順に見せるため）。 */
 export function findChangedTrailingItems(
   items: { key: string; text: string }[],
   prevSignature: Map<string, string>,
@@ -23,9 +17,8 @@ export function findChangedTrailingItems(
 }
 
 /**
- * 比較元シグネチャを今回の内容で更新する。今回の items に無いキーは前の値を残し、
- * キーが再び現れた時に残した値と比べる。残さず捨てるのは、再同期中でない時に
- * 直前の items から実際に消えたキーだけ（本当に無くなった状態）。
+ * 比較元シグネチャを更新する。今回の items に無いキーは再出現時に比較するため残し、
+ * 再同期中でない時に直前の items から消えたキーだけ捨てる。
  */
 export function mergeVanishedTrailingKeys(
   prev: Map<string, string>,
@@ -42,11 +35,8 @@ export function mergeVanishedTrailingKeys(
 }
 
 /**
- * ピル群（TerminalPaneの浮遊ピル・セッションサイドバー行の両方）で共通の
- * trailingPeekItems（usePillPeekの変化検出対象）を組み立てる純粋関数。
- * 各キーはInfoPillRowの対応ボタンのv-if条件（infoPillConfig含む）と揃える
- * 必要がある（揃えないと、非表示ピルの変化がfindChangedTrailingItemsに
- * 拾われ、実際に表示されている別ピルの変化が枠を奪われてpeekされない）。
+ * ピル群共通の trailingPeekItems を組み立てる。各キーは InfoPillRow のボタンの v-if 条件と揃えること
+ * （揃えないと非表示ピルの変化が枠を奪い、表示中の別ピルが peek されない）。
  */
 export function buildTrailingPeekItems(
   fields: {
@@ -128,10 +118,7 @@ export function buildTrailingPeekItems(
   return items;
 }
 
-/**
- * peekingKeyごとの表示テキストを組み立てる。changes/branchは複数トーンの
- * 色分け表示のため呼び出し側（テンプレート）で直接組み立てるので対象外。
- */
+/** peekingKeyごとの表示テキスト。changes/branch は複数トーンの色分けのため呼び出し側で組み立てるので対象外。 */
 export function buildPeekText(
   peekingKey: string | null,
   fields: {
@@ -176,11 +163,7 @@ export function buildPeekText(
   }
 }
 
-/**
- * peekピルの内容が変化した時だけ再測定するための、キーごとの比較用シグネチャ。
- * changes/branchはbuildPeekTextを経由しない独自の色分け表示のため、それぞれの
- * 元データから組み立てる。
- */
+/** peekピルの内容が変化した時だけ再測定するための比較用シグネチャ。changes/branch は独自表示のため元データから組み立てる。 */
 export function buildPeekSignature(
   peekingKey: string | null,
   fields: Parameters<typeof buildPeekText>[1] & { changedFiles?: number; insertions?: number; deletions?: number; statusCounts?: Record<string, number>; branch?: string; ahead?: number; behind?: number },

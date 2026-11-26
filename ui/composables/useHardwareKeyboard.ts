@@ -12,12 +12,8 @@ import {
 } from "../utils/keyboard-event.ts";
 
 /**
- * 物理キーボード（iPad/iPhone の外付け含む）を window レベルで監視し、
- * 入力モード外なら直接ターミナルへキーを流す composable。
- *
- * - input にフォーカスがない通常時のみ動作（draft 蓄積を妨げない）
- * - Shift+Space で input フォーカスへ切替えるショートカット
- * - 物理キー由来 (KeyboardEvent.code が有効) のときだけ反応する
+ * 物理キーボードを window レベルで監視し、入力モード外なら直接ターミナルへキーを流す。
+ * input フォーカス中は動作しない（draft 蓄積を妨げない）。Shift+Space で input にフォーカスする。
  */
 export function useHardwareKeyboard({ inputEl, composing }: {
   inputEl: Ref<HTMLInputElement | null>,
@@ -33,12 +29,8 @@ export function useHardwareKeyboard({ inputEl, composing }: {
   }
 
   function onGlobalKeydown(e: KeyboardEvent) {
-    // セッションサイドバー（PC）/設定オーバーレイ（モバイル）表示中は
-    // ターミナルへ流さない。特に Esc はここで preventDefault してしまうと、
-    // SessionSidebar.vue 側の「defaultPrevented なら閉じない」ガード
-    // （確認ダイアログ等との衝突回避用）に弾かれ、Esc で閉じられなくなる。
+    // サイドバー/設定オーバーレイ表示中は流さない。Esc を preventDefault すると SessionSidebar.vue の「defaultPrevented なら閉じない」ガードで閉じられなくなる。
     if (layoutStore.isSessionSidebarOpen) return;
-    // Shift+Space で input にフォーカス（入力モード切替ショートカット）。
     if (e.code === "Space" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (!isFocused()) {
         e.preventDefault();

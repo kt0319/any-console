@@ -1,20 +1,9 @@
 import { ref } from "vue";
 import type { Ref, ComputedRef } from "vue";
 
-// buildFlatList（ui/utils/workspace-groups.ts）が返すフラットリストの1行。
-// ヘッダー行（type:'header'）とワークスペース行（type:'ws'）を type で見分ける。
 type FlatRow = { type: string } & Record<string, any>;
 
-/**
- * グループヘッダーを含むフラットリスト（buildFlatList の結果）の
- * ワークスペース行ドラッグ並べ替え。ヘッダー行（type:'header'）を
- * 飛び越えて ws 行（type:'ws'）同士を入れ替える。
- *
- * @param opts.flatList ドラッグ対象のフラットリスト
- * @param opts.listEl リストのコンテナ要素
- * @param opts.onReorder 並べ替え確定時のコールバック（保存処理）
- * @param opts.rowSelector ワークスペース行のCSSセレクタ
- */
+// ヘッダー行を飛び越えて ws 行同士を入れ替える
 export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector = ".ws-list-item" }: {
   flatList: ComputedRef<FlatRow[]>,
   listEl: Ref<HTMLElement | null>,
@@ -29,7 +18,6 @@ export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector 
   let _dragRowHeight = 0;
   let _dragDidMove = false;
 
-  // e は pointerdown / touchstart の両方から呼ばれるため PointerEvent | TouchEvent 相当
   function onDragStart(e: PointerEvent | TouchEvent, flatIdx: number) {
     const fl = flatList.value;
     if (fl.filter((item) => item.type === "ws").length < 2) return;
@@ -80,13 +68,12 @@ export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector 
     if (!arr) return;
     const direction = steps > 0 ? 1 : -1;
 
-    // ヘッダーを飛び越えて次のws項目を探す
     let target = dragIdx.value + direction;
     while (target >= 0 && target < arr.length && arr[target]?.type !== "ws") {
       target += direction;
     }
 
-    // 上方向で ws が見つからない場合、ヘッダーより前（ungrouped エリア）への移動を許可
+    // 上方向で ws が無ければ、ヘッダーより前（ungrouped エリア）への移動を許可
     if (direction === -1 && target < 0) {
       const hasHeaderAbove = arr.slice(0, dragIdx.value).some((item) => item.type === "header");
       if (!hasHeaderAbove) return;

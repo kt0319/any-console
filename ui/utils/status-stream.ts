@@ -2,18 +2,10 @@ import { reconnectBackoffDelay } from "./backoff.ts";
 import { EP_WORKSPACES_STATUSES_WS } from "./endpoints.ts";
 import type { ActivityEvent } from "./github-activity.ts";
 
-/**
- * ステータスストリーム WS の URL を組み立てる。
- * @param proto "ws:" | "wss:"
- * @param host location.host
- */
 export function buildStatusStreamUrl(proto: string, host: string): string {
   return `${proto}//${host}${EP_WORKSPACES_STATUSES_WS}`;
 }
 
-/**
- * parseStatusStreamMessage の返り値（種別ごとの正規化オブジェクト）。
- */
 export type StatusStreamMessage =
   | { type: "statuses"; statuses: Record<string, any>[] }
   | { type: "agent_states"; states: { session_id: string; state: string }[] }
@@ -27,13 +19,8 @@ export type StatusStreamMessage =
   | { type: "session_job_bound"; session_id: string; job_name: string; job_label: string; icon: string | null; icon_color: string | null };
 
 /**
- * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す（型は StatusStreamMessage 参照）。
- * dispatch_queue の items は pendingの全量スナップショット、recent は直近に実行/破棄
- * された項目（新しい順）。session_created/session_removed は他クライアントでの変更を
- * タブ一覧へ即時反映するためのnudge（server/src/session_watch.rs）。
- * session_workspace_bound / session_job_bound はそれぞれ server/src/agent_watch.rs の
- * apply_workspace_tag / apply_job_tag による自動紐付け通知。
- * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
+ * dispatch_queue の items は pending の全量スナップショット、recent は直近に実行/破棄された項目（新しい順）。
+ * ping・不正 JSON・形式違いは null（呼び出し側は無視してよい）。
  */
 export function parseStatusStreamMessage(raw: unknown): StatusStreamMessage | null {
   if (typeof raw !== "string") return null;
@@ -87,17 +74,11 @@ export function parseStatusStreamMessage(raw: unknown): StatusStreamMessage | nu
   return null;
 }
 
-/**
- * サーバへ現在の閲覧セッションを伝える送信メッセージを組み立てる
- * （server/src/status_stream.rs の ClientMessage::Viewing と対応するワイヤ契約）。
- */
+// server/src/status_stream.rs の ClientMessage::Viewing と対応するワイヤ契約
 export function buildViewingMessage(sessionId: string | null): string {
   return JSON.stringify({ type: "viewing", session_id: sessionId });
 }
 
-/**
- * 再接続バックオフ遅延（attempt は 0 始まり）。ターミナル WS と同じ計算を共有する。
- */
 export function statusStreamReconnectDelay(attempt: number): number {
   return reconnectBackoffDelay(attempt);
 }

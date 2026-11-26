@@ -28,12 +28,9 @@ let reconnectAttempts = 0;
 let started = false;
 
 /**
- * git ステータス／エージェント状態／dispatch キュー／ターミナルセッション作成・削除の
- * リアルタイム配信 WS を購読する。
- * セッション作成・削除の通知は、他クライアントが開閉したタブをポーリング（最大
- * SESSION_SYNC_INTERVAL_MS の遅延）で拾うのを待たずに即座へ反映するための
- * nudgeで、既存の syncSessionsFromServer() をそのまま呼ぶ。
- * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める。
+ * git ステータス／エージェント状態／dispatch キュー／セッション作成・削除のリアルタイム配信 WS を購読する。
+ * セッション増減の通知はポーリング待ちを避けるnudgeで、既存の syncSessionsFromServer() を呼ぶ。
+ * 切断時はバックオフ付きで再接続し、再接続のたびに全量同期して取りこぼしを埋める。
  */
 export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
@@ -53,15 +50,12 @@ export function useStatusStream() {
     return tab?.sessionId || null;
   }
 
-  // サーバ（StatusStreamState）へ現在の閲覧セッションを伝える。接続が無ければ
-  // 何もしない（次回接続時のonopenで最新値を送り直す）。
   function sendViewing() {
     if (socket?.readyState !== WebSocket.OPEN) return;
     socket.send(buildViewingMessage(currentViewingSessionId()));
   }
 
-  // GitHub の新着を受けたいワークスペースを宣言する。サーバ側の宣言も接続単位のため、
-  // 再接続のたびに最終 seq 付きで送り直す（取りこぼし分の再送を受ける）。
+  // サーバ側の宣言も接続単位のため、再接続のたびに最終 seq 付きで送り直す。
   function sendWatchGitHub() {
     if (socket?.readyState !== WebSocket.OPEN) return;
     socket.send(buildWatchGitHubMessage());
@@ -107,8 +101,7 @@ export function useStatusStream() {
       } else if (msg?.type === "session_created" || msg?.type === "session_removed") {
         syncSessionsFromServer();
       } else if (msg?.type === "session_workspace_bound") {
-        // 素のターミナルがcwd照合で自動ワークスペース紐付けされた通知。該当タブが
-        // 既に開いていれば、次のポーリングを待たずタブアイコン・ピルを即座に更新する。
+        // cwd照合による自動ワークスペース紐付けの通知。該当タブが開いていれば次のポーリングを待たず即更新する。
         const tab = terminalStore.openTabs.find((t) => t.sessionId === msg.session_id);
         if (tab) {
           const ws = workspaceStore.allWorkspaces.find((w) => w.name === msg.workspace);
@@ -117,9 +110,7 @@ export function useStatusStream() {
         }
         emit("session:workspaceBound", { sessionId: msg.session_id });
       } else if (msg?.type === "session_job_bound") {
-        // 前面ジョブのargv照合による自動ジョブタグ付け（cwd照合と同じ仕組みの
-        // ジョブ版）。該当タブが既に開いていれば、session_workspace_boundと同様
-        // 次のポーリングを待たずjobName/jobLabel/アイコンを即座に更新する。
+        // 前面ジョブのargv照合による自動ジョブタグ付け。該当タブが開いていれば次のポーリングを待たず即更新する。
         const tab = terminalStore.openTabs.find((t) => t.sessionId === msg.session_id);
         if (tab) {
           terminalStore.setTabJob(tab.id, msg.job_name, msg.job_label, { icon: msg.icon, iconColor: msg.icon_color });
@@ -154,20 +145,17 @@ export function useStatusStream() {
     connect();
   }
 
-  /** アプリ起動時に一度だけ呼ぶ。 */
   function start() {
     if (started) return;
     started = true;
     connect();
-    // バックグラウンド復帰・オンライン復帰は待たずに即再接続し、フォアグラウンド/
-    // バックグラウンドの切替え自体も閲覧状態としてサーバへ伝える。
+    // バックグラウンド復帰・オンライン復帰は待たず即再接続し、フォアグラウンド/バックグラウンドの切替えも閲覧状態として伝える。
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) reconnectNow();
       sendViewing();
     });
     on("connectivity:back", () => reconnectNow());
     onGitHubWatchChange(sendWatchGitHub);
-    // タブ切替え・タブ作成/削除でアクティブセッションが変わるたびに送る。
     watch(() => terminalStore.activeTabId, () => sendViewing());
   }
 

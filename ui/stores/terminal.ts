@@ -50,20 +50,15 @@ export interface TerminalTab {
 export const useTerminalStore = defineStore("terminal", () => {
   const openTabs = ref<TerminalTab[]>([]);
   const activeTabId = ref<number | null>(null);
-  // アクティブなタブ（`openTabs.find(...)` の定型を一本化）。tab は markRaw の
-  // ため、この computed はタブの切替・開閉にのみ反応する（フィールド変更には
-  // 反応しない — インラインで find していた従来と同じ性質）。
+  // アクティブなタブ。tab は markRaw のため、タブの切替・開閉にのみ反応する（フィールド変更には反応しない）。
   const activeTab = computed(() => openTabs.value.find((t) => t.id === activeTabId.value));
   const terminalIdCounter = ref(0);
   const hasRestoredSessions = ref(false);
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
   const tabFlags = reactive<Record<number, Record<string, unknown>>>({});
-  // tab は markRaw（xterm.Terminal/WebSocket等の重い実行時参照を保持するため意図的に
-  // 非リアクティブ）なので、tab.workspace 等のフィールド変更は画面に伝わらない。tab
-  // オブジェクト自体を差し替えるとconnectTerminalWs等がidentityをクロージャで握っている
-  // ため実行時状態が分裂して壊れる。identityは変えず、この版数を依存に含めて再計算を
-  // トリガーする。
+  // tab は markRaw で意図的に非リアクティブ。差し替えると connectTerminalWs 等が握る identity が分裂するため、
+  // identity を変えずこの版数を依存に含めて再計算をトリガーする。
   const tabWorkspaceVersion = ref(0);
   // terminateTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
   // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
@@ -90,9 +85,8 @@ export const useTerminalStore = defineStore("terminal", () => {
     delete tabFlags[tabId];
   }
 
-  // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側はそれぞれ独立した非同期処理で
-  // 「既存タブが無いか」を確認してから呼ぶが、確認から呼び出しまでのawaitの間に別経路が
-  // 同じセッションのタブを追加してしまうレースがあるため、store側の唯一の追加窓口でチェックする。
+  // 同一 session_id のタブ追加は、呼び出し側の存在確認から呼び出しまでの await 間のレースを防ぐため、
+  // 唯一の追加窓口であるここで弾く。
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored, adjacent }: {
     wsUrl: string,
     workspace?: string | null,
@@ -160,7 +154,6 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (activeTabId.value === tabId) pickActiveAfter(idx);
   }
 
-  // idx 位置以降で最初のタブ（無ければ末尾）へ active を移す。
   function pickActiveAfter(idx: number) {
     const tabs = openTabs.value;
     const next = tabs.find((_, i) => i >= idx) || tabs[tabs.length - 1];
@@ -196,11 +189,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  /**
-   * @param iconInfo 紐付け先ワークスペースのアイコン。渡すとタブバー等のアイコン（tab.wsIcon）
-   *   も即座に切り替わる（未指定時はワークスペース名のみ更新。呼び出し側がアイコン解決できない
-   *   場合はnullを渡してアイコンを変えない）。
-   */
+  /** @param iconInfo 渡すとタブバー等のアイコン（tab.wsIcon）も即座に切り替わる。null は名前のみ更新してアイコンを変えない。 */
   function setTabWorkspace(tabId: number, workspaceName: string | null, iconInfo: { icon?: string, iconColor?: string } | null = null) {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (!tab) return;
@@ -208,15 +197,10 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (iconInfo) {
       tab.wsIcon = iconInfo.icon ? { name: iconInfo.icon, color: iconInfo.iconColor || null } : null;
     }
-    // tab の identity は変えず、tabWorkspaceVersion を進めることで
-    // 依存側（TerminalPane 等）に変更を伝える。
     tabWorkspaceVersion.value++;
   }
 
-  /**
-   * @param iconInfo 紐付け先ジョブのアイコン。渡すとタブのjob側アイコン
-   *   （tab.icon）も即座に切り替わる（setTabWorkspaceのworkspace版と同じ役割）。
-   */
+  /** @param iconInfo 渡すとタブのjob側アイコン（tab.icon）も即座に切り替わる。 */
   function setTabJob(tabId: number, jobName: string | null, jobLabel: string | null, iconInfo: { icon?: string | null, iconColor?: string | null } | null = null) {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (!tab) return;
@@ -228,11 +212,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     tabWorkspaceVersion.value++;
   }
 
-  /**
-   * ワークスペース・ジョブいずれにも紐付かないベアターミナルのタブ名を
-   * 差し替える（cwd照合で自動紐付けされる前提の setTabWorkspace/setTabJob と
-   * 異なり、呼び出し側が用意した文字列をそのまま入れるだけ）。
-   */
+  /** ベアターミナルのタブ名を呼び出し側の文字列で差し替える（cwd照合による自動紐付けは行わない）。 */
   function setTabLabel(tabId: number, label: string) {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (!tab || !label || tab.label === label) return;

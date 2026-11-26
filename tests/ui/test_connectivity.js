@@ -16,7 +16,6 @@ const openTab = (overrides = {}) => {
   return { ws: { readyState }, _wsDisposed: false, _lastWriteAt: 1000, ...rest };
 };
 
-// ── isTabWsAlive ──
 
 describe("isTabWsAlive", () => {
   it("open かつ最近 activity があれば生存", () => {
@@ -63,7 +62,6 @@ describe("isTabWsAlive", () => {
   });
 });
 
-// ── anyTabWsAlive ──
 
 describe("anyTabWsAlive", () => {
   it("1本でも生きていれば true", () => {
@@ -82,7 +80,6 @@ describe("anyTabWsAlive", () => {
   });
 });
 
-// ── staleAliveTabs ──
 
 describe("staleAliveTabs", () => {
   it("open だが activity 途絶したタブだけ返す", () => {
@@ -113,7 +110,6 @@ describe("staleAliveTabs", () => {
   });
 });
 
-// ── decideOffline ──
 
 describe("decideOffline", () => {
   it("navigator.onLine=false は即オフライン", () => {

@@ -1,4 +1,3 @@
-/* ─── KeyboardBar ──────────────────────────────────────────────────────────── */
 .keyboard-bar {
   display: flex;
   flex-direction: column;
@@ -19,8 +18,6 @@
   padding: 4px;
 }
 
-/* モード切替タブ行（QWERTY/Fn/History/Snippet）。.keyboard-bar-rowと同じ
-   横並び・余白にする。 */
 .keyboard-bar-tabs {
   display: flex;
   flex-direction: row;
@@ -41,8 +38,6 @@
   line-height: 1;
 }
 
-/* タブ行右端の閉じるボタン。他の4タブ（flex:1で伸縮）とは違い幅を固定し、
-   ソフトキーボードを閉じる専用の入り口として視覚的に分離する。 */
 .keyboard-bar-tab-close {
   flex: none;
   width: 36px;
@@ -56,14 +51,10 @@
   border-color: rgba(130, 170, 255, 0.7);
 }
 
-/* QWERTYパネル+bar行の入れ物。History/Snippet表示中は.keyboard-bar-panel-overlay
-   がposition:absoluteでこの中いっぱいに重なるための基準（position:relative）。 */
 .keyboard-bar-content {
   position: relative;
 }
 
-/* History/Snippet一覧。.keyboard-bar-content全体（QWERTYパネル+bar行の高さ分）
-   を覆い、一覧をそのスペースいっぱいに表示する。 */
 .keyboard-bar-panel-overlay.modal-scroll-body {
   position: absolute;
   inset: 0;
@@ -92,8 +83,6 @@
   padding: 0;
 }
 
-/* keyboardEngaged 中、入力フォームの代わりに表示する shift/ctrl/space 行。
-   input-wrapper と同じ flex:3 の枠内に 3 キーを並べる。 */
 .keyboard-bar-row .keyboard-bar-modifier-keys {
   display: flex;
   flex: 3;
@@ -132,7 +121,6 @@
   opacity: 0.5;
 }
 
-/* ─── キーボタン共通 ───────────────────────────────────────────────────────── */
 .quick-key {
   position: relative;
   height: 44px;
@@ -181,7 +169,6 @@
   border-color: var(--accent);
 }
 
-/* ─── Flick キー ───────────────────────────────────────────────────────────── */
 .quick-flick-arrow,
 .quick-flick-enter {
   position: relative;
@@ -235,7 +222,6 @@
   transform: translateY(-50%);
 }
 
-/* ─── QWERTYパネル ─────────────────────────────────────────────────────────── */
 .quick-extra-panel {
   display: flex;
   flex-direction: column;
@@ -317,7 +303,6 @@
 }
 
 
-/* ─── テキスト入力 ─────────────────────────────────────────────────────────── */
 .keyboard-input-wrapper {
   display: flex;
   flex-direction: column;

@@ -1,15 +1,7 @@
 /**
- * 矢印キー領域のフリック処理を生成する。
- *
- * - 上下フリック: 入力欄フォーカス中はコマンド履歴を移動する（上=前, 下=次）
- * - 左右フリック: 入力欄フォーカス中はスニペット一覧を移動する（左=前, 右=次）
- * - フォーカスしていなければ処理しない（呼び出し側の既定動作＝ターミナルへの
- *   矢印キー送信に委ねる）
- *
- * 1 ジェスチャ内で複数回フリックが発火しても処理は 1 度だけに抑える（latch）。
- * タッチ開始ごとに `reset()` を呼ぶことで latch を解除する。
- *
- * KeyboardBar と QWERTY パネル下段の両方で共有する（以前は両者にコピペされていた）。
+ * 矢印キー領域のフリック処理を生成する（KeyboardBar と QWERTY パネル下段で共有）。
+ * 入力欄フォーカス中のみ、上下=コマンド履歴・左右=スニペット一覧を移動する。未フォーカスなら呼び出し側の既定動作に委ねる。
+ * 1 ジェスチャ内の複数発火は 1 度だけ処理し（latch）、タッチ開始ごとに reset() で解除する。
  */
 export function createArrowFlickHandler({
   isInputFocused, historyPrev, historyNext, snippetPrev, snippetNext,
@@ -25,9 +17,7 @@ export function createArrowFlickHandler({
     reset() {
       handled = false;
     },
-    /**
-     * @returns フリックを消費したら true
-     */
+    /** @returns フリックを消費したら true */
     onFlick(key: { key: string }): boolean {
       if (!isInputFocused()) return false;
       if (handled) return true;

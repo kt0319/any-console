@@ -4,8 +4,6 @@ import { GRAPH_ROW_HEIGHT, GRAPH_COL_WIDTH, colColor, parseGitGraphOutput, build
 
 const HALF = GRAPH_ROW_HEIGHT / 2;
 
-// ── Tests ──
-
 describe("colColor", () => {
   it("returns first color for col 0", () => {
     expect(colColor(0)).toBe("#7aa2f7");

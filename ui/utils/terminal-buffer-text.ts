@@ -1,29 +1,16 @@
 import type { IBufferLine, Terminal } from "@xterm/xterm";
 
-// URL 本体は非ASCII文字（全角カッコ「（）」や日本語など）でも終端する。
-// URL に生の非ASCIIは入らない前提。これがないと `http://host:3900（Tailscale直）` の
-// ように後続の全角テキストまで URL に飲み込まれる（日本語はスペースが無いため）。
+// 非ASCII（全角カッコや日本語）で URL を終端する。無いと `http://host:3900（Tailscale直）` のように後続の全角テキストまで飲み込む。
 export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"\u0080-\uffff]+|www\.[^\s)\]>'"\u0080-\uffff]+)/g;
 
-// URLが何行にまたがっても収まるよう、タップ行の前後を広めに束ねてから
-// 正規表現でタップ位置を含む一致を探す。isWrapped（xtermの自動折返し）や
-// 行末文字（アプリ側の明示的な改行）の判定に頼って連結範囲を厳密に絞る
-// 方式は、判定がずれるとURLが途中で切れて返る不具合があったため、固定
-// 幅の窓を束ねるだけの単純な方式に寄せる（多少無関係な行を巻き込んでも、
-// 正規表現がhttps://等のプレフィックスを要求するため誤検出はしにくい）。
+// タップ行の前後を固定幅の窓で束ねて正規表現で探す。isWrapped や行末文字で連結範囲を絞る方式は、判定ずれで URL が途中で切れたため採らない。
 const URL_SEARCH_WINDOW_LINES = 6;
 
-// パス風の文字列。非ASCII（日本語ファイル名など）は「/」より後ろのセグメントでのみ許可する。
-// 先頭側まで許すと、スペースの無い日本語の文章（「パスは/tmp/a.png」）を巻き込むため。
-// 文字として使うのは、ラテン拡張〜各種文字（U+00C0-1FFF）、かな、漢字、ハングル、互換漢字のみ。
-// 全角句読点・全角記号（U+3000-303F, U+FF00-FFEF）と、プロンプトのアイコンに使われる
-// 私用領域（Nerd Font 等。U+E000-F8FF）は終端にする（次行の行頭アイコンが連結されて実在しないパスになる）。
-// 実在確認はサーバが行うので、ここでは「/ を含む」か「拡張子がある」ものだけを候補にする。
-// 相対パスで最終セグメントに拡張子がないもの（feature/DW_JOY_DEV-1677 のようなブランチ名）は候補から外す。
-// 末尾が「/」のものはディレクトリで開けるファイルではないため findPathInBuffer で候補から外す。
+// 非ASCII（日本語ファイル名など）は「/」より後ろのセグメントでのみ許可する。先頭側まで許すとスペースの無い日本語文（「パスは/tmp/a.png」）を巻き込む。
+// 全角句読点・全角記号と私用領域（Nerd Font のプロンプトアイコン等）は終端にする（次行頭のアイコンが連結され実在しないパスになる）。
+// 実在確認はサーバ側。ここでは「/ を含む」か「拡張子がある」ものだけを候補にする。
 const PATH_SEGMENT_CHARS = "\\w.~@+%\\-\\u00c0-\\u1fff\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff";
-// 丸カッコは対になった「(…)」だけをパスの一部にする（Next.js の app/(auth)/page.tsx や
-// Screenshot(1).png など）。単独の「)」は含めないので、「(src/a.ts)」の閉じカッコは巻き込まない。
+// 丸カッコは対になった「(…)」だけをパスの一部にする（app/(auth)/page.tsx、Screenshot(1).png）。「(src/a.ts)」の閉じカッコは巻き込まない。
 const PATH_PAREN_GROUP = `\\([${PATH_SEGMENT_CHARS}]*\\)`;
 const PATH_SEGMENT = `(?:[${PATH_SEGMENT_CHARS}]|${PATH_PAREN_GROUP})+`;
 const PATH_LEADING_CHAR = `(?:[\\w.~@+%-]|${PATH_PAREN_GROUP})`;
@@ -33,8 +20,7 @@ export const TERMINAL_PATH_REGEX = new RegExp(
   "g",
 );
 
-// 絶対パス・~ で始まる行は折返しの続きではなく新しいパスの開始とみなす。
-// これがないと、パスが連続する出力で前のパスの末尾と次のパスが1つに繋がる。
+// 絶対パス・~ 始まりの行は新しいパスの開始とみなす。無いと連続するパス出力が1つに繋がる。
 const PATH_START_LINE_REGEX = /^(?:\/|~\/|[-*•]\s|\d+[.)]\s)/;
 
 // 箇条書きの行頭記号は前の行の末尾に直結させない（URL末尾にハイフンが付くため）。
@@ -72,7 +58,7 @@ export function findPathInBuffer(term: Terminal | null | undefined, clientX: num
   return path;
 }
 
-// 全角文字は2セルだが translateToString では1文字になるため、セル列を文字列上の位置へ換算する。
+// 全角文字は2セルだが translateToString では1文字になるため、セル列を文字列位置へ換算する。
 function columnToStringIndex(line: IBufferLine, col: number): number {
   if (!line.getCell) return col;
   let idx = 0;
@@ -89,11 +75,7 @@ function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, c
   const screen = term.element.querySelector(".xterm-screen") || term.element;
   const rect = screen.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
-  // モバイル長押し確定時はスクロール/レイアウト再計算のタイミングずれで座標が
-  // 矩形からわずかにはみ出すことがある。ここで null にすると WebLinksAddon 側の
-  // 行をまたがない検出結果にフォールバックし、折返し URL が途中で切れて返る
-  // ため、矩形内にクランプしてから判定を続ける（実バッファ範囲外の行は後段の
-  // buf.getLine(lineIdx) チェックで従来通り null になる）。
+  // モバイル長押し確定時は座標が矩形からわずかにはみ出すことがある。null にすると WebLinksAddon 側の検出に落ちて折返し URL が途中で切れるため、矩形内にクランプする。
   const relX = Math.min(Math.max(clientX - rect.left, 0), rect.width - 1);
   const relY = Math.min(Math.max(clientY - rect.top, 0), rect.height - 1);
   const cols = term.cols;
@@ -116,12 +98,7 @@ function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, c
   for (let i = startIdx; i <= endIdx; i++) {
     const cur = buf.getLine(i);
     if (!cur) break;
-    // シェルの折返し表示は継続行の先頭に字下げ用の空白を入れることがある
-    // （tmux配下の実ターミナルで確認済み。例: 直前行末尾を2スペースで埋め、
-    // 次行の先頭にも2スペースを入れて視覚的に揃える）。末尾だけトリムして
-    // 直結すると、この先頭インデントが本物の空白として残り、正規表現が
-    // そこでURLを打ち切ってしまう。先頭も削り、削った分だけ lineOffsets を
-    // 前倒しして col（元の生の列番号）とのズレを補正する。
+    // tmux 配下のシェルは折返しの継続行頭に字下げ空白を入れることがあり、残すと正規表現がそこで URL を打ち切る。先頭も削り、削った分だけ lineOffsets を前倒しして col とのズレを補正する。
     const lineText = cur.translateToString(true);
     const leadingTrimmed = lineText.trimStart();
     const strippedLeading = lineText.length - leadingTrimmed.length;
@@ -132,10 +109,7 @@ function findMatchInBuffer(term: Terminal | null | undefined, clientX: number, c
       continue;
     }
     const trimmed = leadingTrimmed.trimEnd();
-    // 完全に空白な行（段落間の空行）は、前後が0文字で直結すると別々の
-    // テキストが1つのURLとして誤って繋がってしまう（例: URL末尾の"181"と
-    // 次の段落の"1462"が空行を挟んで"1811462"になる）。空行は区切り文字を
-    // 挟んでハードな境界にする。
+    // 空行を0文字で直結すると別々のテキストが1つの URL に繋がる（"181" と次段落の "1462" が "1811462" になる）ため、改行で境界にする。
     text += trimmed ? trimmed : "\n";
   }
 

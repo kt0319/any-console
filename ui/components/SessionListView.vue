@@ -16,9 +16,7 @@
       </ul>
       <div v-else class="session-sidebar-empty">No sessions</div>
 
-      <!-- タブがまだ無いワークスペースの承認待ちdispatch。通常のセッション行と
-           同じ見た目（SessionRowContent + InfoPillRow）で出す。見出しは出さず、
-           行のPendingバッジとワークスペース名の非アクティブ色だけで区別する。 -->
+      <!-- タブがまだ無いワークスペースの承認待ちdispatch。通常のセッション行と同じ見た目で、Pendingバッジと非アクティブ色だけで区別する。 -->
       <template v-if="pendingDispatchWorkspaces.length > 0">
         <ul class="session-sidebar-list session-sidebar-list-pending">
         <li v-for="p in pendingDispatchWorkspaces" :key="p.workspace" class="session-sidebar-li session-sidebar-li-pending">
@@ -71,11 +69,8 @@ import { buildInfoPillRowProps } from "../utils/pill-fields.ts";
 type SessionItem = ReturnType<typeof sessionSidebarItems>[number];
 type PendingDispatchItem = ReturnType<typeof pendingDispatchSidebarItems>[number];
 
-// セッション一覧オーバーレイ（SessionListPanel.vue）の中身。開いているタブごとに
-// ワークスペース名・ブランチ・変更サマリ・エージェント状態・Info Pillsを一覧表示する。
-// 行の組み立ては ui/utils/session-sidebar.ts（純粋関数）。
-// Open Session/Settingsはタブバーの「+」/歯車ボタンから独立して開くため、このビューからは
-// 直接遷移しない。
+// セッション一覧オーバーレイ（SessionListPanel.vue）の中身。行の組み立ては ui/utils/session-sidebar.ts。
+// Open Session/Settingsはタブバーのボタンから独立して開くため、このビューからは遷移しない。
 
 const terminalStore = useTerminalStore();
 const agentStateStore = useAgentStateStore();
@@ -84,8 +79,7 @@ const workspaceStore = useWorkspaceStore();
 const { confirmAndCloseTab } = useTabClose();
 const { close: closeSessionList } = useSessionListOverlay();
 
-// GitHub連携があるワークスペースごとにPR/Actionsのポーリングを回す（TerminalPaneの同種
-// ロジックを複数ワークスペース分にまとめたもの。差分開始/停止は useGitHubPollingFor に集約）。
+// GitHub連携のあるワークスペースごとにPR/Actionsをポーリングする（差分開始/停止は useGitHubPollingFor に集約）。
 const githubWorkspaceKeys = computed(() => {
   const keys = new Set<string>();
   for (const tab of terminalStore.openTabs) {
@@ -101,9 +95,7 @@ const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPollin
 const { containers: dockerContainers, start: startDockerPolling, stop: stopDockerPolling } = useDockerContainers();
 const { queue: dispatchQueue, allJobs: dispatchAllJobs } = useDispatchQueue();
 
-// 開いているタブが無いワークスペースでも承認待ちのdispatchを見逃さないよう、タブ一覧の下に
-// 別枠で出す（タブが既にあるワークスペースはInfoPillRowのdispatchピルで足りるため対象外）。
-// 組み立てロジックはsessionSidebarItemsと共有する（session-sidebar.ts）。
+// 開いているタブが無いワークスペースの承認待ちdispatchを見逃さないよう別枠で出す（組み立てはsessionSidebarItemsと共有）。
 const pendingDispatchWorkspaces = computed(() => {
   const openTabWorkspaces = new Set(terminalStore.openTabs.map((t) => t.workspace).filter((w): w is string => Boolean(w)));
   return pendingDispatchSidebarItems(workspaceStore.allWorkspaces, openTabWorkspaces, {
@@ -125,9 +117,7 @@ function onOpenPendingDispatch(p: PendingDispatchItem) {
   emit("git:openFileModal", { pane: "dispatch", dispatchItemId });
 }
 
-// pendingワークスペース行のピルも対応するペインへ遷移できるようuseInfoPillActionsを共有する
-// （タブが無いのでitem.tab固定でopenPaneのみ使う）。dispatchキーはonOpenPendingDispatchと
-// 同じ1件ショートカットを使う。
+// pending行のピルも対応ペインへ遷移できるようuseInfoPillActionsを共有する（タブが無いのでitem.tab固定、dispatchキーは1件ショートカットと同じ）。
 function onPendingPillOpen(p: PendingDispatchItem, key: string) {
   if (key === "dispatch") { onOpenPendingDispatch(p); return; }
   workspaceStore.selectedWorkspace = p.workspace;
@@ -152,8 +142,7 @@ function openPaneFor(
 const activeTabId = computed(() => terminalStore.activeTabId);
 
 const items = computed(() => {
-  // tab は markRaw のため tab.workspace 単体の変更は追跡されない。
-  // tabWorkspaceVersion を読んで依存に含める（TabItem と同じ理由）。
+  // tab は markRaw のため tab.workspace 単体の変更は追跡されない。tabWorkspaceVersion を読んで依存に含める（TabItem と同じ）。
   terminalStore.tabWorkspaceVersion;
   return sessionSidebarItems(terminalStore.openTabs, workspaceStore.allWorkspaces, {
     tabFlags: terminalStore.tabFlags,
@@ -197,8 +186,7 @@ async function onCloseTab(item: SessionItem) {
   await confirmAndCloseTab(item.tab);
 }
 
-// このビューはSessionListPanel.vueの中でマウントされるため、ポーリングは
-// このコンポーネント自身のマウント/アンマウントに紐付く。
+// ポーリングはこのコンポーネントのマウント/アンマウントに紐付く（SessionListPanel.vue内でマウントされる）。
 startPreviewPolling();
 startDockerPolling();
 
@@ -209,14 +197,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* modal-shell.css の .modal-scroll-body は本文全体がそのまま1つスクロールする前提
-   （overflow-y:auto）だが、このビューは下部の.session-list-menuを固定したまま、その上の
-   .session-list-scrollだけをスクロールさせたいため自身はスクロールさせない。
-   詳細度で負けないよう!importantで上書きする。 */
+/* modal-shell.css の .modal-scroll-body は本文全体をスクロールさせるが、このビューは下部の.session-list-menuを固定して
+   .session-list-scrollだけスクロールさせたいため、詳細度に負けないよう!importantで上書きする。 */
 .session-list-view {
   overflow-y: hidden !important;
-  /* セッション行はactive背景を左右の端いっぱいまで敷きたいためこのビューだけ0にする。
-     行内テキストの余白は .session-sidebar-item 自身のpadding(8px 12px)で確保する。 */
+  /* active背景を左右端まで敷くためこのビューだけ0にする（行内の余白は .session-sidebar-item のpadding）。 */
   padding: 0 !important;
 }
 
@@ -232,22 +217,14 @@ onBeforeUnmount(() => {
   padding: 0 0 4px;
 }
 
-/* タブがまだ無い（開いていない）ワークスペースの承認待ち行は、開いている
-   セッションより沈んだ見た目にして非アクティブだと分かるようにする。 */
+/* 承認待ち行は開いているセッションより沈んだ見た目にして非アクティブと分かるようにする。 */
 .session-sidebar-li-pending {
   opacity: 0.6;
 }
 
-/* pending行の一覧は見出しを出さず、開いているセッション一覧との区切りは
-   session-sidebar.css の .session-sidebar-li が最後の行にも border-bottom を
-   出す設計に委ねる（ここで border-top も足すと隣接して二重線に見えるため
-   持たない）。 */
+/* 区切りは session-sidebar.css の .session-sidebar-li が最後の行にも border-bottom を出す設計に委ねる（border-topを足すと二重線になる）。 */
 
-/* .session-sidebar-li/.session-sidebar-item/.session-sidebar-pills-row の
-   共通見た目（罫線・ホバー・active色・working/blocked/phrase-notify演出）は
-   このビュー自身のpending dispatch行とSessionSidebarRow.vueの両方が同じ
-   クラス名を使うため、scopedを跨いで共有できるグローバルCSS
-   （ui/styles/session-sidebar.css）に集約する。 */
+/* 共通見た目は、このビューのpending dispatch行とSessionSidebarRow.vueがscopedを跨いで共有するため ui/styles/session-sidebar.css に集約している。 */
 
 
 .session-sidebar-empty {

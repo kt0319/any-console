@@ -44,7 +44,6 @@ interface ToastItem {
   action: ToastAction | null;
   key: string | null;
   swipeDy: number;
-  // スワイプ追跡用の一時フィールド
   _ty?: number;
   _tx?: number;
 }

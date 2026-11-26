@@ -18,7 +18,6 @@ describe("firstCommitLine", () => {
   });
 });
 
-// ── Tests ──
 
 describe("parseGitRefs", () => {
   it("空文字列で空配列", () => {

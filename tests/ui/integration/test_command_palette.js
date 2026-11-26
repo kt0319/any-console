@@ -16,7 +16,6 @@ import CommandPaletteInput from "../../../ui/components/CommandPaletteInput.vue"
 
 const SessionListViewStub = { template: '<div class="session-list-stub"></div>' };
 
-// タブバー側の検索入力（CommandPaletteInput）とサイドバー本体（SessionListPanel）を並べた状態。
 const Harness = defineComponent({
   render: () => h("div", [h(CommandPaletteInput), h(SessionListPanel)]),
 });

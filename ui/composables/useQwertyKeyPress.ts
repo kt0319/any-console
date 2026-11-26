@@ -14,10 +14,7 @@ type ModifierState = { ctrl: boolean, shift: boolean };
 
 type TouchTarget = HTMLElement & { _touchStartY?: number };
 
-/**
- * QWERTY キーのタッチ/タップ処理。縦フリック判定と修飾キーのマージを行い、
- * キーをターミナルへ送る。
- */
+/** QWERTY キーのタッチ/タップ処理。縦フリック判定と修飾キーのマージを行いターミナルへ送る。 */
 export function useQwertyKeyPress({
   modifierState,
   sendKeyToTerminal,

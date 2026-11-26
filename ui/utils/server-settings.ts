@@ -3,12 +3,8 @@ import { useAuthStore } from "../stores/auth.ts";
 import { useApi } from "../composables/useApi.ts";
 
 /**
- * サーバ設定エンドポイント（GET/PUT の /settings/*）の load/save 共通実装。
- *
- * 取得失敗を defaults で握りつぶすと、サーバに設定があってもリセットされたように
- * 見える（loaded=true で確定してしまい再取得もされない）。失敗時は 1 回リトライし、
- * それでもダメなら loaded を立てず、次に開いたときの再取得に委ねる。
- * res.ok かつ空データ（初回・未保存）は正当な defaults なので通常成功として扱う。
+ * GET/PUT /settings/* の load/save 共通実装。取得失敗を defaults で握りつぶすと設定がリセットされたように見えるため、
+ * 失敗時は 1 回リトライし、それでも駄目なら loaded を立てず次回の再取得に委ねる。空データ（初回・未保存）は正当な defaults。
  */
 export function createServerSettings(
   endpoint: string,

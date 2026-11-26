@@ -49,13 +49,7 @@ import { dispatchWorkspaceLabel, dispatchBaseWorkspaceLabel } from "../utils/dis
 import { baseWorkspaceName } from "../utils/worktree.ts";
 import DispatchQueueRowBody from "./DispatchQueueRowBody.vue";
 
-// WorkspaceDetail.vueの「Dispatch」タブの中身。全ワークスペース横断の
-// グローバル一覧（Settings配下の独立画面）を廃止し、
-// 対応するワークスペースの項目だけに絞ってここへ統合した
-// （GitHubActionsPane.vue等、他のGitHub系タブと同じ「ワークスペース詳細内の
-// タブ」パターンに揃える）。1件選ぶとDispatchRunViewを表示するが、Settings側
-// のpushViewには乗せず、選択IDをWorkspaceDetail.vueへemitしてタブ内で
-// ローカルに切り替える（Settings側の別レイヤーとして開いてしまっていたため）。
+// WorkspaceDetail.vue の Dispatch タブの中身。選択IDは pushView に乗せず WorkspaceDetail.vue へ emit してタブ内で切り替える。
 
 const workspaceStore = useWorkspaceStore();
 const emits = defineEmits(["select"]);
@@ -64,7 +58,6 @@ const { queue, recent: allRecent, discardItem, jobLabel } = useDispatchQueue();
 const pending = computed(() =>
   queue.value.filter((item) => dispatchWorkspaceLabel(item.request) === workspaceStore.selectedWorkspace),
 );
-// 確認ダイアログ中・API実行中の二重実行を防ぐ。
 const discardingIds = reactive(new Set<string>());
 async function discard(item: { id: string, request: Record<string, any> }) {
   if (discardingIds.has(item.id)) return;
@@ -76,10 +69,8 @@ async function discard(item: { id: string, request: Record<string, any> }) {
   }
 }
 
-// 履歴（recent）はworktreeと元のディレクトリで共有する。worktreeで実行した
-// dispatchも元のディレクトリの履歴に出したい／worktree側からも元のディレクトリ
-// の履歴を見たいため、ベースワークスペース名同士で突き合わせる（pendingは
-// 承認操作を伴うため対象を絞ったまま変更しない）。
+// 履歴（recent）は worktree と元ディレクトリで共有するためベースワークスペース名で突き合わせる。
+// pending は承認操作を伴うため対象を絞ったまま。
 const recent = computed(() => {
   const base = baseWorkspaceName(workspaceStore.selectedWorkspace);
   return allRecent.value.filter((item) => dispatchBaseWorkspaceLabel(item.request) === base);

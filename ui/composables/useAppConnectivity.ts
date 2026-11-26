@@ -1,12 +1,7 @@
 import { onMounted, onBeforeUnmount } from "vue";
 import { useConnectivityMonitor } from "./useConnectivityMonitor.ts";
 
-/**
- * App.vue のルートで呼び出し、オンライン/オフライン監視を配線する。
- * - window の online / offline イベント購読
- * - PWA の前面復帰（visibilitychange）で即時に接続を確認
- * - 接続確認 ping の開始 / 停止
- */
+/** App.vue のルートで呼び出し、オンライン/オフライン監視・前面復帰時の接続確認・接続確認 ping を配線する。 */
 export function useAppConnectivity() {
   const { isOffline, startPing, stopPing, onOnline, onOffline, checkConnectivity } = useConnectivityMonitor();
 

@@ -14,8 +14,7 @@ function jsonResponse(data) {
   return Promise.resolve({ ok: true, status: 200, json: async () => data });
 }
 
-// useModalView() が inject するキー一式。実行時は SessionOpenModal.vue 等が
-// provideModalView() 経由で提供するが、ユニットテストでは最小限を手動 provide する。
+// useModalView() が inject するキー一式。実行時は provideModalView() が提供するが、ユニットテストでは最小限を手動 provide する。
 function mountOptions() {
   return {
     global: {

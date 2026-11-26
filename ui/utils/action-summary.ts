@@ -18,9 +18,6 @@ interface ActionSummaryOptions {
   text?: string | null;
 }
 
-/**
- * 確認ダイアログ用の操作サマリを組み立てる。
- */
 export function buildActionSummary(opts: ActionSummaryOptions): string {
   const lines: string[] = [];
   if (opts.workspace) lines.push(`Workspace: ${opts.workspace}`);

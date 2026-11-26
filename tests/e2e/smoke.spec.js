@@ -1,17 +1,10 @@
-/**
- * any-console スモーク E2E（認証フロー）。CI（e2e ジョブ）で毎回実行し、ローカル手動実行も可能。
- *
- * 前提・実行方法は helpers.js / CLAUDE.md 参照:
- *   ANY_CONSOLE_URL=http://localhost:8888 npm run test:e2e
- */
+// 認証フロー（ログイン画面・不正トークン・メイン画面遷移・認証維持）のスモーク E2E。
 import { test, expect, loadToken, login, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 test.describe("any-console smoke", () => {
   test("ログイン画面が表示される（トークン未認証時）", async ({ page, context }) => {
-    // 認証なしで開く（cookieも空）
     await context.clearCookies();
     await page.goto("/");
-    // どこかにログイン画面の Token プレースホルダがあるはず
     const tokenInput = page.locator('input[placeholder="Token"]');
     await expect(tokenInput).toBeVisible({ timeout: 5000 });
   });
@@ -29,8 +22,7 @@ test.describe("any-console smoke", () => {
     const token = loadToken();
     test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
-    // ログイン後はメイン画面のタブバー（ハンバーガー/+/歯車の3つが同じ
-    // .tab-menu-btnクラスを共有するため、先頭のハンバーガーで代表させる）が出る。
+    // .tab-menu-btn はハンバーガー/+/歯車で共有のため先頭で代表させる
     await expect(page.locator(".tab-menu-btn").first()).toBeVisible();
   });
 
@@ -39,7 +31,6 @@ test.describe("any-console smoke", () => {
     test.skip(!token, TOKEN_REQUIRED_MSG);
     await login(page, context, token);
     await page.reload();
-    // デバイス cookie で再認証されるため、ログイン画面には戻らない
     await expect(page.locator(".tab-menu-btn").first()).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('input[placeholder="Token"]')).toBeHidden();
   });

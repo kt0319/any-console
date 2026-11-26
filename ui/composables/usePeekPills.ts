@@ -5,11 +5,7 @@ import { buildTrailingPeekItems } from "../utils/pill-peek.ts";
 import { useApi } from "./useApi.ts";
 import { parseGitGraphOutput } from "../utils/git-graph.ts";
 
-/**
- * peekFields から trailingPeekItems の組み立て（info-pill 設定の反映）と
- * usePillPeek の呼び出しまでを束ねる。TerminalPane / SessionSidebarRow の
- * 配線が同形のため一本化する（フィールド追加時に片方だけ直すズレを防ぐ）。
- */
+/** peekFields から trailingPeekItems を組み立て usePillPeek まで束ねる（TerminalPane / SessionSidebarRow で配線が同形のため一本化）。 */
 export function usePeekPills(options: {
   peekFields: ComputedRef<Record<string, any>>,
   sessionId: () => string | null | undefined,

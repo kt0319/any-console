@@ -21,9 +21,8 @@ import { useTerminalStore } from "../stores/terminal.ts";
 import ModalShell from "./ModalShell.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 
-// WorkspaceDetail（Files/Changes/History/Branches/Stash）専用の全面オーバーレイ。
-// セッション一覧/Open Session/Settingsのナビゲーション（useWorkspaceDetailNav.ts）とは独立。
-// シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに共通化。
+// WorkspaceDetail 専用の全面オーバーレイ。セッション一覧 / Open Session / Settings のナビ（useWorkspaceDetailNav.ts）とは独立。
+// シェルは ModalShell.vue に共通化。
 
 // provideModalViewがpushView/popViewを必須とするため、useSessionOpenNav.tsの実体を渡す
 // （詳細内のペインは現状どちらも呼ばない）。
@@ -33,13 +32,11 @@ const {
   onBack, close, setPaneRef, updateViewState,
 } = useWorkspaceDetailNav();
 const terminalStore = useTerminalStore();
-// タブ切替のたびに<WorkspaceDetail>を再マウントし、useWorkspaceDetailNav.tsがタブごとに
-// 保持しているisOpen/detail(pane)を確実に反映させる（WorkspaceDetail.vue自体はopen()を
-// onMounted時にしか呼ばないため）。:key に渡すため number として扱う（値・挙動は不変）。
+// タブ切替のたびに <WorkspaceDetail> を再マウントし、タブごとの isOpen/detail(pane) を反映させる
+// （WorkspaceDetail.vue は open() を onMounted 時にしか呼ばない）。
 const activeTabId = computed(() => terminalStore.activeTabId as number);
 
 provideModalView({ modalTitle, modalBranch, viewState, pushView, popView, updateViewState });
-// DispatchRunViewがRun成功後にこのオーバーレイごと閉じるために使う
-// （WorkspaceDetail.vue参照）。
+// DispatchRunView が Run 成功後にこのオーバーレイごと閉じるために使う
 provide("closeWorkspaceDetail", close);
 </script>

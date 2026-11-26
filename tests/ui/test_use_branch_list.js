@@ -51,13 +51,12 @@ describe("useBranchList: リモートキャッシュの再フィルタ", () => {
     const { useBranchList } = await freshModule();
     const { localBranches, remoteBranches, loadBranchList, loadRemoteBranches } = useBranchList();
 
-    // 1. ローカルにはmainのみの状態でFetchし、リモート一覧をキャッシュさせる
+    // ローカルにはmainのみでFetchし、リモート一覧をキャッシュさせる
     await loadBranchList();
     await loadRemoteBranches();
     expect(remoteBranches.value.map((b) => b.name)).toEqual(["feature/x"]);
 
-    // 2. feature/xがローカルにも作成された後にloadBranchListだけを呼ぶ
-    //    （キャッシュ由来のremoteBranchesがそのまま復元されると重複する）
+    // feature/xがローカルにも作成された後にloadBranchListだけを呼ぶ（キャッシュ由来のremoteBranchesが復元されると重複する）
     await loadBranchList();
 
     expect(localBranches.value.map((b) => b.name)).toContain("feature/x");

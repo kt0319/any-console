@@ -1,9 +1,5 @@
 import { workspaceDisplayName } from "./worktree.ts";
 
-/**
- * ワークスペース名にブランチ名を付与した表示用ラベルを返す。
- * worktree の場合は「ベース名 | ブランチ」、通常のワークスペースは「名前 | ブランチ」形式にする。
- */
 export function workspaceBranchLabel(
   name: string,
   allWorkspaces: { name?: string; worktree?: boolean; branch?: string }[],
@@ -14,9 +10,6 @@ export function workspaceBranchLabel(
   return name;
 }
 
-/**
- * タブの「ワークスペース名 | ブランチ | ジョブ名」表示ラベルを返す。
- */
 export function tabTitleLabel(
   tab: { workspace?: string | null; jobLabel?: string | null; jobName?: string | null } | undefined,
   allWorkspaces: { name?: string; worktree?: boolean; branch?: string }[],

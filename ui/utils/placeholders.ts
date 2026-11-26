@@ -3,9 +3,7 @@
 
 const PLACEHOLDER_RE = /\[\[\s*([A-Za-z0-9_]+)\s*\]\]/g;
 
-/**
- * コマンド内の [[name]] トークン名を、出現順かつ重複なしで返す。
- */
+/** コマンド内の [[name]] トークン名を出現順・重複なしで返す。 */
 export function extractPlaceholders(command: string | null | undefined): string[] {
   if (!command) return [];
   const names: string[] = [];

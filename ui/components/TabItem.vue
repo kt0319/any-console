@@ -54,14 +54,9 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 const props = defineProps({
   tab: { type: Object as PropType<TerminalTab>, required: true },
   activeTabId: { type: Number as PropType<number | null>, default: null },
-  // アンダーラインの向き等、タブバーの位置（上/下）に応じた見た目に使う。
   isTabBarAtBottom: { type: Boolean, default: false },
-  // ラベル表示可否等、タブ自体の幅広/幅狭に使う。isTabBarAtBottomとは独立
-  // （実際の画面幅で決まる。TabBar.vue参照）。
   isNarrow: { type: Boolean, default: false },
-  // 同じワークスペースのタブとグループ表示されているか（TabBar.vue参照）。
   inGroup: { type: Boolean, default: false },
-  // グループ内でベースワークスペースのタブの右に続いているか（TabBar.vue参照）。
   followsBase: { type: Boolean, default: false },
 });
 
@@ -91,31 +86,20 @@ const {
   isClosePending: () => closePending,
 });
 
-// tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
-// ベアターミナルにワークスペースを紐付けた直後もタブラベルに反映されるよう、
-// tabWorkspaceVersion を読んで依存に含める（TerminalPane.vue の
-// paneWorkspace と同じ理由）。label/isDirty/isWorktree はこの computed を
-// 共有して同じ検索を繰り返さない。
+// tab は markRaw のため tab.workspace の変更は追跡されない。tabWorkspaceVersion を読んで依存に含める。
 const tabWorkspace = computed(() => {
   terminalStore.tabWorkspaceVersion;
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
 
-// ベースのタブの右に続くworktree。ブランチ名だけの簡素な表示にする（ジョブアイコンも出さない）。
 const followsBaseAsWorktree = computed(() => !!tabWorkspace.value?.worktree && props.inGroup && props.followsBase);
 
 const label = computed(() => {
-  // props.tab.workspaceがfalsyな実行では下のtabWorkspace.value（読めば
-  // tabWorkspaceVersionへ依存する）を一度も読まないまま返ってしまい、
-  // このcomputed自体の依存が空になって二度と再評価されなくなる
-  // （ベアターミナル→Add/自動紐付けでworkspaceが後から付いても
-  // ラベルが更新されなかった不具合の原因）。分岐に関係なく必ず依存させる。
+  // workspace が falsy でも必ず依存させる（読まないと依存が空になり再評価されない）
   terminalStore.tabWorkspaceVersion;
   if (props.tab.workspace) {
     const ws = tabWorkspace.value;
-    // worktreeアイコン(worktree-icon)で既に判別できるため、タブ名には
-    // worktree名（"ベース名 | ブランチ"）を出さずベース名だけにする。
-    // ベースのタブの右に続く時は、ベース名が左のタブで分かるのでブランチ名を出す。
+    // worktree アイコンで判別できるためベース名だけ。ベースの右に続く時はブランチ名
     if (ws?.worktree) {
       if (followsBaseAsWorktree.value && ws.branch) return ws.branch;
       return ws.worktree_base || props.tab.workspace;
@@ -134,9 +118,7 @@ const hasPhraseNotify = computed(() => !!agentStateStore.phraseNotifySessions[pr
 
 const tabAriaLabel = computed(() => (hasPhraseNotify.value ? `${label.value} (phrase detected)` : label.value));
 
-// data-tooltip限定でagent detectionの判定元を追記する（デバッグ用途。
-// aria-labelには含めない — スクリーンリーダー利用者に無関係な内部情報の
-// 読み上げを増やさないため）。
+// agent detection の判定元はデバッグ用なので aria-label には含めず tooltip だけに足す
 const tabTooltip = computed(() => (
   agentState.value && agentStateSource.value
     ? `${tabAriaLabel.value} · ${agentState.value} (${agentStateSource.value})`
@@ -147,17 +129,14 @@ const isWorktree = computed(() => !!tabWorkspace.value?.worktree);
 
 const iconSize = 18;
 
-// labelと同じ理由でtabWorkspaceVersionへ明示的に依存させる
-// （setTabWorkspace/setTabJobが直接書き換えるtab.wsIcon/tab.iconは
-// markRaw越しの読み取りだけでは変更を検知できない）。
+// tab.wsIcon / tab.icon は markRaw 越しだと変更を検知できないため tabWorkspaceVersion に依存させる
 const wsIconHtml = computed(() => {
   terminalStore.tabWorkspaceVersion;
   if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, iconSize);
   return "";
 });
 
-// worktreeがベースとグループ表示されている間は、グループ背景で結び付いて見えるため
-// ベースと同じワークスペースアイコンは出さない。
+// グループ表示中の worktree はベースと同じアイコンを出さない
 const showWsIcon = computed(() => !!wsIconHtml.value && !(isWorktree.value && props.inGroup));
 
 const iconHtml = computed(() => {
@@ -171,12 +150,11 @@ function onClick(e: MouseEvent) {
   if (isDragging.value) return;
   (e.currentTarget as HTMLElement)?.blur();
   if (isActive.value) {
-    // 既にアクティブなタブ（開いているタブが1つしかない場合等）は select が
-    // 発火しない = switchTab() を経由しないため、ここで明示的にバッジをクリアする。
+    // 既にアクティブだと select が発火せず switchTab() を通らないため、ここでバッジをクリアする
     agentStateStore.clearSessionNotifyBadges(props.tab.sessionId);
     return;
   }
-  // タッチ操作での選択はソフトキーボードが誤起動するため、フォーカスしない。
+  // タッチ選択ではソフトキーボードが誤起動するためフォーカスしない
   emits("select", props.tab, { skipFocus: consumeLastInputWasTouch() });
 }
 
@@ -230,8 +208,7 @@ function onClosePress() {
   background: var(--accent-bg-12);
 }
 
-/* 通常ホバーは base.css の .hover-bg（テンプレート側で付与）。アクティブタブは
-   ホバーでもアクティブ強調色を維持する。 */
+/* 通常ホバーは base.css の .hover-bg。アクティブタブはホバーでも強調色を維持 */
 @media (hover: hover) and (pointer: fine) {
   .tab-btn.active:hover {
     background: var(--accent-bg-12);
@@ -248,9 +225,7 @@ function onClosePress() {
   touch-action: none;
 }
 
-/* Chromeのタブと同じく、隣り合う2つの非アクティブタブの間に縦線を出す
-   （アクティブタブに隣接する側は出さない）。gap（.tab-bar-tabsで7px）の
-   中央に来るよう -(gap+線幅)/2 = -4px ずらす。 */
+/* 隣り合う非アクティブタブの間の縦線。gap(7px)の中央に来るよう -4px ずらす */
 .tab-btn:not(.active) + .tab-btn:not(.active)::before {
   content: "";
   position: absolute;
@@ -269,9 +244,7 @@ function onClosePress() {
   box-shadow: inset -2px 0 0 var(--accent);
 }
 
-/* ダーティマークはワークスペースアイコン（無ければjobアイコン）の右下に
-   バッジとして重ねる。アイコン自体はアクティブ/非アクティブで常に表示
-   され続けるため、ラベルの開閉アニメーションとは独立して安定した位置に出せる。 */
+/* ダーティマークはアイコンの右下にバッジとして重ねる */
 .tab-icon-badge-wrap {
   position: relative;
   display: inline-flex;
@@ -298,10 +271,7 @@ function onClosePress() {
   line-height: 1;
 }
 
-/* 画面が狭い時はアイコンのみ表示にするため、ラベルは常に畳む。
-   max-widthだけでなくmax-heightも0にする — 閉じるボタン（.tab-close、24px固定）
-   が幅は畳まれても高さ方向はそのまま残り、タブの実高さを押し上げてタブバーが
-   タブの有無で高さが変わってしまう原因になっていた。 */
+/* 狭い時はラベルを畳む。max-height も 0 にしないと .tab-close(24px固定)がタブ高さを押し上げる */
 .tab-btn.tab-narrow .tab-extra {
   max-width: 0;
   max-height: 0;
@@ -343,10 +313,6 @@ function onClosePress() {
   50% { background: rgba(130, 170, 255, 0.25); }
 }
 
-/* tab-working（出力中）のグラデーションと tab-phrase-notify / tab-blocked の
-   通知点滅は ui/styles/base.css（グローバル）でセッションサイドバー行と
-   共用する。どちらも同じ青の点滅で「このタブに注目」だけを伝え、種類は
-   タブを開いて確認する割り切り。ドット追加だと dirty-dot と場所を取り合う
-   （特にパネル下部のアイコンのみ表示）ため、幅を取らない背景の演出にする。 */
+/* tab-working / tab-phrase-notify / tab-blocked の点滅は base.css でセッションサイドバー行と共用 */
 
 </style>

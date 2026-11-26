@@ -12,10 +12,8 @@ export function useWorkspaceBranchCreate() {
   async function createBranchIn(workspace: string, name: string): Promise<boolean> {
     const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: name });
     if (!ok) return false;
-    // create-branchは内部でcheckoutも行うため、折り畳みヘッダー（現在
-    // ブランチ名・ahead/behind）の表示元であるworkspaceStoreも更新する。
-    // git:historyInvalidated購読側（GitHistory.vueのunpushed表示）がaheadの
-    // 更新前に再読み込みしてしまわないよう、emit前にawaitする。
+    // create-branch は checkout も行うため workspaceStore も更新する。
+    // git:historyInvalidated 購読側が ahead 更新前に再読み込みしないよう、emit 前に await する。
     await workspaceStore.fetchStatuses();
     emit("git:historyInvalidated");
     return true;

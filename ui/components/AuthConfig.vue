@@ -88,9 +88,6 @@ import { useCopyFeedback } from "../composables/useCopyFeedback.ts";
 import { useModalView } from "../composables/useModalView.ts";
 import { generateHexToken } from "../utils/token.ts";
 
-// Auth 設定画面のホスト。User Token セクションを持ち、Trusted Devices /
-// API Tokens は独立した子セクション（AuthDevicesSection / AuthApiTokensSection）。
-
 // 設定モーダル配下でのみ使われるため provide 値は常に入っている（useModalView.ts 参照）。
 const modalView = useModalView();
 const pushView = modalView.pushView!;

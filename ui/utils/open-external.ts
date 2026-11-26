@@ -1,7 +1,4 @@
-/**
- * 外部URLを新しいタブで開く（window.open 版の単一実装）。
- * falsy な URL は no-op。opener 経由の逆参照を防ぐため常に noopener,noreferrer を付ける。
- */
+/** 外部URLを新しいタブで開く。falsy は no-op。逆参照防止に noopener,noreferrer を常に付ける。 */
 export function openExternal(url: string | null | undefined): void {
   if (!url) return;
   window.open(url, "_blank", "noopener,noreferrer");

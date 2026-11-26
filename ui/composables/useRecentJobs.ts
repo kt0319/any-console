@@ -43,10 +43,8 @@ export function useRecentJobs() {
     safeJsonSave(LS_KEY_RECENT_JOBS, recentJobs.value);
   }
 
-  // PUTをawaitせず連打すると、後発のリクエストが先に完了して古い並び順で
-  // サーバー側を上書きしてしまうことがある（実行順とレスポンス順が一致しない
-  // ネットワークの逆転）。同時に1本しか投げないようにし、既に送信中なら
-  // その完了を待ってから次を送る（先頭の呼び出しは同期的にすぐ送る）。
+  // PUTを連打すると後発が先に完了して古い並び順でサーバー側を上書きしうるため、同時に1本だけ送る。
+  // 送信中なら完了を待ってから次を送る（先頭の呼び出しは同期的にすぐ送る）。
   let _inFlight: Promise<unknown> | null = null;
   function _syncToServer() {
     const recent_jobs = recentJobs.value;
@@ -71,9 +69,7 @@ export function useRecentJobs() {
     }
   }
 
-  // 実行したジョブを一覧の先頭（ピン留めグループの直後）へ移動する。
-  // 新規記録（recordJob）・既存項目の再実行（runRecentJob）の両方で使う共通処理。
-  // ピン留め済み項目は起動しても並び順を変えない（手動で並べた順を保持するため）。
+  // 実行したジョブを先頭（ピン留めグループの直後）へ移動する。ピン留め済み項目は並び順を変えない（手動順を保持）。
   function _touch(item: RecentJob) {
     let jobs;
     if (item.pinned) {
@@ -134,12 +130,7 @@ export function useRecentJobs() {
     await _syncToServer();
   }
 
-  /**
-   * Recent Jobs 一覧から選んだジョブをターミナルとして起動する。
-   * 保存済みの jobCommand は記録時点のスナップショットで古びる可能性があるため、
-   * 起動直前にワークスペースの現在のジョブ定義を取り直して上書きする
-   * （ジョブが改名・削除されていた場合はスナップショットのまま実行する）。
-   */
+  /** 保存済み jobCommand は古びうるため、起動直前にワークスペースの現在のジョブ定義で上書きする（改名・削除済みならスナップショットのまま）。 */
   async function runRecentJob(recent: RecentJob) {
     const { ok, data } = await apiGet(wsEndpoint(recent.workspace, "jobs"));
     const latest = ok ? data?.[recent.jobName] : null;
@@ -159,8 +150,7 @@ export function useRecentJobs() {
       const preview = jobCommandPreview(current.jobCommand, current.jobName);
       if (!await confirm(`${current.jobLabel || current.jobName}\n\n${preview}`)) return;
     }
-    // 再実行時も最新実行として先頭へ移動する（recordJobと同じ並び替え）。
-    // 取り直した最新定義で保存内容も更新しておく。
+    // 再実行も最新実行として先頭へ移動し、取り直した定義で保存内容も更新する。
     _touch(current);
     // ワークスペースを開いてもサイドバー/設定は閉じない（WorkspaceJobsPane.vue
     // のopenTerminal/runJobと同様）。

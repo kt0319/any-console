@@ -44,11 +44,9 @@ import { EP_COMMON_JOBS } from "../utils/endpoints.ts";
 import { jobCommandPreview } from "../utils/format.ts";
 
 const props = defineProps({
-  // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と
-  // 独立して表示したい場合に指定する。省略時は従来通り selectedWorkspace に従う。
+  // 一覧のインライン展開など、グローバルな selectedWorkspace と独立して表示する時に指定する。
   workspace: { type: String, default: null },
-  // ワークスペース一覧のEditモードと連動させ、各Jobの編集ボタンを
-  // Editモード中だけ表示する（誤操作しやすい操作を通常表示から分離する）。
+  // ワークスペース一覧のEditモードと連動し、各Jobの編集ボタンをEditモード中だけ表示する。
   editMode: { type: Boolean, default: false },
 });
 
@@ -80,8 +78,6 @@ const { confirm } = useConfirm();
 const commonJobs = ref<Job[]>([]);
 const localJobs = ref<Job[]>([]);
 
-// 共通ジョブ → ワークスペースジョブの順に同一マークアップで描画する
-//（編集時の isCommon と「Workspace jobs」小見出しだけが異なる）。
 const jobSections = computed(() => [
   { keyPrefix: "c-", jobs: commonJobs.value, isCommon: true, header: "" },
   { keyPrefix: "l-", jobs: localJobs.value, isCommon: false, header: "Workspace jobs" },
@@ -146,7 +142,7 @@ async function runJob(job: Job) {
     if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
   if (ws.value) recordJob(ws.value, job);
-  // ワークスペースを開いてもサイドバー/設定は閉じない（上のopenTerminalと同様）。
+  // 上のopenTerminalと同様、サイドバー/設定は閉じない。
   emit("terminal:launch", {
     workspace: wsName,
     icon: ws.value?.icon,

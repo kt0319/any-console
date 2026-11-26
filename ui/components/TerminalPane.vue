@@ -17,12 +17,7 @@
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeypad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
-    <!-- barモードは各ペインの上部/下部にフローの一部として帯を固定するため、
-         絶対配置基準である.terminal-frameの外（兄弟）に置き、bar-bottomは
-         order:1（下記CSS）で.terminal-frameの後ろへ回す。floatモードでも
-         .pill-groupはposition:absoluteのままなので、.terminal-frame(inset:0)
-         基準から.terminal-pane(position:relative)基準に変わるだけで見た目は
-         変わらない。 -->
+    <!-- bar モードは帯をフローの一部にするため .terminal-frame の兄弟として置く（bar-bottom は order:1 で後ろへ） -->
     <div
       v-if="layoutStore.infoPillDisplayMode !== 'off'"
       class="pill-group"
@@ -161,10 +156,7 @@ const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirmAndCloseTab } = useTabClose();
 
-// tab は markRaw のため tab.workspace 単体の変更は追跡されない。
-// terminalStore.tabWorkspaceVersion を読むことで、setTabWorkspace（Add で
-// ベアターミナルにワークスペースを紐付けた時など）による変更をこの
-// computed の再計算トリガーにする。
+// tab は markRaw のため tab.workspace の変更は追跡されない。tabWorkspaceVersion を読んで再計算させる。
 const paneWorkspace = computed(() => {
   terminalStore.tabWorkspaceVersion;
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
@@ -188,11 +180,8 @@ const frameEl = ref<HTMLElement | null>(null);
 const pillEl = ref<HTMLElement | null>(null);
 let activeFitTimer: ReturnType<typeof setTimeout> | null = null;
 
-// 分割モードでは.terminal-paneがビューポートよりずっと狭い。.pill-trailingの横スクロール
-// 上限幅を100vw基準にすると、はみ出したBranches/Changes等のボタンがoverflowクリップで隠れて
-// 届かなくなるため、実測したペイン幅から閉じるボタン等を差し引いた残りを上限にする。
-// ピーク（長い1行テキスト）は画面幅の半分で止めるが、アイコンのピル行はその上限を
-// かけず、ペイン幅いっぱいまで全部並べる。
+// 分割ペインは画面より狭いため、.pill-trailing の上限は実測ペイン幅から閉じるボタン等を引いた値にする。
+// ピークは画面幅の半分で止めるが、アイコンのピル行には上限をかけない。
 const { maxWidth: trailingMaxWidth, availableWidth: pillRowMaxWidth } = useElementMaxWidth(paneEl, PANE_PILL_TRAILING_RESERVED_PX);
 
 const {
@@ -310,11 +299,9 @@ function onWheel(e: WheelEvent) {
   e.preventDefault();
 }
 
-// term.open() 後、タップ（touch）ではOSキーボードを開かせず、クリック
-// （mouse/pen等）では通常通りフォーカスを許可する。アプリ全体で最後に観測した
-// pointerType（getLastPointerType）で判定する。ターミナル要素自体へのpointerdown
-// だけを見ると、確認ダイアログをタップで閉じた直後のタブ切替えのように、
-// ターミナル要素自身は何もイベントを受けていないfocus()呼び出しを判定できないため。
+// タップ（touch）では OS キーボードを開かせず、mouse/pen ではフォーカスを許可する。
+// ターミナル要素の pointerdown だけでは、確認ダイアログをタップで閉じた直後のタブ切替え等を判定できないため、
+// アプリ全体で最後の pointerType（getLastPointerType）を使う。
 function applyFocusGuard(term: Terminal | null | undefined) {
   const textarea = term?.textarea;
   if (!term || !textarea) return;
@@ -330,10 +317,8 @@ onMounted(() => {
     frameEl.value.style.setProperty("--terminal-font-size", `${fs}px`);
   }
   if (props.tab._pendingOpen && frameEl.value) {
-    // 非アクティブな復元タブは hidden 状態で term.open() を呼ぶと
-    // xterm.js のセル寸法計測が 0 になり fit が永久に失敗するため、
-    // isActive になるまで open を遅延させる。
-    // ただし分割モードのペインは非アクティブでも画面上に表示されているので即時 open する。
+    // hidden 状態で term.open() すると xterm.js のセル寸法が 0 になり fit が失敗するため、
+    // isActive まで open を遅延する。ただし分割ペインは非アクティブでも表示されているので即時 open
     const inVisibleSplitPane = layoutStore.isSplitMode && props.paneIndex >= 0;
     if (!isActive.value && props.tab._pendingRedraw && !inVisibleSplitPane) {
       // isActive watcher で開く
@@ -359,9 +344,7 @@ onMounted(() => {
   syncWorkspacePolling();
 });
 
-// tab は markRaw のため tab.workspace 単体の変更は追跡されない。
-// tabWorkspaceVersion（setTabWorkspace が進める）を watch し、実際の
-// 値の読み取りは syncWorkspacePolling 内で props.tab.workspace を直接見る。
+// tab は markRaw のため tab.workspace の変更は追跡されない。tabWorkspaceVersion を watch する。
 watch(() => terminalStore.tabWorkspaceVersion, () => {
   syncWorkspacePolling();
   if (!props.tab.workspace) return;
@@ -445,10 +428,7 @@ defineExpose({
   -webkit-touch-callout: none;
 }
 
-/* Info Pills（bar表示）が.terminal-frameの前に帯として実要素で並ぶため、
-   絶対配置で親全体を覆う代わりに.terminal-pane（flex-direction:column）の
-   残り高さを占めるフローアイテムにする。ResizeObserver（observeFrameResize）
-   がこのサイズ変化を検知してxtermを自動fitする。 */
+/* bar 表示の Info Pills は帯として前に並ぶため、.terminal-frame は残り高さを占めるフローアイテムにする（サイズ変化は observeFrameResize が fit） */
 .terminal-frame.terminal-frame-bar-mode {
   position: relative;
   inset: auto;

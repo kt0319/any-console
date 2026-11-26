@@ -1,5 +1,4 @@
 // @ts-check
-/** Shared xterm cell/terminal mock builders for tests */
 
 export function plainCell(ch) {
   return {

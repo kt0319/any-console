@@ -12,11 +12,7 @@ import { useCommandPalette } from "../composables/useCommandPalette.ts";
 import CommandPaletteResults from "./CommandPaletteResults.vue";
 import SessionListView from "./SessionListView.vue";
 
-// SessionListOverlay.vue（モバイルのオーバーレイ表示）とSessionSidebar.vue（PCのインライン
-// 表示）の両方から使うセッション一覧の中身。検索入力（コマンドパレット、CommandPaletteInput.vue）
-// が空の間はSessionListView.vueをそのまま表示し、入力があるときだけ結果
-// （CommandPaletteResults.vue）に差し替える。閉じるボタンと検索入力はタブバー
-// （TabBar.vue）側にあり、このパネルにヘッダーは持たない。
+// モバイルのオーバーレイとPCのサイドバーで共用。閉じるボタンと検索入力はTabBar.vue側にある。
 
 const { activeIndex, isSearching, resultsFromBottom, results, runItem } = useCommandPalette();
 </script>

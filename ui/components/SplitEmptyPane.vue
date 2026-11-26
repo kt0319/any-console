@@ -61,9 +61,7 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 
-// tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
-// ベアターミナルにワークスペースを紐付けた直後もタブ名に反映されるよう、
-// tabWorkspaceVersion を読んで依存に含める。
+// tab は markRaw のため tab.workspace の変更は追跡されない。tabWorkspaceVersion を読んで依存に含める。
 const openTabs = computed(() => {
   terminalStore.tabWorkspaceVersion;
   const occupied = new Set();
@@ -107,8 +105,7 @@ function onOpenWorkspace() {
 }
 
 function onRemovePane() {
-  // 分割解除が発生する場合の復帰先タブへの切り替えは layoutStore.removeEmptyPane
-  // （内部で exitSplitMode 経由）が保証するので、ここで別途 switchTab する必要はない。
+  // 復帰先タブへの切り替えは layoutStore.removeEmptyPane（exitSplitMode 経由）が行う
   layoutStore.removeEmptyPane(props.paneIndex);
 }
 </script>

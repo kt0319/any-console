@@ -2,21 +2,15 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 
 /**
- * 使い捨てサーバモード（playwright.config.js 参照）で作った一時 data ディレクトリを
- * 片付ける。外部サーバモード（ANY_CONSOLE_URL 指定）では何もしない。
- *
- * Playwright の webServer 停止は globalTeardown より後なので、サーバが終了時に
- * 書き戻したファイルが一部残ることがある。OS の一時領域なので残っても無害。
- * （他ランを巻き込まないよう、削除対象はこの実行が作ったディレクトリのみ）
+ * 使い捨てサーバモードで作った一時 data ディレクトリを片付ける。外部サーバモード（ANY_CONSOLE_URL 指定）では何もしない。
+ * webServer 停止は globalTeardown より後のため、サーバが書き戻したファイルが残ることがある（一時領域なので無害）。
  */
 export default function globalTeardown() {
   const dir = process.env.ANY_CONSOLE_E2E_DATA_DIR;
   if (!dir) return;
   fs.rmSync(dir, { recursive: true, force: true });
 
-  // このランのユニークな tmux プレフィックスに一致するセッションを一掃する。
-  // プレフィックスはラン固有なので、他ラン・実運用（ac-）のセッションには一致しない。
-  // 各テストの cleanupNewSessions が原則後始末するため、ここはテスト中断時の保険。
+  // このランの tmux プレフィックスに一致するセッションを一掃する。各テストの後始末の保険（中断時用）。
   const tmuxPrefix = process.env.ANY_CONSOLE_E2E_TMUX_PREFIX;
   if (!tmuxPrefix) return;
   let names = "";

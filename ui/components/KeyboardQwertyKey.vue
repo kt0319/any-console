@@ -40,8 +40,7 @@
               <template v-else>{{ displayLabel(keyDef) }}</template>
             </div>
           </template>
-          <!-- カメラキーの右にBSキーを追加する
-               （a行末尾の Backspace/flickUp:Delete キーとは別の入り口として並存）。 -->
+          <!-- カメラキーの右の BS キー（a 行末尾の Backspace/Delete キーとは別の入り口） -->
           <div
             v-if="ri === 2"
             class="quick-key"
@@ -89,17 +88,11 @@ import { useQwertyCamera } from "../composables/useQwertyCamera.ts";
 import { qwertyHasFlick, qwertyFlickUpLabel, qwertyDisplayLabel } from "../utils/qwerty-key.ts";
 import { restartTapBounce } from "../utils/dom.ts";
 
-// KeyboardBar.vue専用の部品（単独では使わない）。入力欄・矢印/Enterキーなどの
-// 状態はすべてKeyboardBar.vue側で一元管理し、このコンポーネントへはprops経由で
-// 渡す（inputFocused/showFnView/panelView）。
 const props = defineProps({
   active: { type: Boolean, default: false },
   externalInputFocused: { type: Boolean, default: false },
   externalFnView: { type: Boolean, default: false },
-  // "none" | "snippets" | "history"。History/Snippet表示中はQWERTYグリッド層を
-  // 隠す（実際のSendSnippet/SendHistoryはKeyboardBar.vue側が、このコンポーネント
-  // とbar行の両方を覆うオーバーレイとして描画する。理由はKeyboardBar.vueの
-  // コメント参照）。
+  // "none" | "snippets" | "history"。History/Snippet 表示中は QWERTY グリッド層を隠す
   panelView: { type: String, default: "none" },
 });
 
@@ -109,8 +102,6 @@ const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, modifierState, clearModifiers, getActiveTerminalTab } = useKeyboard();
 
-// キーレイアウト（data/keyboard-layout.ts）の1キー分。flickUp/flickDown は
-// 一部のキーのみ持つ。
 interface QwertyKeyDef {
   label: string;
   key: string;

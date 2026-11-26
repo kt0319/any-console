@@ -10,12 +10,8 @@ import { storeToRefs } from "pinia";
 import { useLayoutStore } from "../stores/layout.ts";
 import { abbreviateBranch } from "../utils/git.ts";
 
-// コミット行の refs バッジ列（HEAD / ブランチ / リモート / タグ）。
-// GitHistory の選択コミットヘッダーとコミット一覧行で共用する。
-//
-// git.ts の GitRef（type がリテラルUnion）と useGitLogPagination 経由の
-// GitGraphEntry.refs（type が string に広がったローカル型）の両方を受けるため、
-// 最小限のフィールドだけを要求する形にする。
+// コミット行の refs バッジ列。GitHistory の選択コミットヘッダーと一覧行で共用する。
+// GitRef と GitGraphEntry.refs（type が string に広がる）の両方を受けるため、最小限のフィールドだけ要求する。
 type RefLike = { type: string, label: string, icon?: string, synced?: boolean };
 
 defineProps({

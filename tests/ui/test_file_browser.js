@@ -4,7 +4,6 @@ import {
   joinEntryPath, splitPathSegments, entrySizeText, buildGitHubEntryUrl,
 } from "../../ui/utils/file-browser.ts";
 
-// ── Tests ──
 
 describe("joinEntryPath", () => {
   it("joins parent path and name", () => {

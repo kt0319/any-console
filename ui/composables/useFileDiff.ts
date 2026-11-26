@@ -19,9 +19,7 @@ export function useFileDiff({ getDiffFile, getDiffMessage, getDiffCommitHash }: 
   const diffHtml = ref("");
   const diffNewFileContent = ref<Record<string, any> | null>(null);
 
-  // 同じファイルパスが別コミットにも存在する場合、diffFile（パス）だけを
-  // watch していると値が変わらず再取得されない（前のコミットの内容が残る）ため、
-  // commitHash も合わせて監視して確実に再取得する。
+  // 同じパスが別コミットにも存在すると diffFile だけでは再取得されないため、commitHash も監視する。
   watch([getDiffFile, getDiffCommitHash], async ([file]) => {
     diffNewFileContent.value = null;
     if (!file) { diffHtml.value = ""; return; }

@@ -7,7 +7,6 @@ const collapsedGroupIds = new Set<string>(
   safeJsonLoad<string[]>(LS_KEY_COLLAPSED_WORKSPACE_GROUPS, []).filter((id) => typeof id === "string"),
 );
 
-/** Open Session 一覧のワークスペースグループの開閉状態。 */
 export function useCollapsedWorkspaceGroups() {
   const collapsedGroups = reactive(collapsedGroupIds);
 

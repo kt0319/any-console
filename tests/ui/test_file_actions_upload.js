@@ -1,8 +1,5 @@
 // @ts-check
-/**
- * useFileActions: 複数ファイルドロップ時の上書き衝突ハンドリング。
- * 「一部拒否」「全部拒否」でスキップ件数がトースト、成功件数がfiles peekに反映されることを確認する。
- */
+// useFileActions: 複数ファイルドロップ時の上書き衝突ハンドリング（スキップ件数のトースト・成功件数の files peek）。
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useFileActions } from "../../ui/composables/useFileActions.ts";
@@ -29,7 +26,7 @@ function jsonResponse(data) {
   return { ok: true, json: async () => data };
 }
 
-/** confirm() が呼ばれるのを待ってから解決する（onCancel/onOk は同じモジュール状態を共有） */
+// confirm() が呼ばれるのを待ってから解決する
 async function waitForConfirmThen(resolveFn) {
   const { visible } = useConfirm();
   for (let i = 0; i < 50 && !visible.value; i++) {

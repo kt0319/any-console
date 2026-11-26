@@ -13,7 +13,6 @@ export interface RunnableJob {
   detached?: boolean;
 }
 
-/** ワークスペースでジョブを起動する（確認ダイアログ → Recent Jobs へ記録 → ターミナル起動）。 */
 export function useRunJob() {
   const { confirm } = useConfirm();
   const { recordJob } = useRecentJobs();

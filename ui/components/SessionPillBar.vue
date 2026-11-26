@@ -52,9 +52,8 @@ import type { usePeekPills } from "../composables/usePeekPills.ts";
 import { buildInfoPillRowProps, type PillFields } from "../utils/pill-fields.ts";
 import { SIDEBAR_PILL_ROW_RESERVED_PX } from "../utils/constants.ts";
 
-// 左に「状態アイコン + ブランチ名」、右にピル（値が変わった時だけ peek に差し替わる）と
-// 操作ボタンを並べる帯。サイドバーの行2（SessionSidebarRow.vue）とターミナルペインの
-// バー表示（TerminalPane.vue）で共用する。peek の状態は呼び出し側の usePeekPills を受け取る。
+// 左に「状態アイコン + ブランチ名」、右にピルと操作ボタンを並べる帯（SessionSidebarRow.vue と TerminalPane.vue で共用）。
+// peek の状態は呼び出し側の usePeekPills を受け取る。
 defineProps({
   item: { type: Object, required: true },
   tab: { type: Object, required: true },

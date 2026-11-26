@@ -11,7 +11,6 @@ import SendHistory from "../../../ui/components/SendHistory.vue";
 import { useInputStore } from "../../../ui/stores/input.ts";
 import { useKeyboardBarState } from "../../../ui/composables/useKeyboardBarState.ts";
 
-// ── SendSnippet / SendHistory: 設定画面からの挿入 ──────────────────────────
 
 describe("SendSnippet: 設定画面からのタップ挿入", () => {
   beforeEach(() => {
@@ -78,7 +77,6 @@ describe("SendHistory: 設定画面からのタップ挿入・削除", () => {
   });
 });
 
-// ── useKeyboardBarState: スニペット/履歴パネルの直接選択 ────────────────────
 
 describe("useKeyboardBarState: openSnippetPanel/openHistoryPanel の直接選択", () => {
   function mountState() {

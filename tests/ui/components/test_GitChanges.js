@@ -1,9 +1,4 @@
 // @vitest-environment happy-dom
-/**
- * GitChanges: 作業ツリー/コミットのdiff取得状態をAsyncState<T>に統合した際の表示確認。
- * loadCommitDiff失敗時は元々エラー表示が無かったが、loadWorkingTreeDiff側と
- * 挙動を揃えてエラーメッセージを出すようにした（この変更点も検証する）。
- */
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";

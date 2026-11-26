@@ -1,26 +1,18 @@
-/**
- * worktree のブランチ名を単独表示用に返す（未指定なら空文字）。ベース名と連結して
- * 「ベース名 | ブランチ」にしたい場合は workspaceDisplayName / 呼び出し側で縦線区切りを付与する。
- */
+/** worktree のブランチ名を単独表示用に返す（未指定なら空文字）。 */
 export function worktreeBranchLabel(branch?: string): string {
   return branch || "";
 }
 
 /**
- * worktree 削除の確認ダイアログ・トーストに出す表示名。
- * ワークスペース一覧の worktree エントリ（worktree_branch/name あり）と
- * ブランチ一覧の worktree（branch/path のみ）のどちらを渡しても同じ名前に
- * なるよう、両方のフィールドを順にフォールバックする。
+ * worktree 削除の確認ダイアログ・トースト用の表示名。
+ * worktree_branch/name と branch/path のどちらの形でも同じ名前になるようフォールバックする。
  */
 export function worktreeConfirmLabel(wt?: { worktree_branch?: string; branch?: string; name?: string; path?: string }): string {
   return worktreeBranchLabel(wt?.worktree_branch || wt?.branch) || wt?.name || wt?.path || "";
 }
 
 /**
- * worktree削除に伴い一緒に閉じる/停止する残骸（開いているセッション・dev server
- * プロセス）を説明する一文。ディレクトリを消すだけでは自動的に片付かないため、
- * 削除確認の文言・確認ダイアログのdescの両方から使う（removeWorktreeConfirmMessage /
- * useBranchActions.tsのdeleteLocalBranch）。該当が無ければ空文字。
+ * worktree 削除に伴って閉じる/停止する残骸（開いているセッション・dev server）を説明する一文。該当が無ければ空文字。
  */
 export function worktreeResidueNote(
   residue: { openTabs?: number; detachedSessions?: number; devServers?: number } = {},
@@ -36,10 +28,7 @@ export function worktreeResidueNote(
   return parts.join(" ");
 }
 
-/**
- * worktree 削除の確認メッセージ（削除元の画面によらず同一文言にする）。
- * residueは useWorktreeCleanup().findResidue() の結果件数。
- */
+/** worktree 削除の確認メッセージ。residue は findResidue() の結果件数。 */
 export function removeWorktreeConfirmMessage(
   wt?: { worktree_branch?: string; branch?: string; name?: string; path?: string },
   residue: { openTabs?: number; detachedSessions?: number; devServers?: number } = {},
@@ -50,10 +39,7 @@ export function removeWorktreeConfirmMessage(
 }
 
 /**
- * 削除対象のworktreeを開いているタブを探す。
- * GitChangeBranch.vue経由のwt（gitのworktree一覧、any-console登録名は
- * wt.workspace）とSessionOpenHome.vue経由のwt（登録済みワークスペースそのもの、
- * 名前はwt.name）の両方の形を受け付ける。
+ * 削除対象の worktree を開いているタブを探す。wt.workspace（git worktree 一覧由来）と wt.name（登録済みワークスペース由来）の両形を受け付ける。
  */
 export function findOpenTabsForWorktree<T extends { workspace?: string | null }>(
   tabs: T[],
@@ -64,10 +50,7 @@ export function findOpenTabsForWorktree<T extends { workspace?: string | null }>
   return (tabs || []).filter((tab) => tab.workspace === wsName);
 }
 
-/**
- * ワークスペースの表示名を返す。
- * worktree の場合は「ベース名 | ブランチ」形式にする（登録名 base-branch のベタ表示を避ける）。
- */
+/** ワークスペースの表示名。worktree は「ベース名 | ブランチ」形式。 */
 export function workspaceDisplayName(ws?: { name?: string; worktree?: boolean; worktree_base?: string; worktree_branch?: string }): string {
   if (ws && ws.worktree && ws.worktree_branch) {
     return ws.worktree_base ? `${ws.worktree_base} | ${ws.worktree_branch}` : ws.worktree_branch;
@@ -76,11 +59,8 @@ export function workspaceDisplayName(ws?: { name?: string; worktree?: boolean; w
 }
 
 /**
- * worktreeのワークスペース名（"base:branch"形式、server/src/git_utils.rs の
- * worktree_workspace_name/split_worktree_name と同じ規則）からベースワークスペース名
- * を取り出す。worktreeでなければそのまま返す。
- * dispatch履歴をworktreeと元のディレクトリで共有表示するための正規化に使う
- * （dispatch-request.ts の dispatchBaseWorkspaceLabel 参照）。
+ * worktree のワークスペース名（"base:branch"、server/src/git_utils.rs の worktree_workspace_name と同じ規則）からベース名を取り出す。
+ * worktree でなければそのまま返す。
  */
 export function baseWorkspaceName(name?: string | null): string {
   if (!name) return "";
@@ -93,9 +73,8 @@ export function baseWorkspaceName(name?: string | null): string {
 }
 
 /**
- * 新しいタブを置く位置。worktreeのタブは同じベースワークスペースの最後のタブの隣に入れる。
- * ベースワークスペースのタブは、同じワークスペースのタブがあればその最後の隣、
- * worktreeのタブだけがあればその先頭の左に入れる。同じベースのタブが無ければ末尾にする。
+ * 新しいタブを置く位置。worktree のタブは同じベースの最後のタブの隣、ベースのタブは同じワークスペースの最後の隣
+ * （worktree のタブだけならその先頭の左）。同じベースのタブが無ければ末尾。
  */
 export function tabInsertIndex(tabs: { workspace?: string | null }[], workspace?: string | null): number {
   const base = baseWorkspaceName(workspace);
@@ -115,13 +94,8 @@ export function tabInsertIndex(tabs: { workspace?: string | null }[], workspace?
 }
 
 /**
- * baseWorkspaceName の逆。ベース名とブランチ名から worktree のワークスペース名
- * （"base:branch"形式）を組み立てる（server/src/git_utils.rs の
- * worktree_workspace_name と同じ規則）。
- * GitChangeBranch.vue の `/worktrees` API 由来の worktree エントリは
- * workspace/name フィールドを持たない（config.json に明示登録された worktree
- * でしか埋まらないため、通常は空）ので、findOpenTabsForWorktree に渡す前に
- * ここで組み立てる必要がある。
+ * baseWorkspaceName の逆。ベース名とブランチ名から "base:branch" を組み立てる（server/src/git_utils.rs と同じ規則）。
+ * `/worktrees` API 由来のエントリは workspace/name を持たないため、findOpenTabsForWorktree に渡す前に必要。
  */
 export function worktreeWorkspaceName(base?: string | null, branch?: string | null): string {
   if (!base || !branch) return "";

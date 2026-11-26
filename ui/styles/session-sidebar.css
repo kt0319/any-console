@@ -1,28 +1,18 @@
-/* セッションサイドバー行（SessionListView.vue の通常セッション行・pending
-   dispatch行、SessionSidebarRow.vue）で共用する見た目。両方が同じクラス名
-   （.session-sidebar-item / .session-sidebar-pills-row / .session-sidebar-li）
-   を使うため、どちらか一方のscoped styleに置くと他方に効かない。scopedを
-   跨いで共有する必要があるスタイルはここ（グローバル）に集約する。 */
+/* セッションサイドバー行（SessionListView.vue・SessionSidebarRow.vue）で共用する見た目。scoped を跨いで共有するためグローバルに置く。 */
 
-/* セッション（タブ）ごとに罫線で区切る。通常セッションリストとpending
-   dispatchリストが隣接して並ぶ（SessionListView.vue）ため、最後の行だけ
-   罫線を消すと2つのリストが境界なく繋がって見えてしまう。常に表示する。 */
+/* 通常セッションリストと pending dispatch リストが隣接するため、最後の行も罫線を消さず常に表示する。 */
 .session-sidebar-li {
   --session-sidebar-bar-width: 4px;
   border-bottom: 1px solid var(--border);
   position: relative;
 }
 
-/* ベースとworktreeの行をタブバー（TabBar.vue の .tab-group）と同じ背景でまとめる。 */
+/* ベースと worktree の行をタブバー（.tab-group）と同じ背景でまとめる。 */
 .session-sidebar-li.session-group {
   background: var(--bg-tertiary);
 }
 
-/* 行1（アイコン・ワークスペース名 + インフォピル）・行2（ブランチ名・
-   ステータス）は見た目上ひとつのクリック可能な行として振る舞う。背景・
-   アクティブ色・左ボーダーはここ（各行のラッパー）に統一して持たせ、中の
-   .session-sidebar-item（ボタン）・.session-sidebar-pills-rowは透過にする
-   （個別に色を持たせると2行の間で分断して見えるため）。 */
+/* 行1・行2は見た目上ひとつのクリック可能な行。背景・アクティブ色・左ボーダーは各行のラッパーに持たせ、中のボタン・pills-row は透過にする。 */
 .session-sidebar-row1,
 .session-sidebar-row2 {
   display: flex;
@@ -41,8 +31,7 @@
   padding: 0 12px;
 }
 
-/* 行2はピル・閉じるボタンが並ぶため、上下に余白を持たせて隣の行のピルを誤タップしにくくする。
-   その分、行1は低くして、行1と行2の中身が離れすぎないようにする。 */
+/* 行2は誤タップを避けるため上下に余白を持たせ、その分行1を低くして両者が離れすぎないようにする。 */
 .session-sidebar-row1 {
   min-height: 40px;
 }
@@ -69,10 +58,7 @@
   flex-shrink: 0;
 }
 
-/* TerminalPaneのピル行と同じ見た目（ui/styles/info-pills.css）を土台にする。
-   ピル自体の背景（.pill-chip既定はターミナル背景越しに見える前提の半透明
-   ダーク）はサイドバーの地色（--bg-secondary）に対して浮いて見えるため、
-   サイドバー用に上書きする。 */
+/* TerminalPane のピル行（info-pills.css）を土台に、サイドバーの地色（--bg-secondary）で浮かないよう背景を上書きする。 */
 .session-sidebar-pills {
   display: flex;
   flex: 1;
@@ -80,8 +66,7 @@
   min-width: 0;
 }
 
-/* .pill-trailingは既定でflex:1 1 0%（親の残り幅いっぱいに広がる）ため、
-   このコンテナのjustify-content:flex-endが効くよう中身サイズに縮める。 */
+/* .pill-trailing は既定で flex:1 1 0% のため、justify-content:flex-end が効くよう中身サイズに縮める。 */
 .session-sidebar-pills .pill-trailing {
   flex: 0 1 auto;
 }
@@ -91,29 +76,19 @@
   border-color: var(--border);
 }
 
-/* working/blocked時、個々のピル（.pill-chip.pill-working/.pill-blocked、
-   ui/styles/info-pills.css）が持つ独自アニメーションはサイドバーでは止める。
-   行（li）側に統一済みの左インジケーターが既にworking/blockedを示している
-   ため、ピルごとにも動くと同じ情報が別々のタイミングで何重にも動いて見えて
-   しまう。TerminalPane側の浮遊ピル（.terminal-pane .pill-chip）は対象外。 */
+/* working/blocked は行側の左インジケーターが示すため、サイドバーではピル個別のアニメーションを止める（TerminalPane 側の浮遊ピルは対象外）。 */
 .session-sidebar-pills .pill-chip.pill-working,
 .session-sidebar-pills .pill-chip.pill-blocked {
   animation: none;
   background-image: none;
 }
 
-/* peekピル（PillPeek.vue、.pill-peek-wide）はInfoPillRowと違いflex:1を
-   持たないため、margin-left:autoで左側の余りスペースを自分が吸収し、
-   閉じるボタンと同じ右端に寄せる（peek中は閉じるボタンが隠れるので単独でも
-   右端に付く）。ピル自体は内容に合わせた幅のまま伸ばさない。 */
+/* peekピルは flex:1 を持たないため、margin-left:auto で閉じるボタンと同じ右端に寄せる。幅は内容に合わせたまま。 */
 .session-sidebar-pills-row .pill-peek-wide {
   margin-left: auto;
 }
 
-/* ボタン自体は行1ラッパー（.session-sidebar-row1）の中で中身（アイコン・
-   ワークスペース名）ぶんだけ幅を持つ内側要素。背景・左ボーダー・アクティブ色は
-   .session-sidebar-row1側が持つため、ここでは持たない（二重に色が付くのを
-   避けるため）。 */
+/* ボタン自体は行1ラッパー内の内側要素。背景・左ボーダー・アクティブ色は .session-sidebar-row1 側が持つ（二重に色が付くのを避ける）。 */
 .session-sidebar-item {
   display: flex;
   align-items: center;
@@ -130,20 +105,15 @@
   touch-action: manipulation;
 }
 
-/* 通常ホバーは行1/行2ラッパー自身にvar(--bg-tertiary)を敷く。アクティブ行は
-   ホバーでもアクティブ強調色を維持する。 */
+/* 通常ホバーは行ラッパーに --bg-tertiary を敷く。アクティブ行はホバーでも強調色を維持する。 */
 @media (hover: hover) and (pointer: fine) {
   .session-sidebar-row1.active:hover,
   .session-sidebar-row2.active:hover {
     background: var(--accent-bg-12);
   }
 
-  /* 行1・行2はボタンではなく独立した兄弟要素のため、片方をホバーしても
-     もう片方のhover-bgは効かない。行全体（li）を1つのホバー対象として扱い、
-     どちらの行の上にいても両方が同じ背景で連動するようにする（分断して
-     見えないようにするため）。 */
-  /* 背景はグループ行の地色（--bg-tertiary）と同じ色にならないよう白を薄く重ね、
-     左端の線と文字色でも、どの項目の上にいるかを示す。アクティブ行の強調色とは混同しない淡い色にする。 */
+  /* 行1・行2は独立した兄弟要素のため、行全体（li）を1つのホバー対象として扱い、どちらの上でも両方を同じ背景で連動させる。
+     背景は --bg-tertiary と同色にならないよう白を薄く重ね、アクティブ行の強調色と混同しない淡い色にする。 */
   .session-sidebar-li:hover .session-sidebar-row1:not(.active),
   .session-sidebar-li:hover .session-sidebar-row2:not(.active) {
     background: rgba(255, 255, 255, 0.07);
@@ -156,26 +126,9 @@
   color: var(--text-primary);
 }
 
-/* working（出力中）・blocked/phrase通知は、行全体ではなく左端のアクティブ
-   インジケーター（border-left。アクティブ行が常時 var(--accent) で点灯する
-   のと同じ場所）の中だけで動かす。以前はタブと同じ「行全体が流れる/点滅する」
-   演出（ui/styles/base.css）を共用していたが、セッション一覧はタブより行数が
-   多く常時視界に入るため、行全体が動くとうるさく感じやすい。アクティブな行は
-   既に強調色がついているため対象外にする（pending dispatch行はそもそも
-   working/blocked/phrase-notifyのクラスを持たないため対象外）。
-
-   インジケーターは行（li）に1本だけ持たせる。以前は本体ボタンとピル行の
-   両方に別々の演出（別々のアニメーションインスタンス）を付けていたため、
-   2つの要素の間でアニメーションのタイミングがズレて統一感なく見えていた。
-   li側は元々border-bottomのみでレイアウト用のボーダーを持たないため、
-   ::beforeで独立したバー幅のオーバーレイを敷く（blocked/phrase通知の点滅も
-   border-left-colorではなくこの::beforeで揃え、演出方式を1本化する）。
-
-   working: タブ（ui/styles/base.css working-pulse）と同じ「一方向に流れ
-   続ける」イメージを縦方向にしたもの（上→下へループ、ease-in-outの往復では
-   なくlinearの一方通行）。
-   blocked/phrase通知: より緊急度が高いため点滅で目立たせる（working と
-   同時に付いている場合は点滅を優先し、working側のスイープは止める）。 */
+/* working・blocked/phrase通知は、行全体ではなく左端のインジケーター位置だけで動かす（行全体が動くと常時視界に入るためうるさい）。
+   アクティブ行は強調色があるため対象外。インジケーターは li の ::before 1本に統一し、要素間でアニメーションがズレないようにする。
+   working は linear の一方通行のスイープ、blocked/phrase通知は点滅。両方付いている場合は点滅を優先し、working のスイープは止める。 */
 .session-sidebar-li.session-working:not(.active)::before,
 .session-sidebar-li.session-phrase-notify:not(.active)::before,
 .session-sidebar-li.session-blocked:not(.active)::before {
@@ -188,8 +141,7 @@
 }
 
 .session-sidebar-li.session-working:not(.active)::before {
-  /* アクティブ行の左インジケーター（var(--accent)そのまま）と見分けが付くよう
-     working中はそれより少し暗い色にする。 */
+  /* アクティブ行の左インジケーター（var(--accent)）と見分けが付くよう、working 中は少し暗い色にする。 */
   background-image: linear-gradient(
     180deg,
     transparent 0%,
@@ -202,8 +154,7 @@
   animation: session-sidebar-working-sweep 2s linear infinite;
 }
 
-/* タブのworking-pulse（200%↔-200%、background-size 200%）と移動量/背景サイズの
-   比率を揃え、体感速度を一致させる。向きは下→上。 */
+/* タブの working-pulse と移動量/背景サイズの比率を揃え、体感速度を一致させる。 */
 @keyframes session-sidebar-working-sweep {
   0% { background-position: 0% 200%; }
   100% { background-position: 0% -200%; }

@@ -3,9 +3,6 @@ import type { Ref } from "vue";
 import { copyText } from "../utils/clipboard.ts";
 import { URL_COPIED_RESET_MS } from "../utils/constants.ts";
 
-/**
- * クリップボードコピー＋成功フィードバック（一定時間後に自動で戻るcopiedフラグ）。
- */
 export function useCopyFeedback(): { copied: Ref<boolean>, copy: (text: string) => Promise<boolean> } {
   const copied = ref(false);
 

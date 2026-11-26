@@ -2,16 +2,10 @@ import { ref, computed, nextTick, watch, type Ref } from "vue";
 import { emit } from "../app-bridge.ts";
 import { useBusListener } from "./useBusListener.ts";
 
-/**
- * KeyboardBar の入力 / スニペット状態とキーボード開閉を管理する。
- *
- * @param keyboardInput KeyboardInput コンポーネントへの ref
- */
 export function useKeyboardBarState({ keyboardInput, clearModifiers }: {
   keyboardInput: Ref<any>,
   clearModifiers: () => void,
 }) {
-  // ─── 入力 / スニペット状態 ─────────────────────────────────────
   const isFullKeyboard = ref(false);
   const draft = ref("");
   const inputFocused = ref(false);
@@ -23,10 +17,7 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }: {
     inputFocused.value = !!focused;
   }
 
-  // History/Snippetタブの直接選択。fnビューと同じくQWERTYパネル内に直接
-  // オーバーレイ表示する（設定モーダルは開かない）。タブ帯の他のタブと同じく
-  // 選択式（トグルではない）にするため、既に開いている方を再タップしても
-  // 閉じない（閉じる操作はQWERTYタブ/×ボタンに一本化）。
+  // History/Snippet タブは選択式。開いている方を再タップしても閉じない（閉じるのは QWERTY タブ/×ボタンに一本化）
   function openSnippetPanelView(view: string) {
     snippetPanelView.value = view;
     clearModifiers();
@@ -44,7 +35,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }: {
     snippetPanelView.value = "none";
   }
 
-  // ─── キーボード開閉 ────────────────────────────────────────────
   function hideInput() {
     isFullKeyboard.value = false;
     clearModifiers();
@@ -76,8 +66,7 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }: {
     draft.value = command;
   });
 
-  // 入力モード切替で keyboard-bar の高さが変わると terminal 領域も縮む / 広がる。
-  // ResizeObserver の debounce を待たず、即座に fit を要求して旧サイズでの描画を最小化する。
+  // 高さ変化で terminal 領域も変わるため、ResizeObserver の debounce を待たず即 fit を要求する
   watch([isFullKeyboard, inputFocused], async () => {
     await nextTick();
     emit("layout:fitAll", { force: true });

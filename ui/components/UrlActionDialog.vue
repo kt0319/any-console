@@ -1,5 +1,4 @@
 <template>
-  <!-- ターミナルURLアクションダイアログ -->
   <BaseDialog :visible="!!terminalUrl" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="terminalUrl = ''">
     <div class="dialog-box" style="--dialog-width: 480px" role="dialog" aria-modal="true" :aria-label="title">
       <DialogCloseButton @close="terminalUrl = ''" />

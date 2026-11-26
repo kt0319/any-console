@@ -3,8 +3,6 @@ import { describe, it, expect } from "vitest";
 import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.ts";
 import { safeFlagLoad, safeFlagSave, safeJsonLoad, safeJsonSave, safeStringLoad, safeStringSave } from "../../ui/utils/storage.ts";
 
-// ── Tests ──
-
 describe("workspaceDownloadPath", () => {
   it("builds correct download URL", () => {
     expect(workspaceDownloadPath("myws", "dir/file.txt")).toBe(

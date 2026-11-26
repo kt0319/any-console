@@ -5,11 +5,8 @@ import { useSessionOpenNav } from "./useSessionOpenNav.ts";
 import { useSettingsNav } from "./useSettingsNav.ts";
 import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";
 
-/**
- * いずれかの全面オーバーレイが開いている間、layoutStore.isAnyOverlayOpen を立てる。
- * isAnyOverlayOpenは「いずれかのオーバーレイが表示中か」を表す既存フラグ（useTerminalInput/
- * useGlobalShortcutsがショートカット抑止に使う）。4つの独立オーバーレイに分離したためここで集約する。
- */
+/** いずれかの全面オーバーレイが開いている間 layoutStore.isAnyOverlayOpen を立てる。
+useTerminalInput / useGlobalShortcuts がショートカット抑止に使う。 */
 export function useAnyOverlayOpen() {
   const layoutStore = useLayoutStore();
   const { isOpen: isSessionListOverlayOpen } = useSessionListOverlay();

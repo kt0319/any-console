@@ -17,7 +17,6 @@
         </select>
       </div>
 
-      <!-- Workspace / Job: 新規セッション時のみ有効（既存セッション選択時は参考表示のみ） -->
       <div class="ws-settings-row">
         <span class="ws-settings-label">Workspace</span>
         <select v-model="selectedWorkspace" class="form-input" :disabled="!isNewSession">
@@ -136,19 +135,14 @@ import { buildDispatchOverrides } from "../utils/dispatch-run.ts";
 import { useBusListener } from "../composables/useBusListener.ts";
 import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, asyncValueOr, isAsyncPending } from "../utils/async-state.ts";
 
-// Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new_session__";
 
-// WorkspaceDetail.vueのDispatchタブ内でのローカルな画面遷移用。Settings側の
-// pushViewスタックには乗せない（サイドバー側に別レイヤーとして出てしまうため）。
+// WorkspaceDetail.vueのDispatchタブ内のローカル遷移。pushViewスタックに乗せるとサイドバー側に別レイヤーで出る。
 const props = defineProps({
   itemId: { type: String, required: true },
-  // dispatchピルを押したタブ自身のsessionId（WorkspaceDetail.vue参照）。
-  // サーバー側で既存セッションが見つからず existing_session_id が無い場合の
-  // Session選択のデフォルトに使う。
+  // dispatchピルを押したタブ自身のsessionId。existing_session_idが無い場合のSession選択デフォルト。
   preferredSessionId: { type: String as PropType<string | null>, default: null },
-  // Runで新規タブが作られるとこのコンポーネント自身が破棄され、その後のemitはVueに
-  // 捨てられる。親のダイアログを確実に閉じるため、emitではなく関数propで通知する。
+  // Run後に本コンポーネントが破棄されemitがVueに捨てられるため、親ダイアログを閉じる通知は関数propで行う。
   afterRun: { type: Function as PropType<() => void>, default: undefined },
 });
 const emits = defineEmits(["back"]);
@@ -158,13 +152,10 @@ const { queue, recent, runItem, discardItem } = useDispatchQueue();
 const { imagePaths, previewUrls, onPaste: onImagePaste, removeImage } = useDispatchImagePaste();
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
-// Session select の一覧中、今このモーダルを開いているタブ自身があれば
-// 「(this session)」を付けて区別できるようにする。
 const currentSessionId = computed(() => terminalStore.activeTab?.sessionId || null);
 
 const itemId = props.itemId;
-// 承認待ち（queue）を優先し、無ければ実行済み履歴（recent）から探す。
-// recent 由来の場合は「編集して再実行」モード（isRerun）になり、Discardは出さない。
+// 承認待ち(queue)優先、無ければ履歴(recent)から探す。recent由来は再実行モード(isRerun)でDiscardを出さない。
 const queueItem = computed(() => queue.value.find((q) => q.id === itemId) || null);
 const recentItem = computed(() => queueItem.value ? null : (recent.value.find((r) => r.id === itemId) || null));
 const item = computed(() => queueItem.value || recentItem.value);
@@ -172,24 +163,19 @@ const request = computed(() => item.value?.request || null);
 const isRerun = computed(() => !queueItem.value && !!recentItem.value);
 
 const branch = ref("");
-// Create branch/worktree で入力する新規ブランチ名。Change branch側のbranch
-// （実在ブランチへの切替先、select由来）とは別refに分離する（共用すると
-// Change branchへ戻った時に自由入力の文字列が切替先ブランチとして誤読される）。
+// Change branchのbranchとは別refにする（共用すると戻った時に自由入力が切替先として誤読される）。
 const newBranchName = ref("");
 const baseBranch = ref("");
 const text = ref("");
 const selectedWorkspace = ref("");
 const selectedJob = ref("terminal");
 const selectedSessionId = ref(NEW_SESSION_VALUE);
-// "" | "branch" | "worktree"。ラジオボタンで排他選択する（worktree は新規ブランチ前提のため
-// Create branch と両立しない）。
+// worktreeは新規ブランチ前提のためCreate branchと両立しない。
 const createMode = ref("");
 const selectedCreateBranch = computed(() => createMode.value === "branch");
 const selectedCreateWorktree = computed(() => createMode.value === "worktree");
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
 
-// dispatchへ実際に送るbranch値。Create branch/worktreeではnewBranchName、
-// Change branchではbranch（select由来の切替先）を使う。
 const effectiveBranch = computed(() => (createMode.value !== "" ? newBranchName.value : branch.value));
 
 const sessionsState = ref<AsyncState<Record<string, any>[]>>(asyncIdle());
@@ -197,8 +183,7 @@ const sessions = computed(() => asyncValueOr(sessionsState.value, [] as Record<s
 const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
-// TTL経過でサーバ側が添付画像を削除した後のRecent item（`images_expired`
-// フラグ、server/src/dispatch/images.rs の sweep_expired_dispatch_images 参照）。
+// TTL経過でサーバが添付画像を削除したRecent item（sweep_expired_dispatch_images参照）。
 const imagesExpired = ref(false);
 
 function initFromRequest(req: Record<string, any> | null) {
@@ -220,9 +205,7 @@ function initFromRequest(req: Record<string, any> | null) {
   createMode.value = req?.create_branch ? "branch" : "";
 }
 
-// 新規セッション作成時はworktreeを選択肢に含めない（worktree自体はCreate
-// worktreeで別途作る）。既存セッション選択時（disabledの参考表示）はそのセッションの
-// workspaceがworktreeのこともあるため、一覧に無ければ表示専用として追加する。
+// 新規セッションにworktreeは選べない。既存セッション選択時はそのworkspaceがworktreeのこともあるため、一覧に無ければ表示専用で追加する。
 const workspaceOptions = computed(() => {
   const opts = workspaceStore.allWorkspaces.filter((w) => !w.worktree);
   if (!isNewSession.value && selectedWorkspace.value && !opts.some((w) => w.name === selectedWorkspace.value)) {
@@ -233,23 +216,17 @@ const workspaceOptions = computed(() => {
 });
 const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWorkspace.value === request.value?.workspace);
 
-// worktree 上の dispatch はブランチが既に固定されているため、ブランチ操作の
-// 項目自体を出さない。それ以外は常に表示し、Create branch のチェック有無で
-// Branch select の意味（対象 / 分岐元）と Branch name の表示を切り替える。
+// worktree上のdispatchはブランチ固定のためブランチ操作項目を出さない。
 const hasBranchField = computed(() => !request.value?.worktree);
 
-// Session / Job / Branch のいずれかが未取得(idle)・取得中(loading)の間はRunを
-// 押させない（取得前の古い/空の選択肢のままdispatchする事故を防ぐ）。取得失敗(error)は
-// ブロックし続けない（fail open。Runが永久disabledのまま残る事故を防ぐため）。
+// Session/Job/Branchが未取得・取得中の間はRunを押させない（古い選択肢でdispatchする事故防止）。error時は永久disabledを避けるためブロックしない。
 const infoLoading = computed(() => {
   if (isAsyncPending(sessionsState.value) || isAsyncPending(jobsState.value)) return true;
   if (hasBranchField.value && isAsyncPending(branchesState.value)) return true;
   return false;
 });
 
-// dedup_keyによる置き換えはdispatch_idを維持するため（useDispatchQueue.ts参照）
-// dispatch:itemRemovedが発火しない。retry_countの変化で「表示中の内容が別の
-// 失敗に置き換わった」ことを検知し、古い内容のまま誤って承認されないようダイアログを閉じる。
+// dedup_keyによる置換はdispatch_idを維持しitemRemovedが発火しない。retry_count変化で別の失敗に置き換わったことを検知し、古い内容を承認させないよう閉じる。
 const initialRetryCount = ref<number | null>(null);
 
 onMounted(() => {
@@ -271,18 +248,13 @@ watch(() => request.value?.retry_count, (count) => {
   }
 });
 
-// セッション一覧はSession selectの選択肢そのものなので、選択操作のたびに
-// 取り直す必要はなくマウント時に1回だけ取得すれば足りる。
 onMounted(() => {
   sessionsState.value = asyncLoading();
   apiGet(EP_TERMINAL_SESSIONS).then((res) => {
     if (res.ok && Array.isArray(res.data)) {
       const list = res.data.filter((s) => !s.detached);
       sessionsState.value = asyncReady(list);
-      // dispatch投入時点で記録された existing_session_id は、実行しようとした
-      // 時点では既にセッションが閉じられ/detachされて選択肢に無いことがある。
-      // その場合 select が「一致するoptionが無い空欄」のまま表示されてしまう
-      // ため、+ New session にフォールバックする。
+      // 記録時のexisting_session_idは実行時に閉じ/detach済みで選択肢に無いことがあり、selectが空欄になるため+ New sessionへ戻す。
       if (selectedSessionId.value !== NEW_SESSION_VALUE
           && !list.some((s) => s.session_id === selectedSessionId.value)) {
         selectedSessionId.value = NEW_SESSION_VALUE;
@@ -293,15 +265,12 @@ onMounted(() => {
   });
 });
 
-// 新規作成するworktreeには新規セッションしか使えない（既存セッションのままだと入力が
-// 別ディレクトリのセッションへ送られ、作ったworktreeが使われない）。
+// 新規worktreeは新規セッションでしか使えない（既存セッションだと入力が別ディレクトリへ送られる）。
 watch(selectedCreateWorktree, (creating) => {
   if (creating) selectedSessionId.value = NEW_SESSION_VALUE;
 });
 
-// 既存セッションを選んだら、そのセッションの実際の Workspace / Job を
-// プレビュー表示に反映する（disabled のままだが選択中セッションに追従させる）。
-// 新規セッションに戻したら元のリクエスト値に戻す。
+// 既存セッション選択時はそのセッションの実Workspace/Jobをプレビューに反映し、新規に戻したら元のリクエスト値へ戻す。
 watch(selectedSessionId, (id) => {
   if (id === NEW_SESSION_VALUE) {
     selectedWorkspace.value = request.value?.workspace || "";
@@ -314,7 +283,6 @@ watch(selectedSessionId, (id) => {
   selectedJob.value = s.job_name || "terminal";
 });
 
-// Base branch のブランチ一覧: 選択中セッションのワークスペースまたは選択中のワークスペース
 const baseBranchWorkspace = computed(() => {
   if (!isNewSession.value && selectedSessionId.value) {
     const s = sessions.value.find((s) => s.session_id === selectedSessionId.value);
@@ -359,9 +327,7 @@ async function run() {
       imagePaths: imagePaths.value,
     });
     if (selectedCreateWorktree.value) {
-      // worktreeはGitChangeBranch.vueのAdd > Worktreeと同じAPIで先に作成し、compound
-      // なworkspace名（"{base}:{branch}"）をdispatchのworkspaceとして使う
-      // （dispatch.py側のworktreeフィールドは既存worktreeの検索専用のため）。
+      // worktreeはGitChangeBranch.vueのAdd > Worktreeと同じAPIで先に作り、"{base}:{branch}"をworkspaceとして使う（dispatch側のworktreeフィールドは既存worktree検索専用）。
       const { ok, data } = await apiCommand(
         wsEndpoint(selectedWorkspace.value, "worktrees"),
         { branch: newBranchName.value.trim(), base: baseBranch.value || null },
@@ -375,16 +341,13 @@ async function run() {
       overrides.branch = null;
       overrides.base_branch = null;
       overrides.create_branch = null;
-      // worktree作成成功時点でモーダルを閉じ、以降のdispatch実行は結果を待たずバックグラウンド
-      // で継続する（作成〜実行の2段階待ちでモーダルが開いたままになるのを避けるため）。
-      // 実行自体が失敗した場合はrunItem内のapiPostが通常のエラートーストで通知する。
+      // worktree作成後はモーダルを閉じ、実行はバックグラウンドで継続する。失敗はrunItem内のapiPostがトーストで通知する。
       props.afterRun?.();
       runItem(itemId, overrides).catch(() => {});
       return;
     }
     const ok = await runItem(itemId, overrides);
-    // Run 成功後はそのままセッションを見せたいので、一覧へ戻さずワークスペース
-    // 詳細ごと閉じる（afterRun、WorkspaceDetail.vue参照）。
+    // Run成功後はセッションを見せたいので、一覧へ戻さずワークスペース詳細ごと閉じる。
     if (ok) props.afterRun?.();
   } finally {
     running.value = false;
@@ -403,8 +366,7 @@ async function discard() {
 </script>
 
 <style scoped>
-/* ワークスペース詳細のDispatchタブ内での一覧への戻り導線
-   （GitHistory.vueのdiff-files-close-btnと同じ見た目のパターン）。 */
+/* ワークスペース詳細のDispatchタブ内での一覧への戻り導線 */
 .dispatch-run-header {
   display: flex;
   align-items: center;

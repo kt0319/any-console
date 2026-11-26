@@ -41,8 +41,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     },
   });
 
-  // useListDragSort の onReorder(fromIdx, toIdx) にそのまま渡せる形にする
-  // （SessionListView.vue の terminalStore.moveTab と同じsplice方式）。
+  // useListDragSort の onReorder(fromIdx, toIdx) にそのまま渡せる形にする（terminalStore.moveTab と同じ splice 方式）。
   function reorder(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= order.value.length) return;

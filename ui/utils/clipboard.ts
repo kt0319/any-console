@@ -1,7 +1,4 @@
-/**
- * Ctrl/Cmd+C（修飾は Shift/Alt 無し）の keydown か。ターミナル選択コピーの
- * ショートカット判定を useGlobalShortcuts / useTerminalInput で共有する。
- */
+/** Ctrl/Cmd+C（Shift/Alt 無し）の keydown か。useGlobalShortcuts / useTerminalInput 共用。 */
 export function isCopyShortcut(e: KeyboardEvent) {
   return e.type === "keydown"
     && (e.ctrlKey || e.metaKey)
@@ -10,10 +7,7 @@ export function isCopyShortcut(e: KeyboardEvent) {
     && (e.key === "c" || e.key === "C");
 }
 
-/**
- * ターミナルの選択テキストをコピーする。選択があれば copyText して true、
- * 無ければ false（呼び出し側は false なら標準動作へフォールバックする）。
- */
+/** 選択があればコピーして true、無ければ false（呼び出し側が標準動作に委ねる）。 */
 export function copyTerminalSelection(term: { hasSelection?: () => boolean, getSelection?: () => string } | null | undefined) {
   if (!term?.hasSelection?.()) return false;
   const text = term.getSelection?.();
@@ -21,13 +15,7 @@ export function copyTerminalSelection(term: { hasSelection?: () => boolean, getS
   return true;
 }
 
-/**
- * テキストをクリップボードへコピーする。
- * secure context（HTTPS / localhost）では navigator.clipboard を使い、使えない環境
- * （Tailscale 経由の HTTP など非 secure context や権限拒否）では textarea +
- * execCommand("copy") にフォールバックする。
- * @returns コピーに成功したら true
- */
+/** 非 secure context（Tailscale 経由の HTTP 等）や権限拒否では textarea + execCommand("copy") を使う。 */
 export async function copyText(text: string): Promise<boolean> {
   if (!text) return false;
   if (navigator.clipboard?.writeText) {

@@ -35,9 +35,7 @@ export function useEditorIntegration() {
     if (!tmpl) return "";
     const workspace = workspaceStore.selectedWorkspace || "";
     const rawWorkspacePath = workspaceStore.currentWorkspace?.path || "";
-    // ワークスペースpathはサーバーから `~/...` 形式（表示用）で返る。
-    // {host}{workspace_path} をそのまま連結すると `mini.local~/...` のような
-    // 不正なホスト名になってしまうため、絶対パスに展開してから埋め込む。
+    // workspace path は `~/...` 形式で返り、そのまま連結すると不正なホスト名になるため絶対パスに展開する。
     const homeDir = systemInfo.value.home_dir || "";
     const workspacePath = homeDir && rawWorkspacePath.startsWith("~/")
       ? homeDir + rawWorkspacePath.slice(1)
@@ -52,9 +50,7 @@ export function useEditorIntegration() {
   }
 
   function openInEditor(path?: string) {
-    // vscode:// 等のカスタムURLスキームはローカルのデスクトップエディタを起動する
-    // 前提のため、モバイルでは対応するアプリが無くwindow.open()が黙って失敗する
-    // （何も起きたように見えない）。理由が分かるようトーストで明示する。
+    // モバイルでは vscode:// 等を開くアプリが無く window.open() が黙って失敗するため、トーストで理由を示す。
     if (isTouchInput()) {
       toast.info("Editor integration isn't available on mobile");
       return;

@@ -56,9 +56,7 @@ import type { RemoteResult } from "../utils/git-remote.ts";
 import { PILL_PEEK_DURATION_MS, PILL_MARQUEE_END_HOLD_MS } from "../utils/constants.ts";
 import { buildStatusCountItems } from "../utils/git.ts";
 
-// ピルの値が変化した時に一時表示する1本の長いピル（.pill-peek-wide）。
-// 色・テキストの組み立ては親（TerminalPane）が行い、ここでは表示とマーキー判定のみ担当する。
-// スタイルは ui/styles/info-pills.css（グローバル）。
+// ピルの値が変化した時に一時表示する1本の長いピル。色・テキストは親（TerminalPane）が組み立て、ここは表示とマーキー判定のみ。
 
 const props = defineProps({
   peekingKey: { type: String, required: true },
@@ -81,15 +79,13 @@ const props = defineProps({
   remoteResult: { type: Object as PropType<RemoteResult | null>, default: null },
   actionName: { type: String, default: "" },
   actionStatusText: { type: String, default: "" },
-  // このpeekが実際に表示される時間（usePillPeek.ts参照。キューで分割
-  // された場合はPILL_PEEK_DURATION_MSより短い）。
+  // このpeekの実際の表示時間（キューで分割された場合はPILL_PEEK_DURATION_MSより短い）。
   peekDurationMs: { type: Number, default: PILL_PEEK_DURATION_MS },
 });
 
 const statusCountItems = computed(() => buildStatusCountItems(props.statusCounts));
 
-// 表示時間ぴったりだと流れ終わった瞬間にピルごと消え最後まで読めないため、
-// PILL_MARQUEE_END_HOLD_MSぶん早めに再生を終え、末尾が見えた状態で静止させる。
+// 表示時間ぴったりだと流れ終わった瞬間に消え末尾を読めないため、PILL_MARQUEE_END_HOLD_MSぶん早く再生を終え静止させる。
 const marqueeDurationMs = computed(() => Math.max(500, props.peekDurationMs - PILL_MARQUEE_END_HOLD_MS));
 
 const emits = defineEmits(["peek-click"]);
@@ -99,12 +95,10 @@ const remoteDoneClass = computed(() => {
   return kind === "push" || kind === "pull" ? `pill-peek-branch-${kind}-done` : "";
 });
 
-// ラベルがピル幅に収まる時は流さない。収まらない時だけ、先頭が見えている
-// 状態から末尾が見えるところまでの1回きりのスクロールにする（infiniteループはしない）。
+// ラベルがピル幅に収まらない時だけ、先頭から末尾が見えるまで1回きりスクロールする（infiniteループなし）。
 const marqueeRun = ref(false);
 const marqueeTextEl = ref<HTMLElement | null>(null);
-// はみ出し幅（scrollWidth - clientWidth）。末尾がちょうど見える位置で止まるよう、
-// アニメーションの移動量をこの実測値に合わせる。
+// はみ出し幅（scrollWidth - clientWidth）。アニメーション移動量をこの実測値に合わせ、末尾がちょうど見える位置で止める。
 const marqueeOffset = ref(0);
 
 function measureMarquee() {
@@ -115,9 +109,8 @@ function measureMarquee() {
   marqueeOffset.value = Math.max(0, overflow);
 }
 
-// peekピルは Transition(mode="out-in") 配下にあり、旧要素のleave完了を待ってから
-// 新要素がDOMへ挿入される。signature変化を起点にnextTick()だけで測るとこの挿入待ちより
-// 早く走ってしまい測定に失敗するため、実際にDOM挿入された瞬間（関数refのマウント時）にも測る。
+// Transition(mode="out-in") は旧要素のleave完了後に新要素を挿入するため、nextTick()だけだと挿入前に測って失敗する。
+// DOM挿入された瞬間（関数refのマウント時）にも測る。
 function setMarqueeTextEl(el: Element | ComponentPublicInstance | null) {
   marqueeTextEl.value = el as HTMLElement | null;
   if (el) nextTick(measureMarquee);

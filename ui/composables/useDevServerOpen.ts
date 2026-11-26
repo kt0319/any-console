@@ -1,9 +1,7 @@
 import { devServerUrl } from "../utils/preview-url.ts";
 import { emit } from "../app-bridge.ts";
 
-// Dev serverプレビューをOpen URLダイアログ（Open/コピー）で開く。TerminalPaneの
-// Server pill（useInfoPillActions.ts）とDev Server設定一覧（ServerProcessesView.vue）
-// の両方から同じ挙動で使う。
+// Dev server プレビューを Open URL ダイアログで開く（Server pill と Dev Server 設定一覧で共用）。
 export function useDevServerOpen() {
   function confirmOpenDevServer(p: Record<string, any>) {
     const url = devServerUrl(p, location.hostname);

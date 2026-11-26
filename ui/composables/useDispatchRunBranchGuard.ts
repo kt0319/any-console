@@ -4,9 +4,8 @@ import { excludeCurrentBranch } from "../utils/git.ts";
 import type { AsyncState } from "../utils/async-state.ts";
 
 /**
- * Dispatch 実行画面（DispatchRunView.vue）の Branch まわりの表示用の値と、Run を止める理由。
- * Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
- * 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
+ * DispatchRunView の Branch 表示値と Run を止める理由。Create branch/worktree の on/off で select の意味が変わるため、
+ * get/set computed で1つの select を共用する。
  */
 export function useDispatchRunBranchGuard(options: {
   selectedWorkspace: Ref<string>,
@@ -25,10 +24,8 @@ export function useDispatchRunBranchGuard(options: {
   const isCreatingBranchOrWorktree = computed(() => createMode.value !== "");
   const selectedCreateBranch = computed(() => createMode.value === "branch");
 
-  // サーバ側のガード（server/src/dispatch.rs の ensure_branch）と対になるUI側の事前
-  // ブロック。新規ブランチを作成するdispatch（Create branchオン）は対象ワークスペースが
-  // dirtyだと400で失敗するため、送信前に理由を示してRunをdisableする（既存ブランチへの
-  // checkoutは対象外）。dirty判定は changed_files（untracked込み）に揃える。
+  // server/src/dispatch.rs の ensure_branch と対のUI側ブロック。Create branch は対象が dirty（changed_files、untracked込み）だと
+  // 400になるため事前に Run を disable する。
   const targetWorkspaceEntry = computed(() =>
     workspaceStore.allWorkspaces.find((w) => w.name === selectedWorkspace.value),
   );
@@ -45,9 +42,8 @@ export function useDispatchRunBranchGuard(options: {
     },
   });
 
-  // Change branch のselectはlocalBranchesと「(current branch)」しか選択肢が無いため
-  // ユーザー操作では不正値にならない。ズレるのは外部（CI等）から渡された元リクエストの
-  // branchが実在しない初期値の時だけ。気付かずRunすると失敗するので事前に検知しdisableする。
+  // 選択肢が localBranches と「(current branch)」のみなので、ズレるのは外部から渡された元リクエストの branch が実在しない時だけ。
+  // 気付かず Run すると失敗するため事前に disable する。
   const missingBranchBlockReason = computed(() => {
     if (createMode.value !== "") return "";
     // ready（取得成功）時のみ検証する。error時はfail openにする（Run可否はinfoLoading側で扱う）。

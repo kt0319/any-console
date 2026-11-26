@@ -89,14 +89,9 @@ const {
   fitAllTerminals,
 } = useTerminalSplitPanes();
 
-// getTabById はタブ未解決時にプレースホルダ（{ id, _pendingOpen: false }）を返すが、
-// TerminalPane の tab prop は TerminalTab として受けるため型上は TerminalTab に
-// 揃える（従来からの挙動そのままで、型のためのラッパー）。
 const getTabById = (tabId: number | string) => getTabByIdBase(tabId) as TerminalTab;
 
-// PC（HTML5 D&D）でタブをドラッグ中、カーソルがターミナル表示領域に入って初めて分割
-// ドロップゾーンを出す（タブバー上での並び替え中は表示しない。useTabDrag.tsのonDragStart
-// 参照）。dragTabIdが無ければ無関係なドラッグ（OSファイルドロップ等）なので何もしない。
+// PC のタブドラッグ中、カーソルがターミナル領域に入って初めて分割ドロップゾーンを出す。dragTabId が無ければ無関係なドラッグ（OS ファイル等）
 const layoutStore = useLayoutStore();
 const { showDropZones } = useSplitDropDrag();
 function onContainerDragOver() {

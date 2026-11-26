@@ -34,7 +34,6 @@ describe("buildDetachedSessionList", () => {
     const list = buildDetachedSessionList(all, [], new Set(), "ac-e2e0aff11-");
     expect(list[0].session_id).toBe("abc123");
     expect(list[0].external).toBe(false);
-    // 自サーバのプレフィックスに一致しない名前は external 扱い
     expect(list[1]).toEqual({
       session_id: null, tmux_name: "ac-other", workspace: null, external: true,
     });

@@ -1,9 +1,4 @@
-// tmux セッション一覧を「デタッチセッション（タブ未割り当て）」リストに整形する純粋関数。
-// DOM / API から分離してテスト可能にする。
-
-// any-console 管理セッションの tmux 名プレフィックス（既定値）。
-// 実効値はサーバが ANY_CONSOLE_TMUX_PREFIX で変えられるため、
-// /system/tmux-info の `prefix` を優先して使うこと。
+// 既定値。実効値は ANY_CONSOLE_TMUX_PREFIX で変わるため /system/tmux-info の `prefix` を優先する。
 export const AC_PREFIX = "ac-";
 
 export interface TmuxSession {
@@ -31,15 +26,8 @@ export interface DetachedSession {
 }
 
 /**
- * 全 tmux セッションをデタッチセッションリストに整形する。
- * - `ac-` プレフィックス付き = any-console 管理（Open 可能）。owned 情報があれば付与する。
- *   ただし既にタブとして開いている（knownTabIds に含まれる）ものは除外。
- * - プレフィックスなし = 外部のユーザ個人セッション（external 扱い、Close のみ）。
- *
- * @param allSessions 全 tmux セッション
- * @param owned any-console 管理セッション（/terminal/sessions）
- * @param knownTabIds 既に開いているタブの session_id 集合
- * @param prefix サーバの実効 tmux プレフィックス（/system/tmux-info の `prefix`）
+ * プレフィックス付きは any-console 管理（Open 可能。既にタブで開いている knownTabIds は除外）、
+ * 無しは外部の個人セッション（external、Close のみ）。
  */
 export function buildDetachedSessionList(
   allSessions: TmuxSession[],

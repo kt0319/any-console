@@ -1,7 +1,4 @@
-// このSWはプッシュ通知（受信・表示・クリック遷移）専用。
-// オフラインキャッシュ（precache + fetchハンドラ）は廃止した — any-console は
-// 自前サーバに繋いで使うツールで、サーバに届かなければ静的アセットだけ表示できても
-// 意味がないため（docs/DECISIONS.md ADR 10 の Update 参照）。
+// このSWはプッシュ通知専用。オフラインキャッシュは廃止した（docs/DECISIONS.md ADR 10 の Update 参照）。
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -12,8 +9,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((names) =>
       Promise.all(
         names.map((name) => {
-          // 旧バージョンのSWが作ったオフラインキャッシュ（any-console-<hash>）の掃除。
-          // 通知設定の永続化キャッシュだけはSWのバージョンに紐付かないため残す。
+          // 旧SWが作ったオフラインキャッシュ（any-console-<hash>）を掃除する。通知設定のキャッシュは残す。
           if (name !== NOTIF_PREFS_CACHE) return caches.delete(name);
         })
       )
@@ -22,10 +18,8 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 通知タイプごとの表示設定。ページから sync-notif-prefs メッセージで同期する。
-// SWはアイドルで停止されpush受信のたびに再起動されるため、メモリ変数だけだと
-// push時には常に初期値へ戻ってしまう。Cache Storageへ永続化し、push時は
-// 保存値を読み直して判定する。
+// 通知タイプごとの表示設定（sync-notif-prefs で同期）。SWはアイドルで停止され push のたびに再起動されるため、
+// Cache Storageへ永続化し push 時に読み直す。
 const NOTIF_PREFS_CACHE = 'any-console-notif-prefs';
 const NOTIF_PREFS_URL = '/__notif-prefs__';
 const DEFAULT_NOTIF_PREFS = { dispatch: true, phrase: true, blocked: true };
@@ -71,10 +65,8 @@ self.addEventListener('push', (event) => {
   })());
 });
 
-// 既存タブへの postMessage が届いたかを ack で確認するタイムアウト（ms）。
-// iOS Safari の PWA はバックグラウンドで凍結したページへの postMessage が
-// 届かないことがあるため、一定時間内に ack が無ければ URL 遷移にフォールバックする
-// （vue-main.ts の起動時チェックが openDispatchQueue クエリを見て開く）。
+// iOS Safari の PWA は凍結したページへの postMessage が届かないことがあるため、
+// ack が無ければ URL 遷移にフォールバックする（vue-main.ts の起動時チェックが openDispatchQueue クエリを見て開く）。
 const NOTIFICATION_ACK_TIMEOUT_MS = 800;
 
 function postMessageWithAck(client, message) {
@@ -101,8 +93,7 @@ function postMessageWithAck(client, message) {
   });
 }
 
-// existing.navigate() は WebKit(iOS Safari) では未対応/例外になることがあるため、
-// 失敗時は新規ウィンドウ相当（openWindow）に確実にフォールバックする。
+// existing.navigate() は WebKit(iOS Safari) で未対応/例外になるため、失敗時は openWindow にフォールバックする。
 async function navigateOrOpen(existing, url) {
   try {
     const navigated = await existing.navigate(url);
@@ -135,8 +126,7 @@ self.addEventListener('notificationclick', (event) => {
       return;
     }
     existing.focus();
-    // dispatch通知はセッションへ飛ばさず、Settingsの Dispatch Queue を開かせる
-    // （承認待ちが積まれているのはそこなので）。どの項目かも一緒に伝える。
+    // dispatch通知は承認待ちが積まれる Settings の Dispatch Queue を開かせる（項目も伝える）。
     if (type === 'dispatch') {
       const acked = await postMessageWithAck(existing, { type: 'notification-open-dispatch-queue', dispatchId });
       if (!acked) await navigateOrOpen(existing, url);

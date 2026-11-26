@@ -1,9 +1,4 @@
-/**
- * 設定モーダルの E2E スモーク（デフォルトのPCビューポートで実行）。
- * 開閉（Esc / タイトル行の閉じるボタン）とビュー間ナビゲーション
- * （メニュー → System Info → 戻る）を確認する。
- * モバイルでのハンバーガー開閉は mobile.spec.js が別途カバーする。
- */
+/** 設定モーダルの E2E スモーク（PCビューポート）。開閉とビュー間ナビゲーションを確認する。モバイルは mobile.spec.js。 */
 import { test, expect, loadToken, login, openSettingsModal, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
 test.describe("settings modal", () => {
@@ -24,7 +19,6 @@ test.describe("settings modal", () => {
   test("System Info に遷移して戻れる", async ({ page }) => {
     await page.locator(".settings-menu-item", { hasText: "System Info" }).click();
     await expect(page.locator(".modal-title")).toContainText("System Info", { timeout: 5000 });
-    // タイトル（戻るボタン）でメニューに戻れる
     await page.locator(".modal-title-wrap").click();
     await expect(page.locator(".modal-title")).toHaveText("Settings");
     await expect(page.locator(".settings-menu-item", { hasText: "Terminal" }).first()).toBeVisible();
@@ -36,9 +30,7 @@ test.describe("settings modal", () => {
   });
 
   test("タイトル行の閉じるボタンでモーダルが閉じる", async ({ page }) => {
-    // Settingsはタブバーの独立した歯車ボタンから開く全面オーバーレイ
-    // （TerminalSettingsModal.vue）で、サイドバー（ハンバーガー）とは独立して
-    // 開閉するため、閉じる手段はタイトル行右端の専用ボタンになる。
+    // Settings はサイドバーとは独立した全面オーバーレイのため、閉じる手段はタイトル行右端のボタン
     await page.locator(".modal-close-btn").click();
     await expect(page.locator(".terminal-settings-modal")).toBeHidden({ timeout: 5000 });
   });

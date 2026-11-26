@@ -88,7 +88,6 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     return ok;
   }
 
-  /** リモートブランチ一覧（branch.remote: true）側の単独削除ボタン用。 */
   async function deleteBranch(branch: BranchEntry) {
     await withWorkspace(async (workspace) => {
       const label = branch.remote ? "remote branch" : "local branch";
@@ -100,15 +99,8 @@ export function useBranchActions(branchList: ReturnType<typeof useBranchList>) {
     });
   }
 
-  /**
-   * ローカルブランチ一覧側の削除ボタン用。worktreeが紐づく場合も同じボタン・
-   * 確認ダイアログに統合し、選択肢（Local only / Local + remote /
-   * Remove worktree）で分岐する。
-   */
   async function deleteLocalBranch(branch: BranchEntry) {
-    // useBranchList.tsのlinkedWorktreeは（git-branch.tsのWorktree型、index
-    // signature由来でunknown）を返すが、実体はremoveWorktreeRequest等と同じ
-    // worktree APIオブジェクトのため、他の箇所と同じくWorktreeEntryとして扱う。
+    // linkedWorktree は index signature 由来で unknown のため WorktreeEntry として扱う（他箇所と同じ）
     const wt = linkedWorktree(branch) as WorktreeEntry | null;
     await withWorkspace(async (workspace) => {
       let residue: Residue | null = null;

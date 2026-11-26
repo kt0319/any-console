@@ -41,10 +41,7 @@ export function useGitHistoryAction() {
     );
   }
 
-  // Soft/Mixed/Hardの3択を1つのダイアログで選ばせる。OKボタンをSoft（安全側の
-  // 既定）に割り当て、Mixed/Hardはconfirm()のextra/extra2ボタンを使う
-  // （confirm()の戻り値はOK=true、extra/extra2=それぞれの value 文字列、
-  // Cancel=false）。
+  // Soft/Mixed/Hardの3択を1つのダイアログで選ばせる。OK を Soft（安全側）に割り当て、Mixed/Hard は extra/extra2 ボタンを使う
   async function execReset(entry: CommitEntry, closeFn?: () => void) {
     const shortHash = entry.hash;
     const choice = await confirm(`Reset to ${shortHash}?`, {

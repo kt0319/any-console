@@ -44,8 +44,7 @@ import FileItem from "./FileItem.vue";
 import { renderFileIconFromPath } from "../utils/file-icon.ts";
 import { diffStatusClass, diffStatusLabel, isUnmergedDiffStatus } from "../utils/git.ts";
 
-// 差分ファイル一覧の1行（numstat + ステータスバッジ付き）。
-// Changes（GitChanges.vue）と History のコミットファイル一覧（GitHistory.vue）で共用する。
+// 差分ファイル1行。GitChanges.vue と GitHistory.vue で共用。
 defineProps({
   file: {
     type: Object as PropType<{ path: string, status: string, numstat?: string }>,

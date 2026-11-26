@@ -1,12 +1,5 @@
 // @ts-check
-/**
- * app-bridge イベントバスのカタログ整合性テスト。
- *
- * emit / on で使われるイベント名（"namespace:action" 形式）が、すべて
- * BUS_EVENTS カタログに登録されていることを CI で保証する。これにより
- * 「カタログへの追記漏れ」や「emit↔on の名前ズレ」がデバッグログ任せではなく
- * テスト失敗として顕在化する。
- */
+/** emit / on で使われるイベント名がすべて BUS_EVENTS に登録されていることを保証する（追記漏れ・名前ズレをテスト失敗にする）。 */
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -67,10 +60,8 @@ describe("BUS_EVENTS catalog", () => {
   });
 
   it("has no unused catalog entries (dead events)", () => {
-    // カタログに載っているのに emit も on もされないイベントは、購読者の削除
-    // 漏れ・emit の書き忘れのどちらかを示す。circle-keypad プリセット等の
-    // 動的 emit（bridgeEmit(s.action, ...) 形式）はこの走査に載らないため、
-    // 文字列リテラルとして ui/ 内に現れるかどうかも許容条件にする。
+    // カタログにあるのに emit も on もされないイベントは、購読者の削除漏れか emit の書き忘れ。
+    // 動的 emit（circle-keypad プリセット等）は走査に載らないため、ui/ 内に文字列リテラルとして現れれば許容する。
     const used = collectUsedEvents();
     const allText = walk(UI_DIR)
       .map((f) => readFileSync(f, "utf-8"))

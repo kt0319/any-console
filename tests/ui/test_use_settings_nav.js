@@ -21,10 +21,8 @@ beforeEach(() => {
   setActivePinia(createPinia());
 });
 
-// settings:open({view:'SessionList'})経由のリダイレクトはisSessionSidebarOpenを
-// localStorageへ永続化する（layout.js参照）ため、他ファイルの初期状態を
-// 汚さないよう、ストア経由でfalseに戻しておく（vi.resetModules()後はグローバル
-// のlocalStorage参照が失われるため直接localStorage.removeItemは呼べない）。
+// settings:open({view:'SessionList'}) のリダイレクトは isSessionSidebarOpen を localStorage へ永続化する（layout.js参照）。
+// 他ファイルの初期状態を汚さないようストア経由で false に戻す（resetModules 後は localStorage 参照が失われ直接 removeItem できない）。
 afterEach(() => {
   useLayoutStore().isSessionSidebarOpen = false;
 });

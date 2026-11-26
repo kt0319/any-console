@@ -158,7 +158,6 @@ describe("useRecentJobs: サーバーとの同期", () => {
     }
 
     expect(recentJobs.value.length).toBe(RECENT_JOBS_MAX);
-    // 直近に記録した分が残り、最初期の分は切り捨てられる
     expect(recentJobs.value.map((j) => j.key)).toContain(`ws${total - 1}:build`);
     expect(recentJobs.value.map((j) => j.key)).not.toContain("ws0:build");
   });

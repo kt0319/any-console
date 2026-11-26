@@ -5,13 +5,11 @@ import { setActivePinia, createPinia } from "pinia";
 import { useTerminalStore } from "../../ui/stores/terminal.ts";
 import { useAgentStateStore } from "../../ui/stores/agent-state.ts";
 
-// エージェント状態は agent-state ストアへ分離済み（アクティブな pinia から都度取得）。
 const agentStore = () => useAgentStateStore();
 import { WORKING_MIN_DURATION_MS } from "../../ui/utils/constants.ts";
 
-// addTerminalTab は xterm 依存で重いので使わず、active 再選出ロジックの検証に
-// 必要な最小プロパティ（id / term / sessionId）だけのタブを直接挿入する。
-// term:null → removeTab / detachTab の dispose をスキップ、sessionId:"" → API fetch をスキップ。
+// addTerminalTab は xterm 依存で重いので使わず、必要最小プロパティだけのタブを直接挿入する。
+// term:null で dispose をスキップ、sessionId:"" で API fetch をスキップ。
 function seedTabs(store, specs) {
   store.openTabs = specs.map((s) => ({
     sessionId: "",
@@ -105,10 +103,8 @@ describe("terminal store: setTabWorkspace", () => {
   });
 
   it("workspace を更新するが、tab オブジェクト自体の参照は維持する", () => {
-    // tab は markRaw で connectTerminalWs/bindTerminalInput 等がこの identity を
-    // クロージャで握っているため、差し替えるとソケット/入力バインドの実行時
-    // 状態が新旧オブジェクトに分裂して壊れる。identity は変えず、フィールドの
-    // 変更だけを行う（変更の伝播は tabWorkspaceVersion が担う。下記テスト参照）。
+    // tab は markRaw で WS/入力バインドが identity をクロージャで握るため、差し替えずフィールドだけ変更する
+    // （変更の伝播は tabWorkspaceVersion が担う）。
     seedTabs(store, [{ id: 1 }, { id: 2 }]);
     const before = store.openTabs.find((t) => t.id === 1);
     store.setTabWorkspace(1, "ws1");
@@ -202,8 +198,7 @@ describe("terminal store: addTerminalTab の重複防止", () => {
   });
 
   it("同一 session_id で2回呼んでも既存タブを返しタブは増えない", () => {
-    // dispatch のセッション作成通知(WS)とポーリング同期が競合しても、
-    // 二重タブが生成されないことの回帰テスト。
+    // dispatch のセッション作成通知(WS)とポーリング同期が競合しても二重タブが生成されない回帰テスト。
     const tab1 = store.addTerminalTab({ wsUrl: "/terminal/ws/sess1", workspace: "ws1" });
     const tab2 = store.addTerminalTab({ wsUrl: "/terminal/ws/sess1", workspace: "ws1" });
     expect(tab2).toBe(tab1);

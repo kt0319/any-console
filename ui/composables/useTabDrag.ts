@@ -6,15 +6,11 @@ import { resolveDropIndex } from "../utils/tab-nav.ts";
 import { DRAG_THRESHOLD } from "../utils/constants.ts";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.ts";
 
-/**
- * タブ1つ分のドラッグ操作（TabItem.vue から抽出）。PC: HTML5 D&D によるタブ並び替え +
- * 分割ドロップ。モバイル: 縦移動のみスプリットドラッグとして扱う（横移動は
- * touch-action:pan-x のネイティブスクロールに委ねるため、タッチでの並び替えは行わない）。
- */
+/** タブ1つ分のドラッグ操作（TabItem.vue から抽出）。PC: HTML5 D&D による並び替え + 分割ドロップ。
+モバイルは縦移動のみスプリットドラッグ（横移動は touch-action:pan-x のネイティブスクロールに委ねる）。 */
 export function useTabDrag(options: {
   tabId: () => number,
   pillEl: Ref<HTMLElement | null>,
-  /** クローズボタン押下中はドラッグを開始しない（TabItem の closePending）。 */
   isClosePending: () => boolean,
 }) {
   const { tabId, pillEl, isClosePending } = options;
@@ -27,7 +23,6 @@ export function useTabDrag(options: {
   let lastInputWasTouch = false;
 
   const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
-  // タッチでのドラッグ（縦方向のスプリットドロップ）は全タブで有効。
   const canTouchDrag = computed(() => terminalStore.openTabs.length >= 1);
   const effectiveDropSide = computed(() => {
     if (layoutStore.dragOverTabId === tabId()) return layoutStore.dragOverSide;
@@ -41,7 +36,6 @@ export function useTabDrag(options: {
     return value;
   }
 
-  // PC: HTML5 Drag & Drop
   function onDragStart(e: DragEvent) {
     if (!canDrag.value || isClosePending()) { e.preventDefault(); return; }
     e.dataTransfer!.setData("text/plain", String(tabId()));
@@ -127,7 +121,6 @@ export function useTabDrag(options: {
       const { dx, dy } = touchTracker.delta(e);
       if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) return;
       // 横方向はネイティブスクロール（touch-action:pan-x）に委ねる。
-      // preventDefaultせずここで何もしない。
       if (Math.abs(dx) >= Math.abs(dy)) return;
       isDragging.value = true;
       beginDrag(tabId());
@@ -146,7 +139,6 @@ export function useTabDrag(options: {
       cancelDrag();
       isDragging.value = false;
     }
-    // 長押し→そのまま離す＝クローズは廃止。クローズは tab-close ボタン経由のみ。
   }
 
   function onTouchCancel() {

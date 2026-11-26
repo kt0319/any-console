@@ -47,10 +47,8 @@ describe("useGitRemoteAction: 実行中ロックの範囲", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    // ベースがpull中なら、同じリポジトリを指すworktree名でも busy 扱いになる
     expect(isAnyRunning("repo:feature/x")).toBe(true);
 
-    // worktree側から別アクションを起動しようとしても、同じリポジトリなので実行されない
     await gitAction("repo:feature/x", "push");
     expect(apiCommandMock).toHaveBeenCalledTimes(1);
 
@@ -89,11 +87,7 @@ describe("useGitRemoteAction: 実行中ロックの範囲", () => {
 });
 
 describe("useGitRemoteAction: push/pull完了後のfetchStatuses待ち合わせ", () => {
-  // GitHistory.vueのunpushed表示はworkspaceStore.currentWorkspace.aheadを見て
-  // 再計算される。gitAction()（push/pull）がfetchStatuses()の完了を待たずに
-  // resolveすると、呼び出し元（useBranchActions.ts）のemit("git:historyInvalidated")が
-  // 古いahead値のまま発火し、Historyの未push表示が更新されない不具合になる
-  // （修正: useGitRemoteAction.tsのrunPushPullでfetchStatuses()をawaitする）。
+  // fetchStatuses() 完了前に resolve すると git:historyInvalidated が古い ahead 値で発火し、History の未push表示が更新されない。
   it("gitAction(push)はfetchStatuses完了まで解決しない", async () => {
     const workspaceStore = useWorkspaceStore();
     workspaceStore.allWorkspaces = [{ name: "repo", worktree: false }];

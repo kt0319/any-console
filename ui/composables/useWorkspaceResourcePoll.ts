@@ -2,18 +2,9 @@ import { ref } from "vue";
 import { useApi } from "./useApi.ts";
 import { GITHUB_POLL_INTERVAL_MS } from "../utils/constants.ts";
 
-// ワークスペース単位の GitHub 系リソース（PR一覧・Actions run一覧）を取得・
-// ポーリングする composable の共通実装（useWorkspacePRs / useWorkspaceRuns
-// から利用）。
-//
-// - 複数の TerminalPane が同じワークスペースを開いている場合、それぞれが独立に
-//   fetch すると同じエンドポイントへの重複リクエストが同時に飛ぶ
-//   （useSharedResourcePoll.ts と同じ問題）。ワークスペース名ごとに結果と実行中の
-//   fetch をファクトリ内スコープで共有し、同時呼び出しを1本にまとめる。
-// - 値の変化をピルに反映するため、表示中のワークスペースだけ定期的に再取得する。
-//   同じワークスペースを複数のペインが開いていてもタイマーは1本にまとめる
-//   （useSharedResourcePoll.ts と同じ方針。ただしポート一覧と違い取得先がワークスペース
-//   ごとに異なるため、参照カウントはワークスペース単位で持つ）。
+// ワークスペース単位の GitHub 系リソース（PR一覧・Actions run一覧）の取得・ポーリング共通実装（useWorkspacePRs / useWorkspaceRuns から利用）。
+// 複数ペインが同じワークスペースを開いても、結果・実行中fetch・タイマーはワークスペース単位で共有して1本にまとめる
+// （useSharedResourcePoll.ts と同じ方針。取得先がワークスペースごとのため参照カウントもワークスペース単位）。
 
 export function createWorkspaceResourcePoll({ resourcePath, mapItem }: {
   resourcePath: string,
@@ -33,9 +24,7 @@ export function createWorkspaceResourcePoll({ resourcePath, mapItem }: {
       const promise = (async () => {
         const { ok, data } = await apiGet(wsEndpoint(workspace, resourcePath));
         if (!ok || data?.status !== "ok" || !Array.isArray(data.data)) {
-          // 取得失敗時は既存キャッシュを空配列で潰さない（表示中のピルが
-          // 一時的な失敗のたびに消えてしまうのを防ぐ）。失敗は失敗として
-          // 呼び出し元に伝え、キャッシュには触れない。
+          // 取得失敗時は既存キャッシュを空配列で潰さない（ピルが一時失敗のたびに消えるのを防ぐ）。失敗は呼び出し元へ伝える。
           return itemsByWorkspace.value[workspace] || [];
         }
         const items = data.data.map(mapItem);

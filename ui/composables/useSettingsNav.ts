@@ -4,17 +4,7 @@ import { useWorkspaceDetailNav } from "./useWorkspaceDetailNav.ts";
 import { useSessionListOverlay } from "./useSessionListOverlay.ts";
 import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
-// Settings専用のビュースタック（旧SessionListOverlay.vueが単独で持っていた状態）を
-// モジュールスコープの単一状態に抽出したもの。タブバーの歯車ボタンから
-// TerminalSettingsModal.vue（PC/モバイル共通、WorkspaceDetailModal.vueと
-// 同じ全面オーバーレイ）が開く。セッション一覧・Open Sessionとは完全に
-// 独立した系列で、ルートはSettingsMenu固定（ここから外れない）。
-//
-// ビュースタックの実装本体は createViewStackNav.ts（useSessionOpenNav と共通）。
-// 個々の設定画面（SettingsMenu/TerminalConfig/...）は useModalView() 経由で
-// modalTitle/modalBranch/viewState/pushView/popView/updateViewState を
-// injectするインターフェースのまま変わらない（provideする側がTerminalSettingsModal.vue
-// になるだけ）。
+// Settings 専用のビュースタック。ルートは SettingsMenu 固定で、実装本体は createViewStackNav.ts（useSessionOpenNav と共通）。
 
 const ROOT_VIEW = "SettingsMenu";
 
@@ -37,9 +27,7 @@ function registerListeners() {
       // ServerProcesses（Dev Server）へ読み替える。
       let view = detail.view;
       if (view === "PreviewPorts") view = "ServerProcesses";
-      // SessionListはSettings/Open Session分離でセッション一覧
-      // オーバーレイ側の管轄になったため、このスタックには積まずリダイレクトする
-      //（circle keypad の Tabs プリセットがこの view 名で発火する）。
+      // SessionList はセッション一覧オーバーレイ側の管轄のため、積まずリダイレクトする（circle keypad の Tabs プリセットがこの view 名で発火する）。
       if (view === "SessionList") {
         useSessionListOverlay().open();
         return;
@@ -56,9 +44,7 @@ function registerListeners() {
     }
   });
 
-  // WorkspaceDetail（Files/Changes/History等）はSettingsのスタックとは
-  // 独立したuseWorkspaceDetailNav.tsで開閉する（設定側の表示はそのまま
-  // 変えない。WorkspaceDetailModal.vueが全面オーバーレイで表示する）。
+  // WorkspaceDetail は Settings のスタックとは独立（useWorkspaceDetailNav.ts）。
   const { open: openWorkspaceDetail } = useWorkspaceDetailNav();
 
   on("git:openFileModal", (detail) => openWorkspaceDetail(detail));

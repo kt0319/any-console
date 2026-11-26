@@ -48,8 +48,7 @@ export const BLOB_URL_REVOKE_DELAY_MS = 60000;
 export const PILL_PEEK_DURATION_MS = 4000;
 // pull/push の結果（コミット件名の一覧）を含むpeekは読む時間を長めに取る
 export const PILL_PEEK_REMOTE_DURATION_MS = 6000;
-// push/pull結果のpeekに添えるコミット件名の最大件数（最新の1件だけ出し、残りは
-// 「… and N more」にまとめる）
+// push/pull結果peekに添えるコミット件名の最大件数（残りは「… and N more」にまとめる）
 export const PILL_PEEK_SUBJECT_MAX = 1;
 // 再接続直後に再送される GitHub 新着を1回のpeekにまとめるための待ち時間
 export const GITHUB_ACTIVITY_BATCH_MS = 200;
@@ -100,7 +99,6 @@ export const CONNECTIVITY_PING_TIMEOUT_MS = 5000;
 export const CONNECTIVITY_OFFLINE_THRESHOLD = 3;
 // WS が open でも受信フレーム（keepalive 含む）がこの時間途絶したら半開き接続とみなす。
 // サーバの idle keepalive 間隔（WS_PING_INTERVAL_SEC=15s）の約1.3倍＋余裕。
-// 検知を早めるため35sから短縮（体感の「反応しない」時間を減らす）。
 export const WS_STALE_THRESHOLD_MS = 20000;
 // working→idle 遷移を「作業完了(done)」とみなすために必要な、直前のworking
 // 継続時間の下限。backendのagent_watchが画面のちらつき等で一瞬working扱いに
@@ -161,22 +159,15 @@ export const IMAGE_TAP_ZOOM_LEVELS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
 // HTTPS 証明書の期限がこの日数を切ったら警告を出す（System info / スタートページ）
 export const CERT_EXPIRY_WARN_DAYS = 14;
 
-// 起動時のフォント読み込み待ちタイムアウト（vue-main.ts）
 export const FONT_LOAD_TIMEOUT_MS = 3000;
-// チャンク読み込みエラー時の自動リロードのループ防止窓（vue-main.ts）
 export const CHUNK_RELOAD_GUARD_MS = 10000;
 export const BUILD_UPDATE_RELOAD_GUARD_MS = 10000;
-// ターミナル上の URL 長押し検出（useTerminalPaneGestures.ts）
 export const LONG_PRESS_URL_MS = 400;
 export const TAP_MAX_DELTA_PX = 10;
-// stash 一覧キャッシュの TTL（useStashCache.ts）
 export const STASH_CACHE_TTL_MS = 5 * 60 * 1000;
-// クライアントエラー報告の重複抑制窓（error-reporter.ts）
 export const ERROR_DEDUP_WINDOW_MS = 5000;
-// トーストのスワイプ解除しきい値 / タップ判定の許容移動量（AppToast.vue）
 export const TOAST_SWIPE_DISMISS_PX = 40;
 export const TOAST_TAP_MAX_DELTA_PX = 5;
-// IconPicker のグリッド最大表示件数
 export const ICON_GRID_MAX_DISPLAY = 200;
 
 export const SESSION_SIDEBAR_DEFAULT_WIDTH_PX = 320;

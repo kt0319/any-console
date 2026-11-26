@@ -43,7 +43,6 @@ describe("usePaneLoader", () => {
     markLoaded("files", "ws1");
     ensure("files", "ws1", loader);
     expect(loader).not.toHaveBeenCalled();
-    // 別キーなら再ロードする
     ensure("files", "ws2", loader);
     expect(loader).toHaveBeenCalledTimes(1);
   });

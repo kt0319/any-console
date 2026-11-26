@@ -52,7 +52,6 @@ import { useConfirm } from "../composables/useConfirm.ts";
 import { EP_DEVICES, devicePath } from "../utils/endpoints.ts";
 import { formatRelativeTime } from "../utils/format.ts";
 
-// Trusted Devices セクション（一覧・Revoke / Logout）。AuthConfig から分離。
 defineProps({
   tokenConfigured: { type: Boolean, default: false },
 });

@@ -20,7 +20,6 @@ import {
   devicePath,
 } from "../../ui/utils/endpoints.ts";
 
-// ── Tests ──
 
 describe("workspaceApiPath", () => {
   it("builds basic path", () => {

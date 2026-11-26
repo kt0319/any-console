@@ -18,35 +18,27 @@ type DispatchRecentItem = DispatchQueueItem & {
   session_id?: string,
 };
 
-// Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。サーバがステータス
-// ストリーム WS（type="dispatch_queue"）で配信する全量スナップショットをそのまま
-// 反映するため、他端末で決定された項目が残り続けることはない。
+// サーバが WS（type="dispatch_queue"）で配信する承認待ちの全量スナップショット。
 const queue = ref<DispatchQueueItem[]>([]);
 
-// 実行/破棄が決定された直近の項目（新しい順）。実行しても結果がすぐ消えてしまう
-// 問題への対応で、サーバ側が直近N件だけ一時的に残して配信する
-// （outcome: "executed" | "discarded" | "failed"。failed は値を直して履歴から再実行する）。
+// 直近に実行/破棄/失敗した項目（新しい順）。サーバが直近N件だけ残して配信する。failed は履歴から再実行できる。
 const recent = ref<DispatchRecentItem[]>([]);
 
 function removeFromQueue(id: string) {
   queue.value = queue.value.filter((q) => q.id !== id);
 }
 
-// dispatchピル/一覧でjob idではなく表示用labelを出すためのジョブ定義キャッシュ
-// （/jobs/workspaces）。モジュールスコープの単一状態にし、複数コンポーネントから
-// 同時にuseDispatchQueue()が呼ばれてもfetchは1回だけにする。
+// dispatch ピル/一覧で job id ではなく label を出すためのジョブ定義キャッシュ（/jobs/workspaces）。
+// モジュール単一状態にして fetch を1回にする。
 const allJobs = ref<Record<string, any>>({});
 let allJobsLoadPromise: Promise<void> | null = null;
 
-// ジョブ編集で古いキャッシュを引きずらないよう、他のjob一覧系キャッシュ
-// （WorkspaceJobsPane.vue）と同じ jobs:refresh で無効化する。
+// 他の job 一覧系キャッシュと同じく jobs:refresh で無効化する。
 on("jobs:refresh", () => {
   allJobsLoadPromise = null;
 });
 
-// ステータスストリームから受信したキュー全量で置き換える。DispatchRunView を
-// 開いたまま対象が消えた場合（他端末で決定済み）に一覧へ戻れるよう、消えた
-// 項目IDを dispatch:itemRemoved で通知する。
+// 全量で置き換える。他端末で決定され消えた項目IDは dispatch:itemRemoved で通知する（DispatchRunView を一覧へ戻すため）。
 export function applyDispatchQueue(items: DispatchQueueItem[], recentItems?: DispatchRecentItem[]) {
   const ids = new Set(items.map((q) => q.id));
   const removed = queue.value.filter((q) => !ids.has(q.id));
@@ -70,9 +62,7 @@ export function useDispatchQueue() {
     }
     return allJobsLoadPromise;
   }
-  // dispatchピル・Dispatch Queue一覧のどちらもマウント時点でjob labelが
-  // 引ければ十分なため fire-and-forget（結果は allJobs の更新で反映され、
-  // 呼び出し側のcomputedが自動で追従する）。
+  // マウント時点で label が引ければ十分なため fire-and-forget。
   loadAllJobs();
 
   function jobLabel(request: Record<string, any>): string {
@@ -84,9 +74,7 @@ export function useDispatchQueue() {
     await attachSessionTab(sessionId, { restored: false, workspace });
   }
 
-  // DispatchRunView の Run から呼ぶ。pendingのitemでも、既に決定済みで履歴
-  // （recent）に残っているだけのitemでも同じエンドポイントで実行できる
-  // （サーバ側 dispatch_decide が dispatch_id の所在を見て振り分ける）。
+  // pending でも履歴（recent）の決定済み項目でも同じエンドポイントで実行できる（サーバ dispatch_decide が振り分ける）。
   async function runItem(id: string, overrides: Record<string, any>): Promise<boolean> {
     const { ok, data } = await apiPost(dispatchDecisionPath(id), {
       executed: true,
@@ -95,16 +83,12 @@ export function useDispatchQueue() {
     if (!ok) return false;
     // WS ブロードキャストでも消えるが、切断中でも一覧へ即時反映する。
     removeFromQueue(id);
-    // await必須（Codexレビュー指摘: fire-and-forgetだと、呼び出し元が完了直後に
-    // モーダルを閉じる等で先に進んだ場合、新規セッションのWS接続完了前に処理が
-    // 終わり、pending textを流すサーバ側flush_pending_textが呼ばれずコマンドが
-    // 入力されないことがあった）。
+    // await 必須: fire-and-forget だと新規セッションの WS 接続前に処理が終わり、flush_pending_text が呼ばれずコマンドが入力されないことがある。
     await focusSession(data?.session_id, data?.workspace);
     return true;
   }
 
-  // 一覧の×ボタン（discardItem経由）から呼ぶ。pendingのitemのみ対象
-  // （既に決定済みのitemを破棄することはできない）。
+  // pending の item のみ対象。
   async function rejectItem(id: string): Promise<boolean> {
     const { ok } = await apiPost(dispatchDecisionPath(id), { executed: false },
       { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });
@@ -112,7 +96,6 @@ export function useDispatchQueue() {
     return ok;
   }
 
-  // 一覧の×・DispatchRunViewのDiscardで共用する確認つき破棄。
   async function discardItem(id: string, label: string): Promise<boolean> {
     if (!await confirm(`Discard dispatch for "${label}"? This cannot be undone.`)) return false;
     const ok = await rejectItem(id);

@@ -1,8 +1,5 @@
 /**
  * タブバーの「+」（Open Session）/ 歯車（Settings）ボタンの E2E スモーク。
- * どちらもセッション一覧サイドバーとは独立した全面オーバーレイ
- * （SessionOpenModal.vue / TerminalSettingsModal.vue）として、本物の
- * currentView遷移（SessionOpenHome/SettingsMenu）で開く。
  */
 import { test, expect, openSettingsView, popToNavRoot, useLoginWithSessionCleanup } from "./helpers.js";
 
@@ -41,8 +38,7 @@ test.describe("tab bar: open session / settings buttons", () => {
 
     await page.locator('[aria-label="Settings"]').click();
     await expect(page.locator(".terminal-settings-modal")).toBeVisible({ timeout: 5000 });
-    // PCではsessionOpen/settingsは互いに排他のため、後から開いたSettingsで
-    // Open Sessionは自動的に閉じる。
+    // PCではsessionOpenとsettingsは排他のため、後から開いたSettingsでOpen Sessionは閉じる。
     await expect(page.locator(".session-open-modal")).toBeHidden({ timeout: 5000 });
   });
 
@@ -59,7 +55,6 @@ test.describe("tab bar: open session / settings buttons", () => {
     await openSettingsView(page, "Terminal");
     await expect(page.locator(".modal-title")).toContainText("Terminal", { timeout: 10_000 });
 
-    // タイトルの戻るボタンでSettingsメニューへ戻れる
     await popToNavRoot(page);
     await expect(page.locator(".settings-menu")).toBeVisible({ timeout: 5000 });
   });

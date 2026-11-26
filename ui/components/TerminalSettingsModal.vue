@@ -33,11 +33,7 @@ import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeypadConfig from "./CircleKeypadConfig.vue";
 import PreviewConfig from "./PreviewConfig.vue";
 
-// タブバーの歯車ボタンから開くSettings系列専用の全面オーバーレイ。
-// シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに
-// 共通化されており、ここは表示するビューの列挙とuseSettingsNav.ts
-// （Open Session/セッション一覧とは完全に独立したビュースタック）への
-// 配線だけを持つ。
+// 歯車ボタンから開くSettings系列の全面オーバーレイ。シェルはModalShell.vueに共通化済みで、ここはビュー列挙とuseSettingsNav.tsへの配線のみ。
 
 const {
   isOpen, currentView, canNavigateBack,
@@ -50,7 +46,6 @@ provideModalView({
   pushView, popView, updateViewState,
 });
 
-// ビュー名 → コンポーネントの対応（ビュー追加はここに1行足すだけ）。
 const VIEWS: Record<string, unknown> = {
   SettingsMenu,
   ServerProcesses: ServerProcessesView,

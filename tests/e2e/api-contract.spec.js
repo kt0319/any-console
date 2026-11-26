@@ -1,18 +1,7 @@
 /**
- * API 契約 E2E（ワイヤレベルの互換性検証）。
- *
- * UI 操作フローではなく「HTTP/WS のワイヤ上の約束事」を固定するスペック。
- * 実装を差し替えても、UI テストでは検知できない次の互換性をここで担保する:
- *
- * - エラー応答のフィールドが `detail` であること（Backend API ルール）
- * - セキュリティヘッダ（X-Frame-Options 等）が全応答に付くこと
- * - 静的配信のキャッシュ規則（index/sw.js は no-cache、/assets/* は immutable）
- * - /auth/check・/pair/{id} の応答形
- * - /snippets・/auth/pairing/* の応答形（認証要否を含む）
- * - WS ハンドシェイクの認証拒否挙動
- *
- * ANY_CONSOLE_URL を Rust フロントに向ければ、同じ契約を移行後の実装にも
- * そのまま適用できる。全テストは読み取りのみ or 自己完結（状態を汚さない）。
+ * API 契約 E2E。UI テストでは検知できないワイヤ上の約束事（`detail` エラー形式・セキュリティヘッダ・
+ * 静的配信のキャッシュ規則・/auth/check /pair /snippets /auth/pairing の応答形・WS 認証拒否）を固定する。
+ * 全テストは読み取りのみ or 自己完結（状態を汚さない）。
  */
 import { test, expect, loadToken, login, bearerHeaders, BASE_URL, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
@@ -97,7 +86,6 @@ test.describe("API contract", () => {
   test("upload-image は未対応 MIME を detail 付き 400 で拒否する", async ({ request }) => {
     const token = loadToken();
     test.skip(!token, TOKEN_REQUIRED_MSG);
-    // 未認証は 401
     const unauthorized = await request.post(`${BASE_URL}/upload-image`, {
       multipart: {
         file: { name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("x") },
@@ -133,7 +121,6 @@ test.describe("API contract", () => {
     expect(typeof tmuxBody.prefix).toBe("string");
     expect(typeof tmuxBody.available).toBe("boolean");
     expect(Array.isArray(tmuxBody.sessions)).toBeTruthy();
-    // 未認証は 401
     const unauthorized = await request.get(`${BASE_URL}/system/info`);
     expect(unauthorized.status()).toBe(401);
   });
@@ -145,7 +132,6 @@ test.describe("API contract", () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.snippets)).toBeTruthy();
-    // 未認証は 401
     const unauthorized = await request.get(`${BASE_URL}/snippets`);
     expect(unauthorized.status()).toBe(401);
   });
@@ -160,7 +146,6 @@ test.describe("API contract", () => {
   test("ペアリング開始は認証必須で、応答形が契約どおり", async ({ request }) => {
     const token = loadToken();
     test.skip(!token, TOKEN_REQUIRED_MSG);
-    // 未認証は 401
     const unauthorized = await request.post(`${BASE_URL}/auth/pairing/start`);
     expect(unauthorized.status()).toBe(401);
 
@@ -168,8 +153,7 @@ test.describe("API contract", () => {
       headers: bearerHeaders(token),
     });
     if (res.status() === 400) {
-      // localhost 経由（使い捨てサーバモードの既定）では「他端末から到達できる
-      // URL を組み立てられない」ため明確なエラーで拒否される契約
+      // localhost 経由では他端末から到達できる URL を組み立てられないため拒否される契約
       expect((await res.json()).detail).toContain("localhost");
     } else {
       // LAN / Tailscale 経由の外部サーバでは id / url / expires_in_sec を返す。
@@ -214,10 +198,8 @@ test.describe("API contract", () => {
       [token],
     );
     const [valid, invalid] = result;
-    // 正しいトークン: 接続でき、最初のフレームが JSON で届く
     expect(valid.outcome).toBe("message");
     expect(() => JSON.parse(valid.data)).not.toThrow();
-    // 不正トークン: メッセージを受け取ることなく接続が拒否される
     expect(invalid.outcome).toBe("closed");
   });
 
@@ -227,7 +209,6 @@ test.describe("API contract", () => {
     await login(page, context, token);
     const res = await page.request.post("/auth/logout");
     expect(res.ok()).toBeTruthy();
-    // 失効済みデバイス cookie では再認証されない
     await page.reload();
     await expect(page.locator('input[placeholder="Token"]')).toBeVisible({ timeout: 10_000 });
   });

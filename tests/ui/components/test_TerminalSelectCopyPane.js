@@ -1,10 +1,5 @@
 // @vitest-environment happy-dom
-/**
- * Select & Copy ペイン（TerminalSelectCopyPane.vue）の Copy / Copy with Trim ボタンの
- * 回帰テスト。選択なしでの誤コピー防止（トースト案内）と、選択範囲をそのまま/
- * 改行・スペース除去してコピーする経路を確認する（純粋なtrim関数自体は
- * test_auto_format.js側でカバーする）。
- */
+/** Select & Copy ペイン（TerminalSelectCopyPane.vue）の Copy / Copy with Trim ボタンの回帰テスト。 */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";

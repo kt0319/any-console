@@ -1,7 +1,4 @@
-/**
- * keyDef -> ANSI escape sequence へ変換する。
- * keyDef は { key: string, ctrl?: boolean, shift?: boolean, alt?: boolean } 形式。
- */
+/** keyDef { key, ctrl?, shift?, alt? } を ANSI escape sequence へ変換する。 */
 
 export type KeyDef = {
   key: string;

@@ -30,17 +30,8 @@ import { useModal } from "../composables/useModal.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import ModalHeader from "./ModalHeader.vue";
 
-// 全面オーバーレイモーダルの共通シェル。
-// TerminalSettingsModal / SessionOpenModal / WorkspaceDetailModal が丸ごと
-// 複製していたテンプレート（.modal-overlay/.modal/.settings-panel-header/
-// .settings-panel-body）と scoped CSS（約90行×3）をここに一本化した。
-// フォーカストラップ（useModal）もここで面倒を見る — Esc は `escape` を
-// emit するだけなので、閉じるか戻るかは各ホストが決める。
-// ヘッダー（タイトル+戻る/閉じる）はModalHeader.vue（SessionListPanel.vue
-// と共用）に切り出してある。
-//
-// ホスト側に残るのは「どのビューを body に出すか」「back/close/escape/
-// overlay クリックで何をするか」だけ。
+// 全面オーバーレイモーダルの共通シェル。フォーカストラップ（useModal）はここで担い、
+// Esc は escape を emit するだけで閉じるか戻るかは各ホストが決める。
 
 const props = defineProps<{
   isOpen: boolean,

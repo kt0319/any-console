@@ -62,8 +62,7 @@ const { apiGet } = useApi();
 
 type HistoryEntry = FileLogEntry;
 
-// 一覧取得（historyState）とdiff取得（diffState）は互いに独立した非同期状態
-// （一覧を選び直してもdiff側のエラーは引きずらない、逆も同様）。
+// 一覧取得とdiff取得は独立した状態（片方のエラーを引きずらない）
 const historyState = ref<AsyncState<HistoryEntry[]>>(asyncIdle());
 const entries = computed(() => asyncValueOr(historyState.value, [] as HistoryEntry[]));
 const isLoading = computed(() => isAsyncPending(historyState.value));

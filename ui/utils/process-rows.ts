@@ -1,6 +1,5 @@
-// Server Processes ページの行構築（ServerProcessesView.vue から使用）。
-// dev server / job / 通常プロセスを ps の並び順のまま1本のリストへ合成する
-// 純粋関数。テストは tests/ui/test_process_rows.js。
+// Server Processes ページの行構築（ServerProcessesView.vue から使用）。dev server / job / 通常プロセスを
+// ps の並び順のまま1本のリストへ合成する純粋関数。テストは tests/ui/test_process_rows.js。
 
 export type ProcessEntry = { name: string, pid: number, cpu: number, mem: number };
 export type JobEntry = {
@@ -12,7 +11,6 @@ export type JobEntry = {
 };
 export type PortEntry = Record<string, any>;
 
-// 1行分（dev server行 / job行 / 通常プロセス行を共通の形にまとめたもの）。
 export type CombinedRow = {
   key: string,
   pid?: number,
@@ -61,11 +59,8 @@ function toJobRow(job: JobEntry, name: string, cpu?: number, mem?: number): Comb
   };
 }
 
-// dev server/jobをヘッダのように先頭固定にせず、processes（ps aux --sort=-%cpu、
-// 上位PROCESS_LIST_LIMIT件のみ）の並び順にそのまま混ぜる。一致するpidが
-// 見つかった位置にdev server/job行を差し込み、processesの上位に入らない
-// （CPU使用率が低い）pidはリスト末尾に回す — devServer/jobともに、上位に
-// 入らなければ一切表示されない、ということが無いようにするため。
+// dev server/job は先頭固定にせず、processes（ps aux --sort=-%cpu の上位PROCESS_LIST_LIMIT件）の並び順に混ぜる。
+// 一致する pid の位置に差し込み、上位に入らない pid は末尾に回す（表示されなくなるのを防ぐ）。
 export function buildProcessRows(
   processes: ProcessEntry[],
   ports: PortEntry[],

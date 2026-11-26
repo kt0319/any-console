@@ -56,9 +56,7 @@ export function useKeyboardBarFlicks({
     }
 
     if (enterEl.value) {
-      // 改行挿入はclear（_clear）と違って冪等ではないため、touchmoveの度に
-      // onFlickが繰り返し呼ばれても1ジェスチャーにつき1回だけ挿入されるよう
-      // touchstartでリアームする（arrowFlick.resetと同じパターン）。
+      // 改行挿入は冪等ではないため、touchmove で onFlick が繰り返されても 1 ジェスチャー 1 回になるよう touchstart でリアームする
       let newlineArmed = true;
       enterEl.value.addEventListener("touchstart", () => { newlineArmed = true; }, { passive: true });
 

@@ -5,7 +5,6 @@ import { useWorkspaceStore } from "../stores/workspace.ts";
 import { isEmptyPaneId } from "../utils/empty-pane.ts";
 import { tabTitleLabel } from "../utils/tab-label.ts";
 
-/** タイトルバーに出す、アクティブなタブ（分割中はアクティブなペイン）の表示名。 */
 export function useActiveTabLabel(isEmptyScreenVisible: Ref<boolean>) {
   const layoutStore = useLayoutStore();
   const terminalStore = useTerminalStore();

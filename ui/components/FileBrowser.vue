@@ -109,8 +109,6 @@ const props = defineProps({
   terminalSessionId: { type: String, default: "" },
 });
 
-// useFileBrowserNav の entries は Record<string, any>[]。テンプレート
-// （renderFileIcon / onEntryClick 等）で必要な形をここで確定させる。
 interface FileEntry {
   name: string;
   type: "file" | "dir";
@@ -145,9 +143,7 @@ const {
   openInEditor,
 } = useEditorIntegration();
 
-// エディタ連携（vscode://等のカスタムURLスキーム）はローカルのデスクトップ
-// エディタを起動する前提のため、モバイルでは対応するアプリが無く実質使えない
-// （useEditorIntegration.openInEditor参照）。ボタン自体を出さない。
+// vscode:// 等はモバイルでは開けないためボタンを出さない（useEditorIntegration.openInEditor参照）。
 const { isTabBarAtBottom: isMobile } = storeToRefs(useLayoutStore());
 const showEditorButton = computed(() => !!editorUrlTemplate.value && !isMobile.value);
 
@@ -195,8 +191,6 @@ const {
   currentPath, fileContent,
   navigateToPath, openFile,
 });
-// splitPathSegments（utils/file-browser.ts）が未型付けのため any になっている。
-// テンプレート（v-for のインデックス比較）で使う型をここで確定させる。
 const displayPathSegments = rawDisplayPathSegments as ComputedRef<string[]>;
 
 const {
@@ -209,9 +203,7 @@ const {
   editorUrlTemplate, openInEditor,
 });
 
-// ヘッダーアクション（Editor/GitHub/Download/Move/Delete等）は diff表示・
-// ファイル表示・ディレクトリ表示で同じボタンが重複するため、宣言的な配列に
-// して v-for で描画する（モードごとの差分は配列の組み立てだけに現れる）。
+// 表示モードごとに重複するヘッダーボタンを配列化して v-for で描画する。
 interface HeaderAction {
   icon: string;
   label: string;

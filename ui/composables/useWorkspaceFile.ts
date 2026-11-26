@@ -8,8 +8,7 @@ import { extractFilenameFromContentDisposition } from "../utils/content-disposit
 import { workspaceDownloadPath, terminalSessionDownloadPath, terminalSessionDeleteFilePath, terminalSessionOpenPathDownload } from "../utils/endpoints.ts";
 import { basename } from "../utils/path.ts";
 
-// getTerminalSessionId が空でない時は、ワークスペース未紐付けの素のターミナルとして
-// セッションのカレントディレクトリ（/terminal/sessions/{id}/…）を対象にする。
+// getTerminalSessionId が空でない時は、未紐付けターミナルのセッション cwd を対象にする
 export function useWorkspaceFile({ getTerminalSessionId = () => "" }: { getTerminalSessionId?: () => string } = {}) {
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
@@ -21,10 +20,7 @@ export function useWorkspaceFile({ getTerminalSessionId = () => "" }: { getTermi
       const res = await auth.apiFetch(endpoint);
       if (!res?.ok) throw new Error();
       const blob = await res.blob();
-      // フォルダをダウンロードした場合、サーバがzip化しfilename="dir.zip"を
-      // 返すため、そちらを優先する（filePath由来の名前だと拡張子が付かない）。
-      // ワークスペースルート（filePath=""）はサーバが workspace 名を basename
-      // として付けたファイル名を返すため、フォールバック名は不要。
+      // フォルダは zip 化され filename="dir.zip" が返るためサーバ名を優先する（ルート時のフォールバック名は不要）
       const serverFilename = extractFilenameFromContentDisposition(res.headers?.get?.("content-disposition"));
       triggerBlobDownload(blob, serverFilename || basename(filePath) || "download");
       return true;
@@ -41,7 +37,6 @@ export function useWorkspaceFile({ getTerminalSessionId = () => "" }: { getTermi
     return result ?? false;
   }
 
-  // ターミナルに表示されたパス（絶対・~・相対。cwdの外も可）を開いたダイアログ用。
   async function downloadTerminalOpenedPath(sessionId: string, filePath: string) {
     return await fetchAndSaveDownload(terminalSessionOpenPathDownload(sessionId, filePath), filePath);
   }

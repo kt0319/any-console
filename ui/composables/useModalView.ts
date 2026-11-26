@@ -1,10 +1,6 @@
 import { inject, provide, type ComputedRef, type Ref } from "vue";
 
-/**
- * モーダルホスト（SessionOpenModal / TerminalSettingsModal /
- * WorkspaceDetailModal）が子ビューへ提供する6キーの provide 定型。
- * useModalView() の inject キーと1対1で対応する。
- */
+/** モーダルホストが子ビューへ提供する provide キー群。useModalView() の inject と1対1で対応する。 */
 export function provideModalView(nav: {
   modalTitle: Ref<string>,
   modalBranch: Ref<string>,
@@ -21,10 +17,7 @@ export function provideModalView(nav: {
   provide("updateViewState", nav.updateViewState);
 }
 
-// provide側（SessionOpenModal.vue / TerminalSettingsModal.vue / WorkspaceDetailModal.vue）
-// は全キーを提供する。
-// defaultのnullは、部分的にしかprovideしないユニットテストでVueのinject警告を
-// 出さないためのもの（実行時は常にprovide値が入る）。
+// default の null は、部分的にしか provide しないユニットテストで inject 警告を出さないためのもの。
 export function useModalView() {
   return {
     modalTitle: inject<Ref<string> | null>("modalTitle", null),

@@ -13,7 +13,6 @@ import { useAgentStateStore } from "../../../ui/stores/agent-state.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
 import { applyDispatchQueue } from "../../../ui/composables/useDispatchQueue.ts";
 
-// ── SessionSidebar: ハンバーガーで開くセッション一覧 ─────────────────────────
 
 describe("SessionSidebar: セッション選択とモバイル全面表示", () => {
   /** @type {import('@vue/test-utils').VueWrapper|null} */
@@ -21,16 +20,14 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
 
   beforeEach(() => {
     setActivePinia(createPinia());
-    // 前のdescribe（DispatchRunView系）が残したdispatchキューはモジュール
-    // スコープの共有stateのため、このdescribeへ漏れないようリセットする。
+    // dispatchキューはモジュールスコープの共有stateのため、前のdescribeから漏れないようリセットする。
     applyDispatchQueue([]);
   });
 
   afterEach(() => {
     wrapper?.unmount();
     wrapper = null;
-    // isSessionSidebarOpenはlocalStorageへ永続化される（layout.js参照）ため、
-    // 他ファイルの初期状態を汚さないよう戻しておく。
+    // isSessionSidebarOpenはlocalStorageへ永続化されるため、他ファイルへ漏れないよう戻す。
     useLayoutStore().isSessionSidebarOpen = false;
   });
 
@@ -48,8 +45,7 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     workspaceStore.allWorkspaces = [
       { name: "app", branch: "main", clean: false, ahead: 2, behind: 0, changed_files: 1, insertions: 5, deletions: 2 },
     ];
-    // SessionSidebar.vueはPC専用（モバイルはSessionListOverlay.vueが同じ中身を全面オーバーレイで出す）
-    // なので、行の中身自体（SessionListView.vue）を直接マウントして両パターンを検証する。
+    // SessionSidebar.vueはPC専用のため、行の中身（SessionListView.vue）を直接マウントして検証する。
     wrapper = panelBottom
       ? mount(SessionListView, { attachTo: document.body })
       : mount(SessionSidebar, { attachTo: document.body });

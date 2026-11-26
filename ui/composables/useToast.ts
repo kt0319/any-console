@@ -14,10 +14,7 @@ interface ToastPayload {
   key?: string;
 }
 
-/**
- * トースト通知を発火する薄い composable。`emit("toast:show", ...)` を
- * 全コンポーネントで個別に書くのを避け、呼び口を統一する。
- */
+/** `emit("toast:show", ...)` の呼び口を統一する薄い composable。 */
 export function useToast() {
   function show(message: string, type: string = "info", opts: ToastOptions = {}) {
     const payload: ToastPayload = { message, type };

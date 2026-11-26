@@ -1,5 +1,4 @@
 <template>
-  <!-- グループ名入力モーダル -->
   <BaseDialog :visible="groupDialogOpen" :z-index="DIALOG_Z_INDEX_RAISED" initial-focus="none" @dismiss="groupDialogOpen = false">
     <div class="ws-group-dialog dialog-box" style="--dialog-width: 320px" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
       <DialogCloseButton @close="groupDialogOpen = false" />
@@ -41,7 +40,6 @@ const workspaceStore = useWorkspaceStore();
 const { apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 
-// グループダイアログ
 const groupDialogOpen = ref(false);
 const groupInputName = ref("");
 const groupInputEl = ref<HTMLInputElement | null>(null);

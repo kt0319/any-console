@@ -1,18 +1,13 @@
 import { type Ref } from "vue";
 import { enterResolver } from "../utils/flick-resolvers.ts";
 
-/**
- * Enterキーの動作を一元管理する。
- * draft があれば送信、なければターミナルへ \r を送る。
- */
+/** draft があれば送信、なければターミナルへ \r を送る。 */
 export function useEnterAction({ keyboardInput, sendKeyToTerminal }: {
   keyboardInput: Ref<any>,
   sendKeyToTerminal: (keyDef: { key: string }) => void,
 }) {
   function onEnter() {
-    // hasDraft（v-model経由）はIME変換中に反映が遅れることがあるため、
-    // ここでは判定せず常にsubmit()へ委ねる。空/非空の分岐はsubmit()側が
-    // 実際のDOM値を見て行う。
+    // hasDraft は IME 変換中に反映が遅れるため、判定は実 DOM 値を見る submit() に委ねる。
     if (keyboardInput.value?.submit) {
       keyboardInput.value.submit();
       return;

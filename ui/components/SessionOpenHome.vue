@@ -163,8 +163,7 @@ function groupedWorkspaces(groupId: string) {
   return workspacesInGroup(workspaceStore.allWorkspaces, groupId);
 }
 
-// 要素型は useWorkspaceListDrag.ts の FlatRow と同形にする（dragFlatList と
-// 合流させてテンプレートで区別なく扱うため。header/ws の判別は item.type）。
+// 要素型は useWorkspaceListDrag.ts の FlatRow と同形（dragFlatList と合流させるため）。
 const flatList = computed<({ type: string } & Record<string, any>)[]>(() =>
   buildFlatList(ungrouped.value, workspaceStore.groups, groupedWorkspaces, collapsedGroups),
 );
@@ -179,7 +178,6 @@ const worktreesByBase = computed(() => {
   return map;
 });
 
-// ---- 並べ替え（グループ + ワークスペース。永続化は useWorkspaceOrdering に集約）----
 const {
   groupDragFrom,
   groupDragOver,
@@ -208,8 +206,7 @@ async function loadWorkspaceOverview() {
   } finally {
     isLoading.value = false;
   }
-  // ステータス(git dirty/ahead/behind等)は行ごとの statusLoading 表示で埋まるため、
-  // 一覧表示自体はブロックしない。
+  // ステータスは行ごとの statusLoading で埋まるため、一覧表示はブロックしない。
   workspaceStore.fetchStatuses();
 }
 
@@ -218,7 +215,6 @@ function openBareTerminal() {
   bridgeEmit("terminal:launch", {});
 }
 
-// 追加先（Common / ワークスペース）はJobConfig側のScopeプルダウンで選ぶ。
 function openAddJob() {
   pushView("JobConfig", {
     workspaceName: "",
@@ -228,7 +224,6 @@ function openAddJob() {
   });
 }
 
-// ワークスペース（worktree含む）のジョブはダイアログで選んで起動する。
 const { defaultJob, loadDefaultJob } = useDefaultJob();
 const { runJobInWorkspace } = useRunJob();
 const jobDialog = ref<InstanceType<typeof WorkspaceJobDialog> | null>(null);
@@ -237,7 +232,6 @@ function selectJob(ws: Record<string, any>) {
   jobDialog.value?.open(ws.name);
 }
 
-// デフォルトジョブ（共通ジョブの default）があればそれを直接起動し、無ければジョブ選択ダイアログを開く。
 async function tapWorkspace(ws: Record<string, any>) {
   if (!defaultJob.value) {
     selectJob(ws);
@@ -268,16 +262,11 @@ onMounted(() => {
   loadDetachedSessions();
 });
 
-// このビューが開いている間にタブがDetachされる（TabItem/TerminalPaneの
-// 閉じるダイアログ経由）と開いているタブ数が減る。マウント時の1回取得だけ
-// では反映されないため、タブ数が変わるたびに再取得して同期する。
+// Detach 等でタブ数が減っても反映されるよう、タブ数が変わるたびに再取得する。
 watch(() => terminalStore.openTabs.length, (newLen, oldLen) => {
   loadDetachedSessions();
-  // Openページから新規タブを作成した（Workspace/Job/New terminal起動、
-  // WorkspaceJobsPane経由も含む）場合は、作られたタブを見に行きやすいよう
-  // 自動で戻る。奥のビュー（WorkspaceAdd等）からならSessionOpenHomeルートへ
-  // popViewし、既にルートならこのオーバーレイごと閉じてターミナルへ戻す
-  // （タブ数が減った時＝Detach等は対象外）。
+  // Openページから新規タブが作られたら自動で戻る（奥のビューならルートへ popView、ルートならオーバーレイごと閉じる）。
+  // タブ数が減った時（Detach等）は対象外。
   if (newLen > oldLen) {
     if (canNavigateBack.value) popView();
     else closeNav();

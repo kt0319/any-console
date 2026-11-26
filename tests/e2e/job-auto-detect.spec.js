@@ -1,15 +1,6 @@
 /**
- * 素のターミナルの cwd をワークスペースとして登録した後、前面で実行した
- * コマンドがジョブ定義と一致した際に自動タグ付け（session_job_bound）される
- * フローの E2E。
- *
- * ピークピルにジョブ名が出ること、タブアイコンが即座にジョブアイコンへ
- * 切り替わること、そして通常どおりワークスペースからジョブを起動した場合と
- * 同じアイコンになる（= ワークスペースアイコン未設定時にjobアイコンへ誤って
- * フォールバックしていたバグの回帰確認）ことを検証する。
- *
- * ジョブの前面検出は agent_watch のポーリング（2秒間隔）に依存するため、
- * 他のE2Eスペックより待ち時間を長めに取る。
+ * 素のターミナルで前面実行したコマンドがジョブ定義と一致した際の自動タグ付け（session_job_bound）を検証する。
+ * ジョブの前面検出は agent_watch のポーリング（2秒間隔）に依存するため、待ち時間を長めに取る。
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -59,7 +50,6 @@ test.describe("job auto-detect from bare terminal", () => {
   test("ワークスペース追加 → 前面コマンド一致でジョブ自動検知 → 通常起動と同じアイコンになる", async ({ page, request }) => {
     const token = loadToken();
 
-    // 1. 素のターミナルを開き、テストディレクトリへcdする
     const term = await openNewTerminal(page);
     await term.click();
     await page.waitForTimeout(1000);
@@ -67,9 +57,6 @@ test.describe("job auto-detect from bare terminal", () => {
     await page.keyboard.press("Enter");
     await page.waitForTimeout(500);
 
-    // 2. Files pillの並びに出る「Add / Open」からワークスペース登録する
-    //    （bare-terminal-actions.ts の resolveRegisterCurrentDirAction が
-    //    cwdから未登録ディレクトリと判定しAdd Workspace画面を開く）
     await page.locator(".pill-add-btn").click();
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace", { timeout: 5000 });
     // クリックが希に取りこぼされることがあるため、反映が無ければ再クリックする。
@@ -84,20 +71,15 @@ test.describe("job auto-detect from bare terminal", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator(".session-open-modal")).toHaveCount(0, { timeout: 5000 });
 
-    // 3. アイコン付きジョブを定義する（UI経由の作成はworkspace-panes.spec.jsで
-    //    別途確認済みのため、ここではAPIで最小限に済ませ自動検知フローに集中する）
+    // UI経由の作成は workspace-panes.spec.js で確認済みのため、ここではAPIで済ませる
     const jobRes = await request.post(`${BASE_URL}/workspaces/${wsName}/jobs`, {
       headers: bearerHeaders(token),
       data: { label: jobLabel, command: jobCommand, icon: jobIcon, icon_color: jobIconColor, confirm: false },
     });
     expect(jobRes.ok()).toBeTruthy();
 
-    // 4. 同じターミナルでジョブコマンドをそのまま前面実行し、自動タグ付けを待つ。
-    //    シェルのプロンプト側がターミナル機能（色・DA等）を問い合わせ、xterm.jsが
-    //    それに自動応答するタイミングと最初の入力が重なると、応答シーケンスの
-    //    処理中にシェルのZLEが直後の1文字を読み飛ばすことがある（実機でも再現した
-    //    別バグ）。ダミーの1文字を打って即削除し、その応答が落ち着いてから
-    //    本命のコマンドを打つことでこの競合を避ける。
+    // シェルへの問い合わせに xterm.js が自動応答するタイミングと最初の入力が重なると、ZLE が直後の1文字を
+    // 読み飛ばすことがある。ダミー1文字を打って即削除し、応答が落ち着いてから本命を打つ。
     await term.click();
     await page.waitForTimeout(1000);
     await page.keyboard.type(" ");
@@ -106,14 +88,11 @@ test.describe("job auto-detect from bare terminal", () => {
     await page.keyboard.type(jobCommand);
     await page.keyboard.press("Enter");
 
-    // ピークピルにジョブ名が出る
     await expect(page.locator(".pill-peek-wide", { hasText: jobLabel }).first()).toBeVisible({ timeout: 20_000 });
 
-    // 5. タブのアイコンが即座にジョブアイコンへ切り替わる（session_job_boundのライブ反映）
     const autoTab = page.locator(".tab-btn.active");
     await expect(autoTab.locator(".mdi-rocket-launch")).toBeVisible({ timeout: 5000 });
 
-    // 6. 通常どおりワークスペースからジョブを起動した場合と同じアイコンになることを確認する
     await openWorkspaces(page);
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
     await row.locator('[aria-label="Select job"]').click();
@@ -128,7 +107,6 @@ test.describe("job auto-detect from bare terminal", () => {
     const launchedTab = page.locator(".tab-btn.active");
     await expect(launchedTab.locator(".mdi-rocket-launch")).toBeVisible({ timeout: 5000 });
 
-    // 自動検知タブ・通常起動タブどちらもjobアイコンの色まで一致する
     const autoStyle = await autoTab.locator(".mdi-rocket-launch").getAttribute("style");
     const launchedStyle = await launchedTab.locator(".mdi-rocket-launch").getAttribute("style");
     expect(autoStyle).toBe(launchedStyle);

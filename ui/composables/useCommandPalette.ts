@@ -16,16 +16,11 @@ import { paletteWorkspacePanes } from "../utils/workspace-panes.ts";
 
 const TAB_FALLBACK_LABEL = "Terminal";
 
-// コマンドパレットはセッションサイドバー（SessionListPanel.vue）の検索入力として統合している。
-// 入力・選択位置はサイドバーを開き直しても保たれるようモジュール単位で持つ。
+// セッションサイドバー（SessionListPanel.vue）の検索入力として統合。開き直しても保つためモジュール単位で持つ。
 const query = ref("");
 const activeIndex = ref(0);
 
-/**
- * command-palette:open でサイドバーを開き、検索入力へフォーカスする。検索入力にフォーカスが
- * ある状態でもう一度受けたら、検索をクリアしてサイドバーを閉じる（トグル）。
- * 常時マウントされる場所から1回だけ呼ぶ。
- */
+/** command-palette:open でサイドバーを開く。検索入力フォーカス中に再度受けたらクリアして閉じる（トグル）。常時マウントされる場所から1回だけ呼ぶ。 */
 export function useCommandPaletteOpener() {
   const { open, close, isSearchFocused } = useSessionListOverlay();
   const { loadRecentJobs } = useRecentJobs();
@@ -65,7 +60,7 @@ export function useCommandPalette() {
   }));
 
   const items = computed<PaletteItem[]>(() => {
-    // tab は markRaw のため、ワークスペース紐付けの変化は tabWorkspaceVersion 経由で追う。
+    // tab は markRaw のため、ワークスペース紐付けの変化は tabWorkspaceVersion で追う
     terminalStore.tabWorkspaceVersion;
     const tabItems = terminalStore.openTabs.map((tab): PaletteItem => ({
       id: `tab:${tab.id}`,
@@ -108,11 +103,10 @@ export function useCommandPalette() {
     return [...actionItems, ...detailItems, ...tabItems, ...jobItems, ...launchItems, ...settingsItems];
   });
 
-  // 検索入力がタブバーと同じ下端に来る設定では、入力に近い下側から候補を積む（最良の候補が入力の真上）。
+  // 検索入力が下端なら下側から候補を積む（最良の候補が入力の真上）
   const resultsFromBottom = computed(() => layoutStore.isTabBarAtBottom);
   const isSearching = computed(() => query.value.trim() !== "");
-  // 入力そのものを引数にした操作。一致するコマンドの後ろに続けて出す（Enter で実行される先頭の
-  // 候補は、一致したコマンドを優先する）。
+  // 入力そのものを引数にした操作。Enter で実行される先頭候補は一致したコマンドを優先するため後ろに出す。
   const queryItems = computed<PaletteItem[]>(() => {
     const text = query.value.trim();
     const tab = terminalStore.activeTab;

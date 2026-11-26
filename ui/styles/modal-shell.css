@@ -1,15 +1,6 @@
-/* モーダル系オーバーレイの共通シェル。
-   SessionListOverlay.vue（モバイルのセッション一覧オーバーレイ）/ SessionListPanel.vue（セッション一覧）/
-   SessionOpenModal.vue（Open Sessionスタック）/ TerminalSettingsModal.vue（設定スタック）/
-   WorkspaceDetailModal.vue（ワークスペース詳細オーバーレイ）で同じ見た目を
-   共用する。配置・cursor などコンポーネント固有の差分は各コンポーネントの
-   scoped スタイルで上書きする。 */
+/* モーダル系オーバーレイの共通シェル（コンポーネント固有の差分は各 scoped スタイルで上書き） */
 
-/* ScreenMain.vue の .content-area（ターミナル表示エリアと全く同じ場所）内に
-   配置する。position:fixed でビューポート全体を覆う方式だと、TabBar等の実寸を
-   ピクセル計算でオフセットする必要がありモード（PC/モバイル/panel-bottom）
-   ごとにズレやすかったため、position:absolute + inset:0 で親エリアに
-   そのまま追従させる。 */
+/* .content-area 内に absolute + inset:0 で置く（position:fixed だと TabBar 等の実寸オフセットがモードごとにズレる） */
 .modal-overlay {
   position: absolute;
   inset: 0;
@@ -21,7 +12,6 @@
   padding: 0;
 }
 
-/* ヘッダーのタイトル（スタックがあればタップで戻る）まわり。 */
 .modal-title-wrap {
   display: inline-flex;
   align-items: center;
@@ -60,7 +50,6 @@
   font-weight: 400;
 }
 
-/* 閉じるボタンの共通の見た目（配置は各コンポーネント側で指定する）。 */
 .modal-close-btn {
   width: 36px;
   height: 36px;
@@ -81,11 +70,8 @@
   }
 }
 
-/* GitHistory/GitStash/GitChangeBranch/WorkspaceJobsPane等、多数のペインが
-   共通で使う「スクロール本体」の見た目の契約。設定スタックとWorkspaceDetailの
-   両方（= .settings-panel-body 配下）に適用する。KeyboardBarのHistory/Snippet
-   オーバーレイは keyboard-bar.css の .keyboard-bar-panel-overlay 側が担当する
-   ため対象外。無いとhistoryListEl等のスクロールが効かなくなる。 */
+/* GitHistory / GitStash 等の多数のペインが使うスクロール本体の契約。無いと historyListEl 等のスクロールが効かない。
+   KeyboardBar の History/Snippet は keyboard-bar.css 側が担当 */
 .settings-panel-body .modal-scroll-body {
   display: flex;
   flex-direction: column;

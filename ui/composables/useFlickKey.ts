@@ -12,15 +12,7 @@ type FlickKeyOpts = {
   onFlick?: (key: FlickKeyDef, dx: number, dy: number) => boolean | void,
 };
 
-/**
- * フリック式キーボードのキー要素にタッチ/クリックハンドラを attach する。
- *
- * - 軽いフリック: resolveKey(dx, dy) で得たキーを送信
- * - 同方向の指を保ち続けるとリピート（accelerateRepeat オプションで加速）
- * - 一定時間長押し: opts.onLongPress を発火
- * - フリックなしで離す: onTap
- * - PC のクリックも onTap で発火（合成クリック抑止つき）
- */
+/** フリック式キーボードのキーにタッチ/クリックハンドラを attach する（フリック・リピート・長押し・タップ）。 */
 export function attachFlickKey(
   el: HTMLElement,
   resolveKey: (dx: number, dy: number, threshold: number) => FlickKeyDef | null,

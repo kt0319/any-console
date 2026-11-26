@@ -60,20 +60,16 @@ import { RECENT_JOBS_MAX, RECENT_JOBS_PAGE_SIZE } from "../utils/constants.ts";
 
 const props = defineProps({
   // "pinned": ピン留めのみ。"recent": 非ピン留めのみ（上限RECENT_JOBS_MAX件）。
-  // 表示の見出し（Pinned Jobs / Recent Jobs）は呼び出し元（SessionOpenHome.vue /
-  // ScreenEmpty.vue）が「Recent Jobs」既存見出しと同じスタイルで別々に出す。
   variant: { type: String, default: "recent" },
   editMode: { type: Boolean, default: false },
   showPinToggle: { type: Boolean, default: true },
-  // pinned variant限定の表示件数上限。未指定なら無制限（recent variantはRECENT_JOBS_MAX固定のため対象外）。
   max: { type: Number, default: null },
 });
 
 const { recentJobs, runRecentJob, togglePin, removeRecentJob } = useRecentJobs();
 const { confirm } = useConfirm();
 
-// 編集モード中は行本体のクリックでジョブを起動しない（削除アイコンを
-// 少し外してタップしただけでジョブが走ってしまうのを防ぐ）。
+// 編集モード中は削除アイコンのタップ位置ずれでジョブが起動しないよう、行クリックを無効にする。
 function onItemClick(recent: (typeof recentJobs.value)[number]) {
   if (props.editMode) return;
   runRecentJob(recent);
@@ -85,10 +81,7 @@ async function removeRecent(recent: (typeof recentJobs.value)[number]) {
   await removeRecentJob(recent.key);
 }
 
-// Recentは上限RECENT_JOBS_MAX件のうち、初期表示はRECENT_JOBS_PAGE_SIZE件のみ。
-// 「More」を押すたびにRECENT_JOBS_PAGE_SIZE件ずつ追加表示する（一度に全件は
-// 出さない。100件近く溜まる想定のため折りたたみに戻す「Less」は設けない）。
-// Pinnedはページングしない。
+// Recentは初期表示RECENT_JOBS_PAGE_SIZE件、「More」で同数ずつ追加表示する（Lessは設けない）。Pinnedはページングしない。
 const visibleCount = ref(RECENT_JOBS_PAGE_SIZE);
 const unpinnedRecentJobs = computed(() => recentJobs.value.filter((j) => !j.pinned).slice(0, RECENT_JOBS_MAX));
 const hasMoreRecentJobs = computed(() => props.variant === "recent" && unpinnedRecentJobs.value.length > visibleCount.value);

@@ -1,28 +1,21 @@
 import { isComposingEvent } from "./keyboard-event.ts";
 
-// タッチデバイス（hover 不可・粗いポインタ）判定。
-// モーダル等で自動フォーカスを抑制し、ソフトキーボードの誤起動を防ぐ用途で使う。
+// タッチデバイス（hover 不可・粗いポインタ）判定。自動フォーカスを抑制しソフトキーボードの誤起動を防ぐ。
 export function isTouchOnly() {
   return typeof window !== "undefined"
     && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches;
 }
 
-// 複数行textareaでカーソルが最初の行にあるか（＝これ以上上に行移動できないか）。
-// 履歴↑を行移動と区別するために使う（KeyboardInput.vue）。
 export function isCaretOnFirstLine(value: string, selectionStart: number | null | undefined): boolean {
   return !value.slice(0, selectionStart ?? 0).includes("\n");
 }
 
-// 複数行textareaでカーソルが最後の行にあるか（＝これ以上下に行移動できないか）。
 export function isCaretOnLastLine(value: string, selectionEnd: number | null | undefined): boolean {
   return !value.slice(selectionEnd ?? value.length).includes("\n");
 }
 
-// document に Escape キーのリスナーを capture フェーズで登録し、解除関数を返す。
-// stopPropagation も呼ぶ（preventDefaultだけだとイベントはターゲット（xterm.jsの
-// 隠しtextarea等）まで届いてしまい、モーダルを閉じたつもりのEscapeがESCバイトと
-// してそのままターミナルへ送られてしまう。シェルのZLEはESC直後の1文字を
-// メタキー結合として解釈するため、次に入力した文字が欠落する不具合になっていた）。
+// document に Escape の capture リスナーを登録し、解除関数を返す。
+// stopPropagation しないと Escape が ESC バイトとして xterm.js へ届き、シェルのZLEが次の1文字をメタキー結合として欠落させる。
 export function listenForEscape(handler: (e: KeyboardEvent) => void) {
   const onKeydown = (e: KeyboardEvent) => {
     // IME 変換中の Esc は変換の取消なので、ダイアログを閉じず IME に任せる

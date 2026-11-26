@@ -31,11 +31,8 @@
 <script setup lang="ts">
 import { useDetachedSessions } from "../composables/useDetachedSessions.ts";
 
-// SessionOpenHome.vueの「Detached Sessions」カテゴリの中身。タブに紐付いていない
-// tmuxセッションの一覧。行自体がボタンで、押すとそのままOpen/Adoptする
-// （RecentJobsList.vueと同じ、行全体をクリックターゲットにするパターン）。
-// 取得のトリガー（マウント時・タブ数変化時）はRecentJobsList.vueと同じく
-// SessionOpenHome.vue側が持つ（v-ifの判定にも同じdetachedSessionsを使うため）。
+// SessionOpenHome.vue の「Detached Sessions」カテゴリの中身。行全体が Open/Adopt のボタン（RecentJobsList.vue と同じ）。
+// 取得のトリガーも RecentJobsList.vue と同じく SessionOpenHome.vue 側が持つ。
 
 const { detachedSessions, openDetached, adoptDetached, closeDetached } = useDetachedSessions();
 </script>

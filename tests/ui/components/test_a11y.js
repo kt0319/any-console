@@ -1,12 +1,7 @@
 // @vitest-environment happy-dom
 // @ts-check
 /**
- * アクセシビリティ自動検査（axe-core）。
- *
- * docs/A11Y_AUDIT.md で手動監査・修正したコンポーネントを対象に、
- * 構造的な a11y 違反（ARIA・ロール・アクセシブルネーム等）が
- * 再混入しないことを CI で継続的に担保する。
- *
+ * アクセシビリティ自動検査（axe-core）。docs/A11Y_AUDIT.md で監査した構造的違反（ARIA・ロール・アクセシブルネーム等）の再混入を防ぐ。
  * 色コントラスト・実機 SR 検証は対象外（axe-helper.js のコメント参照）。
  */
 import { describe, it, expect, afterEach, vi } from "vitest";

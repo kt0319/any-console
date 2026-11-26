@@ -15,7 +15,6 @@ import { rememberJobIcon } from "./useSessionSync.ts";
 import { useApi } from "./useApi.ts";
 import { basename } from "../utils/path.ts";
 
-// TerminalBase.vue が defineExpose する形のうち、ここで使う部分。
 interface TerminalBaseViewRef {
   fitAllTerminals: (opts?: { force?: boolean }) => void;
 }
@@ -44,8 +43,7 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
 
   const isLaunching = ref(false);
 
-  // nextTick は DOM への反映までしか保証しないため、実際に1フレーム描画されるまで
-  // 2 回の rAF で待つ（レイヤーを解除する前にタブが見えていることを確実にするため）。
+  // nextTick は DOM 反映までしか保証しないため、2 回の rAF で実描画を待つ。
   function waitForNextPaint() {
     return new Promise((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(resolve));
@@ -75,18 +73,14 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
     }
   }
 
-  // ベアターミナルはタブ名が常に固定文字列"terminal"になり複数開くと見分けが
-  // 付かないため、起動直後の実cwdからディレクトリ名を取得してタブ名に反映する
-  // （ベストエフォート。失敗時は"terminal"のまま）。
+  // ベアターミナルはタブ名が固定の"terminal"で見分けが付かないため、実cwdのディレクトリ名を反映する（失敗時は"terminal"のまま）。
   async function applyBareTerminalCwdLabel(tabId: number, sessionId: string) {
     const { ok, data } = await apiGet(terminalSessionCwdPath(sessionId));
     const dirName = ok ? basename(data?.cwd) : "";
     if (dirName) terminalStore.setTabLabel(tabId, dirName);
   }
 
-  // cd で移動してもタブ名を追従させるため、アクティブタブがベアターミナルの間
-  // だけ軽く定期取得する（バックグラウンド・他タブは対象外にして常時ポーリング
-  // するコストを避ける）。
+  // cd への追従用。常時ポーリングのコストを避けるため、アクティブなベアターミナルの間だけ取得する。
   let bareTerminalCwdPollId: ReturnType<typeof setInterval> | null = null;
 
   function pollActiveBareTerminalCwd() {
@@ -108,19 +102,13 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
   });
 
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, detached }: LaunchTerminalOptions) {
-    // 起動ボタン側は個別にdisabled化していないため、ここで多重起動を防ぐ
-    // （collectCommandVarsのawait前に連打されると素通りしてしまうため、
-    // フラグは呼び出し直後に立てる。タブ生成・activate後は解除してよい
-    // ので、以降のnextTick/fitAllTerminals/waitForNextPaintの間は
-    // ブロックしない — 連続して別タブを開く正当な操作まで阻害しないため）。
+    // 起動ボタン側はdisabled化していないためここで多重起動を防ぐ。collectCommandVarsのawait前に立て、タブ生成後は連続起動を阻害しないよう解除する。
     if (isLaunching.value) return;
     isLaunching.value = true;
     try {
       const commandVars = await collectCommandVars(initialCommand, prompt);
       if (commandVars === null) return; // プレースホルダー入力がキャンセルされた
-      // セッションに紐付ける（TMUX_ICONとして永続化され、他デバイスやServer
-      // Processes等サーバ側の情報からも見える）アイコンは、ジョブ固有のものが
-      // あればそちらを優先する（タブ表示側は従来通り両方使うため見た目には影響しない）。
+      // セッションに永続化される（TMUX_ICON。他デバイスからも見える）アイコンはジョブ固有のものを優先する。
       const sessionIcon = jobName && jobIcon ? jobIcon : icon;
       const sessionIconColor = jobName && jobIcon ? jobIconColor : iconColor;
       const res = await auth.apiFetch(EP_RUN, {
@@ -132,12 +120,10 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
           icon_color: sessionIconColor || null,
           job_name: jobName || null,
           job_label: jobLabel || null,
-          // コマンドはサーバ側で tmux に送り込む（ブラウザ未接続でも実行が走る）。
-          // {{name}} は command_vars の値で shlex.quote 置換される。
+          // コマンドはサーバ側で tmux に送る（ブラウザ未接続でも実行される）。{{name}} は command_vars で shlex.quote 置換。
           command: initialCommand || null,
           command_vars: commandVars,
-          // UIからの直接操作であることを明示する。他デバイスのタブバーにも
-          // 表示されるようにするため（外部ツールからの/run直叩きと区別する）。
+          // 外部ツールの /run 直叩きと区別し、他デバイスのタブバーにも表示させる
           interactive: true,
         },
       });
@@ -147,11 +133,9 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
         return;
       }
       const data = await res.json();
-      // 同期ポーリング(useSessionSync)がこのセッションを再構築する際、
-      // /jobs/workspaces が一時的に不完全でもここで解決済みのアイコンを使えるようにする。
+      // useSessionSync の再構築時に /jobs/workspaces が不完全でも、解決済みアイコンを使えるようにする
       if (jobName && jobIcon) rememberJobIcon(data.session_id, jobIcon, jobIconColor);
       if (detached) {
-        // タブに追加せず detached マークのみ。Tabs パネルの Detached tabs セクションに表示される。
         if (data.session_id) {
           auth.apiFetch(terminalSessionDetachedPath(data.session_id), {
             method: "PUT", body: { detached: true },
@@ -174,8 +158,7 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
       });
       activateTerminalTab(tab.id, { focus: false });
       if (workspace) workspaceStore.selectedWorkspace = workspace;
-      // ベアターミナル（ワークスペース・ジョブどちらにも紐付かない）のみ対象。
-      // ワークスペース/ジョブに紐付く場合はラベルが既に意味を持つため上書きしない。
+      // ワークスペース/ジョブ紐付きのラベルは既に意味を持つため、ベアターミナルのみ対象
       if (!workspace && !jobName && !jobLabel) applyBareTerminalCwdLabel(tab.id, data.session_id);
       isLaunching.value = false;
       await nextTick();
@@ -192,15 +175,13 @@ export function useTerminalLifecycle({ terminalBaseView }: { terminalBaseView: R
   function reconnectTab(tab: TerminalTab) {
     const tabObj = terminalStore.openTabs.find((t) => t.id === tab.id);
     if (!tabObj) return;
-    // 現在の WebSocket を切ってから再接続。tmux session は維持する。
     if (tabObj.ws) {
       try { tabObj.ws.onclose = null; tabObj.ws.close(); } catch {}
       tabObj.ws = null;
     }
     if (tabObj._reconnectTimer) clearTimeout(tabObj._reconnectTimer);
     tabObj._reconnectAttempts = 0;
-    // xterm.js のバッファを完全にクリアして tmux capture-pane で screen を取り直す。
-    // term.refresh() だけだと崩れたバッファをそのまま再描画してしまうため。
+    // refresh() だけだと崩れたバッファをそのまま再描画するため、reset して capture-pane で取り直す
     try { tabObj.term?.reset(); } catch {}
     tabObj._needsHistoryRestore = true;
     tabObj._pendingRedraw = true;

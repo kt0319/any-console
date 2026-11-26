@@ -22,8 +22,7 @@ export function useGitLogPagination() {
   const isLoadingMoreHistory = ref(false);
   const historyListEl = ref<HTMLElement | null>(null);
   let historyPage = 0;
-  // loadHistory時にのみ取得し、loadMoreHistoryのページ追加では消えないよう
-  // 先頭に付け直す（pending行はページングと無関係な固定の小集合のため）。
+  // loadHistory 時だけ取得し、ページ追加でも先頭に付け直す
   let pendingGraphRows: GitGraphRow[] = [];
 
   async function _fetchPage(workspace: string, limit: number) {
@@ -33,14 +32,7 @@ export function useGitLogPagination() {
     return { rows: buildGitGraphRows(parsed), count: parsed.filter((p) => p.entry).length };
   }
 
-  // upstream にはあるがまだ pull していないコミット（HEAD..@{u}）を、
-  // Historyペインの先頭に非アクティブ表示するために取得する。upstream 未設定の
-  // ワークスペースでは空配列（サーバ側が空stdoutを返す）。取得失敗はHistory本体の
-  // 表示を妨げないよう握りつぶす（[]を返すだけ）。
-  // ahead 件数（現在ブランチが upstream より進んでいる = 未pushのコミット数）分だけ、
-  // 履歴先頭から entry.unpushed を付与する。git-log は HEAD から新しい順に並ぶため、
-  // 先頭の ahead 件が未push分と一致する。upstream 未設定/pushしていないローカルブランチも
-  // ahead に含まれる（canPush 相当の定義に合わせる）。
+  // git-log は新しい順なので、先頭の ahead 件（未 push 分。upstream 未設定のローカルブランチも含む）に unpushed を付ける
   function _markUnpushed(rows: GitGraphRow[]) {
     let remaining = Number(workspaceStore.currentWorkspace?.ahead) || 0;
     if (remaining <= 0) return;
@@ -118,8 +110,7 @@ export function useGitLogPagination() {
   function onHistoryListScroll() {
     if (!hasMoreHistory.value || isHistoryLoading.value || isLoadingMoreHistory.value) return;
     const el = historyListEl.value;
-    // 非表示・未レイアウト時は scrollHeight/clientHeight が 0 になり、
-    // 常に「最下部」と誤判定して loadMore を連打してしまうため除外する。
+    // 非表示・未レイアウト時は寸法 0 で常に「最下部」と誤判定し loadMore を連打するため除外する
     if (!el || el.clientHeight <= 0) return;
     const threshold = INFINITE_SCROLL_THRESHOLD_PX;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {

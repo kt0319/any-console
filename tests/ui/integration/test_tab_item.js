@@ -10,12 +10,9 @@ import { useTerminalStore } from "../../../ui/stores/terminal.ts";
 import { useWorkspaceStore } from "../../../ui/stores/workspace.ts";
 
 describe("TabItem: markRawなtabの変更がtabWorkspaceVersion経由で再描画される", () => {
-  // tabはmarkRawで保持される（xterm.Terminal等の重い実行時参照を持つため）ので
-  // tab.workspace/wsIcon/iconへの直接読み取りだけではVueの依存トラッキングに
-  // 引っかからない。setTabWorkspace/setTabJobがtabWorkspaceVersionを進める
-  // ことで再評価させる設計になっているが、label/wsIconHtml/iconHtmlの各
-  // computedがそれを読んでいないと、ワークスペース自動紐付け・ジョブ自動検知の
-  // どちらでもタブの表示が更新されない（実際にE2Eで再現した回帰）。
+  // tab は markRaw のため tab.workspace/wsIcon/icon の直接読み取りは依存トラッキングされない。
+  // setTabWorkspace/setTabJob が進める tabWorkspaceVersion を label/wsIconHtml/iconHtml の各 computed が読んでいないと、
+  // 自動紐付け・ジョブ自動検知でタブ表示が更新されない（E2Eで再現した回帰）。
   beforeEach(() => {
     setActivePinia(createPinia());
   });

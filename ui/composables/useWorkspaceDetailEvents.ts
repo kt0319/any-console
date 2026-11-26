@@ -3,12 +3,7 @@ import { useBusListener } from "./useBusListener.ts";
 import { useWorkspaceStore } from "../stores/workspace.ts";
 import type { usePaneLoader } from "./usePaneLoader.ts";
 
-/**
- * WorkspaceDetail が購読する app-bridge イベント（git:* / worktree:open）の
- * ハンドラをまとめる composable。各ハンドラはタブ切替・diff選択状態・
- * ペイン読み込み済みフラグ等、WorkspaceDetail 側の状態を操作するため、
- * 必要な関数・refを呼び出し側から受け取る。WorkspaceDetail から切り出したもの。
- */
+/** WorkspaceDetail が購読する app-bridge イベント（git:* / worktree:open）のハンドラ。操作対象の状態は呼び出し側から受け取る。 */
 export function useWorkspaceDetailEvents(deps: {
   open: (options: Record<string, any>) => void,
   switchPane: (key: string) => void,

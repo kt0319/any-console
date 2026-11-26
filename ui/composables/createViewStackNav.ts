@@ -1,12 +1,8 @@
 import { ref, computed } from "vue";
 import { useExclusiveOverlay, type OverlayKey } from "./useExclusiveOverlay.ts";
 
-// モーダルのビュースタック（push/pop/ルートへリセット）の共通実装。
-// useSettingsNav（ルート SettingsMenu）と useSessionOpenNav（ルート SessionOpenHome）が
-// 同じ構造を複製していたのをファクトリに抽出したもの。呼び出し側は
-// モジュールスコープで1回だけ生成し（系列ごとの単一状態）、イベントリスナーの
-// 登録（on(...)）と useExclusiveOverlay への registerOverlay だけを
-// 系列固有のコードとして持つ。
+// モーダルのビュースタック（push/pop/ルートへリセット）の共通実装。モジュールスコープで1回だけ生成し、
+// on(...) 登録と registerOverlay だけを系列固有のコードとして持つ。
 
 export type NavEntry = { view: string, state: Record<string, any> };
 
@@ -44,7 +40,7 @@ export function createViewStackNav({ rootView, overlayKey }: {
 
   function popView(result?: unknown) {
     modalBranch.value = "";
-    if (viewStack.value.length <= 1) return; // ルートより前には戻れない
+    if (viewStack.value.length <= 1) return;
     const popped = viewStack.value.at(-1);
     const newStack = viewStack.value.slice(0, -1);
     if (result != null && popped?.state?.onReturn) {

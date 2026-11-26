@@ -5,14 +5,8 @@ import { EP_TERMINAL_SESSIONS, EP_PREVIEW_PORTS, EP_SYSTEM_PROCESS_KILL, termina
 import { emit } from "../app-bridge.ts";
 
 /**
- * worktree削除に伴う残骸（開いているタブ以外）を検出・掃除する。
- * - タブに紐付いていないdetachedセッション（terminalStore.openTabsには無いが
- *   /terminal/sessionsには残っている、そのworktree宛のtmuxセッション）
- * - そのworktree内で起動していたdev serverプロセス（/preview/portsで検出
- *   済みのpid、ディレクトリを消してもプロセス自体は生き残るため）
- * どちらも「タブを閉じる」だけでは対処できず、削除操作を跨いだこのタイミング
- * でしか一括で見つけられないため、findOpenTabsForWorktreeと合わせてここに
- * 集約する（useBranchActions.ts / SessionOpenHome.vue の両方から使う）。
+ * worktree 削除に伴う残骸（タブに紐付かない detached セッション・その worktree 内の dev server プロセス）を検出・掃除する。
+ * タブを閉じるだけでは対処できないため findOpenTabsForWorktree と合わせて集約する。
  */
 export function useWorktreeCleanup() {
   const terminalStore = useTerminalStore();
@@ -26,10 +20,8 @@ export function useWorktreeCleanup() {
     const openTabs = findOpenTabsForWorktree(terminalStore.openTabs, { workspace: wsName });
     if (!wsName) return { openTabs, detachedSessions: [] as any[], devServers: [] as any[] };
 
-    // サーバ側のworktree_base/worktree_branchが取れる場合はそちらで比較する
-    // （workspace文字列の完全一致より安全。dev serverのworkspace値はcwdから
-    // 都度推測されるためcolon形式の文字列が完全一致しない場合がある）。
-    // worktreeでない対象（expectedBranchが取れない）は従来通りworkspace完全一致。
+    // worktree_base/worktree_branch が取れる場合はそちらで比較する（dev server の workspace 値は cwd から推測されるため完全一致しないことがある）。
+    // expectedBranch が取れない対象は workspace 完全一致。
     const expectedBranch = wt?.worktree_branch || wt?.branch;
     const expectedBase = wsName ? baseWorkspaceName(wsName) : wt?.worktree_base;
 

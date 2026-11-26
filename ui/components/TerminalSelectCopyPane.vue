@@ -58,9 +58,7 @@ function refresh() {
 
 defineExpose({ refresh });
 
-// readonly textarea でも選択自体はできる。選択状態を別途追従する仕組み
-// （selectionchange等）はiOS Safariで発火が不安定だったため、ボタンは常に
-// 有効にし、押された時点の選択有無をそのまま見る単純な方式にする。
+// selectionchange は iOS Safari で発火が不安定なため、ボタンは常に有効にして押下時の選択有無を見る。
 function currentSelection(): string {
   const el = textareaEl.value;
   if (!el || el.selectionStart === el.selectionEnd) return "";

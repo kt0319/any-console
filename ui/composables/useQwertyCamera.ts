@@ -3,9 +3,6 @@ import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.ts";
 import { useToast } from "./useToast.ts";
 import type { TerminalTab } from "../stores/terminal.ts";
 
-/**
- * カメラ起動と撮影画像のターミナルへのアップロードをまとめる。
- */
 export function useQwertyCamera({ apiFetch, getActiveTerminalTab, onBeforeUpload }: {
   apiFetch: (url: string, init?: { method?: string, body?: any }) => Promise<Response | null | undefined>,
   getActiveTerminalTab: () => TerminalTab | null,

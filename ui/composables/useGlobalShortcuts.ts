@@ -14,8 +14,7 @@ export function useGlobalShortcuts({ terminateTab }: { terminateTab: (tab: Termi
   const { confirmAndCloseTab } = useTabClose();
 
   async function onGlobalKeydown(e: KeyboardEvent) {
-    // 選択中のターミナルがあれば Ctrl/Cmd+C をコピーに割り当てる（フォーカスが
-    // 入力フォーム等にあるとき、設定画面が開いているときは標準のコピー動作を優先するため対象外）。
+    // 入力フォーム上・設定画面表示中は標準のコピー動作を優先する。
     if (isCopyShortcut(e)) {
       const isFormField = isEditableTarget(e.target as HTMLElement);
       if (!isFormField && !layoutStore.isAnyOverlayOpen) {
@@ -31,8 +30,7 @@ export function useGlobalShortcuts({ terminateTab }: { terminateTab: (tab: Termi
       const tab = terminalStore.activeTab;
       if (!tab) return;
       e.preventDefault();
-      // close だけはショートカット固有のフォロー（選択ワークスペースの同期）が
-      // あるため onClose で差し替える。refresh / detach は共通ディスパッチ。
+      // close のみ選択ワークスペースの同期が必要なため onClose で差し替える。
       await confirmAndCloseTab(tab, async (t) => {
         await terminateTab(t);
         const activeTab = terminalStore.activeTab;

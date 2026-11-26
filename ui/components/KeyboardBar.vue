@@ -1,10 +1,6 @@
 <template>
   <div v-show="isVisible" class="keyboard-bar">
-    <!-- モード切替タブ行。QWERTY/Fn/History/Snippetを直接選択できる常設タブ
-         （従来の隅の鍵盤トグルキーとは別の入り口として追加。隅の鍵盤トグルキーは
-         タップ=開閉に加えスワイプで矢印キー送信/履歴移動を兼ねる複合キーのため、
-         そちらの操作性は変えずそのまま残す）。
-         ソフトキーボード（QWERTYパネル）を開いている間だけ表示する。 -->
+    <!-- モード切替タブ行。隅の鍵盤トグルキー（タップ=開閉＋スワイプで矢印/履歴）とは別の入口で、QWERTYパネルを開いている間だけ表示する -->
     <div v-if="isFullKeyboard" class="keyboard-bar-tabs">
       <button
         v-for="t in KEYBOARD_BAR_TABS"
@@ -29,10 +25,7 @@
         <span class="mdi mdi-close"></span>
       </button>
     </div>
-    <!-- QWERTYパネル+bar行をまとめた入れ物。History/Snippet表示中は、下の
-         SendSnippet/SendHistoryオーバーレイがこの2つ分の高さをまるごと覆い、
-         一覧をそのスペースいっぱいに表示する（bar行だけ空けて隠すのではなく、
-         一覧の表示領域として使う）。 -->
+    <!-- History/Snippet表示中は、下のSendSnippet/SendHistoryオーバーレイがこの領域の高さ全体を覆って一覧表示に使う -->
     <div class="keyboard-bar-content">
       <KeyboardQwertyKey
         :active="isFullKeyboard"
@@ -41,12 +34,7 @@
         :panel-view="snippetPanelView"
         @dismiss="hideInput"
       />
-      <!-- バー行 = フルキーボードの最下行と同構成。
-           History/Snippetタブ表示中はキー部分を隠すが、行自体（DOM・高さ）は
-           残す（v-ifで着脱するとbarArrowFlickEl/barEnterFlickElのDOM要素が
-           差し替わり、useKeyboardBarFlicksがonMounted一回きりで張っている
-           イベントリスナが失効してしまうため、visibility:hiddenで見た目だけ
-           消し高さは一定に保つ）。 -->
+      <!-- History/Snippet表示中も行は残す。v-ifで着脱するとフリック用DOMが差し替わり、onMountedで張ったリスナが失効するため visibility:hidden で隠す -->
       <div class="keyboard-bar-row" :class="{ 'keyboard-bar-row-hidden': showSnippetView }">
         <KeyboardInput
           v-show="!isFullKeyboard"
@@ -57,7 +45,6 @@
           @focused="onInputFocused"
           @submitted="onSubmitted"
         />
-        <!-- ソフト（QWERTY）キーボード表示中は入力フォームの代わりに shift/ctrl/space を表示 -->
         <div v-if="isFullKeyboard" class="keyboard-bar-modifier-keys">
           <div
             class="quick-key quick-flick-arrow quick-modifier"
@@ -158,10 +145,7 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
 });
 
-// 表示要否はlayout store（Settings > Display の狭い/広い設定）で決まる
-// （呼び出し元のScreenMain.vueがlayoutStore.keyboardBarVisibleを渡す）。
-// 分割モード（isSplitMode）はPC幅でも成立するが、キーボードバーはそれとは
-// 独立してこの設定に従う。
+// 表示要否は layout store（Settings > Display）で決まり、分割モードとは独立。
 const isVisible = computed(() => props.visible);
 
 const { clearModifiers, sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
@@ -170,17 +154,13 @@ const keyboardInput = ref<InstanceType<typeof KeyboardInput> | null>(null);
 const barArrowFlickEl = ref<HTMLElement | null>(null);
 const barEnterFlickEl = ref<HTMLElement | null>(null);
 
-// ─── 入力 / スニペット状態・キーボード開閉 ──────────────────────
 const {
   isFullKeyboard, draft, inputFocused, showSnippetView, snippetPanelView, hasDraft,
   onInputFocused, openSnippetPanel, openHistoryPanel, closeSnippetPanel,
   hideInput, dismissKeyboard, onSubmitted,
 } = useKeyboardBarState({ keyboardInput, clearModifiers });
 
-// フリック矢印キー・KeyboardInput.vueの物理矢印キー入力の両方でこの
-// 単一インスタンスを使う（historyIndexを共有するため。別々に生成すると
-// 片方で辿った履歴位置をもう片方が知らず、混ぜて使った時に履歴が正しく
-// 辿れなくなる）。
+// フリック矢印キーと KeyboardInput.vue の物理矢印キーで historyIndex を共有するため、単一インスタンスを使う。
 const { historyPrev, historyNext } = useInputDraftHistory(draft);
 const { snippetPrev, snippetNext } = useSnippetCycle(draft);
 
@@ -192,9 +172,7 @@ function onQuickKeyCancel(e: Event) {
   (e.currentTarget as HTMLElement).classList.remove("pressed");
 }
 
-// isFullKeyboard 中、入力フォームの代わりに表示する shift/ctrl/space（bar行）。
-// showFnView は上段タブ（Fn）とKeyboardQwertyKey.vueへのexternal-fn-view propで共有する
-// （modifierStateはモジュール単位のシングルトン）。
+// showFnView は上段タブ（Fn）と KeyboardQwertyKey.vue の external-fn-view prop で共有する。
 const {
   showFnView,
   toggleShift, toggleCtrl, toggleFnView, sendSpace,
@@ -209,9 +187,7 @@ const {
   onReload: doReload,
 });
 
-// フル（QWERTY）キーボードを閉じたら fn ビュー（数字/記号パッド）・
-// History/Snippetオーバーレイも閉じる（タブ帯自体もisFullKeyboardの間だけ
-// 表示するため、再度開いた時は毎回QWERTYグリッドから始まるようにする）。
+// フルキーボードを閉じたら fn ビュー・History/Snippet も閉じ、再度開いた時は QWERTY グリッドから始める。
 watch(isFullKeyboard, (active) => {
   if (!active) {
     showFnView.value = false;
@@ -219,19 +195,13 @@ watch(isFullKeyboard, (active) => {
   }
 });
 
-// QWERTYタブ: タブ帯自体がisFullKeyboard中しか出ないため、既にキーボードは
-// 開いている前提。Fn/History/Snippet表示中ならそれを閉じて通常のQWERTY
-// グリッドに戻すだけで、タップしてもキーボード自体は閉じない
-// （閉じる操作は右端の×ボタンに一本化）。
+// QWERTYタブ: キーボードは開いている前提。Fn/History/Snippetを閉じてQWERTYグリッドに戻すだけ（閉じるのは×ボタンに一本化）。
 function onQwertyTabClick() {
   showFnView.value = false;
   closeSnippetPanel();
 }
 
-// Fnタブ: fnビューはフルキーボードの中でのみ意味を持つため、未展開なら
-// 先に展開してからfnビューを開く（隅の鍵盤トグルキーのtap=dismissKeyboardと
-// 同じ「閉じている状態からの開き方」に揃える）。他のタブと同じく選択式
-// （トグルではない）にするため、既にFn表示中の再タップでは閉じない。
+// Fnタブ: fnビューはフルキーボード内でのみ意味を持つため、未展開なら先に展開する。選択式なのでFn表示中の再タップでは閉じない。
 function onFnTabClick() {
   if (!isFullKeyboard.value) {
     isFullKeyboard.value = true;
@@ -241,8 +211,7 @@ function onFnTabClick() {
   if (!showFnView.value) toggleFnView();
 }
 
-// モード切替タブの定義（並び＝表示順）。aria-label / data-tooltip は
-// 可視ラベルと同一文言。active判定・クリック時の遷移は下の2関数で揃える。
+// モード切替タブの定義（並び＝表示順）。active判定・遷移は下の2関数で揃える。
 type KeyboardBarTabId = "qwerty" | "fn" | "history" | "snippets";
 
 const KEYBOARD_BAR_TABS: { id: KeyboardBarTabId, label: string, icon: string }[] = [

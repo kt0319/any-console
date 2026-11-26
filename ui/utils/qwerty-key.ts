@@ -9,7 +9,6 @@ type QwertyKeyDef = {
   flickDown?: string;
 };
 
-// shift 中は 1 文字キーを大文字で表示する。
 export function qwertyDisplayLabel(keyDef: QwertyKeyDef, shift: boolean) {
   if (shift && keyDef.key?.length === 1) return keyDef.key.toUpperCase();
   return keyDef.label || keyDef.key;

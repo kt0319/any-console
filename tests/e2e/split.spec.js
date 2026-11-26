@@ -1,20 +1,8 @@
-/**
- * ターミナル分割（split pane）の E2E スモーク。
- * タブをドロップゾーンへドラッグして horizontal split へ遷移できること
- * を確認する（stores/layout.js の splitWithDrop）。
- * 以前はワークスペースピルのドラッグでも分割やピル群の画面位置（top/bottom）
- * 切替えができたが、いずれも廃止し、位置はデバイス（PC/モバイル）に応じて
- * 自動で決まるようになった。分割の入口はタブ（TabItem.vue、ネイティブHTML5
- * DnD）のみ。split mode 中もタブバー（TabBar.vue）は表示され続ける。
- */
+/** ターミナル分割（split pane）E2E: タブをドロップゾーンへドラッグして horizontal split へ遷移できること。 */
 import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
 /**
- * タブをドラッグして指定のドロップゾーンへドロップする。
- * TabItem.vue はネイティブ HTML5 draggable のため、実際のマウス操作で
- * ブラウザ自身のドラッグ機構を発火させる（dragTo() は対象の可視化を
- * 事前に要求するため使えない。ドロップゾーンはドラッグ開始後にしか
- * マウントされない）。
+ * 実マウス操作でタブをドロップゾーンへドラッグする。ドロップゾーンはドラッグ開始後にマウントされるため dragTo() は使えない。
  * @param {import("@playwright/test").Page} page
  * @param {import("@playwright/test").Locator} tabBtn
  * @param {string} zoneSelector 例: ".drop-left"

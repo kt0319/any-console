@@ -16,8 +16,7 @@ import { workspaceFilesPath, terminalSessionFilesPath, terminalSessionRenamePath
 
 type DroppedEntry = { file: File, relativePath: string };
 
-// アップロード先。ワークスペースは /workspaces/{name}/…、ワークスペース未紐付けの
-// 素のターミナルはセッションのカレントディレクトリ（/terminal/sessions/{id}/…）。
+// アップロード先。ワークスペース未紐付けの素のターミナルは /terminal/sessions/{id}/…（セッションのcwd）。
 type UploadTarget = {
   uploadEndpoint: string,
   listingPath: (dir: string) => string,
@@ -60,11 +59,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
     await downloadWorkspaceFile(filePath);
   }
 
-  // 現在ブラウズ中のパス（開いているファイル、またはブラウズ中のディレクトリ）を対象にする。
-  // どちらも getCurrentPath() がそのフルパスを保持しているため同じロジックで扱える。
-  // Rename（ファイル名だけ変更）とMove（パスごと変更）は同じrenameFile APIを呼ぶ
-  // だけの違いのため、フルパスを編集できる1つの操作に統合する
-  // （同じ階層内でファイル名部分だけ書き換えればRenameとして機能する）。
+  // 開いているファイル／ブラウズ中ディレクトリはどちらも getCurrentPath() がフルパスを持つ。
+  // Rename と Move は同じ renameFile API のため、フルパスを編集できる1操作に統合している。
   async function moveCurrentPath() {
     const filePath = getCurrentPath();
     if (!filePath) return;
@@ -143,11 +139,8 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath,
     if (skippedCount > 0) toast.error(`${skippedCount} file(s) skipped (overwrite declined)`);
   }
 
-  // entries: { file: File, relativePath: string }[]。ドロップされたのが
-  // フォルダの場合、relativePathにフォルダ階層（例: "src/app.js"）が入る
-  // （useFileDragDropのcollectDroppedFileEntries / webkitRelativePath経由）。
-  // フォルダ内のファイル（サブディレクトリ持ち）は上書き確認の対象にせず、
-  // そのままアップロードする（既存名との衝突チェックは直下ファイルのみ）。
+  // entries: { file: File, relativePath: string }[]。フォルダのドロップ時は relativePath に階層（例: "src/app.js"）が入る。
+  // サブディレクトリ内のファイルは上書き確認の対象にせずアップロードする（衝突チェックは直下ファイルのみ）。
   async function uploadDroppedFiles(entries: DroppedEntry[]) {
     if (entries.length === 0) return;
     const sessionId = getTerminalSessionId();

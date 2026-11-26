@@ -4,12 +4,8 @@ import { useWorkspaceRuns } from "./useWorkspaceRuns.ts";
 import { useWorkspaceIssues } from "./useWorkspaceIssues.ts";
 import { unwatchGitHubWorkspace, watchGitHubWorkspace } from "../utils/github-watch.ts";
 
-// GitHub PR / Actions / Issues ピルのデータ源はどの利用箇所でも必ずセットで
-// 取得・ポーリング開始・停止するため、その3種類をまとめる薄いラッパー。
-// TerminalPane.vue（ワークスペース1つ）と SessionListView.vue（開いている
-// タブのワークスペース集合）が共用する。個別の取得・重複排除・参照カウント式
-// ポーリングの実装は useWorkspacePRs / useWorkspaceRuns / useWorkspaceIssues
-// （それぞれ useWorkspaceResourcePoll.ts の共通ファクトリ）のまま。
+// PR / Actions / Issues ピルは常にセットで取得・ポーリング・停止するため、3種類をまとめる薄いラッパー。
+// TerminalPane.vue と SessionListView.vue が共用する。
 export function useGitHubPolling() {
   const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
   const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceRuns();
@@ -36,11 +32,7 @@ export function useGitHubPolling() {
   return { prsByWorkspace, runsByWorkspace, issuesByWorkspace, startGitHubPolling, stopGitHubPolling };
 }
 
-/**
- * 対象ワークスペース集合の変化に追従してポーリングを増減し、アンマウント時に
- * まとめて停止する（TerminalPane = 1件 / SessionListView = 複数件で共用の
- * 差分開始・停止ブックキーピング）。
- */
+/** 対象ワークスペース集合の変化に追従してポーリングを増減し、アンマウント時にまとめて停止する。 */
 export function useGitHubPollingFor(keys: ComputedRef<string[]>) {
   const polling = useGitHubPolling();
   let active: string[] = [];

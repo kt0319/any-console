@@ -1,22 +1,9 @@
-/**
- * E2E テスト共通ヘルパー。
- *
- * 前提:
- * - 既定では playwright.config.js が使い捨てサーバを自動起動し、
- *   ANY_CONSOLE_URL / ANY_CONSOLE_TOKEN を env に設定する
- * - 外部サーバに対して実行する場合のみ ANY_CONSOLE_URL を自分で指定し、
- *   ANY_CONSOLE_TOKEN env か data/auth.json の token を用意する
- */
+/** E2E テスト共通ヘルパー。外部サーバ実行時のみ ANY_CONSOLE_URL / ANY_CONSOLE_TOKEN（または data/auth.json）を自分で用意する。 */
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect } from "@playwright/test";
 
-/**
- * 全 E2E 共通の test（各 spec は "@playwright/test" ではなくこれを import する）。
- * login() はテストごとに Trusted Device を新規登録するため、テスト終了後に
- * そのテストのデバイスを自動失効させる auto fixture を仕込む
- * （ローカルの実サーバに対して実行しても devices.json に孤児デバイスが溜まらない）。
- */
+/** 各 spec は "@playwright/test" ではなくこれを import する。login() が作る Trusted Device を終了時に自動失効させる。 */
 export const test = base.extend({
   _revokeDeviceAfterTest: [
     async ({ context, page }, use) => {
@@ -25,13 +12,11 @@ export const test = base.extend({
       try {
         cookies = await context.cookies();
       } catch {
-        // テスト中断でコンテキストが既に閉じている場合のみ諦める
         return;
       }
       const deviceId = cookies.find((c) => c.name === "any_console_device")?.value;
       if (!deviceId) return;
-      // 失効の失敗を握りつぶすとデバイスが残り続けるため、リトライの上で
-      // 成功（または既に存在しない = 404）を確認できなければ teardown を失敗させる
+      // 失効失敗を握りつぶすとデバイスが残り続けるため、404 以外で成功しなければ teardown を失敗させる
       let lastError = "";
       for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -50,7 +35,6 @@ export const test = base.extend({
 });
 export { expect };
 
-/** トークン未設定時の test.skip 共通メッセージ。 */
 export const TOKEN_REQUIRED_MSG = "ANY_CONSOLE_TOKEN または data/auth.json が必要";
 
 export function loadToken() {
@@ -63,13 +47,7 @@ export function loadToken() {
   }
 }
 
-/**
- * 現在のターミナルセッション ID 一覧を API から取得する。
- * 取得失敗を空配列にすると「既存セッションが全部テスト作成物」に見えてしまい、
- * cleanupNewSessions が既存セッションを削除しかねないため、失敗時は例外にする。
- * @param {import("@playwright/test").Page} page 認証済みの page（cookie を共有する）
- * @returns {Promise<string[]>}
- */
+/** 失敗を空配列にすると cleanupNewSessions が既存セッションを削除しかねないため、失敗時は例外にする。 */
 export async function listSessionIds(page) {
   const res = await page.request.get("/terminal/sessions");
   if (!res.ok()) {
@@ -79,21 +57,14 @@ export async function listSessionIds(page) {
   return sessions.map((s) => s.session_id);
 }
 
-/**
- * テスト中に増えたターミナルセッションだけを API で削除する。
- * （ローカルの実サーバに対して実行しても、既存セッションには触れない）
- * @param {import("@playwright/test").Page} page
- * @param {string[] | null} beforeIds テスト開始時点のセッション ID 一覧。
- *   null（beforeEach がスナップショット取得前に失敗した等）の場合は
- *   「テストが作った分」を判定できないため何も消さない。
- */
+/** テスト中に増えたセッションだけを削除する。beforeIds が null なら作成分を判定できないため何も消さない。 */
 export async function cleanupNewSessions(page, beforeIds) {
   if (!beforeIds) return;
   let afterIds;
   try {
     afterIds = await listSessionIds(page);
   } catch {
-    // 現在一覧を取得できない場合も、誤削除しないよう消し漏れ側に倒す
+    // 誤削除より消し漏れを優先する
     return;
   }
   for (const id of afterIds.filter((id) => !beforeIds.includes(id))) {
@@ -101,14 +72,7 @@ export async function cleanupNewSessions(page, beforeIds) {
   }
 }
 
-/**
- * 新規ターミナルタブを開き、タブ数が1増えて xterm が表示されるまで待つ。
- * tap: true はモバイル用 — 空画面メニューがあればタップ、なければ
- * ショートカット（⌘⇧T）で開く。
- * @param {import("@playwright/test").Page} page
- * @param {{ tap?: boolean }} [opts]
- * @returns {Promise<import("@playwright/test").Locator>} 表示中の xterm
- */
+/** tap: true はモバイル用。空画面メニューがあればタップ、なければ ⌘⇧T で開く。 */
 export async function openNewTerminal(page, { tap = false } = {}) {
   const tabs = page.locator(".tab-btn");
   const countBefore = await tabs.count();
@@ -124,10 +88,7 @@ export async function openNewTerminal(page, { tap = false } = {}) {
   return term;
 }
 
-/**
- * モーダルのタイトルクリックでルートビュー（Sessions）まで遡る。
- * @param {import("@playwright/test").Page} page
- */
+/** モーダルのタイトルクリックでルートビュー（Sessions）まで遡る。 */
 export async function popToNavRoot(page) {
   while (await page.locator(".modal-title-wrap.is-clickable").count()) {
     await page.locator(".modal-title-wrap").click();
@@ -135,15 +96,9 @@ export async function popToNavRoot(page) {
 }
 
 /**
- * 「ログインして、テスト中に増えたセッションだけを afterEach で消す」共通フック。
- * describe 内で1回呼ぶ（各 spec で同じ beforeEach/afterEach を繰り返さないため）。
- * セッションは tmux でサーバ側に残るため、テストが開いたまま終わると次の
- * テスト・次の実行でも resume され続ける。増えた分を必ず消す（既存には触れない）。
- * @param {typeof test} testRef この spec の test オブジェクト
- * @param {{ onBeforeEach?: () => void | Promise<void> }} [opts]
- *   onBeforeEach: login 前に呼ぶ spec 固有の前処理（snippets のコマンド生成等）
- * @returns {{ idsBefore: string[] | null }} テスト開始時点のセッション ID
- *   （beforeEach 完了まで null。新規セッションの特定などに使える）
+ * ログインし、テスト中に増えたセッションだけを afterEach で消す。describe 内で1回呼ぶ。
+ * セッションは tmux でサーバ側に残り次回以降も resume されるため、増えた分は必ず消す。
+ * onBeforeEach は login 前に呼ぶ spec 固有の前処理。idsBefore は beforeEach 完了まで null。
  */
 export function useLoginWithSessionCleanup(testRef, opts = {}) {
   const state = { /** @type {string[] | null} */ idsBefore: null };
@@ -161,27 +116,15 @@ export function useLoginWithSessionCleanup(testRef, opts = {}) {
   return state;
 }
 
-// 使い捨てサーバモードでは playwright.config.js が env を設定済み。
-// フォールバックは「外部サーバモードで URL 指定を忘れた」場合の開発機既定値。
+// 使い捨てサーバモードでは playwright.config.js が env を設定済み。フォールバックは開発機の既定値。
 export const BASE_URL = process.env.ANY_CONSOLE_URL || "http://localhost:8888";
 
-/**
- * API 直叩き用の Bearer 認証ヘッダを作る（テストの setup / cleanup 用）。
- * @param {string} token
- */
+
 export function bearerHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
-/**
- * テストが登録したワークスペースを API で確実に削除する（後始末用）。
- * 200（削除成功）と 400 / 404（既に存在しない）は成功扱い。
- * それ以外はリトライし、失敗が残る場合は例外にして後始末の失敗を顕在化させる
- * （握りつぶすと、実サーバに「削除済みパスを指す登録」が残るため）。
- * @param {import("@playwright/test").APIRequestContext} request
- * @param {string} token
- * @param {string} name ワークスペース名
- */
+/** 200 と 400 / 404（既に存在しない）は成功扱い。失敗はリトライ後に例外にする（握りつぶすと削除済みパスを指す登録が残る）。 */
 export async function deleteWorkspaceViaApi(request, token, name) {
   let lastError = "";
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -199,54 +142,30 @@ export async function deleteWorkspaceViaApi(request, token, name) {
   throw new Error(`テスト用ワークスペース "${name}" の削除に失敗しました（${lastError}）`);
 }
 
-/**
- * 設定モーダル（TerminalSettingsModal.vue）をグローバルショートカット
- * （⌘⇧.）で開く。PC・モバイル共通の全面オーバーレイのため、既存セッションの
- * 有無（空画面 / タブ表示）に依らず使える。
- * @param {import("@playwright/test").Page} page
- */
+/** 設定モーダルを ⌘⇧. で開く。セッションの有無（空画面 / タブ表示）に依らず使える。 */
 export async function openSettingsModal(page) {
   await page.keyboard.press("Meta+Shift+Period");
   await expect(page.locator(".terminal-settings-modal")).toBeVisible({ timeout: 5000 });
 }
 
-/**
- * 設定モーダル内で指定ラベルのメニュー項目を開く。
- * @param {import("@playwright/test").Page} page
- * @param {string} label 例: "Add Workspace"
- */
+
 export async function openSettingsView(page, label) {
   await page.locator(".settings-menu-item", { hasText: label }).first().click();
 }
 
-/**
- * Workspaces（SessionOpenHome、SessionOpenModal.vue）を開く。タブバーの「+」
- * ボタン（Open session）から独立して開き、押すたびに必ずSessionOpenHome
- * ルートへリセットされる。
- * @param {import("@playwright/test").Page} page
- */
+/** タブバーの「+」（Open session）から Workspaces を開く。押すたびに SessionOpenHome ルートへリセットされる。 */
 export async function openWorkspaces(page) {
   await page.locator('[aria-label="Open session"]').click();
   await expect(page.locator(".session-open-modal")).toBeVisible({ timeout: 5000 });
 }
 
-/**
- * Workspaces → 「+」ボタンから Add Workspace 画面を開く。
- * @param {import("@playwright/test").Page} page
- */
+
 export async function openAddWorkspace(page) {
   await openWorkspaces(page);
   await page.locator('[data-tooltip="Add workspace"]').click();
 }
 
-/**
- * ログイン画面からトークン認証し、ブート完了まで待つ。
- * サーバに既存セッションがあると resume されてタブが開くため、
- * 「Get Started メニュー」か「タブ」のどちらかの表示をブート完了の合図にする。
- * @param {import("@playwright/test").Page} page
- * @param {import("@playwright/test").BrowserContext} context
- * @param {string} token
- */
+/** 既存セッションがあると resume されてタブが開くため、Get Started メニューかタブのどちらかの表示をブート完了とみなす。 */
 export async function login(page, context, token) {
   await context.clearCookies();
   await page.goto("/");
@@ -258,11 +177,8 @@ export async function login(page, context, token) {
     .first()
     .or(page.locator(".tab-btn").first());
   await expect(bootDone.first()).toBeVisible({ timeout: 10_000 });
-  // メニュー表示後もブート用の block-layer が残っている間はタップ・クリックが
-  // 遮られるため、消えるまで待つ（サーバ起動直後の初回ブートで遅くなることがある）。
+  // メニュー表示後も block-layer が残る間はタップ・クリックが遮られる
   await expect(page.locator(".block-layer")).toBeHidden({ timeout: 20_000 });
-  // キーボードショートカットが確実に受け付けられるようページにフォーカスを当てる。
-  // 座標指定なしの click は body 中心を叩くため、モバイルビューポートでは画面中央の
-  // Get Started メニュー項目に命中して誤操作してしまう。何も無い左上隅を叩く。
+  // ショートカット受付用のフォーカス。座標なしの click は body 中心を叩きモバイルではメニュー項目に命中するため、左上隅を叩く。
   await page.locator("body").click({ position: { x: 0, y: 0 } });
 }

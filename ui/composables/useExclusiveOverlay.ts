@@ -1,16 +1,8 @@
 import { useLayoutStore } from "../stores/layout.ts";
 
-// セッション一覧(sessionList)・Open Session(sessionOpen)・Settings(settings)・
-// WorkspaceDetail(workspaceDetail)の4オーバーレイを排他制御するための
-// レジストリ。各composableがマウント時にregisterOverlay(key, closeFn)で
-// 自分の閉じ方を登録し、開く直前にcloseOthersOn(key)を呼ぶことで、他の
-// オーバーレイを閉じてから自分を開ける。
-//
-// モバイル(layoutStore.isTabBarAtBottom)は4つ全てが互いに排他（最新に開いた
-// ものだけ表示）。PCはsessionList（サイドバー）だけ排他対象外とし、常に
-// 他の3つと同時表示できるようにする（現行のSidebar+WorkspaceDetail同時
-// 表示と同じ感覚を維持するため）。sessionOpen/settings/workspaceDetailの
-// 3つはPCでも互いに排他。
+// セッション一覧・Open Session・Settings・WorkspaceDetail の4オーバーレイを排他制御するレジストリ。
+// 各 composable がマウント時に registerOverlay(key, closeFn) で閉じ方を登録し、開く直前に closeOthersOn(key) を呼ぶ。
+// モバイルは4つ全て排他。PC は sessionList（サイドバー）だけ排他対象外で、他の3つと同時表示できる。
 
 export type OverlayKey = "sessionList" | "sessionOpen" | "settings" | "workspaceDetail";
 

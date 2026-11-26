@@ -69,10 +69,8 @@ const SORT_OPTIONS = [
 
 const emit = defineEmits(["count"]);
 const { loadIssues } = useGitHub();
-// Open/Closedは排他ではなくチェックボックスで独立に切替える（両方ONで従来のAll相当
-// になるため専用のAllオプションは不要）。gh issue list --state=all を1回だけ取得し、
-// 件数・絞り込み・並び替えはすべてクライアント側の computed で行う（チェック切替の
-// たびに再フェッチしない）。
+// Open/Closed は独立したチェックボックス（両方ONでAll相当）。gh issue list --state=all を1回だけ取得し、
+// 件数・絞り込み・並び替えはクライアント側の computed で行う。
 const { githubUrl, items, isLoading, error, reload } = useGitHubPane<GitHubIssue>(
   loadIssues("all"),
   { onLoaded: (v) => emit("count", v.filter((i) => i.state === "open").length) },
@@ -106,8 +104,7 @@ const emptyMessage = computed(() => {
   return showOpen.value ? "No open issues" : "No closed issues";
 });
 
-// createdAt は gh CLI からの ISO 8601 文字列。formatRelativeTime は
-// epoch秒を取るため変換する。
+// createdAt は gh CLI の ISO 8601 文字列。formatRelativeTime は epoch秒を取るため変換する。
 function createdAgo(createdAt: string): string {
   return formatRelativeTime(new Date(createdAt).getTime() / 1000);
 }

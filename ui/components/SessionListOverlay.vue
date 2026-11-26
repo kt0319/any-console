@@ -19,10 +19,7 @@ import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import { useLayoutStore } from "../stores/layout.ts";
 import SessionListPanel from "./SessionListPanel.vue";
 
-// モバイル専用のオーバーレイ表示。中身はSessionListPanel.vue/
-// useSessionListOverlay.tsに集約されており、PCではこのオーバーレイを使わず
-// SessionSidebar.vueへ直接インライン表示する。Open Session/Settingsは
-// SessionOpenModal.vue/TerminalSettingsModal.vueが別途タブバーのボタンから開く。
+// モバイル専用オーバーレイ（中身は SessionListPanel.vue / useSessionListOverlay.ts）。PCは SessionSidebar.vue へ直接インライン表示する。
 
 const modal = useModal();
 const layoutStore = useLayoutStore();
@@ -30,13 +27,8 @@ const { close } = useSessionListOverlay();
 const modalEl = ref<HTMLElement | null>(null);
 const panelRef = ref<InstanceType<typeof SessionListPanel> | null>(null);
 
-// isSessionSidebarOpen（ハンバーガーで開閉）かつ画面が狭い時だけ、
-// フォーカストラップ・Escハンドリング付きのオーバーレイとして開閉する。
-// サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
-// 判定する——タブバー位置の設定（isTabBarAtBottom）とは独立（Wide画面でタブを
-// Bottomに設定していても、幅があるならインラインサイドバーを使う）。
-// PCはSessionSidebar.vue側が同じisSessionSidebarOpenを見て自身のサイドバー
-// を開くだけで、このオーバーレイ自体は使わない。
+// isSessionSidebarOpen かつ画面が狭い時だけ、フォーカストラップ・Esc 付きオーバーレイとして開閉する。
+// 狭さは実際の画面幅（isNarrowViewport）で判定し、タブバー位置設定（isTabBarAtBottom）とは独立させる。
 watch(
   () => layoutStore.isSessionSidebarOpen && layoutStore.isNarrowViewport,
   (shouldShow) => {
@@ -51,8 +43,7 @@ watch(
 </script>
 
 <style scoped>
-/* .modal-overlay の配置・背景は ui/styles/modal-shell.css（グローバル）で
-   WorkspaceDetailModal.vue と共用する。 */
+/* .modal-overlay の配置・背景は ui/styles/modal-shell.css で WorkspaceDetailModal.vue と共用する。 */
 .modal {
   position: relative;
   background: color-mix(in srgb, var(--bg-secondary) 85%, transparent);

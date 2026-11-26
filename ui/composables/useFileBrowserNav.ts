@@ -40,7 +40,6 @@ export function useFileBrowserNav({ getTerminalSessionId = () => "" }: {
     return workspaceFileContentPath(workspace, path);
   }
 
-  // navigateToPath / openFile 共通の取得テンプレ（ローディング・エラー整形）。
   async function fetchInto(
     endpoint: string,
     errorText: string,

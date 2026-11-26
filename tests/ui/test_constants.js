@@ -2,8 +2,6 @@
 import { describe, it, expect } from "vitest";
 import { extractApiError, MSG_ERROR_OCCURRED } from "../../ui/utils/constants.ts";
 
-// ── Tests ──
-
 describe("extractApiError", () => {
   it("detailを優先的に返す", () => {
     expect(extractApiError({ detail: "not found", message: "msg" })).toBe("not found");

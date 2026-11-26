@@ -24,7 +24,6 @@ describe("workspace store: applyStatuses", () => {
     expect(ws1.clean).toBe(false);
     expect(ws1.ahead).toBe(2);
     expect(ws1.behind).toBe(1);
-    // 対象外のワークスペースは変わらない
     const ws2 = store.allWorkspaces.find((w) => w.name === "ws2");
     expect(ws2.clean).toBeUndefined();
   });

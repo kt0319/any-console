@@ -5,11 +5,9 @@ import { type AsyncState, asyncError, asyncIdle, asyncLoading, asyncReady, async
 export type JobOption = { key: string, label: string };
 
 /**
- * Dispatch 実行画面（DispatchRunView.vue）の Job / Branch セレクトの選択肢を、
- * 対象ワークスペースの変化に追従して取得する。
- * 取り直した結果に今の選択値が無ければ、Job は terminal、Base branch は空に戻す。
- * 取得中にワークスペースが切り替わった場合、先に出した古いリクエストの応答は捨てる
- * （後から届いた古い一覧で選択肢と選択値を上書きしないため）。
+ * Dispatch 実行画面の Job / Branch セレクトの選択肢を、対象ワークスペースの変化に追従して取得する。
+ * 取り直した結果に選択値が無ければ Job は terminal、Base branch は空に戻す。
+ * ワークスペース切替中は先に出した古いリクエストの応答を捨てる（古い一覧で選択値を上書きしないため）。
  */
 export function useDispatchRunOptions(options: {
   jobWorkspace: Ref<string>,
@@ -50,8 +48,7 @@ export function useDispatchRunOptions(options: {
     if (superseded) return;
     remoteBranchNames.value = remoteRes.ok && Array.isArray(remoteRes.data) ? remoteRes.data.filter((b) => typeof b === "string") : [];
     if (res.ok && Array.isArray(res.data)) {
-      // 現在ブランチを一覧の先頭に出す（"(current branch)" プレースホルダーとは別に、
-      // 実ブランチ名の並びの中でも現在ブランチがどこにあるか分かりやすくするため）。
+      // 現在ブランチを一覧の先頭に出す（実ブランチ名の並びの中で位置が分かるように）。
       const current = res.data.find((b) => b.current);
       const rest = res.data.filter((b) => !b.current).map((b) => b.name);
       branchesState.value = asyncReady(current ? [current.name, ...rest] : rest);

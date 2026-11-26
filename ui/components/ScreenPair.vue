@@ -35,9 +35,7 @@ const claiming = ref(true);
 const errorMessage = ref("");
 
 function goToTokenLogin() {
-  // クエリ・/pair パスを消して通常のトークン入力ログインへフォールバックする。
-  // hrefへの代入だとhistoryに/pair/...エントリが残ったままになり、
-  // Backで消費済みのペアリングリンクに戻ってしまう(下記と同じ理由でreplaceする)。
+  // クエリ・/pair パスを消して通常のトークン入力ログインへ戻す。replaceなのは、hrefへの代入だと履歴に /pair/... が残りBackで消費済みリンクへ戻るため。
   window.location.replace("/");
 }
 
@@ -47,19 +45,14 @@ onMounted(async () => {
     errorMessage.value = "This link is missing its pairing code.";
     return;
   }
-  // claimPairing の戻りは成功形（ok/deviceId/name）と失敗形（ok/error）のユニオン。
-  // ここでは ok と error だけ使うため、共通形に受ける。
+  // claimPairing の戻りは成功形（ok/deviceId/name）と失敗形（ok/error）のユニオン。ok と error だけ使うため共通形で受ける。
   const result: { ok: boolean; error?: string } = await auth.claimPairing(props.pairingId, props.pairingToken);
   claiming.value = false;
   if (!result.ok) {
     errorMessage.value = result.error || "Pairing failed.";
     return;
   }
-  // cookie発行済み。pairingToken が残った URL を履歴・共有スクショに残さないよう、
-  // クリーンな "/" へ遷移して通常の起動フロー(認証チェック→メイン画面)に合流する。
-  // hrefへの代入だと現在の履歴エントリの上に積む(push)だけでtoken付きURLが
-  // historyに残ってしまい、Backで消費済みのペアリングリンクへ戻って
-  // 「期限切れ」エラーを踏む。replaceで履歴エントリ自体を置き換える。
+  // cookie発行済み。pairingToken付きURLを履歴・共有スクショに残さないよう replace で "/" へ遷移する（hrefへの代入だとBackで消費済みリンクへ戻り「期限切れ」になる）。
   window.location.replace("/");
 });
 </script>

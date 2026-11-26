@@ -16,7 +16,6 @@ let consecutiveFailures = 0;
 
 export function useConnectivityMonitor() {
 
-  // WS が生存判定を語れない時だけ叩く HTTP フォールバック。到達可否を返す。
   async function probeServer() {
     try {
       const ctrl = new AbortController();
@@ -50,16 +49,12 @@ export function useConnectivityMonitor() {
     const now = performance.now();
     const tabs = currentTabs();
 
-    // 半開き接続（open だが keepalive も来ない）を強制的に閉じ、backoff 再接続へ回す。
-    // 切断中に tmux 側で進んだ出力を再接続後に取りこぼさないよう、history 復元も予約する。
-    // reconnecting フラグは通常 2 回失敗後にしか立たないため、ここで即座に立てて
-    // resume 時と同じオーバーレイを出す（検知直後は何も表示されず、再接続に
-    // 失敗し続けた場合にリロードするまで気付けなかったため）。
+    // 半開き接続を強制的に閉じて backoff 再接続へ回し、取りこぼし防止の history 復元も予約する。
+    // reconnecting は通常 2 回失敗後にしか立たないため即座に立て、検知直後に何も表示されない状態を避ける。
     if (navigatorOnline) {
       const stale = staleAliveTabs(tabs, now, WS_STALE_THRESHOLD_MS);
       if (stale.length) {
-        // stale が非空 = currentTabs() が Pinia 初期化済みで tabs を返せている証拠。
-        // ここで安全に useTerminalStore() を呼べる。
+        // stale が非空 = currentTabs() が Pinia 初期化済みの証拠
         const terminalStore = useTerminalStore();
         for (const tab of stale) {
           tab._needsHistoryRestore = true;
@@ -111,7 +106,6 @@ export function useConnectivityMonitor() {
   function onOnline() {
     consecutiveFailures = 0;
     checkConnectivity();
-    // ネットワーク復帰時は待ち状態の WS を即座に叩き起こす。
     emit("connectivity:back");
   }
   function onOffline() { isOffline.value = true; }

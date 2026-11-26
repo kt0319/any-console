@@ -13,9 +13,7 @@ import type { TerminalTab } from "./terminal.ts";
 
 export const useLayoutStore = defineStore("layout", () => {
   const isTouchDevice = isTouchInput();
-  // 画面幅の生の判定（折りたたみスマホの開閉等でmatchMediaのchangeに追従する）。
-  // 実際にタブバーを下に置くか・Keyboard barを表示するかはこれとlayoutPrefs
-  // （Settings > Display で狭い/広いそれぞれに設定可能）から導出する。
+  // 画面幅の生判定。タブバー位置・Keyboard bar表示はlayoutPrefsと合わせて導出する。
   const narrowViewportMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
   const isNarrowViewport = ref(narrowViewportMediaQuery.matches);
   narrowViewportMediaQuery.addEventListener("change", (e) => {
@@ -24,8 +22,7 @@ export const useLayoutStore = defineStore("layout", () => {
   const layoutPrefs = useLayoutPrefs();
   const isTabBarAtBottom = computed({
     get: () => resolveTabPosition(layoutPrefs.value, isNarrowViewport.value) === "bottom",
-    // モバイル/PCレイアウトを直接切り替えるための書き込みショートハンド。実体は
-    // isNarrowViewportへの代入で、layoutPrefsの内容は変更しない。
+    // isNarrowViewportへの代入でレイアウトを直接切替える（layoutPrefsは変更しない）。
     set: (v) => { isNarrowViewport.value = v; },
   });
   const keyboardBarVisible = computed(() => resolveKeyboardBarVisible(layoutPrefs.value, isNarrowViewport.value));
@@ -40,12 +37,10 @@ export const useLayoutStore = defineStore("layout", () => {
 
   const isAnyOverlayOpen = ref(false);
 
-  // モバイルの入力バー（KeyboardInput）フォーカス中＝OSキーボード表示中。
-  // ScreenMain が .keyboard-open クラスの切替えに使う。
+  // モバイル入力バーのフォーカス中＝OSキーボード表示中。
   const isOsKeyboardOpen = ref(false);
 
-  // タブバー左端のハンバーガーで開くセッションサイドバー（SessionSidebar.vue）。
-  // 開閉状態と幅はlocalStorageへ保存し、リロード後も復元する。
+  // 開閉状態と幅はlocalStorageに保存しリロード後も復元する。
   const sessionSidebarWidth = ref(clampSidebarWidth(safeJsonLoad(
     LS_KEY_SESSION_SIDEBAR_WIDTH, SESSION_SIDEBAR_DEFAULT_WIDTH_PX,
   )));
@@ -136,10 +131,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isSplitMode.value = true;
   }
 
-  /**
-   * 指定ペインに既存タブを割り当てる。
-   * そのタブが別ペインで表示中なら、元のペインを空きに置き換える（座席交換）。
-   */
+  /** 指定ペインに既存タブを割り当てる。別ペインで表示中なら元のペインは空きにする（座席交換）。 */
   function assignTabToPane(paneIndex: number, tabId: number) {
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
     const ids = splitPaneTabIds.value.slice();
@@ -153,27 +145,18 @@ export const useLayoutStore = defineStore("layout", () => {
     activePaneIndex.value = paneIndex;
   }
 
-  /**
-   * 指定タブIDをペイン配列から空きペインに置き換える。
-   * 有効ペインが0個になったら分割を解除する。
-   */
+  /** 指定タブIDをペイン配列から空きペインに置き換える。有効ペインが0個になったら分割を解除する。 */
   function replaceTabWithEmpty(tabId: number) {
     if (!isSplitMode.value) return;
     const ids = splitPaneTabIds.value.map((id) => (id === tabId ? nextEmptyId() : id));
-    // exitSplitMode は現在の splitPaneTabIds から復帰先タブを探すため、
-    // 呼ぶ前に置き換え後の状態を反映しておく（そうしないと今まさに外した
-    // tabId 自身が誤って復帰先候補として拾われる）。
+    // exitSplitModeはsplitPaneTabIdsから復帰先を探すため、外したtabId自身が候補に拾われないよう先に反映する。
     splitPaneTabIds.value = ids;
     if (countRealPanes(ids) === 0) {
       exitSplitMode();
     }
   }
 
-  /**
-   * 分割を解除し、必ず有効な（openTabsに存在する）タブがアクティブになるようにする。
-   * targetTabId未指定時は、アクティブペインの実タブ→ペイン内の最初の実タブの順に
-   * フォールバックして terminalStore.switchTab を呼ぶ。呼び出し元がswitchTabを別途呼ぶ必要はない。
-   */
+  /** 分割を解除し、必ず有効なタブをアクティブにする（switchTabの別途呼び出し不要）。targetTabId未指定時はアクティブペインの実タブ→最初の実タブ。 */
   function exitSplitMode(targetTabId?: number | null): number | null {
     const restoreTabId = resolveExitRestoreTab(splitPaneTabIds.value, activePaneIndex.value, targetTabId);
     isSplitMode.value = false;
@@ -185,11 +168,7 @@ export const useLayoutStore = defineStore("layout", () => {
     return restoreTabId;
   }
 
-  /**
-   * 指定インデックスの空きペインの隣に新しい空きペインを追加する（SplitEmptyPane の
-   * Add pane ボタンから呼ばれる）。開いているタブ数を超えてペインを増やしても埋められないため
-   * そこで打ち止めにする。
-   */
+  /** 指定インデックスの空きペインの隣に空きペインを追加する。開いているタブ数を超えると埋められないため上限とする。 */
   function addPane(paneIndex: number) {
     if (!isSplitMode.value) return;
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
@@ -205,10 +184,8 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   /**
-   * 指定インデックスの空きペインをペイン配列から削除する（SplitEmptyPane のタイトル横の
-   * ×ボタンから呼ばれる）。残りペインが1つになったら分割を解除し、それが実タブなら
-   * 切り替え先として返す（呼び出し元で terminalStore.switchTab するため）。
-   * @returns 切り替え先タブID（分割解除時のみ）
+   * 指定インデックスの空きペインを削除する。残りが1つになったら分割を解除し、実タブなら切替先として返す。
+   * @returns 切替先タブID（分割解除時のみ）
    */
   function removeEmptyPane(paneIndex: number): number | null {
     if (!isSplitMode.value) return null;

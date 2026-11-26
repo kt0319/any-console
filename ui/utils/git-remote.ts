@@ -1,6 +1,5 @@
-// pull/push/push-branch のラベル（"Pull"/"Push"）を過去形の一語に統一する
-// （branch peekの表記"Pushed"/"Pulled"と揃える）。呼び出し元
-// （useGitRemoteAction の PUSH_PULL_ACTIONS）はこの3ラベルしか渡さない。
+// pull/push/push-branch のラベルを過去形に統一する（branch peek の "Pushed"/"Pulled" と揃える）。
+// useGitRemoteAction の PUSH_PULL_ACTIONS はこの3ラベルしか渡さない。
 export type RemoteLabel = "Pull" | "Push" | "Push (set upstream)";
 export type RemoteResultKind = "push" | "pull" | "none";
 
@@ -12,9 +11,7 @@ export interface RemoteResult {
 }
 
 const PAST_TENSE_VERB: Record<RemoteLabel, string> = { Pull: "Pulled", Push: "Pushed", "Push (set upstream)": "Pushed" };
-// コミット0件の時は「実行はできたが変化は無かった」ことが伝わるよう、
-// Pulled/Pushedとは別の文言にする（新着コミットを拾えなかった不具合と
-// 見分けが付かなくなるのを避けるため）。
+// コミット0件は「実行はできたが変化なし」と伝わるよう Pulled/Pushed とは別の文言にする（新着を拾えなかった不具合と区別するため）。
 const ZERO_COMMIT_TEXT: Record<RemoteLabel, string> = {
   Pull: "Already up to date",
   Push: "Nothing to push",

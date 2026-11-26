@@ -10,8 +10,6 @@ function hasFileDrag(e: DragEvent) {
   return !!types && Array.from(types).includes("Files");
 }
 
-// OSからのファイルドラッグ&ドロップで画像をターミナルに貼り付ける
-// （useTerminalPasteのクリップボード画像貼り付けと同じアップロード経路を使う）。
 export function useTerminalImageDrop({ tab }: { tab: Ref<TerminalTab> }) {
   const toast = useToast();
   const auth = useAuthStore();

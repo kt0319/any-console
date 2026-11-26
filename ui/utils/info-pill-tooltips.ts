@@ -1,7 +1,4 @@
-// Info Pills のツールチップ文言（純粋関数）。アイコンのみのボタンでも、
-// PCでホバーした時にその時点の実際の値（ブランチ名・変更行数・Dev Serverの
-// 接続先）が data-tooltip でわかるようにする。固定の説明文言だけだと、
-// 展開しないと現在値を確認できないため。
+// Info Pills のツールチップ文言（純粋関数）。アイコンのみのボタンでも、ホバー時に現在の値（ブランチ名・変更行数・Dev Serverの接続先）がわかるようにする。
 
 import { firstCommitLine, formatStatusCounts } from "./git.ts";
 import { isDockerContainerActive } from "./docker.ts";
@@ -20,9 +17,7 @@ export function branchTooltip({ branch = "", ahead = 0, behind = 0, hasUpstream 
   return commit ? `${head}  ·  ${commit}` : head;
 }
 
-/**
- * Filesピルはワークスペースピルと統合したため、ワークスペース名も併記する。
- */
+/** Filesピルはワークスペースピルと統合したため、ワークスペース名も併記する。 */
 export function filesTooltip({ name = "", isGitRepo = false }: { name?: string; isGitRepo?: boolean }): string {
   const action = isGitRepo ? "Browse files" : "Browse files in this terminal's directory";
   return name ? `${name}  ·  ${action}` : action;
@@ -49,10 +44,8 @@ export function dockerTooltip(containers: { name?: string; state?: string }[]): 
 }
 
 /**
- * job名（request.jobはlabelではなくジョブ定義のキー＝job id相当のため、
- * allJobsで人間向けlabelに解決する）とブランチ名の両方を表示する。
- * どちらも無ければ"pending"にフォールバックする（job idをそのまま
- * 出すことは無い — DispatchQueueRowBody.vueと同じ方針）。
+ * job名（request.job はジョブ定義のキーのため allJobs で label に解決する）とブランチ名の両方を表示する。
+ * どちらも無ければ "pending"（job id をそのまま出さない点は DispatchQueueRowBody.vue と同じ）。
  */
 export function dispatchTooltip(
   items: { request: Record<string, any> }[],
@@ -81,10 +74,7 @@ export function actionsTooltip(run: { name?: string; status?: string; conclusion
 
 export const ADD_PILL_TOOLTIP = "Add or open this directory as a workspace";
 
-/**
- * InfoPillRow の tooltips prop（キーごとのツールチップ文言）を一括で組み立てる。
- * TerminalPane.vue（computed）と session-sidebar.ts（行データ）が共用する。
- */
+/** InfoPillRow の tooltips prop を一括で組み立てる。TerminalPane.vue と session-sidebar.ts が共用する。 */
 export function buildInfoPillTooltips({
   name = "", isGitRepo = false,
   branch = "", ahead = 0, behind = 0, hasUpstream = true,

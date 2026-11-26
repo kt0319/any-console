@@ -4,10 +4,6 @@ import { invalidateStashCache } from "./useStashCache.ts";
 import { useApi } from "./useApi.ts";
 import { buildActionResult } from "../utils/git-remote.ts";
 
-/**
- * ワークスペース単位の git ミューテーション（checkout / stash save / コンフリクト解消の中止・解消済み化）。
- * 呼び出し側が await して自分の loading 状態を閉じられるよう、成否を返す。
- */
 export function useGitWorkspaceActions() {
   const { apiCommand, wsEndpoint } = useApi();
   const workspaceStore = useWorkspaceStore();

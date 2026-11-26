@@ -1,6 +1,5 @@
 <template>
   <div class="git-history-pane-wrapper pane-fill">
-    <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
       <div class="git-log-entry git-log-commit diff-files-selected-commit">
         <span class="git-log-entry-body">
@@ -43,11 +42,9 @@
         <DiffFileBoxList v-if="!isSelectedCommitFilesLoading" :key="selectedCommitForFiles?.hash" :files="selectedCommitFiles" :diffChunks="selectedCommitDiffChunks" defaultCollapsed @navigate="onDiffFileClick" />
       </div>
     </template>
-    <!-- コミット履歴モード -->
     <div v-else class="modal-scroll-body" ref="historyListEl" @scroll.passive="onHistoryListScroll">
       <div v-if="isHistoryLoading" class="text-muted-center loading-dots">Loading</div>
       <div v-else-if="commitEntries.length === 0" class="text-muted-center">No commit history</div>
-      <!-- Changes -->
       <template v-for="(row, idx) in graphRows" :key="idx">
         <div
           class="git-log-entry git-log-commit"
@@ -111,15 +108,12 @@ const {
   close: closeDiffFilesState,
 } = useCommitDiffFiles();
 
-// GitHistory では closeFn（第3引数）を渡さない呼び方のため、その形に型を絞る
-// （実行時は従来どおり同じ関数をそのまま呼ぶ）。
+// closeFn（第3引数）を渡さない呼び方のため、その形に型を絞る
 const { onCommitAction } = useCommitActionMenu() as {
   onCommitAction: (entry: Record<string, any>, ev: { action: string, branch?: string }) => void,
 };
 
-// Moreを押すとコミットメッセージ表示を切り詰め表示からフル本文へ差し替える
-// （commit-message API からハッシュ単位で取得。GitHistory.vue側で状態を持ち、
-// コミットを切り替えたら折りたたみ直す）。
+// More 押下でコミットメッセージを切り詰めからフル本文へ差し替える（commit-message API をハッシュ単位で取得）。
 const commitDetailExpanded = ref(false);
 
 function openDiffFiles(entry: Record<string, any>, fetchFn: () => Promise<any>) {

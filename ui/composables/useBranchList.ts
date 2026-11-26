@@ -4,7 +4,6 @@ import { useWorkspace } from "./useWorkspace.ts";
 import { getWithRetry } from "../utils/api-retry.ts";
 import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap, markMergedBranches, type LocalBranch, type MergedPull } from "../utils/git-branch.ts";
 
-// モジュールスコープ: コンポーネント再マウント後もキャッシュを保持する
 const _remoteCache = new Map<string, any[]>();
 
 export function useBranchList() {
@@ -40,10 +39,8 @@ export function useBranchList() {
         void loadMergedPulls(workspace);
         const cached = _remoteCache.get(workspace);
         if (cached) {
-          // キャッシュはローカル一覧が更新される前のフィルタ結果のため、
-          // そのまま使うとローカルブランチ作成/チェックアウト後に同名の
-          // ブランチがローカル・リモート両方の一覧に重複して出てしまう。
-          // 最新のlocalBranchesで再フィルタしてからキャッシュも更新する。
+          // キャッシュはローカル一覧更新前のフィルタ結果のため、最新のlocalBranchesで再フィルタしないと
+          // ローカル作成/チェックアウト後に同名ブランチが重複表示される。
           const refiltered = filterRemoteBranches(cached, localBranches.value);
           remoteBranches.value = refiltered;
           remoteLoaded.value = true;
@@ -61,8 +58,7 @@ export function useBranchList() {
     await loadWorktrees();
   }
 
-  // 打ち消し線表示の補助情報。gh 未導入・未ログイン等で取れなくても一覧自体は成立するため、
-  // 失敗時は祖先関係による判定（サーバ側）だけで表示する。
+  // gh 未導入・未ログイン等で取れなくても一覧は成立するため、失敗時はサーバ側の祖先関係判定のみで表示する。
   async function loadMergedPulls(workspace: string) {
     const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "github/pulls?state=merged"));
     mergedPulls.value = ok && data?.status === "ok" && Array.isArray(data.data) ? data.data : [];
@@ -76,8 +72,7 @@ export function useBranchList() {
     });
   }
 
-  // GET branches/remote は読み取り専用（ローカルのリモート追跡refを返すだけ）。
-  // 鮮度は呼び出し側の POST fetch（useBranchActions の fetchRemote）が担う。
+  // GET branches/remote は読み取り専用。鮮度は呼び出し側の POST fetch（useBranchActions の fetchRemote）が担う。
   async function loadRemoteBranches() {
     if (isRemoteBranchListLoading.value) return;
     await withWorkspace(async (workspace) => {

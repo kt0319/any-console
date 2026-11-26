@@ -88,9 +88,8 @@ let closeTimer: ReturnType<typeof setTimeout> | null = null;
 // unmount後に解決したstatus応答が popView 等の副作用を起こさないためのガード
 // （pairingId比較だけでは、unmount後もrefの値は残るため区別できない）。
 let isUnmounted = false;
-// start()を呼ぶたびに同期的に進める世代カウンタ。「Generate new code」直後、
-// 新しいstart()のapiPostがawait中でpairingId.valueがまだ古い値のままの間隙が
-// あるため、pairingId比較だけでは旧世代のpoll()応答を弾けない。
+// start() のたびに同期的に進める世代カウンタ。新しい start() の apiPost await 中は pairingId が古いままのため、
+// pairingId 比較だけでは旧世代の poll() 応答を弾けない。
 let pairingGeneration = 0;
 
 const qrSvg = computed(() => (pairingUrl.value ? generateQrSvg(pairingUrl.value) : ""));
@@ -111,7 +110,6 @@ async function poll() {
   if (!requestedId) return;
   const { ok, data } = await apiGet(pairingStatusPath(requestedId));
   if (isUnmounted) return;
-  // 世代カウンタで旧pairingの応答を無視する（pairingGeneration宣言部を参照）。
   if (requestedGeneration !== pairingGeneration || requestedId !== pairingId.value) return;
   if (!ok || !data) return;
   if (data.status === "claimed") {
@@ -138,8 +136,7 @@ async function start() {
   if (isUnmounted || generation !== pairingGeneration) return;
   loading.value = false;
   if (!ok || !data) {
-    // サーバがloopbackアクセス等で具体的な理由(detail)を返すことがある
-    // (_build_pairing_url参照)。汎用メッセージで握りつぶさず表示する。
+    // loopback アクセス等でサーバが具体的な理由(detail)を返すことがある(_build_pairing_url参照)。
     error.value = extractApiError(data, "Failed to start pairing.");
     return;
   }

@@ -1,5 +1,4 @@
-// サーバ（github_watch）が確定した PR / Issue の新着コメント・レビューと CI 完了を、
-// peek 表示の文言にする純粋ロジック（usePillPeek が使う）。
+// github_watch が確定した新着コメント・レビューと CI 完了を peek 文言にする（usePillPeek が使う）。
 
 export type ActivityEvent = {
   kind: "comment" | "review" | "run",
@@ -28,11 +27,7 @@ function describeGroupCounts(comments: number, commentsOverflow: boolean, review
   return parts.join(", ");
 }
 
-/**
- * サーバが確定した新着コメント/レビューの peek 文言を1つ返す（対象が無ければ null）。
- * 複数の PR/Issue にまたがる場合は「N issues: 5 new comments」のように1つへまとめる
- * （1件ずつ積むとピルを N×表示時間 占有するため）。
- */
+/** 新着コメント/レビューの peek 文言を返す（対象が無ければ null）。複数 PR/Issue は、ピルの占有時間を抑えるため1つにまとめる。 */
 export function describeActivityEvents(events: ActivityEvent[], noun: string): string | null {
   const groups = new Map<number, ActivityGroup>();
   for (const ev of events) {

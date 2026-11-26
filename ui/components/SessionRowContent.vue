@@ -15,10 +15,8 @@
 import { computed } from "vue";
 import { renderIconStr } from "../utils/render-icon.ts";
 
-// SessionListView.vueの通常表示・編集モード表示の両方が使う行1行目の中身
-// （アイコン・ラベル・worktree・フレーズ通知）。sessionSidebarItems()が
-// 返すitem形状にのみ依存する。ブランチ名/エージェント状態は行2（
-// SessionRowMeta.vue）が担当する。
+// SessionListView.vue の通常表示・編集モード共通の行1行目（アイコン・ラベル・worktree・フレーズ通知）。
+// ブランチ名/エージェント状態は行2（SessionRowMeta.vue）が担当する。
 
 const props = defineProps({
   item: { type: Object, required: true },

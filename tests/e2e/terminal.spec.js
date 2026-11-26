@@ -1,11 +1,6 @@
 /**
- * ターミナルの E2E スモーク。
- * tmux × pty × WebSocket ブリッジの疎通（起動・コマンド実行・出力表示）と、
- * タブクローズ時の確認ダイアログ（Confirm Rules）を確認する。
- *
- * 起動はグローバルショートカット（⌘⇧T）を使い、既存セッションが resume されて
- * タブが開いている状態でも動くようタブ数の増減で検証する。
- * テストが作ったセッションは afterEach で API から削除する（既存セッションには触れない）。
+ * ターミナルの E2E スモーク。起動・コマンド実行・出力表示・タブクローズ確認ダイアログを確認する。
+ * 起動は ⌘⇧T で、タブ数の増減で検証する。テストが作ったセッションは afterEach で API から削除する。
  */
 import { test, expect, useLoginWithSessionCleanup, openNewTerminal } from "./helpers.js";
 
@@ -13,7 +8,6 @@ test.describe("terminal", () => {
   useLoginWithSessionCleanup(test);
 
   test("New Terminal でタブが開きコマンドを実行できる", async ({ page }) => {
-    // 新しいタブがアクティブになり、そのターミナルが表示される
     const term = await openNewTerminal(page);
 
     // シェルのプロンプトが出るまで少し待ってからコマンド実行。
@@ -30,7 +24,6 @@ test.describe("terminal", () => {
     const countBefore = await tabs.count();
     const term = page.locator(".xterm >> visible=true").first();
 
-    // 1つ目: e2e-first-11 を出力
     await openNewTerminal(page);
     await term.click();
     await page.waitForTimeout(1000);
@@ -38,7 +31,6 @@ test.describe("terminal", () => {
     await page.keyboard.press("Enter");
     await expect(term).toContainText("e2e-first-11", { timeout: 10_000 });
 
-    // 2つ目: e2e-second-22 を出力
     await openNewTerminal(page);
     await term.click();
     await page.waitForTimeout(1000);
@@ -47,7 +39,6 @@ test.describe("terminal", () => {
     await expect(term).toContainText("e2e-second-22", { timeout: 10_000 });
     await expect(term).not.toContainText("e2e-first-11");
 
-    // タブを行き来してもそれぞれの出力が残っている
     await tabs.nth(countBefore).click();
     await expect(term).toContainText("e2e-first-11", { timeout: 10_000 });
     await tabs.nth(countBefore + 1).click();
@@ -60,7 +51,6 @@ test.describe("terminal", () => {
 
     await openNewTerminal(page);
 
-    // Cancel でタブが残る(tab-closeボタンでクローズ確認)
     const activeTabClose = page.locator(".tab-btn.active .tab-close");
     await activeTabClose.click();
     const dialog = page.locator(".confirm-dialog");
@@ -70,14 +60,12 @@ test.describe("terminal", () => {
     await expect(dialog).toBeHidden();
     await expect(tabs).toHaveCount(countBefore + 1);
 
-    // Esc でもキャンセルできる（モーダルは Esc で閉じられる MUST ルール）
     await activeTabClose.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(tabs).toHaveCount(countBefore + 1);
 
-    // Close でタブが消える
     await activeTabClose.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator(".dialog-btn-danger").click();
@@ -85,18 +73,15 @@ test.describe("terminal", () => {
   });
 
   test("タブが幅いっぱいでスクロール可能な時だけ端がフェードする", async ({ page }) => {
-    // PCレイアウト（ラベル付きタブ）を維持しつつ幅を制限し、タブ追加だけで
-    // 容易にoverflowさせる（MOBILE_BREAKPOINT_PXの768pxは超えたまま）。
+    // PCレイアウトを維持しつつ幅を制限し、タブ追加だけで overflow させる（768px 超のまま）。
     await page.setViewportSize({ width: 900, height: 700 });
 
     async function maskImage() {
       return page.locator(".tab-bar").evaluate((el) => getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage);
     }
 
-    // スクロール不要な間はフェード無し(mask-image: none)
     await expect.poll(maskImage).toBe("none");
 
-    // 幅を超えるまでタブを開くとフェードが付く
     for (let i = 0; i < 15; i++) await openNewTerminal(page);
     await expect.poll(maskImage).not.toBe("none");
 

@@ -14,7 +14,6 @@ export function useSessionResume({ terminalBaseView }: { terminalBaseView: Ref<T
   const { connectTerminalWs } = useTerminal();
   const { syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
 
-  // 短時間に連続する復帰トリガーを1回の resume にまとめる（先行予約優先）
   let resumeCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
   let wasHidden = false;
 

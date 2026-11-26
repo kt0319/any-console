@@ -25,11 +25,7 @@ import WorkspaceEditPane from "./WorkspaceEditPane.vue";
 import JobConfig from "./JobConfig.vue";
 import IconPicker from "./IconPicker.vue";
 
-// タブバーの「+」ボタンから開くOpen Session系列（SessionOpenHome/WorkspaceAdd/
-// WorkspaceEdit/JobConfig/IconPicker）専用の全面オーバーレイ。
-// シェル（テンプレート・フォーカストラップ・共通CSS）はModalShell.vueに
-// 共通化されており、ここは表示するビューの列挙とuseSessionOpenNav.ts
-// （Settings/セッション一覧とは完全に独立したビュースタック）への配線だけを持つ。
+// Settings/セッション一覧とは独立したビュースタック（useSessionOpenNav）を持つ Open Session 系のモーダル。
 
 const {
   isOpen, currentView, canNavigateBack,

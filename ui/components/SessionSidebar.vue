@@ -92,14 +92,12 @@ function updateViewportWidth() {
   stopResize();
 }
 
-// サイドバー用のスペースがあるかどうかは実際の画面幅（isNarrowViewport）で
-// 判定する——タブバー位置の設定（isTabBarAtBottom）とは独立（Wide画面でタブを
-// Bottomに設定していても、幅があるならこちらを使う。SessionListOverlay.vue参照）。
+// サイドバーを使えるかは実際の画面幅（isNarrowViewport）で判定する。タブバー位置の設定（isTabBarAtBottom）とは独立（SessionListOverlay.vue 参照）。
 const isOpen = computed(() => layoutStore.isSessionSidebarOpen && !layoutStore.isNarrowViewport);
 
 watch(isOpen, () => stopResize());
 
-// Esc で閉じる（モバイルはSessionListOverlay.vue側のuseModalが同様のEscハンドリングを持つ）。
+// Esc で閉じる（モバイルは SessionListOverlay.vue の useModal が担当）。
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.defaultPrevented || isComposingEvent(e)) return;
   if (!layoutStore.isSessionSidebarOpen) return;
@@ -132,8 +130,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  /* タブバーの行（TabBar.vueの.tab-bar-row、min-height:44px）がこの上に重なるため、その
-     高さぶんを避ける（タブバーが下にある設定の時は下側）。 */
+  /* タブバーの行（min-height:44px）がこの上に重なるため、その高さぶんを避ける（タブバーが下の時は下側）。 */
   padding-top: 44px;
   /* KeyboardBar.vue（ui/styles/keyboard-bar.css の .keyboard-bar）と同じ背景色に揃える。 */
   background: var(--bg-tertiary);

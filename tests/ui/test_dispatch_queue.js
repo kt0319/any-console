@@ -86,9 +86,7 @@ describe("runItem", () => {
     apiPostMock.mockReset();
   });
 
-  // pendingのitemでも、既に決定済みで履歴に残っているだけのitemでも同じ
-  // decision APIを叩く（サーバ側 dispatch_decide が dispatch_id の所在を
-  // 見て振り分けるため、フロント側でpending/recentを区別する必要が無い）。
+  // pending でも決定済みで履歴に残るだけの item でも、サーバ側が dispatch_id の所在で振り分けるため同じ decision API を叩く。
   it("executed:trueと上書き値を付けてdecision APIを呼び、成功でtrueを返す", async () => {
     apiPostMock.mockResolvedValue({ ok: true, data: {} });
     const { runItem } = useDispatchQueue();
@@ -111,9 +109,7 @@ describe("runItem", () => {
 describe("jobLabel / allJobs（/jobs/workspacesからのジョブ表示名解決）", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    // allJobsはモジュールスコープでキャッシュされる（queue/recentと同じ設計）ため、
-    // 前のテストで読み込み済みだと再フェッチされない。jobs:refreshで強制的に
-    // キャッシュを無効化し、このdescribeの各テストが必ず自前でfetchするようにする。
+    // allJobsはモジュールスコープでキャッシュされるため、jobs:refreshで無効化して各テストが自前でfetchするようにする。
     emit("jobs:refresh");
     apiGetMock.mockReset();
   });

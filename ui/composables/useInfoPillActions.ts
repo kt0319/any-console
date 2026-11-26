@@ -7,7 +7,6 @@ import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from 
 import { useDevServerOpen } from "./useDevServerOpen.ts";
 import { openWorkspaceAdd } from "./useSessionOpenNav.ts";
 
-// Info Pills（TerminalPane）のクリック時の遷移先。通常ピルとpeekピルの両方が同じopenPane(key)を使う。
 export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behind }: {
   tab: Ref<Record<string, any>>,
   isGitRepo: Ref<boolean> | ComputedRef<boolean>,
@@ -25,21 +24,19 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     emit("git:openFileModal", { pane, ...extra });
   }
 
-  // Push/Pull件数がある時だけBranch一覧を展開する（無い時はHistory優先で畳んで開く）。
+  // Push/Pull 件数がある時だけ Branch 一覧を展開する（無ければ History 優先）
   function openBranch() {
     const hasPushPull = (ahead?.value || 0) > 0 || (behind?.value || 0) > 0;
     openWorkspacePane("branch", { expandBranch: hasPushPull });
   }
 
-  // git未登録のベアターミナルではcwdを都度取得する（常時ポーリングはしない）。
   async function fetchCwd() {
     if (!tab.value.sessionId) return "";
     const { ok, data } = await apiGet(terminalSessionCwdPath(tab.value.sessionId));
     return ok ? (data?.cwd || "") : "";
   }
 
-  // 非Gitワークスペースやワークスペース未紐付けのターミナルでは、ワークスペース
-  // パスではなくセッションの実際のcwdを起点にFilesを開く。
+  // 非 Git・未紐付けのターミナルはワークスペースパスではなくセッションの実 cwd から Files を開く
   async function openBareTerminalFiles() {
     const cwd = tab.value.sessionId ? await fetchCwd() : "";
     emit("git:openFileModal", resolveBareTerminalFilesDetail(tab.value.sessionId, cwd));
@@ -54,7 +51,7 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     }
   }
 
-  // ラベル/アイコンは固定表示にし、Add/Openどちらとして動くかはクリック時にcwdを見て判定する。
+  // ラベル/アイコンは固定。Add/Open のどちらかはクリック時に cwd を見て判定する
   async function registerCurrentDir() {
     if (!tab.value.sessionId) return;
     const cwd = await fetchCwd();
@@ -75,15 +72,12 @@ export function useInfoPillActions({ tab, isGitRepo, devServerEntry, ahead, behi
     confirmOpenDevServer(p);
   }
 
-  // 件数によらず常にDispatchタブを開く（個別詳細はDispatchタブの行から進む）。
-  // このピルのタブ自身のsessionIdを渡し、実行時のSession選択のデフォルトに使う
-  // （split modeで非アクティブなペインのピルを押した場合、terminalStore.activeTab
-  // 頼りだと押したタブと異なるセッションを見てしまうため）。
+  // 常に Dispatch タブを開く。split mode で非アクティブペインのピルを押しても正しいセッションを選べるよう、このタブの sessionId を渡す
   function openDispatch() {
     openWorkspacePane("dispatch", { sessionId: tab.value.sessionId || null });
   }
 
-  // devserver-stopは「検出されなくなった」通知のみで遷移先が無いためdefaultへ。
+  // devserver-stop は遷移先が無いため default へ
   function openPane(key: string | null | undefined) {
     switch (key) {
       case "workspace":

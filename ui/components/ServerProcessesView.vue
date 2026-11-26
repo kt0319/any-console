@@ -74,14 +74,8 @@ import { buildProcessRows, type CombinedRow, type JobEntry, type PortEntry, type
 import { renderIconStr } from "../utils/render-icon.ts";
 import { useModalView } from "../composables/useModalView.ts";
 
-// Settings（SettingsMenu）の「Server Processes」項目から開くcurrentView（'ServerProcesses'）。
-// dev server（ワークスペース紐付きのポート検出）とOSプロセス一覧（Kill含む）を
-// 1つの一覧に統合する。dev serverはOS上でも1つのプロセスであり、分けて出すと
-// 同じプロセスが両方に重複して載ってしまうため、dev serverに該当するpidは
-// Port/Workspace/Open付きの行としてprocesses（CPU順）の中の元の位置に混ぜて
-// 出す（先頭に固定しない）。job（tmuxペインで実行中のジョブ）に該当するpidも
-// 同様にワークスペース/ジョブ名を添えて表示する（/terminal/sessionsのpane_pid
-// と突き合わせる）。
+// dev server 行と job 行（/terminal/sessions の pane_pid と突き合わせ）を processes（CPU順）の元の位置に混ぜる。
+// 同じプロセスが重複して載らないよう dev server に該当する pid は専用行にする。
 
 const { modalTitle } = useModalView();
 modalTitle!.value = "Server Processes";
@@ -99,8 +93,7 @@ function workspaceIconHtml(name: string) {
   return renderIconStr(ws?.icon || "mdi-console", ws?.icon_color, 20);
 }
 
-// Server pill（TerminalPane）と同じOpen/Copy選択の確認フローにする
-// （直接開かず、URLだけ確認・コピーもできるようにする）。
+// Server pill（TerminalPane）と同じ Open/Copy 選択の確認フローにする
 async function openPreview(row: CombinedRow) {
   confirmOpenDevServer({ port: row.port, proxy_port: row.proxyPort });
 }
@@ -126,8 +119,7 @@ async function loadProcesses() {
   else processError.value = "Failed to load";
 }
 
-// 実行中のジョブ（tmuxペインで動くプロセス）もProcessesで判別できるよう、
-// job_nameが付いたterminalセッションのpid（tmuxペインのpane_pid）を拾う。
+// job_name 付きセッションの pane_pid を拾い、ジョブをプロセス一覧で判別できるようにする
 async function loadJobs() {
   const { ok, data } = await apiGet(EP_TERMINAL_SESSIONS, { errorMessage: "Failed to load jobs" });
   if (!ok || !Array.isArray(data)) return;
@@ -179,8 +171,7 @@ onBeforeUnmount(stopPolling);
 
 .proc-col-heads { display: flex; gap: 16px; width: 88px; justify-content: flex-end; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-/* dev server行・通常プロセス行を同じ列構成（アイコン/名称+補足/CPU・MEM/Open?/Kill）
-   で揃え、1つの表として見えるようにする。 */
+/* dev server 行と通常プロセス行を同じ列構成で揃える */
 .proc-row {
   display: flex;
   align-items: center;
@@ -244,10 +235,7 @@ onBeforeUnmount(stopPolling);
   cursor: pointer;
   flex-shrink: 0;
 }
-/* Killが無い行（this console自身）でも右端の位置が揃うよう、無い時も
-   DOM上は残しvisibility:hiddenで幅だけ確保する。Open（.proc-open）は
-   dev server行にしか出さないボタンで、通常プロセス行にはそもそも
-   表示しないため対象外（v-ifでDOMごと消す）。 */
+/* Kill が無い行でも右端が揃うよう DOM に残して幅だけ確保する。Open は dev server 行専用なので v-if で消す */
 .proc-btn-hidden {
   visibility: hidden;
   pointer-events: none;

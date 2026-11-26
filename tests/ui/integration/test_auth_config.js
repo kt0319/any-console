@@ -9,7 +9,6 @@ import { useConfirm } from "../../../ui/composables/useConfirm.ts";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
 import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../../ui/utils/endpoints.ts";
 
-// ── AuthConfig: API Tokens ────────────────────────────────────────────────
 
 describe("AuthConfig: API Tokens", () => {
   /** @type {import("vitest").Mock} */

@@ -13,7 +13,3 @@
   border-radius: 2px;
 }
 
-/*
- * Tooltip は ui/utils/tooltip.ts で実装。
- * body 直下に position: fixed で描画するためモーダル内でもクリップされない。
- */

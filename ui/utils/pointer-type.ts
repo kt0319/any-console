@@ -1,8 +1,5 @@
-// 直近のユーザー操作（アプリ全体、ダイアログ等の他要素上の操作も含む）が
-// touchだったかを追跡する。TerminalPane.vueのフォーカスガードが、ダイアログの
-// ボタンをタップして閉じた直後のタブ切替えなど「対象のターミナル要素自体は
-// pointerdownを検知していない」focus()呼び出しでも正しく判定できるよう、
-// 要素単位ではなくアプリ全体で最後のpointerTypeを1つだけ保持する。
+// 直近の操作が touch だったかをアプリ全体で1つ保持する。TerminalPane.vue のフォーカスガードが、
+// ダイアログ操作直後など対象要素が pointerdown を検知していない focus() でも判定できるようにするため。
 let lastPointerType = "mouse";
 
 if (typeof document !== "undefined") {

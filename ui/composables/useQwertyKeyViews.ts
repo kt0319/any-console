@@ -7,10 +7,6 @@ import type { TerminalTab } from "../stores/terminal.ts";
 type ModifierState = { ctrl: boolean, shift: boolean };
 type KeyDef = { key: string, ctrl?: boolean, shift?: boolean };
 
-/**
- * QWERTY パネルの表示モード (shift / ctrl / 記号 / fn) と
- * 修飾キー列 (shift / ctrl / space / fn) のフリック操作をまとめる。
- */
 export function useQwertyKeyViews({
   modifierState,
   showSnippetView,

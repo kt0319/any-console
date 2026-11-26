@@ -18,11 +18,9 @@ import { computed } from "vue";
 import { isDirectRun } from "../utils/dispatch-request.ts";
 import { formatClockDateTime, formatMinutesAgo } from "../utils/format.ts";
 
-// Dispatch Queue 一覧の1行分の本文（ブランチ名・テキスト）。ワークスペース詳細内
-// のタブ（DispatchWorkspacePane.vue）で既にワークスペースが絞られているため、
-// ワークスペース名・ジョブ名は表示しない。
-// pending 行と履歴行で同じ表示ルールを共有する。
-// outcome（executed/discarded/failed）がある時だけ先頭に結果アイコンを付け、アイコンの右にはブランチ → worktree → ジョブ名 → 結果ラベルの順で最初に取れたものを出す。
+// Dispatch Queue 一覧の1行分の本文。ワークスペースは親タブで絞られているため、ワークスペース名・ジョブ名は出さない。
+// pending 行と履歴行で表示ルールを共有する。outcome がある時だけ先頭に結果アイコンを付ける。
+// アイコンの右にはブランチ → worktree → ジョブ名 → 結果ラベルの順で最初に取れたものを出す。
 
 const props = defineProps({
   request: { type: Object, required: true },

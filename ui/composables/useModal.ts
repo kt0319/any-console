@@ -50,10 +50,7 @@ export function useModal() {
 
   function trapFocus(modalEl: HTMLElement) {
     const release = trapFocusWithin(modalEl);
-    // タッチデバイスでは自動フォーカスを行わない。
-    // モバイルだと最初の要素（モーダルタイトル等）にフォーカスリングが
-    // 出てしまい、ユーザの意図しない見た目になる。Tab キー操作が無いので
-    // 自動フォーカスのメリットも無い。
+    // タッチデバイスでは自動フォーカスしない。最初の要素にフォーカスリングが出て見た目が崩れ、Tab 操作も無いため利点が無い。
     if (!isTouchOnly()) {
       focusFirstFocusable(modalEl);
     }

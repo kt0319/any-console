@@ -89,9 +89,7 @@ describe("PairDeviceConfig", () => {
   });
 
   it("shows the server's specific error detail when start fails with a reason", async () => {
-    // 例: viewing via localhost without a resolvable Tailscale hostname
-    // (server/src/pairing.rs build_pairing_url参照)。汎用メッセージで
-    // 握りつぶさず、ユーザーが対処できる具体的な理由を表示する。
+    // localhost経由でTailscaleホスト名を解決できない場合(server/src/pairing.rs build_pairing_url)も具体的な理由を表示する。
     apiPostMock.mockResolvedValue({
       ok: false,
       data: {
@@ -139,9 +137,7 @@ describe("PairDeviceConfig", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("Device paired successfully.");
 
-    // ユーザーがclose演出の途中(1.2秒待ち)でモーダルを閉じたケース。
-    // pending中のsetTimeoutがunmount後に生き残ってpopViewを呼んでしまうと、
-    // 既に別の画面に移っているviewStackを誤って操作してしまう。
+    // close演出(1.2秒待ち)中にモーダルが閉じられても、残ったsetTimeoutがunmount後にpopViewを呼ばないこと。
     wrapper.unmount();
     await vi.advanceTimersByTimeAsync(PAIRING_SUCCESS_CLOSE_DELAY_MS);
     expect(popView).not.toHaveBeenCalled();
@@ -157,14 +153,11 @@ describe("PairDeviceConfig", () => {
 
     const { wrapper, popView } = mountView();
     await flushPromises();
-    // pollを1回発火させる(応答はまだ保留のまま = in-flight)
     await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
 
-    // 応答が返る前にユーザーがモーダルを閉じる
     wrapper.unmount();
 
-    // in-flightだったpollがここで初めて解決する。pairingIdは変わっていない
-    // (stale-id比較だけでは検知できない)ため、unmountフラグで無視されること。
+    // pairingIdは不変でstale-id比較では弾けないため、unmountフラグで無視されること。
     resolvePoll({ ok: true, data: { status: "claimed" } });
     await flushPromises();
     await vi.advanceTimersByTimeAsync(PAIRING_SUCCESS_CLOSE_DELAY_MS);
@@ -182,27 +175,21 @@ describe("PairDeviceConfig", () => {
         data: { id: "pr_2", url: "https://host/pair/pr_2?t=tok2", expires_in_sec: 90 },
       });
 
-    // 1回目のpollは保留のまま(この応答が後で「古い」ものとして届く想定)。
     let resolveStalePoll;
     const stalePollPromise = new Promise((resolve) => { resolveStalePoll = resolve; });
     apiGetMock.mockReturnValueOnce(stalePollPromise);
-    // 2回目のpollでサーバが期限切れを報告する(expired/claimedの最終判定は
-    // ローカルのカウントダウンではなくサーバ応答に委ねているため)。
     apiGetMock.mockResolvedValueOnce({ ok: true, data: { status: "expired" } });
 
     const { wrapper } = mountView();
     await flushPromises();
 
-    // pr_1のポーリングを1回発火させる(応答はまだ保留のまま = in-flight)
     await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
     expect(wrapper.text()).toContain("https://host/pair/pr_1?t=tok1");
 
-    // 2回目のpollが発火し、サーバがexpiredを返す
     await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
     await flushPromises();
     expect(wrapper.text()).toContain("This code expired.");
 
-    // ユーザーが新しいコードを生成する(pr_2へ切り替わる)
     apiGetMock.mockResolvedValue({ ok: true, data: { status: "pending", expires_in_sec: 90 } });
     await wrapper.find("button.primary").trigger("click");
     await flushPromises();
@@ -217,10 +204,8 @@ describe("PairDeviceConfig", () => {
   });
 
   it("keeps polling after the local countdown reaches zero until the server confirms an outcome", async () => {
-    // サーバはclaim進行中(claiming)のエントリをexpires_atを過ぎてもpendingの
-    // まま保持し、後からclaimedへ倒すことがある(server/src/pairing.rs claim_pairing参照)。
-    // クライアント側のカウントダウンが0になっただけでpollを止めてしまうと、
-    // この遅れて成立したclaimedを永久に観測できなくなる。
+    // サーバはclaim進行中のエントリをexpires_at後もpendingのまま保持し後からclaimedにする(server/src/pairing.rs claim_pairing)。
+    // カウントダウン0でpollを止めると、その遅れたclaimedを観測できなくなる。
     apiPostMock.mockResolvedValue({
       ok: true,
       data: { id: "pr_1", url: "https://host/pair/pr_1?t=tok", expires_in_sec: 1 },
@@ -230,13 +215,10 @@ describe("PairDeviceConfig", () => {
     const { wrapper } = mountView();
     await flushPromises();
 
-    // ローカルのカウントダウンを尽きさせる。表示は0:00になるが、expired扱いには
-    // ならずpollも止まらない。
     await vi.advanceTimersByTimeAsync(PAIRING_COUNTDOWN_TICK_MS);
     expect(wrapper.text()).toContain("0:00");
     expect(wrapper.text()).not.toContain("This code expired.");
 
-    // サーバがこの時点で初めてclaimedを報告する。
     apiGetMock.mockResolvedValue({ ok: true, data: { status: "claimed" } });
     await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
     await flushPromises();
@@ -245,54 +227,41 @@ describe("PairDeviceConfig", () => {
   });
 
   it("ignores a stale poll response that resolves while regeneration's own request is still in flight", async () => {
-    // pairingId比較だけに頼ると、新しいstart()がまだ自身のapiPostをawait中で
-    // pairingId.valueをpr_2へ書き換える前の間隙をすり抜けてしまう。世代カウンタ
-    // (start()の冒頭で同期的にインクリメント)がこの間隙も含めて弾くことを確認する。
+    // pairingId比較だけでは、新しいstart()がapiPost待ちでpairingIdを書き換える前の間隙をすり抜ける。
+    // start()冒頭で同期的に進める世代カウンタがこの間隙も弾くこと。
     apiPostMock.mockResolvedValueOnce({
       ok: true,
       data: { id: "pr_1", url: "https://host/pair/pr_1?t=tok1", expires_in_sec: 90 },
     });
 
-    // 1回目のpollは保留のまま(この応答が後で「古い」ものとして届く想定)。
     let resolveStalePoll;
     const stalePollPromise = new Promise((resolve) => { resolveStalePoll = resolve; });
     apiGetMock.mockReturnValueOnce(stalePollPromise);
-    // 2回目のpollでサーバが期限切れを報告し、「Generate new code」ボタンを出す
-    // (expired/claimedの最終判定はローカルのカウントダウンではなくサーバ応答に
-    // 委ねているため)。
     apiGetMock.mockResolvedValueOnce({ ok: true, data: { status: "expired" } });
 
     const { wrapper, popView } = mountView();
     await flushPromises();
 
-    // pr_1のポーリングを1回発火させる(応答はまだ保留のまま = in-flight)。
     await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
     expect(wrapper.text()).toContain("https://host/pair/pr_1?t=tok1");
 
-    // 2回目のpollが発火し、サーバがexpiredを返す(pollTimer/tickTimerが停止する)。
     await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
     await flushPromises();
     expect(wrapper.text()).toContain("This code expired.");
 
-    // 「Generate new code」に相当する再start()を、apiPostがまだ解決しない
-    // 状態でトリガーする(pairingId.valueはまだ"pr_1"のまま)。
     let resolveRestart;
     const restartPromise = new Promise((resolve) => { resolveRestart = resolve; });
     apiPostMock.mockReturnValueOnce(restartPromise);
 
     await wrapper.find("button.primary").trigger("click");
-    // この時点でstart()は既にpairingGenerationを同期的に進めているが、
-    // apiPost(restartPromise)自体はまだ解決していない = pairingId.valueは
-    // まだ"pr_1"のまま。
+    // start()は世代カウンタを進め済みだが、apiPostは未解決でpairingIdは"pr_1"のまま。
     await flushPromises();
 
-    // pr_1宛の古いpoll応答(1回目)が、再start()のapiPostが解決するより先に届く。
     resolveStalePoll({ ok: true, data: { status: "claimed" } });
     await flushPromises();
     expect(wrapper.text()).not.toContain("Device paired successfully.");
     expect(popView).not.toHaveBeenCalled();
 
-    // 再start()のapiPostがここでようやく解決する。
     resolveRestart({
       ok: true,
       data: { id: "pr_2", url: "https://host/pair/pr_2?t=tok2", expires_in_sec: 90 },

@@ -1,8 +1,7 @@
 <template>
   <div class="main-panel" :style="{ '--session-sidebar-width': `min(${layoutStore.sessionSidebarWidth}px, 50vw)` }" :class="{ 'panel-bottom': isTabBarAtBottom, 'split-mode': isSplitMode, 'keyboard-open': layoutStore.isOsKeyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
-    <!-- PCのサイドバーはTabBarの行とヘッダー高さを揃えるため.content-area配下ではなく
-         .main-panel直下に置く（.content-area内だとactive-tab-title分だけ下にずれる）。 -->
+    <!-- PCのサイドバーはTabBarの行と高さを揃えるため.content-area配下ではなく.main-panel直下に置く。 -->
     <SessionSidebar />
     <div
       class="active-tab-title"
@@ -80,9 +79,7 @@ const { startSyncPolling, stopSyncPolling } = useSessionSync();
 const { loadSnippetCache } = useSnippetPersist();
 
 const tabBarView = ref<InstanceType<typeof TabBar> | null>(null);
-// TerminalBase.vue が defineExpose する形のうち、ここで使う部分
-// （useTerminalLifecycle.ts 内の TerminalBaseViewRef と同形 + useViewport の
-// FitCallback が渡す scrollToBottom）。
+// TerminalBase.vue が defineExpose する形のうち、ここで使う部分（useViewport の FitCallback が渡す scrollToBottom を含む）。
 const terminalBaseView = ref<{ fitAllTerminals: (opts?: { force?: boolean, scrollToBottom?: boolean }) => void } | null>(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
@@ -205,11 +202,7 @@ defineExpose({
 </script>
 
 <style scoped>
-/* ボーダーはTabBar/TitleBar/KeyboardBar個々には持たせず、ここ（ターミナル本体）
-   の上下端に常設する。タブ位置・タイトルバー位置は独立に上下を切り替えられる
-   ため、どのバーが実際にターミナルへ隣接するかは組み合わせ次第で変わる。
-   各バー側で位置ごとに条件分岐してボーダーを付け替えるより、常に
-   ターミナルとの境目にだけ線を引く方が組み合わせに依存せず正しくなる。 */
+/* ボーダーは各バーに持たせず、ターミナル本体の上下端に常設する（どのバーが隣接するかはタブ位置・タイトルバー位置の組み合わせ次第のため）。 */
 .content-area {
   position: relative;
   display: flex;
@@ -220,12 +213,8 @@ defineExpose({
   border-bottom: 1px solid var(--border);
 }
 
-/* PCでセッションサイドバーを開いている間は、ターミナルに被せず
-   SessionSidebar.vue の幅（--session-sidebar-width）ぶん右へ縮める。TabBar.vue の
-   .tab-bar-row-sidebar-open と同じ幅を使う。marginで実際の描画幅を
-   変えることで、TerminalBase配下のResizeObserver（useTerminalResize.ts）
-   が幅変化を検知して自動でfitTerminal/sendResizeする（オーバーレイで
-   隠すだけだと見た目は隠れても列数はリサイズされないため）。 */
+/* PCでサイドバーを開いている間は、被せずSessionSidebar.vueの幅ぶん右へ縮める（TabBar.vueと同じ幅）。
+   marginで実幅を変えるとResizeObserver（useTerminalResize.ts）がfit/sendResizeする（オーバーレイだと列数が変わらない）。 */
 .content-area-sidebar-open {
   margin-left: var(--session-sidebar-width);
 }
@@ -237,12 +226,8 @@ defineExpose({
 }
 
 .active-tab-title {
-  /* 表示/非表示自体はv-show（titleBarVisible、Settings > Displayの狭い/広い
-     設定）がインラインstyleで制御する。ここはflexで表示された時のレイアウト
-     のみ定義する。
-     Top位置（既定、.title-bar-at-bottomが付かない状態）は、TabBarの
-     order（既定0・panel-bottom時2）より確実に小さい値にして、タブバーの
-     位置設定に関わらず常にセッションタブより上に表示されるようにする。 */
+  /* 表示/非表示はv-show（titleBarVisible）がインラインstyleで制御する。ここは表示時のレイアウトのみ。
+     Top位置はTabBarのorder（既定0・panel-bottom時2）より小さい値にして常にタブより上に置く。 */
   display: flex;
   order: -10;
   flex-shrink: 0;
@@ -259,10 +244,8 @@ defineExpose({
   white-space: nowrap;
 }
 
-/* PCでセッションサイドバーを開いている間は、TabBar.vueの.tab-bar-row-sidebar-open
-   と同じ理由・同じ幅（--session-sidebar-width）でサイドバーぶん右へ縮める
-   （SessionSidebar.vueはposition:absoluteでmain-panel全高に重なるオーバーレイの
-   ため、タイトルバー側で明示的に避ける必要がある）。 */
+/* PCでサイドバーを開いている間は、TabBar.vueの.tab-bar-row-sidebar-open と同じ幅ぶん右へ縮める
+   （SessionSidebar.vueはmain-panel全高に重なるオーバーレイのため、タイトルバー側で避ける）。 */
 .active-tab-title-sidebar-open {
   margin-left: var(--session-sidebar-width);
 }
@@ -272,9 +255,7 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-  /* flexアイテムの既定min-width:autoはnowrapテキストの実幅を下限にするため、
-     横幅が足りない時に縮まずjustify-content:centerで左右へはみ出し、
-     省略記号の出ないまま親のoverflow:hiddenで切れてしまっていた。 */
+  /* min-width:auto だとnowrapテキストの実幅が下限になり、省略記号が出ず親のoverflow:hiddenで切れるため。 */
   min-width: 0;
 }
 
@@ -323,17 +304,13 @@ defineExpose({
   order: 2;
   position: relative;
   padding-bottom: 0;
-  /* タブが1件も無い時（.tab-barが空）は行の実高さがpaddingだけで縮んで
-     見えてしまう。タブ有無で行の高さが変わらないよう、タップターゲットの
-     推奨サイズ（44px）をTabBar.vue既定値と同じ値でここでも床にする。 */
+  /* タブが無い時に行がpaddingだけで縮まないよう、TabBar.vue既定値と同じ44pxを床にする。 */
   min-height: 44px;
 }
 
 .main-panel.panel-bottom :deep(.tab-bar) {
   padding: 0 4px;
-  /* TabBar.vueの「+」隣の縦線の中央位置(::before)は隙間(gap + .tab-menu-btnの
-     margin-left 4px)から算出しており、その合計が奇数でないと整数pxで
-     中央にできない。3pxにして合計7px(-4pxで中央)にする。 */
+  /* 「+」隣の縦線の中央位置(::before)は gap + .tab-menu-btn の margin-left 4px の合計が奇数でないと整数pxで中央にできない。3pxで合計7px。 */
   gap: 3px;
 }
 
@@ -344,8 +321,7 @@ defineExpose({
   justify-content: center;
 }
 
-/* TabBar.vue側の元セレクタ(:has()込みで詳細度が高い)に負けないよう、同じ
-   条件をそのまま.main-panel.panel-bottomの下に足して詳細度で上回る。 */
+/* TabBar.vue側の元セレクタ(:has()込み)に詳細度で負けないよう、同じ条件を.main-panel.panel-bottom配下に足す。 */
 .main-panel.panel-bottom :deep(.tab-bar-tabs):has(.tab-btn):not(:has(.tab-btn.active:last-child)) + .tab-menu-btn::before {
   left: -4px;
 }
@@ -354,14 +330,8 @@ defineExpose({
   order: 0;
 }
 
-/* タイトルバーの位置（Top/Bottom）はSettings > Displayでタブバー位置とは
-   独立に設定できる（titleBarPosition）。表示/非表示自体はv-show
-   （titleBarVisible）が制御するため、ここにはdisplayを含めない。
-   既定のorder(未指定=0相当)がTop相当（TabBarの直後・content-areaの前に
-   自然に並ぶ）で、.title-bar-at-bottomが付いた時だけBottom相当（他の
-   全要素より後ろ）に回す。orderの大小関係はTabBar側のorder（既定0/
-   panel-bottom時2）より確実に大きい値にし、タブバーの位置設定に関わらず
-   常に最後尾（画面最下部）に来るようにする。 */
+/* タイトルバーの位置は Settings > Display でタブバー位置と独立に設定でき、表示/非表示は v-show が制御するため display は含めない。
+   既定のorderがTop相当で、.title-bar-at-bottom 時はTabBar側のorder（既定0/panel-bottom時2）より確実に大きい値で常に最後尾に置く。 */
 .active-tab-title.title-bar-at-bottom {
   order: 100;
   padding: 0 12px;

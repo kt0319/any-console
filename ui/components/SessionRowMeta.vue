@@ -22,10 +22,8 @@
 </template>
 
 <script setup lang="ts">
-// SessionSidebarRow.vue/SessionListView.vue（pending dispatch行）が使う行2の
-// 中身（ブランチ名）。ブランチのアイコンは、エージェント状態/Pendingがある時は
-// その状態のアイコンに置き換わる。行1（SessionRowContent.vue）から分離し、
-// 両方を同時に表示できるようにする。
+// 行2（ブランチ名）。エージェント状態/Pending がある時はブランチアイコンがその状態のアイコンに置き換わる。
+// 行1と分離して両方同時に表示できるようにする。
 
 defineProps({
   item: { type: Object, required: true },

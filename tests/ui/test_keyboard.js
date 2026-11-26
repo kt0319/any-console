@@ -81,16 +81,16 @@ describe("isCaretOnFirstLine / isCaretOnLastLine", () => {
   it("複数行の先頭行にいる時だけ first line", () => {
     const value = "line1\nline2";
     expect(isCaretOnFirstLine(value, 0)).toBe(true);
-    expect(isCaretOnFirstLine(value, 5)).toBe(true); // line1 の末尾
-    expect(isCaretOnFirstLine(value, 6)).toBe(false); // line2 の先頭
+    expect(isCaretOnFirstLine(value, 5)).toBe(true);
+    expect(isCaretOnFirstLine(value, 6)).toBe(false);
     expect(isCaretOnFirstLine(value, 11)).toBe(false);
   });
 
   it("複数行の最終行にいる時だけ last line", () => {
     const value = "line1\nline2";
     expect(isCaretOnLastLine(value, 11)).toBe(true);
-    expect(isCaretOnLastLine(value, 6)).toBe(true); // line2 の先頭
-    expect(isCaretOnLastLine(value, 5)).toBe(false); // 改行より前
+    expect(isCaretOnLastLine(value, 6)).toBe(true);
+    expect(isCaretOnLastLine(value, 5)).toBe(false);
     expect(isCaretOnLastLine(value, 0)).toBe(false);
   });
 

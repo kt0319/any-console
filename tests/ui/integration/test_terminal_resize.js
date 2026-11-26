@@ -7,8 +7,6 @@ import { fitTerminal, sendResize } from "../../../ui/composables/useTerminalResi
 import { useTerminal } from "../../../ui/composables/useTerminal.ts";
 import { emit, on } from "../../../ui/app-bridge.ts";
 
-// ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
-
 describe("fitTerminal: DOM サイズ変化なしの fit 抑制", () => {
   const visibleFrameIds = [];
 
@@ -71,8 +69,6 @@ describe("fitTerminal: DOM サイズ変化なしの fit 抑制", () => {
   });
 });
 
-// ── Test: 非表示タブは fit/resize を送らない（バックグラウンド復帰時の巻き込み防止） ──
-
 describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
   afterEach(() => {
     document.getElementById("frame-hidden")?.remove();
@@ -104,7 +100,7 @@ describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
     const tab = {
       id: "hidden",
       term: { cols: 40, rows: 10 },
-      ws: { readyState: 1 /* WebSocket.OPEN */, send },
+      ws: { readyState: 1, send },
     };
     sendResize(tab);
     expect(send).not.toHaveBeenCalled();
@@ -118,7 +114,7 @@ describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
       id: "not-mounted",
       term: { cols: 40, rows: 10 },
       fitAddon: { proposeDimensions: () => ({ cols: 80, rows: 24 }), fit },
-      ws: { readyState: 1 /* WebSocket.OPEN */, send },
+      ws: { readyState: 1, send },
     };
     fitTerminal(tab, { force: true });
     sendResize(tab);
@@ -126,8 +122,6 @@ describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
-
-// ── Test: connectTerminalWs の二重接続ガード ─────────────────────────────────
 
 describe("connectTerminalWs: 二重接続ガード", () => {
   beforeEach(() => {
@@ -163,13 +157,11 @@ describe("connectTerminalWs: 二重接続ガード", () => {
     const { connectTerminalWs } = useTerminal();
     const tab = makeTab();
 
-    // 再接続タイマー・セッション復帰・タブ切替の並走を模擬する。
-    // 2 本の WS が同じ xterm に書き込むと再描画が交錯して表示が崩れる。
+    // 再接続タイマー・セッション復帰・タブ切替の並走を模擬（2 本の WS が同じ xterm に書くと再描画が交錯する）
     await Promise.all([connectTerminalWs(tab), connectTerminalWs(tab)]);
     expect(sockets.length).toBe(1);
     expect(tab.ws).toBe(sockets[0]);
 
-    // 接続済みタブへの再呼び出しも新しい WS を張らない
     await connectTerminalWs(tab);
     expect(sockets.length).toBe(1);
   });
@@ -185,8 +177,7 @@ describe("connectTerminalWs: 二重接続ガード", () => {
       send() {}
     });
     const { connectTerminalWs } = useTerminal();
-    // frame 要素が DOM に無い（非表示）タブ。サイズ未指定で接続すると
-    // サーバがデフォルト 80x24 でアタッチし xterm のバッファ幅と食い違う。
+    // frame が DOM に無い（非表示）タブ。サイズ未指定だとサーバが 80x24 でアタッチし xterm と食い違う
     const tab = makeTab();
     tab.fitAddon = { proposeDimensions: () => undefined, fit: vi.fn() };
 
@@ -196,8 +187,6 @@ describe("connectTerminalWs: 二重接続ガード", () => {
     expect(sockets[0].url).toContain("rows=30");
   });
 });
-
-// ── Test 2: layout:fitAll はフォーム送信で発火しない ─────────────────────────
 
 describe("layout:fitAll のイベント分離", () => {
   it("terminal:url を emit しても layout:fitAll は発火しない", () => {

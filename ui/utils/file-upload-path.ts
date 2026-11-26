@@ -10,11 +10,7 @@ export function splitRelativePath(relativePath: string): { dir: string, name: st
   return { dir: dirname(relativePath), name: basename(relativePath) };
 }
 
-/**
- * 現在アップロード先にしているディレクトリ（baseUploadPath）と、
- * ドロップされたファイルの相対ディレクトリ（relativeDir、無ければ""）を
- * 合成して実際のアップロード先パスを返す。
- */
+/** アップロード先ディレクトリとドロップされたファイルの相対ディレクトリを合成する。 */
 export function resolveUploadTargetDir(baseUploadPath: string, relativeDir: string): string {
   if (!relativeDir) return baseUploadPath || "";
   return baseUploadPath ? `${baseUploadPath}/${relativeDir}` : relativeDir;
@@ -22,7 +18,6 @@ export function resolveUploadTargetDir(baseUploadPath: string, relativeDir: stri
 
 export type UploadFailure = { name: string, reason: string };
 
-/** 失敗したファイル名と理由を列挙する。多い場合は先頭だけ出して残件数を付ける。 */
 export function formatUploadFailures(failures: UploadFailure[]): string {
   const shown = failures.slice(0, UPLOAD_FAILURE_TOAST_MAX).map((f) => `${f.name} (${f.reason})`);
   const remaining = failures.length - shown.length;

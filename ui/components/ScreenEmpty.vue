@@ -108,29 +108,21 @@ const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
 const serverInfo = ref<{ hostname?: string, version?: string, gh_authenticated?: boolean, tailscale?: { https_cert?: { expires_at: number } }, preview_https?: boolean, preview_https_enabled?: boolean } | null>(null);
 
-// 「Open on your phone」導線: 認証必須な環境で出す一回きりのオンボーディング促し。
-// 完了後も項目自体は消さず、チェックマークで完了を示す（何を設定済みか後から
-// 見返せるように）。Settings > Auth の「Add new device」ボタンは、複数台追加したい
-// 場合の恒久的な導線として引き続き常設する。
+// Setup 項目は完了後も消さず、チェックマークで完了を示す（設定済みの内容を見返せるように）。
 const authRequired = ref(false);
 const hasMobileDevice = ref(false);
 const eligiblePhonePairing = computed(() => authRequired.value);
 const donePhonePairing = computed(() => hasMobileDevice.value);
 
-// HTTPS未設定の警告・PWAインストール導線。ローカル開発（localhost/127.0.0.1）では
-// HTTPS化は不要なので出さない。HTTPSが無いとPWAインストール自体できないため両者は
-// 順序依存（HTTPS化した後にPWA導線が現れる）。完了後も項目は消さずチェックマーク表示にする。
+// ローカル開発ではHTTPS化不要。PWAインストールはHTTPSが前提のため、HTTPS化後に導線が現れる。
 const isLocalDev = ["localhost", "127.0.0.1"].includes(location.hostname);
 const eligibleHttpsSetup = computed(() => !isLocalDev);
 const doneHttpsSetup = computed(() => location.protocol === "https:");
 const eligiblePwaInstall = computed(() => !isLocalDev && location.protocol === "https:");
 const donePwaInstall = computed(() => layoutStore.isPwa);
 
-// beforeinstallprompt のキャプチャはモジュールスコープで1つだけ保持する
-// （再マウントでのリスナ累積・イベント取り逃し防止。usePwaInstall.ts 参照）。
 const { promptInstall } = usePwaInstall();
 
-// PWAインストール済み(=isPwa)の場合に出すpush通知の導線。
 // PWA未インストールの間はブラウザ通知の信頼性が低いため、インストール後に出す。
 const push = usePushNotification();
 const toast = useToast();
@@ -139,11 +131,10 @@ const eligibleEnableNotifications = computed(() =>
 );
 const doneEnableNotifications = computed(() => push.isSubscribed.value);
 
-// gh CLI未ログインの警告。ワークスペース単位の条件は設けず常に対象にする。
 const eligibleGhAuth = computed(() => true);
 const doneGhAuth = computed(() => serverInfo.value?.gh_authenticated === true);
 
-// HTTPS証明書の期限切れ・期限間近の警告。期限が取れない環境（serve未使用など）では出さない。
+// 期限が取れない環境（serve未使用など）では出さない
 const certStatus = computed(() => {
   const cert = serverInfo.value?.tailscale?.https_cert;
   return cert ? certExpiryStatus(cert.expires_at) : null;
@@ -151,18 +142,13 @@ const certStatus = computed(() => {
 const eligibleCertExpiry = computed(() => certStatus.value !== null);
 const doneCertExpiry = computed(() => certStatus.value?.warn === false);
 
-// dev serverプレビュー(proxy)のHTTPS証明書。メインがHTTPSなのにproxyだけHTTPだと、
-// PWAからのプレビューがmixed contentでブロックされるため、HTTPS環境でのみ促す。
-// Settings > Preview Server で意図的に無効化している場合は促さない。
+// メインがHTTPSでproxyだけHTTPだとPWAのプレビューが mixed content でブロックされるため、HTTPS環境でのみ促す（意図的な無効化時は除く）
 const eligiblePreviewHttps = computed(() =>
   !isLocalDev && location.protocol === "https:" && serverInfo.value?.preview_https_enabled !== false,
 );
 const donePreviewHttps = computed(() => serverInfo.value?.preview_https === true);
 
-// Setup項目が全て完了していたら初期状態でトグルを閉じる。開閉状態はユーザー操作を
-// 尊重し、allSetupDoneが変化した時（=データ読み込み完了時）だけ自動で追従させる。
-// Setup 項目の一覧（テンプレート表示・全完了判定・セクション表示可否の
-// 3箇所で同じリストを使う — 項目追加はここ1箇所で済ませる）。
+// テンプレート表示・全完了判定・セクション表示可否の3箇所で共有する一覧
 const setupItems = computed(() => [
   { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value, icon: "mdi-lock-outline", label: "Set up HTTPS", onClick: showHttpsInstructions },
   { eligible: eligibleCertExpiry.value, done: doneCertExpiry.value, icon: "mdi-certificate-outline", label: "HTTPS certificate", onClick: showCertExpiry },
@@ -176,6 +162,7 @@ const setupItems = computed(() => [
 const allSetupDone = computed(
   () => setupItems.value.length > 0 && setupItems.value.every((item) => item.done),
 );
+// 開閉はユーザー操作を尊重し、allSetupDone が変わった時（データ読込完了時）だけ自動追従する
 const setupExpanded = ref(false);
 const setupChecked = ref(false);
 watch(allSetupDone, (done) => { setupExpanded.value = !done; });

@@ -6,11 +6,7 @@ import { buildSessionTabParamsWithCache } from "./useSessionSync.ts";
 import { EP_JOBS_WORKSPACES, EP_TERMINAL_SESSIONS } from "../utils/endpoints.ts";
 import { emit } from "../app-bridge.ts";
 
-/**
- * 既存のサーバセッションをタブとして選択する（開いていなければ一覧を取得してタブを作る）。
- * ディープリンクの ?session= と Dispatch 実行後のフォーカスで共用する。
- * 既存タブでも tab:select を発火する（ScreenMain がタブの有効化とワークスペース選択を行うため）。
- */
+/** 既存のサーバセッションをタブとして選択する（未オープンなら一覧を取得してタブを作る）。既存タブでも tab:select を発火する（ScreenMain が有効化とワークスペース選択を行うため）。 */
 export function useSessionTabAttach() {
   const { apiGet } = useApi();
   const terminalStore = useTerminalStore();

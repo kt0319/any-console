@@ -1,12 +1,6 @@
 import { ref, onBeforeUnmount } from "vue";
 
-/**
- * pointerdown で開始する縦リストのドラッグ並べ替え。
- * hit-detection（DOM位置）で並べ替え先を判定するため、可変高さ行でも安定して動く。
- *
- * @param rowSelector 並べ替え対象行を取れるCSSセレクタ
- * @param onReorder 並べ替え確定時のコールバック
- */
+/** pointerdown 開始の縦リストドラッグ並べ替え。DOM 位置の hit-detection で判定するため可変高さ行でも安定する。 */
 export function useListDragSort({ rowSelector, onReorder }: {
   rowSelector: string,
   onReorder: (fromIdx: number, toIdx: number) => void,

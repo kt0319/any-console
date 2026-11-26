@@ -5,11 +5,8 @@ import {
 } from "./constants.ts";
 
 /**
- * WS 再接続の指数バックオフ遅延（attempt は 0 始まり）。
- * ターミナル WS とステータスストリーム WS が同じ定数系・同じ計算を共有する。
- *
- * initialDelay を指定すると初回（attempt 0）だけその値になり、以降の指数は
- * attempt-1 で数える（ターミナル WS の「初回だけ素早く再接続」挙動）。
+ * WS 再接続の指数バックオフ遅延（attempt は 0 始まり。ターミナル WS とステータスストリーム WS で共有）。
+ * initialDelay 指定時は attempt 0 だけその値になり、以降は attempt-1 で数える（ターミナル WS の初回だけ素早い再接続）。
  */
 export function reconnectBackoffDelay(attempt: number, { initialDelay }: { initialDelay?: number } = {}): number {
   if (initialDelay != null) {

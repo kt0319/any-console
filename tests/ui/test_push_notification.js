@@ -2,8 +2,7 @@
 // @ts-check
 /**
  * usePushNotification: subscribe()の失敗系。
- * ブラウザ側の購読だけ残って「完了」表示のまま実際には通知が届かない状態
- * （サーバ登録失敗時）を防げているかを確認する。
+ * サーバ登録失敗時に、購読だけ残って「完了」表示のまま通知が届かない状態を防げているか。
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
@@ -69,9 +68,7 @@ describe("usePushNotification.subscribe()", () => {
     fakeSubscription.unsubscribe.mockClear();
   });
 
-  // subscriptionはモジュールスコープの singleton のため、
-  // 「サーバ登録失敗時はisSubscribedがfalseのまま」を先に確認してから成功系を検証する
-  // （成功系を先に走らせるとsubscription.valueが残り、この後始末不要な検証ができなくなる）。
+  // subscriptionはモジュールスコープの singleton のため、サーバ登録失敗時の検証を成功系より先に行う。
   it("サーバ登録に失敗した時はブラウザ側の購読を戻し、okをfalseにする", async () => {
     mockAuthFetch({ subscribeOk: false });
     const { subscribe, isSubscribed } = usePushNotification();

@@ -2,7 +2,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeLocalBranches, markMergedBranches, filterRemoteBranches, buildWorktreeMap, canPull, canPush } from "../../ui/utils/git-branch.ts";
 
-// ── Tests ──
 
 describe("normalizeLocalBranches", () => {
   it("nullで空配列", () => {

@@ -1,14 +1,10 @@
 /**
- * 設定モーダルの全ビューの E2E スモーク。
- * すべてのメニュー項目が開けて（各ビューがマウント時にクラッシュしない）、
- * タイトル（戻るボタン）でメニューへ戻れることを確認する。
- * Auth / System Info（末尾の Backup & Restore セクション含む）は代表的な表示内容も検証する（読み取りのみ・状態変更なし）。
+ * 設定モーダルの全ビューの E2E スモーク。全メニュー項目が開け、タイトル（戻るボタン）でメニューへ戻れることを確認する。
+ * Auth / System Info（末尾の Backup & Restore 含む）は代表的な表示内容も検証する（読み取りのみ）。
  */
 import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
-// メニューラベル → 遷移後のモーダルタイトル
-// Workspaces/Add Workspaceは設定メニュー配下ではなくセッション一覧側の導線のため対象外（下の別テストで直接確認）。
-// Send Snippet/Send Historyはソフトキーボード上段のHistory/Snippetタブに一本化済みのため対象外（keyboard-bar系スペックで別途扱う）。
+// メニューラベル → 遷移後のモーダルタイトル。Workspaces/Add Workspace・Send Snippet/Send History は設定メニュー外の導線のため対象外。
 const SETTINGS_VIEWS = [
   ["Terminal", "Terminal"],
   ["Editor", "Editor"],
@@ -32,7 +28,6 @@ test.describe("settings views", () => {
     for (const [label, title] of SETTINGS_VIEWS) {
       await openSettingsView(page, label);
       await expect(page.locator(".modal-title")).toContainText(title, { timeout: 10_000 });
-      // タイトル（戻るボタン）でメニューへ戻る
       await page.locator(".modal-title-wrap").click();
       await expect(page.locator(".modal-title")).toHaveText("Settings", { timeout: 5000 });
     }
@@ -53,7 +48,6 @@ test.describe("settings views", () => {
     await expect(page.locator(".settings-toggle", { hasText: "Require token authentication" })).toBeVisible();
     await expect(page.locator(".security-token-status.configured")).toBeVisible({ timeout: 10_000 });
 
-    // ログインに使ったこのデバイスが Trusted Devices に載る
     const currentDevice = page.locator(".device-row", { has: page.locator(".device-tag", { hasText: "This device" }) });
     await expect(currentDevice).toBeVisible({ timeout: 10_000 });
   });
@@ -67,7 +61,6 @@ test.describe("settings views", () => {
     await expect(page.locator(".modal-title")).toContainText("System Info", { timeout: 10_000 });
     await expect(page.locator(".si-body")).toContainText(info.hostname, { timeout: 10_000 });
 
-    // 末尾の Backup & Restore セクション
     await expect(page.locator(".si-backup-btn", { hasText: "Download" })).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(".si-backup-btn", { hasText: "Upload" })).toBeVisible();
   });

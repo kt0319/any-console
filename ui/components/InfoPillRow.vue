@@ -140,12 +140,8 @@ import { peekIconForKey } from "../utils/info-pills.ts";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.ts";
 import { useAgentStateStore } from "../stores/agent-state.ts";
 
-// ターミナルペイン右上のアイコンピル群（Info Pills）。表示条件・並び順は
-// 設定（infoPillConfig）と親から渡される現在値に従う。ピルのキーごとの
-// 表示条件は trailingPeekItems（TerminalPane.vue）の各キーの条件と
-// 揃えること（揃えないと、非表示ピルの変化が別ピルのpeek枠を奪う）。
-// クリックは open(key) を emit し、遷移は親（useInfoPillActions）が担う。
-// スタイルは ui/styles/info-pills.css（グローバル）。
+// 表示条件は trailingPeekItems（TerminalPane.vue）の各キーの条件と揃えること（揃えないと非表示ピルの変化が別ピルの peek 枠を奪う）。
+// クリックは open(key) を emit し、遷移は親（useInfoPillActions）が担う。スタイルは ui/styles/info-pills.css（グローバル）。
 
 const props = defineProps({
   tab: { type: Object, required: true },

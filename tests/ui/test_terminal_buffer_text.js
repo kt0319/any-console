@@ -171,11 +171,8 @@ describe("findUrlInBuffer", () => {
   });
 
   it("継続行の先頭インデント（シェルの折返し表示）を挟んでも正しく復元する", () => {
-    // 実機（tmux配下のシェル）で確認した実際のパターン: 折返し継続行は行頭に
-    // 字下げ用の空白が入り、直前行の末尾もそれに揃えてスペースで埋められる。
-    // 末尾だけトリムして直結すると行頭の空白が本物の空白として残り、そこで
-    // URL が打ち切られていた（実際に長押し検出が1行目だけで途切れる不具合の
-    // 根本原因）。
+    // 折返し継続行は行頭に字下げの空白が入り、直前行末もスペースで埋められる。
+    // 末尾だけトリムして直結すると行頭の空白で URL が打ち切られる。
     const part1 = "https://cloud.ouraring.com/oauth/authorize?response_ty";
     const part2 = "  pe=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164";
     const cols = Math.max(part1.length, part2.length);
@@ -198,10 +195,7 @@ describe("findUrlInBuffer", () => {
   });
 
   it("空行を挟んだ次の段落の文字列とURLを誤って連結しない", () => {
-    // 実際に報告されたケース: URL行の直後に空行、その次の段落が数字始まりの
-    // 文章だと、空行が0文字で連結され URL 末尾と次段落の数字が直結して
-    // 誤ったURLになっていた（"...pullRequests/181" + "1462のときと..." →
-    // "...pullRequests/1811462" のように誤検出）。
+    // URL行の直後の空行が0文字で連結されると、次段落の数字が URL 末尾に直結して誤検出される。
     const part1 = "https://artpresto1.backlog.com/git/DW_JOY_DEV/dw-joy-src-api/pullRequests/181";
     const blank = "";
     const part3 = "1462のときと同様、旧PRのクローズ依頼と";
@@ -228,11 +222,8 @@ describe("findUrlInBuffer", () => {
   });
 
   it("1行目末尾だけ本物の空白文字がある折返しURLでも正しく復元する", () => {
-    // 実際に報告されたケース: TUI の再描画で1行目だけ行末までスペースで
-    // クリアされ、本物のスペース文字が残ることがある（後続行には無い）。
-    // WebLinksAddon 自身の判定はこのスペースで打ち切られる
-    // （node_modules/@xterm/addon-web-links の lines.join('') は未トリム）ため、
-    // findUrlInBuffer 側で正しく trimEnd 復元できることを固定化する。
+    // TUI の再描画で1行目だけ本物のスペースが行末まで残ることがあり、WebLinksAddon の判定はそこで打ち切られる
+    // （lines.join('') は未トリム）。findUrlInBuffer 側で trimEnd 復元できることを固定化する。
     const part1 = "https://cloud.ouraring.com/oauth/authorize?response_ty ";
     const part2 = "pe=code&client_id=8b6afc82-0e1e-43f9-9cd7-c04ab14ff164";
     const cols = Math.max(part1.length, part2.length);
@@ -255,8 +246,7 @@ describe("findUrlInBuffer", () => {
   });
 
   it("isWrapped=false（アプリ側の明示的な改行）でも前後の行を束ねてURLを検出する", () => {
-    // ポート番号の直後で改行され、次行にパスが続くケース（実際に報告された
-    // 「ポート番号までしか認識しない」不具合の再現）。
+    // ポート番号の直後で改行され、次行にパスが続くケース。
     const part1 = "https://mini.tail794a9.ts.net:23001";
     const part2 = "/business-partner-management";
     const cols = Math.max(part1.length, part2.length);

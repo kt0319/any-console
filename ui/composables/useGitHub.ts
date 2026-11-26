@@ -16,11 +16,8 @@ function setCountCache(workspace: string, key: string, count: number) {
   _countCache[`${workspace}:${key}`] = count;
 }
 
-// テキスト記号（✓/✗/◗等）はフォント・OSで字形がぶれるうえ、in_progress/queued/
-// waitingが同じ半円記号を共用しており見分けが付かないという指摘があった。
-// mdiアイコン（他のステータス表示、例: AGENT_STATE_META/session-sidebar.ts と
-// 同じ語彙）に揃え、実行中(in_progress)だけspinアニメーションを付けて
-// 「待機中」と「実行中」を視覚的にも区別する。
+// テキスト記号は字形がぶれ、in_progress/queued/waiting が同じ半円を共用して見分けにくいため、
+// mdiアイコンに揃え、in_progress のみ spin アニメーションで区別する。
 const RUN_STATUS: Record<string, { icon: string, cls: string }> = {
   success: { icon: "mdi-check-circle-outline", cls: "github-run-success" },
   failure: { icon: "mdi-close-circle-outline", cls: "github-run-failure" },
@@ -38,9 +35,7 @@ export function runStatusClass(status: string) {
   return RUN_STATUS[status]?.cls || "github-run-unknown";
 }
 
-// GitHub本家のissue一覧アイコン（issue-opened/issue-closed octicon）に合わせた
-// 状態別の色。closedは基本 gh issue list --json では取得対象外（デフォルトopen
-// のみ）だが、将来closedも表示する場合に備えて分岐しておく。
+// GitHub の issue-opened/issue-closed octicon に合わせた状態別の色。
 export function issueStateColor(state: string): string {
   return state === "closed" ? "var(--purple)" : "var(--success)";
 }
@@ -55,8 +50,7 @@ export interface GitHubIssue {
   createdAt: string | null;
 }
 
-// useWorkspaceIssues.ts（ワークスペースピル用ポーリング）とuseGitHub内部の
-// 両方から使う純粋関数のため、composableのクロージャの外に出しておく。
+// useWorkspaceIssues.ts と useGitHub 内部の両方から使うため、composable の外に置く。
 export const mapIssue = (item: any): GitHubIssue => ({
   number: item.number,
   title: item.title,

@@ -41,7 +41,6 @@ describe("DispatchRunView: dedup_key による置き換えの検知", () => {
     const wrapper = mount(DispatchRunView, { props: { itemId: "d1" } });
     await flushPromises();
 
-    // 同じスナップショットの再配信（内容変化なし）。
     applyDispatchQueue([
       { id: "d1", request: { workspace: "ws1", text: "first", branch: "main", retry_count: 1 } },
     ]);
@@ -51,7 +50,6 @@ describe("DispatchRunView: dedup_key による置き換えの検知", () => {
   });
 });
 
-// ── DispatchRunView: dirty workspace のブランチ切替ブロック ──────────────────
 
 function mountDispatchRunView(itemId = "d1") {
   return mount(DispatchRunView, { props: { itemId } });

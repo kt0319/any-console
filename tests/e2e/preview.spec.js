@@ -1,9 +1,6 @@
 /**
  * Dev Server（Port Preview）の E2E スモーク。
- * ワークスペースの cwd でダミーの dev server を起動し、Server ピルに検出される
- * ことと、確認ダイアログ（Open / Copy）の Open から proxy 経由で実際に到達
- * できることを確認する（Dev Server 一覧ページは廃止済みのため、Server ピルが
- * 唯一の UI 導線）。
+ * ダミー dev server が Server ピルに検出され、確認ダイアログの Open から proxy 経由で到達できること。
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -11,8 +8,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { test, expect, BASE_URL, loadToken, bearerHeaders, deleteWorkspaceViaApi, openWorkspaces, useLoginWithSessionCleanup, TOKEN_REQUIRED_MSG } from "./helpers.js";
 
-// PROXY_MIN_TARGET(1024) 〜 PROXY_MAX_TARGET(9999) の範囲に収める（server/src/preview.rs）。
-// 8888(any-console本体) と衝突しない値を選ぶ。proxy は +PROXY_OFFSET(20000) に立つ。
+// PROXY_MIN_TARGET〜PROXY_MAX_TARGET（server/src/preview.rs）の範囲内で、8888(any-console本体)と衝突しない値。proxy は +PROXY_OFFSET(20000) に立つ。
 const DUMMY_PORT = 8765;
 const PROXY_PORT = DUMMY_PORT + 20000;
 const DUMMY_BODY = "e2e-dummy-dev-server";
@@ -27,9 +23,8 @@ test.describe("port preview", () => {
     const token = loadToken();
     test.skip(!token, TOKEN_REQUIRED_MSG);
 
-    // ポート → ワークスペースの紐付けはサーバ側がプロセスの cwd で行う
-    // （server/src/preview.rs の match_workspace）ため、一時ディレクトリを
-    // ワークスペース登録し、その cwd を起点にダミーサーバを起動する。
+    // ポート→ワークスペースの紐付けはサーバがプロセスの cwd で行う（server/src/preview.rs match_workspace）ため、
+    // 一時ディレクトリを登録し、その cwd でダミーサーバを起動する。
     wsDir = fs.mkdtempSync(path.join(os.tmpdir(), "any-console-e2e-preview-"));
     wsName = path.basename(wsDir);
     const res = await request.post(`${BASE_URL}/workspaces`, {
@@ -38,8 +33,7 @@ test.describe("port preview", () => {
     });
     expect(res.ok()).toBeTruthy();
 
-    // テストランナー自身の cwd（リポジトリ）でリッスンすると紐付け先が変わって
-    // しまうため、子プロセスとして cwd=wsDir で起動する。
+    // 子プロセスを cwd=wsDir で起動する（テストランナーの cwd だと紐付け先が変わる）。
     const serverScript = `
       const http = require("node:http");
       http.createServer((_req, res) => {
@@ -70,8 +64,7 @@ test.describe("port preview", () => {
   useLoginWithSessionCleanup(test);
 
   test("Server ピルに検出され、確認ダイアログの Open で proxy 経由に到達できる", async ({ page, context }) => {
-    // Server ピルはワークスペース紐付きタブにのみ出るため、登録した
-    // ワークスペースの Terminal ジョブからセッションを開く。
+    // Server ピルはワークスペース紐付きタブにのみ出る。
     await openWorkspaces(page);
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-header-label", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
@@ -79,20 +72,16 @@ test.describe("port preview", () => {
     await page.locator(".ws-job-dialog .job-item-label", { hasText: "Terminal" }).click();
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
-    // Open Sessionオーバーレイ（SessionOpenModal.vue）は、ルート表示中に新規
-    // タブが作られると自動で閉じてターミナルへ戻る（SessionOpenHome.vue参照）
-    // ため、ここで明示的に閉じる必要はない。
+    // Open Sessionオーバーレイはルート表示中に新規タブが作られると自動で閉じる（SessionOpenHome.vue）。
     await expect(page.locator(".session-open-modal")).toBeHidden({ timeout: 5000 });
 
-    // GET /preview/ports はアクセス時に同期でスキャンを起こす（server/src/preview.rs）。
-    // TerminalPane のポーリング間隔（DEV_SERVER_POLL_INTERVAL_MS=10s）を最大
-    // 2周ぶん待てば、起動直後のスキャン空振りがあっても反映される。
+    // GET /preview/ports は同期スキャンするが、起動直後の空振りに備え
+    // TerminalPane のポーリング間隔（DEV_SERVER_POLL_INTERVAL_MS=10s）の2周ぶん待つ。
     const pill = page.locator(".pill-server-btn").first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
 
-    // 一覧反映は同期だが、実際の TCP proxy listener は HTTP プローブ完了後に
-    // 非同期タスクとして起動される（server/src/preview.rs の reconcile_proxies）ため、
-    // ピルが見えた直後はまだ bind されていないことがある。起動を少し待つ。
+    // TCP proxy listener は HTTP プローブ後に非同期で起動する（server/src/preview.rs reconcile_proxies）ため、
+    // ピル表示直後はまだ bind されていないことがある。
     await page.waitForTimeout(2000);
 
     await pill.click();

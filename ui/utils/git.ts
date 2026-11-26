@@ -41,10 +41,7 @@ export function parseGitRefs(refsStr: string | null | undefined): GitRef[] {
   return parsed;
 }
 
-/**
- * コミットメッセージの1行目（サマリ行）。ツールチップやpeekピル等の
- * 1行表示に使う。
- */
+/** コミットメッセージの1行目（サマリ行）。 */
 export function firstCommitLine(message: string | null | undefined): string {
   return String(message || "").split("\n")[0].trim();
 }
@@ -111,11 +108,7 @@ type GitFileLike = {
   deleted?: number | null;
 };
 
-/**
- * ファイル1件分の挿入/削除行数を解決する（tracked済みのinsertions/deletions →
- * diffChunkからのパース、の優先順）。情報が全く無い場合は0/0に丸めずnull/nullを返す
- * （buildNumstatHtmlの「両方nullなら空文字列」判定と対にするため）。
- */
+/** 情報が全く無い場合は 0/0 に丸めず null/null を返す（buildNumstatHtml の「両方 null なら空文字列」判定と対）。 */
 export function resolveFileNumstat(file: GitFileLike, diffChunk = ""): { insertions: number | null, deletions: number | null } {
   const insertions = file.insertions ?? file.added;
   const deletions = file.deletions ?? file.deleted;
@@ -178,9 +171,6 @@ export function entryBranches(entry: { refs?: GitRef[] }): string[] {
     .map((r) => r.label);
 }
 
-/**
- * GitHub のファイル/ディレクトリ URL を組み立てる（GitHub リンク生成の単一実装）。
- */
 export function buildGitHubFileUrl(githubUrl: string, ref: string, path: string, type: "blob" | "tree" = "blob") {
   if (!githubUrl || !ref) return "";
   return `${githubUrl}/${type}/${ref}/${path}`;
@@ -193,12 +183,8 @@ export function diffStatusClass(status: string): string {
 
 const UNMERGED_STATUSES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
 
-/**
- * サーバの status（git status --porcelain の XY を trim したもの）を1文字の表示ラベルにする。
- * コミットは add -A 後に行われるため、2文字は「コミット時に実際に起きる変化」で決める
- * （AM→A / MM→M / RM→R / MD→D）。ステージ後に削除された AD はコミットしても何も起きないので "-"。
- * 未追跡（??）は U。未マージ（UU 等）と未知の形式はそのまま返す。
- */
+/** git status --porcelain の XY（trim済み）を1文字ラベルにする。コミットは add -A 後なので2文字は実際に起きる変化で決める
+（AM→A / MM→M / RM→R / MD→D、AD→"-"）。未追跡 ?? は U、未マージ・未知はそのまま。 */
 export function diffStatusLabel(status: string): string {
   const code = (status || "").trim();
   if (code === "??") return "U";
@@ -265,16 +251,13 @@ export function dirtyBadgeHtml(ws: { changed_files?: number, insertions?: number
   return `${filePart}<span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
 }
 
-/// コミットハッシュの短縮表示（git の慣例に合わせ 7 桁）。
 export function shortHash(hash: string): string {
   return hash.slice(0, 7);
 }
 
-// ファイル履歴1行分（parseFileLog が組み立てる表示用エントリ）。
 export type FileLogEntry = { hash: string, time: string, author: string, message: string };
 
-/// `git log --format=%H%x09...%x09%s` のタブ区切り出力をパースする
-/// （FileHistoryPane.vue から使用。メッセージ中のタブは保持する）。
+/// FileHistoryPane.vue から使用。メッセージ中のタブは保持する。
 export function parseFileLog(stdout: string): FileLogEntry[] {
   return stdout
     .split("\n")

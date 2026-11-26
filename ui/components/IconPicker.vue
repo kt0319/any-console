@@ -123,11 +123,9 @@ const selectedColor = ref("");
 const previewHtml = ref("");
 const canSubmit = ref(false);
 
-// グリッドは検索クエリからの純粋な導出（選択状態は :class で宣言的に反映）。
 const gridModel = computed(() =>
   buildIconGridModel(MDI_ICONS, searchQuery.value.trim().toLowerCase(), ICON_GRID_MAX_DISPLAY));
 
-// 現在のmode・入力内容からプレビューとcanSubmitを再計算する。
 function updatePreview() {
   if (mode.value === "mdi") {
     if (selectedIcon.value) {

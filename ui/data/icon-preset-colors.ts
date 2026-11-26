@@ -1,4 +1,3 @@
-// IconPicker のカラーパレット既定色（label は tooltip / aria-label 用）。
 export const ICON_PRESET_COLORS = [
   { label: "Default", value: "" },
   { label: "Red", value: "#e53935" },

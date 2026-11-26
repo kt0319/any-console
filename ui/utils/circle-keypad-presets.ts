@@ -1,9 +1,6 @@
-// サークルキーパッドの各キーは「モディファイア（None/Ctrl/Shift/Alt の組み合わせ）」+
-// 「ベースキー（矢印・文字・特殊キー）」の直積で組み立てる。手作りの固定プリセットリストより
-// 組み合わせを広く網羅できる。
+// 各キーは「モディファイア」+「ベースキー」の直積で組み立てる（固定プリセットより網羅できる）。
 
-// symbol はサークルキーパッド上（ドラッグ中のリング表示）で使う短縮表記。
-// 設定画面のドロップダウンでは読みやすい label をそのまま使う。
+// symbol はドラッグ中のリング表示用の短縮表記。設定画面のドロップダウンは label を使う。
 export const CIRCLE_KEYPAD_MODIFIER_OPTIONS = [
   { id: "none",           label: "—",              symbol: "",    ctrl: false, shift: false, alt: false },
   { id: "shift",          label: "Shift",          symbol: "⇧",   ctrl: false, shift: true,  alt: false },
@@ -44,8 +41,7 @@ export const CIRCLE_KEYPAD_BASE_KEYS = [
   ...DIGIT_BASE_KEYS,
 ];
 
-// 四隅の特殊メニューに割り当て可能なアクション。
-// "none" はコーナーボタンを表示しない（action 空文字 = 何も割り当てない）。
+// 四隅の特殊メニューに割り当て可能なアクション。"none" はコーナーボタンを表示しない（action 空文字）。
 export const CIRCLE_KEYPAD_SPECIAL_PRESETS = [
   { id: "none",      label: "(None)",     action: "" },
   { id: "selcopy",   label: "Sel & Copy", action: "selection:open" },
@@ -93,7 +89,6 @@ export const DEFAULT_CIRCLE_KEYPAD_KEY_DEFS = [
   { modifier: "ctrl", key: "c" },
 ];
 
-// 四隅の位置（左上 / 右上 / 左下 / 右下）と既定の割り当て。
 export const CIRCLE_KEYPAD_CORNER_LABELS = ["Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"];
 export const DEFAULT_CIRCLE_KEYPAD_SPECIALS = ["workspace", "files", "selcopy", "settings"];
 
@@ -116,7 +111,6 @@ export function findSpecialPreset(id: string | null | undefined) {
   return CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) => p.id === id) || null;
 }
 
-// keyDef の ctrl/shift/alt から一致するモディファイア id を逆引きする。
 export function modifierIdOf(keyDef: CircleKeypadKeyDef | null | undefined) {
   const match = CIRCLE_KEYPAD_MODIFIER_OPTIONS.find((m) =>
     !!m.ctrl === !!keyDef?.ctrl && !!m.shift === !!keyDef?.shift && !!m.alt === !!keyDef?.alt
@@ -124,13 +118,11 @@ export function modifierIdOf(keyDef: CircleKeypadKeyDef | null | undefined) {
   return match?.id || "none";
 }
 
-// keyDef.key が既知のベースキーなら id、そうでなければ空文字。
 export function baseKeyIdOf(keyDef: CircleKeypadKeyDef | null | undefined) {
   return CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === keyDef?.key) ? keyDef?.key || "" : "";
 }
 
-// サークルキーパッドのリング表示用ラベル。モディファイアは記号で短縮する
-// （ドラッグ中の表示が長い組み合わせで肥大化しないように）。
+// リング表示用ラベル。ドラッグ中の表示が長くならないようモディファイアは記号で短縮する。
 export function circleKeypadKeyLabel(modifierId: string | null | undefined, keyId: string | null | undefined) {
   const mod = findModifierOption(modifierId);
   const bk = findBaseKey(keyId);

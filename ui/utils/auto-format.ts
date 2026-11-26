@@ -1,8 +1,4 @@
-/**
- * 句点・ピリオド（。．！？.!?）の直後で改行する。読点（、，）は対象外。
- * 全角句点系は直後で改行。半角の . ! ? は後ろにスペースがある文末のみ対象とし、
- * foo.txt や 3.14 のような文中ピリオドでは改行しない。
- */
+/** 。．！？ の直後で改行。半角 . ! ? は後ろにスペースがある文末のみ（foo.txt や 3.14 を割らない）。 */
 export function breakAtPunctuation(text: string): string {
   return text
     .replace(/([。．！？])(?!\n)/g, "$1\n")
@@ -13,12 +9,7 @@ export function stripLeadingSpaces(text: string): string {
   return text.replace(/^[ \t]+/gm, "");
 }
 
-/**
- * 文が途中で折り返されている改行を外して 1 行に繋ぐ。
- * 行末が文末記号（。．！？.!?:：）でなく前後の行がともに非空なら折り返しとみなす。
- * 英単語の境界（前行末・次行頭がともに半角英数）はスペースで、それ以外はそのまま繋ぐ。
- * 空行は段落区切りとして残す。
- */
+/** 文末記号（。．！？.!?:：）で終わらない行を次行と繋ぐ。英数字境界はスペース、空行は段落区切りとして残す。 */
 export function joinWrappedLines(text: string): string {
   const out: string[] = [];
   for (const line of text.split("\n")) {
@@ -36,22 +27,19 @@ export function joinWrappedLines(text: string): string {
 
 export function tidyWhitespace(text: string): string {
   return text
-    .replace(/[ \t]+$/gm, "")    // 各行の末尾空白
-    .replace(/\n{3,}/g, "\n\n")  // 3連以上の空行を2行に圧縮
-    .trim();                     // 先頭・末尾の空白/空行
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
-/** 改行を除去して1行にする（Select & Copyペインの Copy with Trim 用）。 */
 export function removeNewlines(text: string): string {
   return text.replace(/\r?\n/g, "");
 }
 
-/** 半角スペース・タブを除去する（Select & Copyペインの Copy with Trim 用）。 */
 export function removeSpaces(text: string): string {
   return text.replace(/[ \t]/g, "");
 }
 
-/** removeNewlines + removeSpaces。折り返まれたURL等を1つの文字列に整形してコピーする用途。 */
 export function removeAllWhitespace(text: string): string {
   return removeSpaces(removeNewlines(text));
 }
@@ -67,10 +55,7 @@ export interface FormatOptions {
   tidy?: boolean;
 }
 
-/**
- * 指定されたオプションの整形のみを順に適用する。全オプション off なら原文を返す
- * （非破壊・即座に原文へ戻せる前提）。
- */
+/** 有効なオプションのみ順に適用する。全 off なら原文を返す。 */
 export function applyFormat(text: string, opts: FormatOptions = {}): string {
   if (!text) return text;
   let out = text;

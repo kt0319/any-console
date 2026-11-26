@@ -8,12 +8,7 @@ import { EP_GROUP_ORDER, EP_WORKSPACE_ORDER } from "../utils/endpoints.ts";
 
 type FlatRow = { type: string } & Record<string, any>;
 
-/**
- * Open Session 一覧の並べ替え永続化（SessionOpenHome.vue から抽出）。
- * - グループヘッダーのドラッグ → /group-order 保存
- * - ワークスペース行のドラッグ → グループ所属の変更 + /workspace-order 保存
- * 呼び出し側はアンマウント時に cleanupWsDrag を呼ぶこと。
- */
+/** Open Session 一覧の並べ替え永続化（グループは /group-order、ワークスペース行は所属変更 + /workspace-order）。アンマウント時に cleanupWsDrag を呼ぶこと。 */
 export function useWorkspaceOrdering(options: {
   flatList: ComputedRef<FlatRow[]>,
   listEl: Ref<HTMLElement | null>,
@@ -21,7 +16,6 @@ export function useWorkspaceOrdering(options: {
   const workspaceStore = useWorkspaceStore();
   const { apiPut, wsEndpoint } = useApi();
 
-  // ---- グループドラッグ ----
   const { dragFromIdx, dragOverIdx: groupDragOver, onDragStart: onGroupDragStart } = useListDragSort({
     rowSelector: ".ws-group-header",
     onReorder: async (from, to) => {
@@ -39,7 +33,6 @@ export function useWorkspaceOrdering(options: {
   async function saveOrderAndGroups(finalList: FlatRow[]) {
     const { changes: groupChanges, visibleOrder } = deriveGroupChanges(finalList as Parameters<typeof deriveGroupChanges>[0]);
 
-    // グループ変更を保存
     for (const { ws, newGroupId } of groupChanges) {
       await apiPut(wsEndpoint(ws.name, "config"), {
         icon: ws.icon || "",
@@ -58,7 +51,6 @@ export function useWorkspaceOrdering(options: {
     await workspaceStore.fetchWorkspaces();
   }
 
-  // ---- ワークスペースドラッグ ----
   const { dragIdx, dragOffsetY, dragFlatList, onDragStart, cleanup: cleanupWsDrag } = useWorkspaceListDrag({
     flatList: options.flatList,
     listEl: options.listEl,

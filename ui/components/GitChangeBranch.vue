@@ -194,9 +194,7 @@ const {
   submitAddModal,
 } = useBranchAddDialog({ createBranch, createWorktree });
 
-// 現在ブランチの行はセレクトボックスの先頭項目 兼 開閉トグルを兼ねる
-// （selectBranchは現在ブランチをクリックしても元々no-opだったため、
-// そのクリックをtoggleに転用しても既存挙動と衝突しない）。
+// 現在ブランチの行はセレクトボックスの先頭項目 兼 開閉トグル（元々no-opだった現在ブランチのクリックを転用）。
 function onRowClick(branch: LocalBranch | RemoteBranch) {
   if (branch.current) {
     branchEmit("toggle");
@@ -232,8 +230,7 @@ function switchToWorkspace(name: string) {
 }
 
 function openWorktree(wt: Record<string, unknown>) {
-  // /worktrees API由来のwtは、config.jsonに明示登録されたworktreeでしか
-  // workspaceが埋まらない（useBranchActions.tsのremoveWorktreeと同じ理由）。
+  // /worktrees API由来のwtは明示登録されたworktreeでしかworkspaceが埋まらない（useBranchActions.tsのremoveWorktreeと同じ）。
   // 未登録でも base+branch から動的worktreeワークスペース名を組み立てて開く。
   const wsName = (wt.workspace as string) || worktreeWorkspaceName(workspaceStore.selectedWorkspace, wt.branch as string);
   if (wsName) switchToWorkspace(wsName);
@@ -292,9 +289,7 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   border-bottom: none;
 }
 
-/* 折りたたみ時はv-showで非表示の行がDOM上に残ったままのため:last-childが
-   効かず、唯一表示される現在ブランチ行にborder-bottomが残ってしまう
-   （外枠 .branch-summary-body の下枠と二重線に見える）。明示的に消す。 */
+/* 折りたたみ時はv-showの非表示行がDOMに残り:last-childが効かないため、表示される現在ブランチ行のborder-bottomを明示的に消す。 */
 .branch-item.branch-item-no-border {
   border-bottom: none;
 }
@@ -313,7 +308,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
 }
 
 
-/* 現在ブランチの行は一覧の先頭項目 兼 開閉トグル（クリックで展開/折りたたみ）。 */
 .branch-item.current {
   color: var(--accent);
   cursor: pointer;
@@ -337,7 +331,6 @@ defineExpose({ load: loadBranchList, backgroundFetch, openAddModal, fetchRemote 
   flex-shrink: 0;
 }
 
-/* Add/Fetchは展開時だけ表示するツールバー（トグル行のすぐ下）。 */
 .branch-summary-toolbar {
   display: flex;
   gap: 8px;

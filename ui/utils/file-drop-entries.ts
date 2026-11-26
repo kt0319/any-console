@@ -1,7 +1,5 @@
-// ドラッグ&ドロップされたフォルダの中身を、相対パス付きのファイル一覧に
-// 展開する。Chrome/Safari系のDataTransferItem.webkitGetAsEntry()を使い、
-// フォルダをディレクトリツリーとして再帰的に読み取る（非対応環境では
-// dataTransfer.filesのフラットな一覧にフォールバックする）。
+// ドロップされたフォルダを相対パス付きのファイル一覧に展開する。webkitGetAsEntry() でディレクトリツリーを再帰的に読み、
+// 非対応環境では dataTransfer.files のフラットな一覧にフォールバックする。
 
 type DroppedFileEntry = { file: File, relativePath: string };
 

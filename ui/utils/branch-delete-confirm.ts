@@ -1,8 +1,6 @@
 /**
  * ローカルブランチ一覧行の削除確認ダイアログを表示する。
  *
- * @param confirm `useConfirm()` から取得した confirm 関数。
- * @param branch 削除対象のブランチ。
  * @param opts.worktreeDesc 指定時のみ「Remove worktree」選択肢を出す（このブランチに
  *   worktreeが紐づく場合のみ呼び出し側が渡す）。
  * @returns true: ローカルのみ削除 / "remote": ローカル+リモート削除 /

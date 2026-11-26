@@ -33,8 +33,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
   const layoutStore = useLayoutStore();
   const paneTouch = createTouchTracker();
 
-  // タップ位置にパス風文字列があれば、URL と同じく即振動してダイアログを開く。
-  // 実在確認と内容の取得は PathPreviewDialog が行う。
+  // タップ位置にパス風文字列があれば URL と同じく即振動してダイアログを開く（実在確認は PathPreviewDialog）。
   function openPathAt(x: number, y: number) {
     const path = findPathInBuffer(tab.value?.term, x, y);
     const sessionId = tab.value?.sessionId;
@@ -123,10 +122,8 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
     if (circleKeypad?.state.visible) circleKeypad.cancel();
   }
 
-  // PC向け: 右クリック+ドラッグでもサークルキーパッドを開けるようにする
-  // （タッチのスワイプに相当）。右クリック自体はブラウザのコンテキストメニューを
-  // 出したいことが無いこの用途では常に抑止する（isOnPill時は素通しし、ピル自身の
-  // 右クリックは通常通り扱えるようにする）。
+  // PC向け: 右クリック+ドラッグでサークルキーパッドを開く（タッチのスワイプ相当）。
+  // コンテキストメニューは常に抑止する（isOnPill時はピル自身の右クリックのため素通し）。
   let mouseStartX = 0;
   let mouseStartY = 0;
   let onMouseMove: ((ev: MouseEvent) => void) | null = null;
@@ -167,8 +164,7 @@ export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, p
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  // クリック（モバイルのタップが合成するクリックを含む）で URL・ファイルパスを開く。ドラッグ選択は
-  // 移動量チェック（TAP_MAX_DELTA_PX）で除外されるため、通常クリックでも選択操作とは衝突しない。
+  // クリック（モバイルの合成クリック含む）で URL・パスを開く。ドラッグ選択は TAP_MAX_DELTA_PX で除外される。
   let urlClickStartX = 0;
   let urlClickStartY = 0;
   let onUrlClickMouseUp: ((ev: MouseEvent) => void) | null = null;

@@ -8,11 +8,6 @@ import { type AsyncState, asyncIdle } from "../utils/async-state.ts";
 import { useDockerContainers } from "./useDockerContainers.ts";
 import { isDockerContainerActive } from "../utils/docker.ts";
 
-/**
- * ワークスペース詳細のタブに表示するバッジ件数（changes / stash / branch /
- * issues / PRs / Docker）の保持とロードをまとめる composable。WorkspaceDetail から
- * 件数管理の責務を切り出したもの。
- */
 export function useWorkspaceCounts() {
   const workspaceStore = useWorkspaceStore();
   const { apiGet, wsEndpoint } = useApi();
@@ -34,29 +29,23 @@ export function useWorkspaceCounts() {
   const hasGitHub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
   const currentBranch = computed(() => workspaceStore.currentWorkspace?.branch || "");
-  // PR/ActionsタブアイコンはInfoPillRowの branchPR/branchAction と同じ基準
-  // （現在のブランチに対応するPR・実行中/失敗中のrunがあるか）で色を付ける。
+  // InfoPillRow の branchPR/branchAction と同じ基準で色を付ける
   const hasBranchPR = computed(() => !!findPRForBranch(prItems.value, currentBranch.value));
   const hasRunningAction = computed(() => isNoticeableRun(findRunForBranch(actionItems.value, currentBranch.value) as { status?: string, conclusion?: string } | null));
 
-  // Dockerタブの出現自体はActionsタブと同じ考え方で静的な能力（has_compose_file）に
-  // 揃え、hasDockerはアイコン色だけを担うライブ状態にする（running/restartingが
-  // あるか）。ポーリング自体はピル側（TerminalPane/SessionListView）が既に回している
-  // ため、ここではその共有結果を読むだけ。
+  // タブの出現は静的な has_compose_file、hasDocker はアイコン色用のライブ状態。ポーリングはピル側が回しているので共有結果を読むだけ。
   const { containers: dockerContainers } = useDockerContainers();
   const hasDocker = computed(() => {
     const ws = workspaceStore.selectedWorkspace;
     return !!ws && dockerContainers.value.some((c) => c.workspace === ws && isDockerContainerActive(c.state));
   });
 
-  /** キャッシュ済みの件数で即座に初期表示する。 */
   function primeFromCache(workspace: string) {
     issuesCount.value = getCachedCount(workspace, "issues");
     prsCount.value = getCachedCount(workspace, "prs");
     stashCount.value = getStashCachedCount(workspace);
   }
 
-  /** stash / branch / GitHub の件数をバックグラウンドで取得する。 */
   async function loadCounts(workspace: string) {
     try {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));

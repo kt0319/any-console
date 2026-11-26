@@ -21,11 +21,8 @@ export function useTerminalPaste({ tab, isActive }: { tab: Ref<TerminalTab>, isA
 
     if (imageFile) {
       e.preventDefault();
-      // xterm 自身も textarea に paste リスナーを持っており、preventDefault()
-      // だけではそちらへの伝播を止められない。右クリックの「Paste」経由だと
-      // クリップボードに text/plain（ファイルパス等）も同時に乗っていることが
-      // あり、xterm 側がそれを別途ペーストして「画像が2つ貼り付く」ように
-      // 見える不具合があった。ここで処理を確定させたらそれ以上伝播させない。
+      // xterm も textarea に paste リスナーを持ち preventDefault() では伝播を止められない。右クリック Paste では
+      // text/plain も乗り画像が二重に貼られるため、ここで確定させたら伝播させない。
       e.stopPropagation();
       emit("keyboard:deactivate");
       await uploadImageToTerminal({
@@ -37,10 +34,8 @@ export function useTerminalPaste({ tab, isActive }: { tab: Ref<TerminalTab>, isA
       return;
     }
 
-    // xterm の textarea にフォーカスがないとき、テキストをターミナルに転送する。
-    // input/textarea/select/contenteditable にフォーカスがある場合は転送しない（ダイアログ等を壊さないため）。
-    // xterm 自身も textarea と element の両方に paste リスナーを持つため、フォーカスが
-    // element 配下（textarea 含む）にある間は xterm 側に処理を委ねる（二重貼り付け防止）。
+    // xterm の textarea にフォーカスが無い時だけ転送する。input/textarea/select/contenteditable 上では転送しない。
+    // element 配下にフォーカスがある間は xterm 側に委ねる（二重貼り付け防止）。
     const textarea = tab.value.term?.textarea;
     const termElement = tab.value.term?.element;
     const activeEl = document.activeElement as HTMLElement | null;

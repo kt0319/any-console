@@ -6,8 +6,6 @@ import { usePrompt } from "../../ui/composables/usePrompt.ts";
 import { buildWebSocketUrl, buildReconnectLabel } from "../../ui/utils/terminal-ws.ts";
 import { extractApiError } from "../../ui/utils/constants.ts";
 
-// ── Tests ──
-
 describe("buildFileList", () => {
   it("maps files with path and status", () => {
     const files = [

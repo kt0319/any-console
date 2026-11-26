@@ -18,8 +18,6 @@ import { useInputStore } from "../stores/input.ts";
 import { emit as bridgeEmit } from "../app-bridge.ts";
 import { useEmbeddedPanel } from "../composables/useEmbeddedPanel.ts";
 
-// embedded の意味・タイトル設定・閉じ方の切替えは useEmbeddedPanel.ts 参照
-// （SendSnippet.vue と共通）。
 const props = defineProps({
   embedded: { type: Boolean, default: false },
 });
@@ -28,8 +26,7 @@ const emit = defineEmits(["close"]);
 const { closePanel } = useEmbeddedPanel({ embedded: props.embedded, title: "Send History", emit });
 const inputStore = useInputStore();
 
-// inputHistory は最新が先頭（unshift）。表示もそのまま最新→古いの順にし、
-// 一番上（スクロール初期位置）に最新の項目が来るようにする。
+// inputHistory は最新が先頭（unshift）。そのまま表示して最新をスクロール初期位置に出す
 const history = computed(() => inputStore.inputHistory ?? []);
 
 function onDelete(text: string) {
@@ -42,5 +39,3 @@ function onInsert(command: string) {
 }
 </script>
 
-<!-- 一覧の見た目は ui/styles/command-list.css（グローバル）で
-     SendSnippet.vue と共用する。 -->

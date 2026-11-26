@@ -139,20 +139,14 @@ const layoutPrefs = useLayoutPrefs();
 const infoPillConfig = useInfoPillConfigStore();
 if (!infoPillConfig.loaded) infoPillConfig.load();
 
-// ラベル・説明・アイコンはinfo-pills.tsのディスクリプタテーブルから導出する
-// （文言・アイコンともピル本体と揃える）。並び順は infoPillConfig.order
-// （保存済みの表示順。設定画面からの並び替えは無く、デフォルト順のまま）。
 const PILL_TOGGLES = INFO_PILLS.map(({ key, label, note, peekIcon }) => ({ field: key, label, note, icon: peekIcon }));
 
 const orderedPillToggles = computed(() =>
   infoPillConfig.order.map((field) => PILL_TOGGLES.find((t) => t.field === field)).filter((t): t is (typeof PILL_TOGGLES)[number] => !!t),
 );
 
-// 各ピルの説明は個別に出さず、hover/フォーカス中またはチェック操作した1件
-// だけを共通のヒント欄（pill-toggle-hint）に出す。mouseleave/focusoutは
-// 「今表示中のフィールドが自分の時だけ」クリアする（hoverからfocusへ移った
-// 時等に誤って消さないため）。タップしかできないモバイルはhover/focusが
-// 効かないため、チェック操作時にも明示的に立てる（onPillToggle）。
+// mouseleave/focusout は表示中が自分のフィールドの時だけクリアする（hover→focus 移行で誤って消さないため）。
+// モバイルは hover/focus が効かないので onPillToggle でも立てる。
 const activePillField = ref<string | null>(null);
 const activePillNote = computed(() => PILL_TOGGLES.find((t) => t.field === activePillField.value)?.note || "");
 

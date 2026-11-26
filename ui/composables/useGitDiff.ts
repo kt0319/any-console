@@ -32,10 +32,8 @@ export function useGitDiff() {
       const resolved = resolveFileNumstat(merged, diffChunks[f.path]);
       return {
         ...f,
-        // 生のf.insertions/deletions（trackedファイルのみ・untracked等はnull）を
-        // 表示可能な確定値（無情報時は0）に置き換える。合計numstat
-        // （GitChanges.vue）がper-fileと同じ解決順（tracked → untracked行数 →
-        // diffChunk解析）を個々にたどり直さず単純合計できるようにするため。
+        // 生の insertions/deletions（untracked等は null）を確定値（無情報時は0）にして、
+        // GitChanges.vue が解決順を辿り直さず単純合計できるようにする。
         insertions: resolved.insertions ?? 0,
         deletions: resolved.deletions ?? 0,
         numstat: buildFileNumstatHtml(merged, diffChunks[f.path], {

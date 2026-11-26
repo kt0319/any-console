@@ -2,23 +2,13 @@ import { reactive, computed, watch } from "vue";
 import { useTerminalStore } from "../stores/terminal.ts";
 import { useExclusiveOverlay } from "./useExclusiveOverlay.ts";
 
-// WorkspaceDetail専用のナビゲーション状態。useSettingsNav.tsのビュースタックとは
-// 完全に独立させている（以前はSettingsのスタックに積んでいたため、開くたびに
-// セッション一覧/設定側の表示まで巻き込んで切り替わってしまっていた）。
+// WorkspaceDetail専用のナビゲーション状態。useSettingsNav.tsのビュースタックとは独立させる
+// （Settingsのスタックに積むと、開くたびにセッション一覧/設定側の表示まで切り替わってしまう）。
+// provide側はWorkspaceDetailModal.vue。pushView/popViewだけはJobsペインからJobConfigを開くためuseSettingsNav.ts側の実物をprovideする。
 //
-// WorkspaceDetail.vueはuseModalView()経由でこの値をinjectする前提（provide側は
-// WorkspaceDetailModal.vue。pushView/popViewだけはJobsペインからJobConfigを開く
-// 導線のためuseSettingsNav.ts側の実物をprovideする）。
-//
-// 状態はterminalStoreのタブID（activeTabId）をキーにしたMapで保持し、タブごとに
-// 開閉状態・表示中のペインを独立させる（isOpen/pane程度の粒度。スクロール位置等の
-// ペイン内部状態までは対象外）。
-//
-// 各タブのエントリはreactive()でラップする（単一の共有トリガーrefで無効化する
-// 実装を最初に試したが、setPaneRefがcurrentPaneRefを書き換えるたびに他フィールドも
-// 無効化され、それを参照するコンポーネントの再レンダリング→setPaneRef再呼び出し
-// →無効化…の無限ループでブラウザタブがクラッシュした。reactive()のプロパティ単位
-// 追跡ならこれが起きない）。
+// 状態はterminalStoreのタブIDをキーにしたMapで保持し、タブごとに開閉状態・表示ペインを独立させる。
+// 各エントリはreactive()でラップする。単一の共有トリガーrefで無効化する実装だと、setPaneRefが
+// 他フィールドも無効化→再レンダリング→setPaneRef再呼び出しの無限ループでブラウザタブがクラッシュした。
 
 interface TabDetailState {
   isOpen: boolean;
@@ -87,11 +77,8 @@ function setPaneRef(el: any) {
   entry().currentPaneRef = el;
 }
 
-// tabId省略時は現在アクティブなタブを閉じる。DispatchRunView経由のRun成功時は
-// Runで新規セッションが作られアクティブタブが切り替わった後に呼ばれるため、
-// tabIdを明示しないと元タブではなく切り替わった後の新タブを閉じてしまい、
-// 元タブが isOpen: true のまま残ってしまう（再マウント時のopen()で意図せず
-// 再度開いて見えることがあった）。
+// tabId省略時は現在のアクティブタブを閉じる。DispatchRunViewのRun成功時は新セッション作成でアクティブタブが
+// 切り替わった後に呼ばれるため、tabIdを明示しないと元タブが isOpen: true のまま残る。
 function close(tabId?: number | null) {
   const e = tabId !== undefined && tabId !== null ? entryFor(tabId) : entry();
   e.isOpen = false;
@@ -107,17 +94,14 @@ function onBack() {
 
 let cleanupWatcherRegistered = false;
 
-// 閉じたタブのエントリはMapに残り続けるとリークするため、開いているタブの
-// 集合が変わるたびに、もう存在しないタブIDのエントリを間引く。
+// リーク防止のため、開いているタブ集合が変わるたびに存在しないタブIDのエントリを間引く。
 function registerCleanupWatcher() {
   if (cleanupWatcherRegistered) return;
   cleanupWatcherRegistered = true;
 
   const { registerOverlay } = useExclusiveOverlay();
   registerOverlay("workspaceDetail", close);
-  // getter内でuseTerminalStore()を都度呼ぶ（テストでsetActivePinia(createPinia())
-  // されるたびに新しいストアへ切り替わるようにするため。クロージャで一度だけ
-  // ストア参照を固定すると、Pinia再生成後も古いストアを見続けてしまう）。
+  // getter内で都度useTerminalStore()を呼ぶ（テストのsetActivePinia再生成後も新しいストアを参照するため）。
   watch(
     () => useTerminalStore().openTabs.map((t) => t.id),
     (ids) => {

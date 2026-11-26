@@ -9,8 +9,7 @@ export function useDispatchImagePaste() {
   const toast = useToast();
   const auth = useAuthStore();
   const imagePaths = ref<string[]>([]);
-  // サムネイル表示用。ペースト直後のFileから作るためサーバへの再取得は不要（Rerun時に
-  // 引き継いだ既存パスはFileが無いためエントリが無く、その場合はファイル名のみ表示になる）。
+  // サムネイル用。ペースト直後のFileから作る（Rerunで引き継いだ既存パスはFileが無くファイル名のみ表示になる）。
   const previewUrls = ref<Record<string, string>>({});
 
   function revokePreview(path: string) {

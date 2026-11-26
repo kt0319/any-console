@@ -87,15 +87,11 @@ const { confirm } = useConfirm();
 const workspaceStore = useWorkspaceStore();
 
 const jobEntry = viewState.value.jobEntry;
-// 新規作成時だけCommon/Workspaceを選べる（既存ジョブのスコープは作成後に
-// 変更しない。別コレクションへの移動になり削除+作り直しに近くなるため）。
+// 既存ジョブのスコープは作成後に変更しない（別コレクションへの移動になるため）。
 const isCommon = ref(!!viewState.value.isCommon);
-// Workspace選択も新規作成時だけ変更可能（開いた行のワークスペースを初期値にする）。
 const workspaceName = ref(viewState.value.workspaceName || "");
 const workspaceOptions = computed(() => workspaceStore.allWorkspaces.filter((w) => w.exists !== false));
-// Scope(Common/Workspace)とWorkspace選択を1つのselectに統合する。空文字列は
-// 「Common job」を表す（Commonの選び忘れでWorkspaceに紐づくミスを防ぐため、
-// ラジオ+条件表示のselectをやめて単一のselectに一本化した）。
+// Scope と Workspace 選択を1つの select に統合する。空文字列は「Common job」（Common の選び忘れで Workspace に紐づくミスを防ぐ）。
 const scopeSelection = computed({
   get: () => (isCommon.value ? "" : workspaceName.value),
   set: (value) => {

@@ -37,10 +37,7 @@ export const useAuthStore = defineStore("auth", () => {
     return { ok: true, deviceId: data.device_id, name: data.name };
   }
 
-  /**
-   * QRペアリングのclaim。registerDevice と同様、cookie発行前なので生fetchを使う
-   * （apiFetch は既認証セッション向けの401ハンドリングを持つため不適）。
-   */
+  /** QRペアリングのclaim。cookie発行前なので registerDevice と同様に生fetchを使う（apiFetch は既認証セッション向けの401処理を持つ）。 */
   async function claimPairing(pairingId: string, pairingToken: string) {
     let res;
     try {

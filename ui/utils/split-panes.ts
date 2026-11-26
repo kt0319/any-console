@@ -1,6 +1,3 @@
-// 分割ペインの純粋な index 計算（stores/layout.ts から抽出。
-// terminal-layout.ts / empty-pane.ts と同じく状態を持たないためテスト可能）。
-
 import { calcGridLayout } from "./terminal-layout.ts";
 import { isEmptyPaneId, realTabIds } from "./empty-pane.ts";
 
@@ -30,13 +27,8 @@ export function cornerToGridIndex(count: number, corner: string): number {
 }
 
 /**
- * 新規に空きペインを作る時、割り当てられる候補タブが1つしか無いなら選ばせる
- * までもないため、そのタブを返す（無ければ null ＝これまで通り空きペインにする）。
- * 空きペイン側に一覧を出してからユーザー操作で選ばせる方式（reactive な
- * watch 等）だと、SplitEmptyPane.vue のマイナスボタン（ペインを明示的に
- * 空ける操作）でも「候補が1つだけ」の状態が再現され、外したタブ自身が
- * 即座に再割り当てされて選択画面に戻れなくなる不具合があった。生成時点
- * だけで判定するこの方式ならその副作用が起きない。
+ * 空きペイン生成時に候補タブが1つだけならそのタブを返す（無ければ null）。
+ * reactive な watch で判定すると、SplitEmptyPane.vue のマイナスボタンで外したタブ自身が即再割り当てされ選択画面に戻れないため、生成時点のみで判定する。
  */
 export function soleRemainingTab<T extends { id: number | string }>(
   openTabs: T[] | null | undefined,

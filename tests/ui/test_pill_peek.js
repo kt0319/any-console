@@ -649,17 +649,14 @@ describe("usePillPeek", () => {
     it("共有枠を使い切られていても結果peekは一定時間表示され続ける", async () => {
       vi.useFakeTimers();
       const { peek, branch } = mountPillPeek();
-      // 先行peek（ブランチ名の変化）を表示中にする
       branch.value = "feature";
       await nextTick();
       expect(peek.peekingKey.value).toBe("branch");
       const result = { kind: "pull", headline: "1 Pulled", detail: "feat: a" };
       emit("git:actionResult", { wsName: "ws1", result });
       await nextTick();
-      // 先行peekの枠（PILL_PEEK_DURATION_MS）を過ぎて結果peekに切り替わる
       await vi.advanceTimersByTimeAsync(4001);
       expect(peek.branchRemoteResult.value).toEqual(result);
-      // 切り替わった直後に消えず、数秒は残る
       await vi.advanceTimersByTimeAsync(3000);
       expect(peek.peekingKey.value).toBe("branch");
       expect(peek.branchRemoteResult.value).toEqual(result);

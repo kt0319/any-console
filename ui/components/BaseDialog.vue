@@ -16,11 +16,7 @@ import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.ts
 import { isTouchOnly, listenForEscape } from "../utils/keyboard.ts";
 import { DIALOG_Z_INDEX } from "../utils/constants.ts";
 
-/**
- * ダイアログ共通シェル。オーバーレイ描画・フォーカストラップ・Esc で閉じる・
- * フォーカス復元を一手に引き受ける（CLAUDE.md のモーダル MUST 要件）。
- * ダイアログ本体（box）は slot 側が持ち、role="dialog" / aria-modal も slot 側に置く。
- */
+/** ダイアログ共通シェル（オーバーレイ・フォーカストラップ・Esc・フォーカス復元）。box・role="dialog"・aria-modal は slot 側に置く。 */
 const props = defineProps({
   visible: { type: Boolean, default: false },
   zIndex: { type: Number, default: DIALOG_Z_INDEX },

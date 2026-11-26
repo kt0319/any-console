@@ -190,8 +190,6 @@ async function loadCommitDiff(hash: string) {
   try {
     const result = await fetchCommitDiff(hash);
     if (!result) {
-      // 元々エラー表示は無かった（filesが空のまま"No changes"扱い）が、
-      // loadWorkingTreeDiff側と挙動を揃えて失敗を明示する。
       diffState.value = asyncError("Failed to load commit diff");
       return;
     }

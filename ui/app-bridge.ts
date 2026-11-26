@@ -1,12 +1,6 @@
 import { debugLog } from "./composables/useClientLogs.ts";
 
-// アプリ内イベントバスで流れるイベント名のカタログ（単一の出所）。
-//
-// emit / on の両側はここに載った名前だけを使う。新しいイベントを足すときは
-// この一覧にも追記する。未登録の名前で emit / on するとデバッグモード時に
-// 警告が出るため、タイプミスや emit↔on 間の名前ズレが「沈黙して壊れる」のでは
-// なく可視化される（カタログ自体の更新漏れも同様に可視化されるので、ここが
-// 新たなサイレントな同期点にはならない）。
+// アプリ内イベントバスのイベント名カタログ（単一の出所）。emit / on は載った名前だけを使い、未登録名はデバッグモードで警告される。
 export const BUS_EVENTS = Object.freeze([
   "command-palette:open",
   "connectivity:back",

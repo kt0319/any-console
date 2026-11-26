@@ -25,7 +25,6 @@ export function useCircleKeypad() {
   const layoutStore = useLayoutStore();
   const config = useCircleKeypadConfigStore();
 
-  // ストアから読んだ keyDef を表示用 items に整形する。
   const keys = computed(() => config.keys.map((k, i) => ({
     id: `key:${i}`,
     angle: CIRCLE_KEYPAD_ANGLES[i],

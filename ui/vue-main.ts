@@ -28,16 +28,14 @@ import { safeJsonLoad } from "./utils/storage.ts";
 import { reloadIfNewBuild } from "./utils/build-update.ts";
 import { CHUNK_RELOAD_GUARD_MS, FONT_LOAD_TIMEOUT_MS, LS_KEY_NOTIF_PREFS } from "./utils/constants.ts";
 
-// 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
-// dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。
-// 検知したら一度だけ自動リロードして新しい hash を取りに行く。
-// （ループ回避のため sessionStorage でガード）
+// 古い index.html のキャッシュで dynamic chunk が 404 になる（Safari の "Load failed"）ため、一度だけ自動リロードする。
+// ループ回避は sessionStorage でガード。
 function installChunkErrorAutoReload() {
   const RELOAD_GUARD_KEY = "__ac_chunk_reload_at__";
   function tryReload() {
     try {
       const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || "0");
-      if (Date.now() - last < CHUNK_RELOAD_GUARD_MS) return; // 直近の窓内はループ防止
+      if (Date.now() - last < CHUNK_RELOAD_GUARD_MS) return;
       sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
     } catch { /* private mode 等 */ }
     location.reload();
@@ -66,9 +64,7 @@ installTooltip();
 installTapHaptics();
 
 async function bootstrap() {
-  // xterm.js が文字幅を測る前に Hack Nerd Font をロードしておく。
-  // 未ロードのまま Terminal を生成するとフォールバック幅で grid が決まり、
-  // カーソル位置が徐々にずれる症状が出る。
+  // xterm.js が文字幅を測る前にロードしておく（未ロードだとフォールバック幅で grid が決まりカーソル位置がずれる）。
   if (document.fonts?.load) {
     try {
       await Promise.race([
@@ -92,10 +88,7 @@ async function bootstrap() {
   }
 }
 
-// dispatch通知タップ時、該当リクエストをワークスペース詳細のDispatchタブへ
-// 直接開く（DispatchRunViewはSettings側の画面ではなくWorkspaceDetail.vue内の
-// ローカル表示のため、対象ワークスペースを解決してからgit:openFileModalで開く）。
-// 起動直後はまだdispatchキューがWSで届いていないことがあるため、届くまで待つ。
+// dispatch通知タップ時、ワークスペース詳細のDispatchタブへ直接開く。起動直後はdispatchキューが未着のことがあるため届くまで待つ。
 function openDispatchRunView(dispatchId: string) {
   const { queue, recent } = useDispatchQueue();
   const workspaceStore = useWorkspaceStore();
@@ -113,9 +106,7 @@ function openDispatchRunView(dispatchId: string) {
   });
 }
 
-// 既存タブが無く新規ウィンドウが開かれた場合（sw.js の
-// notification-open-dispatch-queue は既存クライアント向けの postMessage のため届かない）
-// でも該当リクエストを開けるように、起動時にURLパラメータで判定する。
+// 新規ウィンドウで開かれた場合は sw.js の postMessage が届かないため、起動時にURLパラメータで判定する。
 function openDispatchQueueFromUrlIfRequested() {
   const params = new URLSearchParams(location.search);
   if (params.get("openDispatchQueue") !== "1") return;
@@ -128,9 +119,7 @@ bootstrap();
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
-  // 通知タイプ設定をSWへ同期する（SW側でCache Storageへ永続化される）。
-  // 設定画面を開いた時だけの同期だと、SW更新等で永続化前の端末が
-  // 初期値（全てオン）のままpushを表示してしまうため、起動時にも送る。
+  // 通知タイプ設定をSWへ同期する。設定画面を開いた時だけだと、永続化前の端末が初期値（全てオン）のままpushを表示するため起動時にも送る。
   navigator.serviceWorker.ready
     .then((reg) => {
       const prefs = safeJsonLoad(LS_KEY_NOTIF_PREFS, null);

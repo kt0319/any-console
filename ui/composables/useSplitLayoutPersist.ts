@@ -15,13 +15,7 @@ function cancelSaveTimer() {
   }
 }
 
-/**
- * 分割モードの状態をサーバーに保存・復元するコンポーザブル。
- *
- * - 分割状態の変化を監視し debounce してサーバーへ PUT する。
- * - 分割解除時はサーバーの保存状態を DELETE で消す。
- * - 復元は restoreLayout() を呼び出す側（useSessionSync）が行う。
- */
+/** 分割状態の変化を debounce してサーバーへ PUT し、解除時は DELETE する。復元は useSessionSync が restoreLayout() を呼んで行う。 */
 export function useSplitLayoutPersist() {
   const layoutStore = useLayoutStore();
   const terminalStore = useTerminalStore();
@@ -59,10 +53,7 @@ export function useSplitLayoutPersist() {
     }, SAVE_DEBOUNCE_MS);
   }
 
-  /**
-   * セッション復元後に呼び出す。サーバーに保存された分割状態を読んで
-   * session_id → tab.id に変換し、分割モードを再適用する。
-   */
+  /** セッション復元後に呼ぶ。保存済みの分割状態を session_id → tab.id に変換して再適用する。 */
   async function restoreLayout() {
     let data: any;
     try {

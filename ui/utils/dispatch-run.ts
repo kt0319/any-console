@@ -10,15 +10,11 @@ export type DispatchRunForm = {
   imagePaths: string[],
 };
 
-/**
- * Dispatch 実行画面の入力値のうち、元のリクエストから変わったものだけを送る override にする
- * （変わっていない項目は null）。
- */
+/** Dispatch 実行画面の入力値のうち、元リクエストから変わった項目だけの override（変わらない項目は null）。 */
 export function buildDispatchOverrides(orig: Record<string, any>, form: DispatchRunForm) {
-  // 元リクエストの新規セッション判定は existing_session_id の有無ではなく match
-  // （サーバー既定"any"）で見る。existing_session_idが無いことは「新規確定」を意味しない
-  // （match:"any"で既存セッションに解決された場合も記録されない）ため、existing_session_id
-  // 基準にすると「+ New session」を選んでも変化なしと誤判定されoverrideが送られない。
+  // 新規セッション判定は existing_session_id の有無ではなく match（サーバー既定"any"）で見る。
+  // match:"any"で既存セッションに解決された場合も existing_session_id は記録されないため、有無基準だと
+  // 「+ New session」を選んでも変化なしと誤判定され override が送られない。
   const origIsNew = (orig.match || "any") === "none";
   const origImagePaths = Array.isArray(orig.image_paths) ? orig.image_paths : [];
   const imagePathsChanged = JSON.stringify(form.imagePaths) !== JSON.stringify(origImagePaths);

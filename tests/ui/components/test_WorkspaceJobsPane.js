@@ -2,10 +2,7 @@
 // @ts-check
 /**
  * WorkspaceJobsPane のアクセシビリティ・構造テスト。
- *
- * ジョブ行はクリック実行と編集ボタンを持つ。両者を両立させつつ
- * キーボード操作可能にするため、行は「実行ボタン + 編集ボタンの兄弟」構造とし、
- * 操作要素のネスト（nested-interactive）を避けている（docs/A11Y_AUDIT.md TODO #7）。
+ * ジョブ行は「実行ボタン + 編集ボタンの兄弟」構造で、操作要素のネスト（nested-interactive）を避ける（docs/A11Y_AUDIT.md TODO #7）。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
@@ -70,7 +67,6 @@ describe("WorkspaceJobsPane a11y", () => {
   it("編集ボタンは実行ボタンの内側ではなく兄弟要素である", () => {
     const editBtn = document.body.querySelector(".job-item-edit-btn");
     expect(editBtn).not.toBeNull();
-    // 実行ボタン(.job-item)の内側に編集ボタンが無いこと（ネスト解消）
     expect(document.body.querySelector(".job-item .job-item-edit-btn")).toBeNull();
   });
 

@@ -32,11 +32,7 @@ import SessionPillBar from "./SessionPillBar.vue";
 import { usePeekPills } from "../composables/usePeekPills.ts";
 import { buildPeekFields, type PillFields } from "../utils/pill-fields.ts";
 
-// SessionListView.vueの1行分（本体ボタン＋ピル行）。行ごとに独立したpeek状態
-// （usePillPeek）を持たせるため、TerminalPaneの浮遊ピルと同じ「値が変化したら
-// 数秒だけ長いピル(PillPeek)を出す」演出を独立コンポーネントとして切り出した
-// （usePillPeekはVueのcomposable規約上、コンポーネントのsetup()で1回だけ
-// 呼ぶ必要があり、SessionListView.vue側のv-forループ内では呼べないため）。
+// usePillPeek は setup() で1回だけ呼ぶ必要があり SessionListView の v-for 内では呼べないため、行を別コンポーネントにしている。
 const props = defineProps({
   item: { type: Object, required: true },
   active: { type: Boolean, default: false },
@@ -56,13 +52,9 @@ const rowStateClasses = computed(() => ({
 
 const peekFields = computed(() => buildPeekFields(props.item.tab, props.item as PillFields));
 
-// trailingPeekItems の組み立てと peek 派生値の算出は usePeekPills に集約
-//（TerminalPane と共用）。
 const peek = usePeekPills({
   peekFields,
-  // TerminalPane.vueのpaneWorkspace（tab.workspaceがあっても
-  // workspaceStore側で未解決ならundefined）と同じ形にする。usePillPeekは
-  // これの有無・last_commit_messageの有無で初回誤検知を防いでいる。
+  // workspaceStore で未解決なら undefined（初回誤検知防止のため TerminalPane.paneWorkspace と同じ形）
   paneWorkspace: computed(() => (
     props.item.tab.workspace && props.item.wsResolved
       ? { last_commit_message: props.item.lastCommitMessage }

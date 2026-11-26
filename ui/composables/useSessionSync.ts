@@ -10,24 +10,16 @@ import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.ts"
 import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../utils/session-jobs.ts";
 import { emit } from "../app-bridge.ts";
 
-// モジュールスコープ: /terminal/sessions の一時的な揺らぎでタブが削除→再生成
-// されても、一度解決できたジョブアイコンは保持する（session_id -> { icon, iconColor }）。
-// 再生成時に allJobs がまだ不完全で mdi-play フォールバックになる場合、このキャッシュがあれば上書きしない。
+// セッション再生成時に allJobs が不完全で mdi-play に落ちないよう、解決済みジョブアイコンを保持する
 const resolvedJobIcons = new Map<string, { icon: string, iconColor: string | null }>();
 
-// launchTerminal() 等、buildSessionTabParams を経由しない経路で既にジョブ
-// アイコンが解決済みのときにキャッシュへ書き込む（useTerminalLifecycle.ts から使用）。
-// 呼び出し側は mdi-play フォールバック適用前の生のジョブアイコンを渡すこと。
+// 呼び出し側は mdi-play フォールバック適用前の生のジョブアイコンを渡すこと
 export function rememberJobIcon(sessionId: string, icon: string, iconColor?: string | null) {
   if (!sessionId || !icon) return;
   resolvedJobIcons.set(sessionId, { icon, iconColor: iconColor || null });
 }
 
-// buildSessionTabParams を直接呼ぶ全ての経路（ポーリング再構築・dispatch queue
-// 実行・deep link アタッチ・Sessions編集モードの Open detached 等）で共通に使う。
-// 解決できたジョブアイコンをキャッシュへ書き込み、かつ /jobs/workspaces が
-// 一時的に不完全な時は既存キャッシュへフォールバックする（resolvedJobIcons を
-// 経由しない経路が増えるたびに mdi-play 固定化の穴が再発しないようにする）。
+// buildSessionTabParams を直接呼ぶ経路ではこちらを使う（mdi-play 固定化の穴を作らないため）
 export function buildSessionTabParamsWithCache(
   session: Parameters<typeof buildSessionTabParams>[0] & { session_id: string },
   opts: { workspaces?: Array<Record<string, any>>, allJobs: Record<string, any> },
@@ -48,8 +40,7 @@ export function useSessionSync() {
     return { ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs }), restored: true };
   }
 
-  // dispatch が実行時に作る worktree はワークスペース一覧にまだ無いため、先に取り込んでから
-  // タブを作る（worktree アイコン・ラベルがワークスペース情報に依存する）。
+  // dispatch が作る worktree はワークスペース一覧に未登録のため、タブ作成前に取り込む
   async function _refreshWorkspacesForUnknown(sessions: { workspace?: string | null }[]) {
     const known = new Set(workspaceStore.allWorkspaces.map((w) => w.name));
     if (sessions.some((s) => s.workspace && !known.has(s.workspace))) await workspaceStore.fetchWorkspaces();
@@ -62,9 +53,7 @@ export function useSessionSync() {
     return {};
   }
 
-  // allJobs が空のままジョブセッションを焼き込むと、アイコンが mdi-play に固定され
-  // リロードまで直らない（tab.icon は markRaw で再解決されないため）。
-  // /jobs/workspaces の一時失敗を想定し、ジョブセッションがあるのに空なら 1 回だけ再取得する。
+  // allJobs が空のまま焼き込むとアイコンが mdi-play に固定されるため、空なら 1 回だけ再取得する
   function _loadAllJobs(jobsRes: Response | null, sessions: { job_name?: string | null }[]) {
     return loadAllJobs(jobsRes, sessions, {
       readJson: _safeResJson,
@@ -83,8 +72,7 @@ export function useSessionSync() {
     terminalStore.restoreSessionsLoading = true;
     terminalStore.restoreSessionsError = "";
     try {
-      // 一時失敗を defaults 同様に握りつぶすとタブ 0 件で確定するため、失敗時は再取得する。
-      // 成功を確認できたときだけ「復元済み」フラグを立て、失敗時はポーリング等での復帰に委ねる。
+      // 失敗を握りつぶすとタブ 0 件で確定するため再取得する。成功時だけ「復元済み」にする
       const res = await _loadSessions(sessionsRes);
       if (!res || !res.ok) {
         if (res) {
@@ -138,9 +126,7 @@ export function useSessionSync() {
 
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
       const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
-      // 他端末からのセッション追加など、ローカルにまだ無いセッションが実際にある
-      // ときだけ /jobs/workspaces を叩く（毎ポーリングで無条件に叩くと、変化が無い
-      // 大半のポーリングでも common jobs のマージが常時発生してしまうため）。
+      // 未知のセッションがある時だけ /jobs/workspaces を叩く（毎ポーリングの common jobs マージを避ける）
       const newSessions = sessions.filter((s) =>
         !s.detached && !terminalStore.pendingCloseSessionIds.has(s.session_id) && !localSessionIds.has(s.session_id),
       );
@@ -150,19 +136,14 @@ export function useSessionSync() {
         await _refreshWorkspacesForUnknown(newSessions);
         for (const s of newSessions) {
           const tab = terminalStore.addTerminalTab({ ..._buildTabParams(s, allJobs), adjacent: true });
-          // interactive=false（外部ツールから /run を直接叩いた等、UIの操作を
-          // 経由していないセッション）だけタブバーから隠す。UIの「+」等で別の
-          // 端末から開かれたセッションは interactive=true で届くので、この
-          // 端末のタブバーにも通常どおり表示される。
+          // interactive=false（外部ツールの /run 直叩き等）のセッションだけタブバーから隠す
           if (!s.interactive) terminalStore.setTabFlag(tab.id, "autoDiscovered", true);
         }
       }
 
       for (const tab of [...terminalStore.openTabs]) {
         if (serverSessionIds.has(tab.sessionId)) continue;
-        // 作成直後のタブは、このポーリングが発行された時点でまだサーバ側に
-        // セッションが反映されていない可能性がある（起動レスポンス遅延とのレース）。
-        // 猶予期間内は除去せず、次のポーリングでサーバが追いつくのを待つ。
+        // 作成直後のタブはサーバ反映前にポーリングが発行された可能性があるため、猶予期間内は除去しない
         if (Date.now() - tab._createdAt < NEW_TAB_SYNC_GRACE_MS) continue;
         disconnectTerminal(tab);
         terminalStore.removeTab(tab.id);

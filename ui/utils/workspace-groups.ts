@@ -1,17 +1,8 @@
-/**
- * buildFlatList / deriveGroupChanges が扱うフラットリストの1行。
- * グループ見出し行（header）とワークスペース行（ws）の2種類。
- */
 type FlatListItem =
   | { type: "header"; group: Record<string, any>; groupIdx: number }
   | { type: "ws"; ws: Record<string, any>; groupId: string | null };
 
-/**
- * 指定グループに属するワークスペースを返す（groupId が null/undefined なら
- * グループ未所属＝トップレベル）。ベースが登録済みの worktree はベース行の
- * 下に別途表示されるため一覧からは除外する。
- * SessionOpenHome.vue の ungrouped / groupedWorkspaces 共通のフィルタ。
- */
+// groupId が null/undefined ならトップレベル。ベースが登録済みの worktree はベース行の下に出すため除外する
 export function workspacesInGroup(list: Record<string, any>[], groupId: string | null = null): Record<string, any>[] {
   const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
   return list.filter((w) =>
@@ -20,11 +11,6 @@ export function workspacesInGroup(list: Record<string, any>[], groupId: string |
   );
 }
 
-/**
- * グループ+ワークスペースをフラットリストに変換する。
- * SessionOpenHome.vue の flatList computed と同じロジック。
- * ungroupedWs は呼び出し元でフィルタ済みの前提。
- */
 export function buildFlatList(
   ungroupedWs: Record<string, any>[],
   groups: Record<string, any>[],
@@ -49,10 +35,6 @@ export function buildFlatList(
   return result;
 }
 
-/**
- * ドラッグ後のフラットリストから、グループが変わったワークスペースを検出する。
- * SessionOpenHome.vue の _saveOrderAndGroups 内の判定ロジックと同じ。
- */
 export function deriveGroupChanges(finalList: FlatListItem[]): {
   changes: { ws: Record<string, any>; newGroupId: string | null }[];
   visibleOrder: string[];

@@ -1,10 +1,6 @@
 /**
- * ワークスペース登録・削除の E2E スモーク。
- * Settings → Add Workspace からの登録、重複登録エラー、一覧表示、
- * Edit → Delete Workspace（確認ダイアログ = Confirm Rules）までの一連を確認する。
- *
- * テスト用ディレクトリは OS の一時領域に作り、テスト終了時に必ず削除する。
- * ワークスペース登録もテストが登録した分だけを後始末する（既存には触れない）。
+ * ワークスペース登録・削除の E2E スモーク（登録・重複エラー・一覧表示・Delete 確認ダイアログ）。
+ * テストが登録した分だけ後始末する。
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -26,9 +22,7 @@ test.describe("workspace lifecycle", () => {
   });
 
   test.afterAll(async ({ request }) => {
-    // UI 削除テストが失敗した場合に備えて API でも後始末する。
-    // 削除を確認できないままディレクトリを消すと「消えたパスを指す登録」が
-    // サーバに残るため、削除成功（または既に削除済み）を確認してから消す。
+    // UI 削除が失敗した場合に備え API でも後始末する。削除を確認せずディレクトリを消すと無効パスの登録がサーバに残るため、削除成功を確認してから消す。
     const token = loadToken();
     if (token && wsName) {
       await deleteWorkspaceViaApi(request, token, wsName);
@@ -50,7 +44,6 @@ test.describe("workspace lifecycle", () => {
     await page.locator(".ws-add-submit-btn").click();
 
     // 登録成功後は Workspaces 一覧へ戻る（Settings → Workspaces → Add Workspace の1つ上）。
-    // 一覧に追加した名前が表示される
     await expect(page.locator(".modal-title")).toHaveText("Open Session", { timeout: 10_000 });
     await expect(page.locator(".ws-list-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
@@ -92,8 +85,7 @@ test.describe("workspace lifecycle", () => {
   test("存在しないパスはエラーになる", async ({ page }) => {
     await openAddWorkspace(page);
 
-    // テスト管理下の wsDir 配下で「作っていない」子パスを使う。
-    // 固定の絶対パスだと実在する環境で登録が成功しサーバ状態を汚してしまう。
+    // 固定の絶対パスだと実在する環境で登録が成功しサーバ状態を汚すため、テスト管理下の wsDir 配下の未作成パスを使う。
     await page.locator(".ws-add-input").fill(path.join(wsDir, "e2e-missing-subdir"));
     await page.locator(".ws-add-submit-btn").click();
     await expect(page.locator(".form-message.error")).toContainText("Directory does not exist", { timeout: 5000 });
@@ -106,24 +98,20 @@ test.describe("workspace lifecycle", () => {
     const row = page.locator(".ws-list-item", { has: page.locator(".ws-list-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    // Edit → Delete Workspace
     await row.locator('.ws-list-edit-btn[aria-label="Edit workspace"]').click();
     await expect(page.locator(".modal-title")).toHaveText(wsName);
-    // Edit 画面の Group 行からグループを追加できる
     await page.locator('[aria-label="Add group"]').click();
     await expect(page.locator(".ws-group-dialog")).toBeVisible({ timeout: 5000 });
     await page.locator(".ws-group-dialog .dialog-close-btn").click();
     await expect(page.locator(".ws-group-dialog")).toBeHidden({ timeout: 5000 });
     await page.locator(".ws-delete-btn").click();
 
-    // Cancel では消えない
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText(`Delete "${wsName}"?`);
     await dialog.locator(".dialog-close-btn").click();
     await expect(dialog).toBeHidden();
 
-    // OK で削除され、一覧から消える
     await page.locator(".ws-delete-btn").click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await dialog.locator(".dialog-btn-ok").click();

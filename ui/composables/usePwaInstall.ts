@@ -1,10 +1,5 @@
 // PWAインストールプロンプト（beforeinstallprompt）の管理。
-//
-// ScreenEmpty はタブ全閉/再表示のたびにマウントし直されるため、コンポーネント
-// 内でリスナを登録すると (1) 解除されず累積する、(2) 再マウント後の新しい
-// インスタンスはイベントを取り逃して常に手動手順へフォールバックしてしまう。
-// リスナとキャプチャ済みプロンプトをモジュールスコープで1つだけ持つ
-// （useSharedResourcePoll.ts と同じ単一化パターン）。
+// ScreenEmpty は再マウントされるため、リスナとキャプチャ済みプロンプトはモジュールスコープで1つだけ持つ（累積・取り逃し防止）。
 
 /** beforeinstallprompt でキャプチャした遅延プロンプト（Safari等では発火しない）。 */
 let deferredInstallPrompt: any = null;
@@ -22,11 +17,7 @@ function ensureListener() {
 export function usePwaInstall() {
   ensureListener();
 
-  /**
-   * ネイティブのインストールプロンプトを表示できたら true。
-   * できない環境（beforeinstallprompt 非発火の Safari 等）は false を返し、
-   * 呼び出し側が手動手順の案内へフォールバックする。
-   */
+  /** ネイティブのインストールプロンプトを表示できたら true。できない環境（Safari 等）は false を返し、呼び出し側が手動手順へ案内する。 */
   async function promptInstall(): Promise<boolean> {
     if (!deferredInstallPrompt) return false;
     deferredInstallPrompt.prompt();

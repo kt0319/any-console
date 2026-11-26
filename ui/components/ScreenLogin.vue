@@ -175,9 +175,7 @@ async function handleScannedText(text: string) {
 
   stopScanCamera();
   scanClaiming.value = true;
-  // ペアリングURL（別デバイスで発行したQR）でなければ、生トークンのQR
-  // （初回起動ログのブートストラップQR）として直接ログインを試みる。
-  // 無関係なQR（ノイズ）でもサーバ側で単に無効トークン扱いになるだけで安全。
+  // ペアリングURLでなければ生トークンのQR（ブートストラップQR）として直接ログインを試みる。無関係なQRはサーバ側で無効トークン扱いになるだけで安全。
   const result: AuthResult = parsed && parsed.token
     ? await auth.claimPairing(parsed.id, parsed.token)
     : await auth.registerDevice(trimmed);

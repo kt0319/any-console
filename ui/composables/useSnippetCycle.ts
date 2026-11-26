@@ -1,9 +1,7 @@
 import { watch, type Ref } from "vue";
 import { useInputStore } from "../stores/input.ts";
 
-// useInputDraftHistory.ts（↑↓での履歴移動）とは異なり、スニペットは「時間を
-// 遡る」対象ではなく単純な一覧なので、next=一覧を前進、prev=一覧を後退（→
-// 元の途中入力へ復元）という直感的な向きで定義する。
+// useInputDraftHistory（↑↓の履歴移動）と異なり、next=一覧を前進、prev=一覧を後退（→元の途中入力へ復元）。
 export function useSnippetCycle(draft: Ref<string>) {
   const inputStore = useInputStore();
 

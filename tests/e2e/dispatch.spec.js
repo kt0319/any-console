@@ -1,14 +1,4 @@
-/**
- * Dispatch（ワークスペース詳細の Dispatch タブ）の E2E スモーク。
- *
- * これまでdispatch機能自体のE2Eカバレッジが無かった（auth-devices.spec.jsは
- * dispatchスコープAPIトークンの作成/失効のみ）。POST /dispatch はメイン
- * トークン（cookie認証）でも受け付けるため、実際にキューへ投入してから
- * UIで一覧表示・Run・Discardを確認する。
- *
- * テスト用の git リポジトリを一時領域に作り、API でワークスペース登録して
- * から検証する。登録・作成したものはすべて afterAll で後始末する。
- */
+/** Dispatch（ワークスペース詳細の Dispatch タブ）の E2E スモーク。実際にキュー投入し、一覧表示・Run・Discard を確認する。 */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -47,7 +37,6 @@ test.describe("dispatch", () => {
 
   useLoginWithSessionCleanup(test);
 
-  /** POST /dispatch でキューへ投入する（cookie認証で通る）。 */
   async function postDispatch(page, overrides = {}) {
     const res = await page.request.post(`${BASE_URL}/dispatch`, {
       data: { workspace: wsName, text: "echo dispatch-e2e", ...overrides },
@@ -59,7 +48,6 @@ test.describe("dispatch", () => {
   const TINY_PNG_BASE64 =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
-  /** POST /upload-image で画像をアップロードし、サーバローカルパスを返す（cookie認証）。 */
   async function uploadImage(page, filename = "e2e.png") {
     const res = await page.request.post(`${BASE_URL}/upload-image`, {
       multipart: {
@@ -75,13 +63,7 @@ test.describe("dispatch", () => {
     return data.path;
   }
 
-  /**
-   * Dispatch タブを開く。"dispatch" はディープリンクのpaneクエリ対応外
-   * （ui/composables/useDeepLink.ts の VALID_PANES。push通知タップ時の
-   * pane:"dispatch" は別経路のためこの制約を受けない）のため、
-   * workspace-panes.spec.jsと同じ手順でpane=filesとして開いてから
-   * タブバーのDispatchボタンをクリックする。
-   */
+  /** "dispatch" は deep link の pane 対象外（useDeepLink.ts の VALID_PANES）のため、pane=files で開いてタブバーから切り替える。 */
   async function openDispatchTab(page) {
     await page.goto(`/?ws=${encodeURIComponent(wsName)}&pane=files`);
     const dialog = page.locator(".confirm-dialog");
@@ -99,8 +81,7 @@ test.describe("dispatch", () => {
     await expect(pendingRow).toBeVisible({ timeout: 10_000 });
     await pendingRow.click();
 
-    // ボタンのアクセシブルネームにはmdiアイコンのグリフ文字も含まれる
-    // （例: "󰐊 Run"）ため、末尾一致で判定する。
+    // アクセシブルネームに mdi グリフが含まれるため末尾一致で判定する
     const runBtn = page.getByRole("button", { name: /Run$/ });
     await expect(runBtn).toBeVisible({ timeout: 10_000 });
     await runBtn.click();
@@ -157,7 +138,6 @@ test.describe("dispatch", () => {
     await expect(pendingRow).toBeVisible({ timeout: 10_000 });
     const discardBtn = page.locator('.dispatch-queue-row [aria-label="Discard dispatch"]').first();
 
-    // Cancel では残る
     await discardBtn.click();
     const dialog = page.locator(".confirm-dialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -166,7 +146,6 @@ test.describe("dispatch", () => {
     await expect(dialog).toBeHidden();
     await expect(pendingRow).toBeVisible();
 
-    // OK で行が消える。詳細画面（Run）には遷移しない
     await discardBtn.click();
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     await dialog.locator(".dialog-btn-ok").click();
@@ -192,12 +171,8 @@ test.describe("dispatch", () => {
     await runBtn.click();
     await expect(page.locator(".modal-title")).toBeHidden({ timeout: 10_000 });
 
-    // Run成功時は新規セッションのターミナルタブへ自動遷移する（useDispatchQueue.ts
-    // の focusSession）。実CLIエージェントは起動せず、tmuxへ実際に送られた
-    // テキストに compose_text_with_images（server/src/dispatch.rs）が組み立てた
-    // `Image: <path>` 行が含まれることを、シェルのエコーバックで確認する
-    // （job-auto-detect.spec.js / terminal.spec.js と同じ、素のシェル入力で
-    // 検証する既存パターンを踏襲）。
+    // Run 成功時は新規セッションのターミナルタブへ自動遷移する（useDispatchQueue.ts の focusSession）。
+    // 実 CLI は起動せず、compose_text_with_images（server/src/dispatch.rs）が組み立てた `Image: <path>` 行がシェルのエコーバックに出ることで確認する。
     const imageName = imagePath.split("/").pop();
     const term = page.locator(".xterm >> visible=true").first();
     await expect(term).toContainText("Image:", { timeout: 10_000 });

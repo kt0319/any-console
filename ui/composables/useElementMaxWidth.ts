@@ -1,10 +1,8 @@
 import { computed, onBeforeUnmount, ref, watch, type Ref } from "vue";
 
 /**
- * template ref の実測幅を ResizeObserver で追跡し、reservedPx を差し引いた
- * 上限幅を返す（ピル行の幅上限計算 — TerminalPane / SessionSidebarRow で共用）。
- * template ref の watch はアンマウント時には再発火しない（scope 停止が先）ため、
- * onBeforeUnmount で明示的に解放する。
+ * template ref の実測幅を ResizeObserver で追跡し、reservedPx を引いた上限幅を返す。
+ * ref の watch はアンマウント時に再発火しない（scope 停止が先）ため onBeforeUnmount で明示解放する。
  */
 export function useElementMaxWidth(elRef: Ref<HTMLElement | null>, reservedPx: number, capToSelfHalf = false) {
   const width = ref(0);
@@ -22,11 +20,8 @@ export function useElementMaxWidth(elRef: Ref<HTMLElement | null>, reservedPx: n
     ro?.disconnect();
     ro = null;
   });
-  // ピークピル（PillPeek.vue）はコミットメッセージ等の長いテキストを
-  // 1行で出すため、コンテナ幅がそのまま画面幅に近い場合（狭幅レイアウト等）
-  // 画面のほぼ全幅まで伸びてしまう。上限を設ける。
-  // capToSelfHalf: サイドバーのように基準要素自体が狭い場合、画面幅の半分を
-  // 基準にしても効かないため、基準要素自身の幅の半分を上限にする。
+  // ピークピルは長文を1行で出すため、狭幅では画面全幅まで伸びてしまう。上限を設ける。
+  // capToSelfHalf は基準要素自体が狭い場合に自身の幅の半分を上限にする。
   const cap = computed(() => (capToSelfHalf ? width.value / 2 : window.innerWidth / 2));
   const maxWidth = computed(() => Math.max(0, Math.min(width.value - reservedPx, cap.value)));
   // 上限（cap）をかけない幅。アイコンだけのピル行のように、全部を並べたいものが使う。

@@ -23,12 +23,10 @@ describe("workspacesInGroup", () => {
   });
 });
 
-// テスト用ヘルパー
 const ws = (name, groupId = null) => ({ name, id: name, group_id: groupId });
 const group = (id, name = id) => ({ id, name });
 const getGroupWs = (allWs) => (groupId) => allWs.filter((w) => w.group_id === groupId);
 
-// ---- buildFlatList ----
 
 describe("buildFlatList", () => {
   it("グループなしWSだけの場合はそのままフラット化する", () => {
@@ -90,7 +88,6 @@ describe("buildFlatList", () => {
   });
 });
 
-// ---- deriveGroupChanges ----
 
 describe("deriveGroupChanges", () => {
   it("変更なしの場合 changes が空", () => {
