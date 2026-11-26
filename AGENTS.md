@@ -107,14 +107,14 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
   - `auth-devices.spec.js`: Auth ビューでのデバイス Revoke・API トークンの作成 / 失効（確認ダイアログ経由。テスト作成分のみ操作し API で後始末）
-  - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
+  - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ・タブバー端のスクロールフェード
   - `session-menu.spec.js`: タブバーの +（Open Session）/ 歯車（Settings）オーバーレイの開閉・排他・設定ビューの掘り下げと復帰
   - `detached-sessions.spec.js`: Detached sessions（タブの閉じるダイアログから Detach したセッション）の Detach → Open タブでの一覧表示 → 再アタッチ
   - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
   - `snippets.spec.js`: スニペットの追加・削除（モバイルの KeyboardBar Snippet タブ経由。テストで作った分を API で後始末）
   - `keyboard-history.spec.js`: Send History（モバイルの KeyboardBar History タブ）— 入力バーからの送信 → 履歴への記録 → 挿入 → 削除（履歴は localStorage のみのためサーバ側の後始末は不要）
   - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・ジョブ選択ダイアログの開閉・Add Workspace / Edit 画面からの Add group・削除（確認ダイアログ）
-  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のジョブ選択ダイアログからのジョブ実行・ディープリンク（Commit / Stash は Changes 上部バーのボタンから開くダイアログ、保存済み Stash 一覧は Changes ペイン内の折りたたみ、Branches は History ペイン内）
+  - `workspace-panes.spec.js`: ワークスペース詳細（Files（ファイルのリネーム・削除含む） / Changes+Commit+Stash / History+Branches）・ワークスペース一覧のジョブ選択ダイアログからのジョブ実行・ディープリンク（Commit / Stash は Changes 上部バーのボタンから開くダイアログ、保存済み Stash 一覧は Changes ペイン内の折りたたみ、Branches は History ペイン内）
   - `branch-remote.spec.js`: History ペイン内 Branches からの Push / Pull と、開いたままの History ペインへの他者コミットの反映
   - `branch-empty-repo.spec.js`: コミット0（unborn branch）のリポジトリでも Branches に現在ブランチが表示される
   - `worktree.spec.js`: Branches タブの Remove worktree で、その worktree を開いていたセッションのタブが確認の上で閉じること

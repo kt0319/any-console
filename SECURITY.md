@@ -50,8 +50,10 @@ no user separation):
   user invites. See `docs/DECISIONS.md` #28.
 - There are no user accounts or roles. One token means full access. The one
   exception is scoped **API tokens** (Settings → Auth → API Tokens): they
-  can only queue dispatch requests (`POST /dispatch`), but an approved
-  dispatch still runs commands — treat them as secrets too.
+  only work on `POST /dispatch`. A `dispatch`-scope token can only queue
+  requests for approval, but an approved dispatch still runs commands; a
+  `direct`-scope token starts an agent job immediately, within its limits
+  (see the README's Dispatch API section). Treat them as secrets too.
 - Request rate limiting and security headers are enabled by default.
 - Authentication can be disabled — from the UI by turning off "Require
   token authentication" in **Settings → Auth** (this empties the token, so

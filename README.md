@@ -29,7 +29,7 @@ Website: <https://any-console.highedge.net/>
 - **Web terminal** — xterm.js based, multi-tab and split-pane
 - **Workspaces** — Register repos, group them, and drive files / Git / jobs per workspace
 - **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase, conflict abort / mark-resolved, worktrees
-- **File browser** — Browse, view, upload, and download workspace files
+- **File browser** — Browse, upload, and download workspace files; preview text, images, and audio (`.wav` / `.mp3`)
 - **Job runner** — One-tap shell script execution; define and edit jobs from the UI
 - **Agent state detection** — Sessions running known coding agents show working / idle / blocked state (screen analysis + optional hooks)
 - **Push notifications** — Web Push (VAPID) for blocked agents, job phrases, and dispatch approvals
@@ -266,7 +266,7 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 
 For a binary install, this delegates to `install.sh`: checksum-verified download, atomic binary replacement, and a service restart when one is registered — the same as re-running the `curl | bash` command, and idempotent (`data/`, including `certs/`, and `config.json` are left untouched). For a source checkout, `update` instead fetches the latest release tag and rebuilds (`cargo build --release` + `npm install` + `npm run build`); it refuses to run while the tree has uncommitted changes. Source checkouts can also check for new releases from the UI (Settings > System Info), but applying from there only checks out the latest tag without rebuilding — run `./any-console update` to actually rebuild and restart.
 
-Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed. When upgrading from such an old version, kill leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) manually if any remain (see `docs/DECISIONS.md`, ADR 16). Automatic `config.json` key conversion from schema versions below 4 (`radial`, `pinned_jobs`, `detached_tab`) has also been removed; such configs are stamped to version 4 and settings stored under those old keys are ignored.
+Upgrade note: legacy-migration code for versions prior to 2026-06 has been removed. When upgrading from such an old version, kill leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) manually (see `docs/DECISIONS.md`, ADR 16). `config.json` files below schema version 4 are stamped to version 4 without key conversion, so settings under the old keys (`radial`, `pinned_jobs`, `detached_tab`) are ignored.
 
 ## Repository layout
 
