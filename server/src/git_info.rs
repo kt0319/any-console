@@ -3,7 +3,7 @@
 //! 複数の git クエリを並列実行し、branch / upstream / ahead-behind / diff 統計を
 //! 1つの dict に集約する。結果は 5 秒 TTL でキャッシュし、checkout 等の直後の
 //! invalidate 中に走っていた古い計算がキャッシュを上書きしないよう世代カウンタで
-//! ガードする（Python と同一の設計）。
+//! ガードする。
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -56,7 +56,7 @@ impl GitInfoCache {
             .unwrap_or(&0)
     }
 
-    /// キャッシュ無効化 + 世代を進める（Python `invalidate_git_info_cache` 相当）。
+    /// キャッシュ無効化 + 世代を進める。
     pub fn invalidate(&self, directory: &Path) {
         let key = directory.to_string_lossy().into_owned();
         self.store.invalidate(&key);
@@ -373,7 +373,7 @@ async fn populate_git_info(info: &mut Map<String, Value>, directory: &Path) {
     apply_ahead_behind(info, upstream_sha.as_deref(), directory).await;
 }
 
-/// git ステータス一式（Python `git_info` 相当 — TTL キャッシュ + 世代ガード付き）。
+/// git ステータス一式。
 pub async fn git_info(cache: &GitInfoCache, directory: &Path) -> Map<String, Value> {
     let cache_key = directory.to_string_lossy().into_owned();
     if let Some(cached) = cache.get(&cache_key) {

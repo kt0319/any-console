@@ -1,14 +1,7 @@
 //! ターミナルセッションのエージェント状態判定。
 //!
-//! 状態は3値（working / idle / blocked）。判定は3系統（優先度の高い順に
-//! hooks > screen manifest > 画面差分）: hooks 由来の状態（`agent_hooks::hook_state`）
-//! が新鮮な間はそれを最優先し、無ければ screen manifest（既知エージェントのみ）→
-//! 画面差分の順にフォールバックする（`resolve_session_state`。hooks との合成は
-//! `collect_agent_states` 側で行う）。
-//!
-//! `AgentWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `initial_snapshot` /
-//! `poll_loop` がポーリングループ本体と push 通知連携を担う。status stream WS
-//! ハンドラの接続/切断（`status_stream.rs`）から呼ぶ。
+//! 状態は working / idle / blocked の3値。判定の優先順は hooks > screen manifest > 画面差分
+//! （`resolve_session_state`。hooks との合成は `collect_agent_states` 側）。
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -214,8 +207,6 @@ impl PhraseNotifyTracker {
     }
 }
 
-// ─── ポーリング1周期分の状態収集（tmux 問い合わせ + 自動紐付け）───────────────
-
 /// `collect_agent_states` の戻り値。
 pub struct CollectedStates {
     /// session_id → state。tmux コマンド自体が失敗した場合は None
@@ -333,12 +324,8 @@ pub async fn collect_agent_states(
         let notify_phrase = job_notify_phrase(state, workspace.as_deref(), job_name.as_deref());
         let prev_capture = last_capture.get(session_id).cloned();
 
-        // tmux はアタッチ中クライアントの端末幅に合わせてペイン内容を再フロー
-        // （折り返し直し）するため、実際の出力に変化が無くてもリサイズだけで
-        // capture-pane の全文が変わってしまう（phone/PC間の行き来やブラウザの
-        // ウィンドウ幅変更で頻発）。リサイズを検知した周期は画面差分による
-        // working判定を1周期分だけ抑制する（比較対象なし＝idle扱いにする。
-        // 次周期はリサイズ後の内容同士を比較するので通常通り機能する）。
+        // tmux はアタッチ中クライアントの端末幅に合わせてペイン内容を再フローするため、リサイズだけで
+        // capture-pane の全文が変わる。リサイズ検知周期は画面差分によるworking判定を1周期だけ抑制する。
         let resized = last_pane_size
             .get(session_id)
             .is_some_and(|prev| *prev != pane_size);
@@ -418,8 +405,6 @@ pub async fn collect_agent_states(
         blocked_notifications,
     }
 }
-
-// ─── 購読者連動ポーリングループ ─────────────────────────────────────────────
 
 /// ポーリング間で持ち越す状態。1つのロックでまとめて扱い、停止時のリセットを原子的にする。
 #[derive(Default)]
@@ -591,8 +576,6 @@ mod tests {
             .collect()
     }
 
-    // ─── classify_agent_state ────────────────────────────────────────────
-
     #[test]
     fn output_change_is_working() {
         assert_eq!(
@@ -612,8 +595,6 @@ mod tests {
         assert_eq!(classify_agent_state("anything", None), STATE_IDLE);
     }
 
-    // ─── diff_states ─────────────────────────────────────────────────────
-
     #[test]
     fn only_changed_entries_are_returned() {
         let prev = map(&[("a", "working"), ("b", "idle")]);
@@ -630,8 +611,6 @@ mod tests {
         let cur = HashMap::new();
         assert!(diff_states(&prev, &cur).is_empty());
     }
-
-    // ─── entered_blocked ─────────────────────────────────────────────────
 
     #[test]
     fn working_to_blocked_is_entered_blocked() {
@@ -658,8 +637,6 @@ mod tests {
         assert!(!entered_blocked("working", Some("idle")));
         assert!(!entered_blocked("idle", Some("blocked")));
     }
-
-    // ─── payload shapes ──────────────────────────────────────────────────
 
     #[test]
     fn states_payload_shape() {
@@ -699,8 +676,6 @@ mod tests {
             json!({"type": "phrase_notify_clear", "session_id": "s1"})
         );
     }
-
-    // ─── resolve_session_state（screen manifest 統合）─────────────────────
 
     fn bundled_store() -> (ManifestStore, tempfile::TempDir) {
         let manifest_dir =
@@ -767,8 +742,6 @@ mod tests {
             ("working".to_string(), AgentStateSource::Manifest)
         );
     }
-
-    // ─── PhraseNotifyTracker ─────────────────────────────────────────────
 
     #[test]
     fn no_phrase_present_never_notifies() {
@@ -850,16 +823,8 @@ mod collect_agent_states_tests {
     use super::*;
     use serde_json::json;
 
-    /// テストが作った実tmuxセッションを、途中の `assert!` がpanicして
-    /// アーリーリターンした場合でも確実にkillするためのRAIIガード
-    /// （Codexレビュー指摘: 従来は末尾に `kill_tmux_by_name(...).await` を
-    /// 書くだけだったため、その手前のassertが失敗するとkillされずに
-    /// セッションが残り続けていた。tempdir（ワークスペースのcwd）は
-    /// TempDirのDropで削除されるため、残ったtmuxセッションのシェルだけが
-    /// 存在しないディレクトリを指す不整合な状態になる）。
-    /// `kill_tmux_by_name` は非同期だが `Drop` は同期しか呼べないため、
-    /// ここでは同じ `tmux kill-session` をブロッキングで直接叩く
-    /// （テスト専用・ベストエフォート、失敗しても無視する）。
+    /// テストが作った実tmuxセッションを、assert の panic でも確実に kill する RAII ガード。
+    /// `Drop` は同期のため `tmux kill-session` をブロッキングで直接叩く（ベストエフォート）。
     struct TmuxSessionGuard(String);
 
     impl Drop for TmuxSessionGuard {
@@ -960,10 +925,7 @@ mod collect_agent_states_tests {
             Some(STATE_IDLE)
         );
 
-        // 画面を変化させる。
-        // 固定sleep + 単発assertは、CI等の低速環境ではtmuxの実際の再描画
-        // タイミングに間に合わず稀に落ちていた（flaky）。実際に期待状態へ
-        // 収束するまでポーリングする（最大2秒、100msごと）。
+        // 画面を変化させる。tmuxの再描画待ちは固定sleepでなく収束までポーリングする（最大2秒、100msごと）。
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo activity-marker", true).await);
         let mut now = 1.0;
         let got = poll_state(
@@ -994,21 +956,11 @@ mod collect_agent_states_tests {
         assert_eq!(got.as_deref(), Some(STATE_IDLE));
     }
 
-    /// ペイン内容が`needle`を含み、かつ連続2回のcaptureが完全一致する（＝出力・
-    /// プロンプト再描画が出揃って安定した）まで待つ（最大`timeout`、50msごと）。
-    ///
-    /// send-keys 直後に固定sleepだけを挟むテストは、高負荷環境ではシェルの
-    /// 出力/プロンプト再描画がまだ途中の状態を拾ってしまうことがあり、
-    /// その直後に間隔を置かず連続でcapture-pane判定を行う箇所（例:
-    /// notify_phrase の初検出→grace period経過判定を2回連続で呼ぶテスト）では
-    /// 1回目と2回目のcaptureが実際には変化した扱いになり、「アクティビティ
-    /// あり」と誤検知してflakyになっていた。
+    /// ペイン内容が`needle`を含み、かつ連続captureが一致して安定するまで待つ（最大`timeout`、50msごと）。
+    /// send-keys 直後の固定sleepでは、プロンプト再描画の途中を拾って「アクティビティあり」と誤検知するため。
     async fn wait_for_stable_capture(tmux_name: &str, needle: &str, timeout: std::time::Duration) {
-        // 連続2回一致（100ms間隔）だけでは、starship/powerlevel10k等が起動時に
-        // spawnした非同期の子プロセス（gitステータス取得等。execで親を
-        // 置き換えても子は独立して生き続け、任意のタイミングでtty書き込みを
-        // 続ける）がこの短い一致窓の直後に書き込むケースを見逃し、flakyに
-        // なっていた。必要な連続一致回数を増やし、より長い静穏窓を要求する。
+        // starship/powerlevel10k等が起動時にspawnした非同期の子プロセスが任意のタイミングで書き込むため、
+        // 連続一致の回数を増やして長い静穏窓を要求する。
         const REQUIRED_STABLE_MATCHES: u32 = 6;
         const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(150);
 
@@ -1172,23 +1124,14 @@ mod collect_agent_states_tests {
         let session_id = create_session(&state, None, None, Some("agent")).await;
         let tmux_name = state.paths.tmux_session_name(&session_id);
         let _guard = TmuxSessionGuard(tmux_name.clone());
-        // ユーザーの実シェル設定（starship/powerlevel10k等）は、非同期に取得した
-        // git情報等でコマンド入力を挟まずにプロンプトを描き直すことがあり、
-        // r1→r2間で「画面が変化した」と誤検知してflakyになっていた
-        // （固定sleepでもwait_for_stable_captureでも取り除けない、本テストが
-        // 検証したい対象とは無関係なノイズ）。env -i の最小sh + 固定PS1に
-        // 切り替えて、テスト中は画面がコマンド入力以外で絶対に変化しない
-        // ようにする。
+        // starship/powerlevel10k等のプロンプト再描画による誤検知を避けるため、
+        // env -i の最小sh + 固定PS1で、コマンド入力以外では画面が変化しないようにする。
         assert!(
             crate::tmux::send_keys_to_tmux(&tmux_name, "exec env -i PS1='TEST$ ' /bin/sh", true)
                 .await
         );
         assert!(crate::tmux::send_keys_to_tmux(&tmux_name, "echo FINISHED", true).await);
-        // CI・多重テスト並列実行時のCPU競合下ではプロンプト再描画が3秒を
-        // 超えて遅延することがあり、タイムアウトで安定未確認のまま後続の
-        // ポーリングに進んでflakyになっていた（wait_for_stable_captureは
-        // タイムアウトを黙って許容し呼び出し側にシグナルしないため）。
-        // 猶予を10秒に広げる（安定すれば即returnするため通常ケースのコストは変わらない）。
+        // 高負荷下ではプロンプト再描画が3秒を超えうるため猶予を10秒にする（安定すれば即return）。
         wait_for_stable_capture(&tmux_name, "FINISHED", std::time::Duration::from_secs(10)).await;
 
         let mut last_capture = HashMap::new();
@@ -1239,15 +1182,8 @@ mod collect_agent_states_tests {
 
         let ws_dir = dir.path().join("proj");
         std::fs::create_dir_all(&ws_dir).unwrap();
-        // macOSでは /tmp・/var がシンボリックリンク（実体は /private/tmp・
-        // /private/var）で、tmuxが報告する pane_current_path はOSレベルで
-        // realpath解決済みの値になる。tempfile::tempdir() が返す非正規化パス
-        // （/var/folders/...）をそのまま設定してしまうと、実際のcwd
-        // （/private/var/folders/...）と文字列として一致せず
-        // match_workspace_by_path が常に不一致になる（タイミングの問題では
-        // なく恒久的な不一致 — 以前はこれを「まれに失敗するflaky」と誤認して
-        // いた）。実環境のtmuxと同じ土俵で比較するため、テスト側でも
-        // canonicalize してから設定する。
+        // macOSの /tmp・/var はシンボリックリンクで、tmuxの pane_current_path は realpath 解決済みのため、
+        // tempdir を canonicalize して比較を揃える。
         let ws_dir_canonical = std::fs::canonicalize(&ws_dir).unwrap();
         let mut cfg = state.config.load_all();
         cfg.insert(
@@ -1332,12 +1268,8 @@ mod collect_agent_states_tests {
         let mut last_pane_size = HashMap::new();
         let mut tracker = PhraseNotifyTracker::new();
         let cached = state.terminal_registry.get(&session_id).await.unwrap();
-        // 固定sleep + 単発pollは、CI等の低速環境ではtmuxのpane_current_command
-        // がまだ旧シェルのままのタイミングに引っかかり稀に落ちていた（flaky）。
-        // foregroundがsleepへ実際に切り替わるまでポーリングする。新規シェルの
-        // プロンプト初期化（同期的な外部コマンド呼び出しを含むテーマ等）が
-        // 遅い環境では切り替わりに数秒かかることがあるため、20回=2秒では
-        // 足りず稀に落ちていた。150回=15秒まで許容する。
+        // foregroundがsleepへ切り替わるまでポーリングする。新規シェルのプロンプト初期化が遅い環境では
+        // 数秒かかるため150回=15秒まで許容する。
         let mut tagged = false;
         for i in 0..150 {
             collect_agent_states(

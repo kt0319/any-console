@@ -87,11 +87,8 @@ async fn apply_job_tag(
         .and_then(Value::as_str)
         .unwrap_or("");
 
-    // 素のターミナル起動時にクライアントが送る仮アイコン（ui/composables/
-    // useTerminalLifecycle.ts の `jobName ? ... : "mdi-console"` と同じ値）。
-    // 「未設定」と区別が付かないため、この値の時もジョブのアイコンで
-    // 上書きしてよい（そうしないと素のターミナルが常にこの仮アイコンのまま
-    // 固定され、動的検出されたジョブのアイコンが一切反映されなかった）。
+    // 素のターミナル起動時にクライアントが送る仮アイコン（useTerminalLifecycle.ts と同じ値）。
+    // 「未設定」と区別が付かないため、この値の時もジョブのアイコンで上書きしてよい。
     const BARE_TERMINAL_ICON: &str = "mdi-console";
 
     if let Some(cached) = state.terminal_registry.get(session_id).await {

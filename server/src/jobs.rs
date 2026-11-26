@@ -21,8 +21,6 @@ use crate::jobs_common::{
 use crate::state::AppState;
 use crate::util::JsonBody;
 
-// ─── GET /jobs/workspaces ───────────────────────────────────────────────────
-
 pub async fn list_all_workspace_jobs(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
@@ -94,8 +92,6 @@ pub async fn list_all_workspace_jobs(
     }
     Ok(Json(Value::Object(result)))
 }
-
-// ─── ワークスペースジョブ ───────────────────────────────────────────────────
 
 pub async fn list_workspace_jobs(
     State(state): State<Arc<AppState>>,
@@ -195,8 +191,6 @@ pub async fn delete_workspace_job(
     )
     .map(Json)
 }
-
-// ─── 共通ジョブ ─────────────────────────────────────────────────────────────
 
 pub async fn list_common_jobs(
     State(state): State<Arc<AppState>>,

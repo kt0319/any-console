@@ -19,11 +19,6 @@
 //! 2. リモートキャッシュ: `data/agent-detection/remote/<id>.toml`
 //! 3. 同梱: `agent_manifests/*.toml`（読み取り専用のパッケージデータ）
 //!
-//! Python 版は `\x{...}` 等の Rust regex 記法を Python `re` 用に変換する
-//! `translate_rust_regex()` を持つが、マニフェストはそもそも Rust regex
-//! （herdr）向けに書かれているため、Rust の `regex` クレートはこの変換なしで
-//! そのままコンパイルできる（`\x{7F}` 波括弧 hex エスケープ・`\p{Alphabetic}`
-//! Unicode プロパティともにネイティブ対応）。
 //!
 //! `AppState::manifest_store` として保持され、`agent_watch.rs`・
 //! `manifest_update.rs` から利用される。
@@ -43,8 +38,6 @@ pub const STATE_UNKNOWN: &str = "unknown";
 pub const ADOPTED_STATES: &[&str] = &[STATE_WORKING, STATE_IDLE, STATE_BLOCKED];
 
 pub const SCREEN_MANIFEST_CACHE_TTL_SEC: u64 = 60;
-
-// ─── バージョン比較 ─────────────────────────────────────────────────────────
 
 /// ドット区切り数値バージョンをパースする（herdr の ManifestVersion 相当）。
 /// 数値以外・空セグメントはエラー。
@@ -78,8 +71,6 @@ pub fn compare_manifest_versions(left: &[u64], right: &[u64]) -> i32 {
     }
 }
 
-// ─── マニフェストのデータ構造 ───────────────────────────────────────────────
-
 #[derive(Clone, Default)]
 pub struct Gate {
     pub contains: Vec<String>,
@@ -110,8 +101,6 @@ pub struct Manifest {
     /// "bundled" | "remote" | "override"
     pub source: String,
 }
-
-// ─── TOML → 構造体へのコンパイル ────────────────────────────────────────────
 
 pub(crate) fn value_to_string(v: &toml::Value) -> String {
     match v {
@@ -272,8 +261,6 @@ pub fn parse_manifest_text(
     Ok(manifest)
 }
 
-// ─── 階層解決・キャッシュ付きロード ─────────────────────────────────────────
-
 /// `embed-assets` feature（バイナリ配布ビルド専用）有効時、`agent_manifests/`
 /// をコンパイル時にバイナリへ焼き込む。ディスク上に`manifest_dir`が無い/空の
 /// 場合のみ使われるフォールバック。
@@ -311,8 +298,7 @@ impl ManifestStore {
         self.remote_dir.join(format!("{agent_id}.toml"))
     }
 
-    /// `data/agent-detection/` 配下の親ディレクトリ（manifest_update の
-    /// `status.json` 保存先と共有 — Python の `REMOTE_DIR.parent` 相当）。
+    /// `data/agent-detection/` 配下の親ディレクトリ（manifest_update の `status.json` 保存先と共有）。
     pub(crate) fn override_dir(&self) -> &Path {
         &self.override_dir
     }
@@ -407,11 +393,8 @@ impl ManifestStore {
         manifests
     }
 
-    /// 同梱マニフェストの (表示用ラベル, TOML生テキスト) 一覧をファイル名昇順で
-    /// 返す。ディスク（`manifest_dir`）を優先し、1件も見つからなければ
-    /// （`embed-assets` 有効時のみ）バイナリに埋め込まれたコピーへ
-    /// フォールバックする（git clone開発フローはディスクが常に非空なので
-    /// この分岐を通らない）。
+    /// 同梱マニフェストの (表示用ラベル, TOML生テキスト) 一覧をファイル名昇順で返す。
+    /// ディスク（`manifest_dir`）を優先し、1件も無ければ（`embed-assets` 有効時のみ）埋め込みコピーを使う。
     fn bundled_manifest_sources(&self) -> Vec<(String, String)> {
         let mut paths: Vec<PathBuf> = std::fs::read_dir(&self.manifest_dir)
             .into_iter()
@@ -568,8 +551,6 @@ fn shell_command_name(argv: &[String]) -> Option<String> {
     None
 }
 
-// ─── ゲート評価 ──────────────────────────────────────────────────────────────
-
 fn gate_matches(gate: &Gate, text: &str, lower_text: &str) -> bool {
     if !gate
         .contains
@@ -664,8 +645,6 @@ mod tests {
         }
     }
 
-    // ─── バージョン ─────────────────────────────────────────────────────
-
     #[test]
     fn parse_dotted_numeric() {
         assert_eq!(
@@ -688,8 +667,6 @@ mod tests {
         assert_eq!(compare_manifest_versions(&[1, 2], &[1, 10]), -1);
     }
 
-    // ─── native Rust regex 記法（\x{...} braced hex, \p{Alphabetic}）確認 ──
-
     #[test]
     fn rust_regex_syntax_needs_no_translation() {
         let re = Regex::new(r"^[\x{2800}-\x{28FF}] ").unwrap();
@@ -697,8 +674,6 @@ mod tests {
         let re2 = Regex::new(r"\p{Alphabetic}+ing\b").unwrap();
         assert!(re2.is_match("Thinking"));
     }
-
-    // ─── gate_matches ────────────────────────────────────────────────────
 
     #[test]
     fn contains_is_case_insensitive_and() {
@@ -745,8 +720,6 @@ mod tests {
         assert!(gate_matches(&g, "yes", "yes"));
         assert!(!gate_matches(&g, "yes never", "yes never"));
     }
-
-    // ─── evaluate_state ──────────────────────────────────────────────────
 
     #[test]
     fn highest_priority_wins() {
@@ -813,8 +786,6 @@ mod tests {
         };
         assert_eq!(evaluate_state(&manifest, "other text", "", ""), None);
     }
-
-    // ─── 同梱マニフェスト（実ファイル）───────────────────────────────────
 
     fn bundled_manifest_dir() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../agent_manifests")
@@ -1045,8 +1016,6 @@ mod tests {
         let claude = store.identify_agent(Some("claude")).unwrap();
         assert_eq!(evaluate_state(&claude, "$ ls\nREADME.md\n$ ", "", ""), None);
     }
-
-    // ─── 階層解決（override > remote > bundled）───────────────────────────
 
     const OVERRIDE_MANIFEST: &str = "id = \"claude\"\n[[rules]]\nid = \"custom\"\nstate = \"blocked\"\npriority = 10\nregion = \"whole_recent\"\ncontains = [\"my custom marker\"]\n";
     const REMOTE_MANIFEST: &str = "id = \"claude\"\nversion = \"9999.1.1\"\nmin_engine_version = 2\n[[rules]]\nid = \"remote_rule\"\nstate = \"blocked\"\npriority = 10\nregion = \"whole_recent\"\ncontains = [\"remote marker\"]\n";

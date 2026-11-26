@@ -83,8 +83,6 @@ async fn list_containers(config: &ConfigStore) -> Vec<DetectedContainer> {
     items
 }
 
-// ─── HTTP エンドポイント（`GET /docker/containers`）────────────────────────
-
 pub async fn list_detected_containers(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,

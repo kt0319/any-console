@@ -17,8 +17,6 @@ use crate::subprocess::{
 use crate::system::get_app_release;
 use crate::util::IS_MACOS;
 
-// ─── GET /system/info ───────────────────────────────────────────────────────
-
 pub(crate) fn hostname() -> String {
     let mut buf = [0u8; 256];
     // SAFETY: gethostname はバッファへ NUL 終端文字列を書くだけ。
@@ -31,7 +29,7 @@ pub(crate) fn hostname() -> String {
     }
 }
 
-/// Python `getpass.getuser()` と同じ解決順: env チェーン → pwd データベース。
+/// 解決順: env チェーン → pwd データベース。
 pub(crate) fn current_user() -> String {
     for key in ["LOGNAME", "USER", "LNAME", "USERNAME"] {
         if let Ok(v) = std::env::var(key) {
@@ -66,7 +64,7 @@ async fn get_ip() -> Option<String> {
             }
         }
     }
-    // フォールバック: 自ホスト名の名前解決（Python socket.gethostbyname 相当）
+    // フォールバック: 自ホスト名の名前解決
     use std::net::ToSocketAddrs;
     let host = hostname();
     if host.is_empty() {

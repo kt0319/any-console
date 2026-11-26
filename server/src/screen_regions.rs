@@ -6,8 +6,6 @@ use std::sync::OnceLock;
 
 use regex::Regex;
 
-// ─── リージョン切り出し（herdr manifest.rs の移植） ─────────────────────────
-
 /// Rust の `str::lines()` 相当（末尾改行後の空要素を作らず、`\r` を除去）。
 pub(crate) fn split_lines(text: &str) -> Vec<&str> {
     let mut raw: Vec<&str> = text.split('\n').collect();
@@ -175,8 +173,6 @@ pub fn region_text(region: &str, screen: &str, osc_title: &str, osc_progress: &s
 mod tests {
     use super::*;
 
-    // ─── is_horizontal_rule ──────────────────────────────────────────────
-
     #[test]
     fn rule_line() {
         assert!(is_horizontal_rule("────────"));
@@ -193,8 +189,6 @@ mod tests {
         assert!(!is_horizontal_rule(""));
         assert!(!is_horizontal_rule("  hello"));
     }
-
-    // ─── region_text ─────────────────────────────────────────────────────
 
     #[test]
     fn whole_recent_returns_screen() {

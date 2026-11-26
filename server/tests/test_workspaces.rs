@@ -490,8 +490,7 @@ async fn suggest_lists_directories_with_filters() {
 
 /// ワークスペース設定更新（アイコン等）とジョブ作成が同じワークスペースへ並行して
 /// 起きても、どちらも失われないこと（lost update しないこと）を検証する回帰
-/// テスト（Codex レビュー指摘: config 更新はアイコン正規化の await を挟むため、
-/// その間に別リクエストが加えた変更を古いスナップショットで上書きしうる）。
+/// テスト（config 更新はアイコン正規化の await を挟むため、古いスナップショットで上書きしうる）。
 #[tokio::test]
 async fn concurrent_config_update_and_job_creation_does_not_lose_updates() {
     let front = spawn_front().await;

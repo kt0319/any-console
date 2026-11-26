@@ -17,8 +17,6 @@ use crate::system::{ensure_git_repo, get_app_release, git, git_out};
 
 const GIT_FETCH_TIMEOUT_SEC: f64 = 30.0;
 
-// ─── GET /system/update/check・POST /system/update/apply ────────────────────
-
 async fn git_remote(root: &Path) -> String {
     git_out(root, &["remote"], SYSTEM_CMD_TIMEOUT_SEC)
         .await

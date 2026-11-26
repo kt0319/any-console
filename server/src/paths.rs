@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-/// `~` 前置パスをホームディレクトリで展開する（Python の `Path.expanduser` 相当）。
+/// `~` 前置パスをホームディレクトリで展開する。
 fn expand_user(raw: &str) -> PathBuf {
     if raw == "~" {
         if let Some(home) = std::env::var_os("HOME") {
@@ -21,14 +21,12 @@ fn expand_user(raw: &str) -> PathBuf {
 }
 
 /// config.json に保存されたパス文字列を PathBuf に変換する（`~` を展開する）。
-/// Python `expand_workspace_path` に対応。
 pub fn expand_user_path(s: &str) -> PathBuf {
     expand_user(s)
 }
 
 /// ホームディレクトリ配下のパスを `~/...` 形式の文字列に変換する
-/// （Python `collapse_user_path` 相当。ホーム自身は Python の
-/// `relative_to` が `.` を返すのに合わせて "~/." になる）。
+/// ホームディレクトリ配下のパスを `~/...` 形式の文字列に変換する（ホーム自身は "~/." になる）。
 pub fn collapse_user_path(p: &Path) -> String {
     if let Some(home) = std::env::var_os("HOME") {
         let home = PathBuf::from(home);
@@ -42,7 +40,7 @@ pub fn collapse_user_path(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
 
-/// パスを解決した絶対パス文字列を返す（Python `safe_resolve_str` 相当）。
+/// パスを解決した絶対パス文字列を返す。
 /// canonicalize（symlink 解決込み）を試み、失敗時はレキシカルな正規化で代替する。
 pub fn safe_resolve_str(path: &Path) -> String {
     if let Ok(c) = path.canonicalize() {
@@ -62,8 +60,7 @@ pub fn safe_resolve_str(path: &Path) -> String {
     normalized.to_string_lossy().into_owned()
 }
 
-/// 相対パスをカレントディレクトリ基準で絶対化する（存在しないパスも扱えるよう
-/// canonicalize は使わない — Python の `resolve()` は存在チェックなしで解決する）。
+/// 相対パスをカレントディレクトリ基準で絶対化する（存在しないパスも扱えるよう canonicalize は使わない）。
 fn absolutize(p: PathBuf) -> PathBuf {
     if p.is_absolute() {
         p
@@ -104,7 +101,7 @@ fn resolve_tmux_prefix(env_value: Option<&str>) -> String {
     }
 }
 
-/// サーバが参照するパス一式。Python 側のモジュールグローバル定数に対応する。
+/// サーバが参照するパス一式。
 #[derive(Debug, Clone)]
 pub struct Paths {
     pub project_root: PathBuf,

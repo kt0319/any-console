@@ -1,7 +1,6 @@
 //! any-console Rust バックエンド（全ルートをネイティブ実装）。
 //!
-//! バイナリ（main.rs）と統合テストが共有するライブラリ部。モジュール構成は
-//! 移植元だった Python `api/` のファイル構成に由来する。
+//! バイナリ（main.rs）と統合テストが共有するライブラリ部。
 
 pub mod activity;
 pub mod agent_hooks;
@@ -458,9 +457,6 @@ fn terminal_routes() -> AppRouter {
 }
 
 /// 認証ドメイン（devices.json / auth.json / pairing）。
-/// devices.json・auth.json への書き込みが Python/Rust の両方から起きる
-/// split-brain を避けるため、この一群は同時に配線する（atomic cutover —
-/// `server/src/devices.rs` / `server/src/pairing.rs` の module doc 参照）。
 fn auth_routes() -> AppRouter {
     Router::new()
         .route("/auth/check", get(auth::auth_check))

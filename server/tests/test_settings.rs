@@ -1,7 +1,6 @@
-//! Rust ネイティブ移行済み settings / groups ルートの統合テスト。
+//! settings / groups ルートの統合テスト。
 //!
-//! config.json への書き込みが Python 互換フォーマット（正規化・末尾改行・
-//! .bak ローテーション）で行われることも確認する。
+//! config.json への書き込みフォーマット（正規化・末尾改行・.bak ローテーション）も確認する。
 
 mod common;
 
@@ -83,7 +82,7 @@ async fn snippets_roundtrip_and_sanitize() {
     let got = get_json(&front, "/snippets").await;
     assert_eq!(got["snippets"], body["snippets"]);
 
-    // config.json が Python 互換フォーマットで書かれている
+    // config.json が正規化・末尾改行付きで書かれている
     let text = std::fs::read_to_string(front.dir.path().join("config.json")).unwrap();
     assert!(text.ends_with('\n'));
     assert!(text.contains("\"snippets\""));
@@ -297,7 +296,7 @@ async fn group_order_sorts_and_returns_ids() {
 
 /// 並行 create_group が全件残ること（lost update しないこと）を検証する回帰テスト。
 /// load→mutate→save が分離していると、後勝ちの書き込みが先勝ちの新規グループを
-/// 消してしまう（Codex レビュー指摘）。
+/// 消してしまう。
 #[tokio::test]
 async fn concurrent_group_creation_does_not_lose_updates() {
     let front = spawn_front().await;
@@ -377,8 +376,7 @@ async fn export_health_and_import() {
 }
 
 /// import と並行するグループ作成が失われないこと（lost update しないこと）を
-/// 検証する回帰テスト（Codex レビュー指摘: load→merge→save が分離していると、
-/// import が古いスナップショットで並行変更を上書きしてしまう）。
+/// 検証する回帰テスト（load→merge→save が分離していると、import が古いスナップショットで並行変更を上書きする）。
 #[tokio::test]
 async fn concurrent_import_and_group_creation_does_not_lose_updates() {
     let front = spawn_front().await;
@@ -432,10 +430,7 @@ async fn workspace_order_saved() {
     );
 }
 
-/// Python の `RecentJobItem`（pydantic）は全フィールドに `max_length` を課す。
-/// 以前は一部フィールド（key/workspace/jobCommand）しか検証しておらず、
-/// jobName 等の巨大な値がそのまま config.json に保存されてしまっていた
-/// （Codex レビュー指摘）。
+/// recent_jobs は全フィールドに `max_length` を課す（jobName 等の巨大な値を config.json に保存しない）。
 #[tokio::test]
 async fn recent_jobs_rejects_oversized_fields() {
     let front = spawn_front().await;

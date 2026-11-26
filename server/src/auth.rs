@@ -1,11 +1,7 @@
 //! 認証コア。
 //!
-//! auth.json（メイントークン + api_tokens）の読み書きはこのファイルが担う。
-//! devices.json への読み書きは `crate::devices`（`DevicesState` 経由で排他制御）
-//! に委譲する。`/devices/*`・`/auth/check`・`/auth/logout`・
-//! `/auth/pairing/*/claim`・`/api-tokens/*`・`/settings/auth` を Rust 側へ
-//! 同時に配線した atomic cutover 以降、Rust がこれらのファイルの唯一の
-//! ライターになった。
+//! auth.json（メイントークン + api_tokens）の読み書きはこのファイルが担い、
+//! devices.json は `crate::devices`（`DevicesState` 経由で排他制御）に委譲する。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -63,14 +59,9 @@ impl AuthResult {
     }
 }
 
-/// Python の `str(token) if token else ""` と同じ真偽判定で文字列化する。
-///
-/// JSON の `token` フィールドは本来文字列だが、手編集等で数値・真偽値になって
-/// いても Python は truthy な値を `str()` で文字列化してそのまま有効なトークンと
-/// して扱う（falsy な値だけが `""` になる）。ここを素朴に `as_str().unwrap_or("")`
-/// にすると、truthy な非文字列値（例: `123`）が誤って `""` に落ち、
-/// `Auth::authenticate` の `token.is_empty()` 分岐で認証そのものが無効化されて
-/// しまう（全ルートが無認証で通ってしまう重大なリグレッション）。
+/// truthy な JSON 値を文字列化し、falsy な値だけ `""` にする。
+/// `as_str().unwrap_or("")` だと手編集で数値になったトークンが `""` に落ち、`token.is_empty()` で
+/// 認証全体が無効化される。
 fn coerce_truthy_str(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
@@ -95,7 +86,7 @@ fn coerce_truthy_str(v: &Value) -> String {
     }
 }
 
-/// タイミング攻撃耐性のある文字列比較（Python `hmac.compare_digest` 相当）。
+/// タイミング攻撃耐性のある文字列比較。
 pub(crate) fn constant_time_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     if a.len() != b.len() {
@@ -163,8 +154,7 @@ pub struct Auth {
     /// devices.json の排他制御（`devices.rs` の関数群と共有する）。
     devices: crate::devices::DevicesState,
     /// auth.json への書き込み（メイントークンのローテーション・api_tokens の
-    /// create/revoke/last_used 更新）を直列化する（Python 版の `_auth_file_lock`
-    /// と同じ設計 — 単一ファイルへの read-modify-write を保護する）。
+    /// auth.json への書き込み（ローテーション・api_tokens の create/revoke/last_used 更新）を直列化する。
     auth_file_lock: std::sync::Mutex<()>,
 }
 
@@ -184,12 +174,8 @@ impl Auth {
 
     /// 現在のメイントークン。auth.json の mtime を毎回 stat し、変化時のみ再読込する。
     ///
-    /// 読み込み/パースに失敗した場合、一度でも正常なトークンをロード済みなら
-    /// それを維持する（`load_json_file` の「失敗時は既定値」という素朴な扱いを
-    /// そのまま使うと、稼働中に auth.json が一時的に壊れた/読めなくなっただけで
-    /// 空トークン = 認証無効化に倒れ、全ルートが無認証で通ってしまう重大な
-    /// リグレッションになる）。起動直後の初回ロード自体が失敗する場合のみ、
-    /// Python 版と同じくファイル不在時と同様の「無効化」扱いにする。
+    /// 読み込み/パース失敗時、一度でも正常ロード済みならそのトークンを維持する
+    /// （空トークン = 認証無効化に倒れ、全ルートが無認証になるのを防ぐ）。初回ロード失敗のみ「無効化」扱い。
     pub(crate) fn current_token(&self) -> String {
         if self.disable_auth {
             return String::new();
@@ -231,13 +217,8 @@ impl Auth {
         &self.devices
     }
 
-    /// 認証判定のコア（HTTP / WS 共通）。判定順は Python `_authenticate` と同一:
-    /// 無効化 → デバイス cookie → Bearer token。
-    ///
-    /// デバイス cookie 認証は `devices::verify_and_touch_device` に委譲する
-    /// （devices.json の read-modify-write を `DevicesState` の Mutex で
-    /// 直列化する — Rust がこのファイルの唯一のライターになったため、
-    /// Python 側ブリッジ経由のタッチはもう不要）。
+    /// 認証判定のコア（HTTP / WS 共通）。判定順: 無効化 → デバイス cookie → Bearer token。
+    /// デバイス cookie 認証は `devices::verify_and_touch_device` に委譲する。
     pub fn authenticate(
         &self,
         bearer: &str,
@@ -476,7 +457,6 @@ impl Auth {
     }
 }
 
-// ─── /api-tokens/* ───────────────────────────────────────────────────────
 //
 // すべてメイントークン認証（`RequireAuth`）のみを要求する。dispatch / direct scope の
 // API トークン自身でこれらのエンドポイントを呼ぶことはできない
@@ -591,8 +571,6 @@ pub async fn revoke_api_token(
     Ok(Json(json!({"ok": true})))
 }
 
-// ─── /settings/auth ───────────────────────────────────────────────────────
-
 pub async fn get_auth_settings(
     State(state): State<std::sync::Arc<crate::state::AppState>>,
     _auth: RequireAuth,
@@ -631,11 +609,7 @@ pub async fn put_auth_settings(
     Ok(Json(json!({"auth_required": !new_token.is_empty()})))
 }
 
-/// `Authorization` ヘッダの値から Bearer トークンを取り出す。FastAPI の
-/// `HTTPBearer` はスキームを `scheme.lower() == "bearer"` で比較するため、
-/// `bearer <token>` や `BEARER <token>` のような大小文字違いも受け付ける
-/// （素朴に `strip_prefix("Bearer ")` だけだと、標準準拠のクライアントが
-/// 別の大文字小文字で送ってきた場合に Rust 側だけ 401 になってしまう）。
+/// `Authorization` ヘッダから Bearer トークンを取り出す。スキームは大小文字を区別しない（`bearer` / `BEARER` も受理）。
 pub fn bearer_from_headers(headers: &http::HeaderMap) -> &str {
     headers
         .get(http::header::AUTHORIZATION)
@@ -651,8 +625,7 @@ fn extract_bearer_token(value: &str) -> &str {
     }
 }
 
-/// 認証必須ルート用の axum 抽出子（Python の `Depends(verify_token)` に対応）。
-/// 失敗時は 401 `{"detail": "Invalid token"}`。
+/// 認証必須ルート用の axum 抽出子。失敗時は 401 `{"detail": "Invalid token"}`。
 pub struct RequireAuth(#[allow(dead_code)] pub AuthResult);
 
 impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for RequireAuth {
@@ -672,7 +645,7 @@ impl axum::extract::FromRequestParts<std::sync::Arc<crate::state::AppState>> for
     }
 }
 
-/// WebSocket 接続用の認証チェック（Python `verify_ws_token` 相当）。
+/// WebSocket 接続用の認証チェック。
 /// クエリパラメータの token・デバイス cookie のいずれかで認証できれば
 /// `Some(AuthResult)`（`terminal.rs`/`status_stream.rs` の WS ハンドシェイクで使う）。
 /// `status_stream.rs` は `AuthResult::device_id()` で「どの端末からの接続か」を
@@ -699,8 +672,6 @@ pub fn parse_cookies(headers: &http::HeaderMap) -> HashMap<String, String> {
     }
     out
 }
-
-// ─── /auth/check・/auth/logout ───────────────────────────────────────────
 
 /// `GET /auth/check`。フロントエンドの起動時セッション確認（トークン/デバイス
 /// cookie のいずれかで認証できればログイン状態とみなす）。
@@ -788,10 +759,7 @@ mod tests {
 
     #[test]
     fn numeric_token_is_coerced_not_treated_as_disabled() {
-        // auth.json の token が数値（手編集・旧バージョン等）でも、Python の
-        // `str(token) if token else ""` と同じく truthy な値は有効なトークンとして
-        // 扱わなければならない。素朴な as_str().unwrap_or("") だと "" に落ちて
-        // 認証全体が無効化されてしまう回帰があった。
+        // auth.json の token が数値でも、truthy な値は有効なトークンとして扱う（認証全体が無効化される回帰の防止）。
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 123})).unwrap();
         let auth = Auth::new(dir.path().to_path_buf());
@@ -804,9 +772,7 @@ mod tests {
 
     #[test]
     fn corrupt_reload_keeps_last_known_good_token() {
-        // 一度でも正常なトークンをロード済みなら、稼働中に auth.json が壊れて
-        // 読めなくなっても空トークン（= 認証無効化）へフォールバックしては
-        // ならない。
+        // 一度でも正常ロード済みなら、稼働中に auth.json が壊れても空トークン（認証無効化）へ落とさない。
         let dir = tempfile::tempdir().unwrap();
         let auth = setup(&dir, "good-token");
         assert!(auth.authenticate("good-token", None).is_some());
@@ -831,9 +797,7 @@ mod tests {
 
     #[test]
     fn first_load_failure_falls_back_to_disabled_like_missing_file() {
-        // 一度も正常ロードしていない状態（起動直後）での失敗は、Python 版と
-        // 同じくファイル不在時と同じ「無効化」扱いにする（既存動作からの
-        // 後退ではない）。
+        // 一度も正常ロードしていない起動直後の失敗は、ファイル不在時と同じ「無効化」扱い。
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("auth.json"), b"{not valid json").unwrap();
         let auth = Auth::new(dir.path().to_path_buf());
@@ -854,7 +818,7 @@ mod tests {
 
     #[test]
     fn zero_token_is_falsy_and_disables_auth() {
-        // Python 側は 0 のような falsy な数値は "" 扱いになる（token 未設定と同じ）。
+        // 0 のような falsy な数値は "" 扱いになる（token 未設定と同じ）。
         let dir = tempfile::tempdir().unwrap();
         save_json_file(&dir.path().join("auth.json"), &json!({"token": 0})).unwrap();
         let auth = Auth::new(dir.path().to_path_buf());
@@ -867,7 +831,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let auth = setup(&dir, "old-token");
         assert!(auth.authenticate("old-token", None).is_some());
-        // 別プロセス（Python の Settings API）によるローテーションを模す
+        // 別プロセスによるローテーションを模す
         std::thread::sleep(std::time::Duration::from_millis(20));
         save_json_file(
             &dir.path().join("auth.json"),

@@ -166,12 +166,9 @@ async fn match_workspace(config: &ConfigStore, cwd: Option<&str>) -> Option<Stri
     crate::git_utils::match_workspace_with_worktree(config, cwd).await
 }
 
-// ─── 検出結果の更新・一覧 ────────────────────────────────────────────────────
-
-/// ポートスキャンを1回行い、検出結果を更新する（Python `scan_once` 相当）。
-/// cwd 読み取り・workspace 照合は非同期 I/O のため、`detected` の Mutex を
-/// 保持したまま `.await` しない（std::sync::Mutex は非同期処理を跨いで
-/// 保持しない設計上の原則 — 変化検出→非同期ルックアップ→書き込み、の3段で行う）。
+/// ポートスキャンを1回行い、検出結果を更新する。
+/// cwd 読み取り・workspace 照合は非同期 I/O のため、`detected` の Mutex を保持したまま `.await` しない
+/// （変化検出→非同期ルックアップ→書き込みの3段で行う）。
 async fn scan_once(state: &Arc<AppState>) {
     let preview = &state.preview;
     let now = now_epoch();
@@ -274,7 +271,7 @@ async fn scan_once(state: &Arc<AppState>) {
     reconcile_proxies(state).await;
 }
 
-/// UI に返す一覧（Python `list_ports` 相当）。自分自身は常に含める（識別用 —
+/// UI に返す一覧。自分自身は常に含める（識別用 —
 /// ボタンは表示側で出さない）。proxy が立たないポート・非 HTTP と判定された
 /// ポート（adb/RTSP/HTTPS upstream 等）は除外する。
 fn list_ports(state: &PreviewState) -> Vec<DetectedPort> {
@@ -287,8 +284,6 @@ fn list_ports(state: &PreviewState) -> Vec<DetectedPort> {
     items.sort_by_key(|p| p.port);
     items
 }
-
-// ─── HTTP プローブ ───────────────────────────────────────────────────────────
 
 /// upstream が HTTP 応答を返すか最小リクエストで確認する。adb / RTSP(go2rtc) /
 /// HTTPS upstream など HTTP を喋らないポートを一覧から除外するために使う。
@@ -386,8 +381,6 @@ fn schedule_probes(state: &Arc<AppState>) {
     }
 }
 
-// ─── TCP/TLS proxy ───────────────────────────────────────────────────────────
-
 async fn pipe_bidirectional<A>(mut client: A, mut upstream: TcpStream)
 where
     A: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -452,8 +445,7 @@ async fn start_proxy(state: &Arc<AppState>, target_port: u16, proxy_port: u16) {
         .insert(target_port, handle);
 }
 
-/// 検出ポートに合わせて proxy listener を増減する（Python `_reconcile_proxies`
-/// 相当）。probe スケジューリングも合わせて行う。
+/// 検出ポートに合わせて proxy listener を増減する。probe スケジューリングも合わせて行う。
 async fn reconcile_proxies(state: &Arc<AppState>) {
     schedule_probes(state);
     let needed: HashMap<u16, u16> = {
@@ -501,8 +493,6 @@ async fn reconcile_proxies(state: &Arc<AppState>) {
     }
 }
 
-// ─── バックグラウンドスキャンループ ──────────────────────────────────────────
-
 async fn scan_loop(state: Arc<AppState>) {
     let mut interval = tokio::time::interval(Duration::from_secs(SCAN_INTERVAL_SEC));
     loop {
@@ -522,8 +512,6 @@ pub fn start_scanner(state: &Arc<AppState>) {
         .scan_task
         .ensure(|| tokio::spawn(scan_loop(state.clone())));
 }
-
-// ─── HTTP エンドポイント（`GET /preview/ports`）─────────────────────────────
 
 /// パネルを開いた時だけスキャンを起こす（常時ポーリングはしない）。
 ///

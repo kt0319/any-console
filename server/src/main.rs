@@ -51,8 +51,7 @@ fn acquire_singleton_lock(port: u16) -> Option<std::fs::File> {
 #[tokio::main]
 async fn main() {
     // `--version`・`config`/`workspaces`/`jobs`/`tailscale`/`auth` サブコマンドは
-    // サーバを起動せずその場で処理して終了する（any-console スクリプトが
-    // python3 の代わりにこのバイナリを呼ぶための軽量CLI。cli.rs 参照）。
+    // サーバを起動せずその場で処理して終了する（軽量CLI。cli.rs 参照）。
     let args: Vec<String> = std::env::args().collect();
     if let Some(code) = any_console_server::cli::run_subcommand(&args[1..]).await {
         std::process::exit(code);
@@ -121,8 +120,6 @@ async fn main() {
         rate_limit: rate_limit_from_env(),
     });
 
-    // 永続化済み dispatch キュー/履歴を読み込み、status stream 購読者へ
-    // 起動直後の初期スナップショットを送る。
     any_console_server::dispatch::load_persisted_and_seed_bridge(&state).await;
 
     // dev server ポートプレビュー: 自分自身の listen ポートは対象から除外する
@@ -130,7 +127,6 @@ async fn main() {
     any_console_server::preview::set_self_ports(&state.preview, &[port]);
     any_console_server::preview::start_scanner(&state);
 
-    // リモート screen manifest（herdr カタログ）の定期確認ループ。
     tokio::spawn(any_console_server::manifest_update::run_update_loop(
         state.clone(),
     ));

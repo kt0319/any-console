@@ -18,8 +18,6 @@ pub const MAX_ICON_VALUE_LENGTH: usize = 200_000;
 pub const COMMON_JOBS_CACHE_KEY: &str = "__common_jobs__";
 pub const TERMINAL_JOB_KEY: &str = "terminal";
 
-// ─── アイコン検証 ─────────────────────────────────────────────────────────
-
 /// ICON_PATTERN 相当: mdi- / favicon: / data:image/ / icon:<hash16>.<ext>
 fn icon_pattern_matches(icon: &str) -> bool {
     if let Some(rest) = icon.strip_prefix("mdi-") {
@@ -78,10 +76,7 @@ fn validate_icon_color(color: &str) -> Result<String, ApiError> {
     Ok(color.to_string())
 }
 
-// ─── ジョブデータのキャッシュ（TTL 60 秒）──────────────────────────────────
-//
-// Python 側と同じ TTL。移行期間中、Rust の書き込みは Python 側キャッシュを即時
-// 無効化できないが、TTL 以内に必ず再読込されるため staleness の上限は従来と同じ。
+// TTL 以内に必ず再読込されるため staleness の上限は一定。
 
 /// ジョブ定義のワークスペース単位 TTL キャッシュを生成する（AppState.jobs_cache）。
 pub fn new_jobs_cache() -> crate::util::TtlCache<Map<String, Value>> {
@@ -108,10 +103,8 @@ pub fn save_common_jobs_data(state: &AppState, data: Map<String, Value>) -> Resu
 }
 
 /// 共通ジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う
-/// （`mutate` は commit 時点の最新データに対して適用される — commit と離れた
-/// 場所で先に読み込んだ古いスナップショットをそのまま書き戻すと、その間に
-/// 別リクエストが加えた変更を lost update してしまうため、`ConfigStore::with_exclusive`
-/// の中で毎回読み直す設計にしている）。
+/// （`mutate` は commit 時点の最新データに適用される。離れた場所で読んだ古いスナップショットを
+/// 書き戻すと lost update になるため、`ConfigStore::with_exclusive` の中で毎回読み直す）。
 pub fn commit_common_jobs(state: &AppState, mutate: JobsMutator) -> Result<(), ApiError> {
     state.config.with_exclusive(|all| {
         let mut jobs = crate::json_store::section_as_map(
@@ -143,10 +136,7 @@ pub fn load_workspace_jobs_data(state: &AppState, identifier: &str) -> Map<Strin
     data
 }
 
-/// ワークスペースジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う
-/// （Python `save_workspace_config_section` は同じくロック下で read-modify-write
-/// する。`mutate` は commit 時点の最新データに対して適用される — 詳細は
-/// `commit_common_jobs` のコメント参照）。
+/// ワークスペースジョブの読み込み→変更→書き込みを1つの排他ロックの下で行う（`commit_common_jobs` 参照）。
 pub fn commit_workspace_jobs(
     state: &AppState,
     identifier: &str,
@@ -154,7 +144,7 @@ pub fn commit_workspace_jobs(
 ) -> Result<(), ApiError> {
     let identifier_owned = identifier.to_string();
     state.config.with_exclusive(|all| {
-        // Python save_workspace_config_section と同じ: エントリの jobs キーだけ差し替える
+        // エントリの jobs キーだけ差し替える
         let key = ConfigStore::find_workspace_key(all, &identifier_owned)
             .unwrap_or_else(|| identifier_owned.clone());
         let mut entry = all
@@ -189,10 +179,7 @@ pub fn resolve_jobs_owner(state: &AppState, identifier: &str) -> String {
     identifier.to_string()
 }
 
-// ─── JobDefinition の整形 ───────────────────────────────────────────────────
-
-/// config のエントリを API 応答の dict に整形する（Python
-/// `entry_to_job_definition` + `job_definition_to_dict` 相当）。
+/// config のエントリを API 応答の dict に整形する。
 pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> Value {
     let s = |k: &str, d: &str| {
         entry
@@ -219,7 +206,6 @@ pub fn job_entry_to_dict(name: &str, entry: &Value, is_common: Option<bool>) -> 
 }
 
 /// 共通ジョブとワークスペースジョブをマージして API 応答形に整形する
-/// （Python `serialize_workspace_jobs` 相当）。
 pub fn serialize_workspace_jobs(state: &AppState, identifier: &str) -> Map<String, Value> {
     if identifier.is_empty() {
         return Map::new();
@@ -246,16 +232,13 @@ pub fn merge_jobs_serialized(
     merged
 }
 
-/// ジョブ名の存在確認（recent-jobs の除去判定用 — Python `get_workspace_jobs` の
-/// キー集合に対応）。
+/// ジョブ名の存在確認（recent-jobs の除去判定用）。
 pub fn workspace_job_names(state: &AppState, identifier: &str) -> Vec<String> {
     serialize_workspace_jobs(state, identifier)
         .keys()
         .cloned()
         .collect()
 }
-
-// ─── CRUD ヘルパー ──────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct JobRequest {
@@ -282,8 +265,7 @@ pub struct ReorderJobsRequest {
     pub order: Vec<String>,
 }
 
-/// Pydantic の Field(max_length=...) 相当（超過は 422）。settings 側の
-/// スニペット/ジョブ検証とエラー文言・ステータスを共有する。
+/// 最大長の検証（超過は 422）。settings 側のスニペット/ジョブ検証とエラー文言・ステータスを共有する。
 pub fn check_max_len(field: &str, value: &str, max: usize) -> Result<(), ApiError> {
     if value.chars().count() > max {
         return Err(ApiError::new(
@@ -334,7 +316,7 @@ fn validate_job_fields(body: &JobRequest) -> Result<ValidatedJob, ApiError> {
     Ok(ValidatedJob { label, command })
 }
 
-/// Python `build_job_entry` と同一（デフォルト値は保存しない）。
+/// デフォルト値は保存しない。
 async fn build_job_entry(
     state: &AppState,
     v: &ValidatedJob,
@@ -372,12 +354,9 @@ async fn build_job_entry(
 /// `commit_workspace_jobs`/`commit_common_jobs` に渡す mutate クロージャの型。
 type JobsMutator = Box<dyn FnOnce(&mut Map<String, Value>) -> Result<(), ApiError> + Send>;
 
-/// `data` は job_name 未指定時の自動採番（`generate_job_key`）にのみ使う参考
-/// スナップショットで、実際の書き込みは commit 時点の最新データに対して行う
-/// （`commit_fn` に渡す mutate クロージャの中で完結させ、`data` を丸ごと
-/// 書き戻すことによる lost update を避ける — Codex レビュー指摘）。
-/// job_name 指定時（更新）は、commit 時点で該当ジョブが存在するかも
-/// 併せて再検証する（TOCTOU を防ぐ）。
+/// `data` は job_name 未指定時の自動採番（`generate_job_key`）にのみ使う参考スナップショット。
+/// 実際の書き込みは commit 時点の最新データに対して mutate クロージャ内で完結させる（lost update 回避）。
+/// job_name 指定時（更新）は commit 時点で該当ジョブが存在するかも再検証する（TOCTOU 防止）。
 pub async fn save_job(
     state: &AppState,
     data: Map<String, Value>,

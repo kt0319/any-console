@@ -1,14 +1,9 @@
 //! any-console-server の軽量CLIサブコマンド群。
 //!
-//! バイナリ配布では python3 の存在を前提にできないため、`./any-console`
-//! ラッパースクリプトが以前 python3 で行っていた config.json 操作・
-//! ワークスペース自動検出・AIエージェントjob登録・tailscaleホスト名取得・
-//! 認証トークン生成を、このバイナリ自身のサブコマンドとして肩代わりする
-//! （実行時に必要な外部依存を git・tmux・（macOSは任意で）tailscale だけにする）。
-//!
-//! `run_subcommand` はサブコマンドとして認識できた時だけ `Some(exit_code)` を返す。
-//! 未認識の引数（0個含む）は `None` を返し、呼び出し元（main.rs）が通常の
-//! サーバ起動へフォールバックする。
+//! config.json 操作・ワークスペース自動検出・AIエージェントjob登録・tailscaleホスト名取得・
+//! 認証トークン生成を、バイナリ自身のサブコマンドとして提供する（python3 を前提にしない）。
+//! `run_subcommand` はサブコマンドとして認識できた時だけ `Some(exit_code)` を返し、
+//! 未認識（0個含む）は `None` を返して main.rs が通常のサーバ起動へ進む。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -58,8 +53,6 @@ fn store_for_cwd() -> ConfigStore {
 fn data_dir_for_cwd() -> PathBuf {
     Paths::from_env(project_root_from_env()).data_dir
 }
-
-// ─── config ─────────────────────────────────────────────────────────────
 
 fn cmd_config(args: &[String]) -> i32 {
     let store = store_for_cwd();
@@ -118,8 +111,6 @@ fn cmd_config(args: &[String]) -> i32 {
     }
 }
 
-// ─── workspaces ─────────────────────────────────────────────────────────
-
 fn cmd_workspaces(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
         Some("discover") => {
@@ -158,7 +149,6 @@ const DISCOVER_SKIP_DIRS: &[&str] = &[
 const DISCOVER_LIMIT: usize = 40;
 
 /// よくある開発ディレクトリを走査してgitリポジトリのパス一覧を1行1件で出す
-/// （旧: any-console内のpython discover_git_repos()と同一の探索規則）。
 fn discover_git_repos() {
     let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
         return;
@@ -227,7 +217,6 @@ fn walk_git_repos(dir: &Path, depth: usize, max_depth: usize, found: &mut HashSe
 }
 
 /// 渡されたパス群をワークスペースとして登録する（パス重複・名前衝突を解決）。
-/// 旧: any-console内のpython register_workspace_paths()と同一の重複解決規則。
 fn cmd_workspaces_register(raw_paths: &[String]) -> i32 {
     let store = store_for_cwd();
     let mut existing = crate::git_utils::registered_paths_by_resolved(&store);
@@ -288,8 +277,6 @@ fn unique_entity_id(entries: &Map<String, Value>) -> String {
     }
     id
 }
-
-// ─── jobs ───────────────────────────────────────────────────────────────
 
 fn cmd_jobs(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
@@ -384,8 +371,7 @@ fn tool_meta(tool: &str) -> Option<ToolMeta> {
     })
 }
 
-/// 検知済みのAIエージェントCLIをcommon jobとして登録する。既に同じcommandの
-/// jobが登録済みなら二重登録しない（setup再実行でも安全 — 旧python版と同じ）。
+/// 検知済みのAIエージェントCLIをcommon jobとして登録する。既に同じcommandのjobが登録済みなら二重登録しない。
 fn cmd_jobs_register_ai_agents(tools: &[String]) -> i32 {
     let store = store_for_cwd();
     let mut jobs: Map<String, Value> = match store.load_global_section("jobs") {
@@ -442,8 +428,6 @@ fn cmd_jobs_register_ai_agents(tools: &[String]) -> i32 {
     }
     0
 }
-
-// ─── hooks ──────────────────────────────────────────────────────────────
 
 const CLAUDE_HOOK_EVENTS: &[&str] = &[
     "PreToolUse",
@@ -537,7 +521,7 @@ fn cmd_hooks_install_claude() -> i32 {
         let Value::Array(entries) = entries_value else {
             continue;
         };
-        // 引用符が必要なパスでは、旧版が登録した引用なしの壊れたコマンドが
+        // 引用符が必要なパスでは、過去に登録された引用なしの壊れたコマンドが
         // 残っていることがある。放置すると引用済みの行と二重登録になり、
         // 壊れた側も毎回実行され続けるため、先に取り除いて置き換える
         let mut removed_legacy = false;
@@ -626,8 +610,6 @@ fn cmd_hooks_install_claude() -> i32 {
     0
 }
 
-// ─── tailscale ──────────────────────────────────────────────────────────
-
 async fn cmd_tailscale(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
         Some("hostname") => {
@@ -648,8 +630,6 @@ async fn tailscale_hostname() -> String {
         .map(|s| s.trim_end_matches('.').to_string())
         .unwrap_or_default()
 }
-
-// ─── auth ───────────────────────────────────────────────────────────────
 
 fn cmd_auth(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
@@ -672,8 +652,6 @@ fn cmd_auth_ensure_token() {
     crate::auth::Auth::new(data_dir).update_token(&token);
     println!("{token}");
 }
-
-// ─── paths ──────────────────────────────────────────────────────────────
 
 fn cmd_paths(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {

@@ -40,7 +40,6 @@ async fn close_ws(socket: &mut WebSocket, code: u16, reason: &str) {
 }
 
 /// tmux セッションが（何らかの理由で）消えていた場合に再作成する
-/// （Python `_ensure_tmux_session` 相当）。
 async fn ensure_tmux_session(
     state: &Arc<AppState>,
     session_arc: &Arc<tokio::sync::Mutex<TerminalSession>>,
@@ -112,7 +111,7 @@ impl CmdBuffer {
         }
     }
 
-    /// Enter 時にコマンド文字列を返す（Python `_update_cmd_buffer` 相当）。
+    /// Enter 時にコマンド文字列を返す。
     fn feed(&mut self, data: &[u8]) -> Option<String> {
         for &b in data {
             match self.escape {

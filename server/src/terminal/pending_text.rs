@@ -4,8 +4,7 @@
 use super::*;
 
 /// dispatch が新規セッションに予約したテキストを attach 後の初期 redraw を
-/// 待ってから送る（Python `_flush_pending_text` 相当。永続先が tmux 環境変数
-/// なのでプロセスをまたいでも安全 — 詳細は dispatch.rs のコメント参照）。
+/// 待ってから送る（永続先が tmux 環境変数なのでプロセスをまたいでも安全 — dispatch.rs 参照）。
 ///
 /// 保留テキストが無くて何もしなかったときは false を返す（呼び出し側が flush 権を手放す）。
 pub(super) async fn flush_pending_text(
@@ -198,18 +197,13 @@ pub(super) async fn wait_agent_process(
     }
 }
 
-/// job（例: `claude`）が既知のAIエージェント（`agent_manifests/`で定義済み）
-/// と識別できる場合だけ、画面が実際にidle（プロンプト入力待ち）になるまで
-/// ポーリングする。判定できない任意コマンドのjob（stdinを読まないデーモン的
-/// プロセス等も多い）には汎用的な「入力受付可能」の検知手段が無いため、
-/// 何もせず即座に返す（この場合は従来通り `PENDING_TEXT_DELAY_SEC` の固定
-/// 待ちのみに依存する）。
+/// job（例: `claude`）が既知のAIエージェント（`agent_manifests/`で定義済み）と識別できる場合だけ、
+/// 画面が idle（プロンプト入力待ち）になるまでポーリングする。判定できない任意コマンドの job には
+/// 汎用の「入力受付可能」検知が無いため、何もせず即返す（`PENDING_TEXT_DELAY_SEC` の固定待ちのみ）。
 ///
-/// `agent_watch::resolve_session_state` を画面差分の履歴（prev_capture）無しで
-/// 呼ぶため、manifestのルールに一致しない間はscreen diffフォールバックが常に
-/// "idle" を返してしまう（`classify_agent_state`参照）。これは意味の無い
-/// idle判定のため、`AgentStateSource::Manifest` 由来のidleだけを本物の
-/// ready signal として扱う。
+/// `agent_watch::resolve_session_state` を画面差分の履歴無しで呼ぶため、manifest ルール不一致の間は
+/// screen diff フォールバックが常に "idle" を返してしまう。そのため `AgentStateSource::Manifest` 由来の
+/// idle だけを ready signal として扱う。
 pub(super) async fn wait_agent_idle_if_known(state: &Arc<AppState>, full_tmux_name: &str) {
     let Some((command, _)) = tmux::pane_command_and_title(full_tmux_name).await else {
         return;

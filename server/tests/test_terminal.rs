@@ -1,8 +1,6 @@
 //! ターミナル HTTP + WebSocket ルートの統合テスト。
 //!
-//! これらのルートはまだ `build_router` に配線されていない（Phase 5 の設計判断 —
-//! `/run`・`/dispatch` と同時に配線する）ため、ここではテスト専用の Router を
-//! 直接組み立てて `terminal::` ハンドラを検証する。
+//! テスト専用の Router を直接組み立てて `terminal::` ハンドラを検証する。
 
 mod common;
 
@@ -415,9 +413,7 @@ async fn list_and_delete_require_auth() {
 
 /// Rust 再起動直後を模した状況（レジストリが空だが tmux には実在する
 /// セッション）を DELETE すると、404 にならずレジストリへハイドレートしてから
-/// 実際に tmux セッションが kill されること（Codex レビュー指摘: 以前は
-/// registry-only の `remove` が None を返して 404 になり、tmux プロセスは
-/// キルされずに残り続けていた）。
+/// 実際に tmux セッションが kill されること（registry-only だと 404 になり tmux プロセスが残る）。
 #[tokio::test]
 async fn delete_hydrates_unregistered_but_live_tmux_session() {
     if common::skip_if_no_tmux() {

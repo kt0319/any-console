@@ -2,7 +2,7 @@
 //!
 //! data URI は data/icons へ保存して `icon:<hash>.<ext>` 参照に変換し、
 //! `favicon:<domain>` は Google favicon サービスから取得して同様に保存する
-//! （取得失敗時は元の値のまま返す — Python と同一のベストエフォート）。
+//! （取得失敗時は元の値のまま返すベストエフォート）。
 
 use std::path::Path;
 
@@ -21,10 +21,8 @@ fn mime_to_ext(mime: &str) -> Option<&'static str> {
     }
 }
 
-/// アイコンを保存する（Python `_save_icon_bytes` 相当）。書き込み失敗時は
-/// エラーを返す（Codex レビュー指摘: 以前は失敗を握りつぶし、実際には書かれて
-/// いないファイルへの参照 `icon:<filename>` を返してしまっていた — 呼び出し元が
-/// その参照を config へ保存すると、以後そのアイコンは永久に壊れたまま残る）。
+/// アイコンを保存する。書き込み失敗時はエラーを返す（握りつぶすと、書かれていないファイルへの参照を
+/// config に保存して永久に壊れたままになる）。
 fn save_icon_bytes(icons_dir: &Path, raw: &[u8], ext: &str) -> std::io::Result<String> {
     let digest = Sha256::digest(raw);
     let hex: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
@@ -76,7 +74,7 @@ fn base64_decode(data: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// `data:image/<type>;base64,<data>` をパースする（Python `DATA_URI_RE` 相当）。
+/// `data:image/<type>;base64,<data>` をパースする。
 fn parse_data_uri(icon: &str) -> Option<(String, &str)> {
     let rest = icon.strip_prefix("data:")?;
     let (mime, data) = rest.split_once(";base64,")?;
@@ -138,19 +136,16 @@ async fn download_favicon(icons_dir: &Path, domain: &str, fallback: &str) -> Str
     };
     let ext = mime_to_ext(&content_type).unwrap_or("png");
     tracing::info!("favicon downloaded domain={domain} size={}", raw.len());
-    // Python `_download_favicon` は保存も含めて try/except で囲んでおり、書き込み
-    // 失敗（OSError）時も fallback（元の "favicon:domain" 文字列）を返す。
+    // 保存も含めて失敗時は fallback（元の "favicon:domain" 文字列）を返す。
     save_icon_bytes(icons_dir, &raw, ext).unwrap_or_else(|e| {
         tracing::warn!("favicon save failed domain={domain}: {e}");
         fallback.to_string()
     })
 }
 
-/// アイコン値を解決し、必要ならディスクへ保存する（Python `normalize_icon` 相当）。
+/// アイコン値を解決し、必要ならディスクへ保存する。
 /// `favicon:<domain>` は外部ダウンロード、data URI は `icons_dir` への書き込みを
-/// 伴う。data URI の保存に失敗した場合はエラーを返す（Python は素通しの例外で
-/// 呼び出し元に伝播する — favicon と異なりここでは fallback せず、呼び出し元が
-/// 500 を返す）。
+/// 伴う。data URI の保存に失敗した場合は、favicon と異なり fallback せずエラーを返す（呼び出し元が 500 にする）。
 pub async fn resolve_and_store_icon(icons_dir: &Path, icon: &str) -> std::io::Result<String> {
     if let Some(domain) = icon.strip_prefix(FAVICON_PREFIX) {
         return Ok(download_favicon(icons_dir, domain, icon).await);
@@ -205,10 +200,8 @@ mod tests {
         );
     }
 
-    /// data URI の保存に失敗したらエラーが伝播すること（Codex レビュー指摘:
-    /// 以前は失敗を握りつぶし、実際には書かれていないファイルへの参照
-    /// `icon:<filename>` を返してしまっていた）。icons_dir に同名の通常ファイルを
-    /// 置いて `create_dir_all` を失敗させることで書き込みエラーを発生させる。
+    /// data URI の保存に失敗したらエラーが伝播すること。icons_dir に同名の通常ファイルを置いて
+    /// `create_dir_all` を失敗させることで書き込みエラーを発生させる。
     #[tokio::test]
     async fn data_uri_save_failure_propagates_error() {
         let dir = tempfile::tempdir().unwrap();
@@ -218,11 +211,9 @@ mod tests {
         assert!(resolve_and_store_icon(&icons_dir, uri).await.is_err());
     }
 
-    /// save_icon_bytes 自体の書き込み失敗が Err として伝わること（icons_dir と
-    /// 同名の通常ファイルを置いて create_dir_all を失敗させる）。favicon 側
-    /// （download_favicon）はこの Err を fallback 文字列へ変換する — Python
-    /// `_download_favicon` の try/except と同じ挙動（実ネットワークに依存しない
-    /// ようこの層だけを単体で検証する）。
+    /// save_icon_bytes 自体の書き込み失敗が Err として伝わること（icons_dir と同名の通常ファイルを置いて
+    /// create_dir_all を失敗させる）。favicon 側（download_favicon）はこの Err を fallback 文字列へ変換する
+    /// （実ネットワークに依存しないようこの層だけを単体で検証する）。
     #[test]
     fn save_icon_bytes_propagates_write_failure() {
         let dir = tempfile::tempdir().unwrap();

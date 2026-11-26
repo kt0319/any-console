@@ -5,8 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-/// TLS 証明書の起動時ロード結果（Python の `_ssl_loaded`/`_ssl_ctx` に対応する
-/// 遅延一回ロード）。ロード自体に失敗した場合も再試行はしない（Python と同じ）。
+/// TLS 証明書の起動時ロード結果。ロード自体に失敗した場合も再試行はしない。
 pub type TlsConfig = Option<Arc<tokio_rustls::rustls::ServerConfig>>;
 
 pub fn find_cert_pair(data_dir: &Path) -> Option<(PathBuf, PathBuf)> {

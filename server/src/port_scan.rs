@@ -13,8 +13,6 @@ const PROC_INFO_TIMEOUT_SEC: f64 = 1.0;
 pub(crate) const MIN_PORT: u16 = 1024;
 pub(crate) const MAX_PORT: u16 = 65535;
 
-// ─── ポートスキャン: 出力パース（純粋関数） ─────────────────────────────────
-
 /// `ss -ltnp` の各行から「LISTEN 行のローカルポート」と最初の
 /// `("proc",pid=N)` を抜く。出力例:
 /// `LISTEN 0 511   0.0.0.0:5173  0.0.0.0:*  users:(("node",pid=1942930,fd=21))`
@@ -113,8 +111,6 @@ fn label_from_cmdline_parts(parts: &[String]) -> String {
     basename(first)
 }
 
-// ─── プロセス情報の取得（Linux: /proc、macOS: ps/lsof） ─────────────────────
-
 /// プロセスの cmdline から表示用ラベルを取得する（`label_from_cmdline_parts` 参照）。
 async fn read_cmdline(pid: u32) -> String {
     if IS_MACOS {
@@ -152,8 +148,6 @@ pub(crate) async fn read_cwd(pid: u32) -> Option<String> {
         .ok()
         .map(|p| p.to_string_lossy().into_owned())
 }
-
-// ─── ポートスキャン: OS 呼び出し ────────────────────────────────────────────
 
 async fn scan_listening_ports_linux(proxy_ports: &HashSet<u16>) -> HashMap<u16, (String, u32)> {
     // ss が無い（最小コンテナ等）・実行に失敗する環境では lsof スキャンへ

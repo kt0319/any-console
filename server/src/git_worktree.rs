@@ -1,8 +1,7 @@
 //! git worktree の作成・一覧・削除。
 //!
 //! worktree を作成すると、その作業ツリーは動的 worktree 名（'{base}:{branch}'）で
-//! 参照できる。作成・削除後は Python と同じ位置で `invalidate_and_publish_git_info`
-//! （ローカルキャッシュ無効化 + Python 側 status stream への nudge）を呼ぶ。
+//! 参照できる。作成・削除後は `invalidate_and_publish_git_info` を呼ぶ。
 
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -32,7 +31,7 @@ fn sanitize_segment(value: &str) -> String {
             cleaned.push(c);
             prev_dash = false;
         } else if !prev_dash {
-            // 連続する不正文字は 1 つの '-' へ（Python の正規表現 [^...]+ → "-" と同一）
+            // 連続する不正文字は 1 つの '-' へ
             cleaned.push('-');
             prev_dash = true;
         }

@@ -1,4 +1,4 @@
-//! Rust ネイティブ移行済み jobs / recent-jobs ルートの統合テスト。
+//! jobs / recent-jobs ルートの統合テスト。
 
 mod common;
 

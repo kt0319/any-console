@@ -1,14 +1,8 @@
 //! PTY 起動・非同期 I/O の低レベルプリミティブ。
 //!
-//! `nix::pty::forkpty`（glibc の `forkpty(3)` 相当 = openpty + fork + login_tty を
-//! 1ステップで行う）を使い、CPython の `os.forkpty()` と同じ土台に乗る。fork 後の
-//! 子プロセスは execve 呼び出しまで async-signal-safe な操作（syscall のみ）に
-//! 限定しなければならない（マルチスレッドプロセスの fork 直後、他スレッドが保持
-//! していたロック — アロケータ含む — は子に引き継がれず、確保しようとした時点で
-//! 永久にブロックしうるため）。argv/envp の `CString` 化・`PATH` 探索は必ず fork
-//! **前**に完了させ、子プロセスの分岐では既に用意済みのポインタで `execve` する
-//! だけにする（Python `os.execvpe` は内部で PATH 探索してから `execve` する実装の
-//! ため、この手順は Python と同じ意味論になる）。
+//! `nix::pty::forkpty`（openpty + fork + login_tty）を使う。fork 後の子は execve まで async-signal-safe な
+//! 操作（syscall のみ）に限定する（他スレッドが持っていたロック（アロケータ含む）は子に引き継がれず、
+//! 確保しようとして永久にブロックしうるため）。argv/envp の `CString` 化・`PATH` 探索は fork **前**に完了させる。
 
 use std::ffi::CString;
 use std::io;
@@ -17,7 +11,7 @@ use std::os::fd::{AsRawFd, OwnedFd, RawFd};
 use nix::pty::{ForkptyResult, Winsize};
 use nix::unistd::Pid;
 
-/// 子プロセスへ渡す実行環境（Python `attach_tmux_session` の env dict に対応）。
+/// 子プロセスへ渡す実行環境。
 #[derive(Debug)]
 pub struct ExecSpec {
     program_path: CString,
@@ -27,8 +21,7 @@ pub struct ExecSpec {
 
 impl ExecSpec {
     /// `program` を `path_env`（"KEY1=v1:KEY2=v2..." 形式ではなく素の PATH 値）で
-    /// 探索し、フルパスへ解決してから組み立てる（Python `os.execvpe` の PATH 探索
-    /// 相当）。見つからなければ `ErrorKind::NotFound`。
+    /// 探索し、フルパスへ解決してから組み立てる。見つからなければ `ErrorKind::NotFound`。
     pub fn resolve(program: &str, args: &[&str], env: &[(&str, &str)]) -> io::Result<Self> {
         let path_env = env
             .iter()
@@ -84,7 +77,6 @@ pub struct PtyChild {
     pub pid: Pid,
 }
 
-/// PTY 上でプロセスを fork+exec する（Python `pty.fork()` + `os.execvpe` 相当）。
 /// `spec` は呼び出し前に完全に組み立て済みであること（fork 後の子は syscall のみ）。
 pub fn spawn(spec: &ExecSpec, cols: u16, rows: u16) -> io::Result<PtyChild> {
     let winsize = Winsize {
@@ -132,7 +124,7 @@ fn set_nonblocking(fd: RawFd) -> io::Result<()> {
     Ok(())
 }
 
-/// アタッチ済みクライアント PTY の winsize を更新する（Python `resize_client_pty`）。
+/// アタッチ済みクライアント PTY の winsize を更新する。
 /// stale fd 上での ioctl 失敗は無視する（クローズ済み fd でのクラッシュを避けるため）。
 pub fn resize(fd: RawFd, cols: u16, rows: u16) {
     let winsize = Winsize {
@@ -194,10 +186,8 @@ impl AsyncPty {
         }
     }
 
-    /// `data` を全バイト書き込むまでリトライする（non-blocking fd での
-    /// short write・EAGAIN を吸収する）。生の `libc::write` を1回呼ぶだけだと、
-    /// PTY 入力バッファが埋まっている時に一部バイトしか書けない・EAGAIN で
-    /// 丸ごと失敗することがあり、長文ペーストが途中で欠落する原因になっていた。
+    /// `data` を全バイト書き込むまでリトライする（non-blocking fd での short write・EAGAIN を吸収する。
+    /// 生の `libc::write` 1回だと長文ペーストが途中で欠落する）。
     pub async fn write_all(&self, data: &[u8]) -> io::Result<()> {
         let fd = self.inner.get_ref().as_raw_fd();
         let mut written = 0;
@@ -228,7 +218,6 @@ impl AsyncPty {
     }
 }
 
-/// SIGTERM 後に自然終了を待つ猶予（Python の 0.1 秒猶予と同一）。
 const TERMINATE_GRACE: std::time::Duration = std::time::Duration::from_millis(100);
 /// SIGKILL 後、呼び出し元をブロックして刈り取りを待つ上限。
 const REAP_FAST_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(200);
@@ -257,8 +246,7 @@ fn poll_reap(pid: Pid, timeout: std::time::Duration, interval: std::time::Durati
     try_reap(pid)
 }
 
-/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送り、刈り取る
-/// （Python `close_pty` の後半部分相当）。fd のクローズは呼び出し側の責務
+/// 子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送り、刈り取る。fd のクローズは呼び出し側の責務
 /// （`Arc<AsyncPty>` 等、複数箇所が参照を共有する場合は最後の drop で自然に
 /// close されるため、ここでは pid の刈り取りだけを独立して行えるようにする）。
 ///
@@ -289,7 +277,6 @@ pub fn terminate(pid: Pid) {
 }
 
 /// PTY をクローズし、子プロセスへ SIGTERM → (未刈り取りなら) SIGKILL の順で送る
-/// （Python `close_pty` 相当。fd を排他所有している場合に使う）。
 pub fn close(master: OwnedFd, pid: Pid) {
     drop(master); // fd を閉じる
     terminate(pid);

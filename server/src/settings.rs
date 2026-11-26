@@ -1,8 +1,6 @@
 //! 設定 API（各種グローバル設定の GET/PUT + PUT /workspace-order）。
 //!
-//! config.json のグローバルセクションを読み書きするルートを移行する。
-//! GET/PUT /settings/auth（auth.json ドメイン）は `crate::auth` 側に実装がある
-//! （`/devices/*`・`/auth/check` 等との atomic cutover 単位のため）。
+//! config.json のグローバルセクションを読み書きする。GET/PUT /settings/auth は `crate::auth` 側にある。
 
 use std::sync::Arc;
 
@@ -30,8 +28,6 @@ fn save_global(store: &ConfigStore, key: &str, value: Value) -> Result<(), ApiEr
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e))
 }
 
-// ─── /settings/config-health・/settings/export・/settings/import ────────────
-
 pub async fn get_config_health(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
@@ -58,10 +54,8 @@ pub async fn import_settings(
     let Some(data) = data.as_object() else {
         return Err(bad_request("Expected JSON object"));
     };
-    // 読み込み→マージ→書き込みを1つの排他ロックの下で行う。分離していると、
-    // マージ元に使った読み込み後に別リクエストが加えた変更（ワークスペース登録・
-    // ジョブ CRUD 等）を、インポートが古いスナップショットで丸ごと上書きして
-    // しまう（Codex レビュー指摘）。
+    // 読み込み→マージ→書き込みを1つの排他ロックの下で行う（分離すると、読み込み後に他リクエストが加えた変更を
+    // インポートが古いスナップショットで上書きしてしまう）。
     state
         .config
         .with_exclusive(|current| {
@@ -70,11 +64,8 @@ pub async fn import_settings(
             }
             Ok(())
         })
-        // `with_exclusive` は書き込み失敗を一律 500 として扱うが、Python の
-        // /settings/import は不正なインポートデータによる検証エラー（ValueError）を
-        // 400 として返す。ここだけはその契約を保つため 400 へ読み替える
-        // （I/O 障害等サーバ起因の失敗は考えにくいが、区別する情報が無いため
-        // インポート特有の「投入データが悪い」を優先する）。
+        // `with_exclusive` は書き込み失敗を一律 500 とするが、/settings/import は不正なインポートデータによる
+        // 検証エラーを 400 として返す契約のため、ここだけ 400 へ読み替える。
         .map_err(|e| {
             if e.status == axum::http::StatusCode::INTERNAL_SERVER_ERROR {
                 bad_request(e.detail)
@@ -85,8 +76,7 @@ pub async fn import_settings(
     Ok(Json(json!({"status": "ok"})))
 }
 
-/// Python `_apply_import_entry` と同一: global は丸ごと置換、workspace は
-/// 既存エントリ（パスが実在するもの）にのみマージし、name は既存を維持する。
+/// global は丸ごと置換、workspace は既存エントリ（パスが実在するもの）にのみマージし、name は既存を維持する。
 fn apply_import_entry(current: &mut Map<String, Value>, identifier: &str, ws_config: &Value) {
     let Some(ws_obj) = ws_config.as_object() else {
         return;
@@ -115,8 +105,6 @@ fn apply_import_entry(current: &mut Map<String, Value>, identifier: &str, ws_con
     merged.insert("name".to_string(), Value::String(name.to_string()));
     current.insert(target_id.clone(), Value::Object(merged));
 }
-
-// ─── /settings/editor ───────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct EditorSettings {
@@ -148,8 +136,6 @@ pub async fn put_editor(
     Ok(Json(json!({"status": "ok", "url_template": url_template})))
 }
 
-// ─── /settings/notifications ────────────────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct NotificationSettings {
     #[serde(default = "default_grace")]
@@ -160,7 +146,6 @@ fn default_grace() -> i64 {
     PHRASE_NOTIFY_IDLE_GRACE_SEC
 }
 
-/// Python `notification_grace_sec` と同一の解決規則。
 pub(crate) fn notification_grace_sec(store: &ConfigStore) -> i64 {
     let raw = store.load_global_section("notifications");
     let Some(obj) = raw.as_ref().and_then(Value::as_object) else {
@@ -202,8 +187,6 @@ pub async fn put_notifications(
     Ok(Json(json!({"status": "ok", "phrase_notify_grace_sec": v})))
 }
 
-// ─── /settings/preview ──────────────────────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct PreviewSettings {
     https: bool,
@@ -230,8 +213,6 @@ pub async fn put_preview(
     save_global(&state.config, "preview", json!({"https": body.https}))?;
     Ok(Json(json!({"status": "ok", "https": body.https})))
 }
-
-// ─── /settings/info-pills ───────────────────────────────────────────────────
 
 const INFO_PILL_FIELDS: &[&str] = &[
     "files",
@@ -364,8 +345,6 @@ pub async fn put_info_pills(
     Ok(Json(Value::Object(resp)))
 }
 
-// ─── /settings/circle-keypad ────────────────────────────────────────────────
-
 const CIRCLE_KEYPAD_KEY_COUNT: usize = 8;
 const CIRCLE_KEYPAD_SPECIAL_COUNT: usize = 4;
 const CIRCLE_KEYPAD_LABEL_MAX: usize = 20;
@@ -457,8 +436,6 @@ pub async fn put_circle_keypad(
     Ok(Json(json!({"status": "ok"})))
 }
 
-// ─── /settings/layout ───────────────────────────────────────────────────────
-
 const SPLIT_LAYOUT_VALUES: &[&str] = &["horizontal", "vertical", "grid"];
 const SPLIT_SESSION_IDS_MAX: usize = 16;
 
@@ -516,8 +493,6 @@ pub async fn delete_layout(
     save_global(&state.config, "layout", json!({}))?;
     Ok(Json(json!({"status": "ok"})))
 }
-
-// ─── /snippets ──────────────────────────────────────────────────────────────
 
 fn default_label(command: &str) -> String {
     let chars: Vec<char> = command.chars().collect();
@@ -596,12 +571,8 @@ pub async fn put_snippets(
     Ok(Json(json!({"status": "ok", "snippets": snippets})))
 }
 
-// ─── /recent-jobs ───────────────────────────────────────────────────────────
-//
-// Phase 1 では jobs 解決に依存するため保留していたが、jobs_common の移行
-// （Phase 3）で解禁。GET はジョブが削除→再作成されて参照先が消えた
-// スナップショットを除去し、除去があれば compare_and_update で排他ロック下に
-// 書き戻す（除去計算中に割り込んだ他クライアントの PUT を上書きしない）。
+// GET はジョブが削除→再作成されて参照先が消えたスナップショットを除去し、除去があれば
+// compare_and_update で排他ロック下に書き戻す（除去計算中に割り込んだ他クライアントの PUT を上書きしない）。
 
 fn recent_job_still_exists(state: &AppState, item: &Value) -> bool {
     let workspace = item.get("workspace").and_then(Value::as_str).unwrap_or("");
@@ -692,10 +663,8 @@ pub async fn put_recent_jobs(
     _auth: RequireAuth,
     JsonBody(body): JsonBody<UpdateRecentJobsRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    // Python の RecentJobItem（pydantic）が全フィールドに max_length を課しているのと
-    // 同じ制約を課す（Codex レビュー指摘: 一部フィールドしか検証していなかったため、
-    // Python 版なら 422 になる巨大な jobName 等がそのまま config.json に保存され、
-    // API 契約が変わってしまっていた）。
+    // 全フィールドに max_length を課す（一部しか検証しないと、巨大な jobName 等がそのまま
+    // config.json に保存されてしまう）。
     for item in &body.recent_jobs {
         for (v, max, field) in [
             (&item.key, MAX_LABEL_LENGTH, "key"),
@@ -711,7 +680,6 @@ pub async fn put_recent_jobs(
             check_max_len(field, v, max)?;
         }
     }
-    // Python は Pydantic model_dump（全フィールドをキャメルケースで保存）
     let recent_jobs: Vec<Value> = body
         .recent_jobs
         .iter()
@@ -725,8 +693,6 @@ pub async fn put_recent_jobs(
     )?;
     Ok(Json(json!({"status": "ok", "recent_jobs": recent_jobs})))
 }
-
-// ─── PUT /workspace-order ───────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct WorkspaceOrderRequest {

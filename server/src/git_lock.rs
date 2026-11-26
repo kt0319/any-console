@@ -1,8 +1,7 @@
 //! ワークスペース単位の git 書き込みロック。
 //!
-//! プロセス内の API 起点 git 操作同士を直列化する（旧 Python 実装の
-//! `workspace_write_lock` と同じくプロセス内ロックのみ。dispatch の checkout
-//! （`ensure_branch`）は元々このロックを取らない）。
+//! プロセス内の API 起点 git 操作同士を直列化する（プロセス内ロックのみ。
+//! dispatch の checkout（`ensure_branch`）はこのロックを取らない）。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -27,7 +26,7 @@ impl WorkspaceLocks {
         locks.entry(name.to_string()).or_default().clone()
     }
 
-    /// ロックを取得する（30秒でタイムアウトし 500 を返す — Python と同一挙動）。
+    /// ロックを取得する（30秒でタイムアウトし 500 を返す）。
     pub async fn acquire(&self, name: &str) -> Result<tokio::sync::OwnedMutexGuard<()>, ApiError> {
         let lock = self.get_lock(name);
         tokio::time::timeout(Duration::from_secs_f64(LOCK_TIMEOUT_SEC), lock.lock_owned())

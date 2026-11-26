@@ -12,8 +12,6 @@ use crate::git_utils::{
 };
 use crate::state::AppState;
 
-// ─── validators ────────────────────────────────────────────────────────────
-
 pub fn validate_workspace_name(name: &str) -> Result<String, ApiError> {
     let name = name.trim();
     if name.is_empty() {
@@ -69,13 +67,10 @@ pub fn validate_stash_ref(stash_ref: &str) -> Result<String, ApiError> {
     }
 }
 
-// ─── git action 実行の定型 ──────────────────────────────────────────────────
-
-/// ワークスペースロック下で git コマンドを実行する（Python `execute_git_action`）。
+/// ワークスペースロック下で git コマンドを実行する。
 ///
-/// Python 側の `invalidate_git_info`（= status stream への即時 nudge）に対応して、
-/// ローカルの git_info キャッシュを無効化し、`git_watch::nudge_workspace` で
-/// status stream へ即時反映を促す（`invalidate_and_publish_git_info` 参照）。
+/// ローカルの git_info キャッシュを無効化し、`git_watch::nudge_workspace` で status stream へ即時反映を促す
+/// （`invalidate_and_publish_git_info` 参照）。
 pub async fn execute_git_action(
     state: &Arc<AppState>,
     name: &str,
@@ -118,8 +113,7 @@ pub async fn execute_git_action_by_name(
     execute_git_action(state, name, &ws_path, args, operation, env, log_extra).await
 }
 
-/// Python `invalidate_git_info` の Rust 対応: ローカルキャッシュの無効化 +
-/// status stream への即時 nudge（`git_watch::nudge_workspace`）。
+/// ローカルキャッシュの無効化 + status stream への即時 nudge（`git_watch::nudge_workspace`）。
 pub fn invalidate_and_publish_git_info(state: &Arc<AppState>, name: &str, ws_path: &Path) {
     state.git_info_cache.invalidate(ws_path);
     crate::git_watch::nudge_workspace(state, name.to_string());
@@ -147,8 +141,7 @@ pub fn activity_fields(pairs: &[(&str, Value)]) -> Map<String, Value> {
         .collect()
 }
 
-/// execute_git_action の成功時に activity を記録する定型（Python
-/// `execute_git_action_with_activity`）。resolve_head=true なら成功後の HEAD を
+/// execute_git_action の成功時に activity を記録する定型。resolve_head=true なら成功後の HEAD を
 /// commit フィールドに載せる。
 #[allow(clippy::too_many_arguments)]
 pub async fn execute_git_action_with_activity(
@@ -174,9 +167,7 @@ pub async fn execute_git_action_with_activity(
     Ok(result)
 }
 
-// ─── パス検証 ───────────────────────────────────────────────────────────────
-
-/// ワークスペース配下の相対パスを解決・検証する（Python `resolve_workspace_file`）。
+/// ワークスペース配下の相対パスを解決・検証する。
 /// パストラバーサルと .git 配下へのアクセスを 400 で拒否する。
 pub async fn resolve_workspace_file(
     state: &Arc<AppState>,
@@ -188,16 +179,10 @@ pub async fn resolve_workspace_file(
     Ok((ws_path, target, rel))
 }
 
-/// Python `Path.resolve()`（strict=False）相当: 対象を丸ごと `canonicalize`
-/// できればそれを使い（既存ファイル — シンボリックリンクも解決済み）、できなければ
-/// （新規作成対象など末尾が存在しない）存在する最長の先頭部分だけ `canonicalize`
-/// して、存在しない残りをそのまま連結する。
-///
-/// レキシカルな `..`/`.` 正規化だけでは、途中の構成要素が外部を指す
-/// シンボリックリンクの場合の脱出を見逃す（例: `ws_root/external` が
-/// `/home/user` を指すシンボリックリンクのとき、`external/.ssh/config` は
-/// レキシカルには `ws_root` 配下に見えるが、実体は `ws_root` の外にある —
-/// Codex レビュー指摘）。実体解決してから配下検証する必要がある。
+/// 対象を丸ごと `canonicalize` できればそれを使い（シンボリックリンクも解決済み）、できなければ存在する最長の
+/// 先頭部分だけ `canonicalize` して、存在しない残りをそのまま連結する。
+/// レキシカルな `..`/`.` 正規化だけでは、途中の構成要素が外部を指すシンボリックリンクによる脱出を見逃す
+/// （例: `ws_root/external` が `/home/user` を指すとき `external/.ssh/config` は実体が `ws_root` の外）。
 fn resolve_path_following_symlinks(path: &Path) -> PathBuf {
     if let Ok(full) = path.canonicalize() {
         return full;
@@ -219,7 +204,7 @@ pub fn resolve_and_validate_workspace_path(
     ws_path: &Path,
     path: &str,
 ) -> Result<(PathBuf, PathBuf), ApiError> {
-    // Python は (ws_path / path).resolve() 後に relative_to で配下検証する。
+    // 配下検証は (ws_path / path) を解決した後に行う。
     let ws_root = ws_path
         .canonicalize()
         .unwrap_or_else(|_| ws_path.to_path_buf());
@@ -292,9 +277,8 @@ mod tests {
         assert!(resolve_and_validate_workspace_path(ws, "src/.git/config").is_err());
     }
 
-    /// シンボリックリンク経由の脱出は、レキシカルには配下に見えても実体解決後に
-    /// 拒否されること（Codex レビュー指摘: `ws/external` が外部ディレクトリを指す
-    /// シンボリックリンクのとき `external/secret.txt` は実体としては ws の外）。
+    /// シンボリックリンク経由の脱出は、レキシカルには配下に見えても実体解決後に拒否されること
+    /// （`ws/external` が外部ディレクトリを指すとき `external/secret.txt` は実体としては ws の外）。
     #[cfg(unix)]
     #[test]
     fn workspace_symlink_escape_rejected() {

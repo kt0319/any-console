@@ -1,7 +1,7 @@
 //! git subprocess 実行と低レベルクエリ。
 //!
 //! Git はライブラリを使わず subprocess のみ（docs/DECISIONS.md）。出力の
-//! デコードは UTF-8 + 置換（Python の errors="replace" 相当 = from_utf8_lossy）。
+//! デコードは UTF-8 + 置換（from_utf8_lossy）。
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -18,11 +18,8 @@ pub const GIT_SHORT_TIMEOUT_SEC: f64 = 10.0;
 pub const GIT_STANDARD_TIMEOUT_SEC: f64 = 30.0;
 pub const GIT_LONG_TIMEOUT_SEC: f64 = 60.0;
 pub const BACKGROUND_FETCH_TIMEOUT_SEC: f64 = 15.0;
-/// ワークスペースにアイコンが未設定（空文字/キー欠如）の時のデフォルト値。
-/// 未設定のままだとタブバー等でjob側アイコンだけが表示され、あたかも
-/// jobアイコンがワークスペースを代表しているように見えてしまうため、
-/// 読み出し時点で必ず埋める（`ui/components/WorkspaceEditPane.vue` の
-/// `DEFAULT_WS_ICON` と同じ値）。
+/// ワークスペースにアイコンが未設定の時のデフォルト値。未設定のままだとjobアイコンがワークスペースを
+/// 代表しているように見えるため、読み出し時に必ず埋める（`WorkspaceEditPane.vue` の `DEFAULT_WS_ICON` と同じ値）。
 pub const DEFAULT_WORKSPACE_ICON: &str = "mdi-console";
 
 /// エントリの `icon` 値（未設定・空文字なら `DEFAULT_WORKSPACE_ICON`）。
@@ -33,7 +30,7 @@ pub fn workspace_icon_or_default(icon: Option<&Value>) -> &str {
 }
 
 /// バックグラウンドの `git fetch --quiet` を実行し、実行できたかを返す
-/// （Python `background_fetch` 相当 — 終了コードは見ない。タイムアウト・OS
+/// （終了コードは見ない。タイムアウト・OS
 /// エラーのみ false）。GIT_TERMINAL_PROMPT=0 で認証プロンプトを無効化する。
 pub async fn background_fetch(directory: &Path) -> bool {
     match run_git_raw(
@@ -76,7 +73,7 @@ impl GitOutput {
         }
     }
 
-    /// API 応答用の定型 dict（Python `command_result_dict` 相当）。応答の形はここだけで決める。
+    /// API 応答用の定型 dict。応答の形はここだけで決める。
     pub fn to_response_json(&self) -> Value {
         json!({
             "status": self.status_label(),
@@ -88,7 +85,6 @@ impl GitOutput {
     }
 }
 
-/// Python の TimeoutExpired / OSError に対応するエラー分類。
 #[derive(Debug)]
 pub enum GitError {
     Timeout,
@@ -108,7 +104,7 @@ fn git_command(args: &[&str], cwd: &Path, env: &[(&str, &str)]) -> tokio::proces
     command
 }
 
-/// `git <args>` を実行する（Python `run_git_raw` 相当）。
+/// `git <args>` を実行する。
 pub async fn run_git_raw(
     args: &[&str],
     cwd: &Path,
@@ -118,7 +114,7 @@ pub async fn run_git_raw(
     let fut = git_command(args, cwd, env).output();
     match tokio::time::timeout(Duration::from_secs_f64(timeout_sec), fut).await {
         Ok(Ok(out)) => Ok(GitOutput {
-            // シグナル死は Python では負の returncode になる。-1 で代替する。
+            // シグナル死は -1 で代替する。
             code: out.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
@@ -143,7 +139,7 @@ pub async fn run_git_raw_bytes(
     }
 }
 
-/// 成功時のみ stdout を返す（Python `_run_git_query` 相当）。
+/// 成功時のみ stdout を返す。
 pub async fn run_git_query(args: &[&str], cwd: &Path, timeout_sec: f64) -> Option<String> {
     match run_git_raw(args, cwd, timeout_sec, &[]).await {
         Ok(out) if out.code == 0 => Some(out.stdout),
@@ -161,7 +157,7 @@ pub fn map_git_error(e: GitError, op_label: &str) -> ApiError {
     }
 }
 
-/// git コマンドを実行する（Python `run_git_command` 相当）。非0終了は Ok のまま返し、
+/// git コマンドを実行する。非0終了は Ok のまま返し、
 /// タイムアウトは 504、OS エラーは 500 に写像する。応答にする時は `to_response_json`。
 pub async fn run_git_command(
     args: &[&str],
@@ -183,7 +179,7 @@ pub async fn run_git_command(
     }
 }
 
-/// ref を解決したハッシュ文字列（失敗時は空文字 — Python `rev_parse` 相当）。
+/// ref を解決したハッシュ文字列（失敗時は空文字）。
 pub async fn rev_parse(directory: &Path, git_ref: &str) -> String {
     run_git_query(&["rev-parse", git_ref], directory, GIT_STANDARD_TIMEOUT_SEC)
         .await
@@ -195,7 +191,7 @@ pub async fn rev_parse_head(directory: &Path) -> String {
     rev_parse(directory, "HEAD").await
 }
 
-/// SSH agent ソケットの補完（Python `ssh_env` 相当）。
+/// SSH agent ソケットの補完。
 /// SSH_AUTH_SOCK が未設定なら既知の候補パスを探して環境変数の追加分として返す。
 pub fn ssh_env_additions() -> Vec<(String, String)> {
     if std::env::var("SSH_AUTH_SOCK").is_ok_and(|v| !v.is_empty()) {
@@ -261,7 +257,6 @@ pub async fn git_remote_branches(directory: &Path) -> Vec<String> {
 }
 
 /// 登録済みワークスペースの resolve 済みパス -> 表示名 の対応表
-/// （Python `registered_paths_by_resolved` 相当）。
 pub fn registered_paths_by_resolved(
     store: &ConfigStore,
 ) -> std::collections::HashMap<String, String> {
@@ -360,7 +355,7 @@ pub async fn git_branches(directory: &Path) -> Vec<String> {
     }
 }
 
-/// origin の remote URL から GitHub URL を解決する（Python `git_github_url` 相当）。
+/// origin の remote URL から GitHub URL を解決する。
 pub async fn git_github_url(directory: &Path) -> Option<String> {
     let out = run_git_query(
         &["remote", "get-url", "origin"],
@@ -381,8 +376,6 @@ pub fn parse_github_url(remote_url: &str) -> Option<String> {
     }
     Some(url.to_string())
 }
-
-// ─── worktree ───────────────────────────────────────────────────────────────
 
 /// `git worktree list --porcelain` の出力をパースする純粋関数。
 fn parse_worktree_porcelain(output: &str) -> Vec<Value> {
@@ -487,13 +480,9 @@ async fn find_dynamic_worktree_path(store: &ConfigStore, name: &str) -> Option<P
     None
 }
 
-/// cwd を登録済みワークスペース（および、その配下の動的 worktree）と照合する。
-/// `ConfigStore::match_workspace_by_path` はベースワークスペースの登録パスとの
-/// 前方一致しか見ないため、worktree（`<base>/.worktrees/<branch>` に作られる、
-/// baseのサブディレクトリ）配下のcwdもbase名にマッチしてしまい、
-/// worktree自体を区別できない。この関数はまずbase名を解決した上で、cwdが
-/// そのリポジトリのworktreeのいずれかに属していないか確認し、該当すれば
-/// "{base}:{branch}" 形式で返す（属さなければ従来通りbase名を返す）。
+/// cwd を登録済みワークスペース（および配下の動的 worktree）と照合する。
+/// `ConfigStore::match_workspace_by_path` は base の登録パスとの前方一致しか見ず worktree を区別できないため、
+/// base 名を解決した上で cwd が worktree に属すれば "{base}:{branch}" 形式で返す。
 pub async fn match_workspace_with_worktree(config: &ConfigStore, cwd: &str) -> Option<String> {
     let base_name = config.match_workspace_by_path(cwd)?;
 
@@ -503,15 +492,11 @@ pub async fn match_workspace_with_worktree(config: &ConfigStore, cwd: &str) -> O
     let raw_path = entry.get("path").and_then(Value::as_str).unwrap_or("");
     let ws_path = crate::paths::expand_user_path(raw_path);
 
-    // シンボリックリンクを含む一時ディレクトリ（macOSの/var→/private/var等）で
-    // cwdとgitが報告するパスの表記が食い違わないよう、両方とも解決してから
-    // 比較する（registered_paths_by_resolvedと同じ safe_resolve_str を使う）。
+    // macOSの/var→/private/var等でcwdとgitのパス表記が食い違わないよう、両方 safe_resolve_str で解決してから比較する。
     let cwd_resolved = crate::paths::safe_resolve_str(Path::new(cwd));
     let ws_resolved = crate::paths::safe_resolve_str(&ws_path);
 
-    // ベースパス自体との完全一致ならworktree配下ではあり得ない（worktreeは
-    // baseのサブディレクトリに作られる）ため、無駄なgit worktree list
-    // サブプロセス起動を避けて早期リターンする。
+    // base パスとの完全一致は worktree 配下ではあり得ないため、git worktree list を起動せず早期リターンする。
     if cwd_resolved == ws_resolved || !ws_path.is_dir() {
         return Some(base_name);
     }
@@ -534,7 +519,6 @@ pub async fn match_workspace_with_worktree(config: &ConfigStore, cwd: &str) -> O
 }
 
 /// 登録済みワークスペースのうち実在する git リポジトリを (表示名, パス) で列挙する
-/// （Python `list_git_workspace_paths` 相当 — `~` は展開する）。
 pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathBuf)> {
     let mut result = Vec::new();
     for (ws_id, entry) in store.list_workspace_entries() {
@@ -548,11 +532,10 @@ pub async fn list_git_workspace_paths(store: &ConfigStore) -> Vec<(String, PathB
     result
 }
 
-/// Python `BACKGROUND_EXECUTOR`（max_workers=8）に対応する並列度。
 const WORKTREE_DISCOVERY_CONCURRENCY: usize = 8;
 
 /// 1ワークスペース分の動的 worktree 列挙（`dynamic_worktree_entries` の並列化
-/// 単位。Python `_entries_for` 相当）。
+/// 単位）。
 async fn worktree_entries_for_workspace(
     ws_id: String,
     entry: Value,
@@ -612,19 +595,11 @@ async fn worktree_entries_for_workspace(
     out
 }
 
-/// 登録済み git ワークスペースの linked worktree を動的に列挙する
-/// （Python `workspaces._dynamic_worktree_entries` 相当）。
-/// config に登録されていない worktree のみを返す。
+/// 登録済み git ワークスペースの linked worktree を動的に列挙する。config に登録されていない worktree のみ返す。
 ///
-/// `is_git_repo_map` が渡された場合、git リポジトリ判定はその値を再利用する
-/// （/workspaces のサマリで判定済みの結果を引き継ぎ、git サブプロセスを二重に起動しない）。
-/// `include_github_url` は /workspaces（都度取得、頻度低）でのみ true にする —
-/// /workspaces/statuses は git_info() が別途 github_url を解決するため二重に呼ばない。
-///
-/// ワークスペースごとの処理は Python 版 `BACKGROUND_EXECUTOR.map`
-/// （max_workers=8）と同じ並列度・順序保持で実行する（Codex レビュー指摘:
-/// 以前は直列だったため、ワークスペース数に比例して遅くなり、頻繁にポーリング
-/// される /workspaces/statuses で顕著だった）。
+/// `is_git_repo_map` が渡されれば git リポジトリ判定を再利用する（git サブプロセスの二重起動を避ける）。
+/// `include_github_url` は /workspaces でのみ true にする（/workspaces/statuses は git_info() が別途解決する）。
+/// ワークスペースごとの処理は並列かつ順序保持で実行する。
 pub async fn dynamic_worktree_entries(
     store: &ConfigStore,
     is_git_repo_map: Option<&std::collections::HashMap<String, bool>>,
@@ -654,7 +629,6 @@ pub async fn dynamic_worktree_entries(
 }
 
 /// workspace 名（ID / 表示名 / 動的worktree名）からパスを解決する
-/// （Python `common.resolve_workspace_path` 相当）。
 pub async fn resolve_workspace_path(
     store: &ConfigStore,
     workspace: &str,
@@ -842,10 +816,8 @@ mod tests {
         assert_eq!(r.code, 0, "{}", r.stderr);
     }
 
-    /// `dynamic_worktree_entries` の並列化（`buffered`）が結果の順序を
-    /// ワークスペース登録順のまま保つこと（Codex レビュー指摘に沿って直列 →
-    /// 並列化した際、`buffer_unordered` 等の完了順ベースの combinator に
-    /// 誤って置き換えると、UI の並び順が不安定になる回帰を防ぐ）。
+    /// `dynamic_worktree_entries` の並列化（`buffered`）が結果をワークスペース登録順のまま保つこと
+    /// （`buffer_unordered` 等への置換で UI の並び順が不安定になる回帰を防ぐ）。
     #[tokio::test]
     async fn dynamic_worktree_entries_preserves_workspace_order_under_concurrency() {
         let dir = tempfile::tempdir().unwrap();

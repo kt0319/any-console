@@ -29,13 +29,10 @@ use crate::paths::{collapse_user_path, expand_user_path, safe_resolve_str};
 use crate::state::AppState;
 use crate::util::{JsonBody, QueryParams};
 
-/// Python `BACKGROUND_FETCH_EXECUTOR`（max_workers=4）に対応する並列度。
+/// `workspace_summary` 等のバックグラウンド fetch の並列度。
 const BACKGROUND_FETCH_CONCURRENCY: usize = 4;
-/// Python `BACKGROUND_EXECUTOR`（max_workers=8）に対応する並列度。
-/// `workspace_summary`・`git_info_to_status_json` の並列 fan-out に使う
-/// （Codex レビュー指摘: 以前は `join_all` で無制限に並列実行しており、
-/// Raspberry Pi 等リソースの限られた実機でワークスペース数が多いとスレッド/
-/// プロセス数が跳ね上がりうる — Python 側は元々このプールで上限を設けている）。
+/// `workspace_summary`・`git_info_to_status_json` の並列 fan-out の並列度。
+/// 無制限に並列実行するとワークスペース数が多いとき（特にリソースの限られた実機）スレッド/プロセス数が跳ね上がる。
 const BACKGROUND_EXECUTOR_CONCURRENCY: usize = 8;
 
 fn ensure_workspace_exists(
@@ -56,8 +53,6 @@ fn workspace_entries(all_config: &Map<String, Value>) -> impl Iterator<Item = (&
         .iter()
         .filter(|(k, v)| k.as_str() != crate::config::GLOBAL_CONFIG_KEY && v.is_object())
 }
-
-// ─── GET /workspaces ────────────────────────────────────────────────────────
 
 /// ワークスペース直下または `.devcontainer/` 直下（それ以外のサブディレクトリは
 /// 見ない）に Docker Compose の既定ファイル名のいずれかがあるか。
@@ -104,7 +99,7 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     } else {
         None
     };
-    // Python str(Path("")) は "." になる
+    // 相対1要素の parent は "." になる
     let path_str = if raw_path.is_empty() {
         ".".to_string()
     } else {
@@ -131,7 +126,6 @@ async fn workspace_summary(ws_id: &str, config: &Value) -> Value {
     info
 }
 
-/// Python `_background_fetch`（BACKGROUND_FETCH_EXECUTOR 経由）に対応する
 /// fire-and-forget の並列 fetch。
 fn spawn_background_fetch(git_dirs: Vec<PathBuf>) {
     if git_dirs.is_empty() {
@@ -208,8 +202,6 @@ pub async fn list_workspaces(
     Ok(Json(Value::Array(result)))
 }
 
-// ─── GET /workspaces/statuses ───────────────────────────────────────────────
-
 pub async fn list_workspace_statuses(
     State(state): State<Arc<AppState>>,
     _auth: RequireAuth,
@@ -235,8 +227,6 @@ pub async fn list_workspace_statuses(
         .await;
     Ok(Json(json!({ "statuses": statuses })))
 }
-
-// ─── PUT /workspaces/{name}/config ──────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct UpdateConfigRequest {
@@ -327,7 +317,7 @@ pub async fn update_workspace_config(
     // アイコン正規化（ネットワーク I/O を伴いうる）の完了後、読み込み→変更→書き込みを
     // 1つの排他ロックの下で行う。ここで初めて config を読み直すことで、await の間に
     // 別リクエスト（例: ジョブ CRUD）が同じワークスペースへ加えた変更を
-    // 上書きしない（Codex レビュー指摘）。
+    // 上書きしない。
     state.config.with_exclusive(|all| {
         let ws_id = ConfigStore::find_workspace_key(all, &name);
         let key = ws_id
@@ -355,8 +345,6 @@ pub async fn update_workspace_config(
     tracing::info!("workspace config updated workspace={name}");
     Ok(Json(json!({"status": "ok"})))
 }
-
-// ─── POST /workspaces ───────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct AddWorkspaceRequest {
@@ -434,8 +422,6 @@ pub async fn create_workspace(
     ))
 }
 
-// ─── DELETE /workspaces/{name} ──────────────────────────────────────────────
-
 pub async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -451,12 +437,9 @@ pub async fn delete_workspace(
     Ok(Json(json!({"status": "ok"})))
 }
 
-// ─── GET /workspaces/suggest ────────────────────────────────────────────────
-
 const SUGGEST_LIMIT: usize = 50;
 
 /// 入力パスから「列挙するディレクトリ」と「フィルタ文字列」を決める
-/// （Python `_resolve_suggest_base` 相当）。
 fn resolve_suggest_base(input_path: &str) -> (PathBuf, String) {
     let raw = input_path.trim();
     if raw.is_empty() {
@@ -468,7 +451,7 @@ fn resolve_suggest_base(input_path: &str) -> (PathBuf, String) {
     if p.is_dir() {
         return (p, String::new());
     }
-    // Python: p.parent if p.parent != p else p（相対1要素の parent は "."）
+    // 相対1要素の parent は "."
     let parent = match p.parent() {
         Some(q) if !q.as_os_str().is_empty() => q.to_path_buf(),
         Some(_) => PathBuf::from("."),

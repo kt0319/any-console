@@ -1,16 +1,8 @@
 //! Trusted Device 認証用の保存・検証ロジックと `/devices/*` エンドポイント
-//! 。
 //!
-//! 新規登録時はメイントークンで本人確認し、デバイスごとに固有のシークレットを
-//! 発行する。クライアントは secret を HttpOnly cookie で保持し、以降の認証に使う。
-//!
-//! **atomic cutover**: `/devices/*`・`/auth/check`・`/auth/logout`・
-//! `/auth/pairing/*/claim` を Rust 側へ同時に配線する（devices.json への
-//! 書き込みが Python/Rust の両方から起きる split-brain を避けるため —
-//! terminal/dispatch の移行時と同じ設計判断）。以後 Rust がこのファイルの
-//! 唯一のライターになるため、排他はプロセス内 `Mutex` で足りる
-//! （Python 版の `_devices_lock`/`_server_key_lock` と同じ設計 — Python 側の
-//! 対応コードは Phase 6 まで削除しないが、二度と呼ばれなくなる）。
+//! 新規登録時はメイントークンで本人確認し、デバイスごとに固有のシークレットを発行する。
+//! クライアントは secret を HttpOnly cookie で保持し、以降の認証に使う。
+//! Rust が devices.json の唯一のライターのため、排他はプロセス内 `Mutex` で足りる。
 //!
 //! セキュリティ:
 //! - raw secret はクライアント側 cookie にしか存在しない。サーバには
@@ -228,7 +220,7 @@ pub fn register_device(
 
 /// device_id + raw_secret が登録済みデバイスと一致すれば dict を返す
 /// （secret_hash を含む生の entry）。一致した場合は last_seen_at を
-/// スロットリング付きで更新する（Python `verify_and_touch_device`）。
+/// スロットリング付きで更新する。
 pub fn verify_and_touch_device(
     data_dir: &Path,
     state: &DevicesState,
@@ -303,13 +295,8 @@ pub fn get_device(data_dir: &Path, device_id: &str) -> Option<Value> {
         .map(strip_secret_hash)
 }
 
-// ─── cookie ヘルパー ─────────────────────────────────────────────────────────
-
-/// 本番運用では Tailscale Serve が TLS を終端して plain HTTP でこのプロセスへ
-/// 転送するため（README の HTTPS セットアップ参照）、Python 版が
-/// `request.url.scheme` で判定していたのと同じく、アプリ自身が直接 TLS を
-/// 終端しない限り常に non-secure 扱いになる（Python 版も本番では
-/// `--proxy-headers` を使わないため同じ挙動）。
+/// 本番運用では Tailscale Serve が TLS を終端して plain HTTP で転送するため、アプリ自身が直接 TLS を
+/// 終端しない限り常に non-secure 扱いになる（README の HTTPS セットアップ参照）。
 fn cookie_is_secure(_headers: &HeaderMap) -> bool {
     false
 }
@@ -350,8 +337,6 @@ pub fn clear_device_cookies(headers: &mut HeaderMap) {
         set_cookie_header(COOKIE_DEVICE_SECRET, "", 0, false),
     );
 }
-
-// ─── HTTP エンドポイント ─────────────────────────────────────────────────────
 
 #[derive(Deserialize, Default)]
 pub struct RegisterBody {

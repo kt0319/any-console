@@ -12,10 +12,8 @@
 //!
 //! 結果は `data/agent-detection/status.json` に記録する。
 //!
-//! 定期実行ループ（`run_update_loop`、`AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC`
-//! 後に開始し以後 `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごと）は `main.rs` から
-//! 起動時に一度 `tokio::spawn` される（`data/agent-detection/remote/` への書き込みは
-//! このループだけが行う）。
+//! 定期実行ループ（`run_update_loop`）は `main.rs` から起動時に一度 `tokio::spawn` される
+//! （`data/agent-detection/remote/` への書き込みはこのループだけが行う）。
 
 use std::path::Path;
 use std::sync::Arc;
@@ -336,10 +334,8 @@ fn remote_update_enabled(config: &ConfigStore) -> bool {
         .unwrap_or(true)
 }
 
-/// リモートマニフェストの定期確認ループ。起動から
-/// `AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に開始し、以後
-/// `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごとに確認する。`main.rs` から
-/// `tokio::spawn` で一度だけ起動する（Python 版 `_update_loop` 相当）。
+/// リモートマニフェストの定期確認ループ。起動から `AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC` 後に開始し、
+/// 以後 `AGENT_MANIFEST_UPDATE_INTERVAL_SEC` ごとに確認する。
 pub async fn run_update_loop(state: Arc<AppState>) -> ! {
     tokio::time::sleep(Duration::from_secs(AGENT_MANIFEST_UPDATE_STARTUP_DELAY_SEC)).await;
     loop {
@@ -384,8 +380,6 @@ mod tests {
     fn known(ids: &[&str]) -> std::collections::HashSet<String> {
         ids.iter().map(|s| s.to_string()).collect()
     }
-
-    // ─── parse_catalog ───────────────────────────────────────────────────
 
     #[test]
     fn valid_catalog_skips_unknown_agents() {
@@ -436,8 +430,6 @@ mod tests {
         assert!(parse_catalog(catalog, &known(&["claude"])).is_err());
     }
 
-    // ─── process_agent_manifest ──────────────────────────────────────────
-
     #[test]
     fn commits_new_manifest() {
         let (store, _dir) = store();
@@ -487,8 +479,6 @@ mod tests {
         let changed = REMOTE_CLAUDE.replace("remote marker", "tampered marker");
         assert!(process_agent_manifest(&store, "claude", &changed).is_err());
     }
-
-    // ─── check_and_update ────────────────────────────────────────────────
 
     fn fetch_from(
         mapping: HashMap<&'static str, &'static str>,
@@ -586,8 +576,6 @@ mod tests {
         assert_eq!(status["agents"]["codex"]["last_result"], json!("updated"));
     }
 
-    // ─── remote_update_enabled ───────────────────────────────────────────
-
     #[test]
     fn default_is_enabled() {
         let dir = tempfile::tempdir().unwrap();
@@ -620,8 +608,6 @@ mod tests {
         let config = ConfigStore::new(config_file);
         assert!(remote_update_enabled(&config));
     }
-
-    // ─── catalog_url / base_url ──────────────────────────────────────────
 
     // env_override / default_catalog_url はプロセスグローバルな環境変数を
     // 共有するため、他テストとの並行実行での競合を避けて 1 テストにまとめる。

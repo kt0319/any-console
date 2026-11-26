@@ -1,8 +1,6 @@
 //! システム情報・自己更新・tmux 管理 API。
 //!
-//! 全エンドポイントとも共有 JSON ファイルへの書き込みを持たないため、Phase 1 の
-//! 最初の Rust ネイティブ移行対象。Linux / macOS の二系統分岐は Python と同じ
-//! 判定・同じコマンドを用いる（クロスプラットフォーム一級サポートの方針）。
+//! Linux / macOS の二系統分岐を持つ（クロスプラットフォーム一級サポートの方針）。
 
 use std::path::Path;
 use std::sync::Arc;
@@ -24,8 +22,6 @@ use crate::util::{sanitize_log_value, sanitize_session_segment, token_urlsafe, J
 
 const PROCESS_LIST_LIMIT: usize = 10;
 const PS_FIELD_COUNT: usize = 11;
-
-// ─── 共通ヘルパー ────────────────────────────────────────────────────────────
 
 /// git 実行（実体は `git_utils::run_git_raw` — C ロケール強制等を共有する。
 /// update 系エンドポイントは成否と stderr しか見ないため Option に落とす）。
@@ -87,12 +83,10 @@ pub(crate) async fn get_app_commit_date(root: &Path) -> String {
 }
 
 /// 空白区切りで**合計 n 要素**に分割し、最後の要素には残り全体を入れる
-/// （Python の `str.split(None, n-1)` 相当 — 実体は `util::split_whitespace_max`）。
+/// （実体は `util::split_whitespace_max`）。
 fn split_into_fields(line: &str, n: usize) -> Vec<&str> {
     crate::util::split_whitespace_max(line, n.saturating_sub(1))
 }
-
-// ─── GET /system/processes ──────────────────────────────────────────────────
 
 pub async fn processes(_auth: RequireAuth) -> Result<Json<Value>, ApiError> {
     let cmd: &[&str] = if IS_MACOS {
@@ -143,8 +137,6 @@ fn parse_ps_output(stdout: &str) -> Vec<Value> {
     }
     processes
 }
-
-// ─── POST /client-errors ────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct ClientErrorReport {
@@ -198,8 +190,6 @@ pub async fn client_errors(
     Ok(Json(json!({"status": "ok"})))
 }
 
-// ─── POST /system/process/kill ──────────────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct ProcessKillBody {
     pid: i32,
@@ -222,8 +212,6 @@ pub async fn process_kill(
     Ok(Json(json!({"ok": true})))
 }
 
-// ─── POST /system/tmux/kill ─────────────────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct TmuxNameBody {
     name: String,
@@ -243,8 +231,6 @@ pub async fn tmux_kill(
     kill_tmux_by_name(name).await;
     Ok(Json(json!({"ok": true})))
 }
-
-// ─── POST /system/tmux/adopt ────────────────────────────────────────────────
 
 pub async fn tmux_adopt(
     State(state): State<Arc<AppState>>,
@@ -287,8 +273,6 @@ pub async fn tmux_adopt(
         json!({"ok": true, "session_id": session_id, "tmux_name": new_name}),
     ))
 }
-
-// ─── GET /system/tmux-info ──────────────────────────────────────────────────
 
 pub async fn tmux_info(State(state): State<Arc<AppState>>, _auth: RequireAuth) -> Json<Value> {
     let mut info = json!({

@@ -1,21 +1,12 @@
 //! エージェント hooks によるセッション状態のイベント駆動更新。
 //!
-//! Claude Code 等のエージェントの hooks（Notification / Stop / PreToolUse ...）から
-//! `POST /agent-hooks/events` を叩いてもらい、セッション状態
-//! （working / idle / blocked）をイベント駆動で更新する。screen manifest
-//! （ADR 30）より正確・即時なため、イベントが新しい間
-//! （AGENT_HOOK_STATE_TTL_SEC）は hook の状態を最優先で採用し、期限切れ・
-//! 未設定時は manifest → 画面差分へフォールバックする（ADR 33）。
+//! Claude Code 等の hooks（Notification / Stop / PreToolUse ...）から `POST /agent-hooks/events` を叩いてもらい、
+//! セッション状態（working / idle / blocked）を更新する。screen manifest（ADR 30）より正確・即時なため、
+//! イベントが新しい間（AGENT_HOOK_STATE_TTL_SEC）は hook の状態を最優先し、期限切れ・未設定時は
+//! manifest → 画面差分へフォールバックする（ADR 33）。読み手は `agent_watch::collect_agent_states`（`hook_state`）。
 //!
-//! 認証はメインの Bearer トークンではなく hook 専用トークン（X-Hook-Token
-//! ヘッダ、`tmux::get_or_create_hook_token` で発行・永続化）で行う。メインの Bearer
-//! トークンをセッション内の全プロセスへ晒さないための分離（漏れても状態
-//! イベントの偽装しかできない）。
-//!
-//! `agent_watch.rs` の `collect_agent_states` が読み手（`hook_state`）であり、
-//! `/workspaces/statuses/ws` の Rust ネイティブ切替（Phase 4）により Python 側の
-//! agent_watch ポーリングループは実接続者ゼロで恒久的に休眠するため、
-//! `build_router` へ配線済み。
+//! 認証はメインの Bearer ではなく hook 専用トークン（X-Hook-Token、`tmux::get_or_create_hook_token`）で行う。
+//! メイントークンをセッション内の全プロセスへ晒さないための分離（漏れても状態イベントの偽装しかできない）。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -139,8 +130,6 @@ fn verify_hook_token(state: &AppState, provided: &str) -> bool {
         &crate::tmux::get_or_create_hook_token(&state.paths.data_dir),
     )
 }
-
-// ─── HTTP エンドポイント（`POST /agent-hooks/events`）──────────────────────
 
 #[derive(Deserialize)]
 pub struct HookEventBody {

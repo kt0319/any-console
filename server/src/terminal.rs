@@ -58,8 +58,6 @@ const WS_PING_INTERVAL_SEC: u64 = 15;
 const WS_MSG_RESIZE: u8 = 0x00;
 const WS_CLOSE_SESSION_EXITED: u16 = 4001;
 
-// ─── GET /terminal/sessions ──────────────────────────────────────────────────
-
 async fn session_list_entry(
     state: &Arc<AppState>,
     session_id: &str,
@@ -157,8 +155,6 @@ pub async fn list_terminal_sessions(
     Ok(Json(Value::Array(sessions)))
 }
 
-// ─── GET /terminal/sessions/{id}/history ────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct HistoryQuery {
     cols: Option<u16>,
@@ -236,8 +232,6 @@ pub async fn get_terminal_history(
     }
 }
 
-// ─── DELETE /terminal/sessions/{id} ─────────────────────────────────────────
-
 pub async fn delete_terminal_session(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
@@ -246,7 +240,6 @@ pub async fn delete_terminal_session(
     // tmux には実在するがレジストリ未登録（Rust 再起動直後等）なセッションも
     // 先にハイドレートしてから削除する。そうしないと `remove` が None を返して
     // 404 になり、tmux セッションは実際にはキルされないまま残り続ける
-    // （Codex レビュー指摘）。
     state.terminal_session(&session_id).await?;
     let Some(session_arc) = state.terminal_registry.remove(&session_id).await else {
         return Err(not_found("Terminal session not found"));
@@ -257,8 +250,6 @@ pub async fn delete_terminal_session(
     tracing::info!("terminal session deleted session={session_id}");
     Ok(Json(json!({"status": "ok"})))
 }
-
-// ─── PUT /terminal/sessions/{id}/workspace, /detached ───────────────────────
 
 #[derive(Deserialize)]
 pub struct WorkspaceBody {
@@ -306,8 +297,6 @@ pub async fn set_terminal_detached(
     Ok(Json(json!({"status": "ok", "detached": detached})))
 }
 
-// ─── /terminal/order ──────────────────────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct TabOrderPayload {
     order: Vec<String>,
@@ -340,5 +329,3 @@ pub async fn put_tab_order(
         .map_err(|e| server_error(format!("Failed to save tab order: {e}")))?;
     Ok(Json(json!({ "order": payload.order })))
 }
-
-// ─── WebSocket ────────────────────────────────────────────────────────────

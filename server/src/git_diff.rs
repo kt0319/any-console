@@ -24,7 +24,7 @@ const MAX_DIFF_SIZE: usize = 10 * 1024 * 1024;
 
 fn truncate_diff(diff_text: &str) -> String {
     if diff_text.len() > MAX_DIFF_SIZE {
-        // Python は文字数だが diff は実質 ASCII 主体。バイト境界で安全に切る
+        // diff は実質 ASCII 主体。バイト境界で安全に切る
         let mut end = MAX_DIFF_SIZE;
         while !diff_text.is_char_boundary(end) {
             end -= 1;
@@ -60,8 +60,6 @@ fn count_text_file_lines(path: &FsPath) -> Option<i64> {
 pub fn count_file_lines(path: &FsPath) -> i64 {
     count_text_file_lines(path).unwrap_or(0)
 }
-
-// ─── numstat / ファイルリスト整形 ─────────────────────────────────────────
 
 fn resolve_rename_path(path: &str) -> String {
     // `{old => new}` 形式を new で置換する
@@ -148,8 +146,6 @@ fn build_file_list(files_result: &GitOutput, numstat: &Map<String, Value>) -> Ve
     files
 }
 
-// ─── diff 応答の組み立て ────────────────────────────────────────────────────
-
 async fn build_diff_response(
     ws_path: &FsPath,
     full_args: &[&str],
@@ -192,8 +188,6 @@ async fn build_diff_response(
         "stderr": diff_result.stderr,
     }))
 }
-
-// ─── ルート ─────────────────────────────────────────────────────────────────
 
 pub async fn commit_diff(
     State(state): State<Arc<AppState>>,

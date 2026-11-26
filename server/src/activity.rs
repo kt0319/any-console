@@ -1,7 +1,6 @@
 //! 操作ログを data/activity/{workspace}/{YYYY-MM-DD}.jsonl に追記する。
 //!
-//! O_APPEND の行単位追記のため、複数プロセスが同じファイルへ追記しても安全
-//! （フォーマットは旧 Python 実装と同一: ensure_ascii=False 相当）。
+//! O_APPEND の行単位追記のため、複数プロセスが同じファイルへ追記しても安全。
 
 use std::io::Write;
 use std::path::Path;
@@ -53,11 +52,8 @@ pub fn try_log_activity(
         .create(true)
         .append(true)
         .open(&path)?;
-    // 行本体 + 改行を1回の write_all にまとめる（Python 版 `f.write(json + "\n")`
-    // と同じ）。O_APPEND の write(2) はこのサイズなら1回の呼び出し単位で
-    // atomic なため、2回に分けていた場合に起きる「他プロセス/他スレッドの
-    // 書き込みが改行の前に割り込んで行が壊れる」競合を防ぐ（Codex レビュー
-    // 指摘 — Python プロセスも同じファイルへ並行追記しうる）。
+    // 行本体 + 改行を1回の write_all にまとめる。O_APPEND の write(2) は1回の呼び出し単位で atomic なため、
+    // 2回に分けると他プロセス/他スレッドの書き込みが改行の前に割り込んで行が壊れる。
     let mut line = serde_json::to_string(&Value::Object(entry))?;
     line.push('\n');
     f.write_all(line.as_bytes())
@@ -85,17 +81,14 @@ mod tests {
         let parsed: Value = serde_json::from_str(content.trim()).unwrap();
         assert_eq!(parsed["type"], "git_commit");
         assert_eq!(parsed["branch"], "main");
-        // キー順: t, type, kwargs（Python の dict 挿入順と同一）
+        // キー順: t, type, kwargs
         let keys: Vec<_> = parsed.as_object().unwrap().keys().cloned().collect();
         assert_eq!(keys, vec!["t", "type", "branch", "commit"]);
         assert!(dir.path().join("activity").join("_global").is_dir());
     }
 
     /// 同じ workspace へ多数のスレッドから並行に追記しても、行が他の書き込みと
-    /// 混ざって壊れないこと（Codex レビュー指摘: 本文と改行を2回の write に
-    /// 分けていると、O_APPEND の atomic 保証が「本文」と「改行」それぞれの
-    /// write(2) 単位にしか効かず、他プロセス/他スレッドの書き込みがその間に
-    /// 割り込むと本文だけが連結された壊れた行になりうる）。
+    /// 混ざって壊れないこと（本文と改行を2回の write に分けると、間に割り込まれて壊れた行になりうる）。
     #[test]
     fn concurrent_appends_do_not_interleave_or_corrupt_lines() {
         let dir = tempfile::tempdir().unwrap();

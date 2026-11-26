@@ -158,10 +158,8 @@ impl ConfigStore {
         (normalized, restore_needed || did_migrate)
     }
 
-    /// 現在保持しているロック下で読み込む（書き戻しは行わない）。既に排他ロックを
-    /// 取得済みの呼び出し元（`save_all`/`with_exclusive` 等）はこちらを使う —
-    /// どのみち直後に `write_unlocked` するため、復旧/マイグレーションの書き戻しは
-    /// その1回に含まれる。
+    /// 現在保持しているロック下で読み込む（書き戻しは行わない）。排他ロック取得済みの呼び出し元は、
+    /// どのみち直後に `write_unlocked` するためこちらを使う。
     fn read_unlocked(&self) -> Map<String, Value> {
         self.read_core().0
     }
@@ -224,13 +222,9 @@ impl ConfigStore {
             }
             return config;
         }
-        // .bak からの復旧・バージョンマイグレーションの書き戻しは config.bak と一時ファイル
-        // を触るため、共有ロックのままでは他の読み手の書き戻しと競合しうる。
-        // 排他ロックへ昇格し、その下で読み直してから書く（他プロセスが既に
-        // 書き戻し済みなら再度の書き戻しは不要）。ロック自体が取得できない
-        // 場合（lock ファイルの権限問題・ENOLCK 等）は書き戻しを諦めて読み込み
-        // 結果のみ返す（Read パスなので致命的にはしない — 書き込み系は
-        // `with_exclusive`/`save_all` 側でロック失敗を伝播させる）。
+        // 復旧・マイグレーションの書き戻しは config.bak と一時ファイルを触るため、共有ロックのままでは競合しうる。
+        // 排他ロックへ昇格し、その下で読み直してから書く。ロックが取得できない場合は書き戻しを諦めて読み込み結果のみ返す
+        // （Read パスなので致命的にはしない。書き込み系は `with_exclusive`/`save_all` 側で伝播させる）。
         let Some(_lock) = self.file_lock(true) else {
             tracing::warn!(
                 "config.lock の排他ロックが取得できず、復旧/マイグレーションの書き戻しを見送ります"
@@ -260,7 +254,6 @@ impl ConfigStore {
     /// ロック自体が取得できない場合（lock ファイルの権限問題・ENOLCK な
     /// ファイルシステム等）は、ロック無しで read-modify-write を進めてしまうと
     /// 同時書き込みが素通しになり得るため、書き込まずにエラーを返す
-    /// （Codex レビュー指摘）。
     pub fn with_exclusive<T>(
         &self,
         mutate: impl FnOnce(&mut Map<String, Value>) -> Result<T, ApiError>,
@@ -632,7 +625,7 @@ mod tests {
         write_file(&dir, "config.json", "{broken");
         let s = store(&dir);
         assert_eq!(s.resolve_bind().1, 9100);
-        // 復旧が書き戻されている（Python と同じ挙動）
+        // 復旧が書き戻されている
         let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
         assert!(text.contains("9100"));
     }
@@ -669,7 +662,7 @@ mod tests {
 
     /// lock ファイルが開けない（ここでは同名のディレクトリにして `open()` を
     /// 失敗させる）場合、ロック無しで read-modify-write を進めてしまわず、
-    /// 書き込みをせずにエラーを返すこと（Codex レビュー指摘）。
+    /// 書き込みをせずにエラーを返すこと。
     #[test]
     fn with_exclusive_fails_when_lock_cannot_be_acquired() {
         let dir = tempfile::tempdir().unwrap();

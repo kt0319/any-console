@@ -33,8 +33,7 @@ pub fn load_json_file(
 /// JSON ファイルへアトミックに書き込む（親ディレクトリを自動作成）。
 ///
 /// tmp 名は書き込みごとにユニーク（tempfile が保証）— 固定名だと並行ライター同士で
-/// rename が競合する。フォーマットは Python の `json.dumps(indent=2, ensure_ascii=False)`
-/// と互換（2スペースインデント・非ASCII文字は生のまま）。
+/// rename が競合する。フォーマットは 2スペースインデント・非ASCII文字は生のまま。
 pub fn save_json_file(path: &Path, data: &Value) -> std::io::Result<()> {
     let text = serde_json::to_string_pretty(data)?;
     write_file_atomic(path, text.as_bytes())

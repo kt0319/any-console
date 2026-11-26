@@ -19,7 +19,6 @@ pub fn rate_limit_from_env() -> u32 {
     }
 }
 
-// Python 側 `_STATIC_DIRS` / `_STATIC_SUFFIXES` / `_SKIP_EXACT` / `_SKIP_PREFIXES` と同一。
 const STATIC_DIRS: &[&str] = &[
     "/assets/",
     "/icons/",

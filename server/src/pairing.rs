@@ -253,16 +253,13 @@ async fn build_pairing_url(
     fallback_pairing_url(headers, pairing_id, pairing_token)
 }
 
-// ─── HTTP エンドポイント ─────────────────────────────────────────────────────
-
 pub async fn start_pairing(
     State(state): State<std::sync::Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     auth: RequireAuth,
 ) -> Result<Response, ApiError> {
-    // Python 版と同じく `Depends(verify_token)`（= `RequireAuth`）は認証無効化時にも
-    // 通過するため、ペアリングという操作自体が無意味な「認証無効化」状態は個別に弾く。
+    // `RequireAuth` は認証無効化時にも通過するため、ペアリングが無意味な「認証無効化」状態は個別に弾く。
     if auth.0.kind == AuthKind::Disabled {
         return Err(bad_request("Authentication is disabled"));
     }

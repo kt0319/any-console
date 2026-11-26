@@ -1,4 +1,4 @@
-//! Rust ネイティブ移行済み git ルート（履歴/差分/コミット/スタッシュ）の統合テスト。
+//! git ルート（履歴/差分/コミット/スタッシュ）の統合テスト。
 //!
 //! 実 git リポジトリを一時領域に作成してワークスペース登録し、API 応答形を検証する。
 
@@ -237,9 +237,7 @@ async fn stash_cycle() {
     let front = spawn_front().await;
     std::fs::write(front.ws_path.join("a.txt"), "stash me\n").unwrap();
 
-    // 不正な JSON ボディは 422 で拒否し、git stash を実行しない（Codex レビュー
-    // 指摘: 以前は parse エラーを黙って include_untracked=false 扱いにして
-    // ミューテーションを実行してしまっていた）。
+    // 不正な JSON ボディは 422 で拒否し、git stash を実行しない。
     let resp = common::client()
         .post(format!("http://{}/workspaces/repo/stash", front.addr))
         .bearer_auth(TOKEN)
@@ -358,8 +356,6 @@ async fn file_history_follows_renames_within_workspace() {
         .unwrap();
     assert_eq!(resp.status(), 422);
 }
-
-// ─── Phase 2 後半: ブランチ / ファイル / worktree ────────────────────────────
 
 #[tokio::test]
 async fn branch_lifecycle_and_listing() {
@@ -751,9 +747,7 @@ async fn upload_rename_delete_download_cycle() {
 
 /// 非 ASCII ファイル名のダウンロードが 500 にならず、RFC 5987 の
 /// `filename*=utf-8''<percent-encoded>` で Content-Disposition が組み立てられる
-/// こと（Codex レビュー指摘: 以前は生の UTF-8 バイト列をヘッダ値へ直接埋め込んで
-/// おり、`http` クレートの HeaderValue バリデーションに落ちてレスポンス構築自体が
-/// 失敗し 500 になっていた）。
+/// こと（生の UTF-8 をヘッダ値へ埋め込むと HeaderValue バリデーションに落ちて 500 になる）。
 #[tokio::test]
 async fn download_with_non_ascii_filename_succeeds_with_rfc5987_header() {
     let front = spawn_front().await;

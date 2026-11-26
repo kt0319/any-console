@@ -1,8 +1,7 @@
 //! ブランチ操作 API。
 //!
-//! push / pull / fetch は SSH agent ソケットの補完（`ssh_env_additions`）付きで
-//! 実行する。pull は Python の RLock 再入に相当する箇所をロック1回取得の
-//! 直列コードに展開している（tokio Mutex は非再入のため）。
+//! push / pull / fetch は SSH agent ソケットの補完（`ssh_env_additions`）付きで実行する。
+//! pull は tokio Mutex が非再入のため、ロック1回取得の直列コードに展開している。
 
 use std::collections::HashSet;
 use std::path::Path as FsPath;
@@ -85,8 +84,6 @@ async fn commits_between(ws_path: &FsPath, range_expr: &str) -> Result<Value, Ap
 async fn commits_not_on_any_remote(ws_path: &FsPath) -> Result<Value, ApiError> {
     commits_for(ws_path, &["HEAD", "--not", "--remotes"]).await
 }
-
-// ─── upstream 追跡情報のパース ──────────────────────────────────────────────
 
 fn parse_upstream_track(track: &str) -> Value {
     let mut body = track.trim();
@@ -202,7 +199,6 @@ fn is_branch_merged(
 }
 
 /// upstream 未設定ブランチの「未 push 件数」を 1 回の rev-list --parents で数える
-/// （Python `_unpublished_commit_counts` と同一アルゴリズム）。
 fn count_unpublished(parents_output: &str, tips: &Map<String, Value>) -> Map<String, Value> {
     let mut parents: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
     for line in parents_output.lines() {
@@ -233,8 +229,6 @@ fn count_unpublished(parents_output: &str, tips: &Map<String, Value>) -> Map<Str
     }
     counts
 }
-
-// ─── GET /workspaces/{name}/branches ────────────────────────────────────────
 
 pub async fn list_branches(
     State(state): State<Arc<AppState>>,
@@ -341,8 +335,6 @@ pub async fn list_remote_branches(
     let ws_path = resolve_workspace_path(&state.config, &name).await?;
     Ok(Json(json!(git_remote_branches(&ws_path).await)))
 }
-
-// ─── ブランチ CRUD / checkout ───────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct DeleteBranchRequest {
@@ -477,8 +469,6 @@ pub async fn checkout_branch(
     .map(|out| Json(out.to_response_json()))
 }
 
-// ─── pull / push / fetch ────────────────────────────────────────────────────
-
 async fn stash_if_dirty(ws_path: &FsPath, env: &[(&str, &str)]) -> Result<bool, ApiError> {
     let dirty = run_git_command(
         &["status", "--porcelain"],
@@ -521,7 +511,6 @@ pub async fn pull(
     Path(name): Path<String>,
     _auth: RequireAuth,
 ) -> Result<Json<Value>, ApiError> {
-    // Python は外側の workspace_write_lock + execute_git_action の RLock 再入。
     // tokio Mutex は非再入のためロック1回で直列に実行する。
     let _guard = state.git_locks.acquire(&name).await?;
     let ws_path = resolve_workspace_path(&state.config, &name).await?;
@@ -540,7 +529,7 @@ pub async fn pull(
     .await?;
     tracing::info!("git pull workspace={} rc={}", name, result.code);
     let mut response = result.to_response_json();
-    // Python は execute_git_action 内で invalidate する（unstash より前）
+    // invalidate は unstash より前に行う
     crate::git_helpers::invalidate_and_publish_git_info(&state, &name, &ws_path);
     if stashed {
         unstash(&ws_path, &env, &mut response).await?;
@@ -551,14 +540,9 @@ pub async fn pull(
         } else {
             rev_parse(&ws_path, "@{u}").await
         };
-        // pull前のHEAD（before_hash）を起点に数える。before_upstream..after_upstream
-        // だと、auto_fetch_loop（git_watch.rs）のバックグラウンドfetchで
-        // pullボタンを押す前に既にupstreamが最新化されているケースで差分が
-        // 0になり、実際には新しいコミットを取り込んだのに「Already up to
-        // date」と誤表示していた。before_hashを起点にすればfetchのタイミングに
-        // 依らず正しく数えられ、--rebaseでローカル未push分のハッシュが
-        // 書き換わっても（それらはafter_upstreamに含まれないため）誤カウント
-        // しない。
+        // pull前のHEAD（before_hash）を起点に数える。before_upstream..after_upstream だと、auto_fetch_loop の
+        // バックグラウンドfetchで既にupstreamが最新化されているとき差分が0になり「Already up to date」と誤表示する。
+        // before_hash 起点ならfetchのタイミングに依らず、--rebase でハッシュが書き換わっても誤カウントしない。
         response["commits"] = if !after_upstream.is_empty() {
             commits_between(&ws_path, &format!("{before_hash}..{after_upstream}")).await?
         } else {

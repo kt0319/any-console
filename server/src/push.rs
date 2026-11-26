@@ -1,24 +1,13 @@
 //! Web Push 通知。
 //!
-//! VAPID（RFC 8292、ES256 JWT 署名）と本文暗号化（RFC 8291、`aes128gcm`
-//! content-coding）を pure-Rust の RustCrypto ファミリ（`p256`/`aes-gcm`/`hkdf`）
-//! だけで実装する。このプロジェクトは TLS/暗号を rustls・RustCrypto 系で統一して
-//! おり（`tokio-rustls`・`hmac`・`sha2` 等）、OpenSSL（`openssl-sys`）や libcurl
-//! （`isahc`/`curl-sys`）に依存する `web-push`/`ece` クレートは、クロスコンパイル
-//! （Phase 6 で計画する Linux x86_64/aarch64・macOS arm64/x86_64 配布）の複雑化を
-//! 避けるため意図的に採用しなかった。
+//! VAPID（RFC 8292、ES256 JWT 署名）と本文暗号化（RFC 8291、`aes128gcm`）を RustCrypto 系
+//! （`p256`/`aes-gcm`/`hkdf`）だけで実装する。OpenSSL / libcurl に依存する `web-push`/`ece` は、
+//! クロスコンパイルの複雑化を避けるため採用しない。
 //!
-//! RFC 8291 の鍵導出（HKDF チェーン: PRK_key → IKM → PRK → CEK/NONCE）は、
-//! Appendix A の worked example における中間値（ECDH 共有鍵・PRK_key・IKM・PRK・
-//! CEK・NONCE）と完全一致することをユニットテストで検証済み
-//! （`tests::rfc8291_key_derivation_matches_appendix_a_intermediate_values`）。
-//!
-//! 秘密鍵は 32 byte の生スカラー値、公開鍵は 65 byte の非圧縮 EC ポイントを、
-//! それぞれ base64url（パディング無し）でファイルに保存する。この形式は
-//! Python 版（`cryptography` ライブラリの `private_value`/`UncompressedPoint`
-//! エンコーディング）と完全に同一のため、Python が既に作成済みの
-//! `data/vapid_private.txt`/`vapid_public.txt` をそのまま読み込める
-//! （鍵のローテーションが起きず、既存の購読ブラウザが再購読不要のまま移行できる）。
+//! RFC 8291 の鍵導出は Appendix A の中間値とユニットテストで一致を検証している。
+//! 秘密鍵は 32 byte の生スカラー、公開鍵は 65 byte の非圧縮 EC ポイントを base64url（パディング無し）で
+//! ファイル保存する。この形式は旧 Python 版と同一で、既存の `data/vapid_*.txt` をそのまま読めるため
+//! 鍵がローテーションされず既存購読が再購読不要になる。
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -235,8 +224,6 @@ fn remove_subscriptions_by_endpoints(push: &PushState, data_dir: &Path, endpoint
     save_subscriptions(data_dir, &subs);
 }
 
-// ─── VAPID JWT（RFC 8292） ───────────────────────────────────────────────────
-
 fn vapid_jwt(signing_key: &SigningKey, aud: &str, sub: &str, now: i64) -> String {
     let header = json!({"typ": "JWT", "alg": "ES256"}).to_string();
     let claims = json!({"aud": aud, "exp": now + VAPID_JWT_TTL_SEC, "sub": sub}).to_string();
@@ -256,8 +243,6 @@ fn vapid_authorization_header(keys: &VapidKeys, aud: &str, sub: &str) -> String 
     let jwt = vapid_jwt(&keys.signing_key, aud, sub, now_epoch());
     format!("vapid t={jwt}, k={}", keys.public_key_b64)
 }
-
-// ─── 本文暗号化（RFC 8291 `aes128gcm`） ──────────────────────────────────────
 
 /// 購読者の公開鍵（p256dh）・認証シークレット（auth）に対して、平文を RFC 8291
 /// `aes128gcm` content-coding で暗号化する。呼び出しごとに新しい ephemeral な
@@ -316,14 +301,12 @@ fn encrypt_aes128gcm(plaintext: &[u8], p256dh_b64: &str, auth_b64: &str) -> Opti
     Some(out)
 }
 
-// ─── 送信 ─────────────────────────────────────────────────────────────────
-
 enum DeliveryOutcome {
     Delivered,
     /// 404/410（購読失効）・400（VAPID 鍵不一致）— 恒久的に無効。購読を削除する。
     PermanentlyInvalid,
     /// それ以外（ネットワークエラー・一時的な 5xx・ローカルでの暗号化失敗等）。
-    /// ログのみで購読は保持する（Python 版の broad `except Exception` と同じ扱い）。
+    /// ログのみで購読は保持する。
     Transient,
 }
 
@@ -472,8 +455,6 @@ async fn send_push_notification(
     remove_subscriptions_by_endpoints(&state.push, &state.paths.data_dir, &failed_endpoints);
 }
 
-// ─── HTTP エンドポイント ─────────────────────
-
 pub async fn vapid_public_key(
     State(state): State<std::sync::Arc<AppState>>,
     _auth: RequireAuth,
@@ -530,7 +511,7 @@ pub async fn subscribe(
     }
     // device_id はデバイス認証（ペアリング）でのみ取れる。無ければ
     // 「その端末で見ているセッションには送らない」抑制の対象にならないだけで、
-    // 購読・push送信自体は従来通り成立する。
+    // 購読・push送信自体は成立する。
     add_subscription(
         &state,
         json!({
@@ -580,8 +561,7 @@ mod tests {
 
     /// RFC 8291 Appendix A の鍵導出チェーン（ECDH → PRK_key → IKM → PRK →
     /// CEK/NONCE）を、公開されている中間値と1ステップずつ突き合わせて検証する。
-    /// （出典: webpush-wg/webpush-encryption リポジトリの draft 原文
-    /// — RFC 8291 として標準化された内容と同一の worked example）
+    /// 出典: webpush-wg/webpush-encryption の draft 原文（RFC 8291 と同一の worked example）。
     #[test]
     fn rfc8291_key_derivation_matches_appendix_a_intermediate_values() {
         let as_private = base64url_decode(AS_PRIVATE_B64).unwrap();
@@ -785,7 +765,7 @@ mod tests {
             axum::http::header::ORIGIN,
             "https://example.com:8888".parse().unwrap(),
         );
-        // ポートは含めない（Python 版の正規表現は `:` の手前で止まる）。
+        // ポートは含めない。
         assert_eq!(
             extract_sub_origin(&headers),
             Some("https://example.com".to_string())
@@ -817,8 +797,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let push = PushState::new();
         let key1 = get_vapid_public_key(&push, dir.path()).unwrap();
-        // 別プロセス（Python 側）が既に生成したファイルをそのまま読み直すのと同じ
-        // シナリオ: 新しい PushState/OnceLock でも同じ鍵ファイルからは同じ公開鍵。
+        // 既に生成済みのファイルを読み直すシナリオ: 新しい PushState/OnceLock でも同じ鍵ファイルからは同じ公開鍵。
         let push2 = PushState::new();
         let key2 = get_vapid_public_key(&push2, dir.path()).unwrap();
         assert_eq!(key1, key2);
@@ -861,8 +840,6 @@ mod tests {
         set_vapid_sub(dir.path(), "https://example.com");
         assert_eq!(load_vapid_sub(dir.path()), "https://example.com");
     }
-
-    // ─── should_skip_for_viewing（push抑制判定） ────────────────────────
 
     #[test]
     fn skips_when_session_id_absent() {

@@ -49,7 +49,6 @@ impl ClientBridge {
         Arc::clone(&self.pty)
     }
 
-    /// この接続専用 PTY へ書き込む（Python の `os.write(bridge.fd, data)` 相当）。
     /// non-blocking fd での short write・EAGAIN は `AsyncPty::write_all` 側で
     /// 吸収し、呼び出し側は全バイト書き込み完了を待てる。
     pub async fn write(&self, data: &[u8]) -> std::io::Result<()> {
@@ -120,7 +119,6 @@ impl TerminalSession {
     }
 
     /// tmux セッションの環境変数（`TMUX_WORKSPACE` 等）から再構築する
-    /// （Python `TerminalSession.from_tmux` 相当）。
     pub async fn from_tmux(config: &ConfigStore, tmux_name: &str) -> Self {
         let meta = tmux::load_tmux_metadata(tmux_name).await;
         let workspace = match meta.get("TMUX_WORKSPACE").filter(|s| !s.is_empty()) {
@@ -193,8 +191,7 @@ impl TerminalSession {
     }
 
     /// この接続専用の PTY でベースセッションへ独立アタッチし、読み取りループを
-    /// 起動する（Python `attach_client_bridge` + `register_bridge` +
-    /// `start_bridge_reader` 相当）。ブリッジ ID を返す。
+    /// 起動する。ブリッジ ID を返す。
     pub fn attach_client_bridge(
         &mut self,
         cols: u16,
@@ -262,7 +259,7 @@ impl TerminalSession {
         }
     }
 
-    /// 全クライアントブリッジを切断する（Python `_detach_pty_bridge` 相当）。
+    /// 全クライアントブリッジを切断する。
     pub fn close_all_bridges(&mut self) {
         let ids: Vec<u64> = self.bridges.keys().copied().collect();
         for id in ids {
@@ -271,11 +268,8 @@ impl TerminalSession {
     }
 
     /// pending text（TMUX_PENDING_TEXT）の flush 権を1回だけクレームする
-    /// （Codex レビュー指摘: 新規作成直後のセッションへ複数 WS クライアントが
-    /// ほぼ同時に attach すると、tmux 環境変数の存在確認と削除が別コマンドで
-    /// 非atomicなため両方が flush してしまい二重送信になる）。呼び出し元は
-    /// `session_arc` の Mutex を保持したままこれを呼ぶことで、プロセス内では
-    /// 最初の1回だけ `Some(tmux_session_name)` を受け取れる。
+    /// （tmux 環境変数の存在確認と削除は非atomicなため、複数 WS が同時 attach すると二重 flush になる）。
+    /// 呼び出し元は `session_arc` の Mutex を保持したままこれを呼ぶことで、最初の1回だけ `Some(tmux_session_name)` を受け取れる。
     pub fn claim_pending_text_flush(&mut self) -> Option<String> {
         if self.pending_text_claimed {
             None
@@ -306,7 +300,6 @@ pub struct NewSessionSpec {
     pub interactive: bool,
 }
 
-/// ターミナルセッションのレジストリ（Python `TERMINAL_SESSIONS` + `sessions_lock` 相当）。
 #[derive(Default)]
 pub struct TerminalRegistry {
     sessions: Mutex<HashMap<String, Arc<Mutex<TerminalSession>>>>,
@@ -348,7 +341,7 @@ impl TerminalRegistry {
         self.sessions.lock().await.clone()
     }
 
-    /// tmux セッションを作成しレジストリへ登録する（Python `create_registered_session`）。
+    /// tmux セッションを作成しレジストリへ登録する。
     ///
     /// `workspace` が指定されていれば session_id は `{sanitize(worktree_base)}-{短いID}`、
     /// 無指定なら短い ID のみになる。
@@ -394,15 +387,11 @@ impl TerminalRegistry {
     }
 
     /// tmux 名プレフィックスを外した ID からセッションを解決する（レジストリに
-    /// 無ければ tmux の実在確認 → メタデータ復元で on-demand 登録する。Python
-    /// `get_terminal_session` 相当）。
+    /// 無ければ tmux の実在確認 → メタデータ復元で on-demand 登録する）。
     ///
     /// 存在確認・復元・登録までを `sessions` の同じロック区間で行う
-    /// （Codex レビュー指摘: 以前は `get` → `insert` が別ロックに分かれており、
-    /// Rust 再起動直後に同じ未登録セッションへ2クライアントが同時に attach すると
-    /// 両方とも「未登録」を観測して別々の `TerminalSession` を作ってしまい、
-    /// 一方だけがレジストリに残る一方で pending_text_claimed 等の per-session
-    /// 状態が2つのインスタンスに分裂し、pending text の二重送信につながる）。
+    /// （別ロックだと再起動直後に2クライアントが同時 attach したとき別々の `TerminalSession` が作られ、
+    /// pending_text_claimed 等の per-session 状態が分裂して二重送信になる）。
     pub async fn get_or_register(
         &self,
         config: &ConfigStore,
@@ -427,8 +416,7 @@ impl TerminalRegistry {
         Ok(arc)
     }
 
-    /// セッションを完全に削除する（全ブリッジ切断 + tmux kill-session。Python
-    /// `_kill_tmux_session` 相当）。
+    /// セッションを完全に削除する（全ブリッジ切断 + tmux kill-session）。
     pub async fn kill(&self, session_arc: &Arc<Mutex<TerminalSession>>) {
         let tmux_name = {
             let mut session = session_arc.lock().await;
@@ -536,11 +524,8 @@ mod tests {
     }
 
     /// Rust 再起動直後（レジストリが空）に、tmux には実在するが未登録の
-    /// セッションへ複数クライアントがほぼ同時に attach しても、`get_or_register`
-    /// が返す `Arc` は全呼び出しで同一インスタンスであること（Codex レビュー
-    /// 指摘: 検証前は get→insert が別ロックで、両方が「未登録」を観測して
-    /// 別々の `TerminalSession` を作ってしまい、pending_text_claimed 等の
-    /// per-session 状態が分裂していた）。
+    /// セッションへ複数クライアントが同時に attach しても、`get_or_register` が返す `Arc` は全呼び出しで
+    /// 同一インスタンスであること（別ロックだと per-session 状態が分裂していた）。
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn get_or_register_cold_hydration_is_atomic_under_concurrency() {
         if crate::tmux::skip_if_no_tmux() {
@@ -602,9 +587,7 @@ mod tests {
     }
 
     /// 新規作成直後のセッションへ複数 WS クライアントがほぼ同時に attach しても、
-    /// pending text の flush 権を得られるのは1回だけであること（Codex レビュー
-    /// 指摘: 検証前は tmux 環境変数の存在確認＋削除が非atomicで、両方の attach が
-    /// flush_pending_text を起動して二重送信していた）。
+    /// pending text の flush 権を得られるのは1回だけであること（非atomicだと両方が二重送信していた）。
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn claim_pending_text_flush_only_succeeds_once_under_concurrency() {
         let session_arc = Arc::new(Mutex::new(TerminalSession::new("tmux-race".to_string())));

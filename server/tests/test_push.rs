@@ -1,4 +1,4 @@
-//! Rust ネイティブ移行済み `/push/*` の統合テスト。
+//! `/push/*` の統合テスト。
 //!
 //! 暗号（VAPID JWT・RFC 8291 `aes128gcm`）自体の正しさは `server/src/push.rs` の
 //! ユニットテストで検証済み（RFC 8291 Appendix A の中間値との一致を含む）。

@@ -1,4 +1,4 @@
-//! Rust ネイティブ移行済み `POST /upload-image` の統合テスト。
+//! `POST /upload-image` の統合テスト。
 //!
 //! クリップボード書き込み（osascript/xclip 呼び出し）はサンドボックスに無いため
 //! 実行されない・例外にもならないことを、`clipboard: false` の応答で確認する。

@@ -56,7 +56,7 @@ fn ext_of(path: &str) -> String {
         .unwrap_or_default()
 }
 
-/// PermissionError → 403 / その他 OS エラー → 500（Python `file_operation_guard`）。
+/// PermissionError → 403 / その他 OS エラー → 500。
 fn map_io_error(operation_name: &str, e: std::io::Error) -> ApiError {
     if e.kind() == std::io::ErrorKind::PermissionDenied {
         forbidden("Permission denied")
@@ -89,8 +89,6 @@ async fn run_raw_git_bytes(args: &[&str], cwd: &FsPath) -> Result<(i32, Vec<u8>)
         .await
         .map_err(|e| crate::git_utils::map_git_error(e, "Git operation"))
 }
-
-// ─── コンテンツ応答の組み立て ─────────────────────────────────────────────
 
 fn build_content_response(path: &str, ext: &str, raw: &[u8], size: u64) -> Value {
     let filename = FsPath::new(path)
@@ -135,8 +133,6 @@ pub(crate) fn read_file_content_response(path: &str, target: &FsPath) -> Result<
     };
     Ok(build_content_response(path, &ext, &raw, size))
 }
-
-// ─── ディレクトリ一覧 ─────────────────────────────────────────────────────
 
 async fn gitignored_names(target: &FsPath) -> std::collections::HashSet<String> {
     let result = run_git_raw(
@@ -287,8 +283,6 @@ pub(crate) async fn list_directory_entries(
     Ok(entries)
 }
 
-// ─── ref 指定の閲覧 ─────────────────────────────────────────────────────────
-
 fn git_tree_spec(git_ref: &str, rel_path: &str) -> String {
     if rel_path.is_empty() {
         git_ref.to_string()
@@ -348,8 +342,6 @@ async fn read_file_content_at_ref(
     let size = raw.len() as u64;
     Ok(build_content_response(path, &ext_of(path), &raw, size))
 }
-
-// ─── ルート ─────────────────────────────────────────────────────────────────
 
 /// `resolve_*` が返した相対パスを応答用文字列にする（"." はルート = 空文字）。
 pub(crate) fn rel_path_string(rel: &FsPath) -> String {
@@ -446,8 +438,6 @@ pub async fn file_content(
     file_content_or_error(&q.path, &target, &rel).map(Json)
 }
 
-// ─── upload ─────────────────────────────────────────────────────────────────
-
 pub async fn upload(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -517,7 +507,6 @@ pub async fn save_multipart_upload(
     }
 
     let target_file = target_dir.join(&filename);
-    // resolve + 配下検証（Python validate_workspace_relative_target 相当）
     resolve_and_validate_workspace_path(ws_path, &rel_dir.join(&filename).to_string_lossy())?;
     if target_file.exists() {
         if target_file.is_dir() {
@@ -538,8 +527,6 @@ pub async fn save_multipart_upload(
         json!({"status": "ok", "path": rel_path, "size": data.len()}),
     ))
 }
-
-// ─── rename / delete ────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct RenameRequest {
@@ -610,8 +597,6 @@ pub fn delete_under(root: &FsPath, path: &str) -> Result<Json<Value>, ApiError> 
     Ok(Json(json!({"status": "ok"})))
 }
 
-// ─── download ───────────────────────────────────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct DownloadQuery {
     pub path: String,
@@ -634,11 +619,8 @@ impl futures_util::Stream for TempDirStream {
     }
 }
 
-/// Python `urllib.parse.quote(s, safe="/")` と同じ規則（未予約文字 + `/` は
-/// そのまま、それ以外は UTF-8 バイト単位で `%XX`（大文字16進）にパーセント
-/// エンコードする）。Starlette の `FileResponse` が `Content-Disposition` の
-/// ファイル名決定に使っているのと同じ関数で、`quote()` の結果が元の文字列と
-/// 一致するかどうかで ASCII セーフかどうかを判定する。
+/// `urllib.parse.quote(s, safe="/")` と同じ規則（未予約文字 + `/` はそのまま、それ以外は UTF-8 バイト単位で
+/// `%XX`（大文字16進））。`quote()` の結果が元の文字列と一致するかで ASCII セーフかどうかを判定する。
 fn percent_encode_like_python_quote(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for byte in s.as_bytes() {
@@ -653,13 +635,9 @@ fn percent_encode_like_python_quote(s: &str) -> String {
     out
 }
 
-/// `Content-Disposition` のファイル名部分を組み立てる（Starlette
-/// `FileResponse.__init__` と同一規則）。非 ASCII・`"` 等を含み `quote()` 後の
-/// 値が元と変わる場合は RFC 5987 の `filename*=utf-8''<percent-encoded>` の
-/// みを使う（Codex レビュー指摘: 以前は生の UTF-8 文字列をそのまま
-/// `filename="..."` に入れており、HTTP ヘッダ値として無効なバイトを含むと
-/// レスポンス構築自体が失敗し 500 になっていた。ASCII セーフな場合は従来どおり
-/// クォート付きの `filename="..."` のみを使う）。
+/// `Content-Disposition` のファイル名部分を組み立てる。非 ASCII・`"` 等を含み `quote()` 後の値が元と変わる場合は
+/// RFC 5987 の `filename*=utf-8''<percent-encoded>` のみを使う（生の UTF-8 を `filename="..."` に入れると
+/// ヘッダ値として無効になり 500 になる）。ASCII セーフな場合は `filename="..."` のみ。
 fn content_disposition(disposition_type: &str, filename: &str) -> String {
     let encoded = percent_encode_like_python_quote(filename);
     if encoded != filename {
@@ -681,8 +659,7 @@ fn attachment_response(body: Body, filename: &str, media_type: &str) -> Response
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
-/// ディレクトリを zip 化する（Python `_create_zip_archive` と同一規則:
-/// .git は除外・symlink はスキップ・圧縮前合計が上限超過なら 413）。
+/// ディレクトリを zip 化する（.git は除外・symlink はスキップ・圧縮前合計が上限超過なら 413）。
 fn create_zip_archive(target: &FsPath, tmp_dir: &FsPath) -> Result<PathBuf, ApiError> {
     use zip::write::SimpleFileOptions;
     let target_name = target

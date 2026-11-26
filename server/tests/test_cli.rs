@@ -205,7 +205,6 @@ fn unknown_subcommands_exit_nonzero_with_message() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("Error:"));
 }
 
-// ─── hooks install-claude ───────────────────────────────────────────────
 //
 // `~/.claude/settings.json` を書き換えるため、`HOME` もプロジェクトルートと
 // 同様に一時ディレクトリへ隔離する（実ユーザーの設定に触れない）。

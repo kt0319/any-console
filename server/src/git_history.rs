@@ -28,7 +28,7 @@ pub struct CommitRequest {
     message: String,
 }
 
-/// Python `GitActionRequest` と同じ全アクション共用ボディ。
+/// 全アクション共用ボディ。
 #[derive(Deserialize, Default)]
 pub struct GitActionRequest {
     #[serde(default)]
@@ -46,8 +46,6 @@ pub struct GitActionRequest {
 fn default_mode() -> String {
     "soft".to_string()
 }
-
-// ─── GET /workspaces/{name}/git-log ─────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct GitLogQuery {
@@ -101,7 +99,6 @@ pub async fn git_log(
         .map(|out| Json(out.to_response_json()))
 }
 
-// ─── GET /workspaces/{name}/unpulled-log ────────────────────────────────────
 //
 // upstream参照（@{u}）にはあるがまだローカルにpullしていないコミット
 // （HEAD..@{u}）をgit_logと同じpretty-format（%H\t%ad\t%an\t%D\t%s）で返す。
@@ -137,8 +134,6 @@ pub async fn unpulled_log(
         .await
         .map(|out| Json(out.to_response_json()))
 }
-
-// ─── GET /workspaces/{name}/file-history ────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct FileHistoryQuery {
@@ -178,8 +173,6 @@ pub async fn file_history(
     .map(|out| Json(out.to_response_json()))
 }
 
-// ─── GET /workspaces/{name}/commit-message ──────────────────────────────────
-
 #[derive(Deserialize)]
 pub struct CommitMessageQuery {
     hash: String,
@@ -208,8 +201,6 @@ pub async fn commit_message(
     };
     Ok(Json(json!({"message": message})))
 }
-
-// ─── コミット指定系（cherry-pick / revert）──────────────────────────────────
 
 async fn execute_commit_action(
     state: &Arc<AppState>,
@@ -273,8 +264,6 @@ pub async fn revert(
     )
     .await
 }
-
-// ─── merge / rebase / reset ─────────────────────────────────────────────────
 
 async fn branch_action(
     state: &Arc<AppState>,
@@ -383,8 +372,6 @@ pub async fn reset(
     .map(|out| Json(out.to_response_json()))
 }
 
-// ─── commit ─────────────────────────────────────────────────────────────────
-
 pub async fn commit(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -433,8 +420,6 @@ pub async fn commit(
     .await
     .map(|out| Json(out.to_response_json()))
 }
-
-// ─── stash ──────────────────────────────────────────────────────────────────
 
 pub async fn stash_list(
     State(state): State<Arc<AppState>>,
@@ -513,14 +498,10 @@ pub async fn stash(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     _auth: RequireAuth,
-    // Python は `body: GitActionRequest | None = None`（ボディ無しも許容）
     raw_body: axum::body::Bytes,
 ) -> Result<Json<Value>, ApiError> {
-    // Python 版は `body: GitActionRequest | None = None` で、ボディ省略時のみ
-    // None（include_untracked=false）を許容し、非空だが不正なボディは FastAPI の
-    // バリデーションで 422 になる。ここで parse エラーを黙って false 扱いにすると
-    // 不正なリクエストでも実際に git stash（副作用のあるミューテーション）が
-    // 実行されてしまう（Codex レビュー指摘）。
+    // ボディ省略時のみ include_untracked=false を許容し、非空だが不正なボディは 422 にする
+    // （parse エラーを false 扱いにすると不正なリクエストでも git stash が実行されてしまう）。
     let include_untracked = if raw_body.is_empty() {
         false
     } else {

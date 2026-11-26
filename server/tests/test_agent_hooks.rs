@@ -1,9 +1,7 @@
-//! Rust ネイティブ移行済み `POST /agent-hooks/events` の統合テスト。
+//! `POST /agent-hooks/events` の統合テスト。
 //!
-//! proxy を介さず Rust ハンドラが直接応答すること・hook 専用トークンでの
-//! 認証が効いていること・agent_watch が読む `AgentHookState` へ実際に
-//! 反映されることを検証する。upstream は不要（未移行ルートに触れないため、
-//! 繋がらないダミーを指す）。
+//! hook 専用トークンでの認証が効いていること・agent_watch が読む `AgentHookState` へ
+//! 実際に反映されることを検証する。
 
 mod common;
 

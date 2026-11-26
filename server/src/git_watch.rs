@@ -1,16 +1,5 @@
-//! git ステータス監視。
-//!
-//! - `WatchTarget` / `collect_watch_targets`: 登録済み git ワークスペース + 動的
-//!   worktree を集める（`/workspaces/statuses` が返す集合と一致させる）
-//! - `is_relevant_change`: FS イベントのパスが git ステータスに影響しうるかを判定する純関数
-//! - `match_workspaces` / `watch_roots`: 変更パス集合を再計算すべきワークスペース名
-//!   へ対応付け、監視すべきルートパス集合を組み立てる
-//! - `GitWatchState` / `ensure_tasks` / `maybe_stop_tasks` / `nudge_workspace` /
-//!   `notify_workspaces_changed`: 購読者数に連動したタスクの起動・停止。
-//!   `StatusStreamState::subscriber_count()`（全 producer 共有）を使うため、
-//!   専用の購読者管理は不要
-//! - `watch_loop` / `auto_fetch_loop`: FS 監視（`notify` crate +
-//!   `notify-debouncer-full` を使用）・定期 fetch の常駐タスク
+//! git ステータス監視。FS イベント（`notify` + `notify-debouncer-full`）と定期 fetch の常駐タスクで、
+//! 購読者（`StatusStreamState::subscriber_count()`）がいる間だけ git 状態を再計算して push する。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -340,8 +329,6 @@ fn match_workspaces(changed_paths: &HashSet<String>, targets: &[WatchTarget]) ->
     names
 }
 
-// ─── 購読者連動タスク管理・push ─────────────────────────────────────────────
-
 /// git_watch の常駐タスク（監視・自動 fetch）とその実行状態を保持する。
 pub struct GitWatchState {
     watch_task: crate::util::SupervisedTask,
@@ -418,12 +405,8 @@ pub fn nudge_workspace(state: &Arc<AppState>, workspace_name: String) {
 }
 
 /// git_info を再計算し、前回送信時から変化があれば購読者へ配信する。
-///
-/// 毎回 `git_info_cache` を invalidate してから `git_info_to_status_json`
-/// （`/workspaces/statuses` と共通のフル再計算パイプライン）を呼ぶ単純な実装に
-/// した。TTL キャッシュ命中時に diff/status が古いまま配信される事故を防ぐ
-/// 確実さを優先し、watch イベントごとに数回分余計な git サブプロセスが増える
-/// 程度のコストは許容する。
+/// 毎回 `git_info_cache` を invalidate してフル再計算する（TTL キャッシュ命中で diff/status が古いまま
+/// 配信される事故を防ぐ。余分な git サブプロセスのコストは許容）。
 async fn push_status(state: &Arc<AppState>, target: &WatchTarget) {
     state.git_info_cache.invalidate(&target.path);
     let status =
@@ -602,8 +585,6 @@ mod tests {
         items.iter().map(|s| s.to_string()).collect()
     }
 
-    // ─── is_relevant_change ──────────────────────────────────────────────
-
     #[test]
     fn working_tree_file_is_relevant() {
         assert!(is_relevant_change("/ws/src/main.py"));
@@ -670,8 +651,6 @@ mod tests {
     fn empty_path_is_ignored() {
         assert!(!is_relevant_change(""));
     }
-
-    // ─── match_workspaces ────────────────────────────────────────────────
 
     fn plain_targets() -> Vec<WatchTarget> {
         vec![
@@ -812,8 +791,6 @@ mod tests {
         assert!(names.contains("main") && names.contains("wt"));
     }
 
-    // ─── watch_roots ─────────────────────────────────────────────────────
-
     #[test]
     fn plain_targets_watch_working_trees() {
         let targets = vec![
@@ -872,8 +849,6 @@ mod tests {
             ]
         );
     }
-
-    // ─── collect_watch_targets（実 git リポジトリ）───────────────────────
 
     fn register_workspace(store: &ConfigStore, name: &str, path: &Path) {
         let mut cfg = store.load_all();

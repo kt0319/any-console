@@ -2,12 +2,9 @@
 
 use super::*;
 
-/// `image_paths` はクライアントが指定した生のファイルパス（将来的には生パスでは
-/// なく `POST /upload-image` が発行する不透明なアップロードIDへ置き換えたい）。
-/// それまでの間、`sync_dispatch_image_dir` へ渡す前に「`uploads_dir()` 直下の
-/// 通常ファイルか」を実体パス（symlink解決込み）で検証する。ここを通さずに
-/// リネーム対象・`compose_text_with_images` 埋め込み対象に使うと、任意ファイルの
-/// 移動やCLIエージェントへの読み取り誘導（`Image: <path>` 経由）につながる。
+/// `image_paths` はクライアントが指定した生のファイルパスのため、`sync_dispatch_image_dir` へ渡す前に
+/// 「`uploads_dir()` 直下の通常ファイルか」を実体パス（symlink解決込み）で検証する。
+/// 通さないと任意ファイルの移動や、CLIエージェントへの読み取り誘導（`Image: <path>` 経由）につながる。
 enum DispatchImageSrc {
     /// `uploads_dir()` 直下の通常ファイル。移動対象。
     InUploads(PathBuf),
@@ -40,12 +37,10 @@ async fn validate_dispatch_image_src(
 }
 
 /// dispatch 1件の添付画像を、`uploads_dir()` などの一時領域から
-/// `dispatch_images_dir(dispatch_id)` へ集約する（idempotent）。既にそこに
-/// あるファイルは移動せず、現在の `image_paths` に含まれなくなったフォルダ内の
-/// 孤立ファイル（Run前の差し替え・削除分）は削除する。戻り値は移動後のパス。
-/// `uploads_dir()` 直下の通常ファイルでない `src`（範囲外パス・symlink・
-/// 走査パス等）は `validate_dispatch_image_src` で拒否し、結果から丸ごと除外する
-/// （移動失敗時と違い元パスのまま残さない — テキストへの埋め込みに使われるため）。
+/// `dispatch_images_dir(dispatch_id)` へ集約する（idempotent）。既にそこにあるファイルは移動せず、
+/// `image_paths` に含まれなくなった孤立ファイルは削除する。戻り値は移動後のパス。
+/// 検証（`validate_dispatch_image_src`）に落ちた `src` は結果から除外する
+/// （移動失敗時と違い、テキストへの埋め込みに使われるため元パスのまま残さない）。
 pub(super) async fn sync_dispatch_image_dir(
     paths: &Paths,
     dispatch_id: &str,

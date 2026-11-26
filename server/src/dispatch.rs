@@ -1,25 +1,18 @@
 //! `POST /dispatch` エンドポイント一式。
 //!
-//! 外部から「workspace + job + テキスト」を1回のリクエストで投げて、既存セッション
-//! 再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、text の tmux 送信までを
-//! 行う。`POST /dispatch` はpendingキューへ積んで即座に 202 を返し、実行は
-//! `/dispatch/{id}/decision`（`executed: true`=実行 / `false`=破棄の二択）だけが
-//! 担う。同じエンドポイントは決定済み（pendingから外れた）itemに対しても働き、
-//! recent履歴から元のリクエストを復元して再送する。
-//! `direct: true` の即時実行は、メイントークン・dispatch スコープでは拒否し、制限を満たす
-//! direct スコープのトークンにだけ許可する（`dispatch_direct`、ADR 34）。
+//! 外部から「workspace + job + テキスト」を投げて、セッション再利用 or 新規作成、ブランチ確認/作成、
+//! 起動コマンド実行、text の tmux 送信までを行う。リクエストは pending キューへ積んで即 202 を返し、
+//! 実行は `/dispatch/{id}/decision`（`executed: true`=実行 / `false`=破棄）だけが担う。決定済みの item に
+//! 対しても recent 履歴から元のリクエストを復元して再送する。
+//! `direct: true` の即時実行は、制限を満たす direct スコープのトークンにだけ許可する（`dispatch_direct`、ADR 34）。
 //!
-//! 新規作成セッションに予約するテキスト（`pending_text`）は tmux 環境変数
-//! （`TMUX_PENDING_TEXT`/`TMUX_PENDING_ENTER`）へ永続化する。ターミナル WS の
-//! attach 処理（`terminal.rs`）がこれを読んで flush する。プロセスをまたいでも
-//! 安全に受け渡せる（`create_registered_session` を呼ぶプロセスと WS が繋がる
-//! プロセスが一致している保証が要らなくなる）。
+//! 新規作成セッションへ予約するテキスト（`pending_text`）は tmux 環境変数（`TMUX_PENDING_TEXT`/
+//! `TMUX_PENDING_ENTER`）へ永続化し、ターミナル WS の attach 処理（`terminal.rs`）が読んで flush する。
+//! これにより作成プロセスと WS 接続プロセスが一致している必要がない。
 //!
-//! `image_paths`（サーバーローカルのファイルパス。`POST /upload-image`で事前に
-//! アップロードして得る）はバイナリとして送るのではなく、`compose_text_with_images`
-//! が `text` の末尾へ `Image: <path>` 行として展開してから tmux へ送る。セッション内の
-//! CLIエージェント（Claude Code等）がそのパス言及を見て自分のファイルツールで画像を
-//! 読みに行く前提。
+//! `image_paths`（`POST /upload-image` で事前アップロードしたサーバーローカルのパス）は、
+//! `compose_text_with_images` が `text` 末尾へ `Image: <path>` 行として展開してから送る。
+//! セッション内の CLI エージェントがそのパスを見て自分のファイルツールで画像を読む前提。
 
 use std::collections::HashSet;
 use std::ffi::OsString;
@@ -64,8 +57,6 @@ const DISPATCH_IMAGE_TTL_SEC: i64 = 24 * 60 * 60;
 /// direct スコープのトークンの起動回数を数える期間（直近 24 時間）。
 const DIRECT_WINDOW_SEC: i64 = 24 * 60 * 60;
 const ACTIVITY_EVENT_DIRECT_FIRED: &str = "direct_fired";
-
-// ─── 永続化状態 ──────────────────────────────────────────────────────────────
 
 #[derive(Default)]
 pub struct DispatchState {
@@ -189,9 +180,7 @@ async fn record_recent(
     if let Value::Object(map) = &mut request {
         map.retain(|k, _| DISPATCH_REQUEST_FIELDS.contains(&k.as_str()));
     }
-    // 正規化後に effective_workspace を再計算して積む（上の retain で一旦落ちる
-    // ため、呼び出し元が事前に積んでいても消えてしまい、worktree dispatch の
-    // 履歴フィルタ（DispatchWorkspacePane.vue）が誤判定・取りこぼしてしまう）。
+    // 正規化後に effective_workspace を再計算して積む（retain で落ちるため。worktree dispatch の履歴フィルタが依存する）。
     if let Ok(body) = serde_json::from_value::<DispatchRequest>(request.clone()) {
         if let Value::Object(map) = &mut request {
             map.insert(
@@ -200,9 +189,7 @@ async fn record_recent(
             );
         }
     }
-    // 決定（実行/破棄）が確定した時刻。受付時刻（received_at）と合わせて、
-    // フロントのDispatch履歴で「受付からどれだけ待たされたか」を計算できる
-    // ようにする。
+    // 決定（実行/破棄）が確定した時刻。received_at と合わせて受付からの待ち時間を計算できるようにする。
     if let Value::Object(map) = &mut request {
         map.insert("decided_at".to_string(), json!(now_epoch()));
     }
@@ -233,8 +220,6 @@ const DISPATCH_REQUEST_FIELDS: &[&str] = &[
     "received_at",
     "image_paths",
 ];
-
-// ─── リクエストモデル ────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DispatchRequest {
@@ -353,8 +338,6 @@ pub struct DispatchDecision {
     overrides: DispatchOverrides,
 }
 
-// ─── ジョブ定義解決 ──────────────────────────────────────────────────────────
-
 struct JobDef {
     command: String,
     label: String,
@@ -409,8 +392,6 @@ fn resolve_job_def(state: &AppState, workspace: &str, job: &str) -> Result<JobDe
             .to_string(),
     })
 }
-
-// ─── ブランチ確認/作成 ───────────────────────────────────────────────────────
 
 async fn has_uncommitted_changes(ws_path: &FsPath) -> Result<bool, ApiError> {
     match run_git_raw(
@@ -483,8 +464,6 @@ async fn ensure_branch(
     Ok(())
 }
 
-// ─── セッション解決/起動 ─────────────────────────────────────────────────────
-
 async fn find_existing_session(
     state: &Arc<AppState>,
     workspace: &str,
@@ -541,12 +520,8 @@ async fn resolve_session(
     effective_ws: &str,
 ) -> Option<(String, Arc<Mutex<TerminalSession>>)> {
     if let Some(sid) = body.session_id.as_deref().filter(|s| !s.is_empty()) {
-        // レジストリ未登録でも tmux 上には実在しうる（Rust 再起動直後・別プロセスが
-        // 作成した等）ため、registry-only の `get` ではなく `terminal_session`
-        // （get_or_register）で on-demand ハイドレートしてから解決する
-        // （Codex レビュー指摘: `get` だけだと
-        // 明示的に選択されたセッションが無視され、別のセッションへ誤って送信/新規
-        // セッションを二重作成してしまう）。
+        // レジストリ未登録でも tmux 上には実在しうる（再起動直後・別プロセス作成）ため、
+        // `get` ではなく `terminal_session`（get_or_register）で on-demand ハイドレートして解決する。
         if let Ok(sess) = state.terminal_session(sid).await {
             return Some((sid.to_string(), sess));
         }
@@ -661,8 +636,6 @@ async fn launch(state: &Arc<AppState>, body: &DispatchRequest) -> Result<Value, 
     }))
 }
 
-// ─── dedup / 通知本文 / branch_status ───────────────────────────────────────
-
 fn find_pending_by_dedup_key(pending: &Map<String, Value>, key: &str) -> Option<(String, Value)> {
     pending
         .iter()
@@ -671,10 +644,7 @@ fn find_pending_by_dedup_key(pending: &Map<String, Value>, key: &str) -> Option<
 }
 
 /// dedup キーでの既存項目検索から新規項目の挿入までを1回のロック区間で行う
-/// （Codex レビュー指摘: 検索とロック解放を挟んで挿入が別ロックだと、同じ
-/// dedup_key を持つ2件が並行到着したときに両方とも「初回」と誤判定し、
-/// coalesce されず2件とも積まれてしまう）。
-/// 戻り値: (実際に使われた dispatch_id, retry_count, 初回通知を鳴らすべきか)。
+/// （別ロックだと同一 dedup_key の並行到着が両方「初回」と誤判定され coalesce されない）。
 async fn resolve_dedup_and_insert(
     state: &Arc<AppState>,
     dispatch_id: String,
@@ -753,8 +723,6 @@ async fn branch_status(ws_path: &FsPath, branch: &str) -> &'static str {
     }
 }
 
-// ─── 認証（POST /dispatch 専用: メイン/デバイス + dispatch scope token）─
-
 /// (auth_label, 呼び出し元の API トークンエントリ)。メイントークン・デバイスなら None。
 /// dispatch スコープのラベルは `token:<id>`、direct スコープは `direct:<トークン名>`。
 async fn verify_dispatch_auth(
@@ -791,8 +759,6 @@ async fn verify_dispatch_auth(
     }
     Err(crate::errors::unauthorized("Invalid token"))
 }
-
-// ─── ルート ─────────────────────────────────────────────────────────────────
 
 pub async fn dispatch(
     State(state): State<Arc<AppState>>,
@@ -955,13 +921,8 @@ async fn dispatch_core(
         .into_response())
 }
 
-// ─── 決定（実行/破棄）と実行記録 ─────────────────────────────────────────────
-
-/// `POST /dispatch/{id}/decision`。まだpendingキューにあるitemはその場で実行/破棄、
-/// 既にpendingから外れた（=決定済みの）itemはrecent履歴から元のリクエストを
-/// 復元して再送する。「pendingか履歴か」でデータの取得元が違うだけで、
-/// dispatch_idを渡して`executed: true/false`を決めるという操作自体は1つに
-/// 統一している（旧 `dispatch_rerun` はこの関数へ統合済み）。
+/// `POST /dispatch/{id}/decision`。pendingのitemはその場で実行/破棄、決定済みのitemはrecent履歴から
+/// 元のリクエストを復元して再送する。
 pub async fn dispatch_decide(
     State(state): State<Arc<AppState>>,
     Path(dispatch_id): Path<String>,
@@ -973,9 +934,8 @@ pub async fn dispatch_decide(
     // （"main" 固定だと Tailscale/デバイス cookie 経由の認証で誤ったラベルになる）。
     let auth_label = auth.0.label.as_str();
 
-    // 検索(get)と削除(shift_remove)を1回のロック区間で行う（Codex レビュー指摘:
-    // 別ロックに分かれていると、同じ dispatch_id への decision が並行到着した
-    // とき両方ともSomeを引き当て、executedなら launch を二重実行してしまう）。
+    // 検索(get)と削除(shift_remove)を1回のロック区間で行う
+    // （別ロックだと同一 dispatch_id への並行 decision が両方 Some を引き当て、launch が二重実行される）。
     let pending_payload = state
         .dispatch
         .pending

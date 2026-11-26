@@ -1,8 +1,6 @@
 //! config.json エントリの検証・正規化。
 //!
-//! かつては Python 実装（Pydantic モデル）との互換のため lax な型変換や
-//! `exclude_defaults` 相当のデフォルト値省略を再現していたが、Rust 移行完了に
-//! 伴い撤去した。現在の仕様:
+//! 現在の仕様:
 //!
 //! - 宣言フィールドは厳格に型検証する（bool は JSON の bool、int は JSON の
 //!   整数のみ。文字列からの変換はしない）
@@ -116,8 +114,6 @@ fn dump_model(data: &Value, specs: &[FieldSpec]) -> Result<Map<String, Value>, S
     Ok(out)
 }
 
-// ─── ネストモデル ────────────────────────────────────────────────────────────
-
 fn validate_snippet(data: &Value) -> Result<Value, String> {
     let obj = data.as_object().ok_or("expected object")?;
     if !obj.contains_key("command") {
@@ -199,8 +195,6 @@ fn validate_job_config(data: &Value) -> Result<Value, String> {
     }
     Ok(Value::Object(out))
 }
-
-// ─── workspace / global ─────────────────────────────────────────────────────
 
 fn workspace_specs() -> Vec<FieldSpec> {
     let s = |k: &'static str| FieldSpec {

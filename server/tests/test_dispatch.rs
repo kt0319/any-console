@@ -1,14 +1,9 @@
 //! `/dispatch` ルート一式の統合テスト。
 //!
-//! これらのルートはまだ `build_router` に配線されていない（Phase 5 の設計判断 —
-//! ターミナル WS・`/run` と同時に配線する）ため、テスト専用の Router を直接
-//! 組み立てる。dispatch キューの配信は `state.status_stream`（ネイティブ
-//! broadcast channel）を直接購読して検証する。dispatch scope API トークン検証は
-//! `Auth::verify_and_touch_api_token` へネイティブに移行済みのため、フェイクではなく
-//! `Auth::create_api_token` で実際に発行したトークンを使う。push 通知は
-//! `crate::push` へネイティブに移行済みのため、フェイクの Web Push サービスへ
-//! 実際に暗号化された HTTP リクエストが飛ぶことを検証する（暗号の正しさ自体は
-//! `push.rs` の RFC 8291 ユニットテストで別途検証済み — ここでは配線のみ確認）。
+//! テスト専用の Router を直接組み立てる。dispatch キューの配信は `state.status_stream` を直接購読して検証する。
+//! dispatch scope のトークンは `Auth::create_api_token` で実際に発行したものを使い、push 通知は
+//! フェイクの Web Push サービスへ暗号化された HTTP リクエストが飛ぶことを検証する
+//! （暗号の正しさ自体は `push.rs` の RFC 8291 ユニットテストで検証済み）。
 
 mod common;
 
@@ -463,8 +458,7 @@ async fn dedup_key_supersedes_previous_pending_item() {
 }
 
 /// 同じ dedup_key を持つ dispatch が並行到着しても pending に1件しか残らないこと
-/// （Codex レビュー指摘: 検索と挿入が別ロックだと両方とも「初回」と誤判定し、
-/// coalesce されず複数件が積まれてしまう）。
+/// （検索と挿入が別ロックだと両方「初回」と誤判定され、coalesce されず複数件が積まれる）。
 // マルチスレッド runtime にする: `tokio::sync::Mutex::lock().await` は非競合時に
 // 即座に完了し実際には yield しないため、既定の current_thread runtime では
 // 2つのロック区間に分かれた検索→挿入の隙間に別タスクが割り込む機会がほぼ無く、
@@ -499,8 +493,7 @@ async fn concurrent_dedup_dispatch_requests_do_not_duplicate_pending_item() {
 }
 
 /// 同じ dispatch_id への decision(approved) が並行到着しても launch は1回しか
-/// 実行されないこと（Codex レビュー指摘: 取得と削除が別ロックだと両方が
-/// Some を引き当てて二重にセッションが起動してしまう）。
+/// 実行されないこと（取得と削除が別ロックだと両方が Some を引き当てて二重起動する）。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent_decision_approvals_launch_session_only_once() {
     if common::skip_if_no_tmux() {
@@ -615,9 +608,7 @@ async fn approved_new_session_flushes_pending_text_over_ws() {
 }
 
 /// 承認された text が複数行（改行を含む）の場合でも、全行が欠落せずに
-/// flush されること（Codex レビュー指摘: pending text は1行の tmux 環境変数
-/// 値として永続化するため、素朴に生テキストを入れると改行以降が
-/// `show-environment` のパース時に失われていた）。
+/// flush されること（pending text は1行の tmux 環境変数値として永続化するため、改行以降が失われうる）。
 #[tokio::test]
 async fn approved_new_session_flushes_multiline_pending_text_over_ws() {
     if common::skip_if_no_tmux() {
@@ -741,9 +732,7 @@ async fn decided_dispatch_re_executed_from_history() {
     assert_ne!(new_session, first_session);
 
     // 実際に認証された経路のラベルが activity ログへ残ること。メイントークン
-    // 認証時のラベルは "main" — Python 版は生の Bearer 値そのものを記録して
-    // いたが、恒久クレデンシャルが activity ログへ平文で永続化されてしまう
-    // ため Rust 版では記録しない（POST /dispatch 本体と同じラベル）。
+    // 認証時のラベルは "main"（恒久クレデンシャルを activity ログへ平文で残さない）。
     let auth_label = latest_activity_auth(&front.state.paths.data_dir, "proj", "dispatch_executed");
     assert_eq!(auth_label, "main");
     assert!(!auth_label.contains(TOKEN));
@@ -824,9 +813,7 @@ async fn existing_session_reuse_sends_text_directly_without_pending_env() {
 
 /// Rust 再起動直後を模した状況（レジストリには無いが tmux には実在するセッション）
 /// を明示的な `session_id` で dispatch すると、指定したそのセッションが解決される
-/// こと（Codex レビュー指摘: 以前は registry-only の `get` が None を返し、
-/// 明示的な選択が無視されて別セッションの再利用や新規セッション作成に
-/// フォールバックしていた）。
+/// こと（registry-only の `get` だと明示的な選択が無視される）。
 #[tokio::test]
 async fn explicit_session_id_hydrates_unregistered_but_live_tmux_session() {
     if common::skip_if_no_tmux() {

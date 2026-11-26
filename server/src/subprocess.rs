@@ -25,14 +25,9 @@ impl CmdResult {
     }
 }
 
-/// CPython の C ロケール強制（PEP 538）を再現する。
-///
-/// Python バックエンドは C ロケール（LANG 等が未設定 / "C" / "POSIX"）を検出すると
-/// 起動時に `LC_CTYPE=C.UTF-8` を注入し、それが subprocess の子にも引き継がれる。
-/// tmux はクライアントのロケールが UTF-8 でないとフォーマット出力の制御文字
-/// （`-F` のタブ区切り等）を `_` にサニタイズするため、この差があると Python では
-/// パースできる出力が Rust では壊れる（実際に detached sessions 一覧が空になる
-/// 回帰を起こした）。子プロセスの環境を Python と同一条件に揃える。
+/// C ロケール（LANG 等が未設定 / "C" / "POSIX"）のとき `LC_CTYPE=C.UTF-8` を子プロセスへ注入する。
+/// tmux はクライアントのロケールが UTF-8 でないと `-F` のタブ区切り等の制御文字を `_` にサニタイズするため、
+/// 注入しないと出力のパースが壊れる（detached sessions 一覧が空になる回帰があった）。
 pub(crate) fn coerce_c_locale(command: &mut tokio::process::Command) {
     let is_c_locale = |name: &str| match std::env::var(name) {
         Ok(v) => v.is_empty() || v == "C" || v == "POSIX",
@@ -189,8 +184,6 @@ pub async fn run_tailscale_json(args: &[&str]) -> Option<Value> {
     let data: Value = serde_json::from_str(&result.stdout).ok()?;
     data.is_object().then_some(data)
 }
-
-// ─── tmux ヘルパー ───────────────────────────────────────────────────────
 
 pub async fn run_tmux_cmd(args: &[&str]) -> Option<CmdResult> {
     let mut cmd = vec!["tmux"];

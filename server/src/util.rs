@@ -126,7 +126,7 @@ impl SupervisedTask {
 pub const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
 pub const MSG_UPLOAD_TOO_LARGE: &str = "File too large (max 10MB)";
 
-/// 現在時刻の UNIX epoch 秒（Python `time.time()` の整数部相当）。
+/// 現在時刻の UNIX epoch 秒。
 pub fn now_epoch() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -134,7 +134,7 @@ pub fn now_epoch() -> i64 {
         .unwrap_or(0)
 }
 
-/// 現在時刻の UNIX epoch 秒（小数部あり — Python `time.time()` 相当）。
+/// 現在時刻の UNIX epoch 秒（小数部あり）。
 pub fn now_epoch_f64() -> f64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -142,9 +142,8 @@ pub fn now_epoch_f64() -> f64 {
         .as_secs_f64()
 }
 
-/// Python の `str.split(None, maxsplit)` と同じ意味で分割する（連続空白を
-/// 1区切りとして扱い、先頭 maxsplit 個までを分割し残りは1要素にまとめる =
-/// 最大 maxsplit+1 要素）。`ps` 出力等の「末尾はコマンド全体」なパース用。
+/// 連続空白を1区切りとして先頭 maxsplit 個まで分割し、残りは1要素にまとめる（最大 maxsplit+1 要素）。
+/// `ps` 出力等の「末尾はコマンド全体」なパース用。
 pub fn split_whitespace_max(line: &str, maxsplit: usize) -> Vec<&str> {
     let mut result = Vec::new();
     let mut rest = line;
@@ -203,7 +202,7 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
-/// `secrets.token_urlsafe(n)` 相当: n バイトの乱数を base64url（パディング無し）で返す。
+/// n バイトの乱数を base64url（パディング無し）で返す。
 pub fn token_urlsafe(n_bytes: usize) -> String {
     let mut buf = vec![0u8; n_bytes];
     getrandom::fill(&mut buf).expect("os rng");
@@ -236,13 +235,13 @@ pub fn write_secret_file(path: &std::path::Path, data: &[u8]) -> std::io::Result
     Ok(())
 }
 
-/// 標準 base64（パディング有り）。data URL 用（Python `base64.b64encode` 相当）。
+/// 標準 base64（パディング有り）。data URL 用。
 pub fn base64_standard(data: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD.encode(data)
 }
 
-/// `secrets.token_hex(n)` 相当: n バイトの乱数を hex 文字列で返す。
+/// n バイトの乱数を hex 文字列で返す。
 pub fn token_hex(n_bytes: usize) -> String {
     let mut buf = vec![0u8; n_bytes];
     getrandom::fill(&mut buf).expect("os rng");
@@ -250,7 +249,6 @@ pub fn token_hex(n_bytes: usize) -> String {
 }
 
 /// base64url（パディング無し）エンコード（VAPID 鍵・JWT 等、`push.rs` が使う）。
-/// `Python `base64.urlsafe_b64encode(...).rstrip(b"=")` と同一の出力形式。
 pub fn base64url_encode(data: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(data)
@@ -336,7 +334,7 @@ mod tests {
 
     #[test]
     fn split_whitespace_max_python_semantics() {
-        // Python str.split(None, maxsplit) 互換: 最大 maxsplit+1 要素、末尾は残り全体
+        // 最大 maxsplit+1 要素、末尾は残り全体
         assert_eq!(
             split_whitespace_max("a  b   c d e", 2),
             vec!["a", "b", "c d e"]
@@ -381,7 +379,7 @@ mod tests {
 
     #[test]
     fn token_urlsafe_length_and_charset() {
-        // Python: 6 bytes -> 8 chars, 32 bytes -> 43 chars
+        // 6 bytes -> 8 chars, 32 bytes -> 43 chars
         assert_eq!(token_urlsafe(6).len(), 8);
         assert_eq!(token_urlsafe(32).len(), 43);
         let t = token_urlsafe(48);

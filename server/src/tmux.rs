@@ -17,12 +17,8 @@ pub const TMUX_PANE_POLL_INTERVAL_SEC: f64 = 0.05;
 /// 複数行テキストの送信後、Enter を送るまでの待ち。直後に送るとエージェントの入力欄が
 /// ペーストの続きと見なして Enter を改行として取り込み、送信されない。
 const MULTILINE_ENTER_DELAY_SEC: f64 = 0.5;
-/// シェルready確認プローブの識別子。`printf`の引数に`$$`（シェルPID）を渡す
-/// ことで、ローカルエコーで見える未展開の入力テキスト（`..._$$`）と、
-/// シェルが実際にコマンドを実行した後の出力（`..._1234`のように数字が続く）
-/// を区別できる。数字付きの出力が画面に現れて初めて「シェルが対話的に
-/// 入力を処理できる状態」と判断できる（rc ファイル読み込み・direnv 等の
-/// 起動処理中はこの出力が現れない）。
+/// シェルready確認プローブの識別子。`printf` に `$$`（シェルPID）を渡すことで、ローカルエコーの未展開テキスト
+/// （`..._$$`）と、実行後の出力（`..._1234`）を区別する。後者が出て初めてシェルが入力を処理できる状態と判断できる。
 const SHELL_READY_PROBE_MARKER: &str = "ANYCONSOLE_SHELL_READY";
 pub const SHELL_READY_TIMEOUT_SEC: f64 = 2.0;
 pub const TERMINAL_DEFAULT_COLS: u16 = 80;
@@ -57,8 +53,6 @@ const TMUX_META_ENV_NAMES: &[&str] = &[
     "TMUX_PENDING_AGENT_ONLY",
 ];
 
-// ─── hook 用環境変数 ─────────────────────────────────────────────────────────
-
 fn connect_bind_host(host: &str) -> String {
     if matches!(host, "0.0.0.0" | "::" | "") {
         "127.0.0.1".to_string()
@@ -67,15 +61,9 @@ fn connect_bind_host(host: &str) -> String {
     }
 }
 
-/// 実際に Rust サーバが listen しているホスト/ポート（`config.json` の
-/// `__global__.host`/`port` に加え、`main.rs` が優先する
-/// `ANY_CONSOLE_RS_HOST`/`ANY_CONSOLE_RS_PORT` 環境変数オーバーライドも反映する）。
-///
-/// hook 用 URL（`ANY_CONSOLE_HOOK_URL`）はこの実効アドレス宛てでなければならない
-/// （Codex レビュー指摘: `config.resolve_bind()` だけを見ていると、
-/// `ANY_CONSOLE_RS_PORT` で起動ポートを上書きした環境で hook が古い設定ポートへ
-/// post してしまい、hooks 由来の状態更新が届かなくなる）。`main.rs` の
-/// 起動時アドレス決定ロジックと同じ優先順位をここでも再現する。
+/// 実際に Rust サーバが listen しているホスト/ポート（`config.json` に加え `ANY_CONSOLE_RS_HOST`/
+/// `ANY_CONSOLE_RS_PORT` のオーバーライドも反映する）。hook 用 URL はこの実効アドレス宛てでなければならない
+/// （`main.rs` の起動時アドレス決定と同じ優先順位）。
 pub fn resolve_effective_bind(config: &ConfigStore) -> (String, u16) {
     let (cfg_host, cfg_port) = config.resolve_bind();
     let host = std::env::var("ANY_CONSOLE_RS_HOST")
@@ -136,8 +124,6 @@ fn hook_session_env(
         ),
     ]
 }
-
-// ─── セッション作成 ─────────────────────────────────────────────────────────
 
 /// XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS の既定値（`systemd-run --user` に必要）。
 fn systemd_user_env_defaults() -> Vec<(String, String)> {
@@ -207,10 +193,8 @@ pub async fn create_tmux_session(
         "-s".to_string(),
         session_name.to_string(),
     ];
-    // `env` の各変数を `-e` で明示的に渡す（プロセス起動時の `.env()` だけでは
-    // 既に起動済みの tmux サーバへの新規セッション作成に反映されない —
-    // サーバ起動時のクライアント環境がグローバル既定として残り続け、
-    // 2 セッション目以降が hook 変数等を引き継げない不具合があった）。
+    // `env` の各変数を `-e` で明示的に渡す（起動済み tmux サーバへの新規セッション作成には
+    // `.env()` が反映されず、2 セッション目以降が hook 変数を引き継げないため）。
     for (key, value) in &env {
         tmux_args.push("-e".to_string());
         tmux_args.push(format!("{key}={value}"));
@@ -294,8 +278,6 @@ pub async fn create_tmux_session(
     )))
 }
 
-// ─── アタッチ（PTY）───────────────────────────────────────────────────────
-
 /// ベースセッションへ独立した tmux クライアントとして PTY 経由でアタッチする。
 pub fn attach_tmux_session(session_name: &str, cols: u16, rows: u16) -> std::io::Result<PtyChild> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
@@ -318,8 +300,6 @@ pub fn attach_tmux_session(session_name: &str, cols: u16, rows: u16) -> std::io:
     let spec = ExecSpec::resolve("tmux", &["attach-session", "-t", session_name], &env)?;
     pty::spawn(&spec, cols, rows)
 }
-
-// ─── クエリ・メタデータ ─────────────────────────────────────────────────────
 
 pub async fn send_keys_to_tmux(session_name: &str, text: &str, enter: bool) -> bool {
     let ok = run_tmux_cmd(&["send-keys", "-t", session_name, "--", text])
@@ -412,20 +392,13 @@ pub async fn load_tmux_metadata(tmux_name: &str) -> HashMap<String, String> {
     parse_show_environment(&r.stdout, TMUX_META_ENV_NAMES)
 }
 
-/// `TMUX_PENDING_TEXT` 専用のエンコード（hex）。`load_tmux_metadata` は
-/// `tmux show-environment` の出力を1行1エントリとして `KEY=value` にパースする
-/// ため、複数行プロンプト/スクリプトのような改行を含む値をそのまま入れると、
-/// 2行目以降が `KEY=` を持たない別行として無視されるか別エントリと誤認され、
-/// 承認された text の後半が silently 失われる（Codex レビュー指摘）。改行を
-/// 含む任意のテキストを1行の値として安全に運べるよう hex エンコードする。
+/// `TMUX_PENDING_TEXT` 専用の hex エンコード。`load_tmux_metadata` は `show-environment` を1行1エントリで
+/// パースするため、改行を含む値をそのまま入れると2行目以降が失われる。
 pub fn encode_pending_text(text: &str) -> String {
     text.bytes().map(|b| format!("{b:02x}")).collect()
 }
 
-/// `encode_pending_text` の逆変換。デコードに失敗した場合は空文字列を返す
-/// （新規作成された tmux セッションにのみ書き込まれる値のため、通常は必ず
-/// 対になった `encode_pending_text` の出力しか読まないが、手動で環境変数を
-/// 触られていた場合等の防御として奇形入力を無害化する）。
+/// `encode_pending_text` の逆変換。デコードに失敗した場合は空文字列を返す（手動で環境変数を触られた場合の防御）。
 pub fn decode_pending_text(encoded: &str) -> String {
     if encoded.is_empty() || !encoded.len().is_multiple_of(2) {
         return String::new();
@@ -530,16 +503,10 @@ pub async fn list_session_ids(tmux_prefix: &str) -> Option<Vec<String>> {
 /// pane_current_path, (pane_width, pane_height))。
 pub type PaneMeta = (String, String, i64, String, (i64, i64));
 
-/// 全 tmux セッションの pane メタ情報を一括で返す。
-///
-/// キーはセッション名。ポーリング1周期につき1回だけ呼び、セッション数に
-/// 比例した tmux 呼び出しを避ける。本アプリはセッションごとに単一ペインで
-/// 運用するため、複数ペインあれば最初のペインを採用する。タイトルはタブを
-/// 含みうるため最終列以降をタブ区切りのまま連結する。失敗時は空 dict。
-///
-/// pane_width/height は agent_watch のリサイズ検知用（アタッチ中クライアントの
-/// 端末幅に合わせて tmux がペイン内容を再フローするため、出力に変化が無くても
-/// capture-pane の全文がリサイズだけで変わってしまう問題への対策）。
+/// 全 tmux セッションの pane メタ情報を一括で返す。キーはセッション名。
+/// ポーリング1周期につき1回だけ呼び、セッション数に比例した tmux 呼び出しを避ける。
+/// 複数ペインあれば最初のペインを採用する。タイトルはタブを含みうるため最終列以降を連結する。失敗時は空 dict。
+/// pane_width/height は agent_watch のリサイズ検知用。
 pub async fn list_pane_meta() -> HashMap<String, PaneMeta> {
     let Some(r) = run_tmux_cmd(&[
         "list-panes",
@@ -670,10 +637,8 @@ mod tests {
         ));
     }
 
-    /// `ANY_CONSOLE_RS_HOST`/`ANY_CONSOLE_RS_PORT` を書き換えるため、この crate の
-    /// テストの中でこれらの環境変数を触るのはこのテストだけ（他は grep 済み）—
-    /// 単体テストは同一プロセス内で並行実行されるため、他のテストと競合しうる
-    /// 環境変数はテスト全体でユニークに保つ必要がある。
+    /// `ANY_CONSOLE_RS_HOST`/`ANY_CONSOLE_RS_PORT` を書き換えるため、このテストだけがこれらの環境変数を触る
+    /// （単体テストは同一プロセス内で並行実行されるため競合を避ける）。
     #[test]
     fn resolve_effective_bind_prefers_env_override_over_config() {
         let dir = tempfile::tempdir().unwrap();

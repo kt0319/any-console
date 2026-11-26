@@ -20,17 +20,13 @@ use crate::util::{IS_MACOS, MAX_UPLOAD_SIZE, MSG_UPLOAD_TOO_LARGE};
 
 const CLIPBOARD_WRITE_TIMEOUT_SEC: f64 = 3.0;
 const ALLOWED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
-/// 保持するアップロード画像の最大件数。ターミナルへ貼り付けてエージェントに
-/// 読ませるための一時ファイルなので直近数件あれば十分（保存先が data/ 配下で
-/// 再起動を跨いで残るため、掃除しないと1件最大10MBのファイルが際限なく増える。
-/// 件数上限ならディスク使用量もこの件数×最大サイズで頭打ちになる）。
+/// 保持するアップロード画像の最大件数。ターミナルへ貼り付けてエージェントに読ませる一時ファイルで、
+/// 保存先が data/ 配下で再起動を跨いで残るため、掃除しないと1件最大10MBのファイルが際限なく増える。
 const MAX_KEPT_UPLOADS: usize = 10;
 
-/// 応答を返す前（書き込み〜クリップボード転送中）のアップロードパスの集合。
-/// prune はここに載っているファイルを削除候補から除外する — 同一秒内に並行
-/// アップロードが重なると、名前の辞書順がランダムサフィックス順になり、
-/// 他リクエストの書き込み直後のファイルが「最古」側に並んで削除され得るため、
-/// 自分のパスだけでなく in-flight 全件を保護する必要がある。
+/// 応答を返す前（書き込み〜クリップボード転送中）のアップロードパスの集合。prune はここに載っている
+/// ファイルを削除候補から除外する（同一秒内の並行アップロードでは辞書順がランダムサフィックス順になり、
+/// 他リクエストの書き込み直後のファイルが「最古」側に並んで消え得るため、in-flight 全件を保護する）。
 fn in_flight_uploads() -> &'static Mutex<HashSet<PathBuf>> {
     static SET: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
     SET.get_or_init(|| Mutex::new(HashSet::new()))
@@ -53,11 +49,8 @@ impl Drop for InFlightUpload {
     }
 }
 
-/// in-flight を除いた候補から直近 `keep` 件を残して古いアップロードを削除する
-/// （新規アップロードのたびに実行。ディレクトリの中身は高々 keep + 同時
-/// アップロード数 + α 件なので走査コストは無視できる）。ファイル名の先頭が
-/// UTC タイムスタンプ（`YYYYMMDD-HHMMSS`）のため、名前の辞書順がおおむね
-/// 時刻順になる — mtime には依存しない。
+/// in-flight を除いた候補から直近 `keep` 件を残して古いアップロードを削除する（新規アップロードのたびに実行）。
+/// ファイル名の先頭が UTC タイムスタンプ（`YYYYMMDD-HHMMSS`）のため、辞書順がおおむね時刻順になる（mtime 非依存）。
 fn prune_old_uploads(dir: &Path, keep: usize) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -211,8 +204,7 @@ pub async fn upload_image(
         }
     }
     let Some(data) = data else {
-        // Python 版（FastAPI の必須 UploadFile）はフィールド欠落を 422 で返して
-        // いた。git_files.rs のアップロードと同じく 422 に揃える。
+        // フィールド欠落は git_files.rs のアップロードと同じく 422 に揃える。
         return Err(crate::errors::unprocessable("file field required"));
     };
     if !ALLOWED_IMAGE_TYPES.contains(&content_type.as_str()) {
@@ -301,11 +293,8 @@ mod tests {
         assert!(dir.path().join("20260101-000000-aaaa.png").exists());
     }
 
-    /// 同一秒内に並行アップロードが重なると名前のタイムスタンプが同一になり、
-    /// 辞書順がランダムサフィックス順になる。他リクエストの書き込み直後の
-    /// ファイルが「最古」側に並んでも、in-flight 登録されている間は削除されない
-    /// こと（Codex レビュー指摘: 自分のパスだけの保護では並行リクエスト分が
-    /// 消え得る）。
+    /// 同一秒内の並行アップロードで他リクエストの書き込み直後のファイルが「最古」側に並んでも、
+    /// in-flight 登録されている間は削除されないこと。
     #[test]
     fn prune_old_uploads_never_removes_in_flight_files() {
         let dir = tempfile::tempdir().unwrap();
