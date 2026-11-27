@@ -3,8 +3,10 @@
     <div class="session-list-scroll">
       <ul v-if="items.length > 0" class="session-sidebar-list">
         <SessionSidebarRow
-          v-for="item in items"
+          v-for="(item, idx) in items"
           :key="item.id"
+          draggable="true"
+          :class="{ 'drag-source': dragFromIdx === idx, 'drag-over-above': dropIndicator(idx) === 'above', 'drag-over-below': dropIndicator(idx) === 'below' }"
           :item="item"
           :active="item.id === activeTabId"
           :prs-by-workspace="prsByWorkspace"
@@ -12,6 +14,10 @@
           @select="onSelect(item)"
           @pill-open="onPillOpen(item, $event)"
           @close-tab="onCloseTab(item)"
+          @dragstart="onRowDragStart($event, idx)"
+          @dragover="onRowDragOver($event, idx)"
+          @drop.prevent="onRowDrop(idx)"
+          @dragend="resetRowDrag"
         />
       </ul>
       <div v-else class="session-sidebar-empty">No sessions</div>
@@ -58,6 +64,7 @@ import { useDispatchQueue } from "../composables/useDispatchQueue.ts";
 import { useSessionListOverlay } from "../composables/useSessionListOverlay.ts";
 import { useInfoPillActions } from "../composables/useInfoPillActions.ts";
 import { useTabClose } from "../composables/useTabClose.ts";
+import { useSplitDropDrag } from "../composables/useSplitDropDrag.ts";
 import InfoPillRow from "./InfoPillRow.vue";
 import SessionRowContent from "./SessionRowContent.vue";
 import SessionRowMeta from "./SessionRowMeta.vue";
@@ -140,6 +147,46 @@ function openPaneFor(
 }
 
 const activeTabId = computed(() => terminalStore.activeTabId);
+
+const { startTrackingDrag, cancelDrag } = useSplitDropDrag();
+const dragFromIdx = ref<number | null>(null);
+const dragOverIdx = ref<number | null>(null);
+
+function onRowDragStart(e: DragEvent, idx: number) {
+  dragFromIdx.value = idx;
+  e.dataTransfer!.setData("text/plain", String(items.value[idx].id));
+  e.dataTransfer!.effectAllowed = "move";
+  startTrackingDrag(items.value[idx].id);
+}
+
+function onRowDragOver(e: DragEvent, idx: number) {
+  if (dragFromIdx.value === null) return;
+  e.preventDefault();
+  dragOverIdx.value = idx;
+}
+
+function onRowDrop(toIdx: number) {
+  const fromIdx = dragFromIdx.value;
+  resetRowDrag();
+  if (fromIdx === null || fromIdx === toIdx) return;
+  const fromTabId = items.value[fromIdx]?.id;
+  const toTabId = items.value[toIdx]?.id;
+  const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === fromTabId);
+  const toIndex = terminalStore.openTabs.findIndex((t) => t.id === toTabId);
+  if (fromIndex < 0 || toIndex < 0) return;
+  terminalStore.moveTab(fromIndex, toIndex);
+}
+
+function resetRowDrag() {
+  dragFromIdx.value = null;
+  dragOverIdx.value = null;
+  cancelDrag();
+}
+
+function dropIndicator(idx: number): "above" | "below" | "" {
+  if (dragFromIdx.value === null || dragOverIdx.value !== idx || dragFromIdx.value === idx) return "";
+  return dragFromIdx.value > idx ? "above" : "below";
+}
 
 const items = computed(() => {
   // tab は markRaw のため tab.workspace 単体の変更は追跡されない。tabWorkspaceVersion を読んで依存に含める（TabItem と同じ）。

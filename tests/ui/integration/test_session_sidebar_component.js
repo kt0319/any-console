@@ -149,6 +149,27 @@ describe("SessionSidebar: セッション選択とモバイル全面表示", () 
     expect(layoutStore.isSessionSidebarOpen).toBe(false);
   });
 
+  it("行をドラッグして別の行へドロップするとタブ順が入れ替わる", async () => {
+    const { terminalStore } = seedSidebar({ panelBottom: true });
+    const rows = wrapper.findAll(".session-sidebar-li");
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
+    await rows[0].trigger("dragstart", { dataTransfer });
+    await rows[1].trigger("dragover", { dataTransfer });
+    expect(rows[1].classes()).toContain("drag-over-below");
+    await rows[1].trigger("drop", { dataTransfer });
+    expect(terminalStore.openTabs.map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("行のドラッグ中は分割ドロップ用にdragTabIdを立て、終了で解除する", async () => {
+    const { layoutStore } = seedSidebar({ panelBottom: true });
+    const rows = wrapper.findAll(".session-sidebar-li");
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
+    await rows[1].trigger("dragstart", { dataTransfer });
+    expect(layoutStore.dragTabId).toBe(2);
+    await rows[1].trigger("dragend", { dataTransfer });
+    expect(layoutStore.dragTabId).toBeNull();
+  });
+
   it("Esc でサイドバーが閉じる", async () => {
     const { layoutStore } = seedSidebar();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
