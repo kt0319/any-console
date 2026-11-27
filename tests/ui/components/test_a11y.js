@@ -224,6 +224,40 @@ describe("a11y: PathPreviewDialog", () => {
     wrapper.unmount();
   });
 
+  it("ワークスペース内のディレクトリはFilesタブでそのフォルダを開く（dirPathを渡す）", async () => {
+    mockOpenPath({ ok: true, json: async () => ({ directory: true, path: "/work/ws1/src", entries: [], workspace_path: "src" }) });
+    const { useTerminalStore } = await import("../../../ui/stores/terminal.ts");
+    useTerminalStore().openTabs = [{ id: 1, sessionId: "s1", workspace: "ws1" }];
+    const opened = [];
+    const off = on("git:openFileModal", (detail) => opened.push(detail));
+    const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
+    emit("terminal:path", { path: "/work/ws1/src", sessionId: "s1" });
+    await flushPromises();
+    off();
+    expect(opened).toEqual([{ pane: "files", dirPath: "src" }]);
+    wrapper.unmount();
+  });
+
+  it("ワークスペース外のディレクトリは一覧をダイアログに出し、項目タップで開き直す（a11y 違反なし）", async () => {
+    const auth = mockOpenPath({
+      ok: true,
+      json: async () => ({ directory: true, path: "/Users/me/Library/CloudStorage", entries: [{ name: "iCloud", type: "dir" }, { name: "a.txt", type: "file" }] }),
+    });
+    const wrapper = mount(PathPreviewDialog, { attachTo: document.body });
+    emit("terminal:path", { path: "~/Library/CloudStorage", sessionId: "s1" });
+    await flushPromises();
+    expect(wrapper.find(".dialog-title").text()).toBe("Preview directory");
+    expect(wrapper.find(".dialog-copy-input").element.value).toBe("/Users/me/Library/CloudStorage");
+    expect(wrapper.findAll(".path-preview-entry-name").map((n) => n.text())).toEqual(["..", "iCloud", "a.txt"]);
+    expect(wrapper.find(".path-preview-download").exists()).toBe(false);
+    await expectNoA11yViolations(wrapper.find(".path-preview-dialog").element);
+
+    auth.apiFetch.mockClear();
+    await wrapper.findAll(".path-preview-entry")[1].trigger("click");
+    expect(auth.apiFetch.mock.calls[0][0]).toContain(encodeURIComponent("/Users/me/Library/CloudStorage/iCloud"));
+    wrapper.unmount();
+  });
+
   it("パスのタップですぐにダイアログを開き（Loading...）、取得後にプレビューへ切り替わる（a11y 違反なし）", async () => {
     mockOpenPath({ ok: true, json: async () => ({ content: "127.0.0.1 localhost\n", size: 20 }) });
     const wrapper = mount(PathPreviewDialog, { attachTo: document.body });

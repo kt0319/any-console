@@ -71,6 +71,10 @@ fn terminal_router(state: Arc<AppState>) -> Router {
             get(terminal::download_terminal_session_file),
         )
         .route(
+            "/terminal/sessions/{session_id}/open-path",
+            get(terminal::open_terminal_session_path),
+        )
+        .route(
             "/terminal/sessions/{session_id}/open-path/download",
             get(terminal::download_terminal_session_open_path),
         )
@@ -394,6 +398,61 @@ async fn open_path_download_resolves_like_open_path() {
         .await
         .unwrap();
     assert_eq!(unauthenticated.status(), 401);
+
+    any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
+}
+
+/// open-path はディレクトリを指すと一覧（directory: true・path・entries）を返し、
+/// ワークスペース未紐付けなら workspace_path は付かないこと。
+#[tokio::test]
+async fn open_path_returns_directory_listing() {
+    if common::skip_if_no_tmux() {
+        return;
+    }
+    let front = spawn_front().await;
+    let cwd = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    std::fs::write(elsewhere.path().join("a.txt"), b"a").unwrap();
+    std::fs::create_dir(elsewhere.path().join("sub")).unwrap();
+    let session_id = "open-path-dir";
+    let full_name = format!("{}{session_id}", front.state.paths.tmux_prefix);
+    any_console_server::subprocess::run_subprocess_safe(
+        &[
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            &full_name,
+            "-c",
+            &cwd.path().to_string_lossy(),
+        ],
+        5.0,
+        None,
+    )
+    .await;
+    common::wait_pane_cwd(&full_name, cwd.path()).await;
+
+    let resp = common::client()
+        .get(format!(
+            "http://{}/terminal/sessions/{session_id}/open-path",
+            front.addr
+        ))
+        .query(&[("path", elsewhere.path().to_string_lossy().as_ref())])
+        .bearer_auth(TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["directory"], true);
+    assert!(body.get("workspace_path").is_none());
+    let names: Vec<&str> = body["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["sub", "a.txt"]);
 
     any_console_server::subprocess::kill_tmux_by_name(&full_name).await;
 }

@@ -132,7 +132,7 @@ fn resolve_terminal_open_path(
     }
 }
 
-async fn resolve_terminal_open_file(
+async fn resolve_terminal_open_target(
     state: &Arc<AppState>,
     session_id: &str,
     input: &str,
@@ -140,9 +140,17 @@ async fn resolve_terminal_open_file(
     let cwd = terminal_session_root(state, session_id).await?;
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let candidate = resolve_terminal_open_path(&cwd, home.as_deref(), input.trim());
-    let target = candidate
+    candidate
         .canonicalize()
-        .map_err(|_| not_found("File not found"))?;
+        .map_err(|_| not_found("File not found"))
+}
+
+async fn resolve_terminal_open_file(
+    state: &Arc<AppState>,
+    session_id: &str,
+    input: &str,
+) -> Result<PathBuf, ApiError> {
+    let target = resolve_terminal_open_target(state, session_id, input).await?;
     if !target.is_file() {
         return Err(not_found("File not found"));
     }
@@ -155,9 +163,15 @@ pub async fn open_terminal_session_path(
     _auth: RequireAuth,
     QueryParams(query): QueryParams<FileContentQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let target = resolve_terminal_open_file(&state, &session_id, &query.path).await?;
-    let mut response =
-        crate::git_files::read_file_content_response(&target.to_string_lossy(), &target)?;
+    let target = resolve_terminal_open_target(&state, &session_id, &query.path).await?;
+    let mut response = if target.is_dir() {
+        let entries = crate::git_files::list_directory_entries(&target, &target).await?;
+        json!({"directory": true, "path": target.to_string_lossy(), "entries": entries})
+    } else if target.is_file() {
+        crate::git_files::read_file_content_response(&target.to_string_lossy(), &target)?
+    } else {
+        return Err(not_found("File not found"));
+    };
     if let Some(rel) = session_workspace_relative_path(&state, &session_id, &target).await {
         response["workspace_path"] = json!(rel);
     }

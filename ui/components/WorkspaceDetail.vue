@@ -250,7 +250,7 @@ function handleBack() {
   return false;
 }
 
-function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean, sessionId?: string | null, filePath?: string } | null | undefined) {
+function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: boolean, sessionId?: string | null, filePath?: string, dirPath?: string } | null | undefined) {
   options = options || {};
   const paneKey = options.pane || DEFAULT_PANE;
   // branchピル経由は Push/Pull 件数がある時だけBranch一覧を展開する。expandBranch省略時（deep link等）は paneKey==="branch" で判定。
@@ -285,11 +285,12 @@ function open(options: { pane?: string, dispatchItemId?: string, expandBranch?: 
     expandBranch: wantBranchExpanded,
     expandStash: wantStashExpanded,
     openFilePath: resolvedPane === "files" ? options.filePath : undefined,
+    openDirPath: resolvedPane === "files" ? options.dirPath : undefined,
   });
   if (resolvedPane === "dispatch") openDispatchItem(options.dispatchItemId, options.sessionId);
 }
 
-type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean, openFilePath?: string };
+type SwitchPaneOpts = { expandBranch?: boolean, expandStash?: boolean, openFilePath?: string, openDirPath?: string };
 
 // ペイン切替時の初期化（issues/actions/docker/prs は v-if + onMounted で自動ロードするためエントリ無し）。
 const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
@@ -312,6 +313,11 @@ const paneEnterHandlers: Record<string, (opts: SwitchPaneOpts) => void> = {
       if (opts.openFilePath) {
         paneLoader.markLoaded("files", filesKey);
         fileBrowser.value?.openFileAt(opts.openFilePath);
+        return;
+      }
+      if (opts.openDirPath) {
+        paneLoader.markLoaded("files", filesKey);
+        fileBrowser.value?.navigateToPath(opts.openDirPath);
         return;
       }
       paneLoader.ensure("files", filesKey, () => fileBrowser.value?.load());

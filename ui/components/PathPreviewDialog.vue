@@ -1,11 +1,25 @@
 <template>
   <BaseDialog :visible="!!path" :z-index="DIALOG_Z_INDEX_TOP" @dismiss="close">
-    <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" aria-label="Preview file">
+    <div class="path-preview-dialog dialog-box" :class="{ 'path-preview-dialog-image': isImage }" role="dialog" aria-modal="true" :aria-label="dialogTitle">
       <DialogCloseButton @close="close" />
-      <div class="dialog-title dialog-title-closable">Preview file</div>
+      <div class="dialog-title dialog-title-closable">{{ dialogTitle }}</div>
       <DialogCopyField :value="path" label="path" />
       <div class="path-preview-body" :class="{ 'path-preview-body-image': isImage }">
-        <FileTextViewer v-if="fileContent" :fileContent="fileContent" :fileName="path" v-model:zoom="imageZoom" />
+        <ul v-if="directory" class="path-preview-entries">
+          <li>
+            <button type="button" class="path-preview-entry hover-bg" @click="openPath(parentPath)">
+              <span class="mdi mdi-folder-arrow-up-outline" aria-hidden="true"></span>
+              <span class="path-preview-entry-name">..</span>
+            </button>
+          </li>
+          <li v-for="entry in directory.entries" :key="entry.name">
+            <button type="button" class="path-preview-entry hover-bg" @click="openPath(childPath(entry.name))">
+              <span class="mdi" :class="entry.type === 'dir' ? 'mdi-folder-outline' : 'mdi-file-outline'" aria-hidden="true"></span>
+              <span class="path-preview-entry-name">{{ entry.name }}</span>
+            </button>
+          </li>
+        </ul>
+        <FileTextViewer v-else-if="fileContent" :fileContent="fileContent" :fileName="path" v-model:zoom="imageZoom" />
         <div v-else class="path-preview-loading">Loading...</div>
       </div>
       <div class="dialog-buttons">
@@ -35,7 +49,7 @@
             @click="imageZoom = stepZoom(imageZoom, 1)"
           ><span class="mdi mdi-plus"></span></button>
         </div>
-        <button class="dialog-btn dialog-btn-ok path-preview-download" :disabled="!fileContent" @click="download">
+        <button v-if="!directory" class="dialog-btn dialog-btn-ok path-preview-download" :disabled="!fileContent" @click="download">
           <span class="mdi mdi-download"></span>Download
         </button>
       </div>
@@ -66,39 +80,60 @@ const workspaceStore = useWorkspaceStore();
 const path = ref("");
 const sessionId = ref("");
 const fileContent = ref<Record<string, any> | null>(null);
+const directory = ref<{ entries: { name: string, type: string }[] } | null>(null);
 const imageZoom = ref(1);
 const zoomLabel = computed(() => `${Math.round(imageZoom.value * 100)}%`);
+const isDirectory = computed(() => !!directory.value);
+const dialogTitle = computed(() => (isDirectory.value ? "Preview directory" : "Preview file"));
+const parentPath = computed(() => path.value.replace(/\/[^/]*\/?$/, "") || "/");
 const isImage = computed(() => !!(fileContent.value?.image && fileContent.value?.data_url));
 
 function download() {
   return downloadTerminalOpenedPath(sessionId.value, path.value);
 }
 
+function childPath(name: string) {
+  return `${path.value.replace(/\/$/, "")}/${name}`;
+}
+
 function close() {
   path.value = "";
   fileContent.value = null;
+  directory.value = null;
   imageZoom.value = 1;
 }
 
-useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSessionId }) => {
+async function openPath(requested: string) {
   path.value = requested;
-  sessionId.value = requestedSessionId;
   fileContent.value = null;
+  directory.value = null;
   imageZoom.value = 1;
-  const { ok, data } = await apiGet(terminalSessionOpenPath(requestedSessionId, requested), { errorMessage: `Cannot open "${requested}"` });
+  const { ok, data } = await apiGet(terminalSessionOpenPath(sessionId.value, requested), { errorMessage: `Cannot open "${requested}"` });
   if (path.value !== requested) return;
   if (!ok) {
     close();
     return;
   }
-  const workspace = terminalStore.openTabs.find((t) => t.sessionId === requestedSessionId)?.workspace;
+  const workspace = terminalStore.openTabs.find((t) => t.sessionId === sessionId.value)?.workspace;
   if (workspace && data?.workspace_path) {
     close();
     workspaceStore.selectedWorkspace = workspace;
-    emit("git:openFileModal", { pane: "files", filePath: data.workspace_path });
+    emit("git:openFileModal", data.directory
+      ? { pane: "files", dirPath: data.workspace_path }
+      : { pane: "files", filePath: data.workspace_path });
+    return;
+  }
+  if (data?.directory) {
+    path.value = data.path;
+    directory.value = data;
     return;
   }
   fileContent.value = data;
+}
+
+useBusListener("terminal:path", ({ path: requested, sessionId: requestedSessionId }) => {
+  sessionId.value = requestedSessionId;
+  return openPath(requested);
 });
 </script>
 
@@ -196,6 +231,34 @@ useBusListener("terminal:path", async ({ path: requested, sessionId: requestedSe
 .path-preview-body-image :deep(.file-content-image.file-content-image-zoomed) {
   max-width: none;
   max-height: none;
+}
+
+.path-preview-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.path-preview-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.path-preview-entry-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .path-preview-loading {
