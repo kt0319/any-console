@@ -14,6 +14,7 @@
             :href="githubUrl + '/pull/' + item.number"
             target="_blank"
             rel="noopener noreferrer"
+            @click="onExternalLinkClick"
           >
             <span class="github-item-number">#{{ item.number }}</span>
             <span class="github-item-title text-ellipsis-flex">{{ item.title }}</span>
@@ -36,6 +37,7 @@
 </template>
 
 <script setup lang="ts">
+import { onExternalLinkClick } from "../utils/open-external.ts";
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
 import { useGitHub, labelStyle } from "../composables/useGitHub.ts";
 

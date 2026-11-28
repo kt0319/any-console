@@ -27,6 +27,7 @@
             :href="githubUrl + '/issues/' + item.number"
             target="_blank"
             rel="noopener noreferrer"
+            @click="onExternalLinkClick"
           >
             <span class="issue-item-main-row">
               <span class="mdi mdi-record-circle-outline issue-item-icon" :style="{ color: issueStateColor(item.state) }"></span>
@@ -56,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+import { onExternalLinkClick } from "../utils/open-external.ts";
 import { ref, computed } from "vue";
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
 import { useGitHub, labelStyle, issueStateColor, type GitHubIssue } from "../composables/useGitHub.ts";

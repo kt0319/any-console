@@ -14,6 +14,7 @@
             :href="run.url"
             target="_blank"
             rel="noopener noreferrer"
+            @click="onExternalLinkClick"
           >
             <span :class="['github-run-status', runStatusClass(run.conclusion || run.status)]">
               <span class="mdi" :class="runStatusIcon(run.conclusion || run.status)"></span>
@@ -28,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { onExternalLinkClick } from "../utils/open-external.ts";
 import { useGitHubPane } from "../composables/useGitHubPane.ts";
 import { useGitHub, runStatusIcon, runStatusClass } from "../composables/useGitHub.ts";
 

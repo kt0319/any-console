@@ -163,6 +163,7 @@ export const FONT_LOAD_TIMEOUT_MS = 3000;
 export const CHUNK_RELOAD_GUARD_MS = 10000;
 export const BUILD_UPDATE_RELOAD_GUARD_MS = 10000;
 export const LONG_PRESS_URL_MS = 400;
+export const SAFARI_HANDOFF_FALLBACK_MS = 1500;
 export const TAP_MAX_DELTA_PX = 10;
 export const STASH_CACHE_TTL_MS = 5 * 60 * 1000;
 export const ERROR_DEDUP_WINDOW_MS = 5000;
