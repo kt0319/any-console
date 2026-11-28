@@ -30,8 +30,6 @@ function updateViewportHeight() {
     document.documentElement.style.setProperty("--app-dvh", `${appliedViewportHeightPx}px`);
   }
 
-  if (!isKbOpen) resetPageScroll(vv);
-
   const prevOpen = keyboardOpen.value;
   keyboardOpen.value = isKbOpen;
 
@@ -51,12 +49,6 @@ function updateViewportHeight() {
   } else if (!isKbOpen) {
     debouncedFit();
   }
-}
-
-// 内外ディスプレイ切替で visual viewport が layout viewport に対してずれたまま残ると、タップ・スクロールで画面全体が動く
-function resetPageScroll(vv: VisualViewport | null) {
-  const panned = !!vv && (vv.offsetTop !== 0 || vv.offsetLeft !== 0);
-  if (panned || window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
 }
 
 function debouncedFit() {
