@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{new_debouncer_opt, DebounceEventResult, NoCache};
+use notify_debouncer_full::{
+    new_debouncer_opt, Config as DebouncerConfig, DebounceEventResult, NoCache,
+};
 use regex::Regex;
 use serde_json::{json, Value};
 use tokio::sync::Notify;
@@ -488,14 +490,12 @@ async fn watch_loop(state: Arc<AppState>) {
         // WalkDir で全 stat する（target/ や node_modules を含む数十万エントリで
         // CPU とメモリを食い続けた）。ここで使うのはパスだけなので不要。
         let mut debouncer = match new_debouncer_opt::<_, RecommendedWatcher, NoCache>(
-            Duration::from_millis(GIT_WATCH_DEBOUNCE_MS),
-            None,
+            DebouncerConfig::default().with_timeout(Duration::from_millis(GIT_WATCH_DEBOUNCE_MS)),
             move |result: DebounceEventResult| {
                 // 受信側（監視タスク）が停止済みなら捨ててよい
                 let _ = tx.send(result);
             },
             NoCache,
-            notify::Config::default(),
         ) {
             Ok(d) => d,
             Err(e) => {
