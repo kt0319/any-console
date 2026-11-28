@@ -34,8 +34,8 @@ nix = { version = "0.32.0", features = ["term", "process", "fs", "signal"] }
 regex = "1.13.1"
 toml = "1.1.4"
 # git_watch の FS 監視（Python 側 watchfiles の実体もこの crate）。
-notify = "8.2.0"
-notify-debouncer-full = "0.7.0"
+notify = "9.0.0"
+notify-debouncer-full = "0.8.0"
 # preview.rs の dev server proxy（TLS 終端は任意 — SSL_CERTFILE/certs/ が
 # 無ければ平文 TCP のまま。reqwest の rustls-tls 経由で rustls 自体は既に
 # 依存グラフに入っているため、バージョンを合わせて直接依存に加える）。
