@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0](https://github.com/kt0319/any-console/compare/v0.22.0...v0.23.0) (2026-11-28)
+
+
+### Features
+
+* iOSのスタンドアロンPWAで外部リンクをSafari本体で開く ([0f6305d](https://github.com/kt0319/any-console/commit/0f6305dba8600900b8d82d98db417b965372b869))
+* Notifications画面の通知先項目を通知OFFでも表示しdisabledにする ([988e859](https://github.com/kt0319/any-console/commit/988e859cfa9d45ea01580c360c308a38c38e9289))
+* Open Sessionをタブ無しのセクション一覧にしジョブ選択をダイアログ化してJob・Terminalsセクションを追加する ([3f12522](https://github.com/kt0319/any-console/commit/3f12522ff7c96a7ce9b54e007355ecc9c5549dbd))
+* SettingsにPreview Server画面を追加しSetupとSystem InfoにHTTPS状態を表示する ([e96d715](https://github.com/kt0319/any-console/commit/e96d71513c490b1d574debde3000d712124d395e))
+* SettingsメニューのCircle KeypadにOn/Offを表示する ([23f85d9](https://github.com/kt0319/any-console/commit/23f85d9d0bafb3421c3af659427ac12b58469468))
+* setupでAIエージェントのジョブを登録した後にデフォルトジョブを選べるようにする ([6346030](https://github.com/kt0319/any-console/commit/634603091446b8bb13d805491b311e4cfd0ef7f8))
+* setupでTailscale ServeによるHTTPS公開とClaude Codeのhooks登録を選べるようにする ([2956068](https://github.com/kt0319/any-console/commit/2956068864f356fc46d9c203b097dcb464752fff))
+* System infoにVisual viewportとSafe areaを表示する ([9f91203](https://github.com/kt0319/any-console/commit/9f9120318baf00f533133ae427c36d7e2ba6c30d))
+* System infoにWindow heightとHeight unitsとBody heightを表示する ([d8d3cc9](https://github.com/kt0319/any-console/commit/d8d3cc95b5e6d2d8987a8616cd74ee7c8d156bd5))
+* コマンドパレットで一致するコマンドが無いとき入力を引数にしたブランチ作成・worktree作成・ターミナル送信・パスを開く操作を提案する ([8bd9ac7](https://github.com/kt0319/any-console/commit/8bd9ac7b06434e0f18944001ef70f5f2b7c5cd87))
+* コマンドパレットの入力を引数にした操作を一致したコマンドがあるときも後ろに表示する ([400fa5e](https://github.com/kt0319/any-console/commit/400fa5e19fded8a74c97a7508c819db950f69bde))
+* スマホ幅でセッション一覧のタブを選択したら一覧を閉じる ([993d372](https://github.com/kt0319/any-console/commit/993d37235f1bcc17b817191dc941c7c326f3c823))
+* セッションサイドバーの行をドラッグして並べ替え・分割ができるようにする ([2d500c9](https://github.com/kt0319/any-console/commit/2d500c9b6b777b5739fc8558ae643eda53954d54))
+* ターミナルのパスがディレクトリのときFilesペインまたは一覧ダイアログで開く ([174a516](https://github.com/kt0319/any-console/commit/174a516741570a0494410065bfa58002c63ebef2))
+* ファイルプレビューでwavとmp3を再生できるようにする ([79855fa](https://github.com/kt0319/any-console/commit/79855fae81cf0d56875b79f27c8b119a6f7c67e3))
+* プレビューproxyのHTTPSをSettingsで切り替えられるようにする ([cb82175](https://github.com/kt0319/any-console/commit/cb8217585027348d7a5fd64555017114ddc4a5b2))
+* ワークスペースの追加画面と編集画面のGroup行からグループを追加・名前変更・削除できるようにする ([8c38074](https://github.com/kt0319/any-console/commit/8c38074b4ad5fd501c73c4dacd0a06f7d27760b5))
+* 共通ジョブをデフォルトに設定でき、Open Sessionのワークスペースのタップで直接起動する ([b4d7f33](https://github.com/kt0319/any-console/commit/b4d7f3355834b6184786d0dac1abefd6ffa87e89))
+
+
+### Bug Fixes
+
+* iOS 26のPWAでステータスバー下に出るブラーを避けるためステータスバーの表示をdefaultにする ([3d5d737](https://github.com/kt0319/any-console/commit/3d5d7376f93c2448534bc973a609e3ae8a5db6bc))
+* iPhone Duoで内外ディスプレイ切替後にタップで画面全体が動かないようスクロール位置を戻す ([614983a](https://github.com/kt0319/any-console/commit/614983a34db3ff4546808537541013dff1bc74e4))
+* iPhone Duoで画面下に空きができないようviewport-fit=coverを指定する ([8ed25f8](https://github.com/kt0319/any-console/commit/8ed25f89aedf4010569e7b84ba5563749fef402f))
+* iPhone Duoで画面回転後に下端へ空きができないようlvhで高さを補う ([f7f2513](https://github.com/kt0319/any-console/commit/f7f2513598e6582ca8b81a8b069fde0480a5d201))
+* Preview ServerのアイコンをDev Serverピルと同じものに統一する ([7ad8ad4](https://github.com/kt0319/any-console/commit/7ad8ad4dc875fa342b9d0a43a1b959934774912a))
+* PWAのtheme-colorとmanifestの背景色を入力バーと同じ色にする ([8ef1c5d](https://github.com/kt0319/any-console/commit/8ef1c5daa697f50c69b5d934d108063c195d09a3))
+* PWAの下端タイトルバーの下余白をホームインジケーター分だけにして小さくする ([11cf920](https://github.com/kt0319/any-console/commit/11cf920f334b3a24eee5ef9ca26ab65f26b00d91))
+* PWAの下端タイトルバーの下余白を安全領域の半分にして詰める ([6e17c3a](https://github.com/kt0319/any-console/commit/6e17c3ad4551cea6b1749d945f746c34acebf539))
+* Recent Jobsの「More」ボタンを大きくしてタップしやすくする ([9122b35](https://github.com/kt0319/any-console/commit/9122b352dbf09101cc349d6aad0a87140b53634e))
+* viewport-fit=cover指定で上端がステータスバーに隠れないよう上の安全領域を避ける ([32f429a](https://github.com/kt0319/any-console/commit/32f429a58f33876e573c0bf4b9ec697cc0c5f8ed))
+* コマンドパレットで空白を含む絶対パスや相対パスもパスとして判定する ([da00f2e](https://github.com/kt0319/any-console/commit/da00f2e394b758ac5121b577d447629589dd7bc7))
+* セッション一覧のアクティブバーをタブの下線より細く見えないよう4pxにする ([e6315a5](https://github.com/kt0319/any-console/commit/e6315a52dd511bfdb2550e96945ee010a6f9037a))
+* セッション一覧の項目をタップした時の背景色を上下の行で連動させる ([5882ef0](https://github.com/kt0319/any-console/commit/5882ef0c339c2b8fe602399d55d61b7d7a4d14f5))
+* ブランチ名をgitのref規則でも検証しオプション扱いされる名前を弾く ([f9dfde7](https://github.com/kt0319/any-console/commit/f9dfde73aacb240d4860caa2829103fbe8338ce9))
+* 下部配置のダイアログのタイトルバーから不要な安全領域の下余白を外す ([f32aa6f](https://github.com/kt0319/any-console/commit/f32aa6fe839ab7ff9e0b13cb7bb83f181eb39118))
+* 日本語名のブランチを作成・切替・削除できるようブランチ名の検証を緩める ([317e9b4](https://github.com/kt0319/any-console/commit/317e9b480d0018dc47a9d191d0728e0809a9c6fa))
+* 起動直後に通知の購読状態の取得を待たずSetup欄を描画して有効済みでも未完了に見える不具合を修正 ([e42ff92](https://github.com/kt0319/any-console/commit/e42ff92a1c208b0b13f00f7ebd1128f9270bdc02))
+
+
+### Refactor
+
+* Open Sessionの「Terminals」セクションを内容に合わせて「Sessions」に改名する ([9c38e7f](https://github.com/kt0319/any-console/commit/9c38e7f3918e9b9a7e4ff0e924d4d507fcc5c444))
+* Rustのコメントを非自明なWHYだけに整理する ([9a22c69](https://github.com/kt0319/any-console/commit/9a22c69f60adc999ff7dd11895a983b204c152e8))
+* UIとテストのコメントを非自明なWHYだけに整理する ([2e9639c](https://github.com/kt0319/any-console/commit/2e9639cfbd367d8791a234d85589e20f349b88eb))
+* ブランチ・worktree作成のAPI呼び出しをワークスペース指定の共通composableに切り出す ([e97a2b1](https://github.com/kt0319/any-console/commit/e97a2b19075888a4d1e1ec420869b0f278d973f9))
+
+
+### Documentation
+
+* ARCHITECTUREにcert_expiryとtmux_test_isolationを追記する ([236e4bc](https://github.com/kt0319/any-console/commit/236e4bc23fe03d0e88eeaffafa08e5d10120444c))
+* README・SECURITY・AGENTSの記述を実装に合わせて修正する ([5beafb2](https://github.com/kt0319/any-console/commit/5beafb21f9bb42fcac277b0d4b5b2eefcb6d1cfa))
+
+
+### Tests
+
+* tmux新規セッションのcwd確定を待ってから相対パスを解決する統合テストにしCIのflaky失敗を防ぐ ([eed8591](https://github.com/kt0319/any-console/commit/eed859170f224d8b2de6f831f770889a378e6eb4))
+* workspace_auto_bind_via_cwdでペインのcwd確定を待ってから判定しCIのflaky失敗を防ぐ ([1933e64](https://github.com/kt0319/any-console/commit/1933e6478defbd134a0d57bdf3264e5c933c0cea))
+* ワークスペースのジョブ選択ダイアログのa11y検査を追加する ([96360ea](https://github.com/kt0319/any-console/commit/96360ea6a9a85ca771e3776fb868a6a79b26f799))
+
+
+### CI
+
+* リリースのApple Siliconビルドで廃止されたmacos-14をmacos-15に変更する ([467904b](https://github.com/kt0319/any-console/commit/467904b4e70f57696dff6586139cf5247318b852))
+* リリースのApple Siliconビルドのランナーをmacos-latestにして廃止による失敗を避ける ([f401281](https://github.com/kt0319/any-console/commit/f40128107ab2c14a70404649e806887f47a2230c))
+
+
+### Dependencies
+
+* Bump nix from 0.31.3 to 0.32.0 in /server ([#196](https://github.com/kt0319/any-console/issues/196)) ([ebb4736](https://github.com/kt0319/any-console/commit/ebb4736fbd8e59a81c8379347a4306d64ee4f4d5))
+* Bump the cargo-minor-patch group in /server with 5 updates ([#199](https://github.com/kt0319/any-console/issues/199)) ([b41a793](https://github.com/kt0319/any-console/commit/b41a793fd7d5daeb95130ca04354d191019b3245))
+* bump the npm-minor-patch group with 3 updates ([#195](https://github.com/kt0319/any-console/issues/195)) ([751a85e](https://github.com/kt0319/any-console/commit/751a85e4e3f261a3aade504139e643d35f80f56a))
+* Bump the npm-minor-patch group with 3 updates ([#198](https://github.com/kt0319/any-console/issues/198)) ([f08bfef](https://github.com/kt0319/any-console/commit/f08bfef96b2c7d2c39c253a6312c9dfcfdbad448))
+* Bump vitest from 5.1.0 to 5.1.1 in the vitest group ([#197](https://github.com/kt0319/any-console/issues/197)) ([d612477](https://github.com/kt0319/any-console/commit/d612477fad988a9d0d022df6a7faf127f472851f))
+* bump zip in /server in the cargo-minor-patch group ([#194](https://github.com/kt0319/any-console/issues/194)) ([c115b11](https://github.com/kt0319/any-console/commit/c115b1185451491bf8d32c603461d64c5966af2d))
+* notifyを9.0、notify-debouncer-fullを0.8に更新しgit監視のデバウンサー設定を新APIへ移行 ([#202](https://github.com/kt0319/any-console/issues/202)) ([a89c71e](https://github.com/kt0319/any-console/commit/a89c71e9ef15d3496f7ad35e71f2d88591a12daa))
+
 ## [0.22.0](https://github.com/kt0319/any-console/compare/v0.21.0...v0.22.0) (2026-11-19)
 
 
