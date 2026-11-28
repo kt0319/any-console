@@ -234,7 +234,7 @@ function selectJob(ws: Record<string, any>) {
 
 async function tapWorkspace(ws: Record<string, any>) {
   if (!defaultJob.value) {
-    selectJob(ws);
+    bridgeEmit("terminal:launch", { workspace: ws.name, icon: ws.icon, iconColor: ws.icon_color });
     return;
   }
   await runJobInWorkspace(ws, defaultJob.value);

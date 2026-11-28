@@ -19,7 +19,7 @@
           <button v-if="category.workspace" type="button" class="job-item-edit-btn session-open-job-run" data-tooltip="Run" :aria-label="`Run ${job.label || job.name}`" @click="runJob(category.workspace, job)">
             <span class="mdi mdi-play" aria-hidden="true"></span>
           </button>
-          <button type="button" class="job-item-edit-btn session-open-job-edit" data-tooltip="Edit" aria-label="Edit" @click="editJob(category.workspace, job)">
+          <button v-if="!job.builtin" type="button" class="job-item-edit-btn session-open-job-edit" data-tooltip="Edit" aria-label="Edit" @click="editJob(category.workspace, job)">
             <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
           </button>
         </div>
@@ -51,6 +51,7 @@ interface Job {
   detached?: boolean;
   default?: boolean;
   common?: boolean;
+  builtin?: boolean;
 }
 
 const pushView = inject<(view: string, state?: Record<string, any>) => void>("pushView")!;
@@ -65,11 +66,22 @@ const jobsByWorkspace = ref<Record<string, Record<string, Omit<Job, "name">>>>({
 const globalJobsByName = ref<Record<string, Omit<Job, "name">>>({});
 const isLoading = ref(true);
 
-const globalJobs = computed(() =>
+const customGlobalJobs = computed(() =>
   Object.entries(globalJobsByName.value)
     .filter(([name]) => name !== "terminal")
     .map(([name, job]) => ({ name, ...job }) as Job),
 );
+
+// デフォルトジョブが無いとき、ワークスペースのタップは素のターミナルを開く（SessionOpenHome.vue の tapWorkspace）。
+const terminalJob = computed<Job>(() => ({
+  name: "terminal",
+  label: "Terminal",
+  icon: "mdi-console",
+  builtin: true,
+  default: !customGlobalJobs.value.some((job) => job.default),
+}));
+
+const globalJobs = computed(() => [terminalJob.value, ...customGlobalJobs.value]);
 
 // 共通（Global）ジョブは /jobs/workspaces では全ワークスペースへ重複して含まれるため、
 // ワークスペース単位にはワークスペース固有のジョブだけを出し、共通ジョブは別カテゴリで出す。

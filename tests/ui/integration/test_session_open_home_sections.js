@@ -64,7 +64,7 @@ describe("SessionOpenHome: タブ無しのカテゴリセクション", () => {
     expect(jobs.find(".ws-group-header .mdi-earth").exists()).toBe(true);
     expect(jobs.findAll(".job-default-badge").map((b) => b.text())).toEqual(["default"]);
     expect(jobs.text()).not.toContain("empty");
-    expect(jobs.findAll(".job-item-label").map((l) => l.text())).toEqual(["Deploy", "Build"]);
+    expect(jobs.findAll(".job-item-label").map((l) => l.text())).toEqual(["Terminal", "Deploy", "Build"]);
     expect(jobs.findAll('[aria-label="Edit"]')).toHaveLength(2);
     expect(jobs.findAll('[aria-label^="Run "]').map((b) => b.attributes("aria-label"))).toEqual(["Run Build"]);
   });
