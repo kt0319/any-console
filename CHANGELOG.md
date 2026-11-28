@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0](https://github.com/kt0319/any-console/compare/v0.23.0...v0.24.0) (2026-11-28)
+
+
+### Features
+
+* Open SessionのGlobalにTerminal行を追加しデフォルトジョブが無いときはタップで素のターミナルを開く ([f80bddb](https://github.com/kt0319/any-console/commit/f80bddb63f7e304d45d8d83e5e53ff1d92a20c9f))
+
 ## [0.23.0](https://github.com/kt0319/any-console/compare/v0.22.0...v0.23.0) (2026-11-28)
 
 
